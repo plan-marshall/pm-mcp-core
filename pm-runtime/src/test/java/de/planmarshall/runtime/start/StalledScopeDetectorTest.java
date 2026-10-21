@@ -387,6 +387,7 @@ class StalledScopeDetectorTest {
     @Test
     @DisplayName("a release announcement that fails still announces the hold of the new episode")
     void shouldAnnounceTheNewHoldWhenTheReleaseFails() {
+        var fail = new AtomicBoolean(true);
         var detector = new StalledScopeDetector(records::add, new OperatorPort() {
 
             @Override
@@ -396,7 +397,10 @@ class StalledScopeDetectorTest {
 
             @Override
             public void holdReleased(StalledHold hold, String report) {
-                throw new IllegalStateException("the operator stream is gone");
+                if (fail.getAndSet(false)) {
+                    throw new IllegalStateException("the operator stream is gone");
+                }
+                released.add(hold);
             }
         });
         detector.detect(View.of(PROJECT, plan().build()), LAST_PROGRESS.plusSeconds(700));
@@ -405,10 +409,42 @@ class StalledScopeDetectorTest {
         var thrown = assertThrows(IllegalStateException.class,
                 () -> detector.detect(View.of(PROJECT, progressed), LAST_PROGRESS.plusSeconds(1_400)));
 
+        detector.detect(View.of(PROJECT, progressed), LAST_PROGRESS.plusSeconds(1_500));
+
         assertAll(
                 () -> assertEquals("the operator stream is gone", thrown.getMessage()),
                 () -> assertEquals(2, records.size()),
-                () -> assertEquals(2, opened.size()));
+                () -> assertEquals(2, opened.size()),
+                () -> assertEquals(1, released.size()));
+    }
+
+    @Test
+    @DisplayName("an opening announcement that fails is retried by the next read, without a second record")
+    void shouldRetryAFailedOpeningAnnouncement() {
+        var fail = new AtomicBoolean(true);
+        var detector = new StalledScopeDetector(records::add, new OperatorPort() {
+
+            @Override
+            public void holdOpened(StalledHold hold) {
+                if (fail.getAndSet(false)) {
+                    throw new IllegalStateException("the operator stream is gone");
+                }
+                opened.add(hold);
+            }
+
+            @Override
+            public void holdReleased(StalledHold hold, String report) {
+                released.add(hold);
+            }
+        });
+
+        assertThrows(IllegalStateException.class,
+                () -> detector.detect(View.of(PROJECT, plan().build()), LAST_PROGRESS.plusSeconds(700)));
+        detector.detect(View.of(PROJECT, plan().build()), LAST_PROGRESS.plusSeconds(710));
+
+        assertAll(
+                () -> assertEquals(1, records.size()),
+                () -> assertEquals(1, opened.size()));
     }
 
     @Test

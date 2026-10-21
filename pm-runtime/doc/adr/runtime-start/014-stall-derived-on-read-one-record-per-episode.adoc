@@ -43,7 +43,11 @@ knows:
 4. A detection that finds the scope no longer stalled ends an open episode by itself: the detector announces the hold
    on the `OperatorPort` as released, whose report is `plan.hold_released`, and forgets the episode. A later stall is a
    new episode with its own record.
-5. The detector writes no store and adds no member to the status document; the assembly wires the audit sink and the
+5. An announcement that throws is kept pending for the scope and retried by the next read: the release of an ended
+   episode is queued before it is announced and leaves the queue only after the port returned, and an episode whose
+   opening announcement failed stays unannounced in memory. The release of the ended episode and the opening of the new
+   one are independent — a failing release does not suppress the opening of the same call.
+6. The detector writes no store and adds no member to the status document; the assembly wires the audit sink and the
    port, and `plan-and-epic-control` serves the hold's acts.
 
 == Alternatives Considered

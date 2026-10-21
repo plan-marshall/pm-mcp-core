@@ -14,9 +14,10 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -51,7 +52,8 @@ public final class StalledScopeDetector {
 
     private final AuditSink auditSink;
     private final OperatorPort operator;
-    private final Map<String, StalledHold> stalled = new ConcurrentHashMap<>();
+    private final Map<String, Episode> stalled = new ConcurrentHashMap<>();
+    private final Map<String, Queue<StalledHold>> pendingReleases = new ConcurrentHashMap<>();
 
     /**
      * @param auditSink where the one {@code plan_stalled} record of an episode is handed over
@@ -192,6 +194,7 @@ public final class StalledScopeDetector {
         Objects.requireNonNull(now, "now");
         var status = view.status();
         var key = key(view.projectId(), status);
+        announcePending(key);
         if (!stallable(status) || view.paused() || view.operatorWait() || view.otherHold()
                 || view.awaitsExternalEvent() || !awaitsNoEvent(status)) {
             release(key);
@@ -204,35 +207,79 @@ public final class StalledScopeDetector {
         }
         var hold = new StalledHold(scopeType(status.scopeType()), status.scopeId(), status.state(), Cause.NO_PROGRESS,
                 status.updatedAt(), idleSeconds);
-        var opened = new AtomicReference<StalledHold>();
-        var ended = new AtomicReference<StalledHold>();
         stalled.compute(key, (ignored, previous) -> {
-            if (previous != null && !status.updatedAt().isAfter(previous.idleSince())) {
+            if (previous != null && !status.updatedAt().isAfter(previous.hold().idleSince())) {
                 return previous;
             }
-            ended.set(previous);
+            if (previous != null) {
+                pendingReleases.computeIfAbsent(key, ignoredKey -> new ConcurrentLinkedQueue<>())
+                        .add(previous.hold());
+            }
             auditSink.append(AuditEvent.planStalled(hold.scopeType().wireName(), hold.scopeId(), hold.state(),
                     hold.cause().wireName(), hold.idleSince(), hold.idleSeconds()));
-            opened.set(hold);
-            return hold;
+            return new Episode(hold, false);
         });
-        try {
-            if (ended.get() != null) {
-                operator.holdReleased(ended.get(), HOLD_RELEASED);
-            }
-        } finally {
-            if (opened.get() != null) {
-                operator.holdOpened(opened.get());
-            }
-        }
+        announcePending(key);
         return new Activity(Optional.of(hold));
     }
 
     /** Ends the episode of the scope, if one is open, and announces that the hold cleared by itself. */
     private void release(String key) {
-        var held = stalled.remove(key);
-        if (held != null) {
-            operator.holdReleased(held, HOLD_RELEASED);
+        var episode = stalled.remove(key);
+        if (episode != null) {
+            pendingReleases.computeIfAbsent(key, ignored -> new ConcurrentLinkedQueue<>()).add(episode.hold());
+        }
+        announcePending(key);
+    }
+
+    /**
+     * Announces what is still pending for the scope: the release of every ended episode first, then the hold of an
+     * episode whose opening announcement has not returned yet. The release of the ended episode and the opening of the
+     * new one are independent: an announcement that throws is kept pending and retried by the next read, and the
+     * opening still runs in the same call.
+     */
+    private void announcePending(String key) {
+        try {
+            announceReleases(key);
+        } finally {
+            announceOpen(key);
+        }
+    }
+
+    private void announceReleases(String key) {
+        var releases = pendingReleases.get(key);
+        if (releases == null) {
+            return;
+        }
+        while (!releases.isEmpty()) {
+            operator.holdReleased(releases.peek(), HOLD_RELEASED);
+            releases.poll();
+        }
+        pendingReleases.remove(key, releases);
+    }
+
+    private void announceOpen(String key) {
+        var episode = stalled.get(key);
+        if (episode == null || episode.announced()) {
+            return;
+        }
+        operator.holdOpened(episode.hold());
+        stalled.computeIfPresent(key, (ignored, current) -> current == episode
+                ? new Episode(current.hold(), true)
+                : current);
+    }
+
+    /**
+     * An open episode: its hold and whether its opening announcement has returned.
+     *
+     * @param hold      the hold of the episode
+     * @param announced whether the operator port accepted the opening announcement
+     */
+    private record Episode(StalledHold hold, boolean announced) {
+
+        /** @throws NullPointerException if the hold is {@code null} */
+        private Episode {
+            Objects.requireNonNull(hold, "hold");
         }
     }
 
