@@ -691,6 +691,16 @@ public final class RuntimeLogMessages {
                 .identifier(135)
                 .template("Service unit '%s' could not be restored: %s")
                 .build();
+
+        /**
+         * Logged when the kept unit of a reinstall whose load succeeded cannot be dropped; names the unit file and the
+         * failure. The install stays a success, and the next start rolls the unit file back to the kept unit.
+         */
+        public static final LogRecord SERVICE_UNIT_KEPT_NOT_DROPPED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(136)
+                .template("The kept state of service unit '%s' could not be removed after a successful load: %s")
+                .build();
     }
 
     /** ERROR level messages. */

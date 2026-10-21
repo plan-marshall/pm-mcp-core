@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.start;
 
 import de.cuioss.tools.logging.CuiLogger;
+import java.nio.file.Path;
 import java.util.Objects;
 
 import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
@@ -25,7 +26,8 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * back and loaded again, or, when no unit was installed, the new file is removed and nothing is unloaded; the load
  * failure is then reported with the restore's own failure suppressed, so the installation in force is unchanged and
  * install can be run again. A reinstall that the end of the caller cuts between the unload and the load, as on macOS,
- * leaves the kept unit beside the unit, and {@link #restore()}, the first step of a start, restores it. Uninstall
+ * leaves the kept unit beside the unit, and {@link #restore()}, the restore step a start runs first, writes it back
+ * and loads it. Uninstall
  * drops what an earlier reinstall kept, disables the unit, removes the file and unloads the unit; when disabling or
  * unloading fails the file is still removed, so a later install starts clean, and the failure is reported. Uninstall
  * without a unit issues no command and is no failure. A failing command of the service manager is logged as
@@ -36,8 +38,7 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * previous unit and writes the new unit before loading it, the restore writes the kept unit before loading it, and
  * uninstall removes the unit before unloading it, so an ended caller never leaves a stale or missing unit behind. On
  * macOS a reinstall issued from such a runtime ends it after the old job is unloaded and before the new one is loaded;
- * the kept unit then stays beside the unit and the next start restores and loads it, so the job is no longer left
- * unloaded until the next login.
+ * the kept unit then stays beside the unit and the restore step of the next start writes it back and loads it.
  *
  * @param unit    the unit file
  * @param manager the service manager of the unit's platform
@@ -67,11 +68,7 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
     public void install() {
         unit.keepForRestore();
         var path = unit.path();
-        try {
-            unit.write();
-        } catch (ServiceUnitException e) {
-            throw discardAfter(e);
-        }
+        unit.write();
         try {
             manager.load(path);
         } catch (ServiceUnitException e) {
@@ -83,7 +80,7 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
             }
             throw e;
         }
-        unit.discardRestore();
+        dropAfterLoad(path);
         LOGGER.info(INFO.SERVICE_UNIT_INSTALLED, path, unit.daemon());
     }
 
@@ -114,17 +111,18 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
     }
 
     /**
-     * The first step of a start: restores the unit that an interrupted reinstall kept and loads it again. On macOS a
-     * reinstall issued from the runtime that the unit started ends that runtime after the old job was unloaded and
-     * before the new one was loaded, so the next start finds what the reinstall kept: the bytes of the unit in force
-     * were written beside the unit before the load, and they are written back and loaded here; when no unit was
-     * installed, the new unit file is removed and nothing is unloaded. A start without a pending reinstall does
-     * nothing and issues no command.
+     * The restore step a start runs first: restores the unit that an interrupted reinstall kept and loads it again.
+     * On macOS a reinstall issued from the runtime that the unit started ends that runtime after the old job was
+     * unloaded and before the new one was loaded, so the next start finds what the reinstall kept: the bytes of the
+     * unit in force were written beside the unit before the load, and they are written back and loaded here; when no
+     * unit was installed, the new unit file is removed and nothing is unloaded. A start without a pending reinstall
+     * does nothing and issues no command. The kept state is dropped before the load, because the load can end the
+     * caller; the unit file in force is the previous one from then on, and the next login loads it.
      *
      * @return {@code true} when a reinstall was pending and its kept unit was restored or removed, {@code false} when
      *         no reinstall was pending
-     * @throws ServiceUnitException if the kept unit cannot be restored or loaded; the kept unit stays for the next
-     *                              start
+     * @throws ServiceUnitException if the kept unit cannot be restored; the unit file in force is the previous one,
+     *                              and a load that fails is reported but not retried by a later start
      */
     public boolean restore() {
         if (!unit.restorePending()) {
@@ -136,9 +134,9 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
 
     /**
      * Restores the unit that the reinstall kept and loads it again, or removes the new unit when no unit was
-     * installed. The file work runs before the load, which can end the caller. The kept state is dropped only after
-     * the load succeeded, so a restore that fails is tried once more by the next start; a failed restore is logged
-     * and rethrown.
+     * installed. The file work runs before the load, which can end the caller, so the kept state is dropped before
+     * the load; a load that fails after it is logged and rethrown, and no later start retries it. A failed restore is
+     * logged and rethrown.
      *
      * @return {@code true} when the kept unit was written back, {@code false} when the unit was removed
      */
@@ -146,6 +144,7 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
         var path = unit.path();
         try {
             var restored = unit.restore();
+            unit.discardRestore();
             if (restored) {
                 try {
                     manager.load(path);
@@ -157,7 +156,6 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
             } else {
                 LOGGER.info(INFO.SERVICE_UNIT_RESTORE_WITHOUT_PREVIOUS, path);
             }
-            unit.discardRestore();
             return restored;
         } catch (ServiceUnitException e) {
             LOGGER.warn(e, WARN.SERVICE_UNIT_RESTORE_FAILED, path, e.getMessage());
@@ -166,19 +164,17 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
     }
 
     /**
-     * Drops the kept unit of a write that never replaced one, and answers the failure the caller rethrows with the
-     * drop's own failure suppressed.
+     * Drops the kept unit after a load that succeeded. A failure to drop it never fails the install: the new unit is
+     * loaded, and the next start rolls the unit file back, which the warning names.
      *
-     * @param failure the failure of the write
-     * @return {@code failure}, with the drop's failure suppressed when it had one
+     * @param path the unit file that was loaded
      */
-    private ServiceUnitException discardAfter(ServiceUnitException failure) {
+    private void dropAfterLoad(Path path) {
         try {
             unit.discardRestore();
-        } catch (ServiceUnitException discardFailure) {
-            failure.addSuppressed(discardFailure);
+        } catch (ServiceUnitException e) {
+            LOGGER.warn(e, WARN.SERVICE_UNIT_KEPT_NOT_DROPPED, path, e.getMessage());
         }
-        return failure;
     }
 
     /**

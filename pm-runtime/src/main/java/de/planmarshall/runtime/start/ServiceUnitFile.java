@@ -29,7 +29,8 @@ import java.util.Objects;
  * <p>
  * A reinstall keeps what it replaces beside the unit, so a failed load can be undone: {@code <unit>.previous} holds
  * the bytes of the unit in force and {@code <unit>.reinstall} marks a reinstall whose load has not completed. Both are
- * written before the new unit is loaded and are dropped once a load or a restore succeeded; neither is a unit file.
+ * written before the new unit is loaded; they are dropped after a successful load, before the restore's own load, and
+ * by an uninstall. Neither is a unit file.
  *
  * @param platform      the service manager the unit is for
  * @param home          the user's home directory
@@ -208,18 +209,20 @@ public record ServiceUnitFile(Platform platform, Path home, String xdgConfigHome
 
     /**
      * Keeps what a failed load restores: the bytes of the unit in force, or, when no unit is installed, the absence
-     * of a kept unit. The copy is written before the marker and the marker before the new unit, so a stop leaves a
-     * marker exactly when the new unit was written and not loaded: a stop between the copy and the marker leaves no
-     * marker and nothing to restore, and a stop after the marker leaves the restore to the next start. A stale pair
-     * of an earlier interrupted reinstall is dropped first.
+     * of a kept unit. A reinstall whose load did not complete already keeps the unit in force, so its pair is left
+     * untouched: copying the unit file then would keep the unit that never loaded instead. For a fresh reinstall the
+     * copy is written before the marker, so a stop between the two leaves no marker and nothing to restore; a pair
+     * left without a marker is overwritten by the next install.
      *
      * @throws ServiceUnitException if the kept unit or the marker cannot be written
      */
     public void keepForRestore() {
         var file = path();
         try {
+            if (restorePending()) {
+                return;
+            }
             Files.createDirectories(file.getParent(), PosixModes.directoryAttribute());
-            Files.deleteIfExists(reinstallPath());
             if (exists()) {
                 writeAtomically(previousPath(), Files.readAllBytes(file));
             } else {

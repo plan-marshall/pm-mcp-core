@@ -111,6 +111,6 @@
  * written, written back and loaded again when the load of the new unit fails, or, when no unit was installed, the new
  * file is removed and nothing is unloaded. A caller that ends between the unload and the load of a reinstall (on
  * macOS) leaves the kept unit behind, and {@link de.planmarshall.runtime.start.ServiceUnitInstaller#restore()}, the
- * first step of a start, restores and loads it.
+ * restore step a start runs first, writes it back and loads it; the assembly does not wire that step yet.
  */
 package de.planmarshall.runtime.start;

@@ -204,7 +204,9 @@ class RuntimeLogMessagesTest {
                 Arguments.of(RuntimeLogMessages.INFO.SERVICE_UNIT_RESTORE_WITHOUT_PREVIOUS, "PM_RUNTIME-34",
                         "Service unit '%s' removed after the new unit did not load, no previous unit was installed"),
                 Arguments.of(RuntimeLogMessages.WARN.SERVICE_UNIT_RESTORE_FAILED, "PM_RUNTIME-135",
-                        "Service unit '%s' could not be restored: %s"));
+                        "Service unit '%s' could not be restored: %s"),
+                Arguments.of(RuntimeLogMessages.WARN.SERVICE_UNIT_KEPT_NOT_DROPPED, "PM_RUNTIME-136",
+                        "The kept state of service unit '%s' could not be removed after a successful load: %s"));
     }
 
     @ParameterizedTest(name = "{1}")

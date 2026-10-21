@@ -19,8 +19,8 @@ Runtime Lifecycle]. This guide covers what the work package `session-log-and-gen
 the periodic sweep, which remove what has aged out of the stores the package added in `pm-core`. It also covers what
 the work package `audit-trail` changed in it: the audit chain seam of the bounded verification, whose broken outcome
 now carries a reason and the first broken line (<<_the_audit_chain_seam>>), and the one `transaction_id` per record the
-pending-record step owes. Last, it covers what the work package `credential-store-choice` added: the resume of a move
-between the credential stores that a stop cut (<<_store_move_resume>>). Last, it covers what the work package
+pending-record step owes. It also covers what the work package `credential-store-choice` added: the resume of a move
+between the credential stores that a stop cut (<<_store_move_resume>>), and what the work package
 `service-unit-restore` added: the previous service unit that a failed load restores
 (<<_the_previous_unit_of_a_failed_load>>).
 
@@ -274,19 +274,24 @@ Stop & Upgrade], Upgrade). `ServiceUnitInstaller` does that for a reinstall.
 
 [horizontal]
 `ServiceUnitFile.keepForRestore()`:: Copies the bytes of the unit in force to `<unit>.previous` and then writes the
-marker `<unit>.reinstall`; with no unit it writes only the marker. Install calls it before it writes the new unit.
+marker `<unit>.reinstall`; with no unit it writes only the marker. A pair an earlier reinstall already keeps is left
+untouched, because the unit in force is then the kept one, not the new unit on disk that never loaded. Install calls it
+before it writes the new unit.
 `ServiceUnitFile.restore()`:: Writes the kept bytes back and answers `true`, or removes the unit file and answers
 `false` when no unit was installed. The kept pair stays until `discardRestore()`.
-`ServiceUnitFile.discardRestore()`:: Deletes the marker first and the copy second. Install calls it after a load that
-succeeded, uninstall before it touches the unit.
+`ServiceUnitFile.discardRestore()`:: Deletes the marker first and the copy second, so a stop between the two leaves a
+copy nobody restores. Install calls it after a load that succeeded, the restore before its own load, uninstall before
+it touches the unit.
 `ServiceUnitInstaller.install()`:: Loads the new unit; on a failed load it restores and loads the kept unit, or removes
-the new file, and throws the load failure with the restore's failure suppressed. Plain
+the new file, and throws the load failure with the restore's failure suppressed. A pair that cannot be dropped after a
+successful load warns (`PM_RUNTIME-136`) and leaves the install a success. Plain
 `pm-operator runtime install` restores as well; there is one path, not a restoring upgrade path beside a reporting
 install path (link:../adr/runtime-start/014-previous-service-unit-kept-and-restored.adoc[ADR 014]).
-`ServiceUnitInstaller.restore()`:: The first step of a start: with a marker present it restores and loads the kept unit
-(or removes the new file), drops the pair and answers `true`; without a marker it answers `false` and issues no
-command. On macOS a reinstall issued from the runtime the unit started ends that runtime inside the load, so this step
-is what restores the unit (link:../adr/runtime-start/014-previous-service-unit-kept-and-restored.adoc[ADR 014]).
+`ServiceUnitInstaller.restore()`:: The restore step a start runs first: with a marker present it restores the kept unit
+(or removes the new file), drops the pair, loads the unit and answers `true`; without a marker it answers `false` and
+issues no command. On macOS a reinstall issued from the runtime the unit started ends that runtime inside the load, so
+this step is what restores the unit (link:../adr/runtime-start/014-previous-service-unit-kept-and-restored.adoc[ADR
+014]). The assembly does not wire the step yet.
 
 === Crash Windows
 
@@ -301,12 +306,18 @@ unambiguous:
 |the new unit and its load |marker, copy, the new unit |restores the kept unit and loads it, or removes the new file
 |the load and the drop |marker, copy, the loaded new unit |restores the kept unit and loads it, so an install whose
 caller ended right after its load is undone; the window is the drop's own length
+|the drop of the restore and its load |no marker, the kept (previous) unit |nothing; the next login loads the previous
+unit
 |the marker and the copy of the drop |no marker, a stale copy |nothing; the next install overwrites both
+|a second install while a pair is pending |marker, the pending copy, the new unit |keeps the pending copy; a failed load
+restores the unit in force, never the unit that never loaded
 |===
 
 The third row is the macOS case: the `bootout` of the load ends the runtime the unit started before the `bootstrap`.
 The fourth row is the price of that case and is accepted: on Linux the load does not end the caller, so the window
-needs a `SIGKILL` of the caller between the load and the drop.
+needs a `SIGKILL` of the caller between the load and the drop. The fifth row is why the restore drops the pair before
+its load: the load can end the caller too, and a marker left behind would make every later start restore and boot
+itself out.
 
 == Registering the Steps
 
@@ -352,9 +363,12 @@ link:{test}/PeriodicSweepTest.java[`PeriodicSweepTest`]:: The schedule, the skip
 with recording steps.
 link:{test}/ServiceUnitInstallerTest.java[`ServiceUnitInstallerTest`]:: Install, uninstall and the restore of a failed
 load over the recording fake of the service manager: a failed load after replacing a unit leaves the previous bytes in
-place and loaded, a failed load on a machine without a unit leaves no unit file, a failed restore is reported with both
-failures and keeps the pair, the kept pair exists at every command of the load, the start after an interrupted reinstall
-restores the kept LaunchAgent, a start without a marker issues no command, and uninstall drops the pair.
+place and loaded, at the first and at the second command of the load, a failed load on a machine without a unit leaves
+no unit file, a failed restore is reported with both failures and drops the pair, the kept pair exists at every command
+of the load and is gone before every command of the restore's load, the kept unit and its marker have mode `0600`, a
+second install keeps the pending unit in force, a pair that cannot be dropped warns without failing the install, the
+start after an interrupted reinstall restores the kept LaunchAgent, a start without a marker issues no command, and
+uninstall drops the pair.
 link:{test}/CredentialStoreMoveResumeTest.java[`CredentialStoreMoveResumeTest`]:: No record; a move cut before the
 switch, with a copy and with a stale copy in the target, completed from the first entry; a move cut between the switch
 and the rewrite of the record, treated as switched without touching the recorded target; a move cut after the switch
