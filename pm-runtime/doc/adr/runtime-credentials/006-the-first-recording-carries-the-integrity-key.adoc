@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted
+Superseded by ADR 007
 
 == Date
 
@@ -14,6 +14,10 @@ Accepted
 The harness enrolment and the audit head need the enrolment integrity key before the operator records a credential
 store, so until then the key lives in the store the runtime finds: the OS store where one is available, else the key
 file (`CredentialStoreChoice.integrityKeyStore()`). Once a store is recorded, the key is read from the recorded store.
+
+ADR 007 supersedes the limitation this decision accepted: the carry described here looks only at the store the
+instance found, so a key created in the other store was left there and the recorded store held none. Read the
+paragraphs below as the state of the code at the date of this decision.
 Where the operator first records the other store than the one the key was found in, the recorded store held no key:
 `EnrolmentKey.readOrCreate()` then created a second key, and every sidecar signed before the choice failed as
 `enrolment_tampered`. A later move did not repair it, since a move finds no key in the old store and takes that as

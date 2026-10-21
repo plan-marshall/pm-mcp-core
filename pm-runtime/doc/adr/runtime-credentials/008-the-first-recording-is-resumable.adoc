@@ -1,0 +1,80 @@
+= ADR 008: The First Recording Is a Durable Operation the Next Start Finishes
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-20
+
+== Context
+
+The first recording of a credential store carries the integrity key with the discipline of the move (ADR 006, ADR 004):
+copy the key and read it back, verify every sidecar under it, switch `credentials.store` in one write, and only then
+delete the key from the store it came from. Unlike the move it wrote no record. A stop between the switch and the
+deletion therefore left the key in both stores with nothing that knew a recording was open: `CredentialStoreMove.resume()`
+found no record and did nothing, and the Javadoc of `CredentialStoreChoice` told the operator to delete the key by hand.
+PLAN-74 recorded that as an advisory; the checklist for durable multi-step protocols of the plan's standing constraints
+counts it as the unguarded transition it is (item 1: a resume decides from the pair of the record's phase and the state
+actually recorded; item 3: the record that drives recovery is deleted last).
+
+== Decision
+
+* The first recording is an operation of the same record as the move: `state/credential-store-move.json`, with the
+  member `operation` (`move` or `first_recording`). One lock, one record file, one resume entry point, one set of phase
+  branches. Format version stays 1; the record is replaced in place.
+* For the first recording, `from` is the store that is not being recorded (the store the key is deleted from after the
+  switch) and `to` is the store being recorded. `target_held_key` means that `to` held the key the operation keeps
+  before the first copy; the clean-up of a failure before the switch deletes the copy from `to` only where it did not.
+* The record is written under `locks/credentials.lock` in phase `copying` before anything is copied, rewritten once in
+  phase `switched` right after the switch, and deleted last, after the key was deleted from the other store.
+* A failure before the switch removes the copy from the store being recorded, deletes the record and fails with
+  `credential_store_failed`; where the copy cannot be removed the record is kept, so the next start removes it and
+  records again (the same discipline the failure of a move follows).
+* A failure after the switch keeps the record in phase `switched`: the recording stands, the key is in both stores, and
+  the next start deletes it from the store that is not recorded. That deletion is authorised by durable state, never by
+  the record's flag alone: the store being recorded must hold a key, and a differing key of the other store is deleted
+  only once the recorded store's key verifies every sidecar. The record also refuses a store being recorded that holds
+  no key while the other one does, so the only key the machine is signed under is never the one deleted. While the record
+  exists the aspect is refused with `aspect_owned` and the move is refused with an `IllegalStateException`, as while a
+  move is open.
+* The resume finishes a first recording from the pair of the record's phase and `credentials.store`: `copying` with the
+  store being recorded already recorded is read as the switch (a stop between the switch and the rewrite of the record)
+  and only finished; `copying` with no store recorded removes the copy and records again; `switched` with the store
+  recorded finishes the deletion; `switched` without it is refused and deletes nothing. A second resume on the finished
+  state finds no record and does nothing.
+* `CredentialStoreMoveResume` resumes both operations; a resumed first recording is logged as `PM_RUNTIME-32`, a resumed
+  move as `PM_RUNTIME-29`.
+
+== Alternatives Considered
+
+* A separate record `state/credential-store-first-recording.json`: not taken, since a second record type would need its
+  own lock ordering, its own schema, its own parity test and its own resume branch, and the two operations share every
+  phase and every guard.
+* No record; the resume recognises "the recorded store holds a key and the other store holds the same one": not taken
+  for the reason ADR 004 already records against the move — two stores that hold the same bytes cannot be told apart
+  from a state the recording produced, so the resume could delete a key the machine never copied. It also decides a
+  side effect from a probe re-derived per call, which the standing checklist forbids (item 4).
+* Deleting the key from the store before the switch: not taken, since a stop between the deletion and the switch would
+  leave the key only in a store `credentials.store` does not name, and `readOrCreate()` would create a second key there.
+* Keeping the record only on a failure after the switch, writing it after the copy: not taken, since a stop between the
+  copy and the write would leave a copy with no record, which a later move into that store would treat as its own entry.
+
+== Consequences
+
+* The recorded store holds the key after every completed first recording, also after a stop; no key is left in two
+  stores without a record that finishes the deletion.
+* The first recording now needs the `state/` directory; the aspect creates it where the base has none yet.
+* A first recording that fails after the switch leaves the aspect refused until the next start finishes it; the
+  operator cannot record another store in the meantime, exactly as while a move is open.
+* A record of a machine that ran a version without `operation` and `transaction_id` is unreadable and is refused as
+  unreadable; nothing is released yet, so no migration exists (the operator deletes the stale record).
+
+== Source
+
+* Plan: `.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-82-credential-store-move-advisories.md` (deliverable 2)
+* Advisory: landing message `plan-74-credential-store-choice-036`
+* link:004-move-copies-the-key-last-and-switches-once.adoc[ADR 004: The Move Copies the Key Last and Switches Once]
+* link:006-the-first-recording-carries-the-integrity-key.adoc[ADR 006: The First Recording Carries the Integrity Key]
+* link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#credential-store-move-record[Store Schemas § Machine State Records]

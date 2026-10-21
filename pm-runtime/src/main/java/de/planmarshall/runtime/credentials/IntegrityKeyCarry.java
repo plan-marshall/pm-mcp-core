@@ -29,11 +29,12 @@ import de.planmarshall.runtime.enrolment.EnrolmentSidecars;
  * deleted here and no store is recorded: the caller copies the key last, verifies, switches {@code credentials.store}
  * once, and only then deletes the key from the store it came from.
  * <p>
- * A key the target holds already is never overwritten. {@link #targetKey(SecretStore, SecretStore)} tells the caller
- * what the target holds before it starts, so both callers refuse a target that holds another key than the source, the
- * key the HMAC sidecars may be signed under, which would otherwise be lost, and remember whether the target held the
- * key, so their clean-up deletes from the target only a key they copied. {@link #copy(SecretStore, SecretStore)}
- * writes nothing where the target holds the same key and refuses where it holds another one.
+ * A key a store holds already is never overwritten by {@link #copy(SecretStore, SecretStore)}: it writes nothing where
+ * the target holds the same key and refuses a target that holds another one. {@link #targetKey(SecretStore,
+ * SecretStore)} tells the move what the target holds before it starts, so its clean-up deletes from the target only a
+ * key it copied. The first recording reconciles two differing keys instead, by the sidecars
+ * ({@link #failureUnder(SecretKey)}, ADR runtime-credentials/007): the store being recorded is given the key the
+ * sidecars verify under and the other store's key is deleted after the switch.
  * <p>
  * The caller holds {@code locks/credentials.lock}. The sidecars are verified in a transaction of their own, because
  * the verification takes the audit leaf lock last, after which a transaction may acquire nothing, and the caller takes
@@ -150,14 +151,26 @@ final class IntegrityKeyCarry {
      * @throws UncheckedIOException if the enrolment directory cannot be listed or a file cannot be read
      */
     void verifySidecars(SecretKey key) {
-        Optional<EnrolmentSidecars.Failure> failure;
-        try (var verification = locks.openTransaction()) {
-            failure = sidecars.verify(verification, key);
-        }
+        var failure = failureUnder(key);
         if (failure.isPresent()) {
             throw new SecretStoreException(SecretStoreException.Reason.FAILED,
                     "%s does not verify under the moved integrity key: %s".formatted(failure.get().file(),
                             failure.get().reason()));
+        }
+    }
+
+    /**
+     * The sidecars of the machine under one key, in a transaction of its own, so a caller that weighs two candidate
+     * keys can tell under which of them every sidecar verifies.
+     *
+     * @param key the key the sidecars are verified under
+     * @return the first sidecar that does not verify under the key; empty if every sidecar verifies
+     * @throws UncheckedIOException if the enrolment directory cannot be listed or a file cannot be read
+     */
+    Optional<EnrolmentSidecars.Failure> failureUnder(SecretKey key) {
+        Objects.requireNonNull(key, "key");
+        try (var verification = locks.openTransaction()) {
+            return sidecars.verify(verification, key);
         }
     }
 

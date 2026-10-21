@@ -167,10 +167,14 @@ counts in; only the log does. The outcome is carried in `Outcome.Ready`, and the
 _Requirements:_ link:{req}/07-credentials.adoc#PM-CRED-2[PM-CRED-2]
 
 A move between the credential stores (`CredentialStoreMove` of
-link:runtime-credentials.adoc[`runtime.credentials`]) that a stop cut leaves its record
-`state/credential-store-move.json`. `CredentialStoreMoveResume.run()` completes it through
-`CredentialStoreMove.resume()`:
+link:runtime-credentials.adoc[`runtime.credentials`]) or the first recording of a store that a stop cut leaves its
+record `state/credential-store-move.json` (the record's `operation` says which). `CredentialStoreMoveResume.run()`
+completes it through `CredentialStoreMove.resume()`:
 
+* a first recording: phase `copying` with no store recorded removes the copy from the store being recorded and records
+  again; phase `copying` with that store recorded (a stop between the switch and the rewrite of the record) and phase
+  `switched` with it recorded finish the deletion of the key from the other store; phase `switched` without it is
+  refused and deletes nothing (link:../adr/runtime-credentials/008-the-first-recording-is-resumable.adoc[ADR 008]);
 * phase `copying` with the old store recorded: the copies are deleted from the target and the move runs again from the
   first entry, the old store holding every entry;
 * phase `copying` with the target recorded (a stop between the switch and the rewrite of the record): the move is
@@ -182,11 +186,12 @@ link:runtime-credentials.adoc[`runtime.credentials`]) that a stop cut leaves its
 * no record: no move is open, nothing happens.
 
 `run()` returns the record it resumed from, as it was found, and logs `PM_RUNTIME-29`
-(`CREDENTIAL_STORE_MOVE_RESUMED`) with both stores and that phase; the move itself appends its `credential_store_moved`
-audit record, then ends the record and logs `PM_RUNTIME-28`, so a move whose audit record a stop or a failing sink lost
-is finished and audited again by the next start. A move that fails again before the switch fails with
-`credential_store_failed` and leaves the old store recorded; a copy that cannot be removed from the target, or a
-deletion the old store refuses, fails with the store's reason and leaves the record for the next start.
+(`CREDENTIAL_STORE_MOVE_RESUMED`) for a move and `PM_RUNTIME-32` (`CREDENTIAL_STORE_FIRST_RECORDING_RESUMED`) for a
+first recording, with their stores and that phase; the move itself appends its `credential_store_moved` audit record,
+then ends the record and logs `PM_RUNTIME-28`, so a move whose audit record a stop or a failing sink lost is finished
+and audited again by the next start. A move that fails again before the switch fails with `credential_store_failed`
+and leaves the old store recorded; a copy that cannot be removed from the target, or a deletion the old store refuses,
+fails with the store's reason and leaves the record for the next start.
 
 The resume is machine-wide and runs once after the bind; it is no
 `RecoveryStep`, and `StartupSequence`, `RecoveryStep` and `ProjectRecovery` are unchanged

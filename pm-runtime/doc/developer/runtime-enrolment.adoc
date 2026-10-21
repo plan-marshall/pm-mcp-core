@@ -42,14 +42,14 @@ answering the first `Failure` (file and reason) or nothing.
 _Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5], link:{req}/07-credentials.adoc#PM-CRED-2[PM-CRED-2]
 
 The harness enrolment and the audit head need the key before the operator records a credential store. Until then the
-key lives where the runtime finds a store: in the OS store where one is available, else in the key file. The first
-recording of a store carries the key into it: where the found store is the other one and holds a key, the key is
-copied into the store being recorded, read back, and every sidecar is verified under the key read back before
-`credentials.store` is switched; the key is then deleted from the found store
-(link:../adr/runtime-credentials/006-the-first-recording-carries-the-integrity-key.adoc[`runtime-credentials` ADR
-006]). A sidecar that does not verify under the carried key records nothing, and the key stays in the found store. So
-once a store is recorded it holds the key every sidecar was signed under, `readOrCreate()` creates no second key, and
-the move carries the key like every other entry.
+key lives where the runtime finds a store: in the OS store where one is available, else in the key file; the other
+store can hold a key of the machine too. The first recording of a store reconciles the two stores' keys: it keeps the
+key every sidecar verifies under, copies it into the store being recorded where that store does not hold it, reads it
+back, verifies every sidecar under it before `credentials.store` is switched, and deletes the key from the other store
+after the switch (link:../adr/runtime-credentials/007-the-first-recording-reconciles-both-stores.adoc[`runtime-credentials`
+ADR 007]). Two different keys that the sidecars do not decide between refuse the recording; a sidecar that does not
+verify under the key records nothing. So once a store is recorded it holds the key every sidecar was signed under,
+`readOrCreate()` creates no second key, and the move carries the key like every other entry.
 
 `EnrolmentKey(Supplier<SecretStore> activeStore, Path stateDirectory, String user, SecureRandom random)` asks the
 supplier for the store on every `read()`, `readOrCreate()`, `write(SecretKey)` and `delete()`. The supplier meant for
