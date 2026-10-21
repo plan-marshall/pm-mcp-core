@@ -9,7 +9,6 @@
  */
 package de.planmarshall.core.store;
 
-import static de.planmarshall.core.store.QuestionRecordCodecTest.asked;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.answered;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.revised;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.withdrawn;

@@ -9,8 +9,8 @@
  */
 package de.planmarshall.core.store;
 
-import static de.planmarshall.core.store.QuestionRecordCodecTest.asked;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.answered;
+import static de.planmarshall.core.store.QuestionRecordCodecTest.asked;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.delivered;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
