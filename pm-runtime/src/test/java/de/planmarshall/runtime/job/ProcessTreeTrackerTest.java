@@ -26,8 +26,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import de.planmarshall.runtime.job.ProcessGroupSignals.Answer;
-import de.planmarshall.runtime.job.ProcessGroupSignals.Delivered;
 import de.planmarshall.runtime.job.ProcessGroupSignals.Signal;
 import de.planmarshall.runtime.job.ProcessTreeTracker.Member;
 

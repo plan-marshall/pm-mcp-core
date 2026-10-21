@@ -966,6 +966,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      *
      * @return whether the termination reached the job before its group existed
      */
+    // java:S1181 does not apply: an Error of the signalling primitive is caught only so the process is destroyed
+    // through its handle and the job can still be settled, not to swallow it; the failure is logged.
+    @SuppressWarnings("java:S1181")
     boolean terminateByHandle(JobId jobId, Launched launched) {
         var reached = false;
         var cancelBeforeGroup = false;
@@ -1008,6 +1011,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * a job's process tree, with its PID and executable. A record the sink refuses is logged and does not stop the
      * settlement.
      */
+    // java:S1181 does not apply: the audit sink is the caller's and a fault of it must not abort the settlement;
+    // the failure is logged.
+    @SuppressWarnings("java:S1181")
     void auditSurvivors(RunningJob job, List<ProcessTreeTracker.Survivor> survivors) {
         for (var survivor : survivors) {
             var details = new HashMap<String, Object>();
@@ -1225,6 +1231,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * same observation without the parser's finding, so the parser is never called again, and the failure is passed on.
      * A failure of that fallback is followed by a last-resort ended record.
      */
+    // java:S1181 does not apply: an Error is caught only to settle the job from what was observed before it is passed
+    // on, as the class contract requires; it is rethrown.
+    @SuppressWarnings("java:S1181")
     private void settleEnded(RunningJob job, Ended ended, long observedLength) {
         try {
             settle(job, ended, observedLength, true);
@@ -1251,6 +1260,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * job is not left {@code running} until the next runtime start. A write that fails here too is logged and left to
      * the recovery.
      */
+    // java:S1181 does not apply: the last-resort write is the final attempt to settle the job; an Error is logged and
+    // the record stays running for the recovery instead of aborting the settlement path.
+    @SuppressWarnings("java:S1181")
     private void lastResort(RunningJob job, Throwable failure) {
         var current = job.latest;
         var settled = job.pendingSettled != null ? job.pendingSettled
@@ -1473,9 +1485,14 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         private volatile Process process;
 
         /** The process tree of a probe, refreshed while it runs so its descendants are ended with it; null otherwise. */
+        // java:S3077 does not apply: the reference is replaced as a whole and never mutated in place (ProcessTreeTracker
+        // is used through its own thread-safe state), so volatile publishes it safely.
+        @SuppressWarnings("java:S3077")
         private volatile ProcessTreeTracker tree;
 
         /** The record a settlement attempt was about to write, for the last-resort retry of a failed write; null before. */
+        // java:S3077 does not apply: JobRecord is immutable and the reference is replaced as a whole, never mutated.
+        @SuppressWarnings("java:S3077")
         private volatile JobRecord pendingSettled;
 
         /**

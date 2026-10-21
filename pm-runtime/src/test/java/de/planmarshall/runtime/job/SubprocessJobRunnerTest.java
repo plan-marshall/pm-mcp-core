@@ -89,9 +89,6 @@ import de.planmarshall.runtime.job.JobEvidence.Exited;
 import de.planmarshall.runtime.job.JobEvidence.ParseResult;
 import de.planmarshall.runtime.job.JobEvidence.Signalled;
 import de.planmarshall.runtime.job.JobEvidence.Termination;
-import de.planmarshall.runtime.job.ProcessGroupSignals.Answer;
-import de.planmarshall.runtime.job.ProcessGroupSignals.NoSuchProcess;
-import de.planmarshall.runtime.job.ProcessGroupSignals.Signal;
 import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
@@ -345,7 +342,8 @@ class SubprocessJobRunnerTest {
             var directory = Files.createDirectories(jobs.directoryPath());
             Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("r-x------"));
             try {
-                assertThrows(UncheckedIOException.class, () -> runner.start(git(30, "ok")));
+                var request = git(30, "ok");
+                assertThrows(UncheckedIOException.class, () -> runner.start(request));
 
                 assertAll(
                         () -> assertTrue(runner.runningJobs().isEmpty(), "the job was never registered"),
@@ -1365,7 +1363,7 @@ class SubprocessJobRunnerTest {
             var first = new ProcessBuilder(FakePmExec.tool("setsid").toString(), FakePmExec.tool("sleep").toString(),
                     "30").start();
             // the start instant has the clock tick's granularity: a later start makes the two distinguishable
-            Thread.sleep(50);
+            first.waitFor(50, TimeUnit.MILLISECONDS);
             var second = new ProcessBuilder(FakePmExec.tool("setsid").toString(), FakePmExec.tool("sleep").toString(),
                     "30").start();
             try {
@@ -1419,12 +1417,12 @@ class SubprocessJobRunnerTest {
                     .parser((kind, output) -> SUCCESS).primitives(request -> Optional.empty())
                     .audit(events::add).build();
             var jobId = JobId.random(JobId.Kind.PROBE);
-            var record = JobRecord.builder().jobId(jobId).execution(JobRecord.Execution.PROCESS)
+            var jobRecord = JobRecord.builder().jobId(jobId).execution(JobRecord.Execution.PROCESS)
                     .scope(new Scope(Scope.Type.MACHINE, null))
                     .status(Status.RUNNING).budgetKey(BUDGET_KEY).budgetSeconds(30).budgetDerivation(FLOOR)
                     .argvDigest("ab".repeat(32)).confinement(JobRecord.Confinement.UNAVAILABLE)
                     .createdAt(Instant.now()).clampedValues(List.of()).build();
-            var job = new SubprocessJobRunner.RunningJob(record, null, new JobBudget(BUDGET_KEY, 30, FLOOR),
+            var job = new SubprocessJobRunner.RunningJob(jobRecord, null, new JobBudget(BUDGET_KEY, 30, FLOOR),
                     Set.of());
 
             runner.auditSurvivors(job, List.of(new ProcessTreeTracker.Survivor(11, Optional.of("/usr/bin/sleep")),
@@ -1688,14 +1686,8 @@ class SubprocessJobRunnerTest {
             var job = job();
             job.launched(process);
             Thread.currentThread().interrupt();
-            var ending = CompletableFuture.runAsync(() -> {
-                try {
-                    Thread.sleep(50);
-                } catch (InterruptedException _) {
-                    Thread.currentThread().interrupt();
-                }
-                process.ended();
-            });
+            var ending = CompletableFuture.runAsync(process::ended,
+                    CompletableFuture.delayedExecutor(50, TimeUnit.MILLISECONDS));
 
             var awaited = runner.awaitEndOrCause(job, process, Instant.now().plusSeconds(30));
             ending.join();
