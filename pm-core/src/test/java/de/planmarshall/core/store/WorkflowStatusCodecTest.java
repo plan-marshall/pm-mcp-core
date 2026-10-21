@@ -489,6 +489,33 @@ class WorkflowStatusCodecTest {
         }
 
         @Test
+        @DisplayName("a second pending request is refused: at most one awaits the operator")
+        void onePendingAtATime() {
+            var second = PENDING.replace("\"WR-1\"", "\"WR-2\"");
+            var refusal = assertThrows(StoreRefusal.class, () -> read(withRequests(PENDING, second)));
+            var status = read(DOCUMENT);
+            var pending = read(withRequests(PENDING)).waiverRequests().getFirst();
+
+            assertAll(
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
+                    () -> assertEquals(FILE, refusal.file()),
+                    () -> assertTrue(refusal.getMessage().contains("waiver_requests"), refusal.getMessage()),
+                    () -> assertThrows(IllegalArgumentException.class, () -> status.withWaiverRequests(
+                            List.of(pending, pending.toBuilder().requestId("WR-2").build()))));
+        }
+
+        @Test
+        @DisplayName("the same request id filed twice is refused, whatever its outcome")
+        void requestIdTwice() {
+            var declined = request("\"declined\"", "null", ANSWERED_CLI);
+            var refusal = assertThrows(StoreRefusal.class, () -> read(withRequests(declined, PENDING)));
+
+            assertAll(
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
+                    () -> assertTrue(refusal.getMessage().contains("WR-1"), refusal.getMessage()));
+        }
+
+        @Test
         @DisplayName("a null component is refused, never turned into an empty list")
         void nullComponentRefused() {
             var builder = read(DOCUMENT).toBuilder().waiverRequests(null);

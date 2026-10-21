@@ -708,7 +708,9 @@ its gate, mode and reason class, and only a `raise` carries a `value`.
 `WaiverRecordCodec`:: Reads and writes one line strictly; a refused line names its file and line.
 `WaiverLog`:: `plans/<plan_id>/waivers.jsonl`; only a plan has one. `append(transaction, waiver)` adds one line as an
 append target to the plan's transaction. `read()` takes no lock; `Lines.current(waiverId)` is the last readable line
-of the id and `currentWaivers()` the current state of every waiver.
+of the id and `currentWaivers()` the current state of every waiver. A second line with the id of a waiver the log
+already holds is legal and is how a waiver is revoked or raised again: the line before it stays, and the last readable
+line is the current state of the id, taken whole.
 `WaiverConsumptionRecord`:: One evaluation of a waivable gate that admitted a failure because a `met` waiver was set:
 the waiver, the gate, the state, the commit (`head_sha`), the instant and what it admitted (`covered`).
 `WaiverConsumptionCodec`, `WaiverConsumptionLog`:: The codec of a consumption line and the log
@@ -735,7 +737,10 @@ that answered it (`Answered`: channel, device, reason of a decline, instant) and
 request has no time limit and stays pending, without an outcome, until the operator answers it or the plan ends.
 `WorkflowStatus.waiverRequests()`:: The requests in the order of the document. The member is kept for plan scopes
 only; a request in the status of an epic or the workspace is refused, and a `null` list is refused. An absent member
-reads as no request, and the codec always writes the member, as `[]` when it is empty.
+reads as no request, and the codec always writes the member, as `[]` when it is empty. Each request id occurs at most
+once, and at most one request is pending at a time: a document that breaks either is refused as unreadable naming the
+member, and a status built with either is refused by `WorkflowStatus` (`IllegalArgumentException`) before it can be
+written.
 
 [#_question_log]
 === The Question Log
