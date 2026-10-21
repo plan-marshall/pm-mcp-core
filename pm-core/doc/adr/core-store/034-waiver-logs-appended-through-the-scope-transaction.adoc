@@ -36,9 +36,10 @@ a JSONL store first and records the digest of every store in the plan's sidecar.
    the append is the evidence.
 2. *One file per waiver id.* _Not taken_: the plan's transaction and digest sidecar would carry one target per waiver,
    and a revocation is naturally a line of the same log; the last readable line of the id is already the current state.
-3. *Append straight to the file, with an fsync, outside the scope transaction.* _Not taken_: the journal, the torn-tail
-   repair and the digest sidecar would not cover the line, and a stop mid-append would leave a tail no recovery knows
-   about.
+3. *Append straight to the file, with an fsync, outside the scope transaction.* _Not taken_: the line would be invisible
+   to the plan's transaction journal and its digest sidecar, so it could neither be rolled forward after a stop nor be
+   detected as an edit. The JSONL store's next append still repairs a torn last line, but nothing would record that the
+   line was ever intended, and the plan's sidecar would not cover it.
 4. *Keep the consumptions inside `waivers.jsonl`.* _Not taken_: the waiver log has exactly one writer, the operator's
    act, and a consumption is the evaluation that relied on it, written by `waiver.lookup`; one log would mix the
    authority with its use and give the file two writers.

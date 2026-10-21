@@ -78,8 +78,8 @@ public final class ProjectResolver {
      * @param path an absolute path in a checkout, a directory or a file
      * @return where the path lies, or why it is refused
      * @throws IllegalArgumentException if the path is not absolute
-     * @throws UncheckedIOException     if the enrolment directory exists and cannot be listed, or an enrolment file
-     *                                  exists and cannot be read
+     * @throws UncheckedIOException     if the enrolment directory exists and cannot be listed; a file it lists that
+     *                                  cannot be read is refused with its own `StoreRefusal` instead
      */
     public ProjectResolution resolve(Path path) {
         Objects.requireNonNull(path, "path");
@@ -147,7 +147,18 @@ public final class ProjectResolver {
         var matches = new TreeSet<String>();
         StoreRefusal refused = null;
         for (var projectId : enrolments.projectIds()) {
-            var content = StoreSnapshot.read(enrolments.file(projectId)).content();
+            var file = enrolments.file(projectId);
+            Optional<byte[]> content;
+            try {
+                content = StoreSnapshot.read(file).content();
+            } catch (UncheckedIOException e) {
+                // A file that exists and cannot be read is refused like an undecodable one: it may name any root.
+                if (refused == null) {
+                    refused = StoreRefusal.unreadable(file, ProjectEnrolment.FORMAT_VERSION,
+                            "the file cannot be read: " + e.getMessage(), e);
+                }
+                continue;
+            }
             if (content.isEmpty()) {
                 continue;
             }

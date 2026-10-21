@@ -13,12 +13,16 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import java.nio.file.Files;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.TreeSet;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import de.planmarshall.core.store.ProjectResolution.EnrolmentRefused;
 import de.planmarshall.core.store.ProjectResolution.NotEnrolled;
@@ -107,6 +111,29 @@ class ProjectResolverEnrolmentTest extends ProjectResolverFixture {
                 "An unreadable enrolment may be a second enrolment of the same root");
 
         assertEquals(store.file("broken"), refused.refusal().file(), "The refusal should name the file");
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    @DisplayName("refuses the main checkout beside a file that exists and cannot be read")
+    void unreadableFileBesideMatch() throws Exception {
+        var store = new EnrolmentStore(base);
+        var broken = store.file("broken");
+        Files.writeString(broken, "{not json");
+        Files.setPosixFilePermissions(broken, PosixFilePermissions.fromString("---------"));
+        try {
+            assumeFalse(Files.isReadable(broken), "the test runs with a privilege that reads the file anyway");
+
+            var refused = assertInstanceOf(EnrolmentRefused.class, resolver.resolve(main.resolve("README.md")),
+                    "A file that exists and cannot be read may be a second enrolment of the same root");
+
+            assertAll(
+                    () -> assertEquals(broken, refused.refusal().file(), "The refusal should name the file"),
+                    () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, refused.refusal().outcome(),
+                            "A read failure is refused as unreadable"));
+        } finally {
+            Files.setPosixFilePermissions(broken, PosixFilePermissions.fromString("rw-------"));
+        }
     }
 
     @Test

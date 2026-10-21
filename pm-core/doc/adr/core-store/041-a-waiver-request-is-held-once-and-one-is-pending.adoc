@@ -49,8 +49,9 @@ read and when a status is built to be written.
 * A plan files a second request only after the first is answered or cancelled; the operator wait lists one request.
 * The refusal is a `StoreRefusal` on read (the status store is never rewritten by a refusal) and an
   `IllegalArgumentException` on build, as the other shape checks of `WorkflowStatus` are.
-* A caller that wants to replace a pending request cancels it first, which records `cancelled` and keeps it in the
-  member's history.
+* A caller that replaces a pending request cancels it first, which records `cancelled` and keeps it in the member's
+  history. The store enforces only the shape — at most one pending request and a unique id per document — and does not
+  compare a written list against the one it replaces, so recording the `cancelled` line is the caller's obligation.
 
 == Source
 

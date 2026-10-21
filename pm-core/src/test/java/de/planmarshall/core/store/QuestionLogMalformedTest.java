@@ -12,6 +12,7 @@ package de.planmarshall.core.store;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.answered;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.asked;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.delivered;
+import static de.planmarshall.core.store.QuestionRecordCodecTest.revised;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -91,6 +92,22 @@ class QuestionLogMalformedTest extends QuestionLogFixture {
                 () -> assertTrue(fault.getMessage().contains("Q-005"), fault.getMessage()),
                 () -> assertTrue(fault.getMessage().contains("Q-002"), fault.getMessage()),
                 () -> assertArrayEquals(before, content()));
+    }
+
+    @Test
+    @DisplayName("asking a part after a revision of its set began in the same append is refused, and nothing is"
+            + " appended")
+    void partAfterRevisionInOneAppend() {
+        var fault = assertThrows(IllegalArgumentException.class,
+                () -> write(t -> log.append(t, List.of(asked("Q-001", "Q-001"), revised("Q-001", 2),
+                        asked("Q-002", "Q-001")))));
+        var accepted = write(t -> log.append(t, List.of(asked("Q-003", "Q-003"), asked("Q-004", "Q-003"))));
+
+        assertAll(
+                () -> assertTrue(fault.getMessage().contains("revised already"), fault.getMessage()),
+                () -> assertEquals(2, log.read().records().size(),
+                        "the refused append added nothing, the accepted one asked its whole set"),
+                () -> assertEquals(OptionalInt.of(1), log.read().currentRevision("Q-003")));
     }
 
     @Test

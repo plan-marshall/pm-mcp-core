@@ -31,7 +31,8 @@ reconciled with a changed decision.
 * The log refuses a part whose `question_set` names a question that is no first question of a set: the part would join
   no set the log holds.
 * A part asked into a set earlier in the same append stays accepted, because the set is being asked whole by that
-  append.
+  append, as long as that set is still at revision 1: a revision begun earlier in the same append closes the set to a
+  further part, as a revision of the log does.
 
 == Alternatives Considered
 

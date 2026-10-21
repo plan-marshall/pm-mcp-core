@@ -933,11 +933,11 @@ repairs the log, so every later append is refused too, `withdraw` and `cancel` i
 |`store.json` exists, readable or not, when a store is created
 |`create` returns `EXISTED` and leaves it as it is.
 
-|An enrolment file is refused when it is decoded
-|`EnrolmentRefused` with that file's refusal, also when one readable enrolment names the main checkout: the match is
-not shown to be the only one. Two readable matches are `RootConflict`.
+|An enrolment file is refused when it is decoded, or exists and cannot be read
+|`EnrolmentRefused` with that file's refusal (a read failure as `unreadable`, naming the file), also when one readable
+enrolment names the main checkout: the match is not shown to be the only one. Two readable matches are `RootConflict`.
 
-|An enrolment file cannot be listed or read
+|The enrolment directory cannot be listed
 |`resolve` throws `UncheckedIOException`.
 |===
 
