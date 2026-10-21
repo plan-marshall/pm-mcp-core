@@ -28,8 +28,8 @@ reconciled with a changed decision.
   and nothing of the append is added. A set's parts are fixed when it is asked.
 * A change of an open decision is a revision of the questions of its set that are open when the revision begins. A
   revision never adds a part.
-* The log refuses a part that names as its set a question that is no first question of a set, for the same reason: the
-  set would not be the one the part's id names.
+* The log refuses a part whose `question_set` names a question that is no first question of a set: the part would join
+  no set the log holds.
 * A part asked into a set earlier in the same append stays accepted, because the set is being asked whole by that
   append.
 
@@ -46,8 +46,8 @@ reconciled with a changed decision.
 
 == Consequences
 
-* A caller that learns of a further part of a decision must ask a new decision, or revise the existing one; the store
-  will not grow the old set.
+* A caller that learns of a further part of a decision must ask a new decision; the store will not grow the old set,
+  and a revision of that set changes only the questions it already has.
 * The refusal is the caller's fault, as the other malformed appends are: an `IllegalArgumentException`, not a
   `QuestionRefusal` value.
 * The set's first question is the only line that can carry the `decision` of the set, on an `asked` line and on a
@@ -61,4 +61,4 @@ reconciled with a changed decision.
 * link:../../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc[Store Schemas § Plan
   Instance, Waivers and Questions]
 * `pm-core/src/main/java/de/planmarshall/core/store/QuestionLog.java`,
-  `pm-core/src/test/java/de/planmarshall/core/store/QuestionLogTest.java`
+  `pm-core/src/test/java/de/planmarshall/core/store/QuestionLogMalformedTest.java`

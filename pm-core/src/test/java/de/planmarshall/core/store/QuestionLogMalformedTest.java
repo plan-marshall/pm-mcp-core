@@ -64,20 +64,30 @@ class QuestionLogMalformedTest extends QuestionLogFixture {
     }
 
     @Test
-    @DisplayName("a part that names a set the log does not hold, or a question that is no first question of a set,"
-            + " is refused")
-    void partNamesNoSet() throws Exception {
+    @DisplayName("a part that names a set the log does not hold is refused")
+    void partNamesASetTheLogDoesNotHold() throws Exception {
         askSet();
         var before = content();
 
-        var unknown = assertThrows(IllegalArgumentException.class,
+        var fault = assertThrows(IllegalArgumentException.class,
                 () -> write(t -> log.append(t, List.of(asked("Q-004", "Q-009")))));
-        var noFirst = assertThrows(IllegalArgumentException.class,
+
+        assertAll(
+                () -> assertTrue(fault.getMessage().contains("which is not asked"), fault.getMessage()),
+                () -> assertArrayEquals(before, content()));
+    }
+
+    @Test
+    @DisplayName("a part that names a question which is no first question of a set is refused")
+    void partNamesNoFirstQuestion() throws Exception {
+        askSet();
+        var before = content();
+
+        var fault = assertThrows(IllegalArgumentException.class,
                 () -> write(t -> log.append(t, List.of(asked("Q-005", "Q-002")))));
 
         assertAll(
-                () -> assertTrue(unknown.getMessage().contains("which is not asked"), unknown.getMessage()),
-                () -> assertTrue(noFirst.getMessage().contains("no first question of a set"), noFirst.getMessage()),
+                () -> assertTrue(fault.getMessage().contains("no first question of a set"), fault.getMessage()),
                 () -> assertArrayEquals(before, content()));
     }
 

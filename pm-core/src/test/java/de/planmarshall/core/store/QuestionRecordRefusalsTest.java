@@ -34,8 +34,8 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
 
 /**
  * The refusals of the question-line codec (PM-WF-12, PM-IMPL-2): every value outside the closed schema refused as a
- * {@link StoreRefusal} naming the file, each member of another event refused on the event it is written on, and no
- * member that names a deadline or an expiry.
+ * {@link StoreRefusal} naming the file, each member of a line outside its one shape refused, and no member that names a
+ * deadline or an expiry. Which member belongs to which event is tested in {@link QuestionRecordMembersOnTheirEventsTest}.
  */
 @DisplayName("Question record codec refusals")
 class QuestionRecordRefusalsTest {

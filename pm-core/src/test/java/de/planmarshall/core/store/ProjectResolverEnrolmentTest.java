@@ -57,6 +57,18 @@ class ProjectResolverEnrolmentTest extends ProjectResolverFixture {
     }
 
     @Test
+    @DisplayName("keeps the root conflict of two readable enrolments, beside a refused file")
+    void rootConflictBesideRefusedFile() throws Exception {
+        enrol("pm-mcp-core-copy", main);
+        Files.writeString(new EnrolmentStore(base).file("broken"), "{not json");
+
+        var conflict = assertInstanceOf(RootConflict.class, resolver.resolve(main.resolve("README.md")),
+                "Two readable matches decide the conflict before a refused file is reported");
+
+        assertEquals(new TreeSet<>(List.of(PROJECT, "pm-mcp-core-copy")), conflict.projectIds());
+    }
+
+    @Test
     @DisplayName("refuses with the reason of an unreadable enrolment file when no readable one names the root")
     void unreadableEnrolmentWithoutMatch() throws Exception {
         var store = new EnrolmentStore(base);

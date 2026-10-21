@@ -800,10 +800,11 @@ caller: transaction.commit()
   `currentRevision`) count readable lines only, so a caller consults `refused()` first and reports a question unreadable
   when the log holds a refused line; a refused line is never taken for an open question by the append gate
   (link:../adr/core-store/039-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR 039]).
-* *A malformed append is the caller's fault*: a question asked twice, a part asked into a set the log holds, a line
-  about a question the log does not have, a revised line that does not name the next revision, a set revised in part, a
-  decision on a revised line of another question than the first, an empty append or a line of another event than the
-  method's is an `IllegalArgumentException`, not a refusal value.
+* *A malformed append is the caller's fault*: a question asked twice, a part asked into a set the log holds, a part
+  whose `question_set` is no first question of a set, a line about a question the log does not have, a revised line
+  that does not name the next revision, a set revised in part, a decision on a revised line of another question than
+  the first, an empty append or a line of another event than the method's is an `IllegalArgumentException`, not a
+  refusal value.
 
 *The move of an entry's questions.* A client opens an entry for a scope that does not exist yet, and its questions go
 into the entry's log. When the bootstrap creates the plan or the epic, `QuestionLog.moveEntryQuestions(workspace,
@@ -877,8 +878,9 @@ name below the worktrees with the prefix `baseline-`, refused by the prefix alon
 grammar decides it and no such name is ever taken for a plan worktree
 |`NotEnrolled(FOREIGN_TOPLEVEL)` |a worktree of the project elsewhere, or below the worktrees with another name
 |`RootConflict(projectIds)` |more than one readable enrolment names the main checkout (`enrolment_root_conflict`)
-|`EnrolmentRefused(refusal)` |an enrolment file was refused or could not be read, whether or not another one names
-the main checkout: the match cannot be shown to be the only one, because the refused file may name it too
+|`EnrolmentRefused(refusal)` |an enrolment file was refused or could not be read: the match cannot be shown to be
+the only one, because the refused file may name the main checkout too. Two readable matches are `RootConflict`
+first
 |===
 
 Every `NotEnrolled` carries the outcome code `project_not_enrolled`; its reason is a diagnostic. No result holds the
@@ -942,7 +944,7 @@ Tested by `WaiverRecordCodecTest`, `WaiverLogTest`, `WaiverConsumptionCodecTest`
 `WorkflowStatusCodecTest`, `WorkflowStatusStoreTest` and `WorkflowStatusSchemaParityTest` (the waiver requests),
 `QuestionRecordCodecTest` (the decision's evidence limit, the schema and the wire names), the three classes of the
 question-line codec that share its fixtures (`QuestionRecordRoundTripTest`, `QuestionRecordRefusalsTest`,
-`QuestionRecordMembersOnTheirEventsTest`), the six classes of the question log (`QuestionLogTest` for its location,
+`QuestionRecordMembersOnTheirEventsTest`), the seven classes of the question log (`QuestionLogTest` for its location,
 `QuestionLogRevisionTest`, `QuestionLogClosingTest`, `QuestionLogAnswerRevisionTest`, `QuestionLogCurrentLineTest`,
 `QuestionLogRefusedLineTest` and `QuestionLogMalformedTest` — one closing line, the current revision, a refusal adds
 nothing, a torn tail, a refused line, an append to a log with a refused line refused `Unreadable`, a set asked whole),

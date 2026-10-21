@@ -459,8 +459,8 @@ public final class QuestionLog {
             if (!line.questionSet().equals(id)) {
                 if (askedBefore.contains(line.questionSet())) {
                     throw new IllegalArgumentException(
-                            "The set %s is asked already; a part asked later is a revision of its decision, not a new"
-                                    + " question".formatted(line.questionSet()));
+                            "The set %s is asked already; a set is asked whole, and a further part needs a new decision"
+                                    .formatted(line.questionSet()));
                 }
                 var named = questions.get(line.questionSet());
                 if (named == null) {

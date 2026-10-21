@@ -458,9 +458,8 @@ changes nothing. Present in `pm-mcp-core`: neither the waiver request nor the qu
 names an expiry, and the outcomes of a request have no `expired` (`WorkflowStatusSchemaParityTest`,
 `QuestionRecordCodecTest`); a second closing line of a question is refused `already_answered` and adds nothing, and an
 answer to an older revision is refused `conflict` (`QuestionLogClosingTest`, `QuestionLogAnswerRevisionTest`); the test
-clock across a restart and an
-integrity pause, the race of the two clients, and the refused answer to a closed waiver request stay for the operator
-wait.
+clock across a restart and an integrity pause, the race of the two clients, and the refused answer to a closed waiver
+request stay for the operator wait.
 Source:: design review.
 
 == Project Configuration (`.marshall/config/`, `local-config.json`)
