@@ -232,8 +232,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private static final SignalTable SIGNALS = SignalTable.of(System.getProperty("os.name", ""));
 
     /**
-     * How many settled records the runner keeps after it pruned their store: {@link #recordOf(JobId)} answers a
-     * settled job of this window, and the durable record of an older one is read from its store by the caller.
+     * The default number of settled records the runner keeps after it pruned their store:
+     * {@link #recordOf(JobId)} answers a settled job of this window, and the durable record of an older one is read
+     * from its store by the caller. The builder's {@code settledRecordsKept} overrides it.
      */
     static final int SETTLED_RECORD_CACHE = 1024;
 
@@ -336,7 +337,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * @param audit            where a surviving descendant of a probe is written; {@code null} for no audit record
      * @param settledRecordsKept how many settled records the runner keeps after it pruned their store; {@code null} for
      *                         {@value #SETTLED_RECORD_CACHE}
-     * @throws NullPointerException if an argument other than the clock is {@code null}
+     * @throws NullPointerException if an argument other than the clock, the supervision, the audit sink and the
+     *                              settled-record window is {@code null}
      */
     @Builder
     private SubprocessJobRunner(Path base, LockManager lockManager, VerifyNotResolvePipeline pipeline,

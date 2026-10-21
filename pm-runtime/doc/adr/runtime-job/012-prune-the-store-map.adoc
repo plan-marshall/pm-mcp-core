@@ -39,8 +39,9 @@ carry.
 
 == Consequences
 
-* A caller of `recordOf` after more than 1024 further settlements in the same runtime must read the job's store
-  itself; the API's answer is a window, not a history.
+* A caller of `recordOf` after more than the window's further settlements in the same runtime must read the job's store
+  itself; the API's answer is a window, not a history. The default window is `SETTLED_RECORD_CACHE` (1024); the
+  builder's `settledRecordsKept` sets it.
 * The cache is an optimisation, never the source of truth: no fate is written through it.
 
 == Source

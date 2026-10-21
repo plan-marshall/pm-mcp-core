@@ -54,7 +54,7 @@ have the subreaper on any platform.
 
 == Consequences
 
-* A probe's end can take up to the sweep grace period longer than before.
+* A probe's end can take up to the sweep grace period plus the post-`SIGKILL` wait longer than before.
 * A descendant still in the group receives the group's `SIGTERM` and the sweep's; a second signal to a matching PID is
   harmless.
 * The tracker's member set is bounded by the job's lifetime and is dropped with the running job.

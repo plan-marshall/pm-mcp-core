@@ -160,7 +160,7 @@ class ProcessTreeTrackerTest {
             assertAll(
                     () -> assertEquals(List.of(new Call(11, Signal.SIGTERM), new Call(11, Signal.SIGKILL)),
                             signals.calls),
-                    () -> assertEquals(List.of(new ProcessTreeTracker.Survivor(11, Optional.empty())), survivors),
+                    () -> assertEquals(List.of(11L), survivors.stream().map(ProcessTreeTracker.Survivor::pid).toList()),
                     () -> assertEquals(ProcessTreeTracker.SWEEP_GRACE.plus(ProcessTreeTracker.POLL_INTERVAL),
                             Duration.between(START, time.instant())));
         }

@@ -53,7 +53,8 @@ cannot be settled from this repository.
   at the lowest signalling call, also that none was made.
 * `TerminationProtocol` reads `ESRCH` as a fact: `ESRCH` from the group and then from the PID means the process has
   already ended, so nothing further is signalled and the report ends `GROUP_NOT_REACHED`; `ESRCH` from the group alone is
-  the window before `setpgid`, retried against the group.
+  the window before `setpgid`, retried against the group — unless the caller knows the leader has ended
+  (`terminate(pid, false)`), and then step 4 is skipped, because a freed PID may be reused.
 * The descriptor of the `kill` downcall (two `int` parameters, an `int` result, `errno` captured) is registered in the
   reachability metadata of `pm-runtime`, next to the descriptors of `MacSecurity` and `Posix`:
   `{ "returnType": "jint", "parameterTypes": ["jint", "jint"], "options": { "captureCallState": true } }`. It is

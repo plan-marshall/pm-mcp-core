@@ -274,7 +274,8 @@ public final class JobRecoveryStep implements RecoveryStep {
                         job.jobId(), e.getMessage()));
             }
         } else if (rule == Rule.PROBED && signals.signalGroup(job.pid(), Signal.PROBE) instanceof Delivered) {
-            var report = termination.terminate(job.pid());
+            var leaderMayLive = ProcessHandle.of(job.pid()).map(ProcessHandle::isAlive).orElse(false);
+            var report = termination.terminate(job.pid(), leaderMayLive);
             var signal = switch (report.ending()) {
                 case GROUP_KILLED -> Signal.SIGKILL.name();
                 case GROUP_EXITED -> Signal.SIGTERM.name();
@@ -319,10 +320,14 @@ public final class JobRecoveryStep implements RecoveryStep {
         if (job.processStartedAt() == null) {
             return true;
         }
-        return ProcessHandle.of(job.pid()).flatMap(handle -> handle.info().startInstant())
+        var handle = ProcessHandle.of(job.pid());
+        if (handle.isEmpty()) {
+            return false;
+        }
+        return handle.get().info().startInstant()
                 .map(start -> Duration.between(job.processStartedAt(), start).abs()
                         .compareTo(START_TOLERANCE) > 0)
-                .orElse(false);
+                .orElse(true);
     }
 
     /**
