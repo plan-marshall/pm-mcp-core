@@ -261,3 +261,22 @@ Closed: the decision of 2026-10-18 (pm-mcp-core #101, documentation #94) dropped
     named in the Open Defect "New specification obligations that no package file owns".
 
 Closed: the engine counterpart #84 was merged on 2026-10-17 (`5197490`) and its obligations were given owners by #111 (PLAN-78); PLAN-20, the running plan concerned, shipped as #92; the old link labels of the specs were corrected by the regeneration of `cleanup` on 2026-10-21.
+
+## Defect: the enrolled-pattern length rule missing from the Job Runtime specification
+
+- Documentation behind the code: the Job Runtime specification (now in pm-mcp-core, `doc/specification/job-runtime/`)
+  lacks PLAN-18's mandatory `maxLength` for enrolled patterns (doc #46 merged before the review fixes). A small direct
+  PR in pm-mcp-core — source: PR check of 2026-10-13; **staged on 2026-10-19 as item 4 of PLAN-89** (to be re-read first). (Part (b), the Workflow DSL watch items, was
+  closed by documentation #72, merged 2026-10-14 with PLAN-56.)
+
+Closed by pm-mcp-core #126 (`c45a968`, 2026-10-21, PLAN-89): the rule is stated in `job-runtime/03-parsers-and-gates.adoc` and `store-schemas/11`, and the bound is itself bounded (`ArgumentSchema.PATTERN_MAX_LENGTH_CEILING`, 256 code points; ADR `runtime-enrolment/007`). What stays open: `SchemaSubset.checkString` of the verification corpus (an Open Defect of `epic.md`).
+
+## Defect: Traceability cites two tests that do not prove the spend removal
+
+- **`doc/Traceability.adoc` cites two tests that do not prove the spend removal.** Lines 247 and 248 list `CompositionRulesTest`
+  and `PlanInstanceComposerTest` under PM-WF-14 "Verified by (no spend limit)", although #83 only renamed a gate name in their
+  fixtures. Two entries to remove: the advisory code-review finding PLAN-72 left open (verified on acb5bba). Fold it into the next
+  plan that edits the PM-WF-14 block (PLAN-61 `token-usage` implements PM-WF-14) or into a one-line `docs` change — source:
+  landing PLAN-72. **Staged on 2026-10-19 as item 3 of PLAN-89** (the lines are 279-280 at 98ce971).
+
+Closed by pm-mcp-core #126 (`c45a968`, 2026-10-21, PLAN-89, item 3): both entries were removed from the PM-WF-14 block.

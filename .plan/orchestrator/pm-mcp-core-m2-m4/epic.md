@@ -281,6 +281,10 @@ decision or a dependency outside this repository.
     place: the log holders now count 5, 78 and 5 records; `core/queue/` no longer exists (PLAN-64), so PLAN-28 creates the package
     (contradicted, rescoped); PLAN-40's counts of developer files (21, and 16 packages without) and its taken-over guides.
   - Later the same day, at the operator's word: **PLAN-94** `sonar-main-backlog` staged (the 80 SonarCloud issues of `main` no plan owned), and seven closed entries of Open Defects and Watches relocated to `settled.md` (the specs behind #111, PR #95, the #125 rewrite, the PLAN-64 landing, the cross-repository blockers of PLAN-19 and PLAN-27, the differential harness, the analysis of documentation #82 to #84); the annotation zone was not touched.
+  - Analyzed 2026-10-21 (landed #126 `c45a968` PLAN-89 and #131 `3d4baf7` PLAN-91, both reconciled in `landings/`): the row `runtime-metrics` is `open` and the row `module-developer-docs` exists,
+    so PLAN-60 and PLAN-40 were unparked to `staged` and re-grounded (PLAN-46 was regenerated from `machine-onboarding-unit.adoc`, which #131 edited); PLAN-93 no longer waits for #126.
+    Only PLAN-49, 59, 63 and 68 stay parked (blocked in the index). Twelve candidate lessons went to plan-marshall's `lessons-routing` inbox (`pm-mcp-core-m2-m4-391` to `-402`).
+  - Collision recorded (Step 4 item 5): #126 touched `runtime-job.adoc`, ADR `runtime-job/001` and `ArgumentSchemaValidatorTest`, which PLAN-84 (running, a runbook plan the live-plan gate cannot see: it has no plan directory) declares. The declaration was right; PLAN-84 must re-read the three files after #126 (the 256 code-point ceiling) before it edits them. Emitted 2026-10-21 into the two free slots: PLAN-19 (runbook, the root of the chain) and PLAN-93 (runbook); held: PLAN-87 (multi-file overlap with PLAN-84 and PLAN-85: three test files and two core-store documents, an operator prompt), PLAN-94 (after PLAN-84), PLAN-40 (its developer-file directories overlap every running plan).
   - `corpus surfaces`: 92 specs, 0 indeterminate. `corpus cross-check`: the only source-origin matches are the running plans' own specs.
     `compact`: both invariants ok, settled-narrative relocation deferred again (the operator's confirmation is owed). Restart verdict
     `not_ready`: four plans running, and the registry pins 0.1.1977 against executor 0.1.1961.
@@ -757,10 +761,7 @@ decision or a dependency outside this repository.
   decision instead of the bump) and specification. Every other versioned artifact is at 1 (checked on
   2026-10-13 at bed24eb) — source: operator, 2026-10-13.
 
-- Documentation behind the code: the Job Runtime specification (now in pm-mcp-core, `doc/specification/job-runtime/`)
-  lacks PLAN-18's mandatory `maxLength` for enrolled patterns (doc #46 merged before the review fixes). A small direct
-  PR in pm-mcp-core — source: PR check of 2026-10-13; **staged on 2026-10-19 as item 4 of PLAN-89** (to be re-read first). (Part (b), the Workflow DSL watch items, was
-  closed by documentation #72, merged 2026-10-14 with PLAN-56.)
+> ↪ Relocated to `settled.md` § "Defect: the enrolled-pattern length rule missing from the Job Runtime specification" — closed by #126 (c45a968); landings/PLAN-89.md
 
 > ↪ Relocated to `settled.md` § "Defect: static verifier residuals after PLAN-54" — PLAN-56 shipped as #66 (7981d17)
 
@@ -780,11 +781,7 @@ decision or a dependency outside this repository.
 > ↪ Relocated to `settled.md` § "Defect: corpus-overlay-extensions outlived its implementation" — closed by pm-mcp-core #94 (ab308ad) on 2026-10-18; retroactive row PLAN-79
 > ↪ Relocated to `settled.md` § "Defect: watch link of stalled-scope-detection.adoc" — the package file was merged into removed-concepts and deleted by PLAN-75 (#85)
 > ↪ Relocated to `settled.md` § "Defect: no package owns the pm-runtime adapter for QuestionRecordReader" — closed by pm-mcp-core #116 (`c39ce3b`); retroactive row PLAN-88
-- **`doc/Traceability.adoc` cites two tests that do not prove the spend removal.** Lines 247 and 248 list `CompositionRulesTest`
-  and `PlanInstanceComposerTest` under PM-WF-14 "Verified by (no spend limit)", although #83 only renamed a gate name in their
-  fixtures. Two entries to remove: the advisory code-review finding PLAN-72 left open (verified on acb5bba). Fold it into the next
-  plan that edits the PM-WF-14 block (PLAN-61 `token-usage` implements PM-WF-14) or into a one-line `docs` change — source:
-  landing PLAN-72. **Staged on 2026-10-19 as item 3 of PLAN-89** (the lines are 279-280 at 98ce971).
+> ↪ Relocated to `settled.md` § "Defect: Traceability cites two tests that do not prove the spend removal" — closed by #126 (c45a968); landings/PLAN-89.md
 > ↪ Relocated to `settled.md` § "Defect: new specification obligations that no package file owns" — closed by pm-mcp-core #111 (72aec5c, PLAN-78), verified 2026-10-20
 > ↪ Relocated to `settled.md` § "Defect: the specs of the plans of the packages amended by #111 were behind their package files" — regenerated by cleanup on 2026-10-21; PLAN-92 owns epic-review
 - **The landing of PLAN-78 is incomplete: `total_tokens` is `unknown` (`inbox landing-check`, `rb-78-spec-obligation-owners-001.md`).** The opencode
@@ -825,9 +822,20 @@ decision or a dependency outside this repository.
 
 - **Nothing in production records `credentials.store`, so a fresh install refuses every credential (found by the follow-up of a separate session to the API change, plan-marshall-mcp #88 `8137c9e` and #90 `91b60d5`, merged 2026-10-18/19; corroborated on 2026-10-19 against the code and the merged PR).** The daemon serves only the store recorded in `credentials.store` of `machine-config.json`; before one is recorded every credential operation is refused and `CredentialsResource` answers `409 {"error":"onboarding_incomplete"}`. The only legitimate writer is the credential-store aspect of the machine onboarding (`store.choose` to `store.move`), through `CredentialStoreChoice.record(LockManager, user, Store)` of `pm-runtime`; no production class calls it (grep of `pm-mcp-server/src/main` at `91b60d5`). The aspect belongs to PLAN-46 `machine-onboarding-unit`, which is parked on PLAN-42 `operator-wait-and-machine-scope`, PLAN-61 `token-usage` and PLAN-70 `plan-instance-alignment` (running). The aspect is not separable from the machine scope, so PLAN-46 is on the critical path of every use of a credential; PLAN-74's deliverable 7 is the part already delivered (the producer reads the recorded choice). The operator verb is NOT missing and no plan was added for it (checked 2026-10-19 after pulling the clients): `pm-operator config credentials --store os|file` is implemented in `pm-mcp-clients` (`ConfigCommand.CredentialsCommand`), designed in its terminal-client design, and the specification names `pm-operator credentials migrate os|file` for the move. What is missing is the runtime side the verb talks to: it posts to `/api/v1/config/credentials`, which no repository serves and no specification defines (the credential-store aspect of PLAN-46 is that side). The clients' call path is theirs to check. PLAN-46's spec carries the finding; its dependency on `credential-store-choice` was dropped (shipped as #90).
 
+- **`SchemaSubset.checkString` evaluates a pattern before it checks `maxLength` (CodeRabbit lead on #126, verified in the code at `3d4baf7`, 2026-10-21).**
+  `pm-core/src/main/java/de/planmarshall/core/role/corpus/SchemaSubset.java` lines 139 to 153 compile and match the schema `pattern` against the whole
+  value and test `maxLength` afterwards, so a long value reaches the backtracking engine first. It is the verification-corpus path (PM-WORK-6, `CorpusValidator`),
+  not the enrolled-schema path PLAN-89 bounded; whether a corpus value or schema can be attacker-controlled was not assessed. The thread is unresolved on #126.
+  A fix (check the length first) changes behaviour, so it is not a PLAN-94 item. No plan owns it: the operator decides — a one-deliverable plan, or a bullet of
+  the plan that next edits `core.role.corpus` — source: landing PLAN-89, corroborated 2026-10-21.
+- **Two landings of 2026-10-21 are incomplete (`inbox landing-check`).** PLAN-89 (`plans-index-and-traceability-corrections-006.md`): `missing_keys: [total_tokens]`
+  and `harness`, `model`, `effort`, `plugin_version` `unknown`. PLAN-91 (`plan-91-plan-instance-advisories-008.md`): no `landing-facts` block at all, all nine required keys
+  missing; the message is a narrative with a front-matter block. Both were reconciled from git, the pull requests and the code. The `/plan-marshall` lane on opencode
+  wrote a free-form landing for PLAN-91; fold further occurrences here.
+
 ## Watches
 
-- Owed to the milestone exit after PLAN-70 (#107, 2026-10-19), written in plan-marshall-documentation and not by any plan here: the roadmap check-off of the plan-instance item (`roadmap.adoc` line 233 still lists the prune reasons `plan_default` and `merge_by_operator`, the override event and `diff_summary` under "Remaining") and the documentation parts of PM-IMPL-5. The plan's statement that its change breaks `plan-marshall-mcp` was REFUTED on 2026-10-19 (`grep` finds no Java file there naming `CompositionRecord`, `CompiledInvariants`, `PlanFacts` or `RECIPE_ID_FACT` at `91b60d5`); it holds only for whoever first wires the composer into the assembly. Retire this watch when the roadmap line is updated.
+- Owed to the milestone exit after PLAN-70 (#107, 2026-10-19) and PLAN-91 (#131, 2026-10-21: the concept and user documentation of the slice and the roadmap check-off), written in plan-marshall-documentation and not by any plan here: the roadmap check-off of the plan-instance item (`roadmap.adoc` line 233 still lists the prune reasons `plan_default` and `merge_by_operator`, the override event and `diff_summary` under "Remaining") and the documentation parts of PM-IMPL-5. The plan's statement that its change breaks `plan-marshall-mcp` was REFUTED on 2026-10-19 (`grep` finds no Java file there naming `CompositionRecord`, `CompiledInvariants`, `PlanFacts` or `RECIPE_ID_FACT` at `91b60d5`); it holds only for whoever first wires the composer into the assembly. Retire this watch when the roadmap line is updated.
 > ↪ Relocated to `settled.md` § "Watch: documentation PR #95, the pin advance of the migration inventory" — retired 2026-10-21: merged as 963e879
 - Filed 2026-10-21 in plan-marshall's `live-blockers` inbox (`pm-mcp-core-m2-m4-001` to `-004`, queued and uncommitted in that ledger worktree until its `land`): the executor-skew evidence of five runbook landings, the `total_tokens=unknown` recurrence (seven landings), the lane edit of the main checkout and the bot silence on a merge head (PLAN-81, the two unfiled lane-contract lessons), and the `ci` abstraction's lack of a repository selector.
 - The Secret Service path (Linux) is unproven end to end (stated on plan-marshall-mcp #88 and #90; the Keychain path was measured on macOS). In this repository `SecretServiceIT` of `pm-runtime` is `@EnabledOnOs(LINUX)` and skips itself by `assumeTrue` when there is no session bus address or the default collection is locked, so a CI run proves nothing for it. Proving it takes a Linux desktop session with an unlocked default collection running `verify -Pintegration-tests -pl pm-runtime -am`; that is plan work or the operator's, not an orchestrator read. Retire this watch when a run on such a session shows the test executed and green.
@@ -1036,3 +1044,6 @@ decision or a dependency outside this repository.
   (the rules of all 109: `java:S4032` 22, `S7467` 19, `S5778` 15, `S6213` 10). **Staged on 2026-10-21 as PLAN-94 `sonar-main-backlog`** at the operator's word (runbook lane, WS-06, 8 deliverables: 58 issues in 31 files fixed in the code, the 22 `S4032` on package-only packages NOT removed because they are the reserved homes of staged plans, their settling is the operator's answer at refine; sequenced after PLAN-84) — source: `https://sonarcloud.io/api/issues/search?componentKeys=plan-marshall_pm-mcp-core&branch=main&resolved=false`.
 - **The index still names three packages of `pm-mcp-clients` that are `done` there (found by `cleanup`, 2026-10-21).** Owner: PLAN-93, after PLAN-89.
   PLAN-89's pull request #126 does not touch the `profile-loader` row.
+- **plan-marshall-documentation `doc/roadmap.adoc:242` links `pm-core/doc/developer/core-queue.adoc`, which pm-mcp-core #122 removed (found by the landing of PLAN-89, verified at documentation `origin/main`, 2026-10-21).**
+  A dangling link; the documentation workflow `links.yml` checks both trees. Owed in the documentation repository with the PLAN-64 Deliverable 7 roadmap update (`_Remaining_`).
+- **The eighth landing without `total_tokens`: PLAN-89 (`/plan-marshall` on opencode, 2026-10-21).** Same standing property as the seven opencode runbook landings above; read tokens as unobserved.
