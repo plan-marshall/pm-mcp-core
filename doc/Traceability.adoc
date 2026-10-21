@@ -680,7 +680,14 @@ Implementation (the first bullet as far as the library module `pm-core` carries 
 link:../pm-core/src/main/java/de/planmarshall/core/store/ProjectResolution.java[ProjectResolution],
 link:../pm-core/src/main/java/de/planmarshall/core/store/PathConfinement.java[PathConfinement]
 
-Verified by (the project resolution): link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectResolverTest.java[ProjectResolverTest],
+Verified by (the project resolution): link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectResolverMainCheckoutTest.java[ProjectResolverMainCheckoutTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectResolverWorktreeTest.java[ProjectResolverWorktreeTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectResolverNestedCheckoutTest.java[ProjectResolverNestedCheckoutTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectResolverMovedCheckoutTest.java[ProjectResolverMovedCheckoutTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectResolverUnenrolledTest.java[ProjectResolverUnenrolledTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectResolverUnrecognisedGitTest.java[ProjectResolverUnrecognisedGitTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectResolverEnrolmentTest.java[ProjectResolverEnrolmentTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectResolverContractTest.java[ProjectResolverContractTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/LinkedWorktreeConfinementTest.java[LinkedWorktreeConfinementTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/PathConfinementTest.java[PathConfinementTest]
 
@@ -952,6 +959,9 @@ link:../pm-core/src/main/java/de/planmarshall/core/store/ProjectStoreIdentityCod
 Verified by (the operator and question stores and the project store identity): link:../pm-core/src/test/java/de/planmarshall/core/store/WaiverRecordCodecTest.java[WaiverRecordCodecTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/WaiverConsumptionCodecTest.java[WaiverConsumptionCodecTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionRecordCodecTest.java[QuestionRecordCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionRecordRoundTripTest.java[QuestionRecordRoundTripTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionRecordRefusalsTest.java[QuestionRecordRefusalsTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionRecordMembersOnTheirEventsTest.java[QuestionRecordMembersOnTheirEventsTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java[WorkflowStatusCodecTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusSchemaParityTest.java[WorkflowStatusSchemaParityTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreIdentityCodecTest.java[ProjectStoreIdentityCodecTest]
@@ -1190,6 +1200,12 @@ link:../pm-core/src/main/java/de/planmarshall/core/store/ProjectStore.java[Proje
 Verified by (the operator and question stores and the project store): link:../pm-core/src/test/java/de/planmarshall/core/store/WaiverLogTest.java[WaiverLogTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/WaiverConsumptionLogTest.java[WaiverConsumptionLogTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogTest.java[QuestionLogTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogRevisionTest.java[QuestionLogRevisionTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogClosingTest.java[QuestionLogClosingTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogAnswerRevisionTest.java[QuestionLogAnswerRevisionTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogCurrentLineTest.java[QuestionLogCurrentLineTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogRefusedLineTest.java[QuestionLogRefusedLineTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogMalformedTest.java[QuestionLogMalformedTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/EntryQuestionMoveTest.java[EntryQuestionMoveTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusStoreTest.java[WorkflowStatusStoreTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreTest.java[ProjectStoreTest]

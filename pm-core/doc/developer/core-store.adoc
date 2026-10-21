@@ -940,11 +940,19 @@ not shown to be the only one. Two readable matches are `RootConflict`.
 
 Tested by `WaiverRecordCodecTest`, `WaiverLogTest`, `WaiverConsumptionCodecTest`, `WaiverConsumptionLogTest`,
 `WorkflowStatusCodecTest`, `WorkflowStatusStoreTest` and `WorkflowStatusSchemaParityTest` (the waiver requests),
-`QuestionRecordCodecTest`, `QuestionLogTest` (one closing line, the current revision, a refusal adds nothing, a torn
-tail, a refused line, an append to a log with a refused line refused `Unreadable`), `EntryQuestionMoveTest` (the move, a repeated move refused, a stop between the two commits),
+`QuestionRecordCodecTest` (the decision's evidence limit, the schema and the wire names), the three classes of the
+question-line codec that share its fixtures (`QuestionRecordRoundTripTest`, `QuestionRecordRefusalsTest`,
+`QuestionRecordMembersOnTheirEventsTest`), the six classes of the question log (`QuestionLogTest` for its location,
+`QuestionLogRevisionTest`, `QuestionLogClosingTest`, `QuestionLogAnswerRevisionTest`, `QuestionLogCurrentLineTest`,
+`QuestionLogRefusedLineTest` and `QuestionLogMalformedTest` — one closing line, the current revision, a refusal adds
+nothing, a torn tail, a refused line, an append to a log with a refused line refused `Unreadable`, a set asked whole),
+`EntryQuestionMoveTest` (the move, a repeated move refused, a stop between the two commits),
 `ProjectStoreIdentityCodecTest`, `ProjectStoreTest`, `ProjectStoreNoStateInRepositoryTest` (no file below the
-repository), and `ProjectResolverTest`, `LinkedWorktreeConfinementTest` and `PathConfinementTest` (every row of the
-table above, beside its resolving counterpart).
+repository), and the eight classes of the resolution (`ProjectResolverMainCheckoutTest`,
+`ProjectResolverWorktreeTest`, `ProjectResolverNestedCheckoutTest`, `ProjectResolverMovedCheckoutTest`,
+`ProjectResolverUnenrolledTest`, `ProjectResolverUnrecognisedGitTest`, `ProjectResolverEnrolmentTest`,
+`ProjectResolverContractTest` — every row of the table above, beside its resolving counterpart),
+`LinkedWorktreeConfinementTest` and `PathConfinementTest`.
 
 == Reading Helpers Shared with the Stores of Other Packages
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_

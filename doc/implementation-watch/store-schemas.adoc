@@ -66,7 +66,8 @@ test re-enrols a relocated checkout and asserts that every scope resolves throug
 stale path, and that a checkout path a client of the operator names (the terminal client's working directory, a
 checkout at its onboarding) and a worker's job record resolve through the same one rule. Present in `pm-mcp-core`:
 the one rule that maps a checkout path to its enrolled project, whose results hold the project id and never the path,
-and a main checkout moved away from its `project_root` resolves to no project (`ProjectResolverTest`); the
+and a main checkout moved away from its `project_root` resolves to no project (`ProjectResolverMovedCheckoutTest`, and
+`ProjectResolverEnrolmentTest` for the enrolment match); the
 re-enrolment of a relocated checkout, the resolution of every scope through the new root, and the worker's job record
 stay for the requests that record the project id.
 Source:: plan-marshall orchestrator-refactor PLAN-03 D3.
@@ -456,7 +457,8 @@ refused `already_answered`; an answer after the request was closed (`cancelled` 
 changes nothing. Present in `pm-mcp-core`: neither the waiver request nor the question record has a member that
 names an expiry, and the outcomes of a request have no `expired` (`WorkflowStatusSchemaParityTest`,
 `QuestionRecordCodecTest`); a second closing line of a question is refused `already_answered` and adds nothing, and an
-answer to an older revision is refused `conflict` (`QuestionLogTest`); the test clock across a restart and an
+answer to an older revision is refused `conflict` (`QuestionLogClosingTest`, `QuestionLogAnswerRevisionTest`); the test
+clock across a restart and an
 integrity pause, the race of the two clients, and the refused answer to a closed waiver request stay for the operator
 wait.
 Source:: design review.

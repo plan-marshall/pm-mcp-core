@@ -40,7 +40,7 @@ Guard:: Resolvers return `absent` for a missing path, distinct from an existing 
 `unreadable`, never an empty record: a production-format `request.md` never parses to an empty metadata map. Present
 in `pm-mcp-core`: the identity record of a project store reads `Absent` for a missing `store.json` and `Unreadable`
 for a refused one, never an empty identity (`ProjectStoreTest`), and the project resolution reports a refused
-enrolment file as `EnrolmentRefused`, never as no enrolment (`ProjectResolverTest`); the archive and plan path
+enrolment file as `EnrolmentRefused`, never as no enrolment (`ProjectResolverEnrolmentTest`); the archive and plan path
 resolvers and the metadata reader of `request.md` stay for their packages.
 Fixture:: a key=value-only metadata reader stopped at the `# Request:` heading and returned `{}` for every production
 colon-format `request.md`, read as "no metadata" (`implement-opencode-enforcement-parity-002`,
