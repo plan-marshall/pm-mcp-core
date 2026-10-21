@@ -74,7 +74,7 @@ public final class ShippedProfiles {
         if ("file".equals(directory.getProtocol())) {
             try {
                 readDirectory(Path.of(directory.toURI()), documents);
-            } catch (java.net.URISyntaxException e) {
+            } catch (URISyntaxException e) {
                 throw new IOException("Not a file URL: " + directory, e);
             }
         } else if ("jar".equals(directory.getProtocol())) {

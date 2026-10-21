@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -201,7 +202,7 @@ class ProfileValidatorTest {
                             "/headless/weights_probe/bogus", "an unknown weights-probe member"),
                     Arguments.of(ProfileFixtures.valid().set("/headless/events", map("kind_pointer", "/type",
                                     "kinds", map("text", null, "tool_call", null, "tool_result", null,
-                                            "file_changed", null, "turn", map("match", List.of("result"))))),
+                                    "file_changed", null, "turn", map("match", List.of("result"))))),
                             "/headless/events/kinds/turn/stop_reason", "a turn without its stop reason"));
         }
 
@@ -232,7 +233,7 @@ class ProfileValidatorTest {
     @DisplayName("an empty class args is a schema-valid launch, as is a turn without a stop reason")
     void emptyArgsAndNullStopReasonAccepted() {
         var fixture = ProfileFixtures.valid()
-                .set("/headless/classes/writer/args", new java.util.ArrayList<>())
+                .set("/headless/classes/writer/args", new ArrayList<>())
                 .set("/headless/events", mapOf("kind_pointer", "/type", "kinds", mapOf("text", null,
                         "tool_call", null, "tool_result", null, "file_changed", null, "turn",
                         mapOf("match", List.of("result"), "stop_reason", null))));
@@ -240,8 +241,8 @@ class ProfileValidatorTest {
         ProfileValidator.validate(fixture.bytes(), DOCUMENT, ProfileRules.none());
     }
 
-    private static java.util.Map<String, Object> mapOf(Object... pairs) {
-        var map = new java.util.LinkedHashMap<String, Object>();
+    private static Map<String, Object> mapOf(Object... pairs) {
+        var map = new LinkedHashMap<String, Object>();
         for (var index = 0; index < pairs.length; index += 2) {
             map.put((String) pairs[index], pairs[index + 1]);
         }

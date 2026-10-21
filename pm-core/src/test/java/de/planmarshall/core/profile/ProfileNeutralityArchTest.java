@@ -13,7 +13,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystemNotFoundException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -46,7 +49,7 @@ class ProfileNeutralityArchTest {
 
     @Test
     @DisplayName("the loader names no harness")
-    void loaderNamesNoHarness() throws IOException {
+    void loaderNamesNoHarness() throws Exception {
         var violations = violationsIn(packageClasses());
 
         assertFalse(packageClasses().isEmpty(), "The scan must find the classes of the profile package");
@@ -55,7 +58,7 @@ class ProfileNeutralityArchTest {
 
     @Test
     @DisplayName("the scan finds a harness named in a class constant pool")
-    void controlFixtureFails() throws IOException {
+    void controlFixtureFails() throws Exception {
         var found = violationsIn(List.of(classFileOf(ClientNamedFixture.class)));
 
         assertTrue(found.values().stream().flatMap(Set::stream).anyMatch("opencode"::equals), () -> found.toString());
@@ -96,10 +99,10 @@ class ProfileNeutralityArchTest {
         return toPath(source.getLocation());
     }
 
-    private static Path toPath(java.net.URL url) {
+    private static Path toPath(URL url) {
         try {
             return Path.of(url.toURI());
-        } catch (java.net.URISyntaxException | java.nio.file.FileSystemNotFoundException e) {
+        } catch (URISyntaxException | FileSystemNotFoundException e) {
             throw new IllegalStateException("Cannot resolve a classpath location: " + url, e);
         }
     }

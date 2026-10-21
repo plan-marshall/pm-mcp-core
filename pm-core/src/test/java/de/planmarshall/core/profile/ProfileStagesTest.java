@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -71,8 +72,8 @@ class ProfileStagesTest {
                 () -> assertEquals(ProfileStages.UsageStatus.NOT_APPLICABLE,
                         result.figures().get("cache_creation")),
                 () -> assertEquals(ProfileStages.UsageStatus.MISSING, result.figures().get("reasoning")),
-                () -> assertEquals(Map.of("input_tokens", new java.math.BigDecimal("10"), "output_tokens",
-                        new java.math.BigDecimal("5")), result.parsed()));
+                () -> assertEquals(Map.of("input_tokens", new BigDecimal("10"), "output_tokens",
+                        new BigDecimal("5")), result.parsed()));
     }
 
     @Test
@@ -80,11 +81,11 @@ class ProfileStagesTest {
     void usageComparedFieldByField() {
         var result = ProfileStages.usage(profile(), turn("""
                 {"usage":{"input_tokens":10,"output_tokens":5}}
-                """), Map.of("input_tokens", new java.math.BigDecimal("10"), "output_tokens",
-                new java.math.BigDecimal("5")));
+                """), Map.of("input_tokens", new BigDecimal("10"), "output_tokens",
+                new BigDecimal("5")));
 
-        assertEquals(Map.of("input_tokens", new java.math.BigDecimal("10"), "output_tokens",
-                new java.math.BigDecimal("5")), result.parsed());
+        assertEquals(Map.of("input_tokens", new BigDecimal("10"), "output_tokens",
+                new BigDecimal("5")), result.parsed());
     }
 
     @Test
@@ -92,7 +93,7 @@ class ProfileStagesTest {
     void differingFigureFails() {
         var refusal = assertThrows(ProfileRefusal.class, () -> ProfileStages.usage(profile(), turn("""
                 {"usage":{"input_tokens":10,"output_tokens":5}}
-                """), Map.of("input_tokens", new java.math.BigDecimal("11"))));
+                """), Map.of("input_tokens", new BigDecimal("11"))));
 
         assertAll(
                 () -> assertEquals("/usage/input_tokens", refusal.pointer()),
@@ -109,11 +110,11 @@ class ProfileStagesTest {
 
         var result = ProfileStages.usage(loaded, turn("""
                 {"usage":{"input_tokens":10,"output_tokens":5},"cost_usd":0.25}
-                """), Map.of("cost_usd", new java.math.BigDecimal("0.25")));
+                """), Map.of("cost_usd", new BigDecimal("0.25")));
 
         assertAll(
                 () -> assertEquals(ProfileStages.UsageStatus.REPORTED, result.figures().get("cost_usd")),
-                () -> assertEquals(new java.math.BigDecimal("0.25"), result.parsed().get("cost_usd")));
+                () -> assertEquals(new BigDecimal("0.25"), result.parsed().get("cost_usd")));
     }
 
     @Test

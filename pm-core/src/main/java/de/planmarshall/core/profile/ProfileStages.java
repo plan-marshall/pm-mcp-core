@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.profile;
 
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -92,7 +93,7 @@ public final class ProfileStages {
      * @param parsed  the parsed figure by name; empty for a figure that is not reported
      * @since 0.1
      */
-    public record UsageResult(Map<String, UsageStatus> figures, Map<String, java.math.BigDecimal> parsed) {
+    public record UsageResult(Map<String, UsageStatus> figures, Map<String, BigDecimal> parsed) {
 
         /** Copies both maps. */
         public UsageResult {
@@ -136,12 +137,12 @@ public final class ProfileStages {
      *                        harness's own record
      */
     public static UsageResult usage(LoadedProfile profile, JsonNode turn,
-            Map<String, java.math.BigDecimal> harnessRecord) {
+            Map<String, BigDecimal> harnessRecord) {
         var usage = profile.headless("/usage").orElseThrow(
                 () -> ProfileRefusal.invalid(profile.clientId() + ".json", "/headless/usage",
                         "a profile that is verified for usage names its usage block"));
         var figures = new LinkedHashMap<String, UsageStatus>();
-        var parsed = new LinkedHashMap<String, java.math.BigDecimal>();
+        var parsed = new LinkedHashMap<String, BigDecimal>();
         for (var figure : USAGE_FIGURES) {
             var declaration = usage.member(figure).orElse(JsonNode.nullValue());
             if (declaration.isNull()) {
