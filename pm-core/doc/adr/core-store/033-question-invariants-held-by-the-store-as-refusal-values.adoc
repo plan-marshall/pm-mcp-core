@@ -42,7 +42,19 @@ The rationale beyond the need for a check under the lock is not recorded.
 
 == Alternatives Considered
 
-Alternatives not recorded.
+1. *Throw an exception for a second closing line or an old revision.* _Not taken_: both are expected under concurrent
+   clients, and the caller reports the refusal to the operator with the current revision; an exception would make the
+   expected path a fault and lose the revision the operator needs.
+2. *Check the invariants in the `pm-runtime` adapter before it calls the store.* _Not taken_: the adapter would read
+   the log outside the caller's transaction, and only a check under the same lock as the append sees every line
+   another writer appended (link:032-question-store-in-core-store-read-through-a-runtime-adapter.adoc[ADR 032] keeps
+   the store in `core.store` and the adapter read-only).
+3. *Check a snapshot taken before the transaction and retry on a conflict.* _Not taken_: a retry would have to
+   recreate the caller's transaction; the store reads under the lock the caller already holds, so there is no window
+   such a retry could close that the read under the lock does not close already.
+4. *Let a revision add a part to its set.* _Not taken_: the revision rule revises the questions that are open at a
+   given revision, and a part has no earlier revision to revise from; a set is asked whole
+   (link:040-a-question-set-is-asked-whole.adoc[ADR 040]).
 
 == Consequences
 

@@ -31,7 +31,17 @@ a JSONL store first and records the digest of every store in the plan's sidecar.
 
 == Alternatives Considered
 
-Alternatives not recorded.
+1. *Rewrite the current state of every waiver into one file, a map by waiver id.* _Not taken_: it rewrites the
+   operator's record on every act and loses the history that the audit mirror and the `reason_class` recurrence read;
+   the append is the evidence.
+2. *One file per waiver id.* _Not taken_: the plan's transaction and digest sidecar would carry one target per waiver,
+   and a revocation is naturally a line of the same log; the last readable line of the id is already the current state.
+3. *Append straight to the file, with an fsync, outside the scope transaction.* _Not taken_: the journal, the torn-tail
+   repair and the digest sidecar would not cover the line, and a stop mid-append would leave a tail no recovery knows
+   about.
+4. *Keep the consumptions inside `waivers.jsonl`.* _Not taken_: the waiver log has exactly one writer, the operator's
+   act, and a consumption is the evaluation that relied on it, written by `waiver.lookup`; one log would mix the
+   authority with its use and give the file two writers.
 
 == Consequences
 
