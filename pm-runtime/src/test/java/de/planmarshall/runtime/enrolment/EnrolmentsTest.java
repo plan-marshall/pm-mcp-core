@@ -313,6 +313,24 @@ class EnrolmentsTest {
                     () -> assertFalse(Files.exists(store.file(PROJECT))),
                     () -> assertFalse(Files.exists(store.sidecar(PROJECT))));
         }
+
+        @Test
+        @DisplayName("refuses a nested property above the ceiling and reports its name literally")
+        void refusesNestedPropertyAboveCeiling() {
+            var above = ArgumentSchema.PATTERN_MAX_LENGTH_CEILING + 1;
+            var properties = new TreeMap<String, ArgumentSchema>();
+            properties.put("100%s", patternSchema(above));
+            var root = new ArgumentSchema(SchemaType.OBJECT, properties, null, false, null, null, null, null, null);
+
+            var refusal = assertThrows(StoreRefusal.class,
+                    () -> enrolments.enrol(withArgumentSchema(enrolment(false, null), root), false));
+
+            assertAll(
+                    () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome()),
+                    () -> assertTrue(refusal.getMessage().contains("100%s"), refusal.getMessage()),
+                    () -> assertTrue(refusal.getMessage().contains("maxLength " + above), refusal.getMessage()),
+                    () -> assertFalse(Files.exists(store.file(PROJECT))));
+        }
     }
 
     @Nested

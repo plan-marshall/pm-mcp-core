@@ -166,7 +166,7 @@ class EnrolmentPolicy {
         var maxLength = schema.maxLength();
         if (schema.pattern() != null && maxLength != null
                 && maxLength > ArgumentSchema.PATTERN_MAX_LENGTH_CEILING) {
-            violations.add((place + ABOVE_CEILING).formatted(maxLength, ArgumentSchema.PATTERN_MAX_LENGTH_CEILING));
+            violations.add(place + ABOVE_CEILING.formatted(maxLength, ArgumentSchema.PATTERN_MAX_LENGTH_CEILING));
         }
         var properties = schema.properties();
         if (properties != null) {
