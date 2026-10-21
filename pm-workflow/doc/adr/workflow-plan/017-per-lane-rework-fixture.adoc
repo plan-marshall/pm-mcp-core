@@ -52,9 +52,10 @@ call states stayed in a deep version.
    other composer and invariant test composes; and the fixture's light route must stay prunable, which a shared phase
    cannot be.
 2. *Compose a call-only plan unit, without the phase states.* _Not taken_: the phase invariants run over the composed
-   unit, and several of their checks are absolute even against a unit that is its own default — `INV-PLAN-1` requires
-   `plan.qgate` and `INV-FIN-1` the mandatory step completions among them. A unit with call states only satisfies the
-   call contract but none of them.
+   unit. Most of their checks are reference-relative — `requirePresent` reports a missing state only when the reference
+   unit carries it, and a unit that is its own default supplies no reference target — but `INV-FIN-1` is absolute: its
+   mandatory step completions come from the finalize roster, not from the reference unit. A unit with call states only
+   satisfies the call contract but carries none of the phase states that check names.
 3. *Assert the routing on the merged fixtures alone.* _Not taken_: that is the state that let the defect through; the
    merged fixture has no light call state to route.
 
