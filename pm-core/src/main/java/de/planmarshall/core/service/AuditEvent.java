@@ -10,7 +10,9 @@
 package de.planmarshall.core.service;
 
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -47,6 +49,12 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
 
     /** The category of the events of the stores and their locks. */
     public static final String CATEGORY_STORE = "store";
+
+    /** The category of a state transition and of the stall records that mirror one. */
+    public static final String CATEGORY_TRANSITION = "transition";
+
+    /** The outcome of a record that states a condition the operator should know of. */
+    public static final String OUTCOME_WARNING = "warning";
 
     /** The outcome of an action that was refused. */
     public static final String OUTCOME_REFUSED = "refused";
@@ -149,27 +157,6 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     public static final String REASON_NOT_CONFIRMED = "not_confirmed";
 
     /**
-     * The name of the event that records an entry row of a scope session log whose declared client differs from the
-     * client of the previous row.
-     */
-    public static final String ENTRY_CLIENT_CHANGED = "entry_client_changed";
-
-    /** The category of the events of the identity of the sessions that enter a scope. */
-    public static final String CATEGORY_IDENTITY = "identity";
-
-    /** The detail of a client change that names the client the previous row declared. */
-    public static final String DETAIL_PREVIOUS_CLIENT = "previous_client";
-
-    /** The detail of a client change that names the client the new row declares. */
-    public static final String DETAIL_CLIENT = "client";
-
-    /** The detail of a client change that holds the host session id of the previous row; left out when it had none. */
-    public static final String DETAIL_PREVIOUS_CLIENT_SESSION_ID = "previous_client_session_id";
-
-    /** The detail of a client change that holds the host session id of the new row; left out when it has none. */
-    public static final String DETAIL_CLIENT_SESSION_ID = "client_session_id";
-
-    /**
      * The name of the event that records a pending entry record removed by the pending-record sweep because it is
      * older than the pending entry record maximum age.
      */
@@ -180,6 +167,24 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
 
     /** The detail of a removed pending entry record that holds the instant the record was created. */
     public static final String DETAIL_CREATED_AT = "created_at";
+
+    /**
+     * The name of the record a stalled plan or epic appends once per episode (PM-ARCH-8; Store Schemas § Audit Log,
+     * Stall records).
+     */
+    public static final String PLAN_STALLED = "plan_stalled";
+
+    /** The detail of a stall record that names the state the scope rests in. */
+    public static final String DETAIL_STATE = "state";
+
+    /** The detail of a stall record that names its closed cause. */
+    public static final String DETAIL_CAUSE = "cause";
+
+    /** The detail of a stall record that holds the instant of the last transition or task progress. */
+    public static final String DETAIL_IDLE_SINCE = "idle_since";
+
+    /** The detail of a stall record that holds the seconds since that instant. */
+    public static final String DETAIL_IDLE_SECONDS = "idle_seconds";
 
     /** The name of the transaction id argument, as a null check reports it. */
     private static final String TRANSACTION_ID_ARGUMENT = "transactionId";
@@ -255,35 +260,6 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     }
 
     /**
-     * The {@code identity} record a scope session log owes when an entry row declares another client than the row
-     * before it. It changes nothing else; it is owed by the transaction that appends the row.
-     *
-     * @param previousClient          the client the previous row declared, by its wire name
-     * @param client                  the client the new row declares, by its wire name
-     * @param previousClientSessionId the host session id of the previous row; {@code null} leaves the detail out
-     * @param clientSessionId         the host session id of the new row; {@code null} leaves the detail out
-     * @param transactionId           the id of this one record, issued by the transaction that appends the row and
-     *                                distinct from its own id; the deduplication key by which a record handed over
-     *                                again is recognised as the same
-     * @return the record of the client change
-     * @throws NullPointerException if a client or the transaction id is {@code null}
-     */
-    public static AuditEvent entryClientChanged(String previousClient, String client, String previousClientSessionId,
-            String clientSessionId, String transactionId) {
-        var details = new HashMap<String, Object>();
-        details.put(DETAIL_PREVIOUS_CLIENT, Objects.requireNonNull(previousClient, "previousClient"));
-        details.put(DETAIL_CLIENT, Objects.requireNonNull(client, DETAIL_CLIENT));
-        if (previousClientSessionId != null) {
-            details.put(DETAIL_PREVIOUS_CLIENT_SESSION_ID, previousClientSessionId);
-        }
-        if (clientSessionId != null) {
-            details.put(DETAIL_CLIENT_SESSION_ID, clientSessionId);
-        }
-        details.put(DETAIL_TRANSACTION_ID, Objects.requireNonNull(transactionId, TRANSACTION_ID_ARGUMENT));
-        return new AuditEvent(ENTRY_CLIENT_CHANGED, CATEGORY_IDENTITY, OUTCOME_SUCCEEDED, details);
-    }
-
-    /**
      * The record a pending-record sweep owes for every pending entry record it removes, as the evidence of its
      * removal: the entry, the creation instant the age was measured from, and the store path. It is owed by the
      * workspace transaction that removes the record, under an id of its own, so two records removed in one run carry
@@ -305,6 +281,32 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
                         Objects.requireNonNull(store, DETAIL_STORE), DETAIL_CREATED_AT,
                         Objects.requireNonNull(createdAt, "createdAt"), DETAIL_TRANSACTION_ID,
                         Objects.requireNonNull(transactionId, TRANSACTION_ID_ARGUMENT)));
+    }
+
+    /**
+     * The one {@code plan_stalled} record of a stall episode (PM-ARCH-8; Store Schemas § Audit Log, Stall records): a
+     * {@code transition} record with outcome {@code warning}, the scope, the state the scope rests in, the closed cause
+     * and the idle span. It is operator and metrics data only and never part of a model-facing representation.
+     *
+     * @param scopeType   the type of the scope, {@code plan} or {@code epic}
+     * @param scopeId     the id of the plan or epic
+     * @param state       the state the scope rests in
+     * @param cause       the closed cause of the stall
+     * @param idleSince   the instant of the last transition or task progress
+     * @param idleSeconds the seconds since that instant
+     * @return the record of the stall
+     * @throws NullPointerException if a component is {@code null}
+     */
+    public static AuditEvent planStalled(String scopeType, String scopeId, String state, String cause,
+            Instant idleSince, long idleSeconds) {
+        var details = new LinkedHashMap<String, Object>();
+        details.put(DETAIL_SCOPE_TYPE, Objects.requireNonNull(scopeType, "scopeType"));
+        details.put(DETAIL_SCOPE_ID, Objects.requireNonNull(scopeId, "scopeId"));
+        details.put(DETAIL_STATE, Objects.requireNonNull(state, "state"));
+        details.put(DETAIL_CAUSE, Objects.requireNonNull(cause, "cause"));
+        details.put(DETAIL_IDLE_SINCE, Objects.requireNonNull(idleSince, "idleSince").toString());
+        details.put(DETAIL_IDLE_SECONDS, idleSeconds);
+        return new AuditEvent(PLAN_STALLED, CATEGORY_TRANSITION, OUTCOME_WARNING, details);
     }
 
     /**

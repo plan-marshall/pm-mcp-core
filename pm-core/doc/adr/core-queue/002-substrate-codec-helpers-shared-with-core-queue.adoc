@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted
+Accepted; the record whose codec motivated it was removed by the work package `removed-concepts` (2026-10-20), and the API decision stands for the stores of other packages.
 
 == Date
 
@@ -11,7 +11,7 @@ Accepted
 
 == Context
 
-The codec of the session generation record lives in `core.queue`. Every store of the runtime is read with one
+The first codec of `core.queue` lived there until the work package `removed-concepts` removed the record it read. Every store of the runtime is read with one
 strictness (exactly the current `format_version`, only declared members, each once, every required member, one wire
 shape per instant) and refused with a `StoreRefusal` naming the file. That strictness is implemented once, in
 `StrictJson` of `core.store`, which was package-private. The store also needs the directory `projects/<project_id>/`
@@ -27,12 +27,12 @@ The operator decided to make both public API of `core.store` (outline, question 
   `nullableInstant`), the writer `writeInstant`, the refusals `unreadable` and `undeclared` with their type `Malformed`,
   the constant `FIELD_FORMAT_VERSION` and the shared `factory()` are public. Its Javadoc names the cross-package use. A
   `Malformed` thrown by a helper is caught by `read` and becomes the refusal naming the file; it never leaves `read`.
-* `LockKey.projectStore(base, projectId)` becomes public, so `core.queue` resolves `queue/` with the one path grammar of
-  the locks.
+* `LockKey.projectStore(base, projectId)` becomes public, so a store package resolves its directory with the one path
+  grammar of the locks.
 
 == Alternatives Considered
 
-1. *Put the session generation store into `core.store`*.
+1. *Put the store of the queue into `core.store`*.
    _Rejected_: the task queue is its own package by the module structure; its records would be scattered over the
    package of the scope stores.
 2. *A second strict reader in `core.queue`*.

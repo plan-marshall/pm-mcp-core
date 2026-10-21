@@ -24,7 +24,7 @@ import java.util.random.RandomGenerator;
 
 /**
  * The pending entry records {@code pending/<entry_id>.json} of a project's workspace scope (PM-CLIENT-1,
- * PM-IMPL-7): one record per {@code pm-mcp enter} on a scope that does not exist yet, the state store of that entry's
+ * PM-IMPL-7): one record per entry a client opens for a scope that does not exist yet, the state store of that entry's
  * bootstrap.
  * <p>
  * Every write is a target of the caller's {@link ScopeTransaction} of the workspace scope, which holds the workspace

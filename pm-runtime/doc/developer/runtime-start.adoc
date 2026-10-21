@@ -15,21 +15,21 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}
 
 Package `de.planmarshall.runtime.start` of `pm-runtime` holds the start, the drain, the per-project recovery and the
 periodic sweep of the runtime; they are described in link:{docs}/developer/runtime-lifecycle.adoc[Developer Guide §
-Runtime Lifecycle]. This guide covers what the work package `session-log-and-generations` added to it: the two steps of
-the periodic sweep, which remove what has aged out of the stores the package added in `pm-core`. It also covers what
-the work package `audit-trail` changed in it: the audit chain seam of the bounded verification, whose broken outcome
-now carries a reason and the first broken line (<<_the_audit_chain_seam>>), and the one `transaction_id` per record the
-pending-record step owes. It also covers what the work package `credential-store-choice` added: the resume of a move
-between the credential stores that a stop cut (<<_store_move_resume>>), and what the work package
-`service-unit-restore` added: the previous service unit that a failed load restores
-(<<_the_previous_unit_of_a_failed_load>>).
+Runtime Lifecycle]. This guide covers what the work package `session-log-and-generations` added to it: the step of the
+periodic sweep, which removes what has aged out of the store the package added in `pm-core`. It also covers the
+stalled-scope detection of the work package `removed-concepts`. It further covers what the work package `audit-trail`
+changed in it: the audit chain seam of the bounded verification, whose broken outcome now carries a reason and the
+first broken line (<<_the_audit_chain_seam>>), and the one `transaction_id` per record the pending-record step owes. It
+also covers what the work package `credential-store-choice` added: the resume of a move between the credential stores
+that a stop cut (<<_store_move_resume>>), and what the work package `service-unit-restore` added: the previous service
+unit that a failed load restores (<<_the_previous_unit_of_a_failed_load>>).
 
 * `PendingEntryRecordsSweep` removes the pending entry records of the workspace scope older than the pending entry
   record maximum age.
-* `FencedSessionGenerationsSweep` removes the session generations fenced longer ago than the same age.
 
-The periodic sweep has no seam factory any more: the two steps are real classes, and the assembly `pm-mcp-server`
-registers them when it builds the `PeriodicSweep`
+The periodic sweep has no seam factory any more: the steps are real classes, and the assembly `pm-mcp-server`
+must register `PendingEntryRecordsSweep` when it builds the `PeriodicSweep` — it still calls
+`SweepStep.notImplemented` and does not build against the current snapshot until its registration pull request lands
 (link:../adr/runtime-start/002-sweep-seam-factory-removed.adoc[ADR 002]).
 
 The work package `job-runner` added the jobs part of recovery step 3 (<<_jobs_recovery_step>>), whose worker part stays
@@ -41,15 +41,14 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
 
 [horizontal]
 `PeriodicSweep`:: Runs every step for every enrolled project whose recovery has finished, once per `INTERVAL` (3600
-seconds), handing each step the instant `PENDING_ENTRY_MAX_AGE` (86400 seconds) before the run. Both durations are
-compiled constants. A failed step is logged at WARN as `PM_RUNTIME-115` (`PERIODIC_SWEEP_STEP_FAILED`) and stops neither
+seconds), handing each step the instant `PENDING_ENTRY_MAX_AGE` (86400 seconds) before the run. The duration is a
+compiled constant. A failed step is logged at WARN as `PM_RUNTIME-115` (`PERIODIC_SWEEP_STEP_FAILED`) and stops neither
 the other steps nor the other projects.
 `SweepStep`:: The contract of a step: its `Name` and `run(projectId, olderThan)`, which reports a
 `RecoveryStep.Outcome` (`Done` with a report, or `Failed` with a reason it can name), never an exception for a failure
 it can name.
-`SweepStep.Name`:: The closed set of steps: `PENDING_ENTRY_RECORDS` and `FENCED_SESSION_GENERATIONS`.
+`SweepStep.Name`:: The closed set of steps: `PENDING_ENTRY_RECORDS`.
 `PendingEntryRecordsSweep`:: The step `PENDING_ENTRY_RECORDS`, over `PendingEntryStore` of `core.store`.
-`FencedSessionGenerationsSweep`:: The step `FENCED_SESSION_GENERATIONS`, over `SessionGenerationStore` of `core.queue`.
 
 === Component Interaction
 
@@ -66,9 +65,7 @@ PeriodicSweep.runOnce(now)            olderThan = now - PENDING_ENTRY_MAX_AGE
     │      commit (journal, apply, digests, close: owed records handed over)
     │    ──► Done("removed N pending entry records") | Failed(unreadable records kept, or the write failed)
     │
-    └─ FencedSessionGenerationsSweep.run(projectId, olderThan)
-         SessionGenerationStore.removeFencedOlderThan(olderThan)   (queue lock, one atomic write)
-         ──► Done("removed N fenced session generations") | Failed(record refused or not written)
+    └─ (the further steps the target adds, in their order)
 ----
 
 == The Pending-Record Step
@@ -97,16 +94,38 @@ replaced meanwhile is judged as it is now.
 
 A run that removed records logs `PM_RUNTIME-23` (`PENDING_ENTRY_RECORDS_SWEPT`) with the count and the project.
 
-== The Fenced-Generation Step
+[#_the_stalled_scope_detection]
+== The Stalled-Scope Detection
 
-_Requirements:_ link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/requirements/16-model-work.adoc#PM-WORK-5[PM-WORK-5], link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
+_Requirements:_ link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/requirements/01-architecture.adoc#PM-ARCH-8[PM-ARCH-8]
 
-The evidence is a fence and its age: a current generation is never removed, and neither is one fenced at or after the
-instant. The removal is one write of the record under the queue lock
-(`SessionGenerationStore.removeFencedOlderThan`); a project without a record has nothing to remove, and a call that
-carries a removed generation finds it unknown. A run that removed entries logs `PM_RUNTIME-24`
-(`FENCED_SESSION_GENERATIONS_SWEPT`). A record that is refused (another format version, unreadable) or cannot be
-written is a failure of the step, reported with the refusal code.
+`StalledScopeDetector` decides on read whether a plan or an epic is held `stalled`
+(link:../../../doc/specification/runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime
+Lifecycle Specification, Stalled Plans]). It takes a `View` of the scope: the project id, the `WorkflowStatus`, and
+whether the scope is paused, rests in an operator wait, or is held for another kind. The workspace scope and an ended
+scope never stall.
+
+[horizontal]
+`THRESHOLD`:: The compiled `600` seconds of
+link:../../../doc/specification/timeouts/02-runtime-leases-operator-web.adoc#stalled-threshold[Timeouts & Budgets
+Specification, Stalled Threshold]; the test reads the value from the specification.
+`StalledHold`:: The hold: its kind `stalled`, the closed cause `NO_PROGRESS` (`no_progress`), the scope, the state the
+scope rests in, the instant of the last transition or task progress and the idle seconds.
+`Activity`:: What the detection found: the hold, or nothing, and its `needs_operator()` count (1 with a hold, 0
+without), which a `needs_operator` summary counts on read.
+`OperatorPort`:: Where the hold is announced: `holdOpened` when an episode begins, `holdReleased` when it clears by
+itself, with the report `plan.hold_released`.
+
+A scope is stalled when it has no pending condition, no active job, no active task, and has been idle at least the
+threshold. The detector keeps the open episodes in memory, keyed by project, scope type and scope id: the first
+detection of an episode hands one `AuditEvent.planStalled` record (`transition`, `warning`,
+`details{scope_type, scope_id, state, cause, idle_since, idle_seconds}`,
+link:../../../doc/specification/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas Specification, Audit Log,
+Stall records]) to the `AuditSink` and announces the hold; every further detection of the episode appends nothing. A
+detection that finds the scope moved on ends the episode and announces the hold as released. The detector writes no
+store: the status document gains no member, so the stall never reaches a stored or model-facing representation. The
+acts a hold offers are `plan-and-epic-control`'s
+(link:../adr/runtime-start/015-stall-derived-on-read-one-record-per-episode.adoc[ADR 015]).
 
 [#_the_audit_chain_seam]
 == The Audit Chain Seam
@@ -329,14 +348,13 @@ itself out.
 _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
 
 The package ships no seam factory and no default list of steps. The caller, the assembly `pm-mcp-server` of
-`plan-marshall-mcp`, builds both steps from the runtime's base directory, lock manager, audit sink and clock and hands
+`plan-marshall-mcp`, builds the steps from the runtime's base directory, lock manager, audit sink and clock and hands
 them to the sweep in the order they run:
 
 [source,java]
 ----
 List<SweepStep> steps = List.of(
-        new PendingEntryRecordsSweep(base, lockManager, auditSink, clock),
-        new FencedSessionGenerationsSweep(base, lockManager, clock));
+        new PendingEntryRecordsSweep(base, lockManager, auditSink, clock));
 var sweep = new PeriodicSweep(enrolledProjects, projectRecovery::isRecovered, steps, clock);
 sweep.start(executor);     // first run one INTERVAL from now; stop() for the drain
 ----
@@ -361,11 +379,11 @@ link:{test}/StartupSequenceTest.java[`StartupSequenceTest`]:: The broken-chain c
 `reason`, `first_broken_line` and `os_principal` details, the log naming the file the first broken line is counted in
 (current log, audit index, rotated file) while the record names none, one case per other reason without a line, and
 `Intact` and `NotVerified` unchanged.
-link:{test}/FencedSessionGenerationsSweepTest.java[`FencedSessionGenerationsSweepTest`]:: A generation fenced before
-the instant removed and then unknown; one fenced later and the current ones kept; an old current generation never
-removed; a project without a record; a record of another format version reported as a failure and left as it is.
 link:{test}/PeriodicSweepTest.java[`PeriodicSweepTest`]:: The schedule, the skipped projects and the failing steps,
 with recording steps.
+link:{test}/StalledScopeDetectorTest.java[`StalledScopeDetectorTest`]:: The threshold from one second below to past it,
+every awaited event, a pause, an operator wait and another hold, one record per episode, the release by itself, the
+`needs_operator` count, the untouched status document, and the threshold read from the timeouts specification.
 link:{test}/ServiceUnitInstallerTest.java[`ServiceUnitInstallerTest`]:: Install, uninstall and the restore of a failed
 load over the recording fake of the service manager: a failed load after replacing a unit leaves the previous bytes in
 place and loaded, at the first and at the second command of the load, a failed load on a machine without a unit leaves
@@ -407,8 +425,10 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
 4. **One audit record per removed record, owed by the transaction**: append nothing to the audit log after the commit;
    the owed record is handed over at least once, also after a crash. Give it `transaction.recordId()`, never
    `transaction.transactionId()`.
-5. **Fence age, not issue age**: a generation is removed by the age of its fence; a current generation is never old
-   enough.
+5. **A stall is derived, never stored**: the detection writes no status member and no store; its one record per episode
+   is appended inside the per-scope computation, and detection with its announcements is serialized on the detector, so
+   two racing reads append one record and announce no transition twice. A refused record leaves the episode open for the
+   next read.
 6. **Never signal a job nobody can identify**: an in-process operation, a job spawned before the boot and a job whose
    record carries no PID are settled without a signal. Only a group probed live within this boot is terminated; a
    recorded PID of an earlier boot may belong to anyone now.
@@ -424,28 +444,30 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
 
 == Specification Tracing
 
-_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1], link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/requirements/16-model-work.adoc#PM-WORK-5[PM-WORK-5]
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/01-architecture.adoc#PM-ARCH-8[PM-ARCH-8], link:{req}/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1]
 
 * Specification: link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Model § Periodic
   Sweep], link:{spec}/timeouts/02-runtime-leases-operator-web.adoc#pending-entry-max-age[Timeouts § Pending Entry Record
   Maximum Age], link:{spec}/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending
-  Entry Record], link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/specification/store-schemas/16-task-queue.adoc#session-generation-record[Store Schemas § Session
-  Generation Record], link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#_startup_sequence[Runtime Model § Startup
+  Entry Record], link:{spec}/runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime Model §
+  Stalled Plans], link:{spec}/timeouts/02-runtime-leases-operator-web.adoc#stalled-threshold[Timeouts § Stalled
+  Threshold], link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#_startup_sequence[Runtime Model § Startup
   Sequence] (step 4.1), link:{spec}/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas § Security & Transition
-  Audit Log] (hash chain), link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#per-project-recovery[Runtime
+  Audit Log] (hash chain, stall records), link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#per-project-recovery[Runtime
   Model § Per-Project Recovery] (step 3), link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc[Runtime Model §
   Drain, Stop & Upgrade] (the jobs participant), link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime
   Model § Drain, Stop & Upgrade] (the service unit of a failed upgrade), link:{spec}/store-schemas/10-job-and-lesson-records.adoc#job-record[Store
   Schemas § Job Record]
 * Stores: link:../../../pm-core/doc/developer/core-store.adoc[`core.store`] (delete mode, pending entry record, job
-  records), link:../../../pm-core/doc/developer/core-queue.adoc[`core.queue`] (session generations)
+  records)
 * Job runtime: link:runtime-job.adoc[`runtime.job`] (the runner, the termination protocol, the settlement)
 * Decisions: link:../adr/runtime-start/001-pending-entry-sweep-through-a-workspace-delete-transaction.adoc[ADR 001],
   link:../adr/runtime-start/002-sweep-seam-factory-removed.adoc[ADR 002],
   link:../adr/runtime-start/011-broken-chain-outcome-carries-reason-and-line.adoc[ADR 011],
   link:../adr/runtime-start/012-store-move-resumed-machine-wide-after-the-bind.adoc[ADR 012],
   link:../adr/runtime-start/013-jobs-recovery-step-worker-part-a-seam.adoc[ADR 013],
-  link:../adr/runtime-start/014-previous-service-unit-kept-and-restored.adoc[ADR 014]
+  link:../adr/runtime-start/014-previous-service-unit-kept-and-restored.adoc[ADR 014],
+  link:../adr/runtime-start/015-stall-derived-on-read-one-record-per-episode.adoc[ADR 015]
 * Audit trail: link:runtime-audit.adoc[`runtime.audit`]
 * Credential store move: link:runtime-credentials.adoc[`runtime.credentials`],
   link:{spec}/credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[Credentials & Enrolment §

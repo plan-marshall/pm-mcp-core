@@ -150,8 +150,7 @@ public record LockKey(LockLevel level, Path lockFile, String id) implements Comp
     /**
      * @param base      the base directory of the runtime
      * @param projectId the project
-     * @return the key of the lock of the project's task queue, its session generation record and its worker job
-     *         records
+     * @return the key of the lock of the project's task queue and its worker job records
      */
     public static LockKey queue(Path base, String projectId) {
         return ofProject(LockLevel.QUEUE, base, projectId, "queue");
@@ -309,8 +308,7 @@ public record LockKey(LockLevel level, Path lockFile, String id) implements Comp
 
     /**
      * The per-project machine store, the directory every lock key of a project and every store of a project lie
-     * below. It is public so a store of another package (the task queue {@code queue/} of {@code core.queue}) resolves
-     * its directory with the one path grammar of this type.
+     * below. It is public so a store of another package resolves its directory with the one path grammar of this type.
      *
      * @param base      the base directory of the runtime
      * @param projectId the project

@@ -113,18 +113,16 @@ class RuntimeLogMessagesTest {
                 () -> assertEquals(template, logRecord.getTemplate()));
     }
 
-    static Stream<Arguments> sessionLogAndGenerationsRecords() {
+    static Stream<Arguments> sweepRecords() {
         return Stream.of(
                 Arguments.of(RuntimeLogMessages.INFO.PENDING_ENTRY_RECORDS_SWEPT, "PM_RUNTIME-23",
-                        "Periodic sweep removed %s pending entry records of project '%s'"),
-                Arguments.of(RuntimeLogMessages.INFO.FENCED_SESSION_GENERATIONS_SWEPT, "PM_RUNTIME-24",
-                        "Periodic sweep removed %s fenced session generations of project '%s'"));
+                        "Periodic sweep removed %s pending entry records of project '%s'"));
     }
 
     @ParameterizedTest(name = "{1}")
-    @MethodSource("sessionLogAndGenerationsRecords")
-    @DisplayName("the records of the two sweep steps of the session log and the session generations")
-    void sessionLogAndGenerations(LogRecord logRecord, String identifier, String template) {
+    @MethodSource("sweepRecords")
+    @DisplayName("the record of the sweep's pending-entry step")
+    void sweep(LogRecord logRecord, String identifier, String template) {
         assertAll(
                 () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
                 () -> assertEquals(template, logRecord.getTemplate()));

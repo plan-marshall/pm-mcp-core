@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +61,40 @@ class AuditEventTest {
                 () -> assertEquals("succeeded", event.outcome()),
                 () -> assertEquals(Map.of("reconciliation", "plan_end", "store", "lessons/2026-10-10-01.md",
                         "transaction_id", TRANSACTION_ID), event.details()));
+    }
+
+    @Test
+    @DisplayName("a stall record is one transition warning with the scope, the state, the cause and the span")
+    void planStalled() {
+        var progress = Instant.parse("2026-10-20T10:00:00Z");
+
+        var event = AuditEvent.planStalled("plan", "a-plan", "execute.review", "no_progress", progress, 610);
+
+        assertAll(
+                () -> assertEquals("plan_stalled", event.event()),
+                () -> assertEquals("transition", event.category()),
+                () -> assertEquals("warning", event.outcome()),
+                () -> assertEquals(Map.of("scope_type", "plan", "scope_id", "a-plan", "state", "execute.review",
+                                "cause", "no_progress", "idle_since", progress.toString(), "idle_seconds", 610L),
+                        event.details()));
+    }
+
+    @Test
+    @DisplayName("a stall record without its scope, state, cause or instant is refused")
+    void planStalledRefusesMissingValues() {
+        var progress = Instant.parse("2026-10-20T10:00:00Z");
+
+        assertAll(
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.planStalled(null, "a-plan", "s", "no_progress", progress, 1)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.planStalled("plan", null, "s", "no_progress", progress, 1)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.planStalled("plan", "a-plan", null, "no_progress", progress, 1)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.planStalled("plan", "a-plan", "s", null, progress, 1)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.planStalled("plan", "a-plan", "s", "no_progress", null, 1)));
     }
 
     @Nested
@@ -127,48 +162,6 @@ class AuditEventTest {
                         () -> AuditEvent.pendingEntryRemoved("e", "s", null, TRANSACTION_ID)),
                 () -> assertThrows(NullPointerException.class,
                         () -> AuditEvent.pendingEntryRemoved("e", "s", "c", null)));
-    }
-
-    @Nested
-    @DisplayName("client change of a session log")
-    class EntryClientChanged {
-
-        @Test
-        @DisplayName("is a succeeded identity event naming both clients, both session ids and the transaction")
-        void withSessionIds() {
-            var event = AuditEvent.entryClientChanged("claude", "opencode", "session-1", "session-2", TRANSACTION_ID);
-
-            assertAll(
-                    () -> assertEquals("entry_client_changed", event.event()),
-                    () -> assertEquals(AuditEvent.ENTRY_CLIENT_CHANGED, event.event()),
-                    () -> assertEquals("identity", event.category()),
-                    () -> assertEquals("succeeded", event.outcome()),
-                    () -> assertEquals(Map.of("previous_client", "claude", "client", "opencode",
-                            "previous_client_session_id", "session-1", "client_session_id", "session-2",
-                            "transaction_id", TRANSACTION_ID), event.details()));
-        }
-
-        /** The matched case to the one above: a host without a session id leaves its detail out. */
-        @Test
-        @DisplayName("leaves a session id out that the host did not provide")
-        void withoutSessionIds() {
-            var event = AuditEvent.entryClientChanged("codex", "neutral", null, null, TRANSACTION_ID);
-
-            assertEquals(Map.of("previous_client", "codex", "client", "neutral", "transaction_id", TRANSACTION_ID),
-                    event.details());
-        }
-
-        @Test
-        @DisplayName("refuses a missing client or transaction")
-        void missing() {
-            assertAll(
-                    () -> assertThrows(NullPointerException.class,
-                            () -> AuditEvent.entryClientChanged(null, "claude", null, null, TRANSACTION_ID)),
-                    () -> assertThrows(NullPointerException.class,
-                            () -> AuditEvent.entryClientChanged("claude", null, null, null, TRANSACTION_ID)),
-                    () -> assertThrows(NullPointerException.class,
-                            () -> AuditEvent.entryClientChanged("claude", "codex", null, null, null)));
-        }
     }
 
     @Nested

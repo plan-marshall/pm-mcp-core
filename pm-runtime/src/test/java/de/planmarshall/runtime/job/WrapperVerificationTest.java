@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -45,8 +44,6 @@ import de.planmarshall.runtime.job.JobRefusal.Reason;
 @EnableGeneratorController
 @DisplayName("WrapperVerification")
 class WrapperVerificationTest {
-
-    private static final Optional<String> ENROL_COMMAND = Optional.of("pm-operator enrol " + PROJECT);
 
     private JobEnrolmentFixture fixture;
     private ProjectEnrolment enrolment;
@@ -83,8 +80,7 @@ class WrapperVerificationTest {
     private void assertChanged(List<String> changed, JobRefusal refusal) {
         assertAll(
                 () -> assertEquals(Reason.BUILD_CONFIG_CHANGED, refusal.reason()),
-                () -> assertEquals(changed, refusal.changedPaths()),
-                () -> assertEquals(ENROL_COMMAND, refusal.operatorCommand()));
+                () -> assertEquals(changed, refusal.changedPaths()));
     }
 
     @Test
@@ -222,8 +218,7 @@ class WrapperVerificationTest {
 
         assertAll(
                 () -> assertEquals(Reason.EXECUTABLE_NOT_ENROLLED, refusal.reason()),
-                () -> assertEquals(List.of(), refusal.changedPaths()),
-                () -> assertEquals(Optional.empty(), refusal.operatorCommand()));
+                () -> assertEquals(List.of(), refusal.changedPaths()));
     }
 
     @Test

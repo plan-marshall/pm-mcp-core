@@ -31,7 +31,7 @@ All types are package-private test code.
 from the text of a script and refuses every line the harness does not run; `REFUSED` maps each refused directive of
 the specification to the work package that brings it.
 `ScenarioDirective`:: The sealed step of a script, each with its line: `Start`, `AssertState`, `AssertOutcome`,
-`CompleteJob`, `AnswerQuestion`, `ExpireQuestion`, `AssertTaskOutcome`. `Worker` is the declaration of the scripted
+`CompleteJob`, `AnswerQuestion`, `AssertTaskOutcome`. `Worker` is the declaration of the scripted
 worker of one role; it is no step. Job ids, question ids, fates and task outcomes are checked against the shapes and
 closed sets `EngineEvent` states.
 `ScenarioReplayRunner`:: Replays one script once against the real engine and keeps the stored status bytes after every
@@ -72,7 +72,7 @@ assert_task_outcome reviewer submitted                     # the worker settles 
 assert_state execute.ask
 answer_question Q-001 web {"branch_key":"approve"}
 assert_state execute.confirm
-expire_question Q-002
+answer_question Q-002 web {"branch_key":"assumed"}
 assert_state completed
 assert_outcome merged
 ----
@@ -97,10 +97,8 @@ assert_outcome merged
 
 |`answer_question <question id> <channel> {"branch_key":"<outcome>"}`
 |Resolves the question with the outcome and delivers `QuestionResolved`; the channel is recorded in the step only.
-
-|`expire_question <question id>`
-|Resolves the question with the deadline outcome of the resting question state's class and delivers
-`QuestionResolved`.
+`answer_question` is the only way a script resolves a question: no decision ends by time, so the harness has no
+directive that fires a deadline.
 
 |`assert_state <state id>`
 |Compares the state of the stored status.
@@ -130,7 +128,7 @@ a fixture unit that breaks a verifier rule never runs. `run(script)` replays the
 
 * `start` creates the journal scope in the directory (`ScenarioFixtures.scope`), calls `WorkflowEngine.start` and
   writes the first status;
-* `complete_job`, `answer_question` and `expire_question` call `advance(status, event, store, transaction)`; the new
+* `complete_job` and `answer_question` call `advance(status, event, store, transaction)`; the new
   status is committed in one `ScopeTransaction` of the scope, opened at the clock's instant under a lock that holds
   every key, because the replay is the only writer;
 * before every step that is not an `assert_state`, a task state the scope rests in is settled by the worker of the
@@ -157,8 +155,7 @@ The stores live in the directory the test gives, a `@TempDir`; there is no git r
 |`assert_outcome` before the scope ended
 |`ScenarioFailure` naming the state the scope is in.
 
-|An event the resting state does not wait for: another job, a question resolution at a job state, an
-`expire_question` outside a question state
+|An event the resting state does not wait for: another job, or a question resolution at a job state
 |`ScenarioFailure` at the step's line with the engine's refusal; nothing is written and the step is not skipped.
 
 |A step before `start`, or a second `start`
@@ -190,9 +187,6 @@ package-private `EngineFixtures` of the engine tests
   state is entered without a job-starting outcome, so the engine starts its job through the job port.
 * The entity kind `change` is registered with no entity unit and the return evaluation `scenario.evaluate`
   (`approved`, `rejected`).
-* `DEADLINE_OUTCOMES`: the outcome a question resolves with when its deadline fires, by class (`review` to `returned`,
-  `clarification` to `assumed`). The question records and their deadlines are not built yet, so the fixture states the
-  class fallback.
 * The ports: `SequenceJobStarter` starts the build jobs `b-0000000000000001`, `b-0000000000000002`, … in order,
   `RecordingQueueTaskCreator` creates the queue tasks `qt-0000000000000001`, … and records each request,
   `ScriptedQuestionRecordReader` reports the resolution the runner set for a question and every other question open, and

@@ -14,14 +14,16 @@ Accepted
 The Workflow DSL specification names the directives of a scenario: the assertions `assert_state`, `assert_links`,
 `assert_skill`, `assert_rejected`, `assert_outcome`, `assert_instance_version`, `assert_task_outcome`,
 `assert_worker_state` and `assert_refused`, and the actions `do`, `worker_wait`, `worker_do`, `complete_job`,
-`answer_question`, `expire_question`, the worker faults `kill_worker`, `stall_worker`, `end_turn` and `kill_relay`,
-`restart_runtime`, `set_role_unqualified` and `operator_cli`. Most of them need layers that do not exist yet: the
-offered links and `pm_do`, the task protocol, plan instances, the supervisor, the runtime and the operator verbs.
+`answer_question`, the worker faults `kill_worker`, `stall_worker`, `end_turn` and `kill_relay`,
+`restart_runtime`, `set_role_unqualified` and `operator_cli`. The specification named `expire_question` too when this
+decision was taken; the directive went with the concept the specification removed (see Consequences). Most of the
+remaining directives need layers that do not exist yet: the offered links and `pm_do`, the task protocol, plan
+instances, the supervisor, the runtime and the operator verbs.
 
 == Decision
 
 The harness runs the directives the engine supports today: `start`, `assert_state`, `assert_outcome`, `complete_job`,
-`answer_question`, `expire_question` and `assert_task_outcome`. `ScenarioScript.read` refuses every other directive of
+`answer_question` and `assert_task_outcome`. `ScenarioScript.read` refuses every other directive of
 the specification by name when the script is read, with its line and the work package that brings it
 (`ScenarioScript.REFUSED`); a word that is no directive is refused as unknown.
 
@@ -40,6 +42,9 @@ the specification by name when the script is read, with its line and the work pa
 * `REFUSED` is the one list of the refused directives, kept by hand; `ScenarioScriptTest` takes its cases from it and
   proves that each entry is refused by name and line with its work package. Nothing compares `REFUSED` with the
   specification, so a change to the specification's directives changes `REFUSED` with it.
+* The directive `expire_question` went with the concept the specification removed (work package `removed-concepts`,
+  2026-10-20): no decision ends by time, so a question is resolved by `answer_question` only. A script that still
+  names it is refused as a word that is no directive.
 
 == Source
 

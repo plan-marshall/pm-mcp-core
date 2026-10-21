@@ -236,16 +236,6 @@ public final class RuntimeLogMessages {
                 .build();
 
         /**
-         * Logged when the periodic sweep removed the entries of a project's session generation record fenced before
-         * the pending entry record maximum age.
-         */
-        public static final LogRecord FENCED_SESSION_GENERATIONS_SWEPT = LogRecordModel.builder()
-                .prefix(PREFIX)
-                .identifier(24)
-                .template("Periodic sweep removed %s fenced session generations of project '%s'")
-                .build();
-
-        /**
          * Logged when the audit log was rotated: closed by its checkpoint record, named by an entry of the audit
          * index and renamed, with the name of the rotated file and its number of records, the checkpoint included.
          */

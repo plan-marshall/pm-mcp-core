@@ -23,7 +23,6 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -59,7 +58,7 @@ class PendingEntryCodecTest {
     private static final String CONDITION = "{\"kind\":\"precondition_unmet\",\"remedy_attempts\":0,"
             + "\"integrity\":null,\"facts\":{ \"reason\" : \"config_dirty\" },\"raised_at\":\"2026-10-13T08:02:00Z\"}";
 
-    /** @return the members of a record of a session's plan entry, each with its JSON value, in schema order */
+    /** @return the members of a plan entry, each with its JSON value, in schema order */
     private static Map<String, String> members() {
         var members = new LinkedHashMap<String, String>();
         members.put("format_version", "1");
@@ -70,7 +69,6 @@ class PendingEntryCodecTest {
         members.put("from_epic", "null");
         members.put("created_at", "\"2026-10-13T08:00:00Z\"");
         members.put("updated_at", "\"2026-10-13T08:05:00Z\"");
-        members.put("session", new String(ScopeSessionRowCodec.write(ScopeSessionRowCodecTest.row()), UTF_8));
         members.put("bootstrap", bootstrap(bootstrapMembers()));
         return members;
     }
@@ -133,7 +131,7 @@ class PendingEntryCodecTest {
         }
 
         @Test
-        @DisplayName("the typed members are read: id, kind, instants, session row, call frame and condition overlay")
+        @DisplayName("the typed members are read: id, kind, instants, call frame and condition overlay")
         void typedMembers() {
             var entry = PendingEntryCodec.read(FILE, document(members()));
 
@@ -142,7 +140,6 @@ class PendingEntryCodecTest {
                     () -> assertEquals(Kind.PLAN, entry.kind()),
                     () -> assertEquals("my-plan", entry.requestedId()),
                     () -> assertEquals(Instant.parse("2026-10-13T08:00:00Z"), entry.createdAt()),
-                    () -> assertEquals(ScopeSessionRowCodecTest.row(), entry.session()),
                     () -> assertEquals("source-issue", entry.bootstrap().callStack().getFirst().subworkflowId()),
                     () -> assertEquals("screen", entry.bootstrap().callStack().getFirst().entry()),
                     () -> assertEquals("precondition_unmet", entry.bootstrap().condition().orElseThrow().kind()),
@@ -150,10 +147,9 @@ class PendingEntryCodecTest {
         }
 
         @Test
-        @DisplayName("a plan the server starts for an epic row has no session and no source, and round-trips")
+        @DisplayName("a plan the server starts for an epic row has no source, and round-trips")
         void serverStarted() {
             var members = members();
-            members.put("session", "null");
             members.put("from_epic", "\"an-epic\"");
             members.put("hint", "null");
             var inner = bootstrapMembers();
@@ -167,10 +163,42 @@ class PendingEntryCodecTest {
             var entry = PendingEntryCodec.read(FILE, document);
 
             assertAll(
-                    () -> assertEquals(Optional.empty(), entry.sessionRow()),
                     () -> assertEquals("an-epic", entry.fromEpic()),
                     () -> assertNull(entry.bootstrap().source()),
                     () -> assertArrayEquals(document, PendingEntryCodec.write(entry)));
+        }
+
+        @Test
+        @DisplayName("the members are those of the record before this deliverable, less the removed session member")
+        void membersWithoutSession() {
+            // The work package removes exactly the member `session` of the pending entry record; every other member
+            // stays for the work package start-source-intake, which gives the record its directory form.
+            assertEquals(PendingEntryCodec.MEMBERS, List.of("format_version", "entry_id", "kind", "requested_id", "hint", "from_epic", "created_at",
+                    "updated_at", "bootstrap"));
+        }
+
+        @Test
+        @DisplayName("a stored record without a session member is written and read back byte for byte")
+        void withoutSession() {
+            var members = members();
+            members.remove("session");
+            var document = document(members);
+
+            var entry = PendingEntryCodec.read(FILE, document);
+
+            assertArrayEquals(document, PendingEntryCodec.write(entry));
+        }
+
+        @Test
+        @DisplayName("a stored record that still carries the removed session member is refused as undeclared")
+        void sessionMemberIsRefused() {
+            var members = members();
+            members.remove("session");
+            members.put("session", "{\"format_version\":1}");
+
+            var refusal = assertRefused(Outcome.UNREADABLE, document(members));
+
+            assertTrue(refusal.getMessage().contains("session"), refusal.getMessage());
         }
 
         @Test
@@ -178,7 +206,6 @@ class PendingEntryCodecTest {
         void builtRecord() {
             var entry = PendingEntryRecord.builder().entryId(new EntryId("ent-00000000")).kind(Kind.EPIC)
                     .createdAt(Instant.parse("2026-10-13T08:00:00Z")).updatedAt(Instant.parse("2026-10-13T08:00:00Z"))
-                    .session(ScopeSessionRowCodecTest.row())
                     .bootstrap(Bootstrap.builder().state("start.choose").callStack(List.of()).facts("{}")
                             .options("{}").build())
                     .build();
@@ -233,8 +260,6 @@ class PendingEntryCodecTest {
                 epic naming a parent epic      | kind             | "epic"
                 instant with an offset         | created_at       | "2026-10-13T10:00:00+02:00"
                 updated before created         | updated_at       | "2026-10-13T07:00:00Z"
-                session row of another version | session          | {"format_version":2}
-                session as a string            | session          | "claude"
                 bootstrap as an array          | bootstrap        | []
                 """)
         @DisplayName("a member outside its one shape is refused")
@@ -267,15 +292,6 @@ class PendingEntryCodecTest {
             inner.put(member, value);
             var members = members();
             members.put("bootstrap", bootstrap(inner));
-
-            assertRefused(Outcome.UNREADABLE, document(members));
-        }
-
-        @Test
-        @DisplayName("a record without a session is refused unless it is a plan of an epic row")
-        void sessionRule() {
-            var members = members();
-            members.put("session", "null");
 
             assertRefused(Outcome.UNREADABLE, document(members));
         }

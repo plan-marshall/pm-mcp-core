@@ -84,15 +84,21 @@
  * <p>
  * The periodic sweep ({@link de.planmarshall.runtime.start.PeriodicSweep}) runs every hour
  * ({@link de.planmarshall.runtime.start.PeriodicSweep#INTERVAL}, 3600 seconds) over the enrolled projects whose
- * recovery has finished; a project still recovering is taken up by the next run. Its two steps
- * ({@link de.planmarshall.runtime.start.SweepStep}) are
+ * recovery has finished; a project still recovering is taken up by the next run. Its steps
+ * ({@link de.planmarshall.runtime.start.SweepStep}) remove the technical residue; today that is
  * {@link de.planmarshall.runtime.start.PendingEntryRecordsSweep}, which removes the pending entry records older than
  * {@link de.planmarshall.runtime.start.PeriodicSweep#PENDING_ENTRY_MAX_AGE} (86400 seconds) in one transaction of the
  * workspace scope, one owed {@code pending_entry_removed} audit record per record, each under a
- * {@code transaction_id} of its own, and
- * {@link de.planmarshall.runtime.start.FencedSessionGenerationsSweep}, which removes the session generations fenced
- * longer ago under the queue lock. The assembly registers both. Both durations are compiled constants, not
+ * {@code transaction_id} of its own. The assembly registers the steps. The duration is a compiled constant, not
  * configuration. A failing step is logged and does not stop the run; the drain stops the schedule.
+ * <p>
+ * The stalled-scope detection ({@link de.planmarshall.runtime.start.StalledScopeDetector}) decides on read whether a
+ * plan or an epic is held {@code stalled}: it awaits no event and has made no transition and no task progress for at
+ * least the compiled threshold (600 seconds), while it is neither paused, nor in an operator wait, nor under a hold of
+ * another kind. The hold is never stored; its first detection in an episode hands one {@code plan_stalled} audit
+ * record over and announces the hold, a detection that finds the scope moved on announces the report
+ * {@code plan.hold_released}, and the hold's count is what a {@code needs_operator} summary counts on read.
+ * Its acts are {@code plan-and-epic-control}'s.
  * <p>
  * The version-mismatch detection ({@link de.planmarshall.runtime.start.RelayVersionCheck}) compares the
  * {@code PM-MCP-Relay-Version} header of every relayed request with the version of the runtime; a request without

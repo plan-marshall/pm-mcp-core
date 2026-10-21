@@ -43,7 +43,6 @@ import de.planmarshall.core.store.JournalScopeType;
  * complete_job b-0000000000000001 {"outcome":"succeeded"}
  * assert_task_outcome reviewer submitted
  * answer_question Q-001 web {"branch_key":"approve"}
- * expire_question Q-002
  * assert_state completed
  * assert_outcome completed
  * </pre>
@@ -204,11 +203,6 @@ record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<
                 var branchKey = line.jsonMember("branch_key");
                 yield line.build(() -> new ScenarioDirective.AnswerQuestion(line.number(), line.args().getFirst(),
                         line.args().get(1), branchKey));
-            }
-            case "expire_question" -> {
-                line.requireNoJson();
-                line.requireArity(1, "expire_question <question id>");
-                yield line.build(() -> new ScenarioDirective.ExpireQuestion(line.number(), line.args().getFirst()));
             }
             case "assert_task_outcome" -> {
                 line.requireNoJson();

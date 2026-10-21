@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted
+Superseded by the work package `removed-concepts` (2026-10-20): the entry row the record embedded is removed; the typed envelope and the engine-owned members stand.
 
 == Date
 

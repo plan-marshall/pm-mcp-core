@@ -49,7 +49,7 @@ answered it in the refinement of PLAN-21 (question q2).
 == Amendment (2026-10-13): The `entry_id` Grammar Is Owned by `core.store.EntryId`
 
 The decision above rested on the premise that no type of `pm-core` held the `entry_id` grammar. While PLAN-21 ran,
-the session log and generations work (pm-mcp-core#51) added the record `EntryId` to `core.store`, which owns the
+the work of pm-mcp-core#51 added the record `EntryId` to `core.store`, which owns the
 grammar `ent-[0-9a-f]{8,32}`, refuses any other value in its constructor and offers `EntryId.parse`, which returns an
 empty `Optional` for a string that is no entry id. Keeping a second copy of the pattern in `EntityIdGrammar` would
 create exactly the drift alternative 1 rejected. The decision is amended:

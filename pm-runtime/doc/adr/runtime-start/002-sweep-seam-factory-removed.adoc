@@ -14,7 +14,8 @@ Accepted
 The work package `runtime-lifecycle` built the periodic sweep with its two steps as named seams: the static factory
 `SweepStep.notImplemented(Name)` answered a step that reports a failure saying it is not implemented, and the assembly
 `pm-mcp-server` of `plan-marshall-mcp` registers the two seams through it. The work package
-`session-log-and-generations` adds the real steps, `PendingEntryRecordsSweep` and `FencedSessionGenerationsSweep`.
+`session-log-and-generations` adds the real steps, `PendingEntryRecordsSweep` and the step of the generations of its day
+(later removed by the work package `removed-concepts`).
 Once they exist, the factory has no step left to stand for. In this repository its one caller was the test
 `PeriodicSweepTest.shouldReportNotImplementedSeam`; outside it, the assembly still calls it.
 
@@ -43,9 +44,10 @@ The operator decided to remove the factory in this pull request (outline, questi
 
 * `pm-mcp-server` in `plan-marshall-mcp` no longer compiles against the `SNAPSHOT` deployed from this pull request
   until its registration pull request replaces its two `SweepStep.notImplemented` calls by `PendingEntryRecordsSweep`
-  and `FencedSessionGenerationsSweep` (see the link:../../developer/runtime-start.adoc[`runtime.start` guide],
-  Registering the Steps). That pull request is a known follow-up in `plan-marshall-mcp`; it is named in the
-  description of this package's pull request and is not work of this package.
+  (and, at the time, the step the work package `removed-concepts` has since removed; see the
+  link:../../developer/runtime-start.adoc[`runtime.start` guide], Registering the Steps). That pull request is a known
+  follow-up in `plan-marshall-mcp`; it is named in the description of this package's pull request and is not work of
+  this package.
 * No source or test of this repository references `SweepStep.notImplemented`.
 * The periodic sweep runs real steps as soon as the assembly registers them; until then the assembly cannot be built
   against the new `SNAPSHOT`, rather than running seams that report themselves not implemented.

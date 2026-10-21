@@ -213,12 +213,13 @@ public final class VerifyNotResolvePipeline {
         }
     }
 
-    /** Maps a refusal of the enrolment check to the refusal of the job. */
+    /** Maps a refusal of the enrolment check to the refusal of the job; the detail never names an operator act. */
     private static JobRefusal enrolmentRefusal(String projectId, StoreRefusal refusal) {
-        var detail = refusal.getMessage();
+        var detail = "the enrolment of project '%s' was refused (%s)".formatted(projectId,
+                refusal.outcome().code());
         return switch (refusal.outcome()) {
             case ABSENT -> JobRefusal.of(Reason.NOT_ENROLLED, "the project has no enrolment");
-            case ENROLMENT_TAMPERED -> JobRefusal.enrolmentTampered(projectId, detail);
+            case ENROLMENT_TAMPERED -> JobRefusal.enrolmentTampered(detail);
             case ENROLMENT_INSECURE -> JobRefusal.of(Reason.ENROLMENT_INSECURE, detail);
             case UNREADABLE, FORMAT_OUTDATED, FORMAT_NEWER, ENROLMENT_INVALID ->
                 JobRefusal.of(Reason.ENROLMENT_INVALID, detail);
