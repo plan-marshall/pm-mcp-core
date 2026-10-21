@@ -1081,11 +1081,12 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         var waitStatus = waitStatus(ended.exitValue(), SIGNALS);
         LogState logState;
         ParseResult parse;
+        var launcherFailure = false;
         switch (new JobLog(job.store.logPath(current.jobId())).readWhole(observedLength)) {
             case JobLog.Complete complete -> {
                 logState = LogState.READABLE;
-                parse = !withParser || current.kind() == JobId.Kind.PROBE
-                        || LaunchReport.isLauncherFailure(complete.reading(), ended.exitValue()) ? ParseResult.NOTHING
+                launcherFailure = LaunchReport.isLauncherFailure(complete.reading(), ended.exitValue());
+                parse = !withParser || current.kind() == JobId.Kind.PROBE || launcherFailure ? ParseResult.NOTHING
                         : parser.parse(current.kind(), complete.reading().jobOutput());
             }
             case JobLog.Unavailable unavailable -> {
@@ -1093,8 +1094,11 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 parse = ParseResult.NOTHING;
             }
         }
+        // A launcher that failed before it started the command has no exit of its own: the exit codes the probe
+        // declares are codes of a probe that ran, so they do not apply to a launcher failure (127 included).
+        var declaredExitCodes = launcherFailure ? Set.<Integer>of() : job.successExitCodes;
         var outcome = OutcomeDerivation.derive(new ProcessEnded(current.kind(), ended.termination(), waitStatus,
-                logState, parse, job.successExitCodes, true));
+                logState, parse, declaredExitCodes, true));
         var settled = current.toBuilder().status(Status.ENDED).fate(outcome.fate()).outcomeRow(outcome.row())
                 .spawnedAt(ended.spawnedAt()).endedAt(ended.endedAt())
                 .exitCode(waitStatus instanceof Exited(var code) ? Long.valueOf(code) : null)
@@ -1125,7 +1129,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             var logState = log.readWhole(0) instanceof JobLog.Unavailable unavailable
                     && unavailable.state() != LogState.MISSING ? unavailable.state() : LogState.READABLE;
             var outcome = OutcomeDerivation.derive(new ProcessEnded(current.kind(), cause,
-                    new Exited(EXECVE_FAILED), logState, ParseResult.NOTHING, job.successExitCodes, true));
+                    new Exited(EXECVE_FAILED), logState, ParseResult.NOTHING, Set.of(), true));
             settle(job, current.toBuilder().status(Status.ENDED).fate(outcome.fate()).outcomeRow(outcome.row())
                     .endedAt(clock.instant()).build());
         } finally {

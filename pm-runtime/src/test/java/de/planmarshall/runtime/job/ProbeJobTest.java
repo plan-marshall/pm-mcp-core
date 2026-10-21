@@ -69,6 +69,7 @@ class ProbeJobTest {
             case "$1" in
               version) echo "probe 1.0"; exit 0 ;;
               declared) echo "probe 1.0"; exit 3 ;;
+              declared127) echo "probe 1.0"; exit 127 ;;
               pwd) pwd; exit 0 ;;
               sleep) exec @SLEEP@ "$2" ;;
             esac
@@ -162,6 +163,35 @@ class ProbeJobTest {
                 () -> assertEquals(Fate.INDETERMINATE, settled.fate()),
                 () -> assertEquals(8, settled.outcomeRow()),
                 () -> assertEquals(0L, settled.exitCode()));
+    }
+
+    @Test
+    @DisplayName("a launcher failure that exits 127 does not settle a probe that declares 127 succeeded")
+    void launcherFailureIsNotADeclaredSuccess() throws IOException {
+        FakePmExec.install(home, FakePmExec.Mode.EXIT_127);
+
+        var jobId = started(onMachine(Set.of(0, 127), "version"));
+
+        var settled = settled(jobId);
+
+        assertAll(
+                () -> assertEquals(Status.ENDED, settled.status()),
+                () -> assertEquals(Fate.FAILED, settled.fate(), "the launcher never started the probe"),
+                () -> assertEquals(10, settled.outcomeRow(), "row 7 would read the declared code of a job not started"),
+                () -> assertEquals(127L, settled.exitCode()));
+    }
+
+    @Test
+    @DisplayName("matched control: a probe that ends with the 127 it declares, after its launcher reported, succeeded")
+    void declared127FromTheProbe() {
+        var jobId = started(onMachine(Set.of(0, 127), "declared127"));
+
+        var settled = settled(jobId);
+
+        assertAll(
+                () -> assertEquals(Fate.SUCCEEDED, settled.fate()),
+                () -> assertEquals(7, settled.outcomeRow()),
+                () -> assertEquals(127L, settled.exitCode()));
     }
 
     @Test
