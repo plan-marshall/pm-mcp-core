@@ -48,7 +48,7 @@ public final class FakePmExec {
 
     private static final String REPORT_AND_EXEC = """
             exec @SETSID@ /bin/sh -c 'printf "{\\"pid\\":%s,\\"process_started_at\\":\\"%s\\",\\"confinement\\":\
-            \\"unavailable\\",\\"landlock_abi\\":null}\\n" "$$" "$(@DATE@ -u +%Y-%m-%dT%H:%M:%SZ)" >&2; exec "$@"' \
+            \\"unavailable\\",\\"landlock_abi\\":null}\\n" "@PID@" "$(@DATE@ -u +%Y-%m-%dT%H:%M:%SZ)" >&2; exec "$@"' \
             pm-exec "$@"
             """;
 
@@ -103,9 +103,27 @@ public final class FakePmExec {
      */
     public static Path install(Path home, Mode mode) throws IOException {
         Objects.requireNonNull(mode, "mode");
+        return write(home, body(mode));
+    }
+
+    /**
+     * Writes the fake launcher of {@link Mode#REPORT}, with a launch report that names a PID other than the one of the
+     * process it starts. A broken or hostile launcher can write such a report, and the runtime must not take the PID it
+     * reports for the process it started.
+     *
+     * @param home         the temporary {@code PM_MCP_HOME}
+     * @param reportedPid  the PID the report names, not that of the started process
+     * @return the home, for a {@link PmExecLauncher}
+     * @throws IOException if the launcher cannot be written
+     */
+    public static Path installReportingPid(Path home, long reportedPid) throws IOException {
+        return write(home, body(Mode.REPORT).replace("\"$$\"", Long.toString(reportedPid)));
+    }
+
+    private static Path write(Path home, String body) throws IOException {
         var launcher = home.resolve(PmExecLauncher.LAUNCHER);
         Files.createDirectories(launcher.getParent());
-        Files.writeString(launcher, HEADER + body(mode));
+        Files.writeString(launcher, HEADER + body);
         Files.setPosixFilePermissions(launcher, PosixFilePermissions.fromString("rwx------"));
         return home;
     }
@@ -148,7 +166,7 @@ public final class FakePmExec {
     private static String body(Mode mode) {
         return switch (mode) {
             case REPORT -> REPORT_AND_EXEC.replace("@SETSID@", tool("setsid").toString())
-                    .replace("@DATE@", tool("date").toString());
+                    .replace("@DATE@", tool("date").toString()).replace("@PID@", "\"$$\"");
             case NO_REPORT -> EXEC.replace("@SETSID@", tool("setsid").toString());
             case EXIT_64, EXIT_126, EXIT_127 -> FAIL.replace("@CODE@", Integer.toString(mode.exitCode()));
         };

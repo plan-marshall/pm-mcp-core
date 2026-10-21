@@ -849,10 +849,14 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      *
      * @return whether the termination reached the job before its group existed
      */
-    private boolean terminateByHandle(JobId jobId, Launched launched) {
+    boolean terminateByHandle(JobId jobId, Launched launched) {
         var reached = false;
         var cancelBeforeGroup = false;
         try {
+            // A process that ended by itself in the meantime may have had its PID reused: no signal addresses it then.
+            if (!launched.process().isAlive()) {
+                return false;
+            }
             var report = termination.terminate(launched.pid());
             reached = report.ending() != Ending.SIGNAL_REFUSED;
             cancelBeforeGroup = report.cancelBeforeGroup();
@@ -944,12 +948,16 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             interrupted = awaited.interrupted();
             if (awaited.cause().isPresent()) {
                 cause = awaited.cause().get();
-                var pid = job.latest.isSpawnRecorded() ? job.latest.pid() : launched.pid();
-                report = termination.terminate(pid);
-                if (report.ending() == Ending.GROUP_KILLED) {
-                    LOGGER.warn(WARN.JOB_TERMINATION_ESCALATED, job.latest.jobId(), pid, cause.name());
-                } else if (report.ending() == Ending.SIGNAL_REFUSED) {
-                    process.destroyForcibly();
+                // the handle's PID, never the one a launch report names: this path ends the process the runner started
+                var pid = launched.pid();
+                // a process that ended in the meantime may have had its PID reused: nothing is signalled then
+                if (process.isAlive()) {
+                    report = termination.terminate(pid);
+                    if (report.ending() == Ending.GROUP_KILLED) {
+                        LOGGER.warn(WARN.JOB_TERMINATION_ESCALATED, job.latest.jobId(), pid, cause.name());
+                    } else if (report.ending() == Ending.SIGNAL_REFUSED) {
+                        process.destroyForcibly();
+                    }
                 }
             }
             var exit = waitFor(process);

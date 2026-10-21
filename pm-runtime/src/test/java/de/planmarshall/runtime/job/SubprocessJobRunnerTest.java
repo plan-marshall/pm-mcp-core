@@ -87,6 +87,9 @@ import de.planmarshall.runtime.job.JobEvidence.Exited;
 import de.planmarshall.runtime.job.JobEvidence.ParseResult;
 import de.planmarshall.runtime.job.JobEvidence.Signalled;
 import de.planmarshall.runtime.job.JobEvidence.Termination;
+import de.planmarshall.runtime.job.ProcessGroupSignals.Answer;
+import de.planmarshall.runtime.job.ProcessGroupSignals.NoSuchProcess;
+import de.planmarshall.runtime.job.ProcessGroupSignals.Signal;
 import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
@@ -439,6 +442,41 @@ class SubprocessJobRunnerTest {
                     () -> assertEquals("SIGTERM", settled.signal()),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
                             WARN.JOB_TERMINATION_ESCALATED.resolveIdentifierString()));
+        }
+    }
+
+    @Nested
+    @EnabledOnOs(OS.LINUX)
+    @DisplayName("terminates the process it started, never the one a report names")
+    class ReportedPidIsNotTrusted {
+
+        @BeforeEach
+        void install() {
+            // each test installs the launcher it needs
+        }
+
+        @Test
+        @DisplayName("a cancel signals the started process, not the PID the launch report names")
+        void cancelSignalsTheStartedProcess() throws Exception {
+            var foreign = new ProcessBuilder(FakePmExec.tool("setsid").toString(),
+                    FakePmExec.tool("sleep").toString(), "30").start();
+            try {
+                FakePmExec.installReportingPid(home, foreign.pid());
+                var jobId = started(runner.start(git(60, "sleep", "5")));
+
+                var cancelled = runner.cancel(jobId, CancelCause.ENGINE_CANCEL);
+                var settled = settled(jobId);
+
+                assertAll(
+                        () -> assertTrue(cancelled, "the job was running and the cancel decided its end"),
+                        () -> assertEquals(Fate.CANCELLED, settled.fate()),
+                        () -> assertEquals(foreign.pid(), settled.pid(), "the record carries the reported PID"),
+                        () -> assertTrue(foreign.isAlive(),
+                                "the process group of the reported PID was not signalled"));
+            } finally {
+                foreign.destroyForcibly();
+                foreign.waitFor(10, TimeUnit.SECONDS);
+            }
         }
     }
 
@@ -1158,6 +1196,36 @@ class SubprocessJobRunnerTest {
         }
 
         @Test
+        @DisplayName("a process that already ended is not signalled through its handle")
+        void endedProcessIsNotSignalled() {
+            var calls = new CopyOnWriteArrayList<String>();
+            ProcessGroupSignals signals = new ProcessGroupSignals() {
+
+                @Override
+                public Answer signalGroup(long pgid, Signal signal) {
+                    calls.add("group %d %s".formatted(pgid, signal));
+                    return new NoSuchProcess();
+                }
+
+                @Override
+                public Answer signalProcess(long pid, Signal signal) {
+                    calls.add("process %d %s".formatted(pid, signal));
+                    return new NoSuchProcess();
+                }
+            };
+            runner = runner(new TerminationProtocol(signals), request -> Optional.empty());
+            var ended = new StubProcess(() -> false);
+            ended.ended();
+
+            var cancelBeforeGroup = runner.terminateByHandle(JobId.random(JobId.Kind.GIT),
+                    new PmExecLauncher.Launched(ended, 4242L));
+
+            assertAll(
+                    () -> assertFalse(cancelBeforeGroup),
+                    () -> assertTrue(calls.isEmpty(), "nothing is signalled for a process that ended: " + calls));
+        }
+
+        @Test
         @DisplayName("the child's wall time runs from its reported start and never exceeds the job's")
         void childWall() {
             var spawnedAt = Instant.parse("2026-10-17T10:00:00Z");
@@ -1175,8 +1243,7 @@ class SubprocessJobRunnerTest {
 
         @Test
         @DisplayName("the argument digest separates the elements of the vector")
-        void argvDigest() {
-            var element = Generators.letterStrings(2, 8).next();
+        void argvDigest() {            var element = Generators.letterStrings(2, 8).next();
 
             var joined = SubprocessJobRunner.argvDigest(List.of(element + element));
             var split = SubprocessJobRunner.argvDigest(List.of(element, element));

@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -24,6 +25,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -179,12 +181,26 @@ class JobRecoveryStepTest {
     }
 
     private JobRecord postSpawn(long pid, Instant spawnedAt) {
+        return postSpawn(pid, spawnedAt, spawnedAt);
+    }
+
+    private JobRecord postSpawn(long pid, Instant processStartedAt, Instant spawnedAt) {
         var ahead = writeAhead();
-        var spawned = ahead.toBuilder().pid(pid).processStartedAt(spawnedAt).spawnedAt(spawnedAt).build();
+        var spawned = ahead.toBuilder().pid(pid).processStartedAt(processStartedAt).spawnedAt(spawnedAt).build();
         try (var transaction = lockManager.openTransaction()) {
             store.writePostSpawn(transaction, spawned);
         }
         return spawned;
+    }
+
+    /** @return the PID of the test's own process: a real PID whose start instant the process table answers */
+    private static long ownPid() {
+        return ProcessHandle.current().pid();
+    }
+
+    /** @return the start instant of the test's own process */
+    private static Instant ownStart() {
+        return ProcessHandle.current().info().startInstant().orElseThrow();
     }
 
     private JobRecord worker() {
@@ -280,9 +296,9 @@ class JobRecoveryStepTest {
         @Test
         @DisplayName("matched control: a same-boot job whose group lives is probed and terminated")
         void liveGroupIsTerminated() {
-            var pid = pid();
+            var pid = ownPid();
             signals.liveGroup = pid;
-            var job = postSpawn(pid, BOOT.plusSeconds(60));
+            var job = postSpawn(pid, ownStart(), BOOT.plusSeconds(60));
 
             var outcome = step().run(PROJECT_A);
 
@@ -290,6 +306,7 @@ class JobRecoveryStepTest {
                     () -> assertEquals(List.of(new Call(true, pid, Signal.PROBE), new Call(true, pid, Signal.SIGTERM),
                             new Call(true, pid, Signal.PROBE)), signals.calls),
                     () -> assertKilled(read(job), Signal.SIGTERM.name()),
+                    () -> assertEquals(JobRecoveryStep.Rule.PROBED, step().rule(job)),
                     () -> assertEquals(List.of(), audit.events()),
                     () -> assertEquals(new Outcome.Done("1 jobs settled killed {PROBED=1}, 1 groups terminated; "
                             + "worker part of 0 workers " + RecoveryStep.NOT_IMPLEMENTED), outcome));
@@ -298,8 +315,8 @@ class JobRecoveryStepTest {
         @Test
         @DisplayName("a group that no longer exists is probed once and not terminated")
         void deadGroupIsNotTerminated() {
-            var pid = pid();
-            var job = postSpawn(pid, BOOT.plusSeconds(60));
+            var pid = ownPid();
+            var job = postSpawn(pid, ownStart(), BOOT.plusSeconds(60));
 
             step().run(PROJECT_A);
 
@@ -311,10 +328,10 @@ class JobRecoveryStepTest {
         @Test
         @DisplayName("a live group that refuses the termination signal is recorded with the restart signal")
         void refusedTermination() {
-            var pid = pid();
+            var pid = ownPid();
             signals.liveGroup = pid;
             signals.refusing = true;
-            var job = postSpawn(pid, BOOT.plusSeconds(60));
+            var job = postSpawn(pid, ownStart(), BOOT.plusSeconds(60));
 
             step().run(PROJECT_A);
 
@@ -322,6 +339,40 @@ class JobRecoveryStepTest {
                     () -> assertEquals(List.of(new Call(true, pid, Signal.PROBE), new Call(true, pid, Signal.SIGTERM)),
                             signals.calls),
                     () -> assertKilled(read(job), RUNTIME_RESTART));
+        }
+
+        @Test
+        @DisplayName("a recorded PID whose process started at another instant is not signalled: the PID was reused")
+        void reusedPidIsNotSignalled() {
+            var pid = ownPid();
+            signals.liveGroup = pid;
+            var job = postSpawn(pid, ownStart().minus(Duration.ofHours(1)), BOOT.plusSeconds(60));
+
+            var outcome = step().run(PROJECT_A);
+
+            assertAll(
+                    () -> assertEquals(List.of(), signals.calls, "a reused PID is not signalled"),
+                    () -> assertKilled(read(job), RUNTIME_RESTART),
+                    () -> assertEquals(JobRecoveryStep.Rule.UNIDENTIFIABLE, step().rule(job)),
+                    () -> assertEquals(List.of(new AuditEvent(JobRecoveryStep.JOB_RECOVERED,
+                            AuditEvent.CATEGORY_STORE, AuditEvent.OUTCOME_SUCCEEDED,
+                            Map.of(AuditEvent.DETAIL_PROJECT_ID, PROJECT_A, JobRecoveryStep.DETAIL_JOB_ID,
+                                    job.jobId().value(), JobRecoveryStep.DETAIL_NOTE,
+                                    JobRecoveryStep.ORPHAN_UNIDENTIFIABLE))), audit.events(),
+                            "the job is noted as unidentifiable"),
+                    () -> assertEquals(new Outcome.Done("1 jobs settled killed {UNIDENTIFIABLE=1}, 0 groups "
+                            + "terminated; worker part of 0 workers " + RecoveryStep.NOT_IMPLEMENTED), outcome));
+        }
+
+        @Test
+        @DisplayName("a recorded PID without the process start it was spawned with is not signalled")
+        void pidWithoutAProcessStartIsNotSignalled() {
+            // The record refuses a PID without the process start it was spawned with, so the guard's
+            // "no start recorded" branch cannot be reached from a stored record; the guard still treats it as
+            // unidentifiable, and the record's own invariant is asserted by JobRecordTest.
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> postSpawn(ownPid(), null, BOOT.plusSeconds(60))));
         }
     }
 
@@ -335,7 +386,7 @@ class JobRecoveryStepTest {
                 Arguments.of("after boot without PID", Status.RUNNING, Execution.PROCESS, null, null,
                         JobRecoveryStep.Rule.UNIDENTIFIABLE),
                 Arguments.of("spawned at the boot instant", Status.RUNNING, Execution.PROCESS, 42L, BOOT,
-                        JobRecoveryStep.Rule.PROBED));
+                        JobRecoveryStep.Rule.UNIDENTIFIABLE));
     }
 
     @ParameterizedTest(name = "{0}")

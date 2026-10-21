@@ -11,6 +11,7 @@ package de.planmarshall.runtime.start;
 
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.InstantSource;
 import java.util.EnumMap;
@@ -51,6 +52,9 @@ import de.planmarshall.runtime.job.TerminationProtocol;
  * nothing is signalled;</li>
  * <li>its {@code pid} is {@code null}: the runtime ended between the spawn and the post-spawn replace; nothing is
  * signalled, and an audit record ({@value #JOB_RECOVERED}) notes {@value #ORPHAN_UNIDENTIFIABLE};</li>
+ * <li>the process the recorded {@code pid} names today did not start at the recorded {@code process_started_at}: the PID
+ * was reused after the job ended, so it is no longer the job's group; nothing is signalled, and the audit record notes
+ * {@value #ORPHAN_UNIDENTIFIABLE} like rule (c);</li>
  * <li>otherwise the process group is probed with {@code kill(-pgid, 0)}: a group exists while any of its members
  * lives, and within one boot its id is not reused while it lives, so a live group of the recorded id is the job's
  * group and is terminated with steps 1 to 3 of the {@link TerminationProtocol}; a group that no longer exists needs no
@@ -96,6 +100,13 @@ public final class JobRecoveryStep implements RecoveryStep {
     /** The outcome of every job the recovery settles: {@code killed} by row 4. */
     private static final OutcomeDerivation.Outcome KILLED =
             OutcomeDerivation.derive(new NeverStarted(NeverStarted.Cause.RUNTIME_RESTART));
+
+    /**
+     * How far the recorded {@code process_started_at} and the start instant the process table answers for a PID may
+     * differ: the launch report carries the operating system's coarse start (whole seconds), so an exact match is not
+     * available, while a PID reused by another process started at a different instant beyond this tolerance.
+     */
+    static final Duration START_TOLERANCE = Duration.ofSeconds(1);
 
     private final Path base;
     private final LockManager lockManager;
@@ -289,7 +300,28 @@ public final class JobRecoveryStep implements RecoveryStep {
         if (job.pid() == null) {
             return Rule.UNIDENTIFIABLE;
         }
+        if (!stillTheRecordedProcess(job)) {
+            return Rule.UNIDENTIFIABLE;
+        }
         return Rule.PROBED;
+    }
+
+    /**
+     * Whether the process the recorded PID names today is the one the job started, by the start instant the process
+     * table answers against the {@code process_started_at} of the launch report. A PID whose process is gone, whose
+     * start is unknown, or whose start differs beyond {@link #START_TOLERANCE} was reused and is not the job's.
+     *
+     * @param job the record of a job with a PID and a recorded process start
+     * @return whether the recorded PID still names the job's process
+     */
+    static boolean stillTheRecordedProcess(JobRecord job) {
+        if (job.processStartedAt() == null) {
+            return false;
+        }
+        return ProcessHandle.of(job.pid()).flatMap(handle -> handle.info().startInstant())
+                .map(start -> Duration.between(job.processStartedAt(), start).abs()
+                        .compareTo(START_TOLERANCE) <= 0)
+                .orElse(false);
     }
 
     /**
