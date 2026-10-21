@@ -202,6 +202,10 @@ class ProfileValidatorTest {
                                     map("source", "models_listing", "pointer", "/id", "argv", null, "pattern", null,
                                             "bogus", 1)),
                             "/headless/weights_probe/bogus", "an unknown weights-probe member"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/weights_probe",
+                                    map("source", "argv", "pointer", null, "argv", List.of("acme", "probe"),
+                                            "pattern", "(id-\\d+)")),
+                            "/headless/weights_probe/argv", "an argv weights probe without the model slot"),
                     Arguments.of(ProfileFixtures.valid().set("/headless/events", map("kind_pointer", "/type",
                                     "kinds", map("text", null, "tool_call", null, "tool_result", null,
                                     "file_changed", null, "turn", map("match", List.of("result"))))),
@@ -243,6 +247,19 @@ class ProfileValidatorTest {
 
             ProfileValidator.validate(fixture.bytes(), DOCUMENT, ProfileRules.none());
         }
+    }
+
+    @Test
+    @DisplayName("both forms of the weights probe load")
+    void weightsProbeAccepted() {
+        var listing = ProfileFixtures.valid().set("/headless/weights_probe",
+                mapOf("source", "models_listing", "pointer", "/weights/id", "argv", null, "pattern", null));
+        var argv = ProfileFixtures.valid().set("/headless/weights_probe",
+                mapOf("source", "argv", "pointer", null, "argv", List.of("acme", "weights", "{{model}}"),
+                        "pattern", "(id-\\d+)"));
+
+        ProfileValidator.validate(listing.bytes(), DOCUMENT, ProfileRules.none());
+        ProfileValidator.validate(argv.bytes(), DOCUMENT, ProfileRules.none());
     }
 
     private static Map<String, Object> mapOf(Object... pairs) {

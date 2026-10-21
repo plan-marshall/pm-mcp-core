@@ -78,7 +78,8 @@ measured on, the platform and the stage results.
 |`ProfileLoader` / `ProfileSets` / `ProfileSet` |The resolution of the three sets and the effective set of a project,
 with the profiles that were refused and the refusal that left the next set in force.
 
-|`LoadedProfile` |One effective profile and the state its record gives it: `VERIFIED` or `VERIFIED_ON_OTHER_BUILD`.
+|`LoadedProfile` |One effective profile, the state its record gives it (`VERIFIED` or `VERIFIED_ON_OTHER_BUILD`), and
+the `VerificationRecord` it was bound to (`null` for a shipped profile), so the launch path can gate the claims.
 
 |`ProfileStages` |The recorded values of the stages `isolation`, `egress` and `usage`, and the field-by-field comparison
 of the usage figures with the harness's own record.

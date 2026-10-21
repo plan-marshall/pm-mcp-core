@@ -13,6 +13,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -67,6 +68,8 @@ class ProfileLoaderTest {
         assertAll(
                 () -> assertEquals(LoadedProfile.State.VERIFIED, loaded.state(CLIENT).orElseThrow()),
                 () -> assertEquals(ProfileSetKind.SHIPPED, loaded.effective(CLIENT).orElseThrow().kind()),
+                () -> assertNull(loaded.effective(CLIENT).orElseThrow().record(),
+                        "A shipped profile is bound to no installation record"),
                 () -> assertTrue(loaded.refused().isEmpty(), loaded.refused()::toString));
     }
 
@@ -81,7 +84,9 @@ class ProfileLoaderTest {
         assertAll(
                 () -> assertTrue(loaded.refused().isEmpty(), loaded.refused()::toString),
                 () -> assertEquals(LoadedProfile.State.VERIFIED, loaded.state(CLIENT).orElseThrow()),
-                () -> assertEquals(ProfileSetKind.MACHINE, loaded.effective(CLIENT).orElseThrow().kind()));
+                () -> assertEquals(ProfileSetKind.MACHINE, loaded.effective(CLIENT).orElseThrow().kind()),
+                () -> assertEquals(CLIENT, loaded.effective(CLIENT).orElseThrow().record().clientId(),
+                        "The loaded profile carries the record it was bound to"));
     }
 
     @Test
