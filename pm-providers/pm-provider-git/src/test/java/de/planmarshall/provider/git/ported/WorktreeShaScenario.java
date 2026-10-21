@@ -220,6 +220,7 @@ final class WorktreeShaScenario {
      *
      * @param content the content as written in the fixture
      * @return the content to write
+     * @throws IllegalArgumentException if the content ends with an unfinished escape or names an unknown one
      */
     static String unescape(String content) {
         var out = new StringBuilder(content.length());
