@@ -125,6 +125,8 @@ class ProfileValidatorTest {
                             "/headless/supported_versions", "supported_versions"),
                     Arguments.of(ProfileFixtures.valid().set("/headless/supported_versions", ">2.0.0 <1.0.0"),
                             "/headless/supported_versions", "an empty supported_versions range"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/supported_versions", ">=99999999999.0.0"),
+                            "/headless/supported_versions", "a version component beyond an integer"),
                     Arguments.of(ProfileFixtures.valid().set("/client_id", "Acme"),
                             "/client_id", "client_id"),
                     Arguments.of(ProfileFixtures.valid().set("/display_name", "Acme; drop table"),
