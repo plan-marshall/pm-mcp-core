@@ -93,7 +93,7 @@ work package leaves the decision about that path open and asks for it in this AD
 
 == Source
 
-* Pull request: this work package's pull request on branch `fix/83-service-unit-restore`
+* Pull request: link:https://github.com/plan-marshall/pm-mcp-core/pull/125[#125], branch `fix/83-service-unit-restore`
 * Work package:
   link:https://github.com/plan-marshall/pm-mcp-core/blob/1ba292d5475e682d37ce44ba93a9d44cf3c49769/doc/plans/service-unit-restore.adoc[`service-unit-restore`]
 * Specification:
