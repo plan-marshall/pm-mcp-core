@@ -25,8 +25,9 @@ worktree back.
   `PathConfinement.linkedMainCheckout`, the recognition of the confinement read from the worktree to its main checkout.
   It runs no git process and uses no port.
 * The main checkout is matched against the `project_root` of every enrolment file, read without a lock: exactly one
-  readable match resolves; more than one is `RootConflict` (`enrolment_root_conflict`); no match while an enrolment
-  file could not be read is `EnrolmentRefused` with that file's refusal.
+  readable match resolves, but only when every enrolment file was read; more than one readable match is `RootConflict`
+  (`enrolment_root_conflict`); an enrolment file that could not be read or was refused is `EnrolmentRefused` with that
+  file's refusal, also when a readable enrolment names the main checkout, because the refused file may name it too.
 * The toplevel is the main checkout or a worktree directly below `<project_root>/.marshall/local/worktrees/` named by a
   plan id or `_epics`. Everything else is `NotEnrolled` (`project_not_enrolled`) with a diagnostic reason:
   `NO_WORK_TREE`, `UNRECOGNISED_GIT`, `NO_ENROLMENT`, `BASELINE_WORKTREE` or `FOREIGN_TOPLEVEL`.
@@ -49,7 +50,9 @@ _Not taken_: the pointer files are plain files the core reads as it reads every 
   the recognition changes both.
 * A worktree moved by hand, whose `gitdir` record is stale, resolves to no project until `git worktree repair` has
   rewritten it; a main checkout moved away from its `project_root` resolves to no project until it is enrolled again.
-* An unreadable enrolment file is never read as "no enrolment": the path is refused with that file's reason.
+* An unreadable enrolment file is never read as "no enrolment", and never as "the only match": the path is refused
+  with that file's reason, also beside a readable match, because the file may name the same root and a root conflict
+  would otherwise be decided without reading it.
 * No result holds the path; what a request records is the project id.
 
 == Source

@@ -48,8 +48,10 @@ import de.planmarshall.core.store.ProjectResolution.Worktree;
  * </ol>
  * Every refusal is a {@link ProjectResolution} value. The enrolment files are read without a lock, as they are at the
  * moment of the resolution; their integrity against the sidecar is the runtime's per-use check and not decided here.
- * An enrolment file that cannot be read is no evidence that the main checkout is unenrolled: when no readable
- * enrolment names the main checkout, the resolution is refused with that file's reason.
+ * An enrolment file that cannot be read is no evidence that the main checkout is unenrolled, and no evidence that a
+ * readable match is the only one: an unreadable file may name the same project root as the readable match, so the
+ * resolution is refused with that file's reason rather than naming one project. Only when every enrolment file was
+ * read, and exactly one of them names the main checkout, does the path resolve to that project.
  *
  * @since 0.1
  */
@@ -136,8 +138,10 @@ public final class ProjectResolver {
     /**
      * Matches the main checkout against the project root of every enrolment file.
      *
-     * @return {@link MainCheckout} of the project when exactly one readable enrolment names the main checkout, which
-     *         the caller classifies further; otherwise the refusal
+     * @return {@link MainCheckout} of the project when exactly one readable enrolment names the main checkout and every
+     *         enrolment file was read, which the caller classifies further; otherwise the refusal, {@link RootConflict}
+     *         when more than one readable enrolment names it and {@link EnrolmentRefused} with the first refused file
+     *         when any enrolment file could not be read
      */
     private ProjectResolution enrolledProject(Path mainCheckout) {
         var matches = new TreeSet<String>();
@@ -161,11 +165,11 @@ public final class ProjectResolver {
         if (matches.size() > 1) {
             return new RootConflict(matches);
         }
-        if (matches.size() == 1) {
-            return new MainCheckout(matches.first());
-        }
         if (refused != null) {
             return new EnrolmentRefused(refused);
+        }
+        if (matches.size() == 1) {
+            return new MainCheckout(matches.first());
         }
         return new NotEnrolled(NotEnrolled.Reason.NO_ENROLMENT);
     }

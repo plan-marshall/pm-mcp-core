@@ -476,21 +476,36 @@ class ProjectResolverTest {
         }
 
         @Test
-        @DisplayName("resolves the main checkout beside an unreadable enrolment file of another project")
+        @DisplayName("refuses the main checkout beside an unreadable enrolment file of another project, which may name"
+                + " the same root")
         void unreadableEnrolmentBesideMatch() throws Exception {
-            Files.writeString(new EnrolmentStore(base).file("broken"), "{not json");
+            var store = new EnrolmentStore(base);
+            Files.writeString(store.file("broken"), "{not json");
 
-            assertMainCheckout(resolver.resolve(main.resolve("README.md")));
+            var refused = assertInstanceOf(EnrolmentRefused.class, resolver.resolve(main.resolve("README.md")),
+                    "An unreadable enrolment may be a second enrolment of the same root");
+
+            assertEquals(store.file("broken"), refused.refusal().file(), "The refusal should name the file");
         }
 
         @Test
-        @DisplayName("resolves the main checkout beside an empty enrolment file and a sidecar without its file")
+        @DisplayName("refuses the main checkout beside an empty enrolment file, and a sidecar without its file is no"
+                + " enrolment")
         void emptyEnrolmentAndSidecar() throws Exception {
             var store = new EnrolmentStore(base);
             Files.write(store.file("empty"), new byte[0]);
             Files.writeString(store.sidecar("other"), "sidecar");
 
-            assertMainCheckout(resolver.resolve(main.resolve("README.md")));
+            var refused = assertInstanceOf(EnrolmentRefused.class, resolver.resolve(main.resolve("README.md")),
+                    "An empty enrolment file was not read, so the match cannot be shown to be unique");
+            Files.delete(store.file("empty"));
+
+            assertAll(
+                    () -> assertEquals(store.file("empty"), refused.refusal().file(),
+                            "The refusal should name the empty file"),
+                    () -> assertMainCheckout(resolver.resolve(main.resolve("README.md"))),
+                    () -> assertFalse(Files.exists(store.file("other")),
+                            "A sidecar without its file is no enrolment"));
         }
 
         @Test

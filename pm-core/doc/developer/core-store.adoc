@@ -854,7 +854,9 @@ process (link:../adr/core-store/037-project-resolution-file-based-from-the-point
   `gitdir:`, the `commondir` of that git directory, which must be a directory named `.git` whose `worktrees` directory
   holds the git directory, and the `gitdir` record that names the `.git` file back. A symbolic link, a pointer file that
   names no path, and every failure to read is no main checkout.
-. The main checkout is matched against the `project_root` of every enrolment file, read without a lock.
+. The main checkout is matched against the `project_root` of every enrolment file, read without a lock. Exactly one
+  readable match resolves only when every enrolment file was read; a file that was refused makes the match
+  unprovable, because it may name the same root, and the resolution is `EnrolmentRefused` with that file's refusal.
 . The toplevel is the main checkout, or a worktree directly below `<project_root>/.marshall/local/worktrees/` whose
   name is a plan id or `_epics`.
 
@@ -862,7 +864,8 @@ process (link:../adr/core-store/037-project-resolution-file-based-from-the-point
 |===
 |Result |When
 
-|`MainCheckout(projectId)` |the toplevel is the main checkout of exactly one readable enrolment
+|`MainCheckout(projectId)` |the toplevel is the main checkout of exactly one readable enrolment, and every enrolment
+file was read
 |`Worktree(projectId, worktree)` |the toplevel is a plan worktree or the shared epic worktree of that project
 |`NotEnrolled(NO_WORK_TREE)` |no ancestor holds a `.git`
 |`NotEnrolled(UNRECOGNISED_GIT)` |the `.git` is neither a directory nor a `.git` file that passes the checks, a
@@ -874,7 +877,8 @@ name below the worktrees with the prefix `baseline-`, refused by the prefix alon
 grammar decides it and no such name is ever taken for a plan worktree
 |`NotEnrolled(FOREIGN_TOPLEVEL)` |a worktree of the project elsewhere, or below the worktrees with another name
 |`RootConflict(projectIds)` |more than one readable enrolment names the main checkout (`enrolment_root_conflict`)
-|`EnrolmentRefused(refusal)` |no readable enrolment names the main checkout and an enrolment file was refused
+|`EnrolmentRefused(refusal)` |an enrolment file was refused or could not be read, whether or not another one names
+the main checkout: the match cannot be shown to be the only one, because the refused file may name it too
 |===
 
 Every `NotEnrolled` carries the outcome code `project_not_enrolled`; its reason is a diagnostic. No result holds the
@@ -893,6 +897,8 @@ runtime's per-use check: `pm-core` holds no key, and the caller checks the HMAC 
   each request.
 * *Missing read as empty*: an absent store identity, an unreadable enrolment file and an unreadable line are outcomes
   of their own (`Absent`, `EnrolmentRefused`, a refused entry), never an empty record, no enrolment or no line.
+* *A match read as unique*: an enrolment file that was refused may name the same project root as the readable one; the
+  resolver never names a project while such a file exists, because that would decide a root conflict it did not read.
 
 === Failure Modes
 
@@ -923,6 +929,10 @@ repairs the log, so every later append is refused too, `withdraw` and `cancel` i
 
 |`store.json` exists, readable or not, when a store is created
 |`create` returns `EXISTED` and leaves it as it is.
+
+|An enrolment file is refused when it is decoded
+|`EnrolmentRefused` with that file's refusal, also when one readable enrolment names the main checkout: the match is
+not shown to be the only one. Two readable matches are `RootConflict`.
 
 |An enrolment file cannot be listed or read
 |`resolve` throws `UncheckedIOException`.
