@@ -106,7 +106,11 @@
  * restarts it on failure (the service-managed start mode): {@link de.planmarshall.runtime.start.ServiceUnitFile}
  * renders, writes and removes the {@code launchd} LaunchAgent or the {@code systemd --user} unit,
  * {@link de.planmarshall.runtime.start.ServiceManager} loads and unloads it through {@code launchctl} or
- * {@code systemctl}, and {@link de.planmarshall.runtime.start.ServiceUnitInstaller} combines both into install and
- * uninstall.
+ * {@code systemctl}, and {@link de.planmarshall.runtime.start.ServiceUnitInstaller} combines both into install,
+ * uninstall and the restore of a failed load: the unit in force is kept beside the unit before the new one is
+ * written, written back and loaded again when the load of the new unit fails, or, when no unit was installed, the new
+ * file is removed and nothing is unloaded. A caller that ends between the unload and the load of a reinstall (on
+ * macOS) leaves the kept unit behind, and {@link de.planmarshall.runtime.start.ServiceUnitInstaller#restore()}, the
+ * first step of a start, restores and loads it.
  */
 package de.planmarshall.runtime.start;

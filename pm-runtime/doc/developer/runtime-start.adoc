@@ -20,7 +20,9 @@ the periodic sweep, which remove what has aged out of the stores the package add
 the work package `audit-trail` changed in it: the audit chain seam of the bounded verification, whose broken outcome
 now carries a reason and the first broken line (<<_the_audit_chain_seam>>), and the one `transaction_id` per record the
 pending-record step owes. Last, it covers what the work package `credential-store-choice` added: the resume of a move
-between the credential stores that a stop cut (<<_store_move_resume>>).
+between the credential stores that a stop cut (<<_store_move_resume>>). Last, it covers what the work package
+`service-unit-restore` added: the previous service unit that a failed load restores
+(<<_the_previous_unit_of_a_failed_load>>).
 
 * `PendingEntryRecordsSweep` removes the pending entry records of the workspace scope older than the pending entry
   record maximum age.
@@ -259,6 +261,53 @@ termination protocol and settles `killed` (row 4), and waits for each settlement
 Because the stop and every admission decision take one lock, a job admitted before the stop is among the running jobs
 the drain waits for, and a job created after it is among the queued jobs `close()` settles.
 
+[#_the_previous_unit_of_a_failed_load]
+== The Previous Unit of a Failed Load
+
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7],
+link:{req}/10-distribution.adoc#PM-DIST-1[PM-DIST-1]
+
+The upgrade undoes a failure before the switch, the service unit included: the previous service unit is restored and
+reloaded, so the installation in force is unchanged
+(link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime Lifecycle § Drain,
+Stop & Upgrade], Upgrade). `ServiceUnitInstaller` does that for a reinstall.
+
+[horizontal]
+`ServiceUnitFile.keepForRestore()`:: Copies the bytes of the unit in force to `<unit>.previous` and then writes the
+marker `<unit>.reinstall`; with no unit it writes only the marker. Install calls it before it writes the new unit.
+`ServiceUnitFile.restore()`:: Writes the kept bytes back and answers `true`, or removes the unit file and answers
+`false` when no unit was installed. The kept pair stays until `discardRestore()`.
+`ServiceUnitFile.discardRestore()`:: Deletes the marker first and the copy second. Install calls it after a load that
+succeeded, uninstall before it touches the unit.
+`ServiceUnitInstaller.install()`:: Loads the new unit; on a failed load it restores and loads the kept unit, or removes
+the new file, and throws the load failure with the restore's failure suppressed. Plain
+`pm-operator runtime install` restores as well; there is one path, not a restoring upgrade path beside a reporting
+install path (link:../adr/runtime-start/014-previous-service-unit-kept-and-restored.adoc[ADR 014]).
+`ServiceUnitInstaller.restore()`:: The first step of a start: with a marker present it restores and loads the kept unit
+(or removes the new file), drops the pair and answers `true`; without a marker it answers `false` and issues no
+command. On macOS a reinstall issued from the runtime the unit started ends that runtime inside the load, so this step
+is what restores the unit (link:../adr/runtime-start/014-previous-service-unit-kept-and-restored.adoc[ADR 014]).
+
+=== Crash Windows
+
+The marker, not the copy, says whether a restore is pending, and the order of the writes makes every window
+unambiguous:
+
+|===
+|Stop between |State on disk |What the next start does
+
+|the copy and the marker |no marker, a copy nobody restores |nothing; the next install overwrites both
+|the marker and the new unit |marker, copy, the old unit |writes the old bytes over themselves and loads them
+|the new unit and its load |marker, copy, the new unit |restores the kept unit and loads it, or removes the new file
+|the load and the drop |marker, copy, the loaded new unit |restores the kept unit and loads it, so an install whose
+caller ended right after its load is undone; the window is the drop's own length
+|the marker and the copy of the drop |no marker, a stale copy |nothing; the next install overwrites both
+|===
+
+The third row is the macOS case: the `bootout` of the load ends the runtime the unit started before the `bootstrap`.
+The fourth row is the price of that case and is accepted: on Linux the load does not end the caller, so the window
+needs a `SIGKILL` of the caller between the load and the drop.
+
 == Registering the Steps
 
 _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
@@ -301,6 +350,11 @@ the instant removed and then unknown; one fenced later and the current ones kept
 removed; a project without a record; a record of another format version reported as a failure and left as it is.
 link:{test}/PeriodicSweepTest.java[`PeriodicSweepTest`]:: The schedule, the skipped projects and the failing steps,
 with recording steps.
+link:{test}/ServiceUnitInstallerTest.java[`ServiceUnitInstallerTest`]:: Install, uninstall and the restore of a failed
+load over the recording fake of the service manager: a failed load after replacing a unit leaves the previous bytes in
+place and loaded, a failed load on a machine without a unit leaves no unit file, a failed restore is reported with both
+failures and keeps the pair, the kept pair exists at every command of the load, the start after an interrupted reinstall
+restores the kept LaunchAgent, a start without a marker issues no command, and uninstall drops the pair.
 link:{test}/CredentialStoreMoveResumeTest.java[`CredentialStoreMoveResumeTest`]:: No record; a move cut before the
 switch, with a copy and with a stale copy in the target, completed from the first entry; a move cut between the switch
 and the rewrite of the record, treated as switched without touching the recorded target; a move cut after the switch
@@ -339,6 +393,12 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
    record carries no PID are settled without a signal. Only a group probed live within this boot is terminated; a
    recorded PID of an earlier boot may belong to anyone now.
 7. **Never adopt a job of a previous runtime**: every unsettled job is settled `killed`, never resumed or started again.
+8. **Keep before the load, drop after it**: the copy and the marker are file work and go before every command that can
+   end the caller; the drop goes after the load. A drop before the load would make the macOS interrupted reinstall
+   unrecoverable, and a keep after the load would keep the new unit instead of the previous one.
+9. **The marker decides, the copy says what**: a start restores only when the marker is present, and the copy only
+   names the bytes; an absent copy with a present marker means "there was no unit", never "nothing to do".
+10. **Uninstall drops the pair first**: a unit the operator removed must not come back at the next start.
 
 == Specification Tracing
 
@@ -352,7 +412,8 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}
   Sequence] (step 4.1), link:{spec}/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas § Security & Transition
   Audit Log] (hash chain), link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#per-project-recovery[Runtime
   Model § Per-Project Recovery] (step 3), link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc[Runtime Model §
-  Drain, Stop & Upgrade] (the jobs participant), link:{spec}/store-schemas/10-job-and-lesson-records.adoc#job-record[Store
+  Drain, Stop & Upgrade] (the jobs participant), link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime
+  Model § Drain, Stop & Upgrade] (the service unit of a failed upgrade), link:{spec}/store-schemas/10-job-and-lesson-records.adoc#job-record[Store
   Schemas § Job Record]
 * Stores: link:../../../pm-core/doc/developer/core-store.adoc[`core.store`] (delete mode, pending entry record, job
   records), link:../../../pm-core/doc/developer/core-queue.adoc[`core.queue`] (session generations)
@@ -361,7 +422,8 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}
   link:../adr/runtime-start/002-sweep-seam-factory-removed.adoc[ADR 002],
   link:../adr/runtime-start/011-broken-chain-outcome-carries-reason-and-line.adoc[ADR 011],
   link:../adr/runtime-start/012-store-move-resumed-machine-wide-after-the-bind.adoc[ADR 012],
-  link:../adr/runtime-start/013-jobs-recovery-step-worker-part-a-seam.adoc[ADR 013]
+  link:../adr/runtime-start/013-jobs-recovery-step-worker-part-a-seam.adoc[ADR 013],
+  link:../adr/runtime-start/014-previous-service-unit-kept-and-restored.adoc[ADR 014]
 * Audit trail: link:runtime-audit.adoc[`runtime.audit`]
 * Credential store move: link:runtime-credentials.adoc[`runtime.credentials`],
   link:{spec}/credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[Credentials & Enrolment §

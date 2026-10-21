@@ -1,0 +1,83 @@
+= ADR 014: A Reinstall Keeps the Previous Service Unit and Restores It When the New One Does Not Load
+:nofooter:
+
+== Status
+
+Accepted; it supersedes the failed-load rule of
+link:003-unit-file-step-and-service-manager-step.adoc[ADR 003], not its unit-file and service-manager split.
+
+== Date
+
+2026-10-21
+
+== Context
+
+`ServiceUnitInstaller.install` wrote the new unit over the existing one and loaded it. When the load failed, the new
+unit stayed written and the failure was reported; install could be run again
+(link:003-unit-file-step-and-service-manager-step.adoc[ADR 003]). The upgrade of the runtime needs the opposite: a
+failure before the switch, the service unit included, is undone before it is reported, with "the previous service unit
+restored and reloaded, so the installation in force is unchanged"
+(link:../../../../doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime
+Lifecycle Specification, Drain, Stop & Upgrade, Upgrade]).
+
+Two forces bound the answer. First, install and uninstall may run inside the runtime that the unit started, so the
+command that ends the service ends the caller: on macOS the `bootout` of a reinstall ends the runtime after the old job
+is unloaded and before the new one is loaded, and no restore code of the caller runs at all. Second, `pm-operator
+runtime install` is also the plain install of a fresh machine, and its documented behaviour was "run it again"; the
+work package leaves the decision about that path open and asks for it in this ADR.
+
+== Decision
+
+* `install` keeps what it replaces before it writes: `ServiceUnitFile.keepForRestore()` copies the bytes of the unit in
+  force to `<unit>.previous` and then writes the marker `<unit>.reinstall`; a machine without a unit gets the marker
+  but no copy. The marker goes last, so a stop before it leaves no restore to do.
+* When loading the new unit fails, `install` calls the restore: `ServiceUnitFile.restore()` writes the kept bytes back
+  and `ServiceManager.load` loads them again; with no kept copy it removes the new unit file and unloads nothing. The
+  load failure is thrown with the restore's own failure suppressed, as `uninstall` reports its first failure.
+* The kept state is dropped (`ServiceUnitFile.discardRestore()`) only after a load or a restore succeeded; the marker
+  goes before the copy, so a stop between the two leaves a copy nobody restores.
+* **Plain install restores as well.** `pm-operator runtime install` uses the same `ServiceUnitInstaller.install`, so a
+  failed load of a plain install undoes itself and the installation in force stays unchanged; "run it again" stays the
+  way to retry an install, and it is now also the way back to the new unit. There is one behaviour, not a restoring
+  upgrade path beside a reporting install path, and the file work is the same for both.
+* On macOS, where the caller ends inside the load, the kept pair is what survives. `ServiceUnitInstaller.restore()` is
+  the first step of a start: it finds the marker, writes the kept unit back and loads it, or removes the new unit file
+  when there was none, and drops the kept pair. A start without the marker issues no command.
+* `uninstall` drops the kept pair first, so a unit the operator removed is never restored by a later start.
+* The file work stays before every command that can end the caller: keep, copy and marker before the load; the kept
+  unit before the restore's load; the marker and copy only after the load succeeded.
+
+== Alternatives Considered
+
+* *Keep ADR 003's "run it again" for the plain install and restore only on an upgrade path.* The work package allows
+  it, but it needs a second entry point and gives `pm-operator runtime install` a failure that changes the
+  installation in force while the upgrade path does not. The restore costs nothing on the plain path: with no previous
+  unit it removes the file it just wrote.
+* *Hold the previous bytes in memory only.* It cannot survive the macOS end of the caller, which is the case the
+  restore exists for.
+* *Encode "no previous unit" as an empty kept file instead of a marker.* An empty file beside the unit cannot be told
+  from a unit file that happens to be empty, so the restore could delete a real unit instead of writing it back.
+
+== Consequences
+
+* A reinstall touches two siblings of the unit, `<unit>.previous` and `<unit>.reinstall`, both with mode `0600` and
+  never loaded. They are not unit files, and the service manager never sees them.
+* A restore whose load fails again keeps the pair, so the next start tries the restore once more; the failure is
+  logged (`PM_RUNTIME-135`).
+* The start must call `ServiceUnitInstaller.restore()` before it does anything else that could depend on the unit. The
+  assembly `pm-mcp-server` does not wire the start yet; until it does, the macOS interrupted reinstall still leaves the
+  job unloaded until the next login, but the restore step is in place.
+* The specification statement is implemented only for the service unit; the rest of the upgrade's rollback (the staged
+  installation directory, the switch) is not built, so nothing is deleted from the specification.
+
+== Source
+
+* Pull request: this work package's pull request on branch `fix/83-service-unit-restore`
+* Work package:
+  link:https://github.com/plan-marshall/pm-mcp-core/blob/1ba292d5475e682d37ce44ba93a9d44cf3c49769/doc/plans/service-unit-restore.adoc[`service-unit-restore`]
+* Specification:
+  link:../../../../doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime
+  Lifecycle § Drain, Stop & Upgrade] (Upgrade)
+* Predecessor: link:003-unit-file-step-and-service-manager-step.adoc[ADR 003]
+* Developer documentation: link:../../developer/runtime-start.adoc#_the_previous_unit_of_a_failed_load[Runtime Start
+  Developer Guide § The Previous Unit of a Failed Load]
