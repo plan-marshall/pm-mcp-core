@@ -325,6 +325,26 @@ public final class RuntimeLogMessages {
                 .identifier(32)
                 .template("First recording of credential store '%s' from '%s' resumed from phase '%s' and completed")
                 .build();
+
+        /**
+         * Logged when a failed load of a new service unit was undone: the bytes of the unit in force were written
+         * back and the unit was loaded again.
+         */
+        public static final LogRecord SERVICE_UNIT_RESTORED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(33)
+                .template("Service unit '%s' restored and loaded after the new unit did not load")
+                .build();
+
+        /**
+         * Logged when a failed load of a new service unit was undone on a machine that had no unit installed: the
+         * new unit file was removed and nothing was unloaded.
+         */
+        public static final LogRecord SERVICE_UNIT_RESTORE_WITHOUT_PREVIOUS = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(34)
+                .template("Service unit '%s' removed after the new unit did not load, no previous unit was installed")
+                .build();
     }
 
     /** WARN level messages. */
@@ -660,6 +680,16 @@ public final class RuntimeLogMessages {
                 .prefix(PREFIX)
                 .identifier(134)
                 .template("Credential store '%s' cannot be read while a store is recorded, taken as holding no integrity key: %s")
+                .build();
+
+        /**
+         * Logged when the unit a failed load kept could not be restored, or the restored unit could not be loaded
+         * again; names the unit file and the failure. The kept unit stays, so the next start tries the restore again.
+         */
+        public static final LogRecord SERVICE_UNIT_RESTORE_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(135)
+                .template("Service unit '%s' could not be restored: %s")
                 .build();
     }
 
