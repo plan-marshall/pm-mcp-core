@@ -1,0 +1,61 @@
+= ADR 030: The Lane Entry Ids Live in One Holder
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-21
+
+== Context
+
+The two states whose exits split the lanes — `refine.baseline-reconcile` for the `deep` lane and `init.light-gate` for
+the `light` lane (link:../../../../doc/specification/state-catalogue/02-plan-phases-1-3.adoc#state-init.light-gate[State
+Catalogue § Plan Phases 1-3]) — were named in three classes, each with its own constant: `InstancePruner` in
+`workflow.plan` declared both as the targets of the lane split, `InitInvariants` declared the light entry as its
+`LIGHT_GATE`, and `RefineInvariants` declared the deep entry as its `BASELINE_RECONCILE`. A rename of an entry in the
+specification and the templates therefore had to reach three declarations, and a missed one left the pruner and the
+phase invariants disagreeing with the templates: the pruner would keep a route the invariant no longer recognised, and
+the invariant would require a state the pruner treated as not part of the lane.
+
+The two ids are also the only state ids of the plan unit that a package outside `workflow.verify` reads by name: the
+pruner has no other business with the invariants.
+
+== Decision
+
+* Add `LaneEntryIds` in `workflow.verify`, declaring `DEEP_ENTRY` (`refine.baseline-reconcile`) and `LIGHT_ENTRY`
+  (`init.light-gate`) once.
+* `InstancePruner`, `InitInvariants` and `RefineInvariants` read the two ids from it; their own constants are removed.
+* `LaneEntryIds` declares no behaviour and holds no table beyond the two ids: it is a vocabulary holder, not a
+  registry, and it deliberately does not name the lane split (`InstancePruner.LANE_SPLIT`), whose reader is the pruner
+  alone.
+
+== Alternatives Considered
+
+1. *Read the ids from the default plan unit at run time*, resolving the targets of the `init.ready` exits. _Not taken_:
+   the resolution depends on the unit under check, so an invariant fed a mutated or partial unit would lose the id it is
+   meant to guard, and the check could no longer report a missing entry.
+2. *Keep the constants where they were and cross-reference them from the pruner.* _Not taken_: the duplication is the
+   defect; three owners of one id is what let a rename drift.
+3. *Put the holder in `workflow.plan` beside the pruner.* _Not taken_: the invariants would then depend on
+   `workflow.plan`, inverting the direction the package layout keeps — `workflow.plan` already reads
+   `workflow.verify`.
+
+== Consequences
+
+* A rename of a lane entry is one edit in `LaneEntryIds`, and the pruner, `INV-INIT-2` and `INV-REFINE-1` move with it.
+* `LaneEntryIdsTest` asserts that the default plan unit
+  (`InvariantFixtures.passingUnits(UnitOrigin.DEFAULT).get("plan")`) declares a state under each holder constant, so a
+  rename of either id that misses the holder fails the build instead of silently detaching the checks.
+* *For the assembly in `plan-marshall-mcp`*: `LaneEntryIds` is a new public type of `workflow.verify`; no existing
+  signature changes.
+
+== Source
+
+* link:../../../../doc/specification/state-catalogue/02-plan-phases-1-3.adoc#state-init.light-gate[State Catalogue § Plan Phases 1-3] (`init.light-gate`, `refine.baseline-reconcile`)
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Compiled Invariants] (`INV-INIT-2`, `INV-REFINE-1`)
+* link:../workflow-plan/012-per-lane-routes-and-other-lane-pruning.adoc[ADR workflow-plan 012]
+* link:../../developer/workflow-verify.adoc#_types[Workflow Verification Developer Guide § Types]
+* link:../../developer/workflow-plan.adoc#_lane_pruning[Plan Instance Developer Guide § Lane Pruning]
