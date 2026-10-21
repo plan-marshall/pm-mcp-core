@@ -318,7 +318,7 @@ class ServiceUnitInstallerTest {
         @ParameterizedTest(name = "{0}")
         @EnumSource(Platform.class)
         @DisplayName("keeps the previous unit in place and loaded when the load fails")
-        void shouldRestorePreviousUnit(Platform platform) throws IOException {
+        void shouldRestorePreviousUnit(Platform platform) throws Exception {
             var file = unitFile(home, platform);
             Files.createDirectories(file.getParent());
             Files.writeString(file, PREVIOUS_UNIT);
@@ -364,7 +364,7 @@ class ServiceUnitInstallerTest {
         @ParameterizedTest(name = "{0}")
         @EnumSource(Platform.class)
         @DisplayName("reports a failed restore with both failures, the load first")
-        void shouldReportBothFailures(Platform platform) throws IOException {
+        void shouldReportBothFailures(Platform platform) throws Exception {
             var file = unitFile(home, platform);
             Files.createDirectories(file.getParent());
             Files.writeString(file, PREVIOUS_UNIT);
@@ -388,7 +388,7 @@ class ServiceUnitInstallerTest {
         @ParameterizedTest(name = "{0}")
         @EnumSource(Platform.class)
         @DisplayName("restores the previous unit when the second command of the load fails")
-        void shouldRestoreAfterTheLoadFailsLate(Platform platform) throws IOException {
+        void shouldRestoreAfterTheLoadFailsLate(Platform platform) throws Exception {
             var file = unitFile(home, platform);
             Files.createDirectories(file.getParent());
             Files.writeString(file, PREVIOUS_UNIT);
@@ -407,7 +407,7 @@ class ServiceUnitInstallerTest {
 
         @Test
         @DisplayName("keeps the previous unit before every command of the load")
-        void shouldKeepBeforeLoad() throws IOException {
+        void shouldKeepBeforeLoad() throws Exception {
             var file = unitFile(home, Platform.LAUNCHD);
             Files.createDirectories(file.getParent());
             Files.writeString(file, PREVIOUS_UNIT);
@@ -429,7 +429,7 @@ class ServiceUnitInstallerTest {
 
         @Test
         @DisplayName("keeps the pending previous unit when install runs again before the restore")
-        void shouldKeepThePendingUnitOnAnotherInstall() throws IOException {
+        void shouldKeepThePendingUnitOnAnotherInstall() throws Exception {
             var file = unitFile(home, Platform.SYSTEMD);
             Files.createDirectories(file.getParent());
             Files.writeString(previous(file), PREVIOUS_UNIT);
@@ -447,7 +447,7 @@ class ServiceUnitInstallerTest {
 
         @Test
         @DisplayName("keeps the install a success when the kept state cannot be dropped")
-        void shouldReportUndroppedKeptState() throws IOException {
+        void shouldReportUndroppedKeptState() throws Exception {
             var file = unitFile(home, Platform.LAUNCHD);
             Files.createDirectories(file.getParent());
             Files.writeString(reinstall(file), "");
@@ -469,7 +469,7 @@ class ServiceUnitInstallerTest {
 
         @Test
         @DisplayName("keeps the install a success and restores at the next start when the marker cannot be dropped")
-        void shouldRestoreWhenTheMarkerCannotBeDropped() throws IOException {
+        void shouldRestoreWhenTheMarkerCannotBeDropped() throws Exception {
             var file = unitFile(home, Platform.LAUNCHD);
             Files.createDirectories(file.getParent());
             Files.writeString(file, PREVIOUS_UNIT);
@@ -514,7 +514,7 @@ class ServiceUnitInstallerTest {
 
         @Test
         @DisplayName("drops the pair it kept when the unit cannot be written")
-        void shouldDropKeptPairOnWriteFailure() throws IOException {
+        void shouldDropKeptPairOnWriteFailure() throws Exception {
             var file = unitFile(home, Platform.LAUNCHD);
             Files.createDirectories(file.getParent());
             Files.writeString(file, PREVIOUS_UNIT);
@@ -534,7 +534,7 @@ class ServiceUnitInstallerTest {
 
         @Test
         @DisplayName("leaves a pending pair when the unit cannot be written")
-        void shouldLeavePendingPairOnWriteFailure() throws IOException {
+        void shouldLeavePendingPairOnWriteFailure() throws Exception {
             var file = unitFile(home, Platform.LAUNCHD);
             Files.createDirectories(file.getParent());
             Files.writeString(file, PREVIOUS_UNIT);
@@ -554,7 +554,7 @@ class ServiceUnitInstallerTest {
 
         @Test
         @DisplayName("drops the kept pair when the start's restore load fails, so no later start retries it")
-        void shouldNotRetryAFailedRestoreLoad() throws IOException {
+        void shouldNotRetryAFailedRestoreLoad() throws Exception {
             var file = unitFile(home, Platform.LAUNCHD);
             Files.createDirectories(file.getParent());
             Files.writeString(previous(file), PREVIOUS_UNIT);
@@ -575,7 +575,7 @@ class ServiceUnitInstallerTest {
 
         @Test
         @DisplayName("drops the kept unit before the restore loads it, so an ended caller cannot loop")
-        void shouldDropBeforeTheRestoreLoad() throws IOException {
+        void shouldDropBeforeTheRestoreLoad() throws Exception {
             var file = unitFile(home, Platform.LAUNCHD);
             Files.createDirectories(file.getParent());
             Files.writeString(previous(file), PREVIOUS_UNIT);
@@ -599,7 +599,7 @@ class ServiceUnitInstallerTest {
 
         @Test
         @DisplayName("restores the kept LaunchAgent at the start after an interrupted reinstall on macOS")
-        void shouldRestoreAtStart() throws IOException {
+        void shouldRestoreAtStart() throws Exception {
             var file = unitFile(home, Platform.LAUNCHD);
             Files.createDirectories(file.getParent());
             Files.writeString(file, PREVIOUS_UNIT);
@@ -623,7 +623,7 @@ class ServiceUnitInstallerTest {
         @ParameterizedTest(name = "{0}")
         @EnumSource(Platform.class)
         @DisplayName("removes the replacement at the start when an interrupted reinstall kept no previous unit")
-        void shouldRemoveReplacementAtStartWithoutPrevious(Platform platform) throws IOException {
+        void shouldRemoveReplacementAtStartWithoutPrevious(Platform platform) throws Exception {
             var file = unitFile(home, platform);
             unit(platform).write();
             Files.writeString(reinstall(file), "");
@@ -657,7 +657,7 @@ class ServiceUnitInstallerTest {
 
         @Test
         @DisplayName("discards a kept unit on uninstall before the first command, so a later start restores nothing")
-        void shouldDiscardOnUninstall() throws IOException {
+        void shouldDiscardOnUninstall() throws Exception {
             var file = unitFile(home, Platform.LAUNCHD);
             unit(Platform.LAUNCHD).write();
             Files.writeString(previous(file), PREVIOUS_UNIT);
