@@ -34,8 +34,9 @@ import de.planmarshall.core.store.WorkflowStatus;
  * document. The open episodes are kept in memory, keyed by project, scope type and scope id; the first detection of
  * an episode hands one {@code plan_stalled} record to the {@link AuditSink} and announces the hold on the
  * {@link OperatorPort}, every further detection of the episode appends nothing, and a detection that finds the scope
- * moved on ends the episode and announces the report {@link #HOLD_RELEASED}. The acts the hold offers are
- * {@code plan-and-epic-control}'s.
+ * moved on ends the episode and announces the report {@link #HOLD_RELEASED}. Detection and announcement are
+ * serialized on the detector, so two concurrent reads cannot announce one transition twice. The acts the hold offers
+ * are {@code plan-and-epic-control}'s.
  *
  * @since 0.1
  */
@@ -189,7 +190,7 @@ public final class StalledScopeDetector {
      * @param now  the instant of the read
      * @return the hold, when the scope is stalled, with the idle span of this read
      */
-    public Activity detect(View view, Instant now) {
+    public synchronized Activity detect(View view, Instant now) {
         Objects.requireNonNull(view, "view");
         Objects.requireNonNull(now, "now");
         var status = view.status();
@@ -224,7 +225,7 @@ public final class StalledScopeDetector {
     }
 
     /** Ends the episode of the scope, if one is open, and announces that the hold cleared by itself. */
-    private void release(String key) {
+    private synchronized void release(String key) {
         var episode = stalled.remove(key);
         if (episode != null) {
             pendingReleases.computeIfAbsent(key, ignored -> new ConcurrentLinkedQueue<>()).add(episode.hold());

@@ -349,8 +349,9 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
    the owed record is handed over at least once, also after a crash. Give it `transaction.recordId()`, never
    `transaction.transactionId()`.
 5. **A stall is derived, never stored**: the detection writes no status member and no store; its one record per episode
-   is appended inside the per-scope computation, so two racing reads append one record, and a refused record leaves the
-   episode open for the next read.
+   is appended inside the per-scope computation, and detection with its announcements is serialized on the detector, so
+   two racing reads append one record and announce no transition twice. A refused record leaves the episode open for the
+   next read.
 6. **Never signal a job nobody can identify**: an in-process operation, a job spawned before the boot and a job whose
    record carries no PID are settled without a signal. Only a group probed live within this boot is terminated; a
    recorded PID of an earlier boot may belong to anyone now.
