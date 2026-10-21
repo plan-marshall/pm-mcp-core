@@ -58,9 +58,10 @@ import de.planmarshall.core.store.QuestionRefusal.Unreadable;
  * refused {@link Unreadable}, an {@code asked} line included, and nothing is added.
  * A revision appends a {@code revised} line for every question of the set that is open when it begins, each with the
  * next revision, the one after its current revision, and carries the decision of the set on the line of its first
- * question only. A decision is asked whole: its parts are fixed when its set is asked, so a line that asks a further
- * part into a set the log already holds is a fault of the caller; a change of the decision is a revision of its open
- * questions.
+ * question only. Once the first question of a set is closed, the set no longer carries a changed decision: a revision
+ * of its remaining open questions carries none, and a changed decision needs a new decision. A decision is asked whole:
+ * its parts are fixed when its set is asked, so a line that asks a further part into a set the log already holds is a
+ * fault of the caller; a change of the decision is a revision of its open questions.
  * Whether an answer fits its part is checked by the engine, not here. A line that is malformed for the log (a question
  * asked twice, a part asked into a set the log holds, a part whose {@code question_set} is no first question of a set,
  * a line about a question the log does not have, a revision that is not the next one, a set revised in part, a decision
@@ -449,6 +450,28 @@ public final class QuestionLog {
         return questions;
     }
 
+    /**
+     * Checks that an asked line that is not the first question of its set joins a set the same append has just asked:
+     * no set of the log holds it, and the question it names is that set's own first question.
+     */
+    private static void requirePartOfNewSet(Map<String, Question> questions, Set<String> askedBefore, String id,
+            String set) {
+        if (askedBefore.contains(set)) {
+            throw new IllegalArgumentException(
+                    "The set %s is asked already; a set is asked whole, and a further part needs a new decision"
+                            .formatted(set));
+        }
+        var named = questions.get(set);
+        if (named == null) {
+            throw new IllegalArgumentException("The question %s names the set %s, which is not asked"
+                    .formatted(id, set));
+        }
+        if (!named.questionSet.equals(set)) {
+            throw new IllegalArgumentException(
+                    "The question %s names %s as its set, which is no first question of a set".formatted(id, set));
+        }
+    }
+
     /** Checks one line against what the log and the lines before it hold, and applies it when it passes. */
     private static Optional<QuestionRefusal> check(Map<String, Question> questions, Set<String> askedBefore,
             QuestionRecord line) {
@@ -458,21 +481,7 @@ public final class QuestionLog {
                 throw new IllegalArgumentException("The question %s is asked already".formatted(id));
             }
             if (!line.questionSet().equals(id)) {
-                if (askedBefore.contains(line.questionSet())) {
-                    throw new IllegalArgumentException(
-                            "The set %s is asked already; a set is asked whole, and a further part needs a new decision"
-                                    .formatted(line.questionSet()));
-                }
-                var named = questions.get(line.questionSet());
-                if (named == null) {
-                    throw new IllegalArgumentException("The question %s names the set %s, which is not asked"
-                            .formatted(id, line.questionSet()));
-                }
-                if (!named.questionSet.equals(line.questionSet())) {
-                    throw new IllegalArgumentException(
-                            "The question %s names %s as its set, which is no first question of a set"
-                                    .formatted(id, line.questionSet()));
-                }
+                requirePartOfNewSet(questions, askedBefore, id, line.questionSet());
             }
             questions.put(id, new Question(line.questionSet(), line.revision()));
             return Optional.empty();

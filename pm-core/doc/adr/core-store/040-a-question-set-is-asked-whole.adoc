@@ -48,6 +48,9 @@ reconciled with a changed decision.
 
 * A caller that learns of a further part of a decision must ask a new decision; the store will not grow the old set,
   and a revision of that set changes only the questions it already has.
+* Once the first question of a set is closed, the set carries no changed decision: its remaining open questions can be
+  revised, but a `decision` on their revised lines is refused (the first question's line, the only carrier, is closed),
+  so a changed decision at that point needs a new decision.
 * The refusal is the caller's fault, as the other malformed appends are: an `IllegalArgumentException`, not a
   `QuestionRefusal` value.
 * The set's first question is the only line that can carry the `decision` of the set, on an `asked` line and on a

@@ -109,6 +109,26 @@ class QuestionLogRevisionTest extends QuestionLogFixture {
     }
 
     @Test
+    @DisplayName("of a set whose first question is closed carries no decision: a changed decision needs a new one")
+    void decisionAfterTheFirstQuestionClosed() throws Exception {
+        askSet();
+        write(t -> log.answer(t, List.of(answered("Q-001", 1))));
+        var onAPart = revised("Q-002", 2).toBuilder().decision(QuestionRecordCodecTest.decision()).build();
+
+        var fault = assertThrows(IllegalArgumentException.class,
+                () -> write(t -> log.revise(t, List.of(onAPart, revised("Q-003", 2)))));
+        var before = content();
+        var accepted = write(t -> log.revise(t, List.of(revised("Q-002", 2), revised("Q-003", 2))));
+
+        assertAll(
+                () -> assertTrue(fault.getMessage().contains("first question of the set"), fault.getMessage()),
+                () -> assertArrayEquals(before, Arrays.copyOf(content(), before.length),
+                        "the refused revision adds nothing"),
+                () -> assertEquals(Optional.empty(), accepted),
+                () -> assertEquals(OptionalInt.of(2), log.read().currentRevision("Q-002")));
+    }
+
+    @Test
     @DisplayName("of a part of the set, with two revisions, or not above the current one is a fault of the caller")
     void malformedRevision() throws Exception {
         askSet();

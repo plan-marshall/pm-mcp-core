@@ -789,7 +789,8 @@ caller: transaction.commit()
   of its set that is open when it begins, at its first `revised` line within the append, each with exactly the next
   revision, the one after its current revision. A question of the set the same append answers or withdraws after
   revising it stays covered by the revision; a question closed before the revision begins is not part of it. The
-  `decision` of the set is carried on the line of its first question and only there, as on an `asked` line.
+  `decision` of the set is carried on the line of its first question and only there, as on an `asked` line; once that
+  question is closed the set carries no changed decision, so a changed decision then needs a new decision.
 * *Decided under the lock*: the log is read while the caller's transaction holds the scope lock, so no other append
   comes between the check and the write
   (link:../adr/core-store/033-question-invariants-held-by-the-store-as-refusal-values.adoc[ADR 033]).
