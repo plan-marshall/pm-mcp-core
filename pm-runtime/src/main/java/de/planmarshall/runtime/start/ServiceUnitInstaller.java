@@ -78,9 +78,8 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
             throw e;
         }
         try {
-            manager.load(path);
+            load(path);
         } catch (ServiceUnitException e) {
-            LOGGER.error(e, ERROR.SERVICE_MANAGER_FAILED, "load", e.getMessage());
             try {
                 restoreKept();
             } catch (ServiceUnitException restoreFailure) {
@@ -155,12 +154,7 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
             var restored = unit.restore();
             unit.discardRestore();
             if (restored) {
-                try {
-                    manager.load(path);
-                } catch (ServiceUnitException e) {
-                    LOGGER.error(e, ERROR.SERVICE_MANAGER_FAILED, "load", e.getMessage());
-                    throw e;
-                }
+                load(path);
                 LOGGER.info(INFO.SERVICE_UNIT_RESTORED, path);
             } else {
                 LOGGER.info(INFO.SERVICE_UNIT_RESTORE_WITHOUT_PREVIOUS, path);
@@ -168,6 +162,20 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
             return restored;
         } catch (ServiceUnitException e) {
             LOGGER.warn(e, WARN.SERVICE_UNIT_RESTORE_FAILED, path, e.getMessage());
+            throw e;
+        }
+    }
+
+    /**
+     * Loads the unit and logs a failing command of the service manager; the failure is rethrown.
+     *
+     * @param path the written unit file
+     */
+    private void load(Path path) {
+        try {
+            manager.load(path);
+        } catch (ServiceUnitException e) {
+            LOGGER.error(e, ERROR.SERVICE_MANAGER_FAILED, "load", e.getMessage());
             throw e;
         }
     }

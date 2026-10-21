@@ -500,7 +500,7 @@ class ServiceUnitInstallerTest {
         @Test
         @EnabledOnOs({OS.LINUX, OS.MAC})
         @DisplayName("keeps the unit in force and its marker with mode rw-------")
-        void shouldKeepWithRestrictedModes() throws IOException {
+        void shouldKeepWithRestrictedModes() {
             var file = unitFile(home, Platform.SYSTEMD);
             unit(Platform.SYSTEMD).write();
             unit(Platform.SYSTEMD).keepForRestore();
