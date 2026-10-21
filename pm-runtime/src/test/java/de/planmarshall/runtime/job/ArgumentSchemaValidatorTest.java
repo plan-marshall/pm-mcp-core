@@ -201,6 +201,19 @@ class ArgumentSchemaValidatorTest {
     }
 
     @Test
+    @DisplayName("pattern at the maxLength ceiling: a string of the ceiling's length is matched, not cut short")
+    void patternAtMaxLengthCeiling() {
+        var ceiling = ArgumentSchema.PATTERN_MAX_LENGTH_CEILING;
+        var schema = pattern("^[a-z]+$", ceiling);
+        var length = Math.toIntExact(ceiling);
+
+        assertAll(
+                () -> assertEquals(ceiling, schema.maxLength().longValue()),
+                () -> assertEquals(CONFORMS, validate(schema, new Text("a".repeat(length)))),
+                () -> assertEquals(CONFORMS, validate(schema, new Text("a".repeat(length - 1)))));
+    }
+
+    @Test
     @DisplayName("pattern with maxLength: a longer string is refused by maxLength, the pattern is never evaluated")
     void maxLengthBeforePattern() {
         var catastrophic = pattern("^(a+)+$", 16L);

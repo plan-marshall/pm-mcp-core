@@ -27,6 +27,12 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]
 |Milestones 3 and 4
 
+|link:module-developer-docs.adoc[`module-developer-docs`]
+|The developer documentation of every package that has production code and no developer file, and the guides of `plan-marshall-documentation` folded in
+|`open`
+|nothing
+|Milestones 2 to 4
+
 |link:job-confinement-and-environment.adoc[`job-confinement-and-environment`]
 |Job confinement and job environment in the daemon
 |`open`
@@ -221,8 +227,8 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 
 |link:runtime-metrics.adoc[`runtime-metrics`]
 |What the runtime is doing: the metrics registry maintained where things happen, the closed catalogue, the snapshot endpoints and the stream
-|`blocked`
-|link:https://github.com/plan-marshall/pm-mcp-core/blob/603d4f7/doc/plans/lock-manager-and-leases.adoc[`lock-manager-and-leases`]; link:supervisor.adoc[`supervisor`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:slots-usage-and-budgets.adoc[`slots-usage-and-budgets`]; link:token-usage.adoc[`token-usage`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (held and paused); the operator's choice of the metrics library (no work package)
+|`open`
+|link:supervisor.adoc[`supervisor`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:slots-usage-and-budgets.adoc[`slots-usage-and-budgets`]; link:token-usage.adoc[`token-usage`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (held and paused)
 |Milestone 2; the client work of `pm-mcp-clients`
 
 |link:process-designer.adoc[`process-designer`]

@@ -31,16 +31,23 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.store.ProjectEnrolment;
+import de.planmarshall.core.store.ProjectEnrolment.ArgumentSchema;
 import de.planmarshall.core.store.ProjectEnrolment.Argv;
+import de.planmarshall.core.store.ProjectEnrolment.Binding;
 import de.planmarshall.core.store.ProjectEnrolment.Build;
 import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;
+import de.planmarshall.core.store.ProjectEnrolment.Interpreter;
+import de.planmarshall.core.store.ProjectEnrolment.ProjectScript;
 import de.planmarshall.core.store.ProjectEnrolment.Provider;
 import de.planmarshall.core.store.ProjectEnrolment.ProviderVerification;
+import de.planmarshall.core.store.ProjectEnrolment.SchemaType;
+import de.planmarshall.core.store.ProjectEnrolment.WorkerKind;
 
 /**
- * The enrolment policy (PM-EXEC-1, PM-EXEC-2): the three rules the specification states in concrete terms, checked on
- * an enrolment before it is signed: placeholders of an argument vector, write paths against the base directory, and
- * refused build environment names. A compliant enrolment has no violation.
+ * The enrolment policy (PM-EXEC-1, PM-EXEC-2): the four rules the specification states in concrete terms, checked on
+ * an enrolment before it is signed: placeholders of an argument vector, an argument schema whose pattern's
+ * {@code maxLength} is above the global ceiling, write paths against the base directory, and refused build
+ * environment names. A compliant enrolment has no violation.
  */
 @DisplayName("Enrolment policy")
 class EnrolmentPolicyTest {
@@ -326,5 +333,31 @@ class EnrolmentPolicyTest {
                 () -> assertTrue(found.get(4).contains("A_SECRET"), found::toString),
                 () -> assertTrue(found.get(5).contains("Z_TOKEN"), found::toString),
                 () -> assertEquals(found, violations(enrolment)));
+    }
+
+    @Test
+    @DisplayName("the argument-schema family sits between providers and write paths")
+    void orderPlacesTheArgumentSchemaFamily() {
+        var above = ArgumentSchema.PATTERN_MAX_LENGTH_CEILING + 1;
+        var properties = new TreeMap<String, ArgumentSchema>();
+        properties.put("body", new ArgumentSchema(SchemaType.STRING, null, null, false, null, "^[a-z]+$", null, null,
+                above));
+        var schema = new ArgumentSchema(SchemaType.OBJECT, properties, null, false, null, null, null, null, null);
+        var scripts = new TreeMap<String, ProjectScript>();
+        scripts.put("parse-log", new ProjectScript("scripts/parse-log.py", "0".repeat(64), Interpreter.PYTHON3,
+                new Binding(WorkerKind.LOG_PARSER, "maven"), schema, 60));
+        var enrolment = new ProjectEnrolment(PROJECT, "/home/dev/git/" + PROJECT,
+                Instant.parse("2026-10-11T08:00:00Z"), false, null, null, List.of(), List.of(),
+                Build.defaults(), Map.of(Provider.GLAB, new ProviderVerification(vector(literal("{x}")))),
+                scripts, new TreeMap<>(), new TreeMap<>(), List.of(base.toString()), new TreeMap<String, String>());
+
+        var found = violations(enrolment);
+
+        assertAll(
+                () -> assertEquals(3, found.size(), found::toString),
+                () -> assertTrue(found.get(0).startsWith("providers.gitlab.verify_argv"), found::toString),
+                () -> assertTrue(found.get(1).startsWith("project_scripts.parse-log.argument_schema.body"),
+                        found::toString),
+                () -> assertTrue(found.get(2).startsWith("write_paths"), found::toString));
     }
 }
