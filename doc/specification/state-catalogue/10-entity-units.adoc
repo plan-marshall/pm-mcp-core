@@ -77,7 +77,7 @@ Every task of a model state is worked on an entity scope in a state of an entity
 |inherit (entity scope)
 |`link`
 |The `implement` worker's `ack` of the task of `envelope-M`; itself after each `submit:TASK-i` that is neither the last plan task nor a chain tail.
-|`submit:TASK-NNN`; `ask:TASK-NNN` (`decision:schema[decision-envelope]`: records a decision of class `task` and ends the entity); `infeasible:TASK-NNN`; `yield:envelope-M` (no parameter). `facts.task_id` names the current plan task. The server records the `yield_reason` from the exit taken: `chain_tail`, `question`, or `context`.
+|`submit:TASK-NNN` (`own_calls:list<schema[own-call]>`, link:../phase-workflows/03-q-gate-and-execute.adoc#own-calls[Own Calls of a Writer]); `ask:TASK-NNN` (`decision:schema[decision-envelope]`: records a decision of class `task` and ends the entity); `infeasible:TASK-NNN`; `yield:envelope-M` (no parameter). `facts.task_id` names the current plan task. The server records the `yield_reason` from the exit taken: `chain_tail`, `question`, or `context`.
 |Next plan task -> this state; `ask` where the task continues -> `envelope.task.awaiting_answer`; the last plan task, a chain-tail task, `ask` without continuation, or `yield` -> `envelope.completed`; on every early end the remaining plan tasks, an asking task included, move to `envelope-(M+1)`, whose task carries a question's answer in `facts`.
 |link:../model-work/06-envelopes-questions-deadlines.adoc[Model Work Specification, Sequential Task Yield]
 
