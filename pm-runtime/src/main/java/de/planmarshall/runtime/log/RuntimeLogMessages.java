@@ -683,9 +683,11 @@ public final class RuntimeLogMessages {
                 .build();
 
         /**
-         * Logged when a restore fails: the kept unit cannot be read, written back or removed (the kept pair stays and
-         * the next start tries again), or the restored unit cannot be loaded (the kept pair is already gone and no
-         * later start retries it). Names the unit file and the failure.
+         * Logged when the marker or the kept copy of a reinstall cannot be deleted before a restore's load, or when the
+         * kept unit cannot be read, written back or removed; names the unit file and the failure. A marker that stayed,
+         * and any failure before the drop, leave the pair for the next start, which tries the restore again; a copy
+         * that alone stayed, and a load that failed after the drop, are not retried. `install` reports the restore's
+         * failure suppressed under the load's failure.
          */
         public static final LogRecord SERVICE_UNIT_RESTORE_FAILED = LogRecordModel.builder()
                 .prefix(PREFIX)

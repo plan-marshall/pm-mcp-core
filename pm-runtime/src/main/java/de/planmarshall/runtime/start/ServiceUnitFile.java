@@ -201,7 +201,8 @@ public record ServiceUnitFile(Platform platform, Path home, String xdgConfigHome
     }
 
     /**
-     * @return whether a reinstall left its load unfinished, so what it kept is still to be restored
+     * @return whether a reinstall left a kept pair that a start restores, because its load did not complete or its
+     *         drop did not finish
      */
     boolean restorePending() {
         return Files.exists(reinstallPath());

@@ -306,18 +306,19 @@ unambiguous:
 
 |the copy and the marker |no marker, a copy nobody restores |nothing; the next install overwrites both
 |the marker and the new unit |marker, copy, the old unit |writes the old bytes over themselves and loads them
+|the failed write of the new unit |usually no marker and no copy, because the pair this call kept is dropped; the old
+unit |nothing; if that drop fails too, the pair stays and the next start restores the unchanged unit
 |the new unit and its load |marker, copy, the new unit |restores the kept unit and loads it, or removes the new file
-|the failed write of the new unit |no marker, no copy (the pair this call kept is dropped), the old unit |nothing
 |the load and the drop |marker, copy, the loaded new unit |restores the kept unit and loads it, so an install whose
 caller ended right after its load is undone; the window is the drop's own length
 |the drop of the restore and its load |no marker, the kept (previous) unit |nothing; the next login loads the previous
 unit
 |the marker and the copy of the drop |no marker, a stale copy |nothing; the next install overwrites both
 |a second install while a pair is pending |marker, the pending copy, the new unit |keeps the pending copy; a failed load
-restores the unit in force, never the unit that never loaded
+restores the earlier unit, never the unit that never loaded
 |===
 
-The third row is the macOS case: the `bootout` of the load ends the runtime the unit started before the `bootstrap`.
+The fourth row is the macOS case: the `bootout` of the load ends the runtime the unit started before the `bootstrap`.
 The fifth row is the price of that case and is accepted: on Linux the load does not end the caller, so the window
 needs a `SIGKILL` of the caller between the load and the drop. The sixth row is why the restore drops the pair before
 its load: the load can end the caller too, and a marker left behind would make every later start restore and boot
@@ -371,9 +372,9 @@ place and loaded, at the first and at the second command of the load, a failed l
 no unit file, a failed restore is reported with both failures and drops the pair, the kept pair exists at every command
 of the load and is gone before every command of the restore's load, the kept unit and its marker have mode `rw-------`,
 a second install keeps the pending unit in force, a unit that cannot be written drops the pair it kept and leaves a
-pending pair, a pair that cannot be dropped warns without failing the install, a failed restore load drops the pair and
-is not retried, the start after an interrupted reinstall restores the kept LaunchAgent, a start without a marker issues
-no command, and uninstall drops the pair.
+pending pair, a pair that cannot be dropped warns without failing the install and, when its marker stayed, restores at
+the next start, a failed restore load drops the pair and is not retried, the start after an interrupted reinstall
+restores the kept LaunchAgent, a start without a marker issues no command, and uninstall drops the pair.
 link:{test}/CredentialStoreMoveResumeTest.java[`CredentialStoreMoveResumeTest`]:: No record; a move cut before the
 switch, with a copy and with a stale copy in the target, completed from the first entry; a move cut between the switch
 and the rewrite of the record, treated as switched without touching the recorded target; a move cut after the switch

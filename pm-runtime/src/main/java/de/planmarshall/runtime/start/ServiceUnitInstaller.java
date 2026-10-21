@@ -129,9 +129,9 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
      *
      * @return {@code true} when a reinstall was pending and its kept unit was restored or removed, {@code false} when
      *         no reinstall was pending
-     * @throws ServiceUnitException if the kept unit cannot be read, written back or removed, which leaves the pair
-     *                              for the next start, or if the restored unit cannot be loaded after the pair was
-     *                              dropped
+     * @throws ServiceUnitException if the kept unit cannot be read, written back or removed, or its marker cannot be
+     *                              deleted, which leaves the pair for the next start, or if the restored unit cannot be
+     *                              loaded after the pair was dropped, which no later start retries
      */
     public boolean restore() {
         if (!unit.restorePending()) {

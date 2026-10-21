@@ -468,6 +468,36 @@ class ServiceUnitInstallerTest {
         }
 
         @Test
+        @DisplayName("keeps the install a success and restores at the next start when the marker cannot be dropped")
+        void shouldRestoreWhenTheMarkerCannotBeDropped() throws IOException {
+            var file = unitFile(home, Platform.LAUNCHD);
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, PREVIOUS_UNIT);
+            Files.writeString(previous(file), PREVIOUS_UNIT);
+            Files.createDirectories(reinstall(file));
+            Files.writeString(reinstall(file).resolve("child"), "keeps the directory non-empty");
+            var call = new RecordingProcessCall(file);
+
+            installer(unit(Platform.LAUNCHD), call).install();
+
+            assertAll(
+                    () -> assertEquals(golden(Platform.LAUNCHD), Files.readString(file)),
+                    () -> assertTrue(Files.exists(reinstall(file))),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.SERVICE_UNIT_KEPT_NOT_DROPPED.resolveIdentifierString()));
+
+            var restoreCall = new RecordingProcessCall(file);
+            var restoreFailure = assertThrows(ServiceUnitException.class,
+                    installer(unit(Platform.LAUNCHD), restoreCall)::restore);
+
+            assertAll(
+                    () -> assertTrue(restoreFailure.getMessage().contains("kept state"), restoreFailure.getMessage()),
+                    () -> assertEquals(PREVIOUS_UNIT, Files.readString(file)),
+                    () -> assertEquals(List.of(), restoreCall.calls()),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN, restoreFailed(file)));
+        }
+
+        @Test
         @EnabledOnOs({OS.LINUX, OS.MAC})
         @DisplayName("keeps the unit in force and its marker with mode rw-------")
         void shouldKeepWithRestrictedModes() throws IOException {
