@@ -165,6 +165,12 @@ The decision points are closed; a state that takes a decision of the table write
 |Its confidence
 |`FIX`, `SUPPRESS`, `ACCEPT`
 
+|`execute.own-call` (`envelope.task.active` on `submit:TASK-NNN`, one record per own call, link:../phase-workflows/03-q-gate-and-execute.adoc#own-calls[Phase Workflows Specification, Own Calls of a Writer])
+|`role` `implement`
+|`approach`
+|No threshold; the call's `touches` and, for a shortcut, its `site`, `limit`, and `ends_when`
+|the call, among the alternatives the writer weighed (not exported to the corpus: the alternatives are the writer's own, not a closed set)
+
 |`decision.interpret` (`decision.interpret`, xref:06-envelopes-questions-deadlines.adoc#own-words[Answers in the Operator's Own Words])
 |`role` `interpret`
 |the question's
