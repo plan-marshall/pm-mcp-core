@@ -527,6 +527,22 @@ class QuestionLogTest {
         }
 
         @Test
+        @DisplayName("asking a further part into a set the log already holds is a fault, and appends nothing")
+        void partIntoExistingSet() throws Exception {
+            askSet();
+            var before = content();
+
+            var fault = assertThrows(IllegalArgumentException.class,
+                    () -> write(t -> log.append(t, List.of(asked("Q-004", "Q-001")))));
+
+            assertAll(
+                    () -> assertTrue(fault.getMessage().contains("asked already"), fault.getMessage()),
+                    () -> assertArrayEquals(before, content()),
+                    () -> assertEquals(OptionalInt.of(1), log.read().currentRevision("Q-001"),
+                            "the set stays revisable as it was asked"));
+        }
+
+        @Test
         @DisplayName("a set not named by its first question, a line of another event, or no line is refused")
         void wrongShape() {
             assertAll(

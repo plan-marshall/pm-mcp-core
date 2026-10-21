@@ -740,7 +740,7 @@ only; a request in the status of an epic or the workspace is refused, and a `nul
 reads as no request, and the codec always writes the member, as `[]` when it is empty. Each request id occurs at most
 once, and at most one request is pending at a time: a document that breaks either is refused as unreadable naming the
 member, and a status built with either is refused by `WorkflowStatus` (`IllegalArgumentException`) before it can be
-written.
+written (link:../adr/core-store/041-a-waiver-request-is-held-once-and-one-is-pending.adoc[ADR 041]).
 
 [#_question_log]
 === The Question Log
@@ -780,6 +780,10 @@ caller: transaction.commit()
 
 * *Exactly one closing line*: a line about a closed question, a second closing line among the appended ones included,
   is `AlreadyAnswered`, and nothing of the append is added. A revision is never a way to reopen a closed question.
+* *Asked whole*: a decision is asked as one set, and its parts are fixed at that moment. A line that asks a further
+  part into a set the log already holds is a fault of the caller: a change of the decision is a revision of the
+  questions that are open, never a part added to the set
+  (link:../adr/core-store/040-a-question-set-is-asked-whole.adoc[ADR 040]).
 * *The current revision*: an answer, an adjudication and a delivery name the revision of the last `asked` or `revised`
   line of their question; another one is a `Conflict` carrying the current revision. A revision revises every question
   of its set that is open when it begins, at its first `revised` line within the append, each with exactly the next
@@ -796,10 +800,10 @@ caller: transaction.commit()
   `currentRevision`) count readable lines only, so a caller consults `refused()` first and reports a question unreadable
   when the log holds a refused line; a refused line is never taken for an open question by the append gate
   (link:../adr/core-store/039-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR 039]).
-* *A malformed append is the caller's fault*: a question asked twice, a line about a question the log does not have, a
-  revised line that does not name the next revision, a set revised in part, a decision on a revised line of another
-  question than the first, an empty append or a line of another event than the method's is an `IllegalArgumentException`,
-  not a refusal value.
+* *A malformed append is the caller's fault*: a question asked twice, a part asked into a set the log holds, a line
+  about a question the log does not have, a revised line that does not name the next revision, a set revised in part, a
+  decision on a revised line of another question than the first, an empty append or a line of another event than the
+  method's is an `IllegalArgumentException`, not a refusal value.
 
 *The move of an entry's questions.* A client opens an entry for a scope that does not exist yet, and its questions go
 into the entry's log. When the bootstrap creates the plan or the epic, `QuestionLog.moveEntryQuestions(workspace,
