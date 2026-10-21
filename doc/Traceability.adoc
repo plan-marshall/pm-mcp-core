@@ -98,7 +98,7 @@ link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-7[PM-ARCH-7]
 
-Implementation (as far as the library module `pm-runtime` carries it, and not yet wired into the runtime `pm-mcpd`: the start at login through the per-user OS service manager, with the unit file rendered, written, replaced and removed, and loaded and unloaded through `launchctl` and `systemctl --user`; the start steps from the singleton lock to the runtime token, with the bounded verification of the audit chain through a seam (the audit chain itself is not implemented yet); the drain in its order, with the drain timeout, the removal of the runtime record, the token and the socket, and the release of the singleton lock, where workers, the LSP pool and the web listener join through a seam and the jobs through their participant (below); the runtime side of the version comparison on relay connection; the per-project recovery after bind with its two triggers, the bounded wait answered `runtime_recovering`, the step order, the orphan marking of leases with release on positive evidence only, the roll-forward of interrupted journals, and the cross-scope reconciliation, and the periodic sweep with its residue-removal step, which removes the old pending entry records, where the settlement of workers and the other recovery steps are named seams and the settlement of jobs is the step below. Not implemented yet: the API request and the operator verbs `pm-operator runtime install|uninstall`, the bind and the ready step, the version notice of `pm-operator status` and of the clients, the verification of workflow definitions at start, the first four bullets apart from the start at login, and the operator's lifecycle acts of the last bullet): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitFile.java[ServiceUnitFile],
+Implementation (as far as the library module `pm-runtime` carries it, and not yet wired into the runtime `pm-mcpd`: the start at login through the per-user OS service manager, with the unit file rendered, written, replaced and removed, the unit in force kept beside it and restored when a new unit does not load, and loaded and unloaded through `launchctl` and `systemctl --user`; the start steps from the singleton lock to the runtime token, with the bounded verification of the audit chain through a seam (the audit chain itself is not implemented yet); the drain in its order, with the drain timeout, the removal of the runtime record, the token and the socket, and the release of the singleton lock, where workers, the LSP pool and the web listener join through a seam and the jobs through their participant (below); the runtime side of the version comparison on relay connection; the per-project recovery after bind with its two triggers, the bounded wait answered `runtime_recovering`, the step order, the orphan marking of leases with release on positive evidence only, the roll-forward of interrupted journals, and the cross-scope reconciliation, and the periodic sweep with its residue-removal step, which removes the old pending entry records, where the settlement of workers and the other recovery steps are named seams and the settlement of jobs is the step below. Not implemented yet: the API request and the operator verbs `pm-operator runtime install|uninstall`, the bind and the ready step, the version notice of `pm-operator status` and of the clients, the verification of workflow definitions at start, the first four bullets apart from the start at login, and the operator's lifecycle acts of the last bullet): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitFile.java[ServiceUnitFile],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceManager.java[ServiceManager],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitInstaller.java[ServiceUnitInstaller],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/StartupSequence.java[StartupSequence],
@@ -166,7 +166,10 @@ link:../../plan-marshall-documentation/doc/user/operator.adoc#recovery-after-a-c
 link:../../plan-marshall-documentation/doc/user/operator.adoc#relay-version-mismatch[User Guide § Relay Version Mismatch],
 link:../pm-runtime/doc/developer/runtime-start.adoc[Sweep Steps Developer Guide],
 link:../pm-runtime/doc/developer/runtime-start.adoc#_jobs_recovery_step[Runtime Start Developer Guide § The Jobs Part of Step 3],
-link:../pm-runtime/doc/developer/runtime-start.adoc#_job_drain_participant[Runtime Start Developer Guide § The Job Drain Participant]
+link:../pm-runtime/doc/developer/runtime-start.adoc#_job_drain_participant[Runtime Start Developer Guide § The Job Drain Participant],
+link:../pm-runtime/doc/developer/runtime-start.adoc#_the_previous_unit_of_a_failed_load[Runtime Start Developer Guide §
+The Previous Unit of a Failed Load],
+link:../pm-runtime/doc/adr/runtime-start/014-previous-service-unit-kept-and-restored.adoc[ADR runtime-start/014]
 
 [#PM-ARCH-8]
 === PM-ARCH-8: Server-Driven Continuation & Connection Independence
@@ -181,7 +184,7 @@ the hold and the pause the same bullet names are other work packages'): link:../
 
 Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/StalledScopeDetectorTest.java[StalledScopeDetectorTest] (the threshold from one second below to past it, every awaited event, a pause, an operator wait and another hold, one record per episode, the release by itself, and the threshold read from the timeouts specification)
 
-Documentation: link:../pm-runtime/doc/developer/runtime-start.adoc#_the_stalled_scope_detection[Runtime Start Developer Guide § The Stalled-Scope Detection], link:../pm-runtime/doc/adr/runtime-start/014-stall-derived-on-read-one-record-per-episode.adoc[ADR runtime-start/014]
+Documentation: link:../pm-runtime/doc/developer/runtime-start.adoc#_the_stalled_scope_detection[Runtime Start Developer Guide § The Stalled-Scope Detection], link:../pm-runtime/doc/adr/runtime-start/015-stall-derived-on-read-one-record-per-episode.adoc[ADR runtime-start/015]
 
 [#PM-ARCH-10]
 === PM-ARCH-10: One Cleanup of Work History & Automatic Removal of Residue
@@ -741,6 +744,26 @@ Implementation (the third bullet in part: the start steps from the singleton loc
 Verified by (the JVM guard: the median of the start steps with 300 enrolled projects agrees with the median with none; the native cold-start figure is not measured yet): link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/StartupColdStartIT.java[StartupColdStartIT]
 
 Documentation: link:../../plan-marshall-documentation/doc/concepts/runtime-lifecycle.adoc#startup[Concepts § Startup]
+
+== link:../../plan-marshall-documentation/doc/requirements/10-distribution.adoc[Distribution]
+
+[#PM-DIST-1]
+=== PM-DIST-1: Single Version Authority & Embedded Client Bundles
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-DIST-1[PM-DIST-1]
+
+Implementation (the service unit of the upgrade's rollback, as far as the library module `pm-runtime` carries it and not
+yet wired into the runtime `pm-mcpd`: a reinstall keeps the service unit in force beside the unit before it writes the
+new one, restores and reloads it when the new one does not load, and a start restores what a reinstall left behind when
+its caller ended inside the load. The rest of the upgrade, the version authority, the fetch of a release and the switch
+of the links, is not implemented here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitInstaller.java[ServiceUnitInstaller],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitFile.java[ServiceUnitFile]
+
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/ServiceUnitInstallerTest.java[ServiceUnitInstallerTest]
+
+Documentation: link:../pm-runtime/doc/developer/runtime-start.adoc#_the_previous_unit_of_a_failed_load[Runtime Start
+Developer Guide § The Previous Unit of a Failed Load],
+link:../pm-runtime/doc/adr/runtime-start/014-previous-service-unit-kept-and-restored.adoc[ADR runtime-start/014]
 
 == link:../../plan-marshall-documentation/doc/requirements/11-migration.adoc[Migration]
 

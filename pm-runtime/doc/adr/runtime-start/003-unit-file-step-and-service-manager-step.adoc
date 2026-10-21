@@ -3,7 +3,8 @@
 
 == Status
 
-Accepted
+Accepted; a later decision on the failed load of a reinstall is
+link:014-previous-service-unit-kept-and-restored.adoc[ADR 014], the unit-file and service-manager split stays.
 
 == Date
 

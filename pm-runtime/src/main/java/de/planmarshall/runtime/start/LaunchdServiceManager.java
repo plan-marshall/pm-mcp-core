@@ -24,7 +24,10 @@ import java.util.Set;
  * {@code launchd} reads the start at login from the LaunchAgent file alone, so removing the file disables the job
  * and {@link #disable(Path)} does nothing. When the runtime that issues an install or uninstall is the job itself,
  * the {@code bootout} ends it; on a reinstall the {@code bootstrap} after it is then never issued and the job stays
- * unloaded until the next login or the next install.
+ * unloaded until the next login or the next start. The unit file on disk is the new one, and the restore step of the
+ * next start writes the kept previous unit back and reloads it; on macOS that reload's {@code bootout} ends the
+ * started runtime, and the next login loads the previous unit
+ * ({@link ServiceUnitInstaller#restore()}).
  */
 final class LaunchdServiceManager implements ServiceManager {
 

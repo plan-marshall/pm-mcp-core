@@ -24,6 +24,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -36,6 +38,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 
 import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 import de.planmarshall.runtime.start.RecordingProcessCall.Call;
 import de.planmarshall.runtime.start.ServiceUnitFile.Platform;
 
@@ -69,6 +72,25 @@ class ServiceUnitInstallerTest {
 
     private static ServiceUnitInstaller installer(ServiceUnitFile unit, RecordingProcessCall call) {
         return new ServiceUnitInstaller(unit, ServiceManager.forPlatform(unit.platform(), call, UID));
+    }
+
+    /**
+     * The unit file of a platform under the temporary home, derived from the documented layout rather than from
+     * {@link ServiceUnitFile#path()}.
+     */
+    private static Path unitFile(Path home, Platform platform) {
+        return switch (platform) {
+            case LAUNCHD -> home.resolve("Library/LaunchAgents/" + ServiceUnitFile.LAUNCHD_LABEL + ".plist");
+            case SYSTEMD -> home.resolve(".config/systemd/user/" + ServiceUnitFile.SYSTEMD_UNIT);
+        };
+    }
+
+    private static Path previous(Path unitFile) {
+        return unitFile.resolveSibling(unitFile.getFileName() + ".previous");
+    }
+
+    private static Path reinstall(Path unitFile) {
+        return unitFile.resolveSibling(unitFile.getFileName() + ".reinstall");
     }
 
     private static List<String> bootstrap(ServiceUnitFile unit) {
@@ -230,8 +252,8 @@ class ServiceUnitInstallerTest {
 
         @ParameterizedTest(name = "{0}")
         @EnumSource(Platform.class)
-        @DisplayName("keeps the unit, logs and rethrows when the service manager fails")
-        void shouldKeepUnitOnManagerFailure(Platform platform) {
+        @DisplayName("removes the new unit, logs and rethrows when the service manager fails and no unit was installed")
+        void shouldRemoveNewUnitOnManagerFailure(Platform platform) {
             var unit = unit(platform);
             var failure = new ServiceUnitException("Command could not run");
             var call = new RecordingProcessCall(unit.path()).thenFail(failure);
@@ -241,13 +263,14 @@ class ServiceUnitInstallerTest {
 
             assertAll(
                     () -> assertSame(failure, thrown),
-                    () -> assertEquals(golden(platform), Files.readString(unit.path())),
+                    () -> assertFalse(unit.exists()),
                     () -> assertEquals(1, call.calls().size()),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
                             ERROR.SERVICE_MANAGER_FAILED.resolveIdentifierString()),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.ERROR,
                             managerFailed("load") + ": Command could not run"),
-                    () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.INFO, ServiceUnitInstaller.class));
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
+                            INFO.SERVICE_UNIT_RESTORE_WITHOUT_PREVIOUS.resolveIdentifierString()));
         }
 
         @Test
@@ -261,6 +284,399 @@ class ServiceUnitInstallerTest {
             assertThrows(ServiceUnitException.class, installer::install);
 
             assertEquals(List.of(), call.calls());
+        }
+    }
+
+    @Nested
+    @DisplayName("restore of the previous unit")
+    class Restore {
+
+        private static final String PREVIOUS_UNIT = "a unit of an older version";
+
+        private static String restored(Path unitFile) {
+            return "Service unit '%s' restored and loaded from the copy a reinstall kept".formatted(unitFile);
+        }
+
+        private static String removedWithoutPrevious(Path unitFile) {
+            return "Service unit '%s' removed, the reinstall kept no previous unit".formatted(unitFile);
+        }
+
+        private static String restoreFailed(Path unitFile) {
+            return "Service unit '%s' could not be restored".formatted(unitFile);
+        }
+
+        /**
+         * @return the commands of a successful load of the platform's unit
+         */
+        private static List<List<String>> load(ServiceUnitFile unit) {
+            return switch (unit.platform()) {
+                case LAUNCHD -> List.of(BOOTOUT, bootstrap(unit));
+                case SYSTEMD -> List.of(DAEMON_RELOAD, ENABLE);
+            };
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(Platform.class)
+        @DisplayName("keeps the previous unit in place and loaded when the load fails")
+        void shouldRestorePreviousUnit(Platform platform) throws IOException {
+            var file = unitFile(home, platform);
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, PREVIOUS_UNIT);
+            var loadFailure = new ServiceUnitException("load could not run");
+            var call = new RecordingProcessCall(file).thenFail(loadFailure);
+            var unit = unit(platform);
+            var installer = installer(unit, call);
+
+            var thrown = assertThrows(ServiceUnitException.class, installer::install);
+
+            var commands = call.commands();
+            assertAll(
+                    () -> assertSame(loadFailure, thrown),
+                    () -> assertEquals(PREVIOUS_UNIT, Files.readString(file)),
+                    () -> assertEquals(load(unit), commands.subList(1, commands.size())),
+                    () -> assertTrue(call.calls().getLast().unitPresent()),
+                    () -> assertFalse(Files.exists(previous(file))),
+                    () -> assertFalse(Files.exists(reinstall(file))),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO, restored(file)));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(Platform.class)
+        @DisplayName("leaves no unit file when the load fails and no unit was installed")
+        void shouldLeaveNoUnitWithoutPrevious(Platform platform) {
+            var file = unitFile(home, platform);
+            var loadFailure = new ServiceUnitException("load could not run");
+            var call = new RecordingProcessCall(file).thenFail(loadFailure);
+            var installer = installer(unit(platform), call);
+
+            var thrown = assertThrows(ServiceUnitException.class, installer::install);
+
+            assertAll(
+                    () -> assertSame(loadFailure, thrown),
+                    () -> assertFalse(Files.exists(file)),
+                    () -> assertEquals(1, call.calls().size()),
+                    () -> assertFalse(Files.exists(previous(file))),
+                    () -> assertFalse(Files.exists(reinstall(file))),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
+                            removedWithoutPrevious(file)));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(Platform.class)
+        @DisplayName("reports a failed restore with both failures, the load first")
+        void shouldReportBothFailures(Platform platform) throws IOException {
+            var file = unitFile(home, platform);
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, PREVIOUS_UNIT);
+            var loadFailure = new ServiceUnitException("load could not run");
+            var restoreFailure = new ServiceUnitException("restore could not run");
+            var call = new RecordingProcessCall(file).thenFail(loadFailure).thenFail(restoreFailure);
+            var installer = installer(unit(platform), call);
+
+            var thrown = assertThrows(ServiceUnitException.class, installer::install);
+
+            assertAll(
+                    () -> assertSame(loadFailure, thrown),
+                    () -> assertArrayEquals(new Throwable[]{restoreFailure}, thrown.getSuppressed()),
+                    () -> assertEquals(PREVIOUS_UNIT, Files.readString(file)),
+                    () -> assertFalse(Files.exists(previous(file))),
+                    () -> assertFalse(Files.exists(reinstall(file))),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            restoreFailed(file) + ": " + restoreFailure.getMessage()));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(Platform.class)
+        @DisplayName("restores the previous unit when the second command of the load fails")
+        void shouldRestoreAfterTheLoadFailsLate(Platform platform) throws IOException {
+            var file = unitFile(home, platform);
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, PREVIOUS_UNIT);
+            var call = new RecordingProcessCall(file).thenAnswer(0, "").thenAnswer(1, "load failed");
+            var unit = unit(platform);
+
+            assertThrows(ServiceUnitException.class, installer(unit, call)::install);
+
+            assertAll(
+                    () -> assertEquals(PREVIOUS_UNIT, Files.readString(file)),
+                    () -> assertEquals(4, call.calls().size()),
+                    () -> assertEquals(load(unit), call.commands().subList(2, 4)),
+                    () -> assertFalse(Files.exists(previous(file))),
+                    () -> assertFalse(Files.exists(reinstall(file))));
+        }
+
+        @Test
+        @DisplayName("keeps the previous unit before every command of the load")
+        void shouldKeepBeforeLoad() throws IOException {
+            var file = unitFile(home, Platform.LAUNCHD);
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, PREVIOUS_UNIT);
+            var call = new RecordingProcessCall(file);
+            var pendingAtCommand = new ArrayList<Boolean>();
+            ProcessCall observing = command -> {
+                pendingAtCommand.add(Files.exists(reinstall(file)));
+                return call.run(command);
+            };
+
+            new ServiceUnitInstaller(unit(Platform.LAUNCHD),
+                    ServiceManager.forPlatform(Platform.LAUNCHD, observing, UID)).install();
+
+            assertAll(
+                    () -> assertEquals(List.of(true, true), pendingAtCommand),
+                    () -> assertEquals(List.of(BOOTOUT, bootstrap(unit(Platform.LAUNCHD))), call.commands()),
+                    () -> assertFalse(Files.exists(reinstall(file))));
+        }
+
+        @Test
+        @DisplayName("keeps the pending previous unit when install runs again before the restore")
+        void shouldKeepThePendingUnitOnAnotherInstall() throws IOException {
+            var file = unitFile(home, Platform.SYSTEMD);
+            Files.createDirectories(file.getParent());
+            Files.writeString(previous(file), PREVIOUS_UNIT);
+            Files.writeString(reinstall(file), "");
+            unit(Platform.SYSTEMD).write();
+            var call = new RecordingProcessCall(file).thenFail(new ServiceUnitException("load could not run"));
+
+            assertThrows(ServiceUnitException.class, installer(unit(Platform.SYSTEMD), call)::install);
+
+            assertAll(
+                    () -> assertEquals(PREVIOUS_UNIT, Files.readString(file)),
+                    () -> assertFalse(Files.exists(previous(file))),
+                    () -> assertFalse(Files.exists(reinstall(file))));
+        }
+
+        @Test
+        @DisplayName("keeps the install a success when the kept state cannot be dropped")
+        void shouldReportUndroppedKeptState() throws IOException {
+            var file = unitFile(home, Platform.LAUNCHD);
+            Files.createDirectories(file.getParent());
+            Files.writeString(reinstall(file), "");
+            Files.createDirectories(previous(file));
+            Files.writeString(previous(file).resolve("child"), "keeps the directory non-empty");
+            var call = new RecordingProcessCall(file);
+
+            installer(unit(Platform.LAUNCHD), call).install();
+
+            assertAll(
+                    () -> assertEquals(golden(Platform.LAUNCHD), Files.readString(file)),
+                    () -> assertTrue(Files.exists(previous(file))),
+                    () -> assertFalse(Files.exists(reinstall(file))),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
+                            installed(unit(Platform.LAUNCHD))),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.SERVICE_UNIT_KEPT_NOT_DROPPED.resolveIdentifierString()));
+        }
+
+        @Test
+        @DisplayName("keeps the install a success and restores at the next start when the marker cannot be dropped")
+        void shouldRestoreWhenTheMarkerCannotBeDropped() throws IOException {
+            var file = unitFile(home, Platform.LAUNCHD);
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, PREVIOUS_UNIT);
+            Files.writeString(previous(file), PREVIOUS_UNIT);
+            Files.createDirectories(reinstall(file));
+            Files.writeString(reinstall(file).resolve("child"), "keeps the directory non-empty");
+            var call = new RecordingProcessCall(file);
+
+            installer(unit(Platform.LAUNCHD), call).install();
+
+            assertAll(
+                    () -> assertEquals(golden(Platform.LAUNCHD), Files.readString(file)),
+                    () -> assertTrue(Files.exists(reinstall(file))),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.SERVICE_UNIT_KEPT_NOT_DROPPED.resolveIdentifierString()));
+
+            var restoreCall = new RecordingProcessCall(file);
+            var restoreFailure = assertThrows(ServiceUnitException.class,
+                    installer(unit(Platform.LAUNCHD), restoreCall)::restore);
+
+            assertAll(
+                    () -> assertTrue(restoreFailure.getMessage().contains("kept state"), restoreFailure.getMessage()),
+                    () -> assertEquals(PREVIOUS_UNIT, Files.readString(file)),
+                    () -> assertEquals(List.of(), restoreCall.calls()),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN, restoreFailed(file)));
+        }
+
+        @Test
+        @EnabledOnOs({OS.LINUX, OS.MAC})
+        @DisplayName("keeps the unit in force and its marker with mode rw-------")
+        void shouldKeepWithRestrictedModes() {
+            var file = unitFile(home, Platform.SYSTEMD);
+            unit(Platform.SYSTEMD).write();
+            unit(Platform.SYSTEMD).keepForRestore();
+
+            assertAll(
+                    () -> assertEquals("rw-------", PosixFilePermissions.toString(
+                            Files.getPosixFilePermissions(previous(file)))),
+                    () -> assertEquals("rw-------", PosixFilePermissions.toString(
+                            Files.getPosixFilePermissions(reinstall(file)))));
+        }
+
+        @Test
+        @DisplayName("drops the pair it kept when the unit cannot be written")
+        void shouldDropKeptPairOnWriteFailure() throws IOException {
+            var file = unitFile(home, Platform.LAUNCHD);
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, PREVIOUS_UNIT);
+            var tmp = file.resolveSibling(file.getFileName() + ".tmp");
+            Files.createDirectories(tmp);
+            Files.writeString(tmp.resolve("child"), "keeps the directory non-empty");
+            var call = new RecordingProcessCall(file);
+
+            assertThrows(ServiceUnitException.class, installer(unit(Platform.LAUNCHD), call)::install);
+
+            assertAll(
+                    () -> assertEquals(PREVIOUS_UNIT, Files.readString(file)),
+                    () -> assertEquals(List.of(), call.calls()),
+                    () -> assertFalse(Files.exists(previous(file))),
+                    () -> assertFalse(Files.exists(reinstall(file))));
+        }
+
+        @Test
+        @DisplayName("leaves a pending pair when the unit cannot be written")
+        void shouldLeavePendingPairOnWriteFailure() throws IOException {
+            var file = unitFile(home, Platform.LAUNCHD);
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, PREVIOUS_UNIT);
+            Files.writeString(previous(file), PREVIOUS_UNIT);
+            Files.writeString(reinstall(file), "");
+            var tmp = file.resolveSibling(file.getFileName() + ".tmp");
+            Files.createDirectories(tmp);
+            Files.writeString(tmp.resolve("child"), "keeps the directory non-empty");
+
+            assertThrows(ServiceUnitException.class,
+                    installer(unit(Platform.LAUNCHD), new RecordingProcessCall(file))::install);
+
+            assertAll(
+                    () -> assertTrue(Files.exists(previous(file))),
+                    () -> assertTrue(Files.exists(reinstall(file))));
+        }
+
+        @Test
+        @DisplayName("drops the kept pair when the start's restore load fails, so no later start retries it")
+        void shouldNotRetryAFailedRestoreLoad() throws IOException {
+            var file = unitFile(home, Platform.LAUNCHD);
+            Files.createDirectories(file.getParent());
+            Files.writeString(previous(file), PREVIOUS_UNIT);
+            Files.writeString(reinstall(file), "");
+            var restoreFailure = new ServiceUnitException("load could not run");
+            var call = new RecordingProcessCall(file).thenFail(restoreFailure);
+
+            var thrown = assertThrows(ServiceUnitException.class,
+                    installer(unit(Platform.LAUNCHD), call)::restore);
+
+            assertAll(
+                    () -> assertSame(restoreFailure, thrown),
+                    () -> assertEquals(PREVIOUS_UNIT, Files.readString(file)),
+                    () -> assertFalse(Files.exists(previous(file))),
+                    () -> assertFalse(Files.exists(reinstall(file))),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN, restoreFailed(file)));
+        }
+
+        @Test
+        @DisplayName("drops the kept unit before the restore loads it, so an ended caller cannot loop")
+        void shouldDropBeforeTheRestoreLoad() throws IOException {
+            var file = unitFile(home, Platform.LAUNCHD);
+            Files.createDirectories(file.getParent());
+            Files.writeString(previous(file), PREVIOUS_UNIT);
+            Files.writeString(reinstall(file), "");
+            var call = new RecordingProcessCall(file);
+            var pendingAtCommand = new ArrayList<Boolean>();
+            ProcessCall observing = command -> {
+                pendingAtCommand.add(Files.exists(reinstall(file)));
+                return call.run(command);
+            };
+            var installer = new ServiceUnitInstaller(unit(Platform.LAUNCHD),
+                    ServiceManager.forPlatform(Platform.LAUNCHD, observing, UID));
+
+            var restored = installer.restore();
+
+            assertAll(
+                    () -> assertTrue(restored),
+                    () -> assertEquals(List.of(false, false), pendingAtCommand),
+                    () -> assertEquals(PREVIOUS_UNIT, Files.readString(file)));
+        }
+
+        @Test
+        @DisplayName("restores the kept LaunchAgent at the start after an interrupted reinstall on macOS")
+        void shouldRestoreAtStart() throws IOException {
+            var file = unitFile(home, Platform.LAUNCHD);
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, PREVIOUS_UNIT);
+            Files.writeString(previous(file), PREVIOUS_UNIT);
+            Files.writeString(reinstall(file), "");
+            unit(Platform.LAUNCHD).write();
+            var call = new RecordingProcessCall(file);
+            var installer = installer(unit(Platform.LAUNCHD), call);
+
+            var restored = installer.restore();
+
+            assertAll(
+                    () -> assertTrue(restored),
+                    () -> assertEquals(PREVIOUS_UNIT, Files.readString(file)),
+                    () -> assertEquals(List.of(BOOTOUT, bootstrap(unit(Platform.LAUNCHD))), call.commands()),
+                    () -> assertFalse(Files.exists(previous(file))),
+                    () -> assertFalse(Files.exists(reinstall(file))),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO, restored(file)));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(Platform.class)
+        @DisplayName("removes the replacement at the start when an interrupted reinstall kept no previous unit")
+        void shouldRemoveReplacementAtStartWithoutPrevious(Platform platform) throws IOException {
+            var file = unitFile(home, platform);
+            unit(platform).write();
+            Files.writeString(reinstall(file), "");
+            var call = new RecordingProcessCall(file);
+
+            var restored = installer(unit(platform), call).restore();
+
+            assertAll(
+                    () -> assertTrue(restored),
+                    () -> assertFalse(Files.exists(file)),
+                    () -> assertEquals(List.of(), call.commands()),
+                    () -> assertFalse(Files.exists(previous(file))),
+                    () -> assertFalse(Files.exists(reinstall(file))),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
+                            removedWithoutPrevious(file)));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(Platform.class)
+        @DisplayName("issues no command at a start without a pending reinstall")
+        void shouldIgnoreWithoutPendingReinstall(Platform platform) {
+            var file = unitFile(home, platform);
+            var call = new RecordingProcessCall(file);
+
+            var restored = installer(unit(platform), call).restore();
+
+            assertAll(
+                    () -> assertFalse(restored),
+                    () -> assertEquals(List.of(), call.commands()));
+        }
+
+        @Test
+        @DisplayName("discards a kept unit on uninstall before the first command, so a later start restores nothing")
+        void shouldDiscardOnUninstall() throws IOException {
+            var file = unitFile(home, Platform.LAUNCHD);
+            unit(Platform.LAUNCHD).write();
+            Files.writeString(previous(file), PREVIOUS_UNIT);
+            Files.writeString(reinstall(file), "");
+            var call = new RecordingProcessCall(file);
+            var keptAtCommand = new ArrayList<Boolean>();
+            ProcessCall observing = command -> {
+                keptAtCommand.add(Files.exists(previous(file)) || Files.exists(reinstall(file)));
+                return call.run(command);
+            };
+
+            new ServiceUnitInstaller(unit(Platform.LAUNCHD),
+                    ServiceManager.forPlatform(Platform.LAUNCHD, observing, UID)).uninstall();
+
+            assertAll(
+                    () -> assertEquals(List.of(false), keptAtCommand),
+                    () -> assertFalse(Files.exists(file)),
+                    () -> assertFalse(Files.exists(previous(file))),
+                    () -> assertFalse(Files.exists(reinstall(file))));
         }
     }
 

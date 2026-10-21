@@ -195,6 +195,27 @@ class RuntimeLogMessagesTest {
                 () -> assertEquals(template, logRecord.getTemplate()));
     }
 
+    static Stream<Arguments> serviceUnitRecords() {
+        return Stream.of(
+                Arguments.of(RuntimeLogMessages.INFO.SERVICE_UNIT_RESTORED, "PM_RUNTIME-33",
+                        "Service unit '%s' restored and loaded from the copy a reinstall kept"),
+                Arguments.of(RuntimeLogMessages.INFO.SERVICE_UNIT_RESTORE_WITHOUT_PREVIOUS, "PM_RUNTIME-34",
+                        "Service unit '%s' removed, the reinstall kept no previous unit"),
+                Arguments.of(RuntimeLogMessages.WARN.SERVICE_UNIT_RESTORE_FAILED, "PM_RUNTIME-135",
+                        "Service unit '%s' could not be restored: %s"),
+                Arguments.of(RuntimeLogMessages.WARN.SERVICE_UNIT_KEPT_NOT_DROPPED, "PM_RUNTIME-136",
+                        "The kept state of service unit '%s' could not be removed after a successful load: %s"));
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("serviceUnitRecords")
+    @DisplayName("the records of the service unit restore")
+    void serviceUnit(LogRecord logRecord, String identifier, String template) {
+        assertAll(
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
+                () -> assertEquals(template, logRecord.getTemplate()));
+    }
+
     @Test
     @DisplayName("the record of the former file-store fallback is gone and its identifier 104 is not reused")
     void fileStoreFallbackRemoved() throws Exception {
