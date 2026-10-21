@@ -2,10 +2,10 @@
   "id": "PLAN-82",
   "slug": "credential-store-move-advisories",
   "workstream": "WS-01",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-82-credential-store-move-advisories",
+  "pr": "#121",
+  "landing": "landings/PLAN-82.md",
   "seq": 82
 }
