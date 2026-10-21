@@ -622,6 +622,27 @@ class ServiceUnitInstallerTest {
 
         @ParameterizedTest(name = "{0}")
         @EnumSource(Platform.class)
+        @DisplayName("removes the replacement at the start when an interrupted reinstall kept no previous unit")
+        void shouldRemoveReplacementAtStartWithoutPrevious(Platform platform) throws IOException {
+            var file = unitFile(home, platform);
+            unit(platform).write();
+            Files.writeString(reinstall(file), "");
+            var call = new RecordingProcessCall(file);
+
+            var restored = installer(unit(platform), call).restore();
+
+            assertAll(
+                    () -> assertTrue(restored),
+                    () -> assertFalse(Files.exists(file)),
+                    () -> assertEquals(List.of(), call.commands()),
+                    () -> assertFalse(Files.exists(previous(file))),
+                    () -> assertFalse(Files.exists(reinstall(file))),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
+                            removedWithoutPrevious(file)));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(Platform.class)
         @DisplayName("issues no command at a start without a pending reinstall")
         void shouldIgnoreWithoutPendingReinstall(Platform platform) {
             var file = unitFile(home, platform);
@@ -635,17 +656,24 @@ class ServiceUnitInstallerTest {
         }
 
         @Test
-        @DisplayName("discards a kept unit on uninstall, so a later start restores nothing")
+        @DisplayName("discards a kept unit on uninstall before the first command, so a later start restores nothing")
         void shouldDiscardOnUninstall() throws IOException {
             var file = unitFile(home, Platform.LAUNCHD);
             unit(Platform.LAUNCHD).write();
             Files.writeString(previous(file), PREVIOUS_UNIT);
             Files.writeString(reinstall(file), "");
             var call = new RecordingProcessCall(file);
+            var keptAtCommand = new ArrayList<Boolean>();
+            ProcessCall observing = command -> {
+                keptAtCommand.add(Files.exists(previous(file)) || Files.exists(reinstall(file)));
+                return call.run(command);
+            };
 
-            installer(unit(Platform.LAUNCHD), call).uninstall();
+            new ServiceUnitInstaller(unit(Platform.LAUNCHD),
+                    ServiceManager.forPlatform(Platform.LAUNCHD, observing, UID)).uninstall();
 
             assertAll(
+                    () -> assertEquals(List.of(false), keptAtCommand),
                     () -> assertFalse(Files.exists(file)),
                     () -> assertFalse(Files.exists(previous(file))),
                     () -> assertFalse(Files.exists(reinstall(file))));
