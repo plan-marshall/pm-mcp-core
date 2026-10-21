@@ -57,10 +57,11 @@ import de.planmarshall.core.store.QuestionRefusal.Unreadable;
  * refused when read, which names no question the log can read and may close or revise any of them, every append is
  * refused {@link Unreadable}, an {@code asked} line included, and nothing is added.
  * A revision appends a {@code revised} line for every question of the set that is open when it begins, each with the
- * next revision, the one after its current revision.
+ * next revision, the one after its current revision, and carries the decision of the set on the line of its first
+ * question only.
  * Whether an answer fits its part is checked by the engine, not here. A line that is malformed for the log (a question
  * asked twice, a line about a question the log does not have, a revision that is not the next one, a set revised in
- * part) is a fault of the caller and is
+ * part, a decision on a revised line of another question than the first) is a fault of the caller and is
  * refused with an {@link IllegalArgumentException}.
  * <p>
  * A read without the lock ({@link #read()}) reports the log as it is at that moment: an append in progress shows as a
@@ -261,7 +262,8 @@ public final class QuestionLog {
      * @return {@link AlreadyAnswered} if a question of the lines is closed, {@link Unreadable} if the log holds a
      *         refused line; empty if the lines were added
      * @throws IllegalArgumentException if a line is no revised line, a line names another revision than the one after
-     *                                  the current revision of its question, or the lines do not revise every open
+     *                                  the current revision of its question, a line of another question than the first
+     *                                  of its set carries the decision, or the lines do not revise every open
      *                                  question of the set with one revision
      * @see #append(ScopeTransaction, List)
      */
@@ -467,6 +469,10 @@ public final class QuestionLog {
                 if (line.revision() != question.revision + 1) {
                     throw new IllegalArgumentException("The revision %d of %s is not the next revision %d"
                             .formatted(line.revision(), id, question.revision + 1));
+                }
+                if (line.decision() != null && !line.questionId().equals(question.questionSet)) {
+                    throw new IllegalArgumentException(
+                            "The decision is carried by the first question of the set, and only there: " + id);
                 }
                 question.revision = line.revision();
             }

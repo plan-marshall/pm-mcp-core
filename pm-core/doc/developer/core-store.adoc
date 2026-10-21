@@ -784,7 +784,8 @@ caller: transaction.commit()
   line of their question; another one is a `Conflict` carrying the current revision. A revision revises every question
   of its set that is open when it begins, at its first `revised` line within the append, each with exactly the next
   revision, the one after its current revision. A question of the set the same append answers or withdraws after
-  revising it stays covered by the revision; a question closed before the revision begins is not part of it.
+  revising it stays covered by the revision; a question closed before the revision begins is not part of it. The
+  `decision` of the set is carried on the line of its first question and only there, as on an `asked` line.
 * *Decided under the lock*: the log is read while the caller's transaction holds the scope lock, so no other append
   comes between the check and the write
   (link:../adr/core-store/033-question-invariants-held-by-the-store-as-refusal-values.adoc[ADR 033]).
@@ -796,7 +797,8 @@ caller: transaction.commit()
   when the log holds a refused line; a refused line is never taken for an open question by the append gate
   (link:../adr/core-store/039-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR 039]).
 * *A malformed append is the caller's fault*: a question asked twice, a line about a question the log does not have, a
-  revised line that does not name the next revision, a set revised in part, an empty append or a line of another event than the method's is an `IllegalArgumentException`,
+  revised line that does not name the next revision, a set revised in part, a decision on a revised line of another
+  question than the first, an empty append or a line of another event than the method's is an `IllegalArgumentException`,
   not a refusal value.
 
 *The move of an entry's questions.* A client opens an entry for a scope that does not exist yet, and its questions go

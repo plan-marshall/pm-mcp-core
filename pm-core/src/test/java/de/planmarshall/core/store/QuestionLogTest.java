@@ -158,6 +158,29 @@ class QuestionLogTest {
         }
 
         @Test
+        @DisplayName("carries the decision on the first question of the set, and only there")
+        void decisionOnlyOnTheFirstQuestion() throws Exception {
+            askSet();
+            var onTheFirst = revised("Q-001", 2).toBuilder().decision(QuestionRecordCodecTest.decision()).build();
+            var onAPart = revised("Q-002", 2).toBuilder().decision(QuestionRecordCodecTest.decision()).build();
+
+            var fault = assertThrows(IllegalArgumentException.class,
+                    () -> write(t -> log.revise(t, List.of(onTheFirst, onAPart, revised("Q-003", 2)))));
+            var refusedNothing = log.read().records().size();
+            var before = content();
+            var accepted = write(t -> log.revise(t, List.of(onTheFirst, revised("Q-002", 2), revised("Q-003", 2))));
+
+            assertAll(
+                    () -> assertTrue(fault.getMessage().contains("first question of the set"), fault.getMessage()),
+                    () -> assertEquals(3, refusedNothing, "a refused revision adds nothing"),
+                    () -> assertArrayEquals(before, Arrays.copyOf(content(), before.length),
+                            "the accepted revision follows the untouched asked lines"),
+                    () -> assertEquals(Optional.empty(), accepted),
+                    () -> assertEquals(Optional.of(onTheFirst), log.read().current("Q-001"),
+                            "the first question carries the decision of the revision"));
+        }
+
+        @Test
         @DisplayName("of a part of the set, with two revisions, or not above the current one is a fault of the caller")
         void malformedRevision() throws Exception {
             askSet();
