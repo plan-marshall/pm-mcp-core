@@ -29,6 +29,7 @@ import de.planmarshall.workflow.ast.OutcomeTransition;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import de.planmarshall.workflow.verify.LaneEntryIds;
 
 /**
  * Applies the effects of the composition rules, the bound axis variants and the waivers to the merged plan template
@@ -61,9 +62,9 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * <p>
  * From the {@code outline} event on, the lane is known, and the states of the other lane are pruned after the prunes
  * of the rules, each a pruned state with the reason {@code other_lane} and the source fact {@code lane}: the lanes
- * split at the two exits of {@value #LANE_SPLIT}, the deep one entering {@value #DEEP_ENTRY} and the light one
- * {@value #LIGHT_ENTRY}; pruned are exactly the states reachable from the entry of the other lane and not from the
- * entry of the chosen lane, both over all transitions, escalation included. The shared states before the split, those
+ * split at the two exits of {@value #LANE_SPLIT}, the deep one entering {@link LaneEntryIds#DEEP_ENTRY} and the light
+ * one {@link LaneEntryIds#LIGHT_ENTRY}; pruned are exactly the states reachable from the entry of the other lane and not
+ * from the entry of the chosen lane, both over all transitions, escalation included. The shared states before the split, those
  * reachable from a starting state without taking a lane exit of {@value #LANE_SPLIT}, belong to no lane and are never
  * pruned by lane. A light version keeps the deep route, the target of its escalation, and so prunes nothing by lane;
  * a deep version holds no state of the light route.
@@ -81,12 +82,6 @@ final class InstancePruner {
 
     /** The state whose two exits split the lanes. */
     static final String LANE_SPLIT = "init.ready";
-
-    /** The entry of the deep lane, which the deep exit of {@value #LANE_SPLIT} enters. */
-    static final String DEEP_ENTRY = "refine.baseline-reconcile";
-
-    /** The entry of the light lane, which the light exit of {@value #LANE_SPLIT} enters. */
-    static final String LIGHT_ENTRY = "init.light-gate";
 
     /** The source fact of a prune by lane. */
     private static final String LANE_FACT = "lane";
@@ -163,14 +158,14 @@ final class InstancePruner {
     private static List<String> otherLane(WorkflowDefinition template, Optional<PlanInstanceHeader.Lane> lane) {
         var chosen = lane.filter(value -> value == PlanInstanceHeader.Lane.LIGHT
                 || value == PlanInstanceHeader.Lane.DEEP);
-        if (chosen.isEmpty() || !template.states().containsKey(DEEP_ENTRY)
-                || !template.states().containsKey(LIGHT_ENTRY)) {
+        if (chosen.isEmpty() || !template.states().containsKey(LaneEntryIds.DEEP_ENTRY)
+                || !template.states().containsKey(LaneEntryIds.LIGHT_ENTRY)) {
             return List.of();
         }
         var deep = chosen.get() == PlanInstanceHeader.Lane.DEEP;
-        var kept = reachable(template, List.of(deep ? DEEP_ENTRY : LIGHT_ENTRY), false);
+        var kept = reachable(template, List.of(deep ? LaneEntryIds.DEEP_ENTRY : LaneEntryIds.LIGHT_ENTRY), false);
         var shared = reachable(template, template.startingStates(), true);
-        var other = reachable(template, List.of(deep ? LIGHT_ENTRY : DEEP_ENTRY), false);
+        var other = reachable(template, List.of(deep ? LaneEntryIds.LIGHT_ENTRY : LaneEntryIds.DEEP_ENTRY), false);
         return template.states().keySet().stream()
                 .filter(state -> other.contains(state) && !kept.contains(state) && !shared.contains(state)).toList();
     }
@@ -191,7 +186,8 @@ final class InstancePruner {
                 continue;
             }
             for (var target : targets(state.behavior())) {
-                var laneExit = LANE_SPLIT.equals(id) && (DEEP_ENTRY.equals(target) || LIGHT_ENTRY.equals(target));
+                var laneExit = LANE_SPLIT.equals(id) && (LaneEntryIds.DEEP_ENTRY.equals(target)
+                        || LaneEntryIds.LIGHT_ENTRY.equals(target));
                 if (!(stopAtLaneExit && laneExit)) {
                     queue.add(target);
                 }
