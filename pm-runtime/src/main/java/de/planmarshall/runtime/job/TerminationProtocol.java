@@ -41,6 +41,9 @@ import de.planmarshall.runtime.job.ProcessGroupSignals.Signal;
  * ended, nothing is signalled further, and the job is settled from its exit status. An interrupt of the waiting thread
  * cuts the wait short and goes straight to {@code SIGKILL}, so no group is left running; the interrupt status is kept.
  * <p>
+ * Step 3a — a worker's or a probe's descendant that left the group or started a new session — is not part of this
+ * protocol: the runtime records that tree separately ({@link ProcessTreeTracker}) and ends it at the job's end.
+ * <p>
  * Specification: {@code doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc} (Process Termination &
  * Cancellation Protocol, steps 1 to 4); {@code doc/specification/timeouts/01-job-budgets-and-waits.adoc} (Termination
  * grace period). The retry of step 4 is carried by the constants of this class alone.
@@ -91,6 +94,11 @@ public final class TerminationProtocol {
         this.signals = Objects.requireNonNull(signals, "signals");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.pause = Objects.requireNonNull(pause, "pause");
+    }
+
+    /** @return the signalling primitive, so the process-tree sweep of a job uses the same one */
+    ProcessGroupSignals signals() {
+        return signals;
     }
 
     /**

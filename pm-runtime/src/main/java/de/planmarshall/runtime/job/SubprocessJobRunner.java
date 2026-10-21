@@ -133,6 +133,10 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * declares, decide its fate, and otherwise its exit code and output are left to the step that asked for it, which the
  * runner's output parser does not read. The runner never starts a probe again.
  * <p>
+ * A probe's descendants that leave its process group are recorded while it runs and ended with it
+ * ({@link ProcessTreeTracker}, termination step 3a); a worker's descendants are the supervisor's, which starts the
+ * worker.
+ * <p>
  * A job leaves the running jobs only once its settlement has run, on every path the runner owns: an exception of the
  * {@link OutputParser}, of the derivation of the settled record or of the {@link TerminationProtocol}, also an
  * {@link Error} on the thread that waits for the job, is followed by a fallback settlement from what the runner observed
@@ -819,6 +823,11 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 reported = postSpawnRecord(job.latest, awaited.report().get(), spawnedAt);
                 writePostSpawn(job, reported);
             }
+            if (job.latest.kind() == JobId.Kind.PROBE) {
+                // step 3a: the descendants a probe may leave the group with, recorded while it runs
+                job.tracks(new ProcessTreeTracker(launched.pid(), termination.signals()));
+                job.refreshTree();
+            }
             var length = observedLength;
             supervision.start("job-" + jobId,
                     failure -> LOGGER.error(failure, ERROR.JOB_SUPERVISION_FAILED, jobId, failure),
@@ -893,6 +902,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private boolean terminateAndSettle(RunningJob job, Launched launched, Instant spawnedAt, long observedLength) {
         var cancelBeforeGroup = terminateByHandle(job.latest.jobId(), launched);
         var exit = waitFor(launched.process());
+        job.sweepTree();
         // the end of the process is observed: the cancel door closes here and the cause it returns is the one read
         settleEnded(job, new Ended(spawnedAt, clock.instant(), exit.value(), job.closeCancelDoor(),
                 cancelBeforeGroup), observedLength);
@@ -1026,9 +1036,11 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                         process.destroyForcibly();
                     }
                 }
+                job.sweepTree();
             }
             var exit = waitFor(process);
             interrupted |= exit.interrupted();
+            job.sweepTree();
             ended = true;
             settleEnded(job, new Ended(spawnedAt, clock.instant(), exit.value(), Optional.ofNullable(cause),
                     report != null && report.cancelBeforeGroup()), observedLength);
@@ -1067,6 +1079,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         var exit = process.onExit();
         var interrupted = false;
         while (true) {
+            job.refreshTree();
             if (exit.isDone()) {
                 return new Awaited(job.closeCancelDoor(), interrupted);
             }
@@ -1078,8 +1091,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 job.cause.complete(Termination.BUDGET_EXPIRED);
                 continue;
             }
+            var bound = remaining.compareTo(ProcessTreeTracker.REFRESH_INTERVAL) < 0 ? remaining
+                    : ProcessTreeTracker.REFRESH_INTERVAL;
             try {
-                CompletableFuture.anyOf(exit, job.cause).get(Math.max(1, remaining.toMillis()), TimeUnit.MILLISECONDS);
+                CompletableFuture.anyOf(exit, job.cause).get(Math.max(1, bound.toMillis()), TimeUnit.MILLISECONDS);
             } catch (TimeoutException _) {
                 // the budget is checked at the top of the loop
             } catch (InterruptedException _) {
@@ -1372,6 +1387,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         @SuppressWarnings("java:S3077")
         private volatile Process process;
 
+        /** The process tree of a probe, refreshed while it runs so its descendants are ended with it; null otherwise. */
+        private volatile ProcessTreeTracker tree;
+
         /**
          * Whether the settlement of the job has started; a fallback settlement runs only before it, because a fate
          * replaces only a record that is not settled yet. Read and written by the one thread that settles the job.
@@ -1397,6 +1415,27 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
         void launched(Process launched) {
             this.process = launched;
+        }
+
+        /** Records the tree of the job; {@code null} for a job whose descendants are not tracked. */
+        void tracks(ProcessTreeTracker tracker) {
+            this.tree = tracker;
+        }
+
+        /** Remembers the descendants the job has now; nothing for a job without a tree. */
+        void refreshTree() {
+            var current = tree;
+            if (current != null) {
+                current.refresh();
+            }
+        }
+
+        /** Ends the remembered descendants still alive; nothing for a job without a tree. */
+        void sweepTree() {
+            var current = tree;
+            if (current != null) {
+                current.sweep();
+            }
         }
 
         /**

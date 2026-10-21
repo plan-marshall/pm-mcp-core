@@ -1,0 +1,65 @@
+= ADR 013: The Runtime Records a Job's Descendants and Sweeps Them at Its End
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-21
+
+== Context
+
+Termination step 3a of the job runtime specification says that for a worker and a probe — the two kinds that start no
+process meant to outlive them — a descendant that left the process group or started a new session is ended with the
+job, while the launcher stays as the job's process. The specification gives two mechanisms: on Linux the launcher marks
+itself child subreaper (`PR_SET_CHILD_SUBREAPER`) and starts the command as its child, so every orphaned descendant is
+reparented to it; on macOS, which has no subreaper, the runtime records the job's process tree while it runs, refreshed
+at least once per second, and signals every recorded member still alive at the job's end.
+
+The launcher is `pm-exec`, a native binary outside this repository. Until its Linux mechanism ships, a descendant that
+calls `setsid` or `setpgid` leaves the reach of `kill(-pgid, sig)`, and steps 1 to 3 end the group only. The runner
+starts every probe itself; a worker is started by the supervisor, which does not exist yet.
+
+== Decision
+
+* `ProcessTreeTracker` is the runtime side of step 3a: it records the descendants `ProcessHandle.descendants()` answers
+  for the job PID, together with the start instant of each, refreshed at least once per second while the job runs
+  (`REFRESH_INTERVAL`). A member recorded once stays recorded, so a descendant that detaches between two refreshes is
+  still known at the job's end.
+* `sweep()` sends `SIGTERM` to every remembered member that still runs, waits `SWEEP_GRACE` while it probes, and sends
+  `SIGKILL` to those left. A remembered PID whose current process started at another instant was reused and is never
+  signalled; the tracker follows the same rule as ADR 010.
+* `SubprocessJobRunner` wires the tracker for a probe after its post-spawn record is written, refreshes it from the
+  waiting loop (whose wait is therefore bounded by `REFRESH_INTERVAL`, not only by the budget) and sweeps it on the
+  normal end, on the cause path and in the fallback path. It starts no worker, so the supervisor wires the same tracker
+  for a worker.
+* The Linux subreaper change in `pm-exec` is owed to the repository that builds the launcher; until it ships, this
+  sweep is the only protection on every platform, and it is not a substitute for the subreaper: a descendant that
+  appears and detaches between two refreshes is missed.
+
+== Alternatives Considered
+
+1. *Wait for the launcher's subreaper and implement nothing here.*
+_Rejected_: the launcher lives in another repository and has no schedule named in this one; the hazard is live today,
+and macOS needs the runtime mechanism in any case.
+2. *Scan the tree only at the job's end.*
+_Rejected_: a descendant that detached and whose parent exited is no longer a descendant by then.
+3. *Platform-gate the tracker to macOS.*
+_Rejected_: the recording costs one `ProcessHandle` walk per second per probe and covers a launcher that does not yet
+have the subreaper on any platform.
+
+== Consequences
+
+* A probe's end can take up to the sweep grace period longer than before.
+* A descendant still in the group receives the group's `SIGTERM` and the sweep's; a second signal to a matching PID is
+  harmless.
+* The tracker's member set is bounded by the job's lifetime and is dropped with the running job.
+
+== Source
+
+* Work package: PLAN-84 `job-runner-residuals`
+* link:../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc[Job Runtime § Process Termination & Cancellation Protocol] (step 3a)
+* link:010-signal-only-the-jobs-process.adoc[ADR 010]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/job/ProcessTreeTracker.java`, `SubprocessJobRunner.java`
