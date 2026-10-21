@@ -24,10 +24,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.OptionalInt;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.store.StoreRefusal.Outcome;
@@ -58,8 +60,7 @@ class QuestionRecordRefusalsTest {
     }
 
     @ParameterizedTest(name = "asked without {0}")
-    @ValueSource(strings = {"event", "question_id", "at", "class", "origin", "source_entity", "asking_role",
-            "phase", "question_set", "revision", "envelope"})
+    @MethodSource("de.planmarshall.core.store.QuestionRecordRefusalsTest#requiredOfAsked")
     @DisplayName("an asked line without a member it requires is refused naming it")
     void askedWithoutMember(String member) {
         var members = askedMembers();
@@ -69,13 +70,23 @@ class QuestionRecordRefusalsTest {
     }
 
     @ParameterizedTest(name = "answered without {0}")
-    @ValueSource(strings = {"revision", "decision_id", "answer", "channel", "device_id"})
+    @MethodSource("de.planmarshall.core.store.QuestionRecordRefusalsTest#requiredOfAnswered")
     @DisplayName("an answered line without a member it requires is refused naming it")
     void answeredWithoutMember(String member) {
         var members = answeredMembers();
         members.remove(member);
 
         assertTrue(assertRefused(members).getMessage().contains(member));
+    }
+
+    /** @return the members the codec requires of every asked line, never a conditionally required one */
+    static Stream<String> requiredOfAsked() {
+        return QuestionRecordCodec.REQUIRED_BY_EVENT.get(QuestionEvent.ASKED).stream();
+    }
+
+    /** @return the members the codec requires of every answered line, never a conditionally required one */
+    static Stream<String> requiredOfAnswered() {
+        return QuestionRecordCodec.REQUIRED_BY_EVENT.get(QuestionEvent.ANSWERED).stream();
     }
 
     @ParameterizedTest(name = "{0}")

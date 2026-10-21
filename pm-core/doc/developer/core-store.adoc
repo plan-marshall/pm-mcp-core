@@ -1061,3 +1061,7 @@ parity check the specification has run ahead of is `@Disabled` with the work pac
   store and its identity record live in `core.store`; nothing with state lies below the repository.
 * link:../adr/core-store/039-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR 039]: an append to a
   question log that holds a refused line is refused `Unreadable`; the check fails closed.
+* link:../adr/core-store/040-a-question-set-is-asked-whole.adoc[ADR 040]: a question set is asked whole; a part added to
+  a set the log holds is a fault of the caller, and a revision never adds a part.
+* link:../adr/core-store/041-a-waiver-request-is-held-once-and-one-is-pending.adoc[ADR 041]: a waiver request id occurs
+  once in `waiver_requests[]`, and at most one request is pending.
