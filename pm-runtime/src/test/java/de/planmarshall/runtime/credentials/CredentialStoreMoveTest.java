@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -32,6 +33,8 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,9 +59,11 @@ import de.planmarshall.core.store.AuditCodec;
 import de.planmarshall.core.store.AuditHeadRecord;
 import de.planmarshall.core.store.EnrolmentSidecar;
 import de.planmarshall.core.store.EnrolmentStore;
+import de.planmarshall.core.store.TransactionId;
 import de.planmarshall.runtime.audit.AuditHead;
 import de.planmarshall.runtime.credentials.CredentialStoreChoice.Store;
 import de.planmarshall.runtime.credentials.CredentialStoreMove.Step;
+import de.planmarshall.runtime.credentials.CredentialStoreMoveRecord.Operation;
 import de.planmarshall.runtime.credentials.CredentialStoreMoveRecord.Phase;
 import de.planmarshall.runtime.enrolment.EnrolmentHmac;
 import de.planmarshall.runtime.enrolment.EnrolmentKey;
@@ -87,6 +92,7 @@ class CredentialStoreMoveTest {
     private static final String GITHUB_SECRET = "ghp-secret-of-the-github-entry";
     private static final String SONAR_SECRET = "squ-secret-of-the-sonar-entry";
     private static final Instant STARTED = Instant.parse("2026-10-17T15:00:00Z");
+    private static final TransactionId TRANSACTION = new TransactionId("018f0000-0000-7000-8000-000000000001");
     private static final byte[] HARNESSES = """
             {"format_version":1,"harnesses":{}}""".getBytes(StandardCharsets.UTF_8);
 
@@ -193,6 +199,20 @@ class CredentialStoreMoveTest {
     /** Asserts the end state of a completed move from {@code from} into {@code to}. */
     private void assertMoved(Store from, Store to, SecretStore target, SecretStore old, SecretKey key) {
         assertAll(
+                () -> assertMovedState(from, to, target, old, key),
+                () -> assertEquals(1, movedEvents().size()),
+                () -> assertEquals(Map.of(CredentialStoreMove.DETAIL_FROM, from.value(),
+                                CredentialStoreMove.DETAIL_TO, to.value(), CredentialStoreMove.DETAIL_ENTRIES, 2L),
+                        withoutTransactionId(movedEvents().getFirst())),
+                () -> assertTransactionIdAt(STARTED, movedEvents().getFirst().details()
+                        .get(AuditEvent.DETAIL_TRANSACTION_ID)),
+                () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                        INFO.CREDENTIAL_STORE_MOVED.resolveIdentifierString()));
+    }
+
+    /** Asserts the stores and the record of a completed move, without its audit record. */
+    private void assertMovedState(Store from, Store to, SecretStore target, SecretStore old, SecretKey key) {
+        assertAll(
                 () -> assertEquals(Optional.of(to), choice.recorded()),
                 () -> assertEquals(Optional.of(GITHUB_SECRET), target.get(GITHUB)),
                 () -> assertEquals(Optional.of(SONAR_SECRET), target.get(SONAR)),
@@ -200,12 +220,29 @@ class CredentialStoreMoveTest {
                 () -> assertTrue(old.entries().isEmpty(), old.entries().toString()),
                 () -> assertTrue(keyIn(old).read().isEmpty()),
                 () -> assertFalse(Files.exists(recordFile())),
-                () -> assertEquals(List.of(new AuditEvent(CredentialStoreMove.EVENT, AuditEvent.CATEGORY_OPERATOR,
-                                AuditEvent.OUTCOME_SUCCEEDED, Map.of(CredentialStoreMove.DETAIL_FROM, from.value(),
-                                        CredentialStoreMove.DETAIL_TO, to.value(), CredentialStoreMove.DETAIL_ENTRIES, 2L))),
-                        movedEvents()),
-                () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
-                        INFO.CREDENTIAL_STORE_MOVED.resolveIdentifierString()));
+                () -> assertTrue(movedEvents().stream().allMatch(event -> CredentialStoreMove.EVENT.equals(
+                        event.event())), movedEvents().toString()));
+    }
+
+    /** @return the details of the record without its transaction id */
+    private static Map<String, Object> withoutTransactionId(AuditEvent event) {
+        var details = new HashMap<>(event.details());
+        details.remove(AuditEvent.DETAIL_TRANSACTION_ID);
+        return details;
+    }
+
+    /** Asserts that a transaction id is the one written form and carries the instant of the given clock. */
+    static void assertTransactionIdAt(Instant instant, Object value) {
+        var id = new TransactionId(String.valueOf(value));
+        assertEquals(instant.toEpochMilli(),
+                Long.parseLong(id.value().substring(0, 8) + id.value().substring(9, 13), 16), id.value());
+    }
+
+    /** A reader of the audit log: it drops a record whose transaction id it has seen, as the specification states. */
+    private static List<AuditEvent> distinctEvents(List<AuditEvent> events) {
+        var seen = new HashSet<Object>();
+        return events.stream().filter(event -> seen.add(event.details().get(AuditEvent.DETAIL_TRANSACTION_ID)))
+                .toList();
     }
 
     /** Asserts the end state of a move from the OS store into the file store that failed before the switch. */
@@ -539,7 +576,8 @@ class CredentialStoreMoveTest {
             machineOn(Store.OS);
             var mover = move(step -> {
                 if (step == Step.ENTRIES_COPIED) {
-                    rewriteRecord(new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, Phase.SWITCHED, false));
+                    rewriteRecord(new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, Phase.SWITCHED, false,
+                            Operation.MOVE, TRANSACTION));
                 }
             });
 
@@ -593,7 +631,7 @@ class CredentialStoreMoveTest {
             assertAll(
                     () -> assertEquals(1, refusals.size()),
                     () -> assertEquals(CredentialStoreChoice.Refusal.Reason.ASPECT_OWNED, refusals.getFirst().reason()),
-                    () -> assertTrue(refusals.getFirst().getMessage().contains("only the move records"),
+                    () -> assertTrue(refusals.getFirst().getMessage().contains("only that operation records"),
                             refusals.getFirst().getMessage()),
                     () -> assertMoved(Store.OS, Store.FILE, fileStore, osStore, key));
         }
@@ -683,7 +721,10 @@ class CredentialStoreMoveTest {
                     () -> assertEquals(stop.compareTo(Step.SWITCHED) < 0 ? Phase.COPYING : Phase.SWITCHED,
                             moveRecord.phase()),
                     () -> assertEquals(Optional.of(moveRecord), resumed),
-                    () -> assertMoved(Store.OS, Store.FILE, fileStore, osStore, key));
+                    () -> assertMovedState(Store.OS, Store.FILE, fileStore, osStore, key),
+                    () -> assertEquals(1, distinctEvents(movedEvents()).size(),
+                            "the reader counts the completed move once, also where a stop after its audit record left "
+                                    + "the record that hands it over again"));
         }
 
         @Test
@@ -756,7 +797,8 @@ class CredentialStoreMoveTest {
         void switchedRecordWithTheOldStoreRecorded() throws Exception {
             var key = machineOn(Store.OS);
             write(recordFile(),
-                    new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, Phase.SWITCHED, false).write());
+                    new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, Phase.SWITCHED, false, Operation.MOVE,
+                            TRANSACTION).write());
             var mover = move();
 
             var failure = assertThrows(IllegalStateException.class, mover::resume);
@@ -869,7 +911,8 @@ class CredentialStoreMoveTest {
         @DisplayName("while a move is open another one is refused")
         void moveOpen() throws Exception {
             machineOn(Store.OS);
-            var open = new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, Phase.COPYING, false);
+            var open = new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, Phase.COPYING, false,
+                    Operation.MOVE, TRANSACTION);
             write(recordFile(), open.write());
             var mover = move();
 
@@ -877,6 +920,57 @@ class CredentialStoreMoveTest {
                     () -> assertThrows(IllegalStateException.class, () -> mover.move(Store.FILE)),
                     () -> assertTrue(fileStore.entries().isEmpty()),
                     () -> assertEquals(Optional.of(Store.OS), choice.recorded()));
+        }
+    }
+
+    @Nested
+    @DisplayName("the audit record of a completed move")
+    class Audited {
+
+        @Test
+        @DisplayName("carries the transaction id of its record, and a record the next start hands over again carries the "
+                + "same id, which the reader drops")
+        void reDeliveredKeepsItsId() throws Exception {
+            machineOn(Store.OS);
+            var stopped = move(step -> {
+                if (step == Step.AUDITED) {
+                    throw new Stop();
+                }
+            });
+
+            assertThrows(Stop.class, () -> stopped.move(Store.FILE));
+            var record = CredentialStoreMoveRecord.read(recordFile(), Files.readAllBytes(recordFile()));
+            var first = movedEvents().getFirst();
+
+            move().resume();
+
+            assertAll(
+                    () -> assertEquals(record.transactionId().value(),
+                            first.details().get(AuditEvent.DETAIL_TRANSACTION_ID)),
+                    () -> assertTransactionIdAt(STARTED, record.transactionId().value()),
+                    () -> assertEquals(2, movedEvents().size(), "the audit record is delivered at least once"),
+                    () -> assertEquals(record.transactionId().value(),
+                            movedEvents().get(1).details().get(AuditEvent.DETAIL_TRANSACTION_ID)),
+                    () -> assertEquals(List.of(first), distinctEvents(movedEvents()),
+                            "the reader drops the record handed over twice and counts it once"),
+                    () -> assertFalse(Files.exists(recordFile())));
+        }
+
+        @Test
+        @DisplayName("a record of another move carries another id and is a new event")
+        void anotherMoveIsANewEvent() throws Exception {
+            machineOn(Store.OS);
+
+            move().move(Store.FILE);
+            move().move(Store.OS);
+
+            var ids = movedEvents().stream().map(event -> event.details().get(AuditEvent.DETAIL_TRANSACTION_ID))
+                    .toList();
+
+            assertAll(
+                    () -> assertEquals(2, movedEvents().size()),
+                    () -> assertNotEquals(ids.get(0), ids.get(1)),
+                    () -> assertEquals(2, distinctEvents(movedEvents()).size(), "two ids, two events"));
         }
     }
 

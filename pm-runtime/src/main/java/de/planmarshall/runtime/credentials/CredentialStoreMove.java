@@ -29,7 +29,9 @@ import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.AtomicStoreFile;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.StoreRefusal;
+import de.planmarshall.core.store.TransactionId;
 import de.planmarshall.runtime.credentials.CredentialStoreChoice.Store;
+import de.planmarshall.runtime.credentials.CredentialStoreMoveRecord.Operation;
 import de.planmarshall.runtime.credentials.CredentialStoreMoveRecord.Phase;
 import de.planmarshall.runtime.enrolment.EnrolmentKey;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
@@ -111,7 +113,6 @@ public final class CredentialStoreMove {
 
     /** The detail of the audit record that counts the Token Lane entries in the new store. */
     public static final String DETAIL_ENTRIES = "entries";
-
     private static final CuiLogger LOGGER = new CuiLogger(CredentialStoreMove.class);
 
     private static final CredentialAccount KEY_ACCOUNT = CredentialAccount.global(EnrolmentKey.ACCOUNT);
@@ -129,7 +130,9 @@ public final class CredentialStoreMove {
         /** {@code credentials.store} names the target and the record is in phase {@code switched}. */
         SWITCHED,
         /** Every entry and the key were deleted from the old store; the record still exists. */
-        OLD_DELETED
+        OLD_DELETED,
+        /** The audit record of the completed move was appended; the record still exists. */
+        AUDITED
     }
 
     /**
@@ -153,6 +156,7 @@ public final class CredentialStoreMove {
     private final AuditSink auditSink;
     private final Clock clock;
     private final StepHook hook;
+    private final String user;
     private final IntegrityKeyCarry keyCarry;
     private final AtomicStoreFile recordFile;
 
@@ -181,7 +185,8 @@ public final class CredentialStoreMove {
         this.auditSink = Objects.requireNonNull(auditSink, "auditSink");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.hook = Objects.requireNonNull(hook, "hook");
-        this.keyCarry = new IntegrityKeyCarry(root, locks, Objects.requireNonNull(user, "user"));
+        this.user = Objects.requireNonNull(user, "user");
+        this.keyCarry = new IntegrityKeyCarry(root, locks, this.user);
         this.recordFile = new AtomicStoreFile(CredentialStoreMoveRecord.file(root), LockKey.credentials(root));
     }
 
@@ -228,7 +233,8 @@ public final class CredentialStoreMove {
             }
             requireEmptyTarget(to);
             var targetHeldKey = requireNoOtherKey(from, to);
-            var moveRecord = new CredentialStoreMoveRecord(from, to, clock.instant(), Phase.COPYING, targetHeldKey);
+            var moveRecord = CredentialStoreMoveRecord.copying(Operation.MOVE, from, to, clock.instant(), targetHeldKey,
+                    TransactionId.generate(clock));
             recordFile.write(transaction, moveRecord.write());
             LOGGER.info(INFO.CREDENTIAL_STORE_MOVE_STARTED, from.value(), to.value());
             hook.after(Step.RECORDED);
@@ -238,19 +244,21 @@ public final class CredentialStoreMove {
     }
 
     /**
-     * Resumes a move a stop cut, from its record and the recorded store: in phase {@code switched} while
-     * {@code credentials.store} names the target, or in phase {@code copying} while {@code credentials.store} names the
-     * target already (a stop between the switch and the rewrite of the record), it marks the record {@code switched}
-     * and finishes the deletion from the old store; in phase {@code copying} with the old store recorded it deletes
-     * the copies from the target and starts again from the first entry. Without a record it does nothing.
+     * Resumes an operation a stop cut, from its record and the recorded store: a first recording through
+     * {@link CredentialStoreChoice#resumeFirstRecording} (the key is brought into the recorded store and deleted from
+     * the other one), a move in phase {@code switched} while {@code credentials.store} names the target, or in phase
+     * {@code copying} while {@code credentials.store} names the target already (a stop between the switch and the
+     * rewrite of the record): it marks the record {@code switched} and finishes the deletion from the old store; a move
+     * in phase {@code copying} with the old store recorded deletes the copies from the target and starts again from the
+     * first entry. Without a record it does nothing.
      *
-     * @return the record of the move that was resumed, as it was found; empty if no move was open
-     * @throws IllegalStateException if the record is in phase {@code switched} while {@code credentials.store} does not
+     * @return the record of the operation that was resumed, as it was found; empty if no operation was open
+     * @throws IllegalStateException if a record is in phase {@code switched} while {@code credentials.store} does not
      *                               name its target; nothing was deleted from either store and the record is kept
-     * @throws SecretStoreException  with {@code credential_store_failed} if the move fails again before the switch, or
-     *                               with the reason of the store if a copy cannot be removed from the target before
-     *                               the move starts again, or an entry cannot be deleted from the old store; the
-     *                               record is kept then
+     * @throws SecretStoreException  with {@code credential_store_failed} if the operation fails again before the
+     *                               switch, or with the reason of the store if a copy cannot be removed from the target
+     *                               before the move starts again, or an entry or the key cannot be deleted; the record
+     *                               is kept then
      * @throws StoreRefusal          if the record or the machine configuration cannot be read as its format
      * @throws UncheckedIOException  if the record cannot be read or written, or the audit sink refuses the record of
      *                               the completed move: the switch stands then and the record is kept, so the next
@@ -264,6 +272,9 @@ public final class CredentialStoreMove {
                 return found;
             }
             var moveRecord = found.get();
+            if (moveRecord.operation() == Operation.FIRST_RECORDING) {
+                return choice.resumeFirstRecording(transaction, moveRecord, user, locks);
+            }
             if (moveRecord.phase() == Phase.SWITCHED) {
                 requireTargetRecorded(moveRecord);
                 finish(transaction, moveRecord);
@@ -487,7 +498,8 @@ public final class CredentialStoreMove {
         var entries = tokenLaneEntries(choice.backendOf(moveRecord.to())).size();
         auditSink.append(new AuditEvent(EVENT, AuditEvent.CATEGORY_OPERATOR, AuditEvent.OUTCOME_SUCCEEDED,
                 Map.of(DETAIL_FROM, moveRecord.from().value(), DETAIL_TO, moveRecord.to().value(), DETAIL_ENTRIES,
-                        (long) entries)));
+                        (long) entries, AuditEvent.DETAIL_TRANSACTION_ID, moveRecord.transactionId().value())));
+        hook.after(Step.AUDITED);
         deleteRecord(transaction);
         LOGGER.info(INFO.CREDENTIAL_STORE_MOVED, moveRecord.from().value(), moveRecord.to().value(), entries);
     }
@@ -516,7 +528,11 @@ public final class CredentialStoreMove {
         }
     }
 
-    private void deleteRecord(LockTransaction transaction) {
+    /**
+     * Deletes the record of an operation, last: under the credentials lock and only once every side effect of the
+     * operation is durable, so a stop before this call leaves the record and the next start finishes the operation.
+     */
+    static void deleteRecord(LockTransaction transaction, AtomicStoreFile recordFile) {
         if (!transaction.holds(recordFile.lockKey())) {
             throw new IllegalStateException("The record is deleted only under " + recordFile.lockKey().lockFile());
         }
@@ -530,5 +546,9 @@ public final class CredentialStoreMove {
         } catch (IOException e) {
             throw new UncheckedIOException("Credential store move record cannot be deleted: " + file, e);
         }
+    }
+
+    private void deleteRecord(LockTransaction transaction) {
+        deleteRecord(transaction, recordFile);
     }
 }

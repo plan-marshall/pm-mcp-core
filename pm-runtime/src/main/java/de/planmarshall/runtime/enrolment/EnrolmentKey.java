@@ -46,7 +46,7 @@ import de.planmarshall.runtime.start.PosixModes;
  * where that store is a keyring, the key is its entry under the global account {@value #ACCOUNT}; where it is the
  * file store, the key is the file {@code <state>/}{@value #FILE_NAME}, owned by the running user with no permission
  * bit outside {@code 0600}. The store is asked of a supplier on every read, so after the first recording of a store,
- * which carries the key from the store it was found in into the recorded one, and after a move between the stores, the
+ * which reconciles the key of both stores into the recorded one, and after a move between the stores, the
  * key is read from the store now recorded, and nothing is re-signed. The key is 256 random bits, kept
  * base64url-encoded without padding. It is created on the first enrolment write and never replaced; only the runtime
  * reads it.
@@ -221,8 +221,9 @@ public final class EnrolmentKey {
 
     /**
      * Deletes the key from the store the supplier gives: the keyring entry under {@value #ACCOUNT}, or the key file.
-     * Only the credential-store move and the first recording of a store delete the key: from the store they carried
-     * the key out of, after the switch, or from the target of a carry that failed before the switch. The caller holds
+     * Only the credential-store move and the first recording of a store delete the key: from the store they carry the
+     * key out of, after the switch, or from the target of a carry that failed before the switch, and the first
+     * recording also deletes the duplicate of the key it keeps from the store it does not record. The caller holds
      * {@link #creationLock(Path)}.
      *
      * @return whether a key was deleted

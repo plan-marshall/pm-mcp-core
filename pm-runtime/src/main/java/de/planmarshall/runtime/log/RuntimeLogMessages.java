@@ -314,6 +314,17 @@ public final class RuntimeLogMessages {
                 .identifier(31)
                 .template("Job '%s' settled with fate '%s' (outcome row %s)")
                 .build();
+
+        /**
+         * Logged by {@code CredentialStoreMoveResume} after the start completed the first recording of a credential
+         * store that a stop cut, with the store recorded, the store the key is deleted from and the phase of the record
+         * it was resumed from ({@code copying}: recorded again; {@code switched}: the deletion of the key finished).
+         */
+        public static final LogRecord CREDENTIAL_STORE_FIRST_RECORDING_RESUMED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(32)
+                .template("First recording of credential store '%s' from '%s' resumed from phase '%s' and completed")
+                .build();
     }
 
     /** WARN level messages. */
@@ -627,6 +638,28 @@ public final class RuntimeLogMessages {
                 .prefix(PREFIX)
                 .identifier(132)
                 .template("Termination of job '%s' failed, its process is destroyed through its handle: %s")
+                .build();
+
+        /**
+         * Logged by {@code CredentialStoreChoice} when the first recording of a credential store fails before the
+         * switch: names the store being recorded, the store the key is deleted from, what became of the copy and of
+         * the record of the recording, and the reason. Never names a key.
+         */
+        public static final LogRecord CREDENTIAL_STORE_FIRST_RECORDING_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(133)
+                .template("First recording of credential store '%s' from '%s' failed, %s: %s")
+                .build();
+
+        /**
+         * Logged by {@code CredentialStoreChoice} when the credential store that is not being recorded cannot be read
+         * while the first recording reconciles the integrity key, so it is taken as holding no key; names the store and
+         * the reason.
+         */
+        public static final LogRecord CREDENTIAL_STORE_UNREADABLE_WHILE_RECORDING = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(134)
+                .template("Credential store '%s' cannot be read while a store is recorded, taken as holding no integrity key: %s")
                 .build();
     }
 
