@@ -696,6 +696,17 @@ public final class RuntimeLogMessages {
                 .identifier(136)
                 .template("The kept state of service unit '%s' could not be removed after a successful load: %s")
                 .build();
+
+        /**
+         * Logged when the security audit record {@code job_descendant_survived} of a descendant that outlived the
+         * sweep of a job's process tree cannot be written; names the job and the failure. The sweep has sent its
+         * signals; the job is settled regardless.
+         */
+        public static final LogRecord JOB_DESCENDANT_AUDIT_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(137)
+                .template("The surviving descendant of job '%s' could not be audited: %s")
+                .build();
     }
 
     /** ERROR level messages. */
@@ -782,6 +793,18 @@ public final class RuntimeLogMessages {
                 .prefix(PREFIX)
                 .identifier(208)
                 .template("Supervision of job '%s' failed: %s")
+                .build();
+
+        /**
+         * Logged when the last-resort settlement of a job fails as well: the fallback settlement had thrown and the
+         * retry of the record it was about to write, or the minimal ended record for a failed derivation, could not be
+         * written either; names the job and the failure. The record stays {@code running} and the recovery of the next
+         * runtime start settles it.
+         */
+        public static final LogRecord JOB_LAST_RESORT_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(209)
+                .template("Last-resort settlement of job '%s' failed: %s")
                 .build();
     }
 }

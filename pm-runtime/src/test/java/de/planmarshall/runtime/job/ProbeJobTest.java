@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -243,6 +244,22 @@ class ProbeJobTest {
         assertAll(
                 () -> assertEquals(Fate.SUCCEEDED, settled.fate()),
                 () -> assertFalse(Files.exists(fixture.base.resolve("detached.pid"))));
+    }
+
+    @Test
+    @DisplayName("a probe whose launcher cannot be started settles failed, its declared 127 does not apply")
+    void missingLauncherIsNotADeclaredSuccess() throws IOException {
+        Files.delete(home.resolve("bin/pm-exec"));
+
+        var jobId = started(onMachine(Set.of(0, 127), "version"));
+
+        var settled = settled(jobId);
+
+        assertAll(
+                () -> assertEquals(Status.ENDED, settled.status()),
+                () -> assertEquals(Fate.FAILED, settled.fate()),
+                () -> assertEquals(10, settled.outcomeRow()),
+                () -> assertNull(settled.exitCode(), "no exit was observed"));
     }
 
     @Test

@@ -70,6 +70,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 
+import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.JobRunner;
 import de.planmarshall.core.service.JobRunner.CancelCause;
 import de.planmarshall.core.service.LockManager;
@@ -353,6 +354,25 @@ class SubprocessJobRunnerTest {
             } finally {
                 Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwx------"));
             }
+        }
+
+        @Test
+        @DisplayName("a queued job settled by the drain has its store pruned too")
+        void queuedJobStoreIsPruned() {
+            runner.stopAdmitting();
+            var jobId = started(runner.start(git(30, "ok")));
+            var heldWhileQueued = runner.storesHeld();
+
+            var settledIds = runner.settleQueued();
+            var settled = settled(jobId);
+
+            assertAll(
+                    () -> assertEquals(List.of(jobId), settledIds),
+                    () -> assertEquals(1, heldWhileQueued, "the queued job's store is held"),
+                    () -> assertEquals(0, runner.storesHeld(), "the settled queued job's store is pruned"),
+                    () -> assertEquals(Status.ENDED, settled.status()),
+                    () -> assertEquals(Fate.KILLED, settled.fate()),
+                    () -> assertEquals(Optional.of(settled), runner.recordOf(jobId)));
         }
 
         @Test
@@ -1130,7 +1150,7 @@ class SubprocessJobRunnerTest {
                     () -> assertEquals(Status.ENDED, settled.status(),
                             "a failing fallback does not leave the job unsettled"),
                     () -> assertEquals(Fate.INDETERMINATE, settled.fate()),
-                    () -> assertEquals(5, settled.outcomeRow()),
+                    () -> assertEquals(8, settled.outcomeRow(), "the fallback's record was written on the retry"),
                     () -> assertFalse(runner.runningJobs().contains(jobId)),
                     () -> assertEquals(Optional.of(settled), runner.recordOf(jobId)));
         }
@@ -1319,33 +1339,57 @@ class SubprocessJobRunnerTest {
         }
 
         @Test
-        @DisplayName("a process that already ended is not signalled through its handle")
-        void endedProcessIsNotSignalled() {
-            var calls = new CopyOnWriteArrayList<String>();
-            ProcessGroupSignals signals = new ProcessGroupSignals() {
+        @DisplayName("the process the runner started is not a reused PID; a PID no process owns is not either")
+        void pidReuse() throws Exception {
+            var first = new ProcessBuilder(FakePmExec.tool("setsid").toString(), FakePmExec.tool("sleep").toString(),
+                    "30").start();
+            try {
+                assertAll(
+                        () -> assertFalse(SubprocessJobRunner.pidReused(
+                                        new PmExecLauncher.Launched(first, first.pid())),
+                                "the process the runner started is not a reused PID"),
+                        () -> assertFalse(SubprocessJobRunner.pidReused(new PmExecLauncher.Launched(
+                                        new StubProcess(() -> false), 1_999_999_999L)),
+                                "a PID no process owns leaves a surviving group to be terminated"));
+            } finally {
+                first.destroyForcibly();
+                first.waitFor(10, TimeUnit.SECONDS);
+            }
+        }
 
-                @Override
-                public Answer signalGroup(long pgid, Signal signal) {
-                    calls.add("group %d %s".formatted(pgid, signal));
-                    return new NoSuchProcess();
-                }
+        @Test
+        @DisplayName("a descendant that outlived the sweep is written as a security audit record")
+        void survivingDescendantIsAudited() {
+            var events = new CopyOnWriteArrayList<AuditEvent>();
+            runner = SubprocessJobRunner.builder().base(fixture.base).lockManager(locks)
+                    .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
+                    .termination(new TerminationProtocol(ProcessGroupSignals.system()))
+                    .environment(job -> ENVIRONMENT).probeEnvironment(candidate -> ENVIRONMENT)
+                    .parser((kind, output) -> SUCCESS).primitives(request -> Optional.empty())
+                    .audit(events::add).build();
+            var jobId = JobId.random(JobId.Kind.PROBE);
+            var record = JobRecord.builder().jobId(jobId).execution(JobRecord.Execution.PROCESS)
+                    .scope(new Scope(Scope.Type.MACHINE, null))
+                    .status(Status.RUNNING).budgetKey(BUDGET_KEY).budgetSeconds(30).budgetDerivation(FLOOR)
+                    .argvDigest("ab".repeat(32)).confinement(JobRecord.Confinement.UNAVAILABLE)
+                    .createdAt(Instant.now()).clampedValues(List.of()).build();
+            var job = new SubprocessJobRunner.RunningJob(record, null, new JobBudget(BUDGET_KEY, 30, FLOOR),
+                    Set.of());
 
-                @Override
-                public Answer signalProcess(long pid, Signal signal) {
-                    calls.add("process %d %s".formatted(pid, signal));
-                    return new NoSuchProcess();
-                }
-            };
-            runner = runner(new TerminationProtocol(signals), request -> Optional.empty());
-            var ended = new StubProcess(() -> false);
-            ended.ended();
-
-            var cancelBeforeGroup = runner.terminateByHandle(JobId.random(JobId.Kind.GIT),
-                    new PmExecLauncher.Launched(ended, 4242L));
+            runner.auditSurvivors(job, List.of(new ProcessTreeTracker.Survivor(11, Optional.of("/usr/bin/sleep")),
+                    new ProcessTreeTracker.Survivor(12, Optional.empty())));
 
             assertAll(
-                    () -> assertFalse(cancelBeforeGroup),
-                    () -> assertTrue(calls.isEmpty(), "nothing is signalled for a process that ended: " + calls));
+                    () -> assertEquals(2, events.size()),
+                    () -> assertEquals(SubprocessJobRunner.JOB_DESCENDANT_SURVIVED, events.get(0).event()),
+                    () -> assertEquals("security", events.get(0).category()),
+                    () -> assertEquals("failed", events.get(0).outcome()),
+                    () -> assertEquals(11L, events.get(0).details().get(SubprocessJobRunner.DETAIL_PID)),
+                    () -> assertEquals(jobId.value(), events.get(0).details().get(SubprocessJobRunner.DETAIL_JOB_ID)),
+                    () -> assertEquals("/usr/bin/sleep",
+                            events.get(0).details().get(SubprocessJobRunner.DETAIL_EXECUTABLE)),
+                    () -> assertFalse(events.get(1).details()
+                            .containsKey(SubprocessJobRunner.DETAIL_EXECUTABLE), "no executable known"));
         }
 
         @Test
@@ -1366,7 +1410,8 @@ class SubprocessJobRunnerTest {
 
         @Test
         @DisplayName("the argument digest separates the elements of the vector")
-        void argvDigest() {            var element = Generators.letterStrings(2, 8).next();
+        void argvDigest() {
+            var element = Generators.letterStrings(2, 8).next();
 
             var joined = SubprocessJobRunner.argvDigest(List.of(element + element));
             var split = SubprocessJobRunner.argvDigest(List.of(element, element));

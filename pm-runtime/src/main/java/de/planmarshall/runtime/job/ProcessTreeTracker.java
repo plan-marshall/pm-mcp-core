@@ -12,6 +12,7 @@ package de.planmarshall.runtime.job;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.InstantSource;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -23,7 +24,7 @@ import de.planmarshall.runtime.job.ProcessGroupSignals.Signal;
 
 /**
  * Records the process tree of a job while it runs and ends the descendants that are still alive when it ends
- * (termination step 3a of the job runtime specification, on the platform that has no child subreaper).
+ * (termination step 3a of the job runtime specification; the runtime side, on every platform).
  * <p>
  * A descendant that left the job's process group or started a new session is no longer reached by
  * {@code kill(-pgid, sig)}. It is still the job's descendant to others: {@link ProcessHandle#descendants()} lists it
@@ -31,12 +32,13 @@ import de.planmarshall.runtime.job.ProcessGroupSignals.Signal;
  * every PID it saw with the process start it saw it with, so a member that detaches between two refreshes is still
  * known at the job's end. The sweep sends {@code SIGTERM} to every remembered member that still runs, waits the sweep
  * grace period, and sends {@code SIGKILL} to those left; a PID whose process started at another instant was reused and
- * is never signalled.
+ * is never signalled. The members still alive after the {@code SIGKILL} are answered as {@link Survivor}s, for the
+ * {@code job_descendant_survived} audit record.
  * <p>
- * On Linux the specification's mechanism is the launcher: {@code pm-exec} marks itself child subreaper and starts the
- * command as its child, so no descendant can leave its reach. That change lives in the launcher, not in this
- * repository; the tracker is the runtime side of the same step and covers what the launcher's reach does not, on every
- * platform.
+ * On Linux the specification's primary mechanism is the launcher: {@code pm-exec} marks itself child subreaper and
+ * starts the command as its child, so no descendant can leave its reach. That change lives in the launcher, not in this
+ * repository; the tracker is the runtime side of the same step on every platform and covers what the launcher's reach
+ * does not.
  * <p>
  * Specification: {@code doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc} (Process Termination &
  * Cancellation Protocol, step 3a).
@@ -60,6 +62,22 @@ public final class ProcessTreeTracker {
         /** @throws NullPointerException if the start instant is {@code null} */
         public Member {
             Objects.requireNonNull(startedAt, "startedAt");
+        }
+    }
+
+    /**
+     * A remembered descendant that was still alive after the sweep's {@code SIGKILL}, written as the security audit
+     * record {@code job_descendant_survived}.
+     *
+     * @param pid     its PID
+     * @param command its executable, when the process table names it
+     * @since 0.1
+     */
+    public record Survivor(long pid, Optional<String> command) {
+
+        /** @throws NullPointerException if the command is {@code null} */
+        public Survivor {
+            Objects.requireNonNull(command, "command");
         }
     }
 
@@ -147,13 +165,15 @@ public final class ProcessTreeTracker {
      * Ends the remembered descendants that are still alive: {@code SIGTERM} to each, the sweep grace period, and
      * {@code SIGKILL} to those left. A remembered PID whose process started at another instant was reused and is not
      * signalled.
+     *
+     * @return the members still alive after the {@code SIGKILL}, with their executables; empty when the sweep ended them
      */
-    public void sweep() {
-        var survivors = survivors();
-        if (survivors.isEmpty()) {
-            return;
+    public List<Survivor> sweep() {
+        var targets = survivors();
+        if (targets.isEmpty()) {
+            return List.of();
         }
-        for (var pid : survivors) {
+        for (var pid : targets) {
             signals.signalProcess(pid, Signal.SIGTERM);
         }
         var interrupted = false;
@@ -162,12 +182,16 @@ public final class ProcessTreeTracker {
             var remaining = Duration.between(clock.instant(), deadline);
             interrupted = !sleep(remaining.compareTo(POLL_INTERVAL) < 0 ? remaining : POLL_INTERVAL);
         }
-        for (var pid : survivors()) {
+        var left = survivors();
+        for (var pid : left) {
             signals.signalProcess(pid, Signal.SIGKILL);
         }
         if (interrupted) {
             Thread.currentThread().interrupt();
         }
+        return left.stream().filter(pid -> survivors().contains(pid))
+                .map(pid -> new Survivor(pid, ProcessHandle.of(pid).flatMap(handle -> handle.info().command())))
+                .toList();
     }
 
     /** @return the remembered PID of every member that is still the process it was, and still runs */

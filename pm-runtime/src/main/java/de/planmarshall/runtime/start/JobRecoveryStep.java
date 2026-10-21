@@ -52,13 +52,13 @@ import de.planmarshall.runtime.job.TerminationProtocol;
  * nothing is signalled;</li>
  * <li>its {@code pid} is {@code null}: the runtime ended between the spawn and the post-spawn replace; nothing is
  * signalled, and an audit record ({@value #JOB_RECOVERED}) notes {@value #ORPHAN_UNIDENTIFIABLE};</li>
- * <li>the process the recorded {@code pid} names today did not start at the recorded {@code process_started_at}: the PID
- * was reused after the job ended, so it is no longer the job's group; nothing is signalled, and the audit record notes
- * {@value #ORPHAN_UNIDENTIFIABLE} like rule (c);</li>
+ * <li>the recorded {@code pid} is held by a live process that started at another instant than the recorded
+ * {@code process_started_at}: the PID was reused after the job ended, so neither its group nor the PID may be
+ * signalled, and the audit record notes {@value #ORPHAN_UNIDENTIFIABLE};</li>
  * <li>otherwise the process group is probed with {@code kill(-pgid, 0)}: a group exists while any of its members
  * lives, and within one boot its id is not reused while it lives, so a live group of the recorded id is the job's
- * group and is terminated with steps 1 to 3 of the {@link TerminationProtocol}; a group that no longer exists needs no
- * termination.</li>
+ * group, also when its leader has exited, and is terminated with steps 1 to 3 of the {@link TerminationProtocol}; a
+ * group that no longer exists needs no termination.</li>
  * </ol>
  * </li>
  * </ul>
@@ -69,8 +69,8 @@ import de.planmarshall.runtime.job.TerminationProtocol;
  * directory) belongs to the launch of workers and is a seam: a worker's record is settled like every other, and the
  * report names the seam.
  * <p>
- * Every signal goes through {@link ProcessGroupSignals}, so a test asserts at the lowest signalling call that rules
- * (a) to (c) send none. A step that cannot read the job records, hand over the orphan note or record a fate fails, and
+ * Every signal goes through {@link ProcessGroupSignals}, so a test asserts at the lowest signalling call that the rules
+ * which send none, and a reused PID, send none. A step that cannot read the job records, hand over the orphan note or record a fate fails, and
  * the recovery of its project stops there; a job whose fate was not recorded is settled by the next recovery.
  * <p>
  * Specification: {@code doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc} (Process Termination &
@@ -82,7 +82,7 @@ import de.planmarshall.runtime.job.TerminationProtocol;
  */
 public final class JobRecoveryStep implements RecoveryStep {
 
-    /** The note of the audit record of a job whose record carries no PID. */
+    /** The note of the audit record of a job whose record carries no PID, or one whose PID was reused. */
     public static final String ORPHAN_UNIDENTIFIABLE = "orphan unidentifiable";
 
     /** The event of the audit record of a job the recovery settled with a note. */
@@ -300,27 +300,28 @@ public final class JobRecoveryStep implements RecoveryStep {
         if (job.pid() == null) {
             return Rule.UNIDENTIFIABLE;
         }
-        if (!stillTheRecordedProcess(job)) {
+        if (pidReused(job)) {
             return Rule.UNIDENTIFIABLE;
         }
         return Rule.PROBED;
     }
 
     /**
-     * Whether the process the recorded PID names today is the one the job started, by the start instant the process
-     * table answers against the {@code process_started_at} of the launch report. A PID whose process is gone, whose
-     * start is unknown, or whose start differs beyond {@link #START_TOLERANCE} was reused and is not the job's.
+     * Whether the recorded PID now names a process other than the job's, so that neither its group nor the PID itself
+     * may be signalled. A PID that no process owns any more was not reused: a process group that still lives under
+     * that id is the job's surviving group (the kernel does not hand out a PID that is held as a process-group id), and
+     * a group that is gone answers {@code ESRCH}. Only a live process that started at another instant is a reused PID.
      *
      * @param job the record of a job with a PID and a recorded process start
-     * @return whether the recorded PID still names the job's process
+     * @return whether the recorded PID was reused by another process
      */
-    static boolean stillTheRecordedProcess(JobRecord job) {
+    static boolean pidReused(JobRecord job) {
         if (job.processStartedAt() == null) {
-            return false;
+            return true;
         }
         return ProcessHandle.of(job.pid()).flatMap(handle -> handle.info().startInstant())
                 .map(start -> Duration.between(job.processStartedAt(), start).abs()
-                        .compareTo(START_TOLERANCE) <= 0)
+                        .compareTo(START_TOLERANCE) > 0)
                 .orElse(false);
     }
 

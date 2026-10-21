@@ -25,6 +25,7 @@ import java.time.Instant;
 import java.time.InstantSource;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -43,6 +44,8 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import lombok.Builder;
 
+import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.JobRunner;
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.service.LockTransaction;
@@ -169,6 +172,22 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     /** The refusal of a probe whose kind the operator did not consent to. */
     public static final String CONSENT_REQUIRED = "consent_required";
 
+    /** The security audit record of a descendant that outlived the sweep of a job's process tree. */
+    public static final String JOB_DESCENDANT_SURVIVED = "job_descendant_survived";
+
+    /** The detail of that record that names the descendant's executable. */
+    public static final String DETAIL_EXECUTABLE = "executable";
+
+    /** The detail of that record that names the descendant's PID. */
+    public static final String DETAIL_PID = "pid";
+
+    /** The detail of that record that names the job. */
+    public static final String DETAIL_JOB_ID = "job_id";
+
+    /** The audit sink of a runner whose caller names none: the sweep still runs, its survivors are not recorded. */
+    private static final AuditSink NO_AUDIT = _ -> {
+    };
+
     /**
      * How long a start waits for the launch report of the launcher, from the spawn: the launcher writes it right
      * before {@code execve}, after {@code setpgid} and the confinement. The wait is bounded by this and by the job's
@@ -269,6 +288,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private final PrimitiveJobs primitives;
     private final InstantSource clock;
     private final Supervision supervision;
+    private final AuditSink audit;
 
     /**
      * The store of every job this runner started and whose settlement has not recorded its fate yet. A job whose fate
@@ -282,7 +302,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * the durable record stays in the job's store, which a caller that needs an older one reads itself.
      */
     private final Map<JobId, JobRecord> settledRecords =
-            Collections.synchronizedMap(new LinkedHashMap<>(16, 0.75f, true) {
+            Collections.synchronizedMap(new LinkedHashMap<>(16, 0.75f, false) {
                 @Override
                 protected boolean removeEldestEntry(Map.Entry<JobId, JobRecord> eldest) {
                     return size() > SETTLED_RECORD_CACHE;
@@ -317,13 +337,14 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * @param primitives       the jobs of the primitives the engine port starts
      * @param clock            the clock of the records and the budgets; {@code null} for the system clock
      * @param supervision      how the thread that waits for a job is started; {@code null} for a virtual thread per job
+     * @param audit            where a surviving descendant of a probe is written; {@code null} for no audit record
      * @throws NullPointerException if an argument other than the clock is {@code null}
      */
     @Builder
     private SubprocessJobRunner(Path base, LockManager lockManager, VerifyNotResolvePipeline pipeline,
             PmExecLauncher launcher, TerminationProtocol termination, Environment environment,
             ProbeEnvironment probeEnvironment, OutputParser parser, PrimitiveJobs primitives, InstantSource clock,
-            Supervision supervision) {
+            Supervision supervision, AuditSink audit) {
         this.base = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
         this.lockManager = Objects.requireNonNull(lockManager, "lockManager");
         this.pipeline = Objects.requireNonNull(pipeline, "pipeline");
@@ -335,6 +356,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         this.primitives = Objects.requireNonNull(primitives, "primitives");
         this.clock = clock == null ? InstantSource.system() : clock;
         this.supervision = supervision == null ? Supervision.VIRTUAL_THREADS : supervision;
+        this.audit = audit == null ? NO_AUDIT : audit;
     }
 
     /**
@@ -388,6 +410,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     /**
      * How the thread that waits for a job is started. It is a seam for the failure of the start itself, whose path
      * terminates the started process and settles the job before the failure is passed on to the caller.
+     * <p>
+     * An implementation starts the task asynchronously and returns once it runs. It must not run the task on the
+     * caller's thread and must not start it and then throw: the runner settles the job when {@link #start} throws, so
+     * a task that already runs would be settled twice.
      *
      * @since 0.1
      */
@@ -743,7 +769,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         }
         settledRecords.put(settled.jobId(), settled);
         LOGGER.info(INFO.JOB_SETTLED, settled.jobId(), settled.fate().wireName(), settled.outcomeRow());
-        return new JobRunner.StartResult.Refused(reason);    }
+        return new JobRunner.StartResult.Refused(reason);
+    }
 
     /**
      * Writes the write-ahead record, launches the job and, when its launch report arrives in time, writes its
@@ -817,16 +844,16 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         JobRecord reported = null;
         try {
             job.launched(launched.process());
+            if (job.latest.kind() == JobId.Kind.PROBE) {
+                // step 3a: the descendants a probe may leave the group with, recorded while it runs
+                job.tracks(new ProcessTreeTracker(launched.pid(), termination.signals()));
+                job.refreshTree();
+            }
             var awaited = awaitReport(job, launched.process(), log, spawnedAt.plus(reportWait(job.budget)));
             observedLength = awaited.observedLength();
             if (awaited.report().isPresent()) {
                 reported = postSpawnRecord(job.latest, awaited.report().get(), spawnedAt);
                 writePostSpawn(job, reported);
-            }
-            if (job.latest.kind() == JobId.Kind.PROBE) {
-                // step 3a: the descendants a probe may leave the group with, recorded while it runs
-                job.tracks(new ProcessTreeTracker(launched.pid(), termination.signals()));
-                job.refreshTree();
             }
             var length = observedLength;
             supervision.start("job-" + jobId,
@@ -902,9 +929,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private boolean terminateAndSettle(RunningJob job, Launched launched, Instant spawnedAt, long observedLength) {
         var cancelBeforeGroup = terminateByHandle(job.latest.jobId(), launched);
         var exit = waitFor(launched.process());
-        job.sweepTree();
+        var endedAt = clock.instant();
+        auditSurvivors(job, job.sweepTree());
         // the end of the process is observed: the cancel door closes here and the cause it returns is the one read
-        settleEnded(job, new Ended(spawnedAt, clock.instant(), exit.value(), job.closeCancelDoor(),
+        settleEnded(job, new Ended(spawnedAt, endedAt, exit.value(), job.closeCancelDoor(),
                 cancelBeforeGroup), observedLength);
         return exit.interrupted();
     }
@@ -924,13 +952,12 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         var reached = false;
         var cancelBeforeGroup = false;
         try {
-            // A process that ended by itself in the meantime may have had its PID reused: no signal addresses it then.
-            if (!launched.process().isAlive()) {
-                return false;
+            // A PID reused by another process is not signalled; a group that outlived its leader is still the job's.
+            if (!pidReused(launched)) {
+                var report = termination.terminate(launched.pid());
+                reached = report.ending() != Ending.SIGNAL_REFUSED;
+                cancelBeforeGroup = report.cancelBeforeGroup();
             }
-            var report = termination.terminate(launched.pid());
-            reached = report.ending() != Ending.SIGNAL_REFUSED;
-            cancelBeforeGroup = report.cancelBeforeGroup();
         } catch (RuntimeException | Error e) {
             // a PID the protocol refuses, a signal call that failed (ProcessGroupSignals), or an error of the primitive
             LOGGER.warn(e, WARN.JOB_TERMINATION_FAILED, jobId, e.getMessage());
@@ -940,6 +967,40 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             }
         }
         return cancelBeforeGroup;
+    }
+
+    /**
+     * Whether the PID of a started process now names another process, so that neither its group nor the PID itself may
+     * be signalled. A PID that no process owns any more was not reused: a process group still living under that id is
+     * the job's surviving group, and a group that is gone answers {@code ESRCH}. A live process of that PID that
+     * started at another instant is a reused PID.
+     */
+    static boolean pidReused(Launched launched) {
+        var current = ProcessHandle.of(launched.pid()).flatMap(handle -> handle.info().startInstant());
+        if (current.isEmpty()) {
+            return false;
+        }
+        var own = launched.process().toHandle().info().startInstant();
+        return own.isEmpty() || !own.get().equals(current.get());
+    }
+
+    /**
+     * Writes the security audit record {@value #JOB_DESCENDANT_SURVIVED} of every descendant that outlived the sweep of
+     * a job's process tree, with its PID and executable. A record the sink refuses is logged and does not stop the
+     * settlement.
+     */
+    void auditSurvivors(RunningJob job, List<ProcessTreeTracker.Survivor> survivors) {        for (var survivor : survivors) {
+            var details = new HashMap<String, Object>();
+            details.put(DETAIL_JOB_ID, job.latest.jobId().value());
+            details.put(DETAIL_PID, survivor.pid());
+            survivor.command().ifPresent(command -> details.put(DETAIL_EXECUTABLE, command));
+            try {
+                audit.append(new AuditEvent(JOB_DESCENDANT_SURVIVED, AuditEvent.CATEGORY_SECURITY,
+                        AuditEvent.OUTCOME_FAILED, details));
+            } catch (UncheckedIOException e) {
+                LOGGER.warn(e, WARN.JOB_DESCENDANT_AUDIT_FAILED, job.latest.jobId(), e.getMessage());
+            }
+        }
     }
 
     /** Takes a job out of the running jobs and completes the wait for its settlement with its record. */
@@ -1027,8 +1088,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 cause = awaited.cause().get();
                 // the handle's PID, never the one a launch report names: this path ends the process the runner started
                 var pid = launched.pid();
-                // a process that ended in the meantime may have had its PID reused: nothing is signalled then
-                if (process.isAlive()) {
+                // a PID reused by another process is not signalled; a group that outlived its leader is still the job's
+                if (!pidReused(launched)) {
                     report = termination.terminate(pid);
                     if (report.ending() == Ending.GROUP_KILLED) {
                         LOGGER.warn(WARN.JOB_TERMINATION_ESCALATED, job.latest.jobId(), pid, cause.name());
@@ -1036,13 +1097,14 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                         process.destroyForcibly();
                     }
                 }
-                job.sweepTree();
+                auditSurvivors(job, job.sweepTree());
             }
             var exit = waitFor(process);
             interrupted |= exit.interrupted();
-            job.sweepTree();
+            var endedAt = clock.instant();
+            auditSurvivors(job, job.sweepTree());
             ended = true;
-            settleEnded(job, new Ended(spawnedAt, clock.instant(), exit.value(), Optional.ofNullable(cause),
+            settleEnded(job, new Ended(spawnedAt, endedAt, exit.value(), Optional.ofNullable(cause),
                     report != null && report.cancelBeforeGroup()), observedLength);
         } finally {
             try {
@@ -1163,20 +1225,22 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     }
 
     /**
-     * Settles a job whose fallback settlement failed as well: a minimal ended record with the table's outcome for
-     * evidence the runner could not read ({@code indeterminate}, row 5), so the job is not left {@code running} until
-     * the next runtime start. A write that fails here too is logged and left to the recovery.
+     * Settles a job whose fallback settlement failed as well: the record the fallback was about to write is written
+     * again, so a fault of the write is retried once; when the derivation itself failed, a minimal ended record with the
+     * table's outcome for evidence the runner could not read ({@code indeterminate}, row 5) is written instead, so the
+     * job is not left {@code running} until the next runtime start. A write that fails here too is logged and left to
+     * the recovery.
      */
     private void lastResort(RunningJob job, Throwable failure) {
         var current = job.latest;
-        var settled = current.toBuilder().status(Status.ENDED).fate(Fate.INDETERMINATE).outcomeRow(5)
-                .endedAt(clock.instant()).build();
+        var settled = job.pendingSettled != null ? job.pendingSettled
+                : current.toBuilder().status(Status.ENDED).fate(Fate.INDETERMINATE).outcomeRow(5)
+                        .endedAt(clock.instant()).build();
         try {
             settle(job, settled);
         } catch (RuntimeException | Error writeFailure) {
             failure.addSuppressed(writeFailure);
-            LOGGER.error(writeFailure, ERROR.JOB_SETTLEMENT_STEP_FAILED, current.jobId(), "FALLBACK",
-                    writeFailure.getMessage());
+            LOGGER.error(writeFailure, ERROR.JOB_LAST_RESORT_FAILED, current.jobId(), writeFailure.getMessage());
         }
     }
 
@@ -1249,6 +1313,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     /** Runs the settlement of a running job's settled record; from here on no fallback settles the job again. */
     private void settle(RunningJob job, JobRecord settled) {
         job.settling = true;
+        job.pendingSettled = settled;
         if (settleRecord(job.store, settled)) {
             job.latest = settled;
         }
@@ -1390,6 +1455,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         /** The process tree of a probe, refreshed while it runs so its descendants are ended with it; null otherwise. */
         private volatile ProcessTreeTracker tree;
 
+        /** The record a settlement attempt was about to write, for the last-resort retry of a failed write; null before. */
+        private volatile JobRecord pendingSettled;
+
         /**
          * Whether the settlement of the job has started; a fallback settlement runs only before it, because a fate
          * replaces only a record that is not settled yet. Read and written by the one thread that settles the job.
@@ -1431,11 +1499,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         }
 
         /** Ends the remembered descendants still alive; nothing for a job without a tree. */
-        void sweepTree() {
+        List<ProcessTreeTracker.Survivor> sweepTree() {
             var current = tree;
-            if (current != null) {
-                current.sweep();
-            }
+            return current == null ? List.of() : current.sweep();
         }
 
         /**

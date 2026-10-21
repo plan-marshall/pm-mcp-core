@@ -30,11 +30,13 @@ starts every probe itself; a worker is started by the supervisor, which does not
   still known at the job's end.
 * `sweep()` sends `SIGTERM` to every remembered member that still runs, waits `SWEEP_GRACE` while it probes, and sends
   `SIGKILL` to those left. A remembered PID whose current process started at another instant was reused and is never
-  signalled; the tracker follows the same rule as ADR 010.
-* `SubprocessJobRunner` wires the tracker for a probe after its post-spawn record is written, refreshes it from the
-  waiting loop (whose wait is therefore bounded by `REFRESH_INTERVAL`, not only by the budget) and sweeps it on the
-  normal end, on the cause path and in the fallback path. It starts no worker, so the supervisor wires the same tracker
-  for a worker.
+  signalled; the tracker follows the same rule as ADR 010. A member still alive after the `SIGKILL` is answered as a
+  `Survivor`, and the runner writes it as the security audit record `job_descendant_survived` with its PID and
+  executable; a sink that refuses the record is logged and does not stop the settlement.
+* `SubprocessJobRunner` wires the tracker for a probe right after the process is started, so the report wait and every
+  fallback path are covered, refreshes it from the waiting loop (whose wait is therefore bounded by `REFRESH_INTERVAL`,
+  not only by the budget) and sweeps it on the normal end, on the cause path and in the fallback path. It starts no
+  worker, so the supervisor wires the same tracker for a worker.
 * The Linux subreaper change in `pm-exec` is owed to the repository that builds the launcher; until it ships, this
   sweep is the only protection on every platform, and it is not a substitute for the subreaper: a descendant that
   appears and detaches between two refreshes is missed.

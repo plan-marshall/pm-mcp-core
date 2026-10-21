@@ -66,8 +66,9 @@ import de.planmarshall.runtime.start.RecoveryStepFixtures.RecordingAuditSink;
 /**
  * The jobs part of recovery step 3 (PM-ARCH-7, PM-EXEC-4) over a real job record store: one case per rule of the
  * specification, each asserting at the lowest signalling primitive, a recording {@link ProcessGroupSignals}, which
- * {@code kill} calls the rule made. Rules (a) to (c) and a queued job make none; the matched control (d), a job of
- * this boot with a recorded PID whose group lives, is probed and terminated.
+ * {@code kill} calls the rule made. Rules (a) to (c), a reused PID and a queued job make none; the matched control (d),
+ * a job of this boot with a recorded PID whose group lives, is probed and terminated, also when no process owns the PID
+ * any more (the group outlived its leader).
  */
 @EnableGeneratorController
 @DisplayName("Jobs part of the recovery step JOBS_AND_WORKERS")
@@ -342,6 +343,24 @@ class JobRecoveryStepTest {
         }
 
         @Test
+        @DisplayName("a group that outlived its leader is still terminated: no process owns the recorded PID")
+        void groupThatOutlivedItsLeaderIsTerminated() {
+            var pid = 1_999_999_997L;
+            signals.liveGroup = pid;
+            var job = postSpawn(pid, BOOT.plusSeconds(60), BOOT.plusSeconds(60));
+
+            var outcome = step().run(PROJECT_A);
+
+            assertAll(
+                    () -> assertEquals(List.of(new Call(true, pid, Signal.PROBE), new Call(true, pid, Signal.SIGTERM),
+                            new Call(true, pid, Signal.PROBE)), signals.calls),
+                    () -> assertKilled(read(job), Signal.SIGTERM.name()),
+                    () -> assertEquals(JobRecoveryStep.Rule.PROBED, step().rule(job)),
+                    () -> assertEquals(new Outcome.Done("1 jobs settled killed {PROBED=1}, 1 groups terminated; "
+                            + "worker part of 0 workers " + RecoveryStep.NOT_IMPLEMENTED), outcome));
+        }
+
+        @Test
         @DisplayName("a recorded PID whose process started at another instant is not signalled: the PID was reused")
         void reusedPidIsNotSignalled() {
             var pid = ownPid();
@@ -365,8 +384,8 @@ class JobRecoveryStepTest {
         }
 
         @Test
-        @DisplayName("a recorded PID without the process start it was spawned with is not signalled")
-        void pidWithoutAProcessStartIsNotSignalled() {
+        @DisplayName("a record with a PID but no process start is refused, so the guard cannot be reached from it")
+        void recordWithPidWithoutAProcessStartIsRefused() {
             // The record refuses a PID without the process start it was spawned with, so the guard's
             // "no start recorded" branch cannot be reached from a stored record; the guard still treats it as
             // unidentifiable, and the record's own invariant is asserted by JobRecordTest.
@@ -385,8 +404,10 @@ class JobRecoveryStepTest {
                         JobRecoveryStep.Rule.BEFORE_BOOT),
                 Arguments.of("after boot without PID", Status.RUNNING, Execution.PROCESS, null, null,
                         JobRecoveryStep.Rule.UNIDENTIFIABLE),
-                Arguments.of("spawned at the boot instant", Status.RUNNING, Execution.PROCESS, 42L, BOOT,
-                        JobRecoveryStep.Rule.UNIDENTIFIABLE));
+                Arguments.of("spawned at the boot instant", Status.RUNNING, Execution.PROCESS, 1_999_999_999L, BOOT,
+                        JobRecoveryStep.Rule.PROBED),
+                Arguments.of("a PID no process owns any more", Status.RUNNING, Execution.PROCESS, 1_999_999_998L, BOOT,
+                        JobRecoveryStep.Rule.PROBED));
     }
 
     @ParameterizedTest(name = "{0}")
