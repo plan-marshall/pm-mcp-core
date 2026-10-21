@@ -779,6 +779,7 @@ decision or a dependency outside this repository.
   **Recurred on 2026-10-21 (PLAN-90, `rb-90-ported-tests-advisories-001.md`):** `total_tokens=unknown`, `missing_keys: [total_tokens]`, same cause; the
   fourth opencode runbook landing.
   **Recurred on 2026-10-21 (PLAN-82, `rb-82-credential-store-move-advisories-001.md`):** `total_tokens=unknown`, same cause; the fifth.
+  **Recurred on 2026-10-21 (PLAN-83, `rb-83-service-unit-restore-001.md`):** `total_tokens=unknown`, `missing_keys: [total_tokens]`, same cause; the sixth.
 - **The port `QuestionRecordReader` cannot address a pending entry.** `ReadRequest(Optional<String> scopeId, String questionId)` names a plan, an
   epic or the workspace, nothing else, so a `question` state of a pending entry (an entity of the workspace scope) cannot be resolved through the
   adapter PLAN-88 shipped. Reported by the lane and corroborated against the record's two components (`pm-core` `core.spi`). No package owns it: a
@@ -887,12 +888,33 @@ decision or a dependency outside this repository.
   declared surface (the record class, its three tests, the log holder, `EnrolmentKey`, three `.adoc` files). The lane reports T1 (test first) as not met
   (`mutation-after`) and a self-review round 2 that was skipped for budget; the landing says so itself. Its rule breaks (first edits in the main
   checkout, a `python3 -c` probe) are plan-reported; the main checkout is clean here. Build, test count and the Sonar claim were not re-run.
+  Sixth opencode runbook landing (PLAN-83, #125, 2026-10-21), verified: the squash `7d980c1` is on `main`, 30 checks pass, SonarCloud reports 0 new
+  issues, the nine named commits exist, the progress file agrees with the landing, and `keepForRestore`, `restoreKept`, `restore` and the log ids
+  33/34/135/136 are in the merged code and in `doc/LogMessages.adoc`. The one replaced test (`shouldKeepUnitOnManagerFailure`) inverts its
+  assertions by the decision of ADR 014; nothing is weakened. Six files lay outside the declared surface (`LogMessages.adoc`, `Traceability.adoc`, the
+  log holder and its test, two Javadoc paragraphs) and one declared file was untouched (the Upgrade section of `01-startup-recovery-drain.adoc`, kept
+  because only the unit part of the rollback exists). The macOS clause is met only at the library level (the operator accepted that; see the Watch).
+  Same stale-executor defect as before (canonical build names rejected, the lane read `~/.config/opencode/skills/`). Build and test counts were not re-run.
 - **Ten SonarCloud issues on PR #121 are untriaged (unverified lead).** The PR's Sonar comment says quality gate passed and 10 new issues; the lane
   did not read them and the orchestrator did not open them. Check the PR's Sonar page before the next change to the credentials package.
-- **PLAN-64 will meet #121 in two files (observed).** `corpus declaration-currency` against `15fbe6f`: `doc/specification/store-schemas/12-machine-stores.adoc`
-  and `pm-runtime/doc/developer/runtime-start.adoc` are in PLAN-64's declared surface and in #121's squash; the branch `feature/64-removed-concepts`
-  (`a562098`) does not contain `15fbe6f`. Expect a conflict resolution when it merges `origin/main`; PLAN-83 (`runtime-start.adoc`), PLAN-84
-  (`doc/LogMessages.adoc`, `CredentialStoreMoveResumeTest.java`) and PLAN-85 (`doc/Traceability.adoc`) overlap the landed footprint too.
+- **PLAN-64 has met #121 and #125 (observed 2026-10-21).** `corpus declaration-currency` predicted the overlap (#121: `12-machine-stores.adoc`,
+  `runtime-start.adoc`; #125: `README.adoc`, ADR 003, the number of ADR 014, `runtime-start.adoc`, `runtime/start/package-info.java`). A read-only look
+  at the worktree `64-removed-concepts` shows the branch at `da892e9` containing both squashes (`15fbe6f` and `7d980c1`) and its ADR renumbered to
+  `runtime-start/015`; its PR #122 is open. The worktree also carries an UNCOMMITTED edit of `ServiceUnitInstallerTest.java` (14 lines, `throws IOException`
+  widened to `throws Exception`), a file PLAN-64's spec does not declare. The reason was not read (lead): check at PLAN-64's landing whether the file
+  is in its squash. PLAN-84 (`doc/LogMessages.adoc`, the directory `runtime/start/` of its test surface), PLAN-85 and PLAN-89 (`doc/Traceability.adoc`,
+  `README.adoc`) overlap the landed footprints too.
+- **Owed outside PLAN-83 (plan-reported, accepted by the operator):** `ServiceUnitInstaller.restore()` is implemented and tested, but no production
+  start calls it; the `pm-mcp-server` assembly in `plan-marshall-mcp` must run it first (like `CredentialStoreChoice.record` below). Until then the
+  macOS recovery after an interrupted reinstall does not exist end to end. The concept and user documentation and the roadmap check-off belong to the
+  milestone exit; the rest of the upgrade rollback (staged installation directory, the switch) is not implemented, so the Upgrade section stays.
+- **Install, restore and uninstall share the kept pair with no cross-process owner (plan-reported, corroborated in the code).** No production caller
+  exists yet. CodeRabbit raised it; the lane answered on the PR. The serialization belongs to the change that wires `pm-operator runtime install|uninstall`
+  and the start.
+- **A failed drop after a successful load can restore an OLDER unit later (unverified lead from the bot, behaviour corroborated).** CodeRabbit's
+  security-architecture note on #125: when the load succeeds and the marker cannot be deleted, `install` stays a success (WARN `PM_RUNTIME-136`,
+  `dropAfterLoad`), and a later start or failed install restores the kept, older unit. The design documents it; the bot proposes separating the install's
+  commit state from the cleanup of the pair. Not in the landing's Residue. Re-read when the start is wired.
 - **Owed outside PLAN-82 (plan-reported):** the `pm-mcp-server` assembly in `plan-marshall-mcp` has to call `CredentialStoreChoice.record(LockManager, user, store)`;
   the concept and user documentation and the roadmap check-off belong to the milestone exit in `plan-marshall-documentation`.
 - **One SonarCloud issue on PR #120 is untriaged (unverified lead).** The landing reports quality gate passed and 1 new issue it did not read; the
@@ -966,6 +988,9 @@ decision or a dependency outside this repository.
   build's working directory in the `in_process` fallback, so the lane passed `-f {worktree}/pom.xml` (plan-reported). `cleanup restart-check` now
   reads: the registry pins 0.1.1977, the executor is still 0.1.1961 (`registry_parity: indeterminate`). PLAN-64 (runbook, opencode) is still running on
   it; regenerate the executor (operator) before the next runbook plan is emitted.
+  **Recurred on 2026-10-21 (PLAN-83):** the resolved build names (`quality-gate`, `module-tests`, `test-compile`) reached Maven and failed ("Unknown lifecycle phase"),
+  and the lane read the installed skill documentation under `~/.config/opencode/skills/` to find the invocation surfaces (plan-reported, no guard on
+  opencode). PLAN-83 was emitted on the same executor, as were PLAN-64's and PLAN-90's. Still pinned 0.1.1961 against registry 0.1.1977.
 - The check command of `CLAUDE.md` (`../plan-marshall-documentation/…`) does not resolve inside a plan worktree, three
   directories deeper: PLAN-72's functional review graded the link criteria on indirect evidence until the command was run by hand.
   The Standing Constraints of PLAN-20 and PLAN-69 now carry the absolute-path command; add the same bullet to every other spec
