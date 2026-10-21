@@ -872,6 +872,39 @@ Verified by (the verify-not-resolve pipeline: a job's working directory outside 
 
 Documentation: link:../pm-runtime/doc/developer/runtime-job.adoc[Developer Guide § Job Verification (`runtime.job`)]
 
+== link:../../plan-marshall-documentation/doc/requirements/13-client-profiles.adoc[Client Profiles]
+
+[#PM-CLIENT-5]
+=== PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5]
+
+Implementation (the whole-document loader of the shipped, machine and project sets with the nearest set in force; the
+closed schema and the hardening rules with the refusing pointer; the verification record and its HMAC sidecar; the
+supported version range; the role-class, update-evidence, path and resume rules; and the recorded results of the stages
+`isolation`, `egress` and `usage`, including the field-by-field comparison with the harness's own record. Not implemented
+here: writing the sets, the scan, the login probe and the stages themselves, which are the onboarding's and the
+verification's): link:../pm-core/src/main/java/de/planmarshall/core/profile/ProfileLoader.java[ProfileLoader],
+link:../pm-core/src/main/java/de/planmarshall/core/profile/ProfileValidator.java[ProfileValidator],
+link:../pm-core/src/main/java/de/planmarshall/core/profile/VerificationRecord.java[VerificationRecord],
+link:../pm-core/src/main/java/de/planmarshall/core/profile/CanonicalJson.java[CanonicalJson],
+link:../pm-core/src/main/java/de/planmarshall/core/profile/ProfileStages.java[ProfileStages],
+link:../pm-core/src/main/java/de/planmarshall/core/profile/SupportedVersions.java[SupportedVersions],
+link:../pm-core/src/main/java/de/planmarshall/core/profile/ShippedProfiles.java[ShippedProfiles]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/profile/ProfileLoaderTest.java[ProfileLoaderTest],
+link:../pm-core/src/test/java/de/planmarshall/core/profile/ProfileValidatorTest.java[ProfileValidatorTest],
+link:../pm-core/src/test/java/de/planmarshall/core/profile/ProfileStagesTest.java[ProfileStagesTest],
+link:../pm-core/src/test/java/de/planmarshall/core/profile/ShippedProfilesTest.java[ShippedProfilesTest],
+link:../pm-core/src/test/java/de/planmarshall/core/profile/CanonicalJsonTest.java[CanonicalJsonTest],
+link:../pm-core/src/test/java/de/planmarshall/core/profile/ProfileNeutralityArchTest.java[ProfileNeutralityArchTest]
+
+Documentation: link:../pm-core/doc/developer/core-profile.adoc[Client Profiles Developer Guide],
+link:../pm-core/doc/adr/core-profile/001-hand-written-closed-validator-over-jackson-core.adoc[ADR core-profile/001],
+link:../pm-core/doc/adr/core-profile/002-canonical-digest-and-hmac-sidecar.adoc[ADR core-profile/002],
+link:../pm-core/doc/adr/core-profile/003-refused-profile-is-a-value-next-set-in-force.adoc[ADR core-profile/003],
+link:../pm-core/doc/adr/core-profile/004-bundle-managed-paths-as-installation-data.adoc[ADR core-profile/004]
+
 == link:../../plan-marshall-documentation/doc/requirements/14-implementation.adoc[Implementation]
 
 [#PM-IMPL-1]
