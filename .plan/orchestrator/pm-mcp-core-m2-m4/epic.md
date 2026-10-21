@@ -256,6 +256,34 @@ decision or a dependency outside this repository.
     plan, found by PLAN-75). `corpus-overlay-extensions` and `corpus-group-contamination` had no queue row: both were delivered outside the
     orchestrator (#80, #86) and are recorded as PLAN-79 and PLAN-80, `shipped`, with retroactive specs and landing notes (2026-10-18).
 
+- Corpus reconciled by `cleanup` on 2026-10-21 at 99971f3, after #122, #125, #127 and #128 (documentation 963e879):
+  - Unparked to `staged` (18, on the index: each row is `open` and every dependency is shipped or staged): PLAN-19 `profile-loader`,
+    42, 43, 45, 46, 47, 48, 50, 51, 53, 55, 57, 58, 61, 62, 67, 76, 77. PLAN-19 was the root of the chain: it waited on
+    `pm-mcp-clients` / `profile-documents`, which is `done` there (as are `exec-read-denied-paths` and `installation-layout`); the index
+    here still names all three and links to files that moved to `doc/plans/implemented/`. Staged as **PLAN-93** `index-done-dependencies`
+    (runbook lane, after PLAN-89's pull request #126, which edits the same file). A staged plan is not an emittable one: PLAN-19 gates
+    PLAN-25 and PLAN-26 and through them most of WS-04 and WS-05, so nothing below it is ready until PLAN-19 has shipped.
+  - Still parked (5, with the reason in each spec): PLAN-49 `forgejo-provider`, PLAN-59 `runtime-control`, PLAN-63 `cleanup`, PLAN-68
+    `chat-plan-revision` (all `blocked` in the index, each on a dependency that has no work package or on a blocked package) and PLAN-60
+    `runtime-metrics` (`blocked` only because its row still lists the metrics-library choice that #101 decided; PLAN-89's pull request #126
+    removes it: unpark at the next cleanup after PLAN-89 has landed). PLAN-40 `module-developer-docs` stays parked until PLAN-89 adds its
+    package file and row.
+  - The 12 specs with a contradicted claim 0 (PLAN-19, 27, 28, 29, 30, 34, 35, 43, 53, 58, 66, 68) were regenerated from their package
+    files, as were 15 more that had drifted (PLAN-31, 45, 46, 47, 49, 50, 51, 55, 57, 59, 60, 62, 63, 76, 77): 27 specs in all with PLAN-30, their
+    Deliverables, Done when and Trace now equal the package files word for word (a regeneration diff reads `current` for all 37 live
+    specs with a package file, the running plans excluded). PLAN-27's Expected Surface gained the git provider (deliverable 8 names the git contract) and
+    a specification part.
+  - **PLAN-53 split.** `epic-decomposition` lost the review of an epic's findings and watches to the new package `epic-review` (#111):
+    PLAN-53 keeps 7 deliverables, and the review half is the new **PLAN-92** `epic-review` (5 deliverables, staged, WS-03, same dependencies).
+    The two share four specification parts and are sequenced, not paired. The spec of PLAN-52 stays superseded.
+  - Claims: 625 verdicts, 0 blocking (12 before). 258 verdicts were re-stamped at 99971f3 for the live specs; the stale rows that remain
+    belong to shipped, superseded and retired specs (frozen) and to PLAN-84, 85 and 89, which are running and excluded. Corrections made in
+    place: the log holders now count 5, 78 and 5 records; `core/queue/` no longer exists (PLAN-64), so PLAN-28 creates the package
+    (contradicted, rescoped); PLAN-40's counts of developer files (21, and 16 packages without) and its taken-over guides.
+  - `corpus surfaces`: 92 specs, 0 indeterminate. `corpus cross-check`: the only source-origin matches are the running plans' own specs.
+    `compact`: both invariants ok, settled-narrative relocation deferred again (the operator's confirmation is owed). Restart verdict
+    `not_ready`: four plans running, and the registry pins 0.1.1977 against executor 0.1.1961.
+
 ## Decisions
 
 - 2026-10-09 — One orchestrator epic for the whole repository, not one per milestone or per
@@ -764,7 +792,7 @@ decision or a dependency outside this repository.
   43 (`phase-sub-workflows`), 53 (`epic-decomposition`), 58 (`operator-reports`), 68 (`chat-plan-revision`). PLAN-53's scope now covers only
   half of what its package file said: the review of an epic's findings and watches is the package `epic-review`, which no row owns. Run
   `cleanup` (it flags every spec whose declared surface moved), then regenerate the specs of those plans and add the row for `epic-review`
-  before any of them is emitted. Not done by the landing; the operator's word is owed. Remainders the landing lists for the operator:
+  before any of them is emitted. **Resolved by `cleanup` on 2026-10-21:** all twelve specs were regenerated from their package files, the row for `epic-review` is PLAN-92, and the operator asked for the cleanup. Not done by the landing; the operator's word is owed. Remainders the landing lists for the operator:
   two figures of `model-work/09` § Navigation Figures that no package names (`Most expensive turns`, `Largest tool results`; `worker-activity`
   has room, 9 bullets), the truncation rule and the two `DRAFT` use cases (no owner, operator decision), and the items owed to
   `plan-marshall-mcp` and `pm-mcp-clients` (`landings/PLAN-78.md`) — source: landing PLAN-78, corroborated 2026-10-20.
@@ -1044,3 +1072,9 @@ decision or a dependency outside this repository.
     conflict. PLAN-69 and PLAN-75 (PR #85) are not concerned.
   - After pm-mcp-core #84 merges: run `cleanup` (it flags every spec whose declared surface moved), then hand-check the owners
     named in the Open Defect "New specification obligations that no package file owns".
+- **SonarCloud lists 109 open issues on `main`; PLAN-87 owns 29 of them (found by `cleanup`, 2026-10-21).** The 29 of the pull requests #120, #121 and
+  #122 are all open on `main` at the same file, rule and line (hypothesis of PLAN-87 corroborated). The other 80 lie in other files
+  (the rules of all 109: `java:S4032` 22, `S7467` 19, `S5778` 15, `S6213` 10). No plan owns them. Operator decision: stage a plan for the backlog, or leave
+  it to the quality gate on new code — source: `https://sonarcloud.io/api/issues/search?componentKeys=plan-marshall_pm-mcp-core&branch=main&resolved=false`.
+- **The index still names three packages of `pm-mcp-clients` that are `done` there (found by `cleanup`, 2026-10-21).** Owner: PLAN-93, after PLAN-89.
+  PLAN-89's pull request #126 does not touch the `profile-loader` row.
