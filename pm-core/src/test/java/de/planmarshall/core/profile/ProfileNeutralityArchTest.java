@@ -9,90 +9,98 @@
  */
 package de.planmarshall.core.profile;
 
-import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.tngtech.archunit.core.domain.JavaClass;
-import com.tngtech.archunit.core.domain.JavaClasses;
-import com.tngtech.archunit.core.domain.JavaMember;
-import com.tngtech.archunit.core.importer.ClassFileImporter;
-import com.tngtech.archunit.core.importer.ImportOption;
-import com.tngtech.archunit.lang.ArchCondition;
-import com.tngtech.archunit.lang.ArchRule;
-import com.tngtech.archunit.lang.ConditionEvents;
-import com.tngtech.archunit.lang.SimpleConditionEvent;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
-import org.junit.jupiter.api.BeforeAll;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.profile.fixtures.ClientNamedFixture;
 
 /**
- * Guards that no class of the profile loader names a harness (PM-CLIENT-5): what a harness is, is
- * the profile document, and the loader implements the mechanisms the schema names. A class, package or member name that
- * contains a shipped client id ties the loader to that client, so a harness could no longer be added as a document.
+ * Guards that no class of the profile loader names a harness (PM-CLIENT-5): what a harness is, is the profile document,
+ * and the loader implements the mechanisms the schema names. The scan reads the compiled main classes of the package,
+ * so a class name, a member name, a string constant and a switch label all count: a class that names a client ties the
+ * loader to that client, and a harness could no longer be added as a document.
  * <p>
- * The rule is applied to the main classes of {@code de.planmarshall.core.profile}; the control fixture
- * {@link ClientNamedFixture} proves that the rule fails where it must.
+ * The control fixture {@link ClientNamedFixture} proves that the scan finds a client named in a constant pool.
  */
 @DisplayName("Harness neutrality of the profile loader")
 class ProfileNeutralityArchTest {
 
-    /** The client ids no class, package or member of the loader may contain, compared in lower case. */
+    /** The client ids no class of the loader may name, compared in lower case. */
     private static final List<String> CLIENT_NAMES = List.of("claude", "opencode", "antigravity", "codex");
 
-    private static JavaClasses mainClasses;
-
-    @BeforeAll
-    static void importMainClasses() {
-        mainClasses = new ClassFileImporter()
-                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-                .importPackages("de.planmarshall.core.profile");
-    }
+    private static final String PACKAGE = "de/planmarshall/core/profile";
 
     @Test
     @DisplayName("the loader names no harness")
-    void loaderNamesNoHarness() {
-        assertFalse(mainClasses.isEmpty(), "The import must contain the classes of the profile package");
+    void loaderNamesNoHarness() throws IOException {
+        var violations = violationsIn(packageClasses());
 
-        rule().check(mainClasses);
+        assertFalse(packageClasses().isEmpty(), "The scan must find the classes of the profile package");
+        assertTrue(violations.isEmpty(), () -> "A class names a harness: " + violations);
     }
 
     @Test
-    @DisplayName("the rule fails on a class and a member that name a harness")
-    void controlFixtureFails() {
-        var result = rule().evaluate(new ClassFileImporter().importClasses(ClientNamedFixture.class));
+    @DisplayName("the scan finds a harness named in a class constant pool")
+    void controlFixtureFails() throws IOException {
+        var found = violationsIn(List.of(classFileOf(ClientNamedFixture.class)));
 
-        assertTrue(result.hasViolation(), "The rule must fail on ClientNamedFixture");
-        assertTrue(result.getFailureReport().getDetails().stream()
-                        .anyMatch(detail -> detail.contains("OPENCODE")),
-                () -> result.getFailureReport().toString());
+        assertTrue(found.values().stream().flatMap(Set::stream).anyMatch("opencode"::equals), () -> found.toString());
     }
 
-    private static ArchRule rule() {
-        return classes().should(nameNoClient());
-    }
-
-    private static ArchCondition<JavaClass> nameNoClient() {
-        return new ArchCondition<>("name no client") {
-            @Override
-            public void check(JavaClass javaClass, ConditionEvents events) {
-                clientName(javaClass.getName()).ifPresent(name -> events.add(SimpleConditionEvent.violated(
-                        javaClass, "Class %s names the client '%s'".formatted(javaClass.getName(), name))));
-                for (JavaMember member : javaClass.getMembers()) {
-                    clientName(member.getName()).ifPresent(name -> events.add(SimpleConditionEvent.violated(
-                            member, "Member %s names the client '%s'".formatted(member.getFullName(), name))));
-                }
+    private static Map<Path, Set<String>> violationsIn(List<Path> classFiles) throws IOException {
+        var violations = new LinkedHashMap<Path, Set<String>>();
+        for (var classFile : classFiles) {
+            var text = Files.readString(classFile, StandardCharsets.ISO_8859_1).toLowerCase(Locale.ROOT);
+            var found = CLIENT_NAMES.stream().filter(text::contains).collect(Collectors.toCollection(TreeSet::new));
+            if (!found.isEmpty()) {
+                violations.put(classFile, found);
             }
-        };
+        }
+        return violations;
     }
 
-    private static Optional<String> clientName(String name) {
-        var lowerCase = name.toLowerCase(Locale.ROOT);
-        return CLIENT_NAMES.stream().filter(lowerCase::contains).findFirst();
+    private static List<Path> packageClasses() throws IOException {
+        var directory = codeSourceOf(ProfileValidator.class).resolve(PACKAGE);
+        try (var files = Files.walk(directory)) {
+            return files.filter(path -> path.toString().endsWith(".class")).toList();
+        }
+    }
+
+    private static Path classFileOf(Class<?> type) {
+        var resource = type.getResource(type.getSimpleName() + ".class");
+        if (resource == null) {
+            throw new IllegalStateException("The class file of " + type.getName() + " is not on the classpath");
+        }
+        return toPath(resource);
+    }
+
+    private static Path codeSourceOf(Class<?> type) {
+        var source = type.getProtectionDomain().getCodeSource();
+        if (source == null) {
+            throw new IllegalStateException("The code source of " + type.getName() + " is unknown");
+        }
+        return toPath(source.getLocation());
+    }
+
+    private static Path toPath(java.net.URL url) {
+        try {
+            return Path.of(url.toURI());
+        } catch (java.net.URISyntaxException | java.nio.file.FileSystemNotFoundException e) {
+            throw new IllegalStateException("Cannot resolve a classpath location: " + url, e);
+        }
     }
 }

@@ -96,8 +96,13 @@ public final class SupportedVersions {
         }
         var main = text.split("-", 2);
         var numbers = main[0].split("\\.");
-        return new Version(Integer.parseInt(numbers[0]), Integer.parseInt(numbers[1]), Integer.parseInt(numbers[2]),
-                main.length == 2 ? main[1] : null);
+        try {
+            return new Version(Integer.parseInt(numbers[0]), Integer.parseInt(numbers[1]),
+                    Integer.parseInt(numbers[2]), main.length == 2 ? main[1] : null);
+        } catch (NumberFormatException _) {
+            throw ProfileRefusal.invalid(document, pointer,
+                    "a version component is too large: '%s'".formatted(text));
+        }
     }
 
     private record Bound(String operator, Version version) {
@@ -139,8 +144,16 @@ public final class SupportedVersions {
     private record Version(int major, int minor, int patch, String suffix) implements Comparable<Version> {
 
         private Version next() {
-            return suffix == null ? new Version(major, minor, patch + 1, null)
-                    : new Version(major, minor, patch, null);
+            if (suffix != null) {
+                return new Version(major, minor, patch, null);
+            }
+            if (patch < Integer.MAX_VALUE) {
+                return new Version(major, minor, patch + 1, null);
+            }
+            if (minor < Integer.MAX_VALUE) {
+                return new Version(major, minor + 1, 0, null);
+            }
+            return major < Integer.MAX_VALUE ? new Version(major + 1, 0, 0, null) : null;
         }
 
         private Version previous() {

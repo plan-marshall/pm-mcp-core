@@ -12,7 +12,6 @@ package de.planmarshall.core.profile;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -38,13 +37,18 @@ public record ProfileSets(Map<String, ShippedProfile> shipped, Path machineDirec
     }
 
     /**
-     * One shipped profile and its verification record.
+     * One shipped profile. The release compiles the document, so it is trusted without a record of the installation;
+     * the build test validates it.
      *
      * @param document the profile document, UTF-8 encoded
-     * @param record   its verification record, UTF-8 encoded; {@code null} if the release ships none
      * @since 0.1
      */
-    public record ShippedProfile(byte[] document, byte[] record) {
+    public record ShippedProfile(byte[] document) {
+
+        /** Copies the document. */
+        public ShippedProfile {
+            document = document.clone();
+        }
     }
 
     /**
@@ -75,10 +79,4 @@ public record ProfileSets(Map<String, ShippedProfile> shipped, Path machineDirec
         return new ProfileSets(shipped, machineDirectory, projectDirectory);
     }
 
-    /**
-     * @return the shipped client ids, sorted
-     */
-    public List<String> shippedClientIds() {
-        return shipped.keySet().stream().sorted().toList();
-    }
 }

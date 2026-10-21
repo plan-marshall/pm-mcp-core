@@ -15,10 +15,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.Locale;
 
 /**
  * Reads a client profile or a profile verification record as the bounded tree of a {@link JsonNode} (PM-CLIENT-5).
@@ -147,25 +145,4 @@ public final class JsonDocument {
         }
     }
 
-    /**
-     * @param document the document, UTF-8 encoded
-     * @return the canonical JSON of the document (RFC 8785), UTF-8 encoded
-     * @throws ProfileRefusal if the document is not JSON or is too large
-     */
-    public static byte[] canonical(byte[] document, String name) {
-        var canonical = CanonicalJson.write(parse(document, name));
-        return canonical.getBytes(StandardCharsets.UTF_8);
-    }
-
-    /** @return the shared factory of parsers */
-    static JsonFactory factory() {
-        return JSON;
-    }
-
-    static String describe(JsonProcessingException e) {
-        var location = e.getLocation();
-        return location == null ? e.getOriginalMessage()
-                : String.format(Locale.ROOT, "%s (line %d, column %d)", e.getOriginalMessage(), location.getLineNr(),
-                location.getColumnNr());
-    }
 }

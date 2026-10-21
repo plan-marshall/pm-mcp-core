@@ -24,8 +24,9 @@ import java.util.TreeMap;
  * The writer has one output for one value: an object's members sorted by their names in UTF-16 code-unit order, no
  * whitespace, strings escaped with the two mandatory escapes and the short forms of the control characters (the other
  * control characters as {@code \\u00xx}, lower case, never the escaped solidus), integers as their decimal spelling
- * and a decimal in the shortest plain spelling that round-trips. A profile declares only integers, so the digest of a
- * valid profile never depends on the decimal rule.
+ * and a decimal in the shortest plain spelling that round-trips. The profile schema admits integers only, and the
+ * documents this writer is used for hold no decimal and no lone surrogate; for those two forms the decimal spelling is
+ * deterministic but not the ECMAScript spelling of JCS, which a valid profile never reaches.
  *
  * @since 0.1
  */

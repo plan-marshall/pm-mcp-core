@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.profile;
 
-import java.nio.charset.StandardCharsets;
-
 /**
  * A JSON Pointer of RFC 6901, resolved against a {@link JsonNode} (PM-CLIENT-5): the spelling a profile uses for a
  * pointer into a line of the harness output and for the failing value in a refusal.
@@ -86,11 +84,4 @@ public final class JsonPointer {
         return parent + "/" + token.replace("~", "~0").replace("/", "~1");
     }
 
-    /**
-     * @param text a text
-     * @return its UTF-8 length in bytes
-     */
-    static int utf8Length(String text) {
-        return text.getBytes(StandardCharsets.UTF_8).length;
-    }
 }

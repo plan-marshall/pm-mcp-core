@@ -77,6 +77,7 @@ public final class ProfileValidator {
     private static final Pattern ICON_SOURCE = Pattern.compile("^https://[A-Za-z0-9.-]+/[A-Za-z0-9._/-]+\\.(svg|png)$");
     private static final Pattern BUNDLED_ICON = Pattern.compile("^[a-z][a-z0-9-]{0,31}$");
     private static final Pattern RELATIVE_PATH = Pattern.compile("^[A-Za-z0-9_.][A-Za-z0-9_./-]*$");
+    private static final Pattern LOGIN_FILE = Pattern.compile("^[A-Za-z0-9_][A-Za-z0-9_./-]*$");
     private static final Pattern HOME_PATH = Pattern.compile("^~/[A-Za-z0-9_./-]+$");
     private static final Pattern ENDPOINT = Pattern.compile(
             "^[a-z0-9.-]+:([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$");
@@ -248,10 +249,7 @@ public final class ProfileValidator {
             }
             authProbe(required(headless, pointer, "auth_probe"), pointer + "/auth_probe");
             modelsProbe(required(headless, pointer, "models_probe"), pointer + "/models_probe");
-            var weightsProbe = required(headless, pointer, "weights_probe");
-            if (!weightsProbe.isNull() && !weightsProbe.isObject()) {
-                throw invalid(pointer + "/weights_probe", "a weights probe is an object or null");
-            }
+            weightsProbe(required(headless, pointer, "weights_probe"), pointer + "/weights_probe");
             modelTiers(required(headless, pointer, "model_tiers"), pointer + "/model_tiers");
             var supported = text(required(headless, pointer, "supported_versions"), pointer + "/supported_versions",
                     "supported_versions", 256);
@@ -351,6 +349,50 @@ public final class ProfileValidator {
             }
         }
 
+        /**
+         * The weights probe of the endpoint-profile definition, which a client profile references: null, or a closed
+         * object that reads the weights identity from the models listing or from an argv probe with the model slot.
+         */
+        private void weightsProbe(JsonNode probe, String pointer) {
+            if (probe.isNull()) {
+                return;
+            }
+            var members = Set.of("source", "pointer", "argv", "pattern");
+            object(probe, pointer, "weights_probe", members, members);
+            var source = enumValue(required(probe, pointer, "source"), pointer + "/source", "source",
+                    Set.of("models_listing", "argv"));
+            var identityPointer = optional(probe, "pointer");
+            var argv = optional(probe, "argv");
+            var pattern = optional(probe, "pattern");
+            if ("models_listing".equals(source)) {
+                if (identityPointer == null || identityPointer.isNull()) {
+                    throw invalid(pointer + "/pointer", "a models-listing weights probe names its pointer");
+                }
+                var value = text(identityPointer, pointer + "/pointer", "pointer", 256);
+                if (!value.startsWith("/")) {
+                    throw invalid(pointer + "/pointer", "not a JSON Pointer: '%s'".formatted(value));
+                }
+                if (argv != null && !argv.isNull()) {
+                    throw invalid(pointer + "/argv", "a models-listing weights probe has a null argv");
+                }
+                if (pattern != null && !pattern.isNull()) {
+                    throw invalid(pointer + "/pattern", "a models-listing weights probe has a null pattern");
+                }
+                return;
+            }
+            if (identityPointer != null && !identityPointer.isNull()) {
+                throw invalid(pointer + "/pointer", "an argv weights probe has a null pointer");
+            }
+            if (argv == null || argv.isNull()) {
+                throw invalid(pointer + "/argv", "an argv weights probe names its argv");
+            }
+            launchArguments(argv, pointer + "/argv", "weights_probe.argv", SLOTS, 1);
+            if (pattern == null || pattern.isNull()) {
+                throw invalid(pointer + "/pattern", "an argv weights probe names its pattern");
+            }
+            patternRule(text(pattern, pointer + "/pattern", "pattern", 128), pointer + "/pattern");
+        }
+
         private void modelTiers(JsonNode tiers, String pointer) {
             var members = Set.of("frontier", "standard", "fast");
             object(tiers, pointer, "model_tiers", members, members);
@@ -413,7 +455,7 @@ public final class ProfileValidator {
             if (!zeroTool.isNull()) {
                 object(zeroTool, pointer + "/zero_tool", "zero_tool", Set.of("args"), Set.of("args"));
                 launchArguments(required(zeroTool, pointer + "/zero_tool", "args"), pointer + "/zero_tool/args",
-                        "zero_tool.args", SLOTS);
+                        "zero_tool.args", SLOTS, 0);
                 zeroToolRunnable = true;
             }
             if (!exclusive && (writer != null || readOnly != null || zeroToolRunnable)) {
@@ -438,7 +480,7 @@ public final class ProfileValidator {
                 return null;
             }
             object(declaration, pointer, name, Set.of("args", "tool_set"), Set.of("args", "tool_set"));
-            launchArguments(required(declaration, pointer, "args"), pointer + "/args", name + ".args", SLOTS);
+            launchArguments(required(declaration, pointer, "args"), pointer + "/args", name + ".args", SLOTS, 0);
             return enumValue(required(declaration, pointer, "tool_set"), pointer + "/tool_set", "tool_set",
                     Set.of("enforced", "advisory"));
         }
@@ -534,7 +576,7 @@ public final class ProfileValidator {
                     "tool_call", Set.of("match", "tool", "target"),
                     "tool_result", Set.of("match", "size", "is_error"),
                     "file_changed", Set.of("match", "path"),
-                    "turn", Set.of("match"));
+                    "turn", Set.of("match", "stop_reason"));
             for (var member : members) {
                 var value = required(kinds, pointer + "/kinds", member);
                 if (value.isNull()) {
@@ -553,7 +595,7 @@ public final class ProfileValidator {
                     }
                     if ("target".equals(field)) {
                         stringArray(fieldValue, fieldPointer, "target", 0, 4, false);
-                    } else if ("is_error".equals(field) && fieldValue.isNull()) {
+                    } else if (("is_error".equals(field) || "stop_reason".equals(field)) && fieldValue.isNull()) {
                         continue;
                     } else {
                         text(fieldValue, fieldPointer, field, 256);
@@ -607,8 +649,8 @@ public final class ProfileValidator {
                         "the data home may not relocate a job or credential variable: '%s'".formatted(variable));
             }
             var loginFile = text(required(home, pointer, "login_file"), pointer + "/login_file", "login_file", 256);
-            if (!RELATIVE_PATH.matcher(loginFile).matches()) {
-                throw invalid(pointer + "/login_file", "not a relative path: '%s'".formatted(loginFile));
+            if (!LOGIN_FILE.matcher(loginFile).matches()) {
+                throw invalid(pointer + "/login_file", "not a login file path: '%s'".formatted(loginFile));
             }
             noTraversal(loginFile, pointer + "/login_file", "data_home.login_file");
         }
@@ -873,7 +915,11 @@ public final class ProfileValidator {
         }
 
         private void launchArguments(JsonNode arguments, String pointer, String name, Set<String> slots) {
-            var elements = list(arguments, pointer, name, 1, 128);
+            launchArguments(arguments, pointer, name, slots, 1);
+        }
+
+        private void launchArguments(JsonNode arguments, String pointer, String name, Set<String> slots, int min) {
+            var elements = list(arguments, pointer, name, min, 128);
             for (var index = 0; index < elements.size(); index++) {
                 var item = text(elements.get(index), pointer + "/" + index, name + "[" + index + "]", 1024);
                 if (item.isEmpty()) {

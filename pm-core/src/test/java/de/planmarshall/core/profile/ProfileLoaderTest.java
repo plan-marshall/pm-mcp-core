@@ -246,7 +246,7 @@ class ProfileLoaderTest {
     }
 
     private static ProfileSets.ShippedProfile shipped(byte[] document) {
-        return new ProfileSets.ShippedProfile(document, null);
+        return new ProfileSets.ShippedProfile(document);
     }
 
     private static ProfileRefusal refusal(ProfileSet loaded) {

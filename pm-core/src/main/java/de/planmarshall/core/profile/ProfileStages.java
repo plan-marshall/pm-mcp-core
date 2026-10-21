@@ -92,7 +92,7 @@ public final class ProfileStages {
      * @param parsed  the parsed figure by name; empty for a figure that is not reported
      * @since 0.1
      */
-    public record UsageResult(Map<String, UsageStatus> figures, Map<String, Long> parsed) {
+    public record UsageResult(Map<String, UsageStatus> figures, Map<String, java.math.BigDecimal> parsed) {
 
         /** Copies both maps. */
         public UsageResult {
@@ -135,12 +135,13 @@ public final class ProfileStages {
      * @throws ProfileRefusal if a declared pointer does not resolve on the output, or a parsed figure differs from the
      *                        harness's own record
      */
-    public static UsageResult usage(LoadedProfile profile, JsonNode turn, Map<String, Long> harnessRecord) {
+    public static UsageResult usage(LoadedProfile profile, JsonNode turn,
+            Map<String, java.math.BigDecimal> harnessRecord) {
         var usage = profile.headless("/usage").orElseThrow(
                 () -> ProfileRefusal.invalid(profile.clientId() + ".json", "/headless/usage",
                         "a profile that is verified for usage names its usage block"));
         var figures = new LinkedHashMap<String, UsageStatus>();
-        var parsed = new LinkedHashMap<String, Long>();
+        var parsed = new LinkedHashMap<String, java.math.BigDecimal>();
         for (var figure : USAGE_FIGURES) {
             var declaration = usage.member(figure).orElse(JsonNode.nullValue());
             if (declaration.isNull()) {
@@ -153,15 +154,16 @@ public final class ProfileStages {
                 continue;
             }
             var value = JsonPointer.resolve(turn, pointer, profile.clientId() + ".json");
-            var number = value.integerValue().orElse(-1);
-            if (number < 0) {
+            var number = value.decimalValue().orElse(null);
+            if (number == null) {
                 throw ProfileRefusal.invalid(profile.clientId() + ".json", pointer,
                         "the usage pointer of '%s' does not resolve to a figure".formatted(figure));
             }
             var recorded = harnessRecord.get(figure);
-            if (recorded != null && recorded != number) {
+            if (recorded != null && recorded.compareTo(number) != 0) {
                 throw ProfileRefusal.invalid(profile.clientId() + ".json", pointer,
-                        "the parsed figure of '%s' is %d, the harness records %d".formatted(figure, number, recorded));
+                        "the parsed figure of '%s' is %s, the harness records %s".formatted(figure, number,
+                                recorded));
             }
             figures.put(figure, UsageStatus.REPORTED);
             parsed.put(figure, number);

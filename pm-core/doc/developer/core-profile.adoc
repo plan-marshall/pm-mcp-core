@@ -39,8 +39,7 @@ link:{spec}/client-profiles/01-profile-schema.adoc#profile-hardening[§ A Profil
 |Set |Where |What binds it
 
 |Shipped
-|`classpath:/profiles/<client_id>.json`, a resource of `pm-api`, with its record at
-`classpath:/profiles/verification/<client_id>.json`
+|`classpath:/profiles/<client_id>.json`, a resource of `pm-api`
 |The release. The build test validates every shipped document.
 
 |Machine

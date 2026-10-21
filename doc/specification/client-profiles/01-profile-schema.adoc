@@ -766,7 +766,7 @@ _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.
 Usage is read from the harness output through `headless.usage`, never asked from a model, recorded as the harness reports it, and shown in tokens, never in money.
 
 * *Recorded as reported*: each pointer is a JSON Pointer into a turn line and fills the column of the same name in the task's metrics row (link:../store-schemas/05-metrics-and-quality-report.adoc#metrics-store[Store Schemas Specification, Metrics Store]), except `cache_read` (`cache_read_input_tokens`), `cache_creation` (`cache_creation_input_tokens`, the cache write), and `reasoning` (`reasoning_tokens`, the reasoning or thinking tokens a harness reports apart from its output). A harness whose output figure already contains its reasoning declares `reasoning` `"not_applicable"`, so nothing is counted twice. The pointer `cost_usd`, the capability `cost_field`, and the column `cost_usd` stay as recorded data: never shown, never summed into a figure the operator sees, and never read by a rule.
-* *Not reported or not applicable*: a pointer `null` means the harness does not report the figure (recorded `unmeasured`, reason `not_reported_by_harness`); `"not_applicable"` means the figure does not exist for this harness by design, such as Antigravity's cache creation, recorded as `"not_applicable"` and counted `0`, so that the harness is still measured. `"not_applicable"`, `unmeasured`, and a measured `0` are three distinct values. Profile validation refuses `"not_applicable"` for `input_tokens` and `output_tokens`.
+* *Not reported or not applicable*: a pointer `null` means the harness does not report the figure (recorded `unmeasured`, reason `not_reported_by_harness`); `"not_applicable"` means the figure does not exist for this harness by design, such as Antigravity's cache creation, recorded as `"not_applicable"` and counted `0`, so that the harness is still measured. `"not_applicable"`, `unmeasured`, and a measured `0` are three distinct values. The usage validation of link:../../plans/token-usage.adoc[`token-usage`] refuses `"not_applicable"` for `input_tokens` and `output_tokens`; the profile loader checks only the shape of the usage block.
 * *One figure*: `headless.usage` has no pointer for the total: `total_tokens` is the sum of the five token components, a not-applicable one counting `0`, when every applicable one is measured, otherwise `unmeasured`, unweighted and the same for every harness (link:../model-work/09-completion-usage-and-spend.adoc#job-result-schema[Model Work Specification, Worker Result & Usage Parsing]); the views derive its split, `tokens_in` (input, cache read, cache creation) and `tokens_out` (output, reasoning), and show it as `1.24 M tokens (1.10 M in · 0.14 M out)` with its coverage, in the number format of the client.
 * *Usage report of a harness*: the harness lists of the onboarding and of the machine's settings show per enrolled harness and version what it reports of its usage: `complete` (every token figure reported or not applicable), `partial` (naming what is missing), or `not_reported`, from the profile's declaration and, for a verified profile, from the `usage_report` of its verification (<<profile-verification>>), kept with the harness enrolment (link:../store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas Specification, Harness Enrolment Store]).
 * *Measured per version*: recorded outputs of each harness and version are parsing fixtures, so a changed output format fails a test; the usage measurement of the evaluation is repeated for every new harness and harness version before its figures are trusted (link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#host-values[Evaluation Reference, Hosts as Relay Starters and Workers]).
@@ -958,9 +958,14 @@ A machine whose harness has no shipped or installed profile can still be onboard
 === A Profile Is Untrusted Input
 
 Implemented by `ProfileValidator` and the bounded reader of `pm-core`: closed shape, bounded strings, the
-model-readable character set, the launch and path rules, the one pattern, and the refusing fixture of each rule. The
-claims of a record stay with the profile verification (<<profile-verification>>). See
+model-readable character set, the launch and path rules, the one pattern, and the refusing fixture of each rule. See
 link:../../../pm-core/doc/developer/core-profile.adoc[Client Profiles Developer Guide].
+
+*Claims.* No value of a profile is believed because the profile says so: `worker.eligible`, a runnable `zero_tool`
+class and an `enforced` tool set count only with the stages of the bound record `passed` on the runtime's platform
+(<<profile-verification>>). The profile loader carries the record, its platform and its stages; the check on load is
+the worker launch's (`worker-launch`), and it is open
+(link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-13[PM-WATCH-CLIENT-13]).
 
 [#profile-override-hierarchy]
 === Profile Override Hierarchy

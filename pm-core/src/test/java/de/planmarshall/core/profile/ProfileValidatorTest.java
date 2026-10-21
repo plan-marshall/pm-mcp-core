@@ -181,7 +181,28 @@ class ProfileValidatorTest {
                                     .set("/headless/mcp_config/path", "../settings.json"),
                             "/headless/mcp_config/path", "an mcp_config.path with '..'"),
                     Arguments.of(ProfileFixtures.valid().set("/headless/ident_ping", null),
-                            "/headless/ident_ping", "an unknown headless member"));
+                            "/headless/ident_ping", "an unknown headless member"),
+                    Arguments.of(ProfileFixtures.valid().set("/display_name", "Acme\u0301"),
+                            "/display_name", "a string that is not NFC"),
+                    Arguments.of(ProfileFixtures.valid().set("/display_name", "Acme\u0001"),
+                            "/display_name", "a control character in a string"),
+                    Arguments.of(ProfileFixtures.valid().set("/display_name", "A".repeat(65)),
+                            "/display_name", "a display name longer than 64 characters"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/data_home",
+                                    map("variable", "XDG_DATA_HOME", "login_file", ".auth.json")),
+                            "/headless/data_home/login_file", "a login file with a leading dot"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/weights_probe",
+                                    map("source", "models_listing", "pointer", "/id", "argv", List.of("acme"),
+                                            "pattern", null)),
+                            "/headless/weights_probe/argv", "a models-listing weights probe with an argv"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/weights_probe",
+                                    map("source", "models_listing", "pointer", "/id", "argv", null, "pattern", null,
+                                            "bogus", 1)),
+                            "/headless/weights_probe/bogus", "an unknown weights-probe member"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/events", map("kind_pointer", "/type",
+                                    "kinds", map("text", null, "tool_call", null, "tool_result", null,
+                                            "file_changed", null, "turn", map("match", List.of("result"))))),
+                            "/headless/events/kinds/turn/stop_reason", "a turn without its stop reason"));
         }
 
         /** A map that, unlike {@link Map#of}, admits a null value. */
@@ -205,6 +226,26 @@ class ProfileValidatorTest {
                     () -> assertEquals(DOCUMENT, refusal.document(), because),
                     () -> assertEquals(pointer, refusal.pointer(), because));
         }
+    }
+
+    @Test
+    @DisplayName("an empty class args is a schema-valid launch, as is a turn without a stop reason")
+    void emptyArgsAndNullStopReasonAccepted() {
+        var fixture = ProfileFixtures.valid()
+                .set("/headless/classes/writer/args", new java.util.ArrayList<>())
+                .set("/headless/events", mapOf("kind_pointer", "/type", "kinds", mapOf("text", null,
+                        "tool_call", null, "tool_result", null, "file_changed", null, "turn",
+                        mapOf("match", List.of("result"), "stop_reason", null))));
+
+        ProfileValidator.validate(fixture.bytes(), DOCUMENT, ProfileRules.none());
+    }
+
+    private static java.util.Map<String, Object> mapOf(Object... pairs) {
+        var map = new java.util.LinkedHashMap<String, Object>();
+        for (var index = 0; index < pairs.length; index += 2) {
+            map.put((String) pairs[index], pairs[index + 1]);
+        }
+        return map;
     }
 
     @Test

@@ -152,6 +152,9 @@ public final class ProfileLoader {
         var profile = ProfileValidator.validate(document, name, rules);
         requireClientId(profile, clientId, name);
         var record = record(directory, clientId, name);
+        if (!clientId.equals(record.clientId())) {
+            throw ProfileRefusal.unverified(name, "the record names the client '%s'".formatted(record.clientId()));
+        }
         if (!CanonicalJson.digest(profile).equals(record.profileDigest())) {
             throw ProfileRefusal.unverified(name,
                     "the record's profile_digest is not the digest of the document");
@@ -250,8 +253,23 @@ public final class ProfileLoader {
         }
     }
 
+    /**
+     * Reads a value below a profile whose parent may be JSON {@code null}: a project profile of a harness without a
+     * headless block is equal to its base when both are {@code null} at the same pointer.
+     */
     private static JsonNode value(JsonNode profile, String pointer) {
-        return JsonPointer.resolve(profile, pointer, "");
+        var current = profile;
+        for (var token : pointer.substring(1).split("/")) {
+            if (current.isNull()) {
+                return JsonNode.nullValue();
+            }
+            var next = current.member(token);
+            if (next.isEmpty()) {
+                return JsonNode.nullValue();
+            }
+            current = next.get();
+        }
+        return current;
     }
 
     /** Places a profile if no effective profile already uses its detection precedence. */
@@ -307,17 +325,4 @@ public final class ProfileLoader {
         }
     }
 
-    /**
-     * @param directory the directory of a machine or project set
-     * @param records   the verification records by client id
-     * @return the sets with the profiles of the directory
-     */
-    static Map<String, ProfileSets.ShippedProfile> withRecords(Path directory, Map<String, byte[]> records) {
-        var profiles = new LinkedHashMap<String, ProfileSets.ShippedProfile>();
-        for (var clientId : clientIds(directory)) {
-            profiles.put(clientId, new ProfileSets.ShippedProfile(read(directory.resolve(clientId + SUFFIX)),
-                    records.get(clientId)));
-        }
-        return profiles;
-    }
 }
