@@ -31,6 +31,9 @@ only a check made under the scope lock, right before the append, sees every line
   append: a question the same append closes after revising it stays covered, one closed before the revision began is
   not part of it. A revised line that names another revision, or a revision that leaves out a question open when it
   began, is a fault of the caller and an `IllegalArgumentException`.
+* The `decision` of a set belongs to the first question of the set and is carried on its line only: on an `asked`
+  line, and on a `revised` line, a decision on the line of another question is a fault of the caller and an
+  `IllegalArgumentException`.
 * A refusal is a value the method returns, and nothing of the append is added to the transaction. A line that is
   malformed for the log (a question asked twice, a line about a question the log does not have, a set revised in part)
   is a fault of the caller and an `IllegalArgumentException`.
@@ -48,6 +51,8 @@ Alternatives not recorded.
 * A caller distinguishes an expected conflict (a value it reports to the operator, with the current revision) from a
   programming error (an exception).
 * Whether an answer fits its part is not checked by the store; the engine checks it before it appends.
+* A revision that changes the decision carries the new one on the first question's line; the other lines carry their
+  envelope and the new revision.
 
 == Source
 
