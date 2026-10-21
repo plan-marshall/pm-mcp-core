@@ -19,8 +19,8 @@ caller that needs it can read it there; the runner needs only a recent window fo
 == Decision
 
 * A job's store leaves the runner's map when its fate is recorded (`SubprocessJobRunner.leave`, `settleQueued`,
-  `refuse`, and the refused probe), and its settled record is kept in a bounded insertion-ordered cache of
-  `SETTLED_RECORD_CACHE` (1024) entries, newest last, evicted oldest first.
+  `refuse`, and the refused probe), and its settled record is kept in a bounded insertion-ordered cache,
+  `settledRecordsKept` (default `SETTLED_RECORD_CACHE`, 1024), whose oldest entry is evicted first.
 * `recordOf(jobId)` answers from that cache first and reads the store only for a job whose fate is not recorded yet.
   A job whose settlement stopped at a failed step keeps its store, because its record is still `running` and the
   recovery of the next runtime start settles it.

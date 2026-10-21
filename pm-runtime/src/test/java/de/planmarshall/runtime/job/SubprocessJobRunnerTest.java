@@ -376,6 +376,27 @@ class SubprocessJobRunnerTest {
         }
 
         @Test
+        @DisplayName("a settled record beyond the cache bound is no longer answered by recordOf")
+        void settledRecordWindowIsBounded() {
+            runner = SubprocessJobRunner.builder().base(fixture.base).lockManager(locks)
+                    .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
+                    .termination(new TerminationProtocol(ProcessGroupSignals.system()))
+                    .environment(job -> ENVIRONMENT).probeEnvironment(candidate -> ENVIRONMENT)
+                    .parser((kind, output) -> SUCCESS).primitives(request -> Optional.empty())
+                    .settledRecordsKept(1).build();
+            var first = started(runner.start(git(30, "ok")));
+            settled(first);
+            var second = started(runner.start(git(30, "ok")));
+            var secondSettled = settled(second);
+
+            assertAll(
+                    () -> assertEquals(Optional.empty(), runner.recordOf(first),
+                            "the oldest settled record left the window"),
+                    () -> assertEquals(Optional.of(secondSettled), runner.recordOf(second)),
+                    () -> assertEquals(0, runner.storesHeld(), "both stores are pruned"));
+        }
+
+        @Test
         @DisplayName("a job that exits 0 with its success marker settles succeeded, its child wall time within its own")
         void childWallWithinWallTime() {
             var jobId = started(runner.start(git(30, "ok")));

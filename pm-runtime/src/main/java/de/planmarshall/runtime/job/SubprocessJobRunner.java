@@ -302,13 +302,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * The most settled records of jobs whose store was pruned, newest last, read by {@link #recordOf(JobId)}. Bounded:
      * the durable record stays in the job's store, which a caller that needs an older one reads itself.
      */
-    private final Map<JobId, JobRecord> settledRecords =
-            Collections.synchronizedMap(new LinkedHashMap<>(16, 0.75f, false) {
-                @Override
-                protected boolean removeEldestEntry(Map.Entry<JobId, JobRecord> eldest) {
-                    return size() > SETTLED_RECORD_CACHE;
-                }
-            });
+    private final Map<JobId, JobRecord> settledRecords = Collections.synchronizedMap(new LinkedHashMap<>());
+    private final int settledRecordsKept;
     private final Map<JobId, RunningJob> running = new ConcurrentHashMap<>();
     private final Map<JobId, QueuedJob> queued = new ConcurrentHashMap<>();
 
@@ -339,13 +334,15 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * @param clock            the clock of the records and the budgets; {@code null} for the system clock
      * @param supervision      how the thread that waits for a job is started; {@code null} for a virtual thread per job
      * @param audit            where a surviving descendant of a probe is written; {@code null} for no audit record
+     * @param settledRecordsKept how many settled records the runner keeps after it pruned their store; {@code null} for
+     *                         {@value #SETTLED_RECORD_CACHE}
      * @throws NullPointerException if an argument other than the clock is {@code null}
      */
     @Builder
     private SubprocessJobRunner(Path base, LockManager lockManager, VerifyNotResolvePipeline pipeline,
             PmExecLauncher launcher, TerminationProtocol termination, Environment environment,
             ProbeEnvironment probeEnvironment, OutputParser parser, PrimitiveJobs primitives, InstantSource clock,
-            Supervision supervision, AuditSink audit) {
+            Supervision supervision, AuditSink audit, Integer settledRecordsKept) {
         this.base = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
         this.lockManager = Objects.requireNonNull(lockManager, "lockManager");
         this.pipeline = Objects.requireNonNull(pipeline, "pipeline");
@@ -358,6 +355,11 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         this.clock = clock == null ? InstantSource.system() : clock;
         this.supervision = supervision == null ? Supervision.VIRTUAL_THREADS : supervision;
         this.audit = audit == null ? NO_AUDIT : audit;
+        this.settledRecordsKept = settledRecordsKept == null ? SETTLED_RECORD_CACHE : settledRecordsKept;
+        if (this.settledRecordsKept < 1) {
+            throw new IllegalArgumentException("The settled-record cache keeps at least one record: "
+                    + this.settledRecordsKept);
+        }
     }
 
     /**
@@ -542,7 +544,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                     first = draft.status(Status.REFUSED).fate(outcome.fate()).outcomeRow(outcome.row())
                             .refusalReason(refusal.reason().code()).endedAt(now).build();
                     store.writeFate(transaction, first);
-                    settledRecords.put(jobId, first);
+                    remember(first);
                 } else {
                     draft.argvDigest(argvDigest(((ProbeVerification.Verified) verification).argv()));
                     first = admit(transaction, store, draft);
@@ -677,7 +679,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         var settled = waiting.job().toBuilder().status(Status.ENDED).fate(outcome.fate())
                 .outcomeRow(outcome.row()).endedAt(clock.instant()).build();
         if (settleRecord(waiting.store(), settled)) {
-            settledRecords.put(settled.jobId(), settled);
+            remember(settled);
             stores.remove(settled.jobId());
         }
     }
@@ -704,6 +706,17 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     /** @return the stores the runner holds for jobs whose settlement has not recorded their fate yet */
     int storesHeld() {
         return stores.size();
+    }
+
+    /** Keeps a settled record for {@link #recordOf(JobId)}, evicting the oldest beyond the configured bound. */
+    private void remember(JobRecord settled) {
+        synchronized (settledRecords) {
+            settledRecords.put(settled.jobId(), settled);
+            while (settledRecords.size() > settledRecordsKept) {
+                var eldest = settledRecords.keySet().iterator().next();
+                settledRecords.remove(eldest);
+            }
+        }
     }
 
     /**
@@ -769,7 +782,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                     .fate(outcome.fate()).outcomeRow(outcome.row()).refusalReason(reason).endedAt(now).build();
             store.writeFate(transaction, settled);
         }
-        settledRecords.put(settled.jobId(), settled);
+        remember(settled);
         LOGGER.info(INFO.JOB_SETTLED, settled.jobId(), settled.fate().wireName(), settled.outcomeRow());
         return new JobRunner.StartResult.Refused(reason);
     }
@@ -1013,7 +1026,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         var jobId = job.latest.jobId();
         running.remove(jobId);
         if (job.latest.status().isSettled()) {
-            settledRecords.put(jobId, job.latest);
+            remember(job.latest);
             stores.remove(jobId);
         }
         job.settled.complete(job.latest);
