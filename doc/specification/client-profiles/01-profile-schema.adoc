@@ -963,9 +963,9 @@ link:../../../pm-core/doc/developer/core-profile.adoc[Client Profiles Developer 
 
 *Claims.* No value of a profile is believed because the profile says so: `worker.eligible`, a runnable `zero_tool`
 class and an `enforced` tool set count only with the stages of the bound record `passed` on the runtime's platform
-(<<profile-verification>>). The profile loader carries the record, its platform and its stages; the check on load is
-the worker launch's (`worker-launch`), and it is open
-(link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-13[PM-WATCH-CLIENT-13]).
+(<<profile-verification>>). The profile loader carries the record, its platform and its stages with the loaded profile;
+the check on load is not implemented in this package, belongs to the launch path (`worker-launch`, not yet decided
+there), and is open (link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-13[PM-WATCH-CLIENT-13]).
 
 [#profile-override-hierarchy]
 === Profile Override Hierarchy

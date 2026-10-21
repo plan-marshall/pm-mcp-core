@@ -95,8 +95,9 @@ on the platform it runs on. A record written elsewhere, or with every stage `not
 the profile says so. The probe workspace, the decoy servers and the binary version/commit of the record are the
 verification's and are not implemented either.
 Guard:: The loader validates the document, binds the record by digest and HMAC sidecar, compares the harness build and
-the supported range, and checks the role-class declarations; the load-time stage/platform gate is `worker-launch`'s, and
-its control fixture is a record with a failing `faults` or `isolation` stage that must leave the harness ineligible.
+the supported range, checks the role-class declarations and carries the record on the loaded profile. The load-time
+stage/platform gate belongs to the launch path (`worker-launch`, not yet decided there); its control fixture is a record
+with a failing `faults` or `isolation` stage that must leave the harness ineligible.
 Source:: the work package `profile-loader` (PLAN-19) implemented the loader, the record, the sidecar and every hardening
 fixture and left this gate open; its pull request narrows this item instead of deleting it.
 

@@ -107,7 +107,7 @@ public final class ProfileLoader {
                         "%s/%s%s".formatted(PROFILES, clientId, SUFFIX), rules);
                 requireClientId(profile, clientId, clientId + SUFFIX);
                 place(new LoadedProfile(clientId, ProfileSetKind.SHIPPED, profile, entry.getValue().document(),
-                        LoadedProfile.State.VERIFIED), effective, refused);
+                        LoadedProfile.State.VERIFIED, null), effective, refused);
             } catch (ProfileRefusal refusal) {
                 refused.add(new ProfileSet.RefusedProfile(clientId, ProfileSetKind.SHIPPED, refusal));
             }
@@ -184,7 +184,7 @@ public final class ProfileLoader {
             }
             state = LoadedProfile.State.VERIFIED_ON_OTHER_BUILD;
         }
-        return new LoadedProfile(clientId, kind, profile, document, state);
+        return new LoadedProfile(clientId, kind, profile, document, state, record);
     }
 
     private VerificationRecord record(Path directory, String clientId, String name) {

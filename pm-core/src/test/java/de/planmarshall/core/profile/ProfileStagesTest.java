@@ -32,7 +32,7 @@ class ProfileStagesTest {
     private static LoadedProfile profile() {
         var bytes = ProfileFixtures.validBytes();
         var tree = ProfileValidator.validate(bytes, "profiles/acme-cli.json", ProfileRules.none());
-        return new LoadedProfile("acme-cli", ProfileSetKind.SHIPPED, tree, bytes, LoadedProfile.State.VERIFIED);
+        return new LoadedProfile("acme-cli", ProfileSetKind.SHIPPED, tree, bytes, LoadedProfile.State.VERIFIED, null);
     }
 
     private static JsonNode turn(String json) {
@@ -106,7 +106,7 @@ class ProfileStagesTest {
         var bytes = ProfileFixtures.valid().set("/headless/usage/cost_usd", "/cost_usd").bytes();
         var tree = ProfileValidator.validate(bytes, "profiles/acme-cli.json", ProfileRules.none());
         var loaded = new LoadedProfile("acme-cli", ProfileSetKind.SHIPPED, tree, bytes,
-                LoadedProfile.State.VERIFIED);
+                LoadedProfile.State.VERIFIED, null);
 
         var result = ProfileStages.usage(loaded, turn("""
                 {"usage":{"input_tokens":10,"output_tokens":5},"cost_usd":0.25}
@@ -123,7 +123,7 @@ class ProfileStagesTest {
         var bytes = ProfileFixtures.valid().set("/headless/usage/input_tokens", "/usage/absent").bytes();
         var tree = ProfileValidator.validate(bytes, "profiles/acme-cli.json", ProfileRules.none());
         var loaded = new LoadedProfile("acme-cli", ProfileSetKind.SHIPPED, tree, bytes,
-                LoadedProfile.State.VERIFIED);
+                LoadedProfile.State.VERIFIED, null);
 
         var refusal = assertThrows(ProfileRefusal.class, () -> ProfileStages.usage(loaded, turn("""
                 {"usage":{"input_tokens":10,"output_tokens":5}}

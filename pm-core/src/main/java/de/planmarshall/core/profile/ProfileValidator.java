@@ -386,7 +386,11 @@ public final class ProfileValidator {
             if (argv == null || argv.isNull()) {
                 throw invalid(pointer + "/argv", "an argv weights probe names its argv");
             }
-            launchArguments(argv, pointer + "/argv", "weights_probe.argv", SLOTS, 1);
+            launchArguments(argv, pointer + "/argv", "weights_probe.argv", SLOTS, 0);
+            if (!argv.elements().isEmpty() && argv.elements().stream()
+                    .noneMatch(item -> item.text().orElse("").contains("{{model}}"))) {
+                throw invalid(pointer + "/argv", "an argv weights probe uses the {{model}} slot");
+            }
             if (pattern == null || pattern.isNull()) {
                 throw invalid(pointer + "/pattern", "an argv weights probe names its pattern");
             }

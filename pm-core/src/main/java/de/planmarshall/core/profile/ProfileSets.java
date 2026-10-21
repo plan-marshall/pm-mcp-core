@@ -18,10 +18,10 @@ import java.util.Map;
  * The three profile sets of a machine and a project (PM-CLIENT-5, Profile Sets): what the release ships, what the
  * operator installed for the machine, and what it installed for one project.
  * <p>
- * The shipped set is given as its documents and their verification records, read from the resources of {@code pm-api};
- * the machine and project sets are the directories below {@code <PM_MCP_BASE>}, whose {@code verification/}
- * subdirectories hold the records and whose {@code <client_id>.json.hmac} sidecars hold the integrity records. A
- * directory that does not exist holds no profile, which is the state of a machine before the first install.
+ * The shipped set is given as its documents, read from the resources of {@code pm-api}; the machine and project sets are
+ * the directories below {@code <PM_MCP_BASE>}, whose {@code verification/} subdirectories hold the records and whose
+ * {@code <client_id>.json.hmac} sidecars hold the integrity records. A directory that does not exist holds no profile,
+ * which is the state of a machine before the first install.
  *
  * @param shipped          the shipped profile by client id
  * @param machineDirectory the machine profile set, {@code <PM_MCP_BASE>/profiles/}; may be {@code null}

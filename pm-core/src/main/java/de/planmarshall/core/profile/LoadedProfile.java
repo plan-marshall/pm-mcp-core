@@ -25,9 +25,11 @@ import java.util.Optional;
  * @param document the validated tree
  * @param bytes    the document, UTF-8 encoded, as its digest and sidecar are computed over it
  * @param state    the state its verification record gives it
+ * @param record   the verification record the profile was bound to; {@code null} for a shipped profile
  * @since 0.1
  */
-public record LoadedProfile(String clientId, ProfileSetKind kind, JsonNode document, byte[] bytes, State state) {
+public record LoadedProfile(String clientId, ProfileSetKind kind, JsonNode document, byte[] bytes, State state,
+        VerificationRecord record) {
 
     /** The state a verification record gives a profile. The set is closed. */
     public enum State {

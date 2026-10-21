@@ -232,15 +232,17 @@ class ProfileValidatorTest {
     }
 
     @Test
-    @DisplayName("an empty class args is a schema-valid launch, as is a turn without a stop reason")
-    void emptyArgsAndNullStopReasonAccepted() {
-        var fixture = ProfileFixtures.valid()
-                .set("/headless/classes/writer/args", new ArrayList<>())
-                .set("/headless/events", mapOf("kind_pointer", "/type", "kinds", mapOf("text", null,
-                        "tool_call", null, "tool_result", null, "file_changed", null, "turn",
-                        mapOf("match", List.of("result"), "stop_reason", null))));
+    @DisplayName("an empty class args is a schema-valid launch, and a turn carries a null or a pointer stop reason")
+    void emptyArgsAndBothStopReasonsAccepted() {
+        for (var stopReason : new Object[] { null, "/stop_reason" }) {
+            var fixture = ProfileFixtures.valid()
+                    .set("/headless/classes/writer/args", new ArrayList<>())
+                    .set("/headless/events", mapOf("kind_pointer", "/type", "kinds", mapOf("text", null,
+                            "tool_call", null, "tool_result", null, "file_changed", null, "turn",
+                            mapOf("match", List.of("result"), "stop_reason", stopReason))));
 
-        ProfileValidator.validate(fixture.bytes(), DOCUMENT, ProfileRules.none());
+            ProfileValidator.validate(fixture.bytes(), DOCUMENT, ProfileRules.none());
+        }
     }
 
     private static Map<String, Object> mapOf(Object... pairs) {
