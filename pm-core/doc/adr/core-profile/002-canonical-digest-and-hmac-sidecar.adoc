@@ -1,0 +1,51 @@
+= ADR 002: The Record Binds the Canonical Digest and the Sidecar the Exact Bytes
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-21
+
+== Context
+
+A machine or project profile is written only by `pm-operator profile install`, but the directory is on the operator's
+disk and a profile dropped into it by hand would run a command of the writer's choice with the operator's login. The
+specification binds such a profile to its verification record: the record's `profile_digest` is the SHA-256 of the
+canonical JSON (RFC 8785) of the document, and a `<client_id>.json.hmac` sidecar written with the key of the enrolment
+store verifies. Two digests over two byte strings have to be distinguished: the canonical document is what the
+verification measured, the exact bytes are what the sidecar signed.
+
+== Decision
+
+* `CanonicalJson` implements RFC 8785 for the profile tree; `profile_digest` is `sha256:` over its UTF-8 bytes.
+* The sidecar is the existing `EnrolmentSidecar` record of `core.store`, and its HMAC-SHA-256 is computed over the
+  exact bytes of the profile file, as the enrolment sidecars are.
+* The loader compares the canonical digest with the record first, then verifies the sidecar in constant time, and only
+  then compares the record's harness build with the enrolled build.
+* A failing digest, a missing sidecar, a failing HMAC or an unenrolled harness is `profile_unverified`, and the next
+  set stays in force.
+
+== Alternatives Considered
+
+* *One digest over the exact bytes.* The record would stop matching a whitespace-only edit that the verification's
+  measurement does not care about, and the specification names the canonical JSON digest.
+* *Sign the canonical bytes.* The sidecar would then not detect a byte-level edit of the file; the exact bytes are what
+  the runtime reads, so they are what the HMAC must cover.
+* *A separate key for profiles.* The enrolment integrity key already protects the operator-lane files of a machine and
+  is the key the specification names.
+
+== Consequences
+
+* A profile re-saved with a reordered object or different whitespace still counts, because its canonical digest is
+  unchanged, while the sidecar must be recomputed because its bytes changed.
+* The package reuses `EnrolmentSidecar` and `StoreDigest` from `core.store` and computes the HMAC itself, since
+  `pm-core` cannot depend on the runtime's `EnrolmentHmac`.
+
+== Source
+
+* Work package `profile-loader` (PLAN-19)
+* link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#profile-sets[Client Profiles § Profile Sets]
+* link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#profile-verification[Client Profiles § Profile Verification]

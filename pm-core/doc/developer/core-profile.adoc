@@ -1,0 +1,200 @@
+= Client Profiles (`core.profile`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5], link:{docs}/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]_
+
+Package `de.planmarshall.core.profile` of `pm-core` reads, validates and resolves the client profile documents of
+`pm-api`. A harness exists for the system as its profile document and as nothing else: no class of this package names a
+harness, and every mechanism the schema declares (a slot, a delivery mode, a role class) is implemented against the
+document's data.
+
+The package owns four things:
+
+* the *loader* of the whole documents of the three sets, shipped, machine and project, as the tree of a bounded
+  reader;
+* the *validator*, which refuses a profile as a whole against the client profile schema and the hardening rules;
+* the *resolution* of the nearest set that counts, with the verification record and the HMAC sidecar of a machine or
+  project profile;
+* the *record* of the profile values the stages `isolation`, `egress` and `usage` of the profile verification settle.
+
+The stages themselves, the scan, the login probe, the enrolment and the writing of the sets are other packages'
+(`machine-onboarding-unit`, `worker-launch`, `job-confinement-and-environment`). This package reads the sets and reports
+the state it found.
+
+Specification:
+link:{spec}/client-profiles/01-profile-schema.adoc[Client Profiles § Normative Client Profile JSON Schema],
+link:{spec}/client-profiles/01-profile-schema.adoc#profile-sets[§ Profile Sets],
+link:{spec}/client-profiles/01-profile-schema.adoc#profile-hardening[§ A Profile Is Untrusted Input].
+
+== The Three Sets
+
+[cols="1,3,3"]
+|===
+|Set |Where |What binds it
+
+|Shipped
+|`classpath:/profiles/<client_id>.json`, a resource of `pm-api`, with its record at
+`classpath:/profiles/verification/<client_id>.json`
+|The release. The build test validates every shipped document.
+
+|Machine
+|`<PM_MCP_BASE>/profiles/<client_id>.json`
+|Its verification record and its `<client_id>.json.hmac` sidecar.
+
+|Project
+|`<PM_MCP_BASE>/projects/<project_id>/profiles/<client_id>.json`
+|The same, plus equality of `detection`, `identity` and `headless.executable` with the machine or shipped document.
+|===
+
+The nearest set wins *as a whole document*, never merged. A project profile only exists for a client id the machine or
+shipped set defines; a machine profile of a client id the release does not ship adds a harness.
+
+== Main Types
+
+[cols="1,3"]
+|===
+|Type |What it is
+
+|`JsonDocument` |The bounded reader: at most 64 KiB, nesting at most 16, strings at most 64 KiB, no member twice. It
+returns the `JsonNode` tree and refuses a document that breaks a bound with `ProfileRefusal`.
+
+|`JsonNode` / `JsonPointer` |The immutable tree of the package and RFC 6901 pointer resolution. A profile is read with the
+streaming API of `jackson-core`; the tree is the package's own so that validation can name one value.
+
+|`CanonicalJson` |RFC 8785 canonical JSON: sorted members, one string escaping, one number spelling. `digest(root)` is the
+`sha256:` digest of a profile document.
+
+|`ProfileValidator` |The closed schema and the hardening rules. It names no harness; the bundle-managed paths and harness
+homes of the installation are `ProfileRules` data.
+
+|`VerificationRecord` |The closed record beside a machine or project profile: the profile digest, the harness build it was
+measured on, the platform and the stage results.
+
+|`ProfileLoader` / `ProfileSets` / `ProfileSet` |The resolution of the three sets and the effective set of a project,
+with the profiles that were refused and the refusal that left the next set in force.
+
+|`LoadedProfile` |One effective profile and the state its record gives it: `VERIFIED` or `VERIFIED_ON_OTHER_BUILD`.
+
+|`ProfileStages` |The recorded values of the stages `isolation`, `egress` and `usage`, and the field-by-field comparison
+of the usage figures with the harness's own record.
+
+|`SupportedVersions` |The `headless.supported_versions` range and the version it admits.
+
+|`ShippedProfiles` |The build test's reader of `classpath:/profiles/`.
+|===
+
+== Reading and Validation
+
+The reader is bounded before any value is used, because a profile may come from anywhere: a draft the operator
+received, a profile offered for a later release. Validation then accepts exactly the schema's shape:
+
+* every object is closed, every enumeration is closed, every array has its bound;
+* every string is NFC, a single line, without control characters, and bounded (an `argv`, `args` or `env` item at most
+  1,024 characters);
+* the fields a model reads (`display_name`, tool names, an idiom's replacement, the load directive) are limited to the
+  characters of a command name or call expression, with the closed placeholders as the only `{{…}}`;
+* `argv`, `args` and `env` values hold literals and the closed slot set only; a URL, an absolute path or a home path
+  refuses the profile, and `env` may set no job, interpreter or credential variable;
+* `writable_paths`, `mcp_config.path` and `data_home.login_file` are relative, hold no `..`, and never cover a
+  bundle-managed file or a harness home as a whole;
+* `identity.version_pattern` is the only regular expression: at most 128 characters, exactly one capture group, no
+  backreference and no look-around;
+* the role-class rules hold (`zero_tool` requires `project_settings_control`, a runnable `writer` or `read_only`
+  requires `extension_isolation`, a non-exclusive MCP configuration declares no class, `restricted_models` is non-null
+  exactly when a class is enforced);
+* `headless.update_evidence` refuses a method without a signer and `none` with one;
+* `headless.resumability.resume.argv` holds `{{session_id}}` exactly once, and a resume needs persisted session
+  residue;
+* a `tool_result_limit_chars` needs a non-empty `resource_tools`.
+
+A failure is a `ProfileRefusal` carrying the document and the JSON Pointer of the value, and it refuses the document as
+a whole. The runtime never runs on a part of a profile.
+
+The `usage` block is `token-usage`'s: this validator checks its shape and leaves the meaning of a figure (including the
+rule that `input_tokens` and `output_tokens` are never `not_applicable`) to that package and to the stage `usage`.
+
+== Resolution, Record and Sidecar
+
+`ProfileLoader` reads the shipped map first, then the machine directory, then the project directory, and places a
+profile only if no effective profile already uses its `detection.precedence`. A machine or project profile counts only
+when all of the following hold:
+
+. its `profile_digest` equals `CanonicalJson.digest` of the document;
+. its `<client_id>.json.hmac` sidecar is an `EnrolmentSidecar` over the exact bytes and its HMAC verifies with the key of
+  the enrolment store;
+. the record names the enrolled harness executable;
+. the enrolled version and executable digest are those of the record, or the enrolled version lies in
+  `headless.supported_versions`.
+
+The last case marks the profile `VERIFIED_ON_OTHER_BUILD` and launches go on. A version outside the range is refused
+`harness_version_unsupported`. Any other failure is `profile_unverified`, and the profile of the next set stays in
+force; the refusal is kept in `ProfileSet.refused()` so both clients and `pm-operator profile show` can report it.
+
+A project profile additionally has the `detection`, `identity` and `headless.executable` of the machine or shipped
+document: a project profile changes how a harness works, not which harness it is.
+
+== Using the Loader
+
+[source,java]
+----
+var sets = ProfileSets.withProject(shipped, machineDirectory, projectDirectory);
+var loader = new ProfileLoader(enrolmentKey, enrolledByClientId, rules);
+var effective = loader.load(sets, projectId);
+
+effective.effective("acme-cli").ifPresent(profile -> {
+    // profile.document() is validated as a whole
+    // profile.classRunnable("zero_tool") is the class gate
+});
+effective.refused().forEach(refused -> report(refused.refusal()));
+----
+
+`ProfileRules` carries what the installation knows and the profile does not: the paths a client's bundle manages and the
+harness homes of the machine. The default `ProfileRules.none()` binds only the rules the document carries by itself
+(the shipped-profile build test).
+
+== Invariants and Failure Modes
+
+[cols="1,2,2"]
+|===
+|Invariant |Held by |Failure
+
+|A profile is used whole or not at all
+|`ProfileValidator`
+|`ProfileRefusal` with the document and the failing pointer
+
+|A machine or project profile is bound to its record
+|`ProfileLoader`
+|`profile_unverified`; the next set stays in force
+
+|A harness outside the supported range never runs
+|`ProfileLoader`
+|`harness_version_unsupported`
+
+|A record is closed data
+|`VerificationRecord`
+|`record_invalid`, reported as `profile_unverified` of the profile
+
+|The loader names no harness
+|`ProfileNeutralityArchTest` (build test)
+|the build fails
+
+|Every shipped profile validates
+|`ShippedProfilesTest` (build test)
+|the build fails
+|===
+
+== Extending
+
+A new harness is a new profile document, not a change of this package. A new mechanism is a change of the schema and of
+the validator, made once for all harnesses. `ProfileValidator.Checker` holds one method per block of the schema; add the
+block's members to its allowed set, its required set and its `check*` method, and add the refusing fixture to
+`ProfileValidatorTest`.
+
+The stages are the verification's. `ProfileStages` only holds their results and compares the usage figures; a new stage
+adds its result type and its value to this package, while running the stage stays with the package that owns the probe.
