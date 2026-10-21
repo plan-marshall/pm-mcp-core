@@ -490,6 +490,29 @@ options sorted by `branch_key` and without `recommended` flags. Matched control:
 keeps the recorded order.
 Source:: design review.
 
+[#PM-WATCH-DISP-63]
+=== PM-WATCH-DISP-63: A judgment vote is a probability read in two orders, never the service's confidence
+
+Anchor:: link:../specification/model-work/10-decision-quorum.adoc#judgment-vote[Model Work § Judgment Votes],
+link:../specification/client-profiles/04-judgment-endpoint.adoc#system-one-request[Client Profiles § The Request and the Answer],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-18[PM-WF-18]
+Hazard:: A first-level thinker returns, beside the probability of each option, a `confidence` that only says how
+concentrated the distribution is. Read as the vote's confidence it reaches `90` for a distribution that is right far
+less often (an independent test of the hosted service measured a median calibration error of `0.157`, and an accuracy
+of `0.815` above a stated confidence of `0.9`). The same model may lean towards the option it reads first, and the
+recorded order of a question's options leads with the asker's recommendation. A vote that rests on one order, or on
+the service's statistic, lets a quorum decide on a lean. A second hazard sits in the form: a warm voter carries the
+earlier votes of its worker, so its calibration is that of the form it ran in, and a calibration measured fresh
+vouches for nothing once the role is switched to warm.
+Guard:: Unit: the vote's confidence is the integer part of `100` times the lower of the two probabilities of the
+first order's choice, whatever the answer's `confidence` says; a stub whose second order prefers another option gives
+a vote below every declarable score, and the set escalates; the options of both requests are sorted by `branch_key`
+and reversed, never in the recorded order, and no request carries a `recommendation`. The declaration digest and the
+calibration record hold the `form` of every listed role: a record measured fresh is not valid for the role once it is
+warm (matched control: the same record stays valid for the unchanged role). A judgment vote on a set with a part of
+the answer type `several` or `value` ends `infeasible`, and the set escalates `role_unavailable`.
+Source:: Article analysis `first-level-thinker` of plan-marshall-documentation.
+
 [#PM-WATCH-DISP-46]
 === PM-WATCH-DISP-46: A correction is appended, never written over, and an export takes the decision finally taken
 

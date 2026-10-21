@@ -325,7 +325,7 @@ The record of one calibration of a quorum declaration by the operator's calibrat
   "properties": {
     "format_version": { "type": "integer", "const": 1 },
     "decision_kind": { "type": "string", "enum": ["interpretation", "approach", "granularity", "placement", "test_strategy", "scope", "product_behaviour", "assurance", "external_fact"], "description": "The calibrated decision kind, covered by declaration_digest." },
-    "declaration_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 over the decision kind, the listed roles in their declared order with their qualification digests, and the score; equals the file name, and the record is valid only while they are unchanged." },
+    "declaration_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 over the decision kind, the listed roles in their declared order with their qualification digests and forms, and the score; equals the file name, and the record is valid only while they are unchanged." },
     "declaration": {
       "type": "object",
       "required": ["roles", "score"],
@@ -363,13 +363,14 @@ The record of one calibration of a quorum declaration by the operator's calibrat
   "$defs": {
     "roleConfig": {
       "type": "object",
-      "required": ["role", "qualification_digest", "harness", "model"],
+      "required": ["role", "form", "qualification_digest", "harness", "model"],
       "additionalProperties": false,
       "properties": {
         "role": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
+        "form": { "type": "string", "enum": ["warm", "fresh"], "description": "The form the role's vote tasks ran in at the calibration; a judgment role is fresh." },
         "qualification_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "The role's qualification digest at the calibration (Role Qualification Record)." },
         "harness": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "The harness of the qualification record the digest names." },
-        "model": { "type": "string" }
+        "model": { "type": "string", "description": "For a judgment role the versioned model id." }
       }
     }
   }

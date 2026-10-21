@@ -14,11 +14,11 @@ _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.
 
 _Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-14[PM-WATCH-CLIENT-14]_
 
-A model that a program of the machine serves over HTTP on the loopback interface (an operating system's own model server, or a local model runner) is a harness of its own kind, the *endpoint harness*. It has no tools, no MCP connection, and no session, so it runs exactly one role class, `zero_tool` (the screener and the judge, link:01-profile-schema.adoc#role-classes[Role Classes of a Harness]), and no other. Nothing it is given leaves the machine, so untrusted text screened on it reaches no model provider.
+A model that a program of the machine serves over HTTP on the loopback interface (an operating system's own model server, or a local model runner), or that a service answers over HTTPS in the remote form of the protocol `system_one` (link:04-judgment-endpoint.adoc#judgment-endpoint[Judgment Endpoint]), is a harness of its own kind, the *endpoint harness*. It has no tools, no MCP connection, and no session, so it runs exactly one role class, `zero_tool` (the screener and the judge, link:01-profile-schema.adoc#role-classes[Role Classes of a Harness]), and no other. Nothing a loopback endpoint is given leaves the machine, so untrusted text screened on it reaches no model provider; a remote endpoint sends what it is given to its service, which is why the screener runs on a loopback endpoint only (link:04-judgment-endpoint.adoc#remote-form[Remote Form]).
 
 * *A profile of its own kind*: an endpoint harness is described by an *endpoint profile* (<<endpoint-profile-schema>>), a document of the same profile sets, verification, and override rules as a client profile (link:01-profile-schema.adoc#profile-sets[Profile Sets]), told apart by its member `profile_kind: "endpoint"`. Its `client_id` shares the namespace of the client profiles. It has no `tools`, `skill_loading`, `headless`, `connection`, `detection`, or `worker` block: it is never a host of the operator, never a target of a client bundle, and has none of the per-host values of the task protocol.
 * *Started by the operator, never by `PM-MCP`*: the serving program runs under the operator's own account and its own terms (a licence it asks to accept, a model it downloads); the runtime never starts, stops, or configures it. The runtime only sends requests to it and checks before each request that the program listening on the profile's port is the enrolled one (<<endpoint-enrolment>>).
-* *Loopback only*: `base_url` names `127.0.0.1` or `[::1]`; profile validation refuses any other host. A request to an endpoint is no outbound request of the runtime (link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-2[PM-ARCH-2]); whether the serving program itself makes network requests is the operator's knowledge of that program and is never claimed by a profile.
+* *Loopback, or the one remote form*: `base_url` names `127.0.0.1` or `[::1]`; profile validation refuses any other host, except the remote form of the protocol `system_one`, whose `base_url` is the HTTPS origin of one service (link:04-judgment-endpoint.adoc#remote-form[Remote Form]). A request to an endpoint is no outbound request of the runtime (link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-2[PM-ARCH-2]); whether the serving program itself makes network requests is the operator's knowledge of that program and is never claimed by a profile.
 * *No shipped endpoint profile*: the release ships no endpoint profile. The operator adds one through the onboarding's `harness.add` in the endpoint form (<<endpoint-verification>>), and roles are assigned to it like to any harness (link:../model-work/01-roles-and-configuration.adoc#role-assignment[Model Work Specification, Role Assignment]), each graded before it runs (link:../model-work/01-roles-and-configuration.adoc#qualification-records[Model Work Specification, Qualification Records]).
 * *A judge on an endpoint is the operator's risk*: the `judge` is exempt from qualification, so nothing grades a judge assigned to an endpoint harness, and every grade it gives rests on that model. The assignment is allowed; `pm-operator roles show` and the role views of both clients mark a `judge` on an endpoint harness as ungraded wherever its assignment is shown.
 
@@ -33,6 +33,7 @@ A model that a program of the machine serves over HTTP on the loopback interface
   "title": "EndpointProfile",
   "type": "object",
   "required": ["profile_kind", "schema_version", "client_id", "display_name", "min_daemon_version", "icon", "executable", "identity", "update_evidence", "endpoint", "model_tiers", "weights_probe"],
+  "description": "executable, identity, and update_evidence are null in the remote form (Judgment Endpoint, Remote Form).",
   "additionalProperties": false,
   "properties": {
     "profile_kind": { "type": "string", "const": "endpoint" },
@@ -41,9 +42,9 @@ A model that a program of the machine serves over HTTP on the loopback interface
     "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
     "min_daemon_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
     "icon": { "description": "As the icon of a client profile (Client Profile Schema)." },
-    "executable": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "description": "Name of the serving program; the operator enrols its absolute path, and the runtime checks that it owns the listening socket of base_url." },
+    "executable": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9-]*$", "description": "Name of the serving program; the operator enrols its absolute path, and the runtime checks that it owns the listening socket of base_url. Null in the remote form." },
     "identity": {
-      "type": "object",
+      "type": ["object", "null"],
       "required": ["version_probe", "version_pattern"],
       "additionalProperties": false,
       "properties": {
@@ -54,11 +55,13 @@ A model that a program of the machine serves over HTTP on the loopback interface
     "update_evidence": { "description": "As headless.update_evidence of a client profile (Update Evidence)." },
     "endpoint": {
       "type": "object",
-      "required": ["protocol", "base_url", "readiness_path", "models_path", "models_pointer", "result_schema", "context_tokens", "answer_reserve_tokens", "request_timeout_seconds"],
+      "required": ["protocol", "locality", "base_url", "credential_key", "readiness_path", "models_path", "models_pointer", "result_schema", "context_tokens", "answer_reserve_tokens", "request_timeout_seconds"],
       "additionalProperties": false,
       "properties": {
-        "protocol": { "type": "string", "enum": ["openai_chat"], "description": "The request and answer format; a new protocol is a change of this list and of the code, made once for all endpoints." },
-        "base_url": { "type": "string", "pattern": "^http://(127\\.0\\.0\\.1|\\[::1\\]):[0-9]{1,5}$" },
+        "protocol": { "type": "string", "enum": ["openai_chat", "system_one"], "description": "The request and answer format; a new protocol is a change of this list and of the code, made once for all endpoints. system_one: typed questions and answers (Judgment Endpoint)." },
+        "locality": { "type": "string", "enum": ["loopback", "remote"], "description": "remote only with the protocol system_one (Judgment Endpoint, Remote Form)." },
+        "base_url": { "type": "string", "pattern": "^(http://(127\\.0\\.0\\.1|\\[::1\\]):[0-9]{1,5}|https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?)$" },
+        "credential_key": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "The Token Lane credential entry of a remote endpoint; null for a loopback endpoint." },
         "readiness_path": { "type": ["string", "null"], "pattern": "^/[A-Za-z0-9._/-]{0,127}$", "description": "A path answering 200 once the program serves; null: the models path is the readiness check." },
         "models_path": { "type": "string", "pattern": "^/[A-Za-z0-9._/-]{0,127}$" },
         "models_pointer": { "type": "string", "description": "JSON Pointer to the array of model objects in the answer of models_path; each object's id is a model id." },
@@ -88,7 +91,7 @@ A model that a program of the machine serves over HTTP on the loopback interface
 }
 ----
 
-Profile validation applies the rules of a client profile where they concern the same members (link:01-profile-schema.adoc#profile-hardening[A Profile Is Untrusted Input]) and refuses an endpoint profile whose `answer_reserve_tokens` is not below `context_tokens`, or whose `weights_probe` fills the members of the other source.
+Profile validation applies the rules of a client profile where they concern the same members (link:01-profile-schema.adoc#profile-hardening[A Profile Is Untrusted Input]) and refuses an endpoint profile whose `answer_reserve_tokens` is not below `context_tokens`, or whose `weights_probe` fills the members of the other source. It refuses the combinations of `locality` that the schema cannot express: `loopback` with an `https` `base_url`, with a `credential_key`, or without `executable` and `identity`; `remote` with the protocol `openai_chat`, with an `http` `base_url`, without a `credential_key`, or with an `executable`, `identity`, or `update_evidence`.
 
 [#endpoint-request]
 === The Request
