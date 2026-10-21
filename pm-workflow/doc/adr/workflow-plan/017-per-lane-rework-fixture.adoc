@@ -63,8 +63,10 @@ call states stayed in a deep version.
 
 * A light call state that routes its rework into the deep authoring entry, a deep one that routes into the light route,
   and a deep version that keeps the light call states each fail `PlanInstanceComposerTest` `PerLaneRework`.
-* The lane entry ids the fixture and the checks name are declared once in `LaneEntryIds` (link:../workflow-verify/030-lane-entry-ids-in-one-holder.adoc[ADR
-  workflow-verify 030]); a rename moves the split, the checks and the fixture with it.
+* The lane entry ids are declared once in `LaneEntryIds` (link:../workflow-verify/030-lane-entry-ids-in-one-holder.adoc[ADR
+  workflow-verify 030]); `InstancePruner` and the invariant checks read them from there. The fixture
+  `per-lane-rework.pmwf` and `PerLaneRework.deepPrunesLightCalls` repeat them as text. Renaming only the constants
+  leaves the fixture unchanged, so `InstancePruner.otherLane` prunes nothing and `deepPrunesLightCalls` fails.
 * *For the assembly in `plan-marshall-mcp`*: test resources and tests of `workflow.plan` only; no production type
   changes.
 * The fixture is written for these tests and never copied from the shipped content, as ADR

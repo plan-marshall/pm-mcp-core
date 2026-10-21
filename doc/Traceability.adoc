@@ -228,7 +228,8 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/LaneEntryIds.j
 
 Verified by (the re-composition of a changed unit): link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java[PlanInstanceComposerTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceStoreTest.java[PlanInstanceStoreTest],
-link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/InstancePrunerTest.java[InstancePrunerTest]
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/InstancePrunerTest.java[InstancePrunerTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/LaneEntryIdsTest.java[LaneEntryIdsTest]
 
 Implementation (the composition side of the ready form of `handed_back` in bullet 5, as far as the library module `pm-workflow` carries it: a version whose asking variant leaves the merge to the operator is composed without the merge execution, pruned with `merge_by_operator`, and verifies, the `pass` of the merge barrier settled by the prune record, while a version whose asking variant merges itself keeps the merge execution; the composition log records with every composed version after the first what changed against the version before it (`diff_summary`). Not implemented yet: the barrier's settling of `pass_hand_back` at run time, the ready form of `finalize.hand-back`, and the plan outcomes with their landing record): link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/InstancePruner.java[InstancePruner],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java[PlanInstanceComposer],
@@ -240,7 +241,8 @@ Verified by (the composition side of the ready form and the diff summary): link:
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/WorkflowValidatorTest.java[WorkflowValidatorTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/DiffSummaryTest.java[DiffSummaryTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceStoreTest.java[PlanInstanceStoreTest],
-link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/InstancePrunerTest.java[InstancePrunerTest]
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/InstancePrunerTest.java[InstancePrunerTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/LaneEntryIdsTest.java[LaneEntryIdsTest]
 
 Documentation: link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer Guide],
 link:../pm-workflow/doc/developer/workflow-engine.adoc#_entity_addressing[Workflow Engine Developer Guide § Entity Addressing],
@@ -1068,7 +1070,8 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/unit/ProjectUnitLoade
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowParserTest.java[WorkflowParserTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowParserRefusalTest.java[WorkflowParserRefusalTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/diagram/WorkflowDiagramGeneratorTest.java[WorkflowDiagramGeneratorTest],
-link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/InstancePrunerTest.java[InstancePrunerTest]
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/InstancePrunerTest.java[InstancePrunerTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/LaneEntryIdsTest.java[LaneEntryIdsTest]
 
 Implementation (the primitive as a typed contract and the registry that refuses a malformed one; the first statement of this requirement):
 link:../pm-core/src/main/java/de/planmarshall/core/spi/Primitive.java[Primitive],

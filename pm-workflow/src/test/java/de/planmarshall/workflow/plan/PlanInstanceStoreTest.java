@@ -494,7 +494,8 @@ class PlanInstanceStoreTest {
                 var refused = assertThrows(IllegalStateException.class,
                         () -> store.recordComposed(transaction, second, texts, compositionRecord));
                 assertAll(
-                        () -> assertNotEquals(first.text(), corrupted, "the recorded text was changed"),
+                        () -> assertEquals(Optional.of(corrupted), store.readVersion(1),
+                                "the refused record left the recorded text as it was"),
                         () -> assertTrue(refused.getMessage().contains("version 1"), refused.getMessage()),
                         () -> assertInstanceOf(IllegalArgumentException.class, refused.getCause()),
                         () -> assertEquals(Optional.empty(), store.readVersion(2)),
@@ -521,7 +522,8 @@ class PlanInstanceStoreTest {
                 var refused = assertThrows(IllegalStateException.class,
                         () -> store.recordComposed(transaction, second, texts, compositionRecord));
                 assertAll(
-                        () -> assertNotEquals(first.text(), corrupted, "the recorded text was changed"),
+                        () -> assertEquals(Optional.of(corrupted), store.readVersion(1),
+                                "the refused record left the recorded text as it was"),
                         () -> assertTrue(refused.getMessage().contains("refused by the parser"), refused.getMessage()),
                         () -> assertTrue(refused.getMessage().contains("expected a scope"), refused.getMessage()),
                         () -> assertNull(refused.getCause(), "a parser refusal carries no cause"),
@@ -551,8 +553,8 @@ class PlanInstanceStoreTest {
                 var refused = assertThrows(IllegalStateException.class,
                         () -> store.recordComposed(transaction, second, texts, compositionRecord));
                 assertAll(
-                        () -> assertNotEquals(first.text(), headerless, "the recorded text was changed"),
-                        () -> assertFalse(headerless.contains("\ninstance "), "the instance line was removed"),
+                        () -> assertEquals(Optional.of(headerless), store.readVersion(1),
+                                "the refused record left the recorded text as it was"),
                         () -> assertTrue(refused.getMessage().contains("no readable header"), refused.getMessage()),
                         () -> assertNull(refused.getCause(), "a headerless version carries no cause"),
                         () -> assertEquals(Optional.empty(), store.readVersion(2)),
