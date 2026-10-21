@@ -30,7 +30,7 @@ call states stayed in a deep version.
 
 * Add the plan unit `src/test/resources/plan/per-lane-rework.pmwf`, a complete unit of the type `workflow`, the id
   `plan` and the scope `plan` in one file: the two lane entries `refine.baseline-reconcile` and `init.light-gate` at the
-  split of `init.ready`; a call state per lane per phase; `fix_requested` and `loop_back` of the deep call states
+  split of `init.ready`; a call state per lane for the phases `plan` and `execute`; `fix_requested` and `loop_back` of the deep call states
   re-entering `outline.deep`, those of the light call states `outline.light-regate`; a light review job whose failure
   re-enters `outline.light-regate`; no transition from a deep state into the light route; and an awaited job on every
   rework cycle (Rule 11b).
