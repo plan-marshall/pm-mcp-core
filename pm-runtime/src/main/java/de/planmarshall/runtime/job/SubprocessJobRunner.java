@@ -48,6 +48,7 @@ import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.JobRecord;
 import de.planmarshall.core.store.JobRecord.Confinement;
 import de.planmarshall.core.store.JobRecord.Execution;
+import de.planmarshall.core.store.JobRecord.Fate;
 import de.planmarshall.core.store.JobRecord.Status;
 import de.planmarshall.core.store.JobRecordStore;
 import de.planmarshall.core.store.StoreRefusal;
@@ -860,8 +861,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             var report = termination.terminate(launched.pid());
             reached = report.ending() != Ending.SIGNAL_REFUSED;
             cancelBeforeGroup = report.cancelBeforeGroup();
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            // a PID the protocol refuses, or a signal call that failed (ProcessGroupSignals)
+        } catch (RuntimeException | Error e) {
+            // a PID the protocol refuses, a signal call that failed (ProcessGroupSignals), or an error of the primitive
             LOGGER.warn(e, WARN.JOB_TERMINATION_FAILED, jobId, e.getMessage());
         } finally {
             if (!reached) {
@@ -1064,10 +1065,37 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private void settleEnded(RunningJob job, Ended ended, long observedLength) {
         try {
             settle(job, ended, observedLength, true);
-        } finally {
-            if (!job.settling) {
-                settle(job, ended, observedLength, false);
+        } catch (RuntimeException | Error failure) {
+            if (job.settling) {
+                // the primary settlement reached its record write and failed there (PM_RUNTIME-207); a fate replaces
+                // only a record that is not settled yet, so a second attempt would not help
+                throw failure;
             }
+            try {
+                settle(job, ended, observedLength, false);
+            } catch (RuntimeException | Error fallbackFailure) {
+                failure.addSuppressed(fallbackFailure);
+                lastResort(job, failure);
+            }
+            throw failure;
+        }
+    }
+
+    /**
+     * Settles a job whose fallback settlement failed as well: a minimal ended record with the table's outcome for
+     * evidence the runner could not read ({@code indeterminate}, row 5), so the job is not left {@code running} until
+     * the next runtime start. A write that fails here too is logged and left to the recovery.
+     */
+    private void lastResort(RunningJob job, Throwable failure) {
+        var current = job.latest;
+        var settled = current.toBuilder().status(Status.ENDED).fate(Fate.INDETERMINATE).outcomeRow(5)
+                .endedAt(clock.instant()).build();
+        try {
+            settle(job, settled);
+        } catch (RuntimeException | Error writeFailure) {
+            failure.addSuppressed(writeFailure);
+            LOGGER.error(writeFailure, ERROR.JOB_SETTLEMENT_STEP_FAILED, current.jobId(), "FALLBACK",
+                    writeFailure.getMessage());
         }
     }
 

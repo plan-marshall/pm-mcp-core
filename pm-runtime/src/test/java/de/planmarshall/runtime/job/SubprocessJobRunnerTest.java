@@ -922,6 +922,41 @@ class SubprocessJobRunnerTest {
         }
 
         @Test
+        @DisplayName("an Error of the termination step still settles the job before it is passed on")
+        void terminationFailsWithError() {
+            var signals = new ProcessGroupSignals() {
+
+                @Override
+                public Answer signalGroup(long pgid, Signal signal) {
+                    permissions("rwx------");
+                    throw new StackOverflowError("kill(-%d) failed".formatted(pgid));
+                }
+
+                @Override
+                public Answer signalProcess(long pid, Signal signal) {
+                    permissions("rwx------");
+                    throw new StackOverflowError("kill(%d) failed".formatted(pid));
+                }
+            };
+            runner = runner(new TerminationProtocol(signals), request -> Optional.empty(), job -> {
+                locks.beforeNextTransaction(() -> permissions("r-x------"));
+                return ENVIRONMENT;
+            });
+            var request = git(600, "sleep", "600");
+
+            assertThrows(UncheckedIOException.class, () -> runner.start(request));
+
+            var settled = jobs.records().getFirst();
+            assertAll(
+                    () -> assertEquals(Status.ENDED, settled.status(), "the job is not left running unsettled"),
+                    () -> assertEquals(Fate.KILLED, settled.fate()),
+                    () -> assertEquals(4, settled.outcomeRow()),
+                    () -> assertEquals("SIGKILL", settled.signal(), "destroyed through its handle"),
+                    () -> assertFalse(alive(settled.pid()), "the process is not left running"),
+                    () -> assertTrue(runner.runningJobs().isEmpty()));
+        }
+
+        @Test
         @DisplayName("matched control: a job whose post-spawn record is written is started and settled by its exit")
         void writtenPostSpawn() {
             runner = recordingSignals(false);
@@ -1038,6 +1073,30 @@ class SubprocessJobRunnerTest {
                             WARN.JOB_TERMINATION_FAILED.resolveIdentifierString()),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
                             "Supervision of job '%s' failed".formatted(jobId), IllegalStateException.class));
+        }
+
+        @Test
+        @DisplayName("a fallback that fails as well: the job is still settled, by the last-resort record")
+        void fallbackFails() throws Exception {
+            var failure = new IllegalStateException("the parser failed");
+            var lockFailure = new IllegalStateException("the lock manager failed inside the settlement");
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), job -> ENVIRONMENT,
+                    (kind, output) -> {
+                        locks.failNextTransaction(lockFailure);
+                        throw failure;
+                    }, request -> Optional.empty());
+
+            var jobId = started(runner.start(git(30, "ok")));
+            var settled = settled(jobId);
+            supervisionFailureLogged.await();
+
+            assertAll(
+                    () -> assertEquals(Status.ENDED, settled.status(),
+                            "a failing fallback does not leave the job unsettled"),
+                    () -> assertEquals(Fate.INDETERMINATE, settled.fate()),
+                    () -> assertEquals(5, settled.outcomeRow()),
+                    () -> assertFalse(runner.runningJobs().contains(jobId)),
+                    () -> assertEquals(Optional.of(settled), runner.recordOf(jobId)));
         }
 
         @Test
@@ -1504,6 +1563,7 @@ class SubprocessJobRunnerTest {
         private final Set<LockTransaction> open = ConcurrentHashMap.newKeySet();
         private final List<LockKey> acquired = new CopyOnWriteArrayList<>();
         private final AtomicReference<Runnable> beforeNext = new AtomicReference<>();
+        private final AtomicReference<RuntimeException> failNext = new AtomicReference<>();
 
         RecordingLocks(LockManager delegate) {
             this.delegate = delegate;
@@ -1514,11 +1574,20 @@ class SubprocessJobRunnerTest {
             beforeNext.set(action);
         }
 
+        /** Fails the next transaction when it is opened, before it reaches the delegate. */
+        void failNextTransaction(RuntimeException failure) {
+            failNext.set(failure);
+        }
+
         @Override
         public LockTransaction openTransaction() {
             var action = beforeNext.getAndSet(null);
             if (action != null) {
                 action.run();
+            }
+            var failure = failNext.getAndSet(null);
+            if (failure != null) {
+                throw failure;
             }
             var transaction = delegate.openTransaction();
             var recording = new LockTransaction() {
