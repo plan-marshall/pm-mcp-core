@@ -1,0 +1,58 @@
+= ADR 008: `maxLength` Is Checked Before `pattern`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-22
+
+== Context
+
+`SchemaSubset` evaluates the JSON Schema subset of the verification corpus (PM-WORK-6). `checkString` evaluated the
+schema's `pattern` first, compiling it and running it as `re.search` over the whole value, and tested `maxLength` only
+afterwards. A value far over its bound therefore reached the backtracking regular expression engine before it was
+refused for its length, and a schema whose pattern does not compile reported that broken pattern for a value that was
+already too long. CodeRabbit raised the order on #126 for the enrolled-schema path, which PLAN-89 bounded; the corpus
+path is this package.
+
+The length of a value is a cheap code-point count, while evaluating a pattern is unbounded work; `maxLength` is the
+bound a schema declares for exactly that reason.
+
+== Decision
+
+`SchemaSubset.checkString` tests `maxLength` first, counted in code points as before. A value longer than the bound is
+reported once as `<path>: longer than <N>` and the `pattern` is neither compiled nor matched. A value inside the bound,
+and a value of exactly `maxLength` code points, goes through the pattern as before: `re.search` semantics through
+`PythonRegex`, with the existing messages. No signature, message text or other type changes.
+
+== Alternatives Considered
+
+1. *Compile and match the pattern first, as before.* Not taken: an over-long value does the unbounded work before it is
+   refused, and a broken schema pattern is reported for a value whose length already disqualifies it.
+2. *Bound the regular expression by a timeout or a step budget.* Not taken: `PythonRegex` offers neither, and the JVM's
+   regular expression engine gives no portable per-match step limit; a length bound is the schema's own cheap guard.
+3. *Report both the length error and the pattern error for an over-long value.* Not taken: evaluating the pattern is
+   what the length check exists to avoid, and reporting a second violation for a value already refused adds nothing.
+
+== Consequences
+
+* An over-long value is refused on its length alone; its pattern is not evaluated, so a value that is both too long
+  and a pattern mismatch reports only the length error.
+* An over-long value with a schema pattern that does not compile yields the length error alone and does not throw.
+  The broken pattern is reported for the next value inside the bound, sometimes never — a schema defect can stay
+  hidden while every value checked against it is over-long. Nothing else in the validator compiles a schema pattern to
+  check it, so this defect is only noticed through a value the length check lets through.
+* `SchemaSubsetTest` pins the order: an over-long value that also fails its pattern, an over-long value with a pattern
+  that does not compile, a value inside the bound, and a value of exactly `maxLength` code points.
+
+== Source
+
+* Specification link:../../../../doc/specification/model-work/01-roles-and-configuration.adoc#qualification-topics[Roles
+  and Configuration § Qualification Topics] (PM-WORK-6, the verification corpus)
+* CodeRabbit thread on https://github.com/plan-marshall/pm-mcp-core/pull/126[#126], the enrolled-schema path bounded by
+  PLAN-89
+* Staged plan spec `.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-95-schema-subset-length-first.md`
+* Developer documentation: link:../../developer/core-role-corpus.adoc[`core-role-corpus.adoc`] § Validation
