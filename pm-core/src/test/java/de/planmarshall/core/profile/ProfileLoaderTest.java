@@ -217,7 +217,7 @@ class ProfileLoaderTest {
 
     @Test
     @DisplayName("a record that names another client is refused")
-    void recordClientIdMismatchFallsBack(@TempDir Path machine) throws IOException {
+    void recordClientIdMismatchFallsBack(@TempDir Path machine) throws Exception {
         var document = ProfileFixtures.validBytes();
         write(machine, CLIENT, document, record(document, "1.5.0", OTHER_SHA, "other-cli", "acme"),
                 sidecar(key, document));
@@ -232,7 +232,7 @@ class ProfileLoaderTest {
 
     @Test
     @DisplayName("a project profile of a harness without a headless block equals its base")
-    void projectWithNullHeadlessEqualsBase(@TempDir Path project) throws IOException {
+    void projectWithNullHeadlessEqualsBase(@TempDir Path project) throws Exception {
         var base = ProfileFixtures.valid().set("/headless", null)
                 .set("/worker/eligible", false)
                 .set("/worker/restricted_models", null).bytes();

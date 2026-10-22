@@ -35,4 +35,4 @@ _Rejected_: composition, versions and the position rule do not depend on role re
 
 * link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance], Versions & Composition Events item 3
 * link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules]
-* `doc/plans/plan-instance.adoc`, `doc/plans/profile-loader.adoc`, `doc/plans/role-sets-and-model-caller.adoc`
+* `doc/plans/plan-instance.adoc`, `doc/plans/role-sets-and-model-caller.adoc`

@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -74,15 +76,17 @@ class CanonicalJsonTest {
 
     @Test
     @DisplayName("the digest is sha256 over the canonical UTF-8 bytes")
-    void digestIsOverCanonicalBytes() {
+    void digestIsOverCanonicalBytes() throws Exception {
         var document = new LinkedHashMap<String, JsonNode>();
         document.put("a", JsonNode.integer(1));
         var digest = CanonicalJson.digest(JsonNode.object(document));
+        var expected = "sha256:" + HexFormat.of().formatHex(
+                MessageDigest.getInstance("SHA-256").digest("{\"a\":1}".getBytes(UTF_8)));
 
         assertAll(
                 () -> assertTrue(digest.matches("sha256:[0-9a-f]{64}"), digest),
-                () -> assertEquals(digest, CanonicalJson.digest(JsonNode.object(document))),
-                () -> assertTrue(CanonicalJson.write(JsonNode.array(List.of(JsonNode.integer(1),
-                        JsonNode.string("x")))).startsWith("[")));
+                () -> assertEquals(expected, digest),
+                () -> assertEquals("[1,\"x\"]", CanonicalJson.write(JsonNode.array(List.of(JsonNode.integer(1),
+                        JsonNode.string("x"))))));
     }
 }

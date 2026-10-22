@@ -28,8 +28,8 @@ import java.util.regex.Pattern;
  * {@code classpath:/profiles/<client_id>.json}, in a directory of the build or in the JAR of the dependency.
  * <p>
  * The reader is a build test's entry: the release compiles the documents into the binary, and the build validates every
- * one of them. The directory holds the profiles and nothing else, and a file whose name is not a client id is not
- * returned as one.
+ * one of them. The directory holds the profiles and nothing else; a file whose name is not a client id refuses the
+ * read, so no shipped document escapes the build test.
  *
  * @since 0.1
  */
@@ -120,14 +120,16 @@ public final class ShippedProfiles {
     }
 
     private static void add(String clientId, byte[] document, Map<String, byte[]> documents) {
-        if (clientId != null) {
-            documents.put(clientId, document);
-        }
+        documents.put(clientId, document);
     }
 
     private static String clientId(String fileName) {
         var name = fileName.substring(0, fileName.length() - ".json".length());
-        return CLIENT_ID.matcher(name).matches() ? name : null;
+        if (!CLIENT_ID.matcher(name).matches()) {
+            throw new IllegalStateException(
+                    "The shipped profile file '%s' is not named by a client id".formatted(fileName));
+        }
+        return name;
     }
 
 }

@@ -145,6 +145,10 @@ class ProfileValidatorTest {
                             "/tools/read_file", "a sentence-like tool name"),
                     Arguments.of(ProfileFixtures.valid().set("/headless/writable_paths/0", "~/.acme/../etc"),
                             "/headless/writable_paths/0", "a writable path with '..'"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/writable_paths/0", "~/.acme/"),
+                            "/headless/writable_paths/0", "a writable path with a trailing slash"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/writable_paths/0", "~/.acme/."),
+                            "/headless/writable_paths/0", "a writable path with a '.' segment"),
                     Arguments.of(ProfileFixtures.valid().set("/identity/version_pattern", "(?=acme)(acme)"),
                             "/identity/version_pattern", "a look-around in version_pattern"),
                     Arguments.of(ProfileFixtures.valid().set("/headless/tool_result_limit_chars", 8000),
@@ -170,7 +174,7 @@ class ProfileValidatorTest {
                             "/worker/restricted_models", "a tier model outside restricted_models"),
                     Arguments.of(ProfileFixtures.valid()
                                     .set("/worker/ack_informational", true)
-                                    .set("/worker/ack_deadline_seconds", 999),
+                                    .set("/worker/ack_deadline_seconds", 300),
                             "/worker/ack_deadline_seconds", "an informational acknowledgement deadline"),
                     Arguments.of(ProfileFixtures.valid()
                                     .set("/connection/progress_resets_timeout", false)
@@ -238,7 +242,7 @@ class ProfileValidatorTest {
     @Test
     @DisplayName("an empty class args is a schema-valid launch, and a turn carries a null or a pointer stop reason")
     void emptyArgsAndBothStopReasonsAccepted() {
-        for (var stopReason : new Object[] { null, "/stop_reason" }) {
+        for (var stopReason : new Object[]{null, "/stop_reason"}) {
             var fixture = ProfileFixtures.valid()
                     .set("/headless/classes/writer/args", new ArrayList<>())
                     .set("/headless/events", mapOf("kind_pointer", "/type", "kinds", mapOf("text", null,
@@ -268,6 +272,25 @@ class ProfileValidatorTest {
             map.put((String) pairs[index], pairs[index + 1]);
         }
         return map;
+    }
+
+    @Test
+    @DisplayName("a repeated path segment is a value, not an unchecked failure")
+    void repeatedPathSegmentAccepted() {
+        var fixture = ProfileFixtures.valid().set("/headless/writable_paths/0", "~/.cache/acme/acme");
+
+        ProfileValidator.validate(fixture.bytes(), DOCUMENT, ProfileRules.none());
+    }
+
+    @Test
+    @DisplayName("a number beyond the scale and precision bound is refused")
+    void oversizedDecimalRefused() {
+        var document = "{\"x\":1e1001}".getBytes(StandardCharsets.UTF_8);
+
+        var refusal = assertThrows(ProfileRefusal.class,
+                () -> JsonDocument.parse(document, DOCUMENT));
+
+        assertEquals("/x", refusal.pointer());
     }
 
     @Test

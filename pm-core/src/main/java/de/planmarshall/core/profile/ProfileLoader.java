@@ -27,6 +27,7 @@ import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 
 import de.planmarshall.core.store.EnrolmentSidecar;
+import de.planmarshall.core.store.StoreRefusal;
 
 /**
  * Loads the effective client profile set of a machine and a project (PM-CLIENT-5, Profile Sets).
@@ -213,9 +214,7 @@ public final class ProfileLoader {
             }
         } catch (ProfileRefusal refusal) {
             throw refusal;
-        }
-        /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
-        catch (RuntimeException | IOException e) {
+        } catch (StoreRefusal | IOException e) {
             throw ProfileRefusal.unverified(name, "the HMAC sidecar cannot be read: %s".formatted(e.getMessage()));
         }
     }

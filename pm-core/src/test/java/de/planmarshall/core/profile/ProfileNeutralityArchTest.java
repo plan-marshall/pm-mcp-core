@@ -42,8 +42,11 @@ import de.planmarshall.core.profile.fixtures.ClientNamedFixture;
 @DisplayName("Harness neutrality of the profile loader")
 class ProfileNeutralityArchTest {
 
-    /** The client ids no class of the loader may name, compared in lower case. */
-    private static final List<String> CLIENT_NAMES = List.of("claude", "opencode", "antigravity", "codex");
+    /**
+     * The client ids of harnesses that ship outside the profile set; the shipped profile ids are added from the
+     * resources, so a new shipped harness is guarded without a change here.
+     */
+    private static final List<String> FIXED_CLIENT_NAMES = List.of("claude", "opencode", "antigravity", "codex");
 
     private static final String PACKAGE = "de/planmarshall/core/profile";
 
@@ -65,15 +68,23 @@ class ProfileNeutralityArchTest {
     }
 
     private static Map<Path, Set<String>> violationsIn(List<Path> classFiles) throws IOException {
+        var clientNames = clientNames();
         var violations = new LinkedHashMap<Path, Set<String>>();
         for (var classFile : classFiles) {
             var text = Files.readString(classFile, StandardCharsets.ISO_8859_1).toLowerCase(Locale.ROOT);
-            var found = CLIENT_NAMES.stream().filter(text::contains).collect(Collectors.toCollection(TreeSet::new));
+            var found = clientNames.stream().filter(text::contains).collect(Collectors.toCollection(TreeSet::new));
             if (!found.isEmpty()) {
                 violations.put(classFile, found);
             }
         }
         return violations;
+    }
+
+    private static Set<String> clientNames() {
+        var names = new TreeSet<>(FIXED_CLIENT_NAMES);
+        ShippedProfiles.read().shipped().keySet().stream().map(name -> name.toLowerCase(Locale.ROOT))
+                .forEach(names::add);
+        return names;
     }
 
     private static List<Path> packageClasses() throws IOException {

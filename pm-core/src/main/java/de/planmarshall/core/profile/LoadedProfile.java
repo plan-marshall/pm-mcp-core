@@ -29,7 +29,7 @@ import java.util.Optional;
  * @since 0.1
  */
 public record LoadedProfile(String clientId, ProfileSetKind kind, JsonNode document, byte[] bytes, State state,
-        VerificationRecord record) {
+VerificationRecord record) {
 
     /** The state a verification record gives a profile. The set is closed. */
     public enum State {

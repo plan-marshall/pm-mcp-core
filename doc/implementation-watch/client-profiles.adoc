@@ -97,7 +97,8 @@ verification's and are not implemented either.
 Guard:: The loader validates the document, binds the record by digest and HMAC sidecar, compares the harness build and
 the supported range, checks the role-class declarations and carries the record on the loaded profile. The load-time
 stage/platform gate belongs to the launch path (`worker-launch`, not yet decided there); its control fixture is a record
-with a failing `faults` or `isolation` stage that must leave the harness ineligible.
+with a failing `faults` or `isolation` stage that must leave the harness ineligible. The launch path must also own the
+probe-workspace, decoy-server, and verifying-binary version/commit checks, or link each control to its own watch item.
 Source:: the work package `profile-loader` (PLAN-19) implemented the loader, the record, the sidecar and every hardening
 fixture and left this gate open; its pull request narrows this item instead of deleting it.
 

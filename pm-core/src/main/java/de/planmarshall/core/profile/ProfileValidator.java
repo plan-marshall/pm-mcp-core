@@ -551,8 +551,7 @@ public final class ProfileValidator {
          * meaning of a figure to the stage {@code usage} of the profile verification.
          */
         private void usage(JsonNode usage, String pointer) {
-            var members = Set.of("input_tokens", "output_tokens", "cache_read", "cache_creation", "reasoning",
-                    "cost_usd", "tool_uses");
+            var members = Set.copyOf(ProfileStages.USAGE_FIGURES);
             object(usage, pointer, "usage", members, members);
             for (var member : members) {
                 var value = required(usage, pointer, member);
@@ -762,8 +761,8 @@ public final class ProfileValidator {
                 var deadline = ackDeadline.integerValue().orElseThrow();
                 if (deadline != bounded + graceValue) {
                     throw invalid(pointer + "/ack_deadline_seconds",
-                            "with an informational acknowledgement the deadline is the bounded wait %d plus the grace "
-                                    + "%d, not %d".formatted(bounded, graceValue, deadline));
+                            ("with an informational acknowledgement the deadline is the bounded wait %d plus the grace "
+                                    + "%d, not %d").formatted(bounded, graceValue, deadline));
                 }
             }
             if (!headless.isNull()) {
@@ -958,16 +957,20 @@ public final class ProfileValidator {
         }
 
         private void noTraversal(String path, String pointer, String name) {
-            if (Set.of(path.split("/")).contains("..")) {
+            var segments = List.of(path.split("/", -1));
+            if (segments.contains("..")) {
                 throw invalid(pointer, "%s does not traverse with '..': '%s'".formatted(name, path));
             }
-            if (path.contains("//")) {
+            if (segments.contains(".") || path.contains("//") || path.endsWith("/")) {
                 throw invalid(pointer, "%s is normalized: '%s'".formatted(name, path));
             }
         }
 
         private boolean covers(String path, String managed) {
-            return path.equals(managed) || managed.startsWith(path + "/") || path.startsWith(managed + "/");
+            var normalizedPath = path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
+            var normalizedManaged = managed.endsWith("/") ? managed.substring(0, managed.length() - 1) : managed;
+            return normalizedPath.equals(normalizedManaged) || normalizedManaged.startsWith(normalizedPath + "/")
+                    || normalizedPath.startsWith(normalizedManaged + "/");
         }
 
         private void patternRule(String regex, String pointer) {

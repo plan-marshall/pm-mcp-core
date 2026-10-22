@@ -139,7 +139,11 @@ public final class JsonDocument {
 
     private static BigDecimal readDecimal(JsonParser parser, String pointer, String document) throws IOException {
         try {
-            return parser.getDecimalValue();
+            var value = parser.getDecimalValue();
+            if (value.precision() > 1000 || Math.abs((long) value.scale()) > 1000) {
+                throw ProfileRefusal.invalid(document, pointer, "a number outside the range of a profile");
+            }
+            return value;
         } catch (JsonProcessingException e) {
             throw ProfileRefusal.invalid(document, pointer, "a number that is not readable: " + e.getOriginalMessage());
         }
