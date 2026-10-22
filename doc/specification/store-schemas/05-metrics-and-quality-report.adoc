@@ -77,12 +77,13 @@ Aggregates are never persisted; they are derived in views from `rows[]`.
     "phase": { "type": "string", "enum": ["phase-1-init", "phase-2-refine", "phase-3-outline", "phase-4-plan", "phase-5-execute", "phase-6-finalize"] },
     "taskRow": {
       "type": "object",
-      "required": ["kind", "queue_task_id", "attempt", "role", "job_id", "generation_id", "harness", "harness_version", "model", "effort", "form", "phase", "step_id", "envelope_id", "predicted_cost", "outcome", "cause_class", "spend_class", "population", "total_tokens", "input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens", "reasoning_tokens", "tool_uses", "cost_usd", "unmeasured_reason", "duration_ms", "duration_basis", "queued_ms", "consultation_of", "recorded_at"],
+      "required": ["kind", "queue_task_id", "attempt", "role", "job_id", "generation_id", "harness", "harness_version", "model", "effort", "form", "phase", "step_id", "envelope_id", "predicted_cost", "outcome", "attempt_end", "cause_class", "spend_class", "population", "total_tokens", "input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens", "reasoning_tokens", "tool_uses", "cost_usd", "unmeasured_reason", "duration_ms", "duration_basis", "queued_ms", "consultation_of", "recorded_at"],
       "additionalProperties": false,
       "properties": {
         "kind": { "const": "task" },
         "queue_task_id": { "type": "string", "pattern": "^qt-[0-9a-f]{16}$" },
         "attempt": { "type": ["integer", "null"], "minimum": 1, "description": "The attempt of the queue task this row measures (Queue Task Record, attempts[]); null only for a task closed without an attempt (cause_class refused)." },
+        "attempt_end": { "type": ["string", "null"], "enum": ["closed", "worker_lost", "exited_without_submit", "waited_again", "budget", "start_failure", "restart", "drain", "paused", "off_track", "withdrawn", "deadline_expired", "suspended", null], "description": "How the attempt ended, copied from the queue task record (attempts[].end); null only for a task closed without an attempt (cause_class refused). It lets a roll-up by role, harness version, model, and effort count the attempts that ended with a clean exit and no submission (exited_without_submit)." },
         "role": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "Role of the task (identifiers.adoc, role name)." },
         "job_id": { "type": ["string", "null"], "pattern": "^l-[0-9a-f]{16}$", "description": "The worker that served the attempt; null only for a task closed without an attempt (cause_class refused)." },
         "generation_id": { "type": ["string", "null"], "pattern": "^l-[0-9a-f]{16}$", "description": "null only for a task closed without an attempt (cause_class refused)." },

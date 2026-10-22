@@ -57,6 +57,12 @@ final class PlanFixtures {
     /** The classpath resource of the plan template. */
     static final String TEMPLATE_FILE = "plan/plan-template-fixture.pmwf";
 
+    /** The classpath resource of the plan unit that models the per-lane phase calls and their rework. */
+    static final String PER_LANE_FILE = "plan/per-lane-rework.pmwf";
+
+    /** The identifiers of the phase units the per-lane plan unit calls. */
+    private static final List<String> PER_LANE_PHASE_UNITS = List.of("phase-plan", "phase-execute");
+
     /** The call site of the asking axis in the template, which calls {@link #QUESTIONS_ONLY}. */
     static final String ASK_SITE = "phases.ask";
 
@@ -369,5 +375,95 @@ final class PlanFixtures {
         return new CompositionRequest(PLAN_ID, event, units.get("plan"), templates, subUnits, facts,
                 PlanFacts.sha256("effective configuration"), Optional.empty(), Optional.empty(), List.of(), position,
                 previous, VERIFICATION_STEPS, FINALIZE_STEPS);
+    }
+
+    /**
+     * @return a composer with the shipped composition rules whose default units are the per-lane plan unit and the
+     *         phase units it calls
+     */
+    static PlanInstanceComposer perLaneComposer() {
+        var defaults = new ArrayList<WorkflowDefinition>();
+        defaults.add(parse(PER_LANE_FILE, read(PER_LANE_FILE), UnitOrigin.DEFAULT));
+        phaseUnits().forEach(subUnit -> defaults.add(subUnit.definition()));
+        return new PlanInstanceComposer(context(), defaults, InvariantFixtures.defaultRoster(),
+                ((CompositionRules.Loaded) CompositionRules.shipped()).rules(), Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
+    }
+
+    /**
+     * @param event    the composition event
+     * @param facts    the facts of the plan
+     * @param previous the version in force
+     * @param position the position of the plan
+     * @return the request over the per-lane plan unit, the project's unit, and the phase units it calls
+     */
+    static CompositionRequest perLaneRequest(CompositionEvent event, PlanFacts facts, Optional<PlanInstance> previous,
+            InstancePosition position) {
+        var text = read(PER_LANE_FILE);
+        return new CompositionRequest(PLAN_ID, event, parse(PER_LANE_FILE, text, UnitOrigin.PROJECT),
+                List.of(new UnitReference("plan", Optional.of(PER_LANE_FILE), PlanFacts.sha256(text),
+                        UnitOrigin.PROJECT)), phaseUnits(), facts, PlanFacts.sha256("effective configuration"),
+                Optional.empty(), Optional.empty(), List.of(), position, previous, VERIFICATION_STEPS,
+                FINALIZE_STEPS);
+    }
+
+    /**
+     * @return the phase units the per-lane plan unit calls, each with its reference
+     */
+    private static List<CompositionRequest.SubUnit> phaseUnits() {
+        return PER_LANE_PHASE_UNITS.stream().map(id -> subUnit(id + ".pmwf", phaseUnit(id))).toList();
+    }
+
+    /**
+     * A phase unit written for these tests: the exits a phase returns to the plan unit, so a call state of the
+     * per-lane fixture routes them to its own lane.
+     *
+     * @param id the identifier of the phase unit
+     * @return its text
+     */
+    private static String phaseUnit(String id) {
+        var prefix = id.replace('.', '-');
+        return """
+                ---
+                name: %1$s
+                description: A phase call target written for the composer tests.
+                type: subworkflow
+                entry: begin
+                exit: ready
+                exit: fix_requested
+                exit: loop_back
+                exit: returned
+                modification_date: 2026-10-21
+                version: 0.1.0
+                author: plan-marshall
+                ---
+                workflow %1$s version 1 format 1
+                scope subworkflow
+                entry begin -> %2$s.begin
+
+                state %2$s.begin
+                    phase inherit
+                    auto test.gate
+                        pass -> %2$s.ready
+                        deep -> %2$s.deliver
+
+                state %2$s.deliver
+                    phase inherit
+                    auto test.deliver
+                        completed -> %2$s.fix
+                        handed_back -> %2$s.loop
+                        returned -> %2$s.returned
+
+                state %2$s.ready terminal ready success
+                    phase inherit
+
+                state %2$s.fix terminal fix_requested success
+                    phase inherit
+
+                state %2$s.loop terminal loop_back success
+                    phase inherit
+
+                state %2$s.returned terminal returned failure
+                    phase inherit
+                """.formatted(id, prefix);
     }
 }

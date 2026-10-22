@@ -44,7 +44,10 @@ import java.util.regex.Pattern;
  * enrolment is signed, a template or provider argument vector with a placeholder other than {@code {module}} or with
  * {@code {module}} outside its module-argument group, a write path that is, lies below or contains the base directory,
  * and a build environment name that is a credential variable or one of {@code DBUS_SESSION_BUS_ADDRESS},
- * {@code XDG_RUNTIME_DIR}, {@code MVND_DAEMON_STORAGE}. The shell-metacharacter and forbidden-flag rules apply to
+ * {@code XDG_RUNTIME_DIR}, {@code MVND_DAEMON_STORAGE}; and an argument schema that matches a string by a
+ * {@code pattern} and admits a {@code maxLength} above {@link ArgumentSchema#PATTERN_MAX_LENGTH_CEILING}, at its root
+ * or in one of its properties, so the string handed to the backtracking engine is bounded by the schema's admission as
+ * well as by the enrolling project's choice. The shell-metacharacter and forbidden-flag rules apply to
  * what a caller supplies to a job and are applied at job time by the runtime's argument check, the last stage of its
  * verify-not-resolve pipeline.
  *
@@ -661,12 +664,24 @@ SortedMap<String, String> buildEnvironment) {
      * @param pattern    the pattern a string matches; {@code null} if absent
      * @param minimum    the least admitted number; {@code null} if absent
      * @param maximum    the greatest admitted number; {@code null} if absent
-     * @param maxLength  the greatest admitted length of a string, not negative; {@code null} if absent
+     * @param maxLength  the greatest admitted length of a string, not negative; a schema of type {@code string} that
+     *                   constrains a string by a {@code pattern} admits at most {@value #PATTERN_MAX_LENGTH_CEILING},
+     *                   and the enrolment policy refuses one above it; {@code null} if absent
      * @since 0.1
      */
     public record ArgumentSchema(SchemaType type, SortedMap<String, ArgumentSchema> properties,
     List<String> required, boolean closed, List<EnumValue> enumValues, String pattern, BigDecimal minimum,
     BigDecimal maximum, Long maxLength) {
+
+        /**
+         * The greatest {@code maxLength} a schema that matches a string by a {@code pattern} admits: 256 code points.
+         * A pattern is evaluated by a backtracking engine whose cost grows with the length of the string it is matched
+         * against, so the bound an enrolling project chooses is itself bounded rather than left to that project; an
+         * enrolment of a schema whose {@code maxLength} lies above this ceiling is refused, at the enrolment and at
+         * the re-baseline alike. A schema without a {@code pattern} is not bounded by it, because it never reaches the
+         * engine.
+         */
+        public static final long PATTERN_MAX_LENGTH_CEILING = 256;
 
         /**
          * @throws NullPointerException     if a key or an element is {@code null}

@@ -44,8 +44,11 @@ import de.planmarshall.runtime.job.JobRequest.Value;
  * budget, so its cost grows with the length of the string it is matched against. It is therefore matched only against
  * a string whose length {@code maxLength} has already bounded: {@code maxLength} is checked first, and a string
  * constrained by a {@code pattern} on a schema without {@code maxLength} is refused as
- * {@code pattern without maxLength at <path>} before any regular expression is compiled or evaluated. The subset has
- * no keyword for the elements of an array, so they are not constrained. The answer is
+ * {@code pattern without maxLength at <path>} before any regular expression is compiled or evaluated. The
+ * {@code maxLength} an enrolled schema may carry is itself bounded: an enrolment refuses a schema that matches a
+ * string by a {@code pattern} and admits more than {@link ArgumentSchema#PATTERN_MAX_LENGTH_CEILING} code points, so
+ * the string handed to the engine is bounded by the schema's admission as well as by the enrolled value. The subset
+ * has no keyword for the elements of an array, so they are not constrained. The answer is
  * the first violated keyword and the path of the value in the arguments ({@code $} for the arguments themselves,
  * {@code $.name} for a property), never the value, so it can be logged and returned.
  *

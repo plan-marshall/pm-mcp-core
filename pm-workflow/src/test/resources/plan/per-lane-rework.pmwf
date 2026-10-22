@@ -1,0 +1,156 @@
+---
+name: plan
+description: A plan unit with the per-lane phase calls and their rework, written for the composer tests.
+type: workflow
+modification_date: 2026-10-21
+version: 0.1.0
+author: plan-marshall
+---
+# A plan unit written for the composer tests, never copied from a unit of the product. The two lanes split at
+# init.ready: the deep lane enters refine.baseline-reconcile, the light lane init.light-gate. Each lane calls the
+# phases through its own call states — phases.plan and phases.execute for the deep lane, phases.plan-light and
+# phases.execute-light for the light lane — and each routes the rework exits of its calls to its own authoring
+# entry: fix_requested and loop_back re-enter outline.deep in the deep lane and outline.light-regate in the light
+# lane. No state of the deep route transitions into the light route. Every rework cycle passes an awaited job
+# (Rule 11b): outline.deep and refine.baseline-reconcile are model jobs, outline.light-review a build job. The deep
+# lane enters its plan call at outline.gate; the light lane enters its own through the approval of the light review.
+workflow plan version 1 format 1
+scope plan
+start init.ready
+
+state init.ready
+    phase init
+    auto test.lane
+        deep -> refine.baseline-reconcile
+        light -> init.light-gate
+
+state init.light-gate
+    phase init
+    auto test.gate
+        pass -> outline.light
+        deep -> refine.baseline-reconcile
+
+state refine.baseline-reconcile
+    phase refine
+    job llm change role refine
+        approved -> outline.deep
+        lost -> plan.return
+
+state outline.deep
+    phase outline
+    job llm change role outline
+        approved -> outline.gate
+        lost -> plan.return
+
+state outline.light
+    phase outline
+    auto test.proceed
+        done -> outline.light-regate
+
+state outline.light-regate
+    phase outline
+    auto test.gate
+        pass -> outline.light-review
+        deep -> outline.deep
+
+state outline.light-review
+    phase outline
+    job test.build
+        succeeded -> outline.light-approve
+        failed -> outline.light-regate
+        cancelled -> plan.return
+
+state outline.light-approve
+    phase outline
+    question review
+        approve -> phases.plan-light
+        revise -> outline.light-regate
+        returned -> plan.return
+
+state outline.gate
+    phase outline
+    auto test.proceed
+        done -> phases.plan
+
+state phases.plan
+    phase plan
+    call phase-plan
+        ready -> phases.execute
+        fix_requested -> outline.deep
+        loop_back -> outline.deep
+        returned -> plan.return
+        stepped_out -> finalize.hand-back
+
+state phases.plan-light
+    phase plan
+    call phase-plan
+        ready -> phases.execute-light
+        fix_requested -> outline.light-regate
+        loop_back -> outline.light-regate
+        returned -> plan.return
+        stepped_out -> finalize.hand-back
+
+state phases.execute
+    phase execute
+    call phase-execute
+        ready -> finalize.create-pr
+        fix_requested -> outline.deep
+        loop_back -> outline.deep
+        returned -> plan.return
+        stepped_out -> finalize.hand-back
+
+state phases.execute-light
+    phase execute
+    call phase-execute
+        ready -> finalize.create-pr
+        fix_requested -> outline.light-regate
+        loop_back -> outline.light-regate
+        returned -> plan.return
+        stepped_out -> finalize.hand-back
+
+state plan.return
+    phase finalize
+    auto test.proceed
+        done -> finalize.archive-plan
+
+state finalize.hand-back
+    phase finalize
+    auto test.proceed
+        done -> finalize.archive-plan
+
+state finalize.create-pr
+    phase finalize
+    auto test.proceed
+        done -> finalize.branch-cleanup
+            completes default:create-pr as done
+
+state finalize.branch-cleanup
+    phase finalize
+    auto test.proceed
+        done -> finalize.land
+            completes default:branch-cleanup as done
+
+state finalize.land
+    phase finalize
+    auto test.proceed
+        done -> finalize.archive-plan
+            completes default:emit-landing as done
+
+state finalize.archive-plan
+    phase finalize
+    auto test.deliver
+        completed -> completed
+            completes default:archive-plan as done
+        handed_back -> handed_back
+            completes default:archive-plan as done
+        returned -> returned
+            completes default:archive-plan as done
+
+state completed terminal completed success
+    phase finalize
+
+state handed_back terminal handed_back failure
+    phase finalize
+
+state returned terminal returned failure
+    phase finalize

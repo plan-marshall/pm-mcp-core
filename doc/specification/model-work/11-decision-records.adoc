@@ -165,6 +165,12 @@ The decision points are closed; a state that takes a decision of the table write
 |Its confidence
 |`FIX`, `SUPPRESS`, `ACCEPT`
 
+|`execute.own-call` (`envelope.task.active` on `submit:TASK-NNN`, one record per own call, link:../phase-workflows/03-q-gate-and-execute.adoc#own-calls[Phase Workflows Specification, Own Calls of a Writer])
+|`role` `implement`
+|`approach`
+|No threshold; the call's `touches` and, for a shortcut, its `site`, `limit`, and `ends_when`
+|the call, among the alternatives the writer weighed (not exported to the corpus: the alternatives are the writer's own, not a closed set)
+
 |`decision.interpret` (`decision.interpret`, xref:06-envelopes-questions-deadlines.adoc#own-words[Answers in the Operator's Own Words])
 |`role` `interpret`
 |the question's
@@ -196,7 +202,7 @@ Every closing link of a task whose state is a decision point of a role (`outline
 
 A question's decision records sit beside its question record; the question record keeps the question, its delivery, and the answer as received, and points to them (link:../store-schemas/14-plan-instance-waivers-questions.adoc#question-record[Store Schemas Specification, Question Record]):
 
-* *Adjudication*: The adjudication writes one `question.adjudicate` record per question of the set in its ending transaction (link:10-decision-quorum.adoc#adjudication-record[Ask or Quorum, Record]): the decider `quorum` with one vote per listed role (the role with its harness, model, `branch_key`, confidence, and rationale, and for a vote task its `queue_task_id` and task outcome) when votes were taken, else `server_rule` with the check's reason; every vote's confidence against the declared score and the agreeing votes against the listed roles as measurements; the agreed option with the reason `agreement`, or `null` with the escalation reason. Each question's `adjudicated` line names its record.
+* *Adjudication*: The adjudication writes one `question.adjudicate` record per question of the set in its ending transaction (link:10-decision-quorum.adoc#adjudication-record[Ask or Quorum, Record]): the decider `quorum` with one vote per listed role (the role with its harness, model, `branch_key`, confidence, and rationale with its origin, and for a vote task its `queue_task_id` and task outcome, and for a judgment role the probabilities of both requests) when votes were taken, else `server_rule` with the check's reason; every vote's confidence against the declared score and the agreeing votes against the listed roles as measurements; the agreed option with the reason `agreement`, or `null` with the escalation reason. Each question's `adjudicated` line names its record.
 * *Answer*: A question that closes `answered` other than through a quorum gets one `question.answer` record in the transaction of its `answered` line: the decider `operator` with its channel, device, the way the answer was taken, and whether it followed a chat; it `follows` the question's adjudication record. A decision closed `withdrawn` or `cancelled` gets no record of its own. The `answered` line names the record of the decision finally taken: the `question.answer` record, or the adjudication record of a `decided` set.
 * *Choice repeated once*: The record repeats the answered choice as its `choice`, so every decision record holds its choice; the question record stays the owner of the question and the options.
 

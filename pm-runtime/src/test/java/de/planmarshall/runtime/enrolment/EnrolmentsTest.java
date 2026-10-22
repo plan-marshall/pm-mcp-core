@@ -56,7 +56,13 @@ import de.planmarshall.core.store.EnrolmentCodec;
 import de.planmarshall.core.store.EnrolmentStore;
 import de.planmarshall.core.store.PairRecovery;
 import de.planmarshall.core.store.ProjectEnrolment;
+import de.planmarshall.core.store.ProjectEnrolment.ArgumentSchema;
+import de.planmarshall.core.store.ProjectEnrolment.Binding;
 import de.planmarshall.core.store.ProjectEnrolment.Build;
+import de.planmarshall.core.store.ProjectEnrolment.Interpreter;
+import de.planmarshall.core.store.ProjectEnrolment.ProjectScript;
+import de.planmarshall.core.store.ProjectEnrolment.SchemaType;
+import de.planmarshall.core.store.ProjectEnrolment.WorkerKind;
 import de.planmarshall.core.store.StoreDigest;
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.core.store.StoreRefusal.Outcome;
@@ -127,6 +133,23 @@ class EnrolmentsTest {
         return new ProjectEnrolment(projectId, "/home/dev/git/" + projectId, Instant.parse("2026-10-11T08:00:00Z"),
                 pilot, null, releasedAt, List.of(), List.of(), Build.defaults(), Map.of(), new TreeMap<>(),
                 new TreeMap<>(), new TreeMap<>(), List.of(), new TreeMap<>());
+    }
+
+    /** The enrolment with one approved project script whose argument schema is the given one. */
+    private static ProjectEnrolment withArgumentSchema(ProjectEnrolment enrolment, ArgumentSchema schema) {
+        var scripts = new TreeMap<String, ProjectScript>();
+        scripts.put("parse-log", new ProjectScript("scripts/parse-log.py", "0".repeat(64), Interpreter.PYTHON3,
+                new Binding(WorkerKind.LOG_PARSER, "maven"), schema, 60));
+        return new ProjectEnrolment(enrolment.projectId(), enrolment.projectRoot(), enrolment.enrolledAt(),
+                enrolment.pilot(), enrolment.containerEngine(), enrolment.releasedAt(), enrolment.wrappers(),
+                enrolment.hostTools(), enrolment.build(), enrolment.providers(), scripts,
+                enrolment.languageServers(), enrolment.commandBudgets(), enrolment.writePaths(),
+                enrolment.buildEnvironment());
+    }
+
+    /** A string schema that matches by this pattern and admits strings up to this maximal length. */
+    private static ArgumentSchema patternSchema(long maxLength) {
+        return new ArgumentSchema(SchemaType.STRING, null, null, false, null, "^[a-z]+$", null, null, maxLength);
     }
 
     /** @return a failure of the audit sink, prepared before the call that meets it */
@@ -261,6 +284,74 @@ class EnrolmentsTest {
             enrolments.enrol(enrolment(true, null), false);
 
             assertFalse(verify().pilot());
+        }
+
+        @Test
+        @DisplayName("admits an argument schema whose pattern's maxLength is at the global ceiling")
+        void admitsPatternAtCeiling() {
+            var ceiling = ArgumentSchema.PATTERN_MAX_LENGTH_CEILING;
+
+            var written = enrolments.enrol(withArgumentSchema(enrolment(false, null), patternSchema(ceiling)), false);
+            var schema = written.projectScripts().get("parse-log").argumentSchema();
+
+            assertAll(
+                    () -> assertEquals(written, verify()),
+                    () -> assertEquals(ceiling, schema.maxLength().longValue()));
+        }
+
+        @Test
+        @DisplayName("refuses an argument schema whose pattern's maxLength is above the ceiling, writing nothing")
+        void refusesPatternAboveCeiling() {
+            var above = ArgumentSchema.PATTERN_MAX_LENGTH_CEILING + 1;
+
+            var candidate = withArgumentSchema(enrolment(false, null), patternSchema(above));
+
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(candidate, false));
+
+            assertAll(
+                    () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome()),
+                    () -> assertTrue(refusal.getMessage().contains("maxLength " + above), refusal.getMessage()),
+                    () -> assertFalse(Files.exists(store.file(PROJECT))),
+                    () -> assertFalse(Files.exists(store.sidecar(PROJECT))));
+        }
+
+        @Test
+        @DisplayName("refuses a nested property above the ceiling and reports its name literally")
+        void refusesNestedPropertyAboveCeiling() {
+            var above = ArgumentSchema.PATTERN_MAX_LENGTH_CEILING + 1;
+            var properties = new TreeMap<String, ArgumentSchema>();
+            properties.put("100%s", patternSchema(above));
+            var root = new ArgumentSchema(SchemaType.OBJECT, properties, null, false, null, null, null, null, null);
+
+            var candidate = withArgumentSchema(enrolment(false, null), root);
+
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(candidate, false));
+
+            assertAll(
+                    () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome()),
+                    () -> assertTrue(refusal.getMessage().contains("100%s"), refusal.getMessage()),
+                    () -> assertTrue(refusal.getMessage().contains("maxLength " + above), refusal.getMessage()),
+                    () -> assertFalse(Files.exists(store.file(PROJECT))));
+        }
+
+        @Test
+        @DisplayName("refuses an untyped schema above the ceiling and admits a non-string one")
+        void untypedAndNonStringSchemas() {
+            var above = ArgumentSchema.PATTERN_MAX_LENGTH_CEILING + 1;
+            var untyped = new ArgumentSchema(null, null, null, false, null, "^[a-z]+$", null, null, above);
+            var objectSchema = new ArgumentSchema(SchemaType.OBJECT, new TreeMap<>(), null, false, null, "^[a-z]+$",
+                    null, null, above);
+
+            var candidate = withArgumentSchema(enrolment(false, null), untyped);
+
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(candidate, false));
+            var written = enrolments.enrol(withArgumentSchema(enrolment(false, null), objectSchema), false);
+
+            assertAll(
+                    () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome()),
+                    () -> assertTrue(refusal.getMessage().contains("maxLength " + above), refusal.getMessage()),
+                    () -> assertEquals(above,
+                            written.projectScripts().get("parse-log").argumentSchema().maxLength().longValue()));
         }
     }
 

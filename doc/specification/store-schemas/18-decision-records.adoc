@@ -28,7 +28,7 @@ Every decision a scope takes at a decision point is one `decided` line of the sc
     "decision_id": { "type": "string", "pattern": "^D-[0-9]{4,7}$" },
     "vote": {
       "type": "object",
-      "required": ["role", "asker", "harness", "model", "queue_task_id", "task_outcome", "branch_key", "confidence", "rationale"],
+      "required": ["role", "asker", "harness", "model", "queue_task_id", "task_outcome", "branch_key", "confidence", "rationale", "rationale_origin", "probabilities"],
       "additionalProperties": false,
       "description": "One vote of a quorum decision: a listed role's answer from its vote task, or the asking role's recommendation when the declaration lists it (asker true, without a task).",
       "properties": {
@@ -40,7 +40,18 @@ Every decision a scope takes at a decision point is one `decided` line of the sc
         "task_outcome": { "type": ["string", "null"], "enum": ["submitted", "infeasible", "lost", null], "description": "The vote task's outcome; null for the asking role's vote." },
         "branch_key": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]{1,31}$", "description": "The chosen option; null for a vote task without a valid answer." },
         "confidence": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
-        "rationale": { "type": ["string", "null"], "maxLength": 500 }
+        "rationale": { "type": ["string", "null"], "maxLength": 500 },
+        "rationale_origin": { "type": "string", "enum": ["model", "server"], "description": "server: composed by the server from a judgment role's probabilities, never a model's reasoning." },
+        "probabilities": {
+          "type": ["object", "null"],
+          "description": "A judgment role's vote only (Ask or Quorum, Judgment Votes): the probability of every option in each of the two requests; null for every other vote.",
+          "required": ["sorted", "reversed"],
+          "additionalProperties": false,
+          "properties": {
+            "sorted": { "type": "object", "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 } },
+            "reversed": { "type": "object", "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 } }
+          }
+        }
       }
     },
     "decider": {

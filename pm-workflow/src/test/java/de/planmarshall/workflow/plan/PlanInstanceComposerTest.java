@@ -109,6 +109,23 @@ class PlanInstanceComposerTest {
         return new PrunedElement(Kind.CALL, ASK_SITE + "/" + variant, PruneReason.PLAN_DEFAULT, sourceFact);
     }
 
+    /** @return whether the auto, job or call state of the instance routes the outcome to the target */
+    private static boolean routes(PlanInstance instance, String state, String outcome, String target) {
+        var transitions = switch (instance.unit().states().get(state).behavior()) {
+            case StateBehavior.AutoStep step -> step.transitions();
+            case StateBehavior.JobStep job -> job.transitions();
+            case StateBehavior.SubWorkflowCall call -> call.transitions();
+            default -> List.<OutcomeTransition>of();
+        };
+        return transitions.stream().anyMatch(transition -> outcome.equals(transition.outcomeName())
+                && target.equals(transition.targetStateId()));
+    }
+
+    /** @return the elements the composition pruned by lane */
+    private static List<PrunedElement> otherLane(PlanInstanceHeader header) {
+        return header.pruned().stream().filter(prune -> prune.reason() == PruneReason.OTHER_LANE).toList();
+    }
+
     @Nested
     @DisplayName("Composed version")
     class Composed {
@@ -687,22 +704,6 @@ class PlanInstanceComposerTest {
             return composed(atOutline(lane, lane == Lane.DEEP ? "outline.deep" : "outline.light", List.of()));
         }
 
-        private static List<PrunedElement> otherLane(PlanInstanceHeader header) {
-            return header.pruned().stream().filter(prune -> prune.reason() == PruneReason.OTHER_LANE).toList();
-        }
-
-        /** @return whether the auto, job or call state of the instance routes the outcome to the target */
-        private static boolean routes(PlanInstance instance, String state, String outcome, String target) {
-            var transitions = switch (instance.unit().states().get(state).behavior()) {
-                case StateBehavior.AutoStep step -> step.transitions();
-                case StateBehavior.JobStep job -> job.transitions();
-                case StateBehavior.SubWorkflowCall call -> call.transitions();
-                default -> List.<OutcomeTransition>of();
-            };
-            return transitions.stream().anyMatch(transition -> outcome.equals(transition.outcomeName())
-                    && target.equals(transition.targetStateId()));
-        }
-
         @Test
         @DisplayName("a deep version composed at outline holds no state of the light route, lists each other_lane, and"
                 + " verifies")
@@ -801,6 +802,73 @@ class PlanInstanceComposerTest {
 
             assertEquals(InvariantFixtures.LIGHT_ROUTE, otherLane(instance.header()).stream()
                     .map(PrunedElement::id).toList());
+        }
+    }
+
+    /**
+     * The per-lane rework of the plan unit's phase calls, over {@code plan/per-lane-rework.pmwf}: a {@code deep}
+     * version prunes the light call states and the light outline route with {@code other_lane} while its own calls keep
+     * routing their rework to {@code outline.deep}, a {@code light} version keeps both routes and routes the light
+     * calls' rework to {@code outline.light-regate}.
+     */
+    @Nested
+    @DisplayName("Per-lane rework")
+    class PerLaneRework {
+
+        private static final InstancePosition AT_INIT = InstancePosition.at("init.ready");
+
+        private static PlanFacts factsOf(Lane lane) {
+            return facts().lane(lane).build();
+        }
+
+        private static PlanInstance version1(Lane lane) {
+            return composed(PlanFixtures.perLaneComposer().compose(PlanFixtures.perLaneRequest(
+                    CompositionEvent.START, factsOf(lane), Optional.empty(), AT_INIT)));
+        }
+
+        private static PlanInstance outline(Lane lane) {
+            return composed(PlanFixtures.perLaneComposer().compose(PlanFixtures.perLaneRequest(
+                    CompositionEvent.OUTLINE, factsOf(lane), Optional.of(version1(lane)),
+                    InstancePosition.at(lane == Lane.DEEP ? "outline.deep" : "outline.light"))));
+        }
+
+        @Test
+        @DisplayName("a deep version prunes the light call states and the light outline route with other_lane, keeps"
+                + " its own calls' rework on outline.deep, and verifies")
+        void deepPrunesLightCalls() {
+            var instance = outline(Lane.DEEP);
+
+            assertAll(
+                    () -> assertEquals(CompositionEvent.OUTLINE, instance.header().event()),
+                    () -> assertEquals(List.of("init.light-gate", "outline.light", "outline.light-regate",
+                                    "outline.light-review", "outline.light-approve", "phases.plan-light",
+                                    "phases.execute-light"),
+                            otherLane(instance.header()).stream().map(PrunedElement::id).toList()),
+                    () -> assertTrue(instance.unit().states().keySet().containsAll(List.of("phases.plan",
+                            "phases.execute", "outline.deep", "refine.baseline-reconcile"))),
+                    () -> assertTrue(routes(instance, "phases.plan", "fix_requested", "outline.deep"),
+                            "the deep plan call re-enters the deep authoring entry"),
+                    () -> assertTrue(routes(instance, "phases.execute", "loop_back", "outline.deep"),
+                            "the deep execute call re-enters the deep authoring entry"),
+                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header())));
+        }
+
+        @Test
+        @DisplayName("a light version keeps both routes and routes the light calls' rework to outline.light-regate")
+        void lightKeepsBothRoutes() {
+            var instance = outline(Lane.LIGHT);
+
+            assertAll(
+                    () -> assertEquals(List.of(), otherLane(instance.header())),
+                    () -> assertTrue(routes(instance, "phases.plan", "fix_requested", "outline.deep"),
+                            "the deep call state keeps its own rework entry"),
+                    () -> assertTrue(routes(instance, "phases.plan-light", "fix_requested", "outline.light-regate"),
+                            "the light plan call re-enters the light authoring entry"),
+                    () -> assertTrue(routes(instance, "phases.execute-light", "loop_back", "outline.light-regate"),
+                            "the light execute call re-enters the light authoring entry"),
+                    () -> assertTrue(routes(instance, "outline.light-review", "failed", "outline.light-regate"),
+                            "the light review re-enters the light re-gate"),
+                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header())));
         }
     }
 

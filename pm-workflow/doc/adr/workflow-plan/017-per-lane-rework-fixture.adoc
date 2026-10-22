@@ -1,0 +1,81 @@
+= ADR 017: A Fixture Whose Per-Lane Call States Prove the Rework Routes
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-21
+
+== Context
+
+ADR link:012-per-lane-routes-and-other-lane-pruning.adoc[012] gives each lane its own rework and replan routes: the
+rework of a phase call re-enters the authoring entry of the calling lane, `outline.deep` for `deep` and
+`outline.light-regate` for `light` (link:../../../../doc/specification/state-catalogue/18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[State
+Catalogue § Plan Unit], the `phases.<phase>` call states).
+
+The composer tests proved those routes over the merged phase files of `unit-fixtures/defaults/`. That fixture models the
+phases as states of one unit, and its Phases 4 and 5 are shared after `outline.gate`, so its rework enters
+`outline.deep` from both lanes — the shape ADR
+link:013-default-plan-unit-in-the-specification-and-test-fixtures.adoc[013] gives the fixture units. The plan unit of
+the specification instead calls the phases through *per-lane* call states, `phases.plan` and `phases.execute` for the
+`deep` lane and `phases.plan-light` and `phases.execute-light` for the `light` lane, and each of them routes its rework
+to its own lane's authoring entry. No fixture held that shape, so a regression that routed a light call's `fix_requested`
+into `outline.deep`, or a deep call's into `outline.light-regate`, passed every test, and so did a fixture whose light
+call states stayed in a deep version.
+
+== Decision
+
+* Add the plan unit `src/test/resources/plan/per-lane-rework.pmwf`, a complete unit of the type `workflow`, the id
+  `plan` and the scope `plan` in one file: the two lane entries `refine.baseline-reconcile` and `init.light-gate` at the
+  split of `init.ready`; a call state per lane for the phases `plan` and `execute`; `fix_requested` and `loop_back` of the deep call states
+  re-entering `outline.deep`, those of the light call states `outline.light-regate`; a light review job whose failure
+  re-enters `outline.light-regate`; no transition from a deep state into the light route; and an awaited job on every
+  rework cycle (Rule 11b).
+* Add `PlanFixtures.perLaneComposer()` and `PlanFixtures.perLaneRequest(event, facts, previous, position)` over that
+  file, with the registries of `InvariantFixtures`, and the phase call targets `phase-plan` and `phase-execute` written
+  in `PlanFixtures` itself: the fixture must be one file, and a called sub-workflow needs declared entries and exits.
+* Add the nested class `PerLaneRework` to `PlanInstanceComposerTest`: it composes the fixture at `start` and then at
+  `outline` for `Lane.DEEP` and `Lane.LIGHT` and asserts the `other_lane` prune of the light call states and of the
+  light outline route in the deep version, the deep calls' rework on `outline.deep`, the light version keeping both
+  routes with the light calls' rework on `outline.light-regate`, and an empty `HeaderSchemaCheck` in both versions.
+* The fixture lives beside `plan-template-fixture.pmwf` under `plan/`, not under `unit-fixtures/defaults/`: it declares
+  the unit id `plan`, so it would collide with `plan.pmwf` of the loaded default population, and `PlanFixtures` reads it
+  by explicit path.
+
+== Alternatives Considered
+
+1. *Extend the merged phase files of `unit-fixtures/defaults/` with per-lane call states.* _Not taken_: those phases
+   are shared after `outline.gate`, so a call state with its own rework route cannot be added without changing what every
+   other composer and invariant test composes; and the fixture's light route must stay prunable, which a shared phase
+   cannot be.
+2. *Compose a call-only plan unit, without the phase states.* _Not taken_: the phase invariants run over the composed
+   unit. Most of their checks are reference-relative — `requirePresent` reports a missing state only when the reference
+   unit carries it, and a unit that is its own default supplies no reference target — but `INV-FIN-1` is absolute: its
+   mandatory step completions come from the finalize roster, not from the reference unit. A unit with call states only
+   satisfies the call contract but carries none of the phase states that check names.
+3. *Assert the routing on the merged fixtures alone.* _Not taken_: that is the state that let the defect through; the
+   merged fixture has no light call state to route.
+
+== Consequences
+
+* A light call state that routes its rework into the deep authoring entry, a deep one that routes into the light route,
+  and a deep version that keeps the light call states each fail `PlanInstanceComposerTest` `PerLaneRework`.
+* The lane entry ids are declared once in `LaneEntryIds` (link:../workflow-verify/030-lane-entry-ids-in-one-holder.adoc[ADR
+  workflow-verify 030]); `InstancePruner` and the invariant checks read them from there. The fixture
+  `per-lane-rework.pmwf` and `PerLaneRework.deepPrunesLightCalls` repeat them as text. Renaming only the constants
+  leaves the fixture unchanged, so `InstancePruner.otherLane` prunes nothing and `deepPrunesLightCalls` fails.
+* *For the assembly in `plan-marshall-mcp`*: test resources and tests of `workflow.plan` only; no production type
+  changes.
+* The fixture is written for these tests and never copied from the shipped content, as ADR
+  link:013-default-plan-unit-in-the-specification-and-test-fixtures.adoc[013] requires of the fixture units.
+
+== Source
+
+* link:../../../../doc/specification/state-catalogue/18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[State Catalogue § Plan Unit]
+* link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#composition-rules[Workflow DSL § Composition Rules] (Lanes)
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules] (Rule 11b)
+* link:../../developer/workflow-plan.adoc#_lane_pruning[Plan Instance Developer Guide § Lane Pruning]
+* link:../../developer/workflow-verify.adoc#_testing[Workflow Verification Developer Guide § Testing]

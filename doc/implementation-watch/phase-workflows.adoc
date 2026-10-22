@@ -1683,3 +1683,37 @@ speculative configurability; the review role must list both, the first at the se
 Fixture:: nifi-extensions `2026-07-10-issue-416` (unrequested trusted-proxy properties with a changed default,
 merged); the duplicate-member delete of the article analysis `fixing-over-engineering`.
 Source:: Article analysis `fixing-over-engineering` of plan-marshall-documentation.
+
+[#PM-WATCH-PHASE-113]
+=== PM-WATCH-PHASE-113: A writer's own calls are stated, not left in the diff
+
+Anchor:: link:../specification/phase-workflows/03-q-gate-and-execute.adoc#own-calls[Phase Workflows § Own Calls of a Writer]
+Hazard:: An empty `own_calls` list is the cheapest answer and reads like a task that settled nothing. A writer that
+replaces a dependency or bounds a buffer to make a measure look good states nothing, and the pull request shows a
+clean section. A call that chooses against an operator's decision slips through as an own call instead of a question,
+and a shortcut whose site is not in the task's diff points at nothing.
+Guard:: Tests submit a plan task without `own_calls` (refused), with a `touches` identifier the records do not hold
+(refused), with a call against a `DC` item of decider `operator` (refused, the detail names the item), with a
+`shortcut` whose `site` is outside the Task Diff Record (refused), and with an empty list (accepted). The pull-request
+section, the landing record, and the completion report list the calls of a fixture plan, shortcuts first. Corpus
+fixture of the writer category: a task whose plan leaves one choice open (a bounded queue that drops on overflow
+against an unbounded one); the scenario observes the call in the submission and reports the share of runs that state
+it, per client and model.
+Source:: Article analysis `barely-read-the-code` of plan-marshall-documentation (the rewrite whose agent replaced a
+message broker and removed a security token without saying so).
+
+[#PM-WATCH-PHASE-114]
+=== PM-WATCH-PHASE-114: The change map is computed from both trees, never from a checkout
+
+Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#change-map[Phase Workflows § Change Map]
+Hazard:: The base side of the map needs the tree at `base_ref`. Checking it out in the worktree destroys the plan's
+uncommitted state; reading it through a second crawl that differs from the live crawl draws edges that do not exist
+or loses real ones, and a parse failure on one side shows a module as removed. A removed dependency that is drawn but
+never judged is a picture nobody acts on.
+Guard:: Tests compute the map for fixture repositories whose base and head differ by an added module, a removed module
+edge, and a replaced coordinate, and compare it with the crawl of each tree checked out in a scratch directory (equal).
+A descriptor that fails to parse at `base_ref` yields `partial` with its diagnostic, never `modules_removed`. The
+worktree's status is unchanged after the map is computed. The self-review is refused when it omits a result for a
+replaced coordinate that no own call names.
+Source:: Article analysis `barely-read-the-code` of plan-marshall-documentation (the operator reads a diagram of the
+change before its code).
