@@ -16,7 +16,7 @@ workstream: WS-05
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R15, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R15, R17, R18.
 
 Plan parameters (the values the rules ask for):
 
@@ -33,7 +33,7 @@ The bullets of `doc/plans/waits.adoc` § What, in its words (regenerated at 710d
 
 1. The bounded long-poll and the progress-reset wait, selected by the server from the client profile and the request's progress token, for the only waits a model holds: `pm_wait`, and a running `pm_build` from Milestone 6 on.
 
-**Done when** (the package's own acceptance): With a virtual clock: a bounded wait answers at its window; a progress wait emits no gap longer than the interval; the selection follows profile and token in all four combinations. **Sonar:** the SonarCloud search of the pull request (`pullRequest=<N>&resolved=false`) lists no open issue other than one dismissed with its reason, and its quality gate is green, before the pull request is reported ready.
+**Done when** (the package's own acceptance): With a virtual clock: a bounded wait answers at its window; a progress wait emits no gap longer than the interval; the selection follows profile and token in all four combinations. **Package bookkeeping:** `doc/plans/waits.adoc` and its row of `doc/plans/README.adoc` are removed in the same pull request, the covered sections of the specification and watch documents named in the Expected Surface are deleted, and the links check (R17, absolute paths of the sibling checkout) reports `BROKEN LINKS 0`, the run recorded in the pull request body. **Build:** `verify`, `verify -Ppre-commit` (its rewrites reviewed and committed) and `verify -Pcoverage` (80 % instruction and branch per module) are green; `pm-workflow` has no integration-test profile. **Sonar:** the SonarCloud search of the pull request (`pullRequest=<N>&resolved=false`) lists no open issue other than one dismissed with its reason, and its quality gate is green, before the pull request is reported ready.
 
 **Trace starting set** (the requirements, use cases and roadmap live in `../plan-marshall-documentation`; the specifications and watch documents of the engine in this repository, `doc/specification/` and `doc/implementation-watch/`):
 
@@ -95,7 +95,7 @@ None beyond the standing rules named in the First Instruction above.
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-25-waits.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-25-waits.md
 ```
 
 ## Write-Boundary
