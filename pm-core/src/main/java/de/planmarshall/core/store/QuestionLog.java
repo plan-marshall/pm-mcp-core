@@ -452,8 +452,9 @@ public final class QuestionLog {
 
     /**
      * Checks that an asked line that is not the first question of its set joins a set the same append has just asked:
-     * no set of the log holds it, the question it names is that set's own first question, and that question is still at
-     * revision 1, so a revision begun earlier in the append already excludes the further part.
+     * no set of the log holds it, the question it names is that set's own first question, that question is still open,
+     * and it is still at revision 1, so a revision or a closing line begun earlier in the append already excludes the
+     * further part.
      */
     private static void requirePartOfNewSet(Map<String, Question> questions, Set<String> askedBefore, String id,
             String set) {
@@ -470,6 +471,11 @@ public final class QuestionLog {
         if (!named.questionSet.equals(set)) {
             throw new IllegalArgumentException(
                     "The question %s names %s as its set, which is no first question of a set".formatted(id, set));
+        }
+        if (named.closed) {
+            throw new IllegalArgumentException(
+                    "The set %s is closed already; a set is asked whole, and a further part needs a new decision"
+                            .formatted(set));
         }
         if (named.revision != 1) {
             throw new IllegalArgumentException(

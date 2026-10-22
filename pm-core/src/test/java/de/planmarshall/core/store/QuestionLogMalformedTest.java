@@ -111,6 +111,18 @@ class QuestionLogMalformedTest extends QuestionLogFixture {
     }
 
     @Test
+    @DisplayName("asking a part after the first question of its set was closed in the same append is refused")
+    void partAfterFirstQuestionClosedInOneAppend() {
+        var fault = assertThrows(IllegalArgumentException.class,
+                () -> write(t -> log.append(t, List.of(asked("Q-001", "Q-001"), answered("Q-001", 1),
+                        asked("Q-002", "Q-001")))));
+
+        assertAll(
+                () -> assertTrue(fault.getMessage().contains("closed already"), fault.getMessage()),
+                () -> assertFalse(Files.exists(log.store()), "the refused append adds nothing"));
+    }
+
+    @Test
     @DisplayName("a set not named by its first question, a line of another event, or no line is refused")
     void wrongShape() {
         assertAll(
