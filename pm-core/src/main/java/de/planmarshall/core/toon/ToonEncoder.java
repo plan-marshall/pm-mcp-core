@@ -70,7 +70,7 @@ public final class ToonEncoder {
      */
     private static final char BYTE_ORDER_MARK = '\uFEFF';
 
-    private static final Pattern NUMERIC_LIKE = Pattern.compile("^[+-]?[0-9]+(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?$");
+    private static final Pattern NUMERIC_LIKE = Pattern.compile("^[+-]?\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$");
     private static final Pattern UNQUOTED_KEY = Pattern.compile("^[A-Za-z_][A-Za-z0-9_.]*$");
     private static final BigDecimal PLAIN_MIN = new BigDecimal("1e-6");
     private static final BigDecimal PLAIN_LIMIT = new BigDecimal("1e21");
@@ -310,9 +310,9 @@ public final class ToonEncoder {
 
     private static String primitive(ToonValue value, boolean root) {
         return switch (value) {
-            case ToonString string -> string(string.value(), root);
-            case ToonNumber number -> number(number.value());
-            case ToonBoolean bool -> String.valueOf(bool.value());
+            case ToonString(String string) -> string(string, root);
+            case ToonNumber(BigDecimal number) -> number(number);
+            case ToonBoolean(boolean bool) -> String.valueOf(bool);
             case ToonNull _ -> "null";
             default -> throw new IllegalStateException("not a primitive: " + value);
         };
