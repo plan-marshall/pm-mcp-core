@@ -708,7 +708,9 @@ its gate, mode and reason class, and only a `raise` carries a `value`.
 `WaiverRecordCodec`:: Reads and writes one line strictly; a refused line names its file and line.
 `WaiverLog`:: `plans/<plan_id>/waivers.jsonl`; only a plan has one. `append(transaction, waiver)` adds one line as an
 append target to the plan's transaction. `read()` takes no lock; `Lines.current(waiverId)` is the last readable line
-of the id and `currentWaivers()` the current state of every waiver.
+of the id and `currentWaivers()` the current state of every waiver. A second line with the id of a waiver the log
+already holds is legal and is how a waiver is revoked or raised again: the line before it stays, and the last readable
+line is the current state of the id, taken whole.
 `WaiverConsumptionRecord`:: One evaluation of a waivable gate that admitted a failure because a `met` waiver was set:
 the waiver, the gate, the state, the commit (`head_sha`), the instant and what it admitted (`covered`).
 `WaiverConsumptionCodec`, `WaiverConsumptionLog`:: The codec of a consumption line and the log
@@ -735,7 +737,10 @@ that answered it (`Answered`: channel, device, reason of a decline, instant) and
 request has no time limit and stays pending, without an outcome, until the operator answers it or the plan ends.
 `WorkflowStatus.waiverRequests()`:: The requests in the order of the document. The member is kept for plan scopes
 only; a request in the status of an epic or the workspace is refused, and a `null` list is refused. An absent member
-reads as no request, and the codec always writes the member, as `[]` when it is empty.
+reads as no request, and the codec always writes the member, as `[]` when it is empty. Each request id occurs at most
+once, and at most one request is pending at a time: a document that breaks either is refused as unreadable naming the
+member, and a status built with either is refused by `WorkflowStatus` (`IllegalArgumentException`) before it can be
+written (link:../adr/core-store/041-a-waiver-request-is-held-once-and-one-is-pending.adoc[ADR 041]).
 
 [#_question_log]
 === The Question Log
@@ -775,11 +780,17 @@ caller: transaction.commit()
 
 * *Exactly one closing line*: a line about a closed question, a second closing line among the appended ones included,
   is `AlreadyAnswered`, and nothing of the append is added. A revision is never a way to reopen a closed question.
+* *Asked whole*: a decision is asked as one set, and its parts are fixed at that moment. A line that asks a further
+  part into a set the log already holds is a fault of the caller: a change of the decision is a revision of the
+  questions that are open, never a part added to the set
+  (link:../adr/core-store/040-a-question-set-is-asked-whole.adoc[ADR 040]).
 * *The current revision*: an answer, an adjudication and a delivery name the revision of the last `asked` or `revised`
   line of their question; another one is a `Conflict` carrying the current revision. A revision revises every question
   of its set that is open when it begins, at its first `revised` line within the append, each with exactly the next
   revision, the one after its current revision. A question of the set the same append answers or withdraws after
-  revising it stays covered by the revision; a question closed before the revision begins is not part of it.
+  revising it stays covered by the revision; a question closed before the revision begins is not part of it. The
+  `decision` of the set is carried on the line of its first question and only there, as on an `asked` line; once that
+  question is closed the set carries no changed decision, so a changed decision then needs a new decision.
 * *Decided under the lock*: the log is read while the caller's transaction holds the scope lock, so no other append
   comes between the check and the write
   (link:../adr/core-store/033-question-invariants-held-by-the-store-as-refusal-values.adoc[ADR 033]).
@@ -790,9 +801,11 @@ caller: transaction.commit()
   `currentRevision`) count readable lines only, so a caller consults `refused()` first and reports a question unreadable
   when the log holds a refused line; a refused line is never taken for an open question by the append gate
   (link:../adr/core-store/039-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR 039]).
-* *A malformed append is the caller's fault*: a question asked twice, a line about a question the log does not have, a
-  revised line that does not name the next revision, a set revised in part, an empty append or a line of another event than the method's is an `IllegalArgumentException`,
-  not a refusal value.
+* *A malformed append is the caller's fault*: a question asked twice, a part asked into a set the log holds, a part
+  whose `question_set` is no first question of a set, a line about a question the log does not have, a revised line
+  that does not name the next revision, a set revised in part, a decision on a revised line of another question than
+  the first, an empty append or a line of another event than the method's is an `IllegalArgumentException`, not a
+  refusal value.
 
 *The move of an entry's questions.* A client opens an entry for a scope that does not exist yet, and its questions go
 into the entry's log. When the bootstrap creates the plan or the epic, `QuestionLog.moveEntryQuestions(workspace,
@@ -843,7 +856,9 @@ process (link:../adr/core-store/037-project-resolution-file-based-from-the-point
   `gitdir:`, the `commondir` of that git directory, which must be a directory named `.git` whose `worktrees` directory
   holds the git directory, and the `gitdir` record that names the `.git` file back. A symbolic link, a pointer file that
   names no path, and every failure to read is no main checkout.
-. The main checkout is matched against the `project_root` of every enrolment file, read without a lock.
+. The main checkout is matched against the `project_root` of every enrolment file, read without a lock. Exactly one
+  readable match resolves only when every enrolment file was read; a file that was refused makes the match
+  unprovable, because it may name the same root, and the resolution is `EnrolmentRefused` with that file's refusal.
 . The toplevel is the main checkout, or a worktree directly below `<project_root>/.marshall/local/worktrees/` whose
   name is a plan id or `_epics`.
 
@@ -851,7 +866,8 @@ process (link:../adr/core-store/037-project-resolution-file-based-from-the-point
 |===
 |Result |When
 
-|`MainCheckout(projectId)` |the toplevel is the main checkout of exactly one readable enrolment
+|`MainCheckout(projectId)` |the toplevel is the main checkout of exactly one readable enrolment, and every enrolment
+file was read
 |`Worktree(projectId, worktree)` |the toplevel is a plan worktree or the shared epic worktree of that project
 |`NotEnrolled(NO_WORK_TREE)` |no ancestor holds a `.git`
 |`NotEnrolled(UNRECOGNISED_GIT)` |the `.git` is neither a directory nor a `.git` file that passes the checks, a
@@ -863,7 +879,9 @@ name below the worktrees with the prefix `baseline-`, refused by the prefix alon
 grammar decides it and no such name is ever taken for a plan worktree
 |`NotEnrolled(FOREIGN_TOPLEVEL)` |a worktree of the project elsewhere, or below the worktrees with another name
 |`RootConflict(projectIds)` |more than one readable enrolment names the main checkout (`enrolment_root_conflict`)
-|`EnrolmentRefused(refusal)` |no readable enrolment names the main checkout and an enrolment file was refused
+|`EnrolmentRefused(refusal)` |an enrolment file was refused or could not be read: the match cannot be shown to be
+the only one, because the refused file may name the main checkout too. Two readable matches are `RootConflict`
+first
 |===
 
 Every `NotEnrolled` carries the outcome code `project_not_enrolled`; its reason is a diagnostic. No result holds the
@@ -882,6 +900,8 @@ runtime's per-use check: `pm-core` holds no key, and the caller checks the HMAC 
   each request.
 * *Missing read as empty*: an absent store identity, an unreadable enrolment file and an unreadable line are outcomes
   of their own (`Absent`, `EnrolmentRefused`, a refused entry), never an empty record, no enrolment or no line.
+* *A match read as unique*: an enrolment file that was refused may name the same project root as the readable one; the
+  resolver never names a project while such a file exists, because that would decide a root conflict it did not read.
 
 === Failure Modes
 
@@ -913,17 +933,29 @@ repairs the log, so every later append is refused too, `withdraw` and `cancel` i
 |`store.json` exists, readable or not, when a store is created
 |`create` returns `EXISTED` and leaves it as it is.
 
-|An enrolment file cannot be listed or read
+|An enrolment file is refused when it is decoded, or exists and cannot be read
+|`EnrolmentRefused` with that file's refusal (a read failure as `unreadable`, naming the file), also when one readable
+enrolment names the main checkout: the match is not shown to be the only one. Two readable matches are `RootConflict`.
+
+|The enrolment directory cannot be listed
 |`resolve` throws `UncheckedIOException`.
 |===
 
 Tested by `WaiverRecordCodecTest`, `WaiverLogTest`, `WaiverConsumptionCodecTest`, `WaiverConsumptionLogTest`,
 `WorkflowStatusCodecTest`, `WorkflowStatusStoreTest` and `WorkflowStatusSchemaParityTest` (the waiver requests),
-`QuestionRecordCodecTest`, `QuestionLogTest` (one closing line, the current revision, a refusal adds nothing, a torn
-tail, a refused line, an append to a log with a refused line refused `Unreadable`), `EntryQuestionMoveTest` (the move, a repeated move refused, a stop between the two commits),
+`QuestionRecordCodecTest` (the decision's evidence limit, the schema and the wire names), the three classes of the
+question-line codec that share its fixtures (`QuestionRecordRoundTripTest`, `QuestionRecordRefusalsTest`,
+`QuestionRecordMembersOnTheirEventsTest`), the seven classes of the question log (`QuestionLogTest` for its location,
+`QuestionLogRevisionTest`, `QuestionLogClosingTest`, `QuestionLogAnswerRevisionTest`, `QuestionLogCurrentLineTest`,
+`QuestionLogRefusedLineTest` and `QuestionLogMalformedTest` — one closing line, the current revision, a refusal adds
+nothing, a torn tail, a refused line, an append to a log with a refused line refused `Unreadable`, a set asked whole),
+`EntryQuestionMoveTest` (the move, a repeated move refused, a stop between the two commits),
 `ProjectStoreIdentityCodecTest`, `ProjectStoreTest`, `ProjectStoreNoStateInRepositoryTest` (no file below the
-repository), and `ProjectResolverTest`, `LinkedWorktreeConfinementTest` and `PathConfinementTest` (every row of the
-table above, beside its resolving counterpart).
+repository), and the eight classes of the resolution (`ProjectResolverMainCheckoutTest`,
+`ProjectResolverWorktreeTest`, `ProjectResolverNestedCheckoutTest`, `ProjectResolverMovedCheckoutTest`,
+`ProjectResolverUnenrolledTest`, `ProjectResolverUnrecognisedGitTest`, `ProjectResolverEnrolmentTest`,
+`ProjectResolverContractTest` — every row of the table above, beside its resolving counterpart),
+`LinkedWorktreeConfinementTest` and `PathConfinementTest`.
 
 == Reading Helpers Shared with the Stores of Other Packages
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
@@ -1030,3 +1062,7 @@ parity check the specification has run ahead of is `@Disabled` with the work pac
   store and its identity record live in `core.store`; nothing with state lies below the repository.
 * link:../adr/core-store/039-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR 039]: an append to a
   question log that holds a refused line is refused `Unreadable`; the check fails closed.
+* link:../adr/core-store/040-a-question-set-is-asked-whole.adoc[ADR 040]: a question set is asked whole; a part added to
+  a set the log holds is a fault of the caller, and a revision never adds a part.
+* link:../adr/core-store/041-a-waiver-request-is-held-once-and-one-is-pending.adoc[ADR 041]: a waiver request id occurs
+  once in `waiver_requests[]`, and at most one request is pending.

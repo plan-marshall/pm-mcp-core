@@ -1,0 +1,64 @@
+= ADR 041: A Waiver Request Is Held Once per Id, and at Most One Is Pending
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-21
+
+== Context
+
+A waiver request is an element of the typed member `waiver_requests[]` of the plan's status document
+(link:035-waiver-requests-typed-in-the-status-document.adoc[ADR 035]). The Store Schemas specification states that the
+member holds "at most one pending at a time, an operator wait of the plan", and gives a request no time limit: it stays
+pending until the operator answers it or the plan ends. The codec read and wrote the list strictly but enforced
+neither statement, so a document could hold two pending requests for one gate, or one request id twice, and the
+operator's wait listed two answers to the same question.
+
+Unlike the waiver log, the status document is not append-only: the whole document is replaced by each write, so "the
+last readable line wins" is no rule that could apply here. The store has to decide the shape of the member when it is
+read and when a status is built to be written.
+
+== Decision
+
+* A request id occurs at most once in `waiver_requests[]`; a document that holds one id twice is refused as unreadable
+  naming the member, and a `WorkflowStatus` built with one is refused with an `IllegalArgumentException`.
+* At most one request is pending (has no `outcome`). A document with a second pending request is refused the same way.
+* Any number of answered requests stays in the member, in the order of the document: they are the history of the
+  requests the plan filed and the operator answered.
+* A pending request beside answered ones is legal.
+* The check is one guard in `WorkflowStatus`, the type the codec builds and writes, so the reader and every writer of
+  the status share it.
+
+== Alternatives Considered
+
+1. *Last entry wins, as the waiver log's last readable line does.* _Not taken_: the status document is replaced whole
+   and holds no ordered line history to read past; dropping an entry silently loses a request the operator may have
+   seen.
+2. *Refuse only a second pending request, and allow a repeated id among answered ones.* _Not taken_: a repeated id makes
+   the request the operator answers ambiguous, and the id is the only handle a client has for it.
+3. *Leave the shape open and let the caller enforce it.* _Not taken_: the status document is read and written by
+   several components; a rule held by one caller is not held by the others, and the schema statement would remain
+   unenforced.
+
+== Consequences
+
+* A plan files a second request only after the first is answered or cancelled; the operator wait lists one request.
+* The refusal is a `StoreRefusal` on read (the status store is never rewritten by a refusal) and an
+  `IllegalArgumentException` on build, as the other shape checks of `WorkflowStatus` are.
+* A caller that replaces a pending request cancels it first, which records `cancelled` and keeps it in the member's
+  history. The store enforces only the shape — at most one pending request and a unique id per document — and does not
+  compare a written list against the one it replaces, so recording the `cancelled` line is the caller's obligation.
+
+== Source
+
+* Plan PLAN-85, deliverable 1, an advisory PLAN-14 left on the waiver store
+* link:../../../../doc/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store]
+  (`waiver_requests`)
+* link:../../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc[Store Schemas § Plan
+  Instance, Waivers and Questions] (Waiver Request Record)
+* `pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java`,
+  `pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java`

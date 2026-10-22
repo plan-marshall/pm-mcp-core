@@ -57,11 +57,16 @@ import de.planmarshall.core.store.QuestionRefusal.Unreadable;
  * refused when read, which names no question the log can read and may close or revise any of them, every append is
  * refused {@link Unreadable}, an {@code asked} line included, and nothing is added.
  * A revision appends a {@code revised} line for every question of the set that is open when it begins, each with the
- * next revision, the one after its current revision.
+ * next revision, the one after its current revision, and carries the decision of the set on the line of its first
+ * question only. Once the first question of a set is closed, the set no longer carries a changed decision: a revision
+ * of its remaining open questions carries none, and a changed decision needs a new decision. A decision is asked whole:
+ * its parts are fixed when its set is asked, so a line that asks a further part into a set the log already holds is a
+ * fault of the caller; a change of the decision is a revision of its open questions.
  * Whether an answer fits its part is checked by the engine, not here. A line that is malformed for the log (a question
- * asked twice, a line about a question the log does not have, a revision that is not the next one, a set revised in
- * part) is a fault of the caller and is
- * refused with an {@link IllegalArgumentException}.
+ * asked twice, a part asked into a set the log holds, a part whose {@code question_set} is no first question of a set,
+ * a line about a question the log does not have, a revision that is not the next one, a set revised in part, a decision
+ * on a revised line of another question than the first) is a fault of the caller and is refused with an
+ * {@link IllegalArgumentException}.
  * <p>
  * A read without the lock ({@link #read()}) reports the log as it is at that moment: an append in progress shows as a
  * torn tail and never as a line, and a refused line keeps its line number while the lines around it stay readable. The
@@ -240,7 +245,8 @@ public final class QuestionLog {
      * @param questions   the asked lines, the first question first
      * @return {@link Unreadable} if the log holds a refused line; empty if the lines were added to the transaction
      * @throws IllegalArgumentException if a line is no asked line, the lines are not one set named by its first
-     *                                  question, or a question is asked already
+     *                                  question, a question is asked already, or a part is asked into a set the log
+     *                                  already holds
      * @see #append(ScopeTransaction, List)
      */
     public Optional<QuestionRefusal> ask(ScopeTransaction transaction, List<QuestionRecord> questions) {
@@ -261,7 +267,8 @@ public final class QuestionLog {
      * @return {@link AlreadyAnswered} if a question of the lines is closed, {@link Unreadable} if the log holds a
      *         refused line; empty if the lines were added
      * @throws IllegalArgumentException if a line is no revised line, a line names another revision than the one after
-     *                                  the current revision of its question, or the lines do not revise every open
+     *                                  the current revision of its question, a line of another question than the first
+     *                                  of its set carries the decision, or the lines do not revise every open
      *                                  question of the set with one revision
      * @see #append(ScopeTransaction, List)
      */
@@ -366,10 +373,12 @@ public final class QuestionLog {
             return Optional.of(new Unreadable(toAppend.getFirst().questionId(), refused.getFirst().line()));
         }
         var questions = questions(log.records());
+        var askedBefore = questions.values().stream().map(question -> question.questionSet)
+                .collect(Collectors.toSet());
         var openAtRevision = new LinkedHashMap<String, Set<String>>();
         for (var line : toAppend) {
             snapshotOpenSet(questions, openAtRevision, line);
-            var refusal = check(questions, line);
+            var refusal = check(questions, askedBefore, line);
             if (refusal.isPresent()) {
                 return refusal;
             }
@@ -441,16 +450,50 @@ public final class QuestionLog {
         return questions;
     }
 
+    /**
+     * Checks that an asked line that is not the first question of its set joins a set the same append has just asked:
+     * no set of the log holds it, the question it names is that set's own first question, that question is still open,
+     * and it is still at revision 1, so a revision or a closing line begun earlier in the append already excludes the
+     * further part.
+     */
+    private static void requirePartOfNewSet(Map<String, Question> questions, Set<String> askedBefore, String id,
+            String set) {
+        if (askedBefore.contains(set)) {
+            throw new IllegalArgumentException(
+                    "The set %s is asked already; a set is asked whole, and a further part needs a new decision"
+                            .formatted(set));
+        }
+        var named = questions.get(set);
+        if (named == null) {
+            throw new IllegalArgumentException("The question %s names the set %s, which is not asked"
+                    .formatted(id, set));
+        }
+        if (!named.questionSet.equals(set)) {
+            throw new IllegalArgumentException(
+                    "The question %s names %s as its set, which is no first question of a set".formatted(id, set));
+        }
+        if (named.closed) {
+            throw new IllegalArgumentException(
+                    "The set %s is closed already; a set is asked whole, and a further part needs a new decision"
+                            .formatted(set));
+        }
+        if (named.revision != 1) {
+            throw new IllegalArgumentException(
+                    "The set %s is revised already; a set is asked whole, and a further part needs a new decision"
+                            .formatted(set));
+        }
+    }
+
     /** Checks one line against what the log and the lines before it hold, and applies it when it passes. */
-    private static Optional<QuestionRefusal> check(Map<String, Question> questions, QuestionRecord line) {
+    private static Optional<QuestionRefusal> check(Map<String, Question> questions, Set<String> askedBefore,
+            QuestionRecord line) {
         var id = line.questionId();
         if (line.event() == QuestionEvent.ASKED) {
             if (questions.containsKey(id)) {
                 throw new IllegalArgumentException("The question %s is asked already".formatted(id));
             }
-            if (!line.questionSet().equals(id) && !questions.containsKey(line.questionSet())) {
-                throw new IllegalArgumentException("The question %s names the set %s, which is not asked"
-                        .formatted(id, line.questionSet()));
+            if (!line.questionSet().equals(id)) {
+                requirePartOfNewSet(questions, askedBefore, id, line.questionSet());
             }
             questions.put(id, new Question(line.questionSet(), line.revision()));
             return Optional.empty();
@@ -467,6 +510,10 @@ public final class QuestionLog {
                 if (line.revision() != question.revision + 1) {
                     throw new IllegalArgumentException("The revision %d of %s is not the next revision %d"
                             .formatted(line.revision(), id, question.revision + 1));
+                }
+                if (line.decision() != null && !line.questionId().equals(question.questionSet)) {
+                    throw new IllegalArgumentException(
+                            "The decision is carried by the first question of the set, and only there: " + id);
                 }
                 question.revision = line.revision();
             }

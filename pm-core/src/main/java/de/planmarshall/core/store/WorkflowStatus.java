@@ -11,6 +11,7 @@ package de.planmarshall.core.store;
 
 import java.time.Instant;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -49,8 +50,8 @@ import lombok.With;
  * @param loopBackIteration  the loop-back iterations begun; never reset
  * @param outlineLoopBacks   the {@code loop_back_outline} transitions taken; plan scopes only, 0 otherwise
  * @param policyCounters     the consumed budgets per remediation policy class; plan scopes only, empty otherwise
- * @param waiverRequests     the waiver requests filed in the plan, in the order of the document; plan scopes only,
- *                           empty otherwise and when none was filed
+ * @param waiverRequests     the waiver requests filed in the plan, in the order of the document, each request id once
+ *                           and at most one pending; plan scopes only, empty otherwise and when none was filed
  * @param retryCounters      the attempts of the server-rule retries and the condition budgets outside a condition
  * @param activeJob          the binding of the current job, composite job or task state; {@code null} when the
  *                           current state is none of them
@@ -119,8 +120,8 @@ Map<String, String> retained) {
      *                                  missing for a plan or epic or present for the workspace, a phase outside the
      *                                  schema, a blank state, more than {@value #MAX_CALL_DEPTH} frames, a negative
      *                                  counter, loop-back accounting or waiver requests outside a plan scope, an
-     *                                  unknown policy class, or
-     *                                  a binding of another state than the current one
+     *                                  unknown policy class, the same waiver request id twice, a second pending
+     *                                  request, or a binding of another state than the current one
      */
     public WorkflowStatus {
         Objects.requireNonNull(scopeType, "scopeType");
@@ -148,6 +149,8 @@ Map<String, String> retained) {
         policyCounters = orderedCopy(policyCounters, "policyCounters",
                 (policyClass, counter) -> requireOneOf(POLICY_CLASSES, policyClass, "policy_counters key"));
         waiverRequests = List.copyOf(Objects.requireNonNull(waiverRequests, "waiverRequests"));
+        requireOneRequestPerId(waiverRequests);
+        requireOnePendingRequest(waiverRequests);
         if (scopeType != JournalScopeType.PLAN
                 && (outlineLoopBacks != 0 || !policyCounters.isEmpty() || !waiverRequests.isEmpty())) {
             throw new IllegalArgumentException(
@@ -441,6 +444,25 @@ Map<String, String> retained) {
             requireOneOf(RETRY_REASONS, reason, "last_retry.reason");
             fingerprints = List.copyOf(Objects.requireNonNull(fingerprints, "fingerprints"));
             fingerprints.forEach(fingerprint -> requireMatch(FINGERPRINT, fingerprint, "last_retry.fingerprints"));
+        }
+    }
+
+    private static void requireOneRequestPerId(List<WaiverRequest> requests) {
+        var ids = new HashSet<String>();
+        for (var request : requests) {
+            if (!ids.add(request.requestId())) {
+                throw new IllegalArgumentException(
+                        "'waiver_requests' holds the request '%s' twice".formatted(request.requestId()));
+            }
+        }
+    }
+
+    /** At most one request awaits the operator: a second pending one would leave two answers to one gate. */
+    private static void requireOnePendingRequest(List<WaiverRequest> requests) {
+        var pending = requests.stream().filter(request -> request.outcome() == null)
+                .map(WaiverRequest::requestId).toList();
+        if (pending.size() > 1) {
+            throw new IllegalArgumentException("'waiver_requests' holds more than one pending request: " + pending);
         }
     }
 

@@ -138,8 +138,9 @@ public sealed interface ProjectResolution permits ProjectResolution.MainCheckout
     }
 
     /**
-     * An enrolment file could not be read or was refused, and no readable enrolment names the main checkout, so the
-     * path cannot be told apart from a project of that file: it is refused with that file's reason.
+     * An enrolment file could not be read or was refused, so the path cannot be resolved to exactly one project: no
+     * readable enrolment names the main checkout, or one does but the refused file may name it as well. The path is
+     * refused with that file's reason rather than naming a project whose uniqueness is not shown.
      *
      * @param refusal the refusal of the enrolment file, naming the file and why
      * @since 0.1

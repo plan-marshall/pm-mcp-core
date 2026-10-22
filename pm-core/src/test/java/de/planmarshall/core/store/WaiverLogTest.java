@@ -185,6 +185,24 @@ class WaiverLogTest {
         }
 
         @Test
+        @DisplayName("of a repeated waiver id is the last readable line, taken whole, the earlier line kept")
+        void repeatedIdTakenWhole() {
+            var first = WaiverRecordCodecTest.met();
+            var secondWaived = first.toBuilder().gate("pre-push-quality-gate").requestId(null).build();
+            append(first);
+            append(secondWaived);
+
+            var lines = log.read();
+
+            assertAll(
+                    () -> assertEquals(List.of(first, secondWaived), lines.records(),
+                            "the log keeps both lines of the id"),
+                    () -> assertEquals(Optional.of(secondWaived), lines.current("W-1"),
+                            "the last readable line is the current one, whole"),
+                    () -> assertEquals("pre-push-quality-gate", lines.currentWaivers().get("W-1").gate()));
+        }
+
+        @Test
         @DisplayName("falls back to the previous version when the last line is torn, which is reported with its offset")
         void tornTailFallsBack() throws Exception {
             var waiver = WaiverRecordCodecTest.met();

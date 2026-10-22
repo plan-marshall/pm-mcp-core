@@ -31,15 +31,31 @@ only a check made under the scope lock, right before the append, sees every line
   append: a question the same append closes after revising it stays covered, one closed before the revision began is
   not part of it. A revised line that names another revision, or a revision that leaves out a question open when it
   began, is a fault of the caller and an `IllegalArgumentException`.
+* The `decision` of a set belongs to the first question of the set and is carried on its line only: on an `asked`
+  line, and on a `revised` line, a decision on the line of another question is a fault of the caller and an
+  `IllegalArgumentException`.
 * A refusal is a value the method returns, and nothing of the append is added to the transaction. A line that is
-  malformed for the log (a question asked twice, a line about a question the log does not have, a set revised in part)
-  is a fault of the caller and an `IllegalArgumentException`.
+  malformed for the log (a question asked twice, a part asked into a set the log holds, a part whose `question_set` is
+  no first question of a set, a line about a question the log does not have, a set revised in part, a decision on a
+  revised line of another question than the first) is a fault of the caller and an `IllegalArgumentException`.
 
 The rationale beyond the need for a check under the lock is not recorded.
 
 == Alternatives Considered
 
-Alternatives not recorded.
+1. *Throw an exception for a second closing line or an old revision.* _Not taken_: both are expected under concurrent
+   clients, and the caller reports the refusal to the operator with the current revision; an exception would make the
+   expected path a fault and lose the revision the operator needs.
+2. *Check the invariants in the `pm-runtime` adapter before it calls the store.* _Not taken_: the adapter would read
+   the log outside the caller's transaction, and only a check under the same lock as the append sees every line
+   another writer appended (link:032-question-store-in-core-store-read-through-a-runtime-adapter.adoc[ADR 032] keeps
+   the store in `core.store` and the adapter read-only).
+3. *Check a snapshot taken before the transaction and retry on a conflict.* _Not taken_: a retry would have to
+   recreate the caller's transaction; the store reads under the lock the caller already holds, so there is no window
+   such a retry could close that the read under the lock does not close already.
+4. *Let a revision add a part to its set.* _Not taken_: the revision rule revises the questions that are open at a
+   given revision, and a part has no earlier revision to revise from; a set is asked whole
+   (link:040-a-question-set-is-asked-whole.adoc[ADR 040]).
 
 == Consequences
 
@@ -48,6 +64,8 @@ Alternatives not recorded.
 * A caller distinguishes an expected conflict (a value it reports to the operator, with the current revision) from a
   programming error (an exception).
 * Whether an answer fits its part is not checked by the store; the engine checks it before it appends.
+* A revision that changes the decision carries the new one on the first question's line; the other lines carry their
+  envelope and the new revision.
 
 == Source
 

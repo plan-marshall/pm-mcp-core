@@ -1,0 +1,68 @@
+= ADR 040: A Question Set Is Asked Whole, and Its Parts Are Fixed Then
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-21
+
+== Context
+
+A decision is a set of questions, each question one of its parts, named by the `question_id` of its first question
+(Store Schemas § Question Record). The log's revision rule revises every question of a set that is open when the
+revision begins, each with the next revision, the one after its current revision. Before this decision the store let an
+`asked` line name a set the log already held, as long as a question of that set was readable: a second part could be
+asked into a live decision. That part joined the set at revision 1 while the questions around it were at a later
+revision, so the next revision of the set had to cover questions at two different current revisions, which
+`requireWholeRevisions` refuses. The set was left unrevisable, and the operator's answer to it could no longer be
+reconciled with a changed decision.
+
+== Decision
+
+* A decision is asked as one set: all of its questions are asked in one append, and the first question of that append
+  names the set.
+* Asking a further part into a set the log already holds is a fault of the caller and an `IllegalArgumentException`,
+  and nothing of the append is added. A set's parts are fixed when it is asked.
+* A change of an open decision is a revision of the questions of its set that are open when the revision begins. A
+  revision never adds a part.
+* The log refuses a part whose `question_set` names a question that is no first question of a set: the part would join
+  no set the log holds.
+* A part asked into a set earlier in the same append stays accepted, because the set is being asked whole by that
+  append, as long as that set is still open and at revision 1: a revision or a closing line begun earlier in the same
+  append closes the set to a further part, as one in the log does.
+
+== Alternatives Considered
+
+1. *Revise the set when a part is asked into it.* _Not taken_: the revision rule revises the questions that are open
+   at a given revision; a part has no earlier revision to revise from, and no specification statement lets a revision
+   add a question. The alternative would invent a second way to change a decision, beside the revision the
+   specification defines.
+2. *Let the part join at the set's current revision.* _Not taken_: an `asked` line carries revision 1 of its question
+   (the record refuses any other), so a part cannot be asked at another revision.
+3. *Leave the store as it was and document the hazard.* _Not taken_: the set becomes silently unrevisable, and the
+   operator's answer to it can no longer be recorded under the rule the store holds.
+
+== Consequences
+
+* A caller that learns of a further part of a decision must ask a new decision; the store will not grow the old set,
+  and a revision of that set changes only the questions it already has.
+* Once the first question of a set is closed, the set carries no changed decision: its remaining open questions can be
+  revised, but a `decision` on their revised lines is refused (the first question's line, the only carrier, is closed),
+  so a changed decision at that point needs a new decision.
+* The refusal is the caller's fault, as the other malformed appends are: an `IllegalArgumentException`, not a
+  `QuestionRefusal` value.
+* The set's first question is the only line that can carry the `decision` of the set, on an `asked` line and on a
+  `revised` line alike (link:033-question-invariants-held-by-the-store-as-refusal-values.adoc[ADR 033]).
+* The specification needs no change: it defines a revision over the questions open at its start and defines no way to
+  add a part to a set.
+
+== Source
+
+* Plan PLAN-85, deliverable 3, an advisory PLAN-14 left on the question store
+* link:../../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc[Store Schemas § Plan
+  Instance, Waivers and Questions]
+* `pm-core/src/main/java/de/planmarshall/core/store/QuestionLog.java`,
+  `pm-core/src/test/java/de/planmarshall/core/store/QuestionLogMalformedTest.java`
