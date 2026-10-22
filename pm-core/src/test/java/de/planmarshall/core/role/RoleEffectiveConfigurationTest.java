@@ -121,6 +121,23 @@ class RoleEffectiveConfigurationTest {
     }
 
     @Test
+    @DisplayName("the effective catalogue is the project's, else the machine's")
+    void projectCatalogueReplacesTheMachineCatalogue() {
+        var environment = RoleFixtures.environment();
+
+        var withoutProject = resolved(RoleFixtures.shippedValid(), environment, RoleAssignment.none());
+        environment.projectCatalogue(RoleFixtures.catalogue(RoleFixtures.HARNESS, FRONTIER));
+        var withRefusingProject = new RoleCatalog(RoleFixtures.shippedValid(), environment)
+                .resolve(RoleFixtures.ROLE, RoleAssignment.none());
+
+        assertAll(
+                () -> assertEquals(RoleFixtures.MODEL, withoutProject.model(), "the machine's catalogue applies"),
+                () -> assertEquals(RoleValidationReason.MODEL_NOT_ALLOWED,
+                        ((RoleResolution.Undefined) withRefusingProject).reason().orElseThrow(),
+                        "the project's catalogue replaces the machine's"));
+    }
+
+    @Test
     @DisplayName("an absent role is undefined without a validation reason")
     void absentRoleIsUndefined() {
         var resolution = new RoleCatalog(RoleFixtures.shippedValid(), RoleFixtures.environment())

@@ -53,6 +53,14 @@ class RoleValidationTableTest {
                 RoleFixtures.environment(), false);
     }
 
+    @Test
+    @DisplayName("the steward passes although the catalogue does not allow its model")
+    void stewardSkipsTheModelCatalogue() {
+        check(RoleFixtures.valid().artifact(), RoleFixtures.harness(),
+                RoleFixtures.catalogue(RoleFixtures.HARNESS, "another-model"), new EffortValue(null),
+                RoleFixtures.environment(), true);
+    }
+
     static Stream<Arguments> refusals() {
         var environment = RoleFixtures.environment();
         return Stream.of(
@@ -80,6 +88,10 @@ class RoleValidationTableTest {
                         Optional.of(noEfforts()), Optional.of(RoleFixtures.enrolled()),
                         Optional.of(RoleFixtures.catalogue()), environment, false,
                         RoleValidationReason.EFFORT_UNSUPPORTED, "the model takes no effort flag"),
+                Arguments.of(RoleFixtures.valid().artifact(), Optional.of(RoleFixtures.harness()),
+                        Optional.of(RoleFixtures.enrolled()),
+                        Optional.of(RoleFixtures.catalogue(RoleFixtures.HARNESS, "another-model")), environment, false,
+                        RoleValidationReason.MODEL_NOT_ALLOWED, "the effective catalogue does not allow the model"),
                 Arguments.of(tools(List.of("pm_state", "pm_do", "pm_skill", "pm_skill_file")).artifact(),
                         Optional.of(RoleFixtures.harness()), Optional.of(RoleFixtures.enrolled()),
                         Optional.of(RoleFixtures.catalogue()), environment, false,
