@@ -10,7 +10,7 @@ The modules of this repository, their packages and their dependency rules are li
 [#packages]
 == Packages
 
-The packages listed serve roadmap Milestones 2 to 4, and the packages the client work of `pm-mcp-clients` needs, which serve items of later milestones named in their _Serves_ column; the rest of the later milestones is not cut into packages yet, and a package that names one of them as the home of something says what is left out here. This table is the only place that states the status of a package and what it depends on; the package files do not repeat either. The table lists the packages not yet done: a done package leaves the table and its file is deleted, so its implementation, its developer documentation and its ADRs are what remain of it. A package is *ready* when its status is `open` and its _Depends on_ column names no package of this table (a dependency in another repository is done when its row there says so). Ready packages can be worked in parallel, also across the repositories. A dependency that has no work package yet keeps a package `blocked`; it is replaced by the package when that is planned. A package that depends on a `blocked` package is `blocked` too.
+The packages listed serve roadmap Milestones 2 to 4, the packages the client work of `pm-mcp-clients` needs, and the engine packages of Milestones 9, 10, and 14, each serving the items named in its _Serves_ column; the rest of the later milestones is not cut into packages yet, and a package that names one of them as the home of something says what is left out here. This table is the only place that states the status of a package and what it depends on; the package files do not repeat either. The table lists the packages not yet done: a done package leaves the table and its file is deleted, so its implementation, its developer documentation and its ADRs are what remain of it. A package is *ready* when its status is `open` and its _Depends on_ column names no package of this table (a dependency in another repository is done when its row there says so). Ready packages can be worked in parallel, also across the repositories. A dependency that has no work package yet keeps a package `blocked`; it is replaced by the package when that is planned. A package that depends on a `blocked` package is `blocked` too.
 
 [cols="3,4,1,3,2",options="header"]
 |===
@@ -236,6 +236,36 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |`blocked`
 |link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:operator-reports.adoc[`operator-reports`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (the archives of plans); link:epic-resource-and-release.adoc[`epic-resource-and-release`] (the archives of epics, the release; the unenrolment); link:chat.adoc[`chat`] (ended work, read-only); link:runtime-metrics.adoc[`runtime-metrics`] (the token figures kept); link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the machine's settings); link:project-onboarding-unit.adoc[`project-onboarding-unit`] (the project's values)
 |Milestone 10; the client work of `pm-mcp-clients`
+
+|link:endpoint-harness.adoc[`endpoint-harness`]
+|The endpoint harness: a model served on the loopback interface, its profile, its request, its enrolment and the identity of its weights
+|`open`
+|link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:worker-launch.adoc[`worker-launch`]; link:role-qualification.adoc[`role-qualification`] (the weights identity is a member of the qualification digest)
+|Milestone 14
+
+|link:judgment-endpoint.adoc[`judgment-endpoint`]
+|The judgment endpoint: typed questions answered with a probability per option by a hosted service or a model served in the same format
+|`open`
+|link:endpoint-harness.adoc[`endpoint-harness`]
+|Milestone 14
+
+|link:judgment-votes.adoc[`judgment-votes`]
+|A judgment role votes: two requests, the confidence from the lower probability, a rationale composed by the server, the class rule, and the calibration form
+|`blocked`
+|link:judgment-endpoint.adoc[`judgment-endpoint`]; link:decision-engine.adoc[`decision-engine`] (the vote members of the decision record); link:role-qualification.adoc[`role-qualification`] (the grading); the decision quorum with its declarations, the adjudication unit, and its calibration (no work package)
+|Milestone 14
+
+|link:own-calls.adoc[`own-calls`]
+|Own calls of a writer: the choices a task settled that the plan left open, submitted with the task, checked by the server, and recorded as decisions
+|`blocked`
+|link:decision-engine.adoc[`decision-engine`] (the decision records); link:phase-sub-workflows.adoc[`phase-sub-workflows`]; the task envelope with its `submit` link and the Task Diff Record (no work package)
+|Milestone 9
+
+|link:change-map.adoc[`change-map`]
+|The change map: which modules a change adds or removes, which dependencies between modules it adds or removes, and which third-party dependencies it adds, removes, or replaces
+|`blocked`
+|link:own-calls.adoc[`own-calls`]; link:phase-sub-workflows.adoc[`phase-sub-workflows`]; the module discovery and the build-file dependency parser, the Dependency Delta Check, and the finalize pipeline of Milestone 10 (no work package)
+|Milestone 10
 |===
 
 The work packages of the other repositories: link:../../../pm-mcp-clients/doc/plans/README.adoc[`pm-mcp-clients`] and link:../../../plan-marshall-mcp/doc/plans/README.adoc[`plan-marshall-mcp`].
