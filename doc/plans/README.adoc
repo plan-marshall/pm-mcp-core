@@ -18,7 +18,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:profile-loader.adoc[`profile-loader`]
 |Profile loader and validation
 |`open`
-|link:../../../pm-mcp-clients/doc/plans/profile-documents.adoc[`pm-mcp-clients` / `profile-documents`]
+|nothing
 |Milestone 2
 
 |link:plan-instance-versions.adoc[`plan-instance-versions`]
@@ -27,10 +27,16 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]
 |Milestones 3 and 4
 
+|link:module-developer-docs.adoc[`module-developer-docs`]
+|The developer documentation of every package that has production code and no developer file, and the guides of `plan-marshall-documentation` folded in
+|`open`
+|nothing
+|Milestones 2 to 4
+
 |link:job-confinement-and-environment.adoc[`job-confinement-and-environment`]
 |Job confinement and job environment in the daemon
 |`open`
-|link:../../../pm-mcp-clients/doc/plans/exec-read-denied-paths.adoc[`pm-mcp-clients` / `exec-read-denied-paths`]; link:profile-loader.adoc[`profile-loader`]
+|link:profile-loader.adoc[`profile-loader`]
 |Milestone 4
 
 |link:waits.adoc[`waits`]
@@ -216,13 +222,13 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:runtime-control.adoc[`runtime-control`]
 |Controlling the runtime from the clients: stop now or after a drain, the withdrawable drain, restart, the update check, the upgrade
 |`blocked`
-|link:supervisor.adoc[`supervisor`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the consent store); link:../../../pm-mcp-clients/doc/plans/installation-layout.adoc[`pm-mcp-clients` / `installation-layout`]; the operator's answer to the open question of the registry credential, for the update check and the fetch (no work package)
+|link:supervisor.adoc[`supervisor`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the consent store); the operator's answer to the open question of the registry credential, for the update check and the fetch (no work package)
 |Milestone 2; the client work of `pm-mcp-clients`
 
 |link:runtime-metrics.adoc[`runtime-metrics`]
 |What the runtime is doing: the metrics registry maintained where things happen, the closed catalogue, the snapshot endpoints and the stream
-|`blocked`
-|link:https://github.com/plan-marshall/pm-mcp-core/blob/603d4f7/doc/plans/lock-manager-and-leases.adoc[`lock-manager-and-leases`]; link:supervisor.adoc[`supervisor`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:slots-usage-and-budgets.adoc[`slots-usage-and-budgets`]; link:token-usage.adoc[`token-usage`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (held and paused); the operator's choice of the metrics library (no work package)
+|`open`
+|link:supervisor.adoc[`supervisor`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:slots-usage-and-budgets.adoc[`slots-usage-and-budgets`]; link:token-usage.adoc[`token-usage`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (held and paused)
 |Milestone 2; the client work of `pm-mcp-clients`
 
 |link:process-designer.adoc[`process-designer`]

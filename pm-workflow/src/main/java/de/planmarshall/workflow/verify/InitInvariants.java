@@ -46,9 +46,6 @@ final class InitInvariants {
     /** The last state of the init phase. */
     static final String READY = "init.ready";
 
-    /** The light-lane gate of the init phase. */
-    static final String LIGHT_GATE = "init.light-gate";
-
     /** The authoring state of the light lane. */
     static final String OUTLINE_LIGHT = "outline.light";
 
@@ -89,18 +86,20 @@ final class InitInvariants {
     private static void lightLane(Context context) {
         var id = InvariantId.INV_INIT_2;
         if (context.state(OUTLINE_LIGHT).isPresent()) {
-            if (context.state(LIGHT_GATE).isEmpty()) {
-                context.reportUnit(id, "the unit has '%s' but no '%s'".formatted(OUTLINE_LIGHT, LIGHT_GATE));
-            } else if (!context.dominates(LIGHT_GATE, OUTLINE_LIGHT)) {
+            if (context.state(LaneEntryIds.LIGHT_ENTRY).isEmpty()) {
+                context.reportUnit(id, "the unit has '%s' but no '%s'".formatted(OUTLINE_LIGHT,
+                        LaneEntryIds.LIGHT_ENTRY));
+            } else if (!context.dominates(LaneEntryIds.LIGHT_ENTRY, OUTLINE_LIGHT)) {
                 context.reportState(id, context.state(OUTLINE_LIGHT).orElseThrow(),
-                        "a path reaches '%s' without passing '%s'".formatted(OUTLINE_LIGHT, LIGHT_GATE));
+                        "a path reaches '%s' without passing '%s'".formatted(OUTLINE_LIGHT,
+                                LaneEntryIds.LIGHT_ENTRY));
             }
             regate(context);
         }
         if (context.lane().filter(lane -> !LANE_LIGHT.equals(lane)).isPresent()) {
             return;
         }
-        for (var gate : List.of(LIGHT_GATE, LIGHT_REGATE)) {
+        for (var gate : List.of(LaneEntryIds.LIGHT_ENTRY, LIGHT_REGATE)) {
             context.referenceState(gate).ifPresent(ratchet -> Context.transitions(ratchet).stream()
                     .filter(transition -> !Context.hasTransition(context.unit(), gate, transition.outcomeName(),
                             transition.targetStateId()))

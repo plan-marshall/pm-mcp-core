@@ -67,6 +67,8 @@ This is the operator's decision on the security concern raised in the review.
 A `pattern` is matched only against a string whose length the `maxLength` of the same schema has bounded.
 `maxLength` is checked first; a string for a schema that carries a `pattern` but no `maxLength` is refused by stage 3 as `argument_rejected`, with the detail `pattern without maxLength at <path>` (the path, never the value), before any regular expression is compiled or evaluated.
 The operator who enrols a pattern therefore also enrols the longest string it is ever matched against, which bounds the backtracking cost of the pattern.
+The bound itself is bounded: a schema of type `string` with a pattern admits `maxLength` at most 256 code points, and the enrolment policy refuses a schema above that ceiling
+(link:../runtime-enrolment/007-a-global-ceiling-on-the-enrolled-pattern-length.adoc[`runtime-enrolment` ADR 007]).
 +
 *Lock scope, the finding.* The enrolment lock belongs to the caller.
 Stage 0 (`EnrolmentCheck.verify`) acquires the project's enrolment lock in the `LockTransaction` the caller passes, and `LockTransaction` releases its locks only all together in `close()`; it offers no release of one key.

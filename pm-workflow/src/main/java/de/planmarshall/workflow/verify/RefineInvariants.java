@@ -39,9 +39,6 @@ import de.planmarshall.workflow.verify.CompiledInvariants.Edge;
  */
 final class RefineInvariants {
 
-    /** The baseline reconciliation of the refine phase. */
-    static final String BASELINE_RECONCILE = "refine.baseline-reconcile";
-
     /** The analysis of the refine phase. */
     static final String ANALYZE = "refine.analyze";
 
@@ -64,7 +61,7 @@ final class RefineInvariants {
 
     private static void deepPath(Context context) {
         var id = InvariantId.INV_REFINE_1;
-        for (var required : List.of(BASELINE_RECONCILE, ANALYZE)) {
+        for (var required : List.of(LaneEntryIds.DEEP_ENTRY, ANALYZE)) {
             context.requirePresent(id, required);
             var known = new LinkedHashSet<String>();
             exitsAvoiding(context.reference(), context.referenceGraph(), required).forEach(edge -> known.add(edge.key()));

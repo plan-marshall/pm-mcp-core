@@ -27,6 +27,7 @@ import java.util.stream.Stream;
 import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.store.ProjectEnrolment;
+import de.planmarshall.core.store.ProjectEnrolment.ArgumentSchema;
 import de.planmarshall.core.store.ProjectEnrolment.Argv;
 import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;
 
@@ -56,6 +57,11 @@ import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;
  * "Job Environment"; credentials-and-enrolment/01-provider-credentials.adoc). A credential variable is a name that ends with
  * {@code _TOKEN}, {@code _PASSWORD}, {@code _SECRET} or {@code _KEY}, the patterns the specification lists; its list
  * ends with an ellipsis, and only the listed patterns are applied.</li>
+ * <li>Argument schemas: a {@code pattern} is matched by a backtracking engine whose cost grows with the length of the
+ * string it is matched against, so a schema that constrains a string by a pattern admits a {@code maxLength} of at
+ * most {@value ArgumentSchema#PATTERN_MAX_LENGTH_CEILING} code points. A schema above that ceiling, at its root or in
+ * one of its properties, is refused: the length the engine is given is then bounded by the schema's admission as well
+ * as by the enrolling project's choice (job-runtime/03-parsers-and-gates.adoc, "Ingestion Validator").</li>
  * </ol>
  * The shell metacharacters and the forbidden free flags are not refused at enrolment: they apply to what a caller
  * supplies to a job and are refused at job time by the argument check of {@code runtime.job}, the last stage of the
@@ -72,6 +78,11 @@ class EnrolmentPolicy {
     static final String MODULE_PLACEHOLDER = "{module}";
 
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{[^{}]+}");
+
+    private static final String ARGUMENT_SCHEMA = ".argument_schema";
+
+    private static final String ABOVE_CEILING =
+            ": maxLength %d is above the ceiling %d of a schema with a pattern";
 
     private static final String WRITE_PATHS = "write_paths: ";
 
@@ -96,7 +107,8 @@ class EnrolmentPolicy {
      * @param enrolment the enrolment to sign
      * @param base      the base directory of the runtime
      * @return why the enrolment violates the rules, one reason per violation, in a deterministic order (canonical
-     *         templates, discovery templates, providers, write paths, environment names); empty if it complies
+     *         templates, discovery templates, providers, argument schemas, write paths, environment names); empty if
+     *         it complies
      */
     static List<String> violations(ProjectEnrolment enrolment, Path base) {
         Objects.requireNonNull(enrolment, "enrolment");
@@ -106,6 +118,8 @@ class EnrolmentPolicy {
         templates("build.discovery_templates", enrolment.build().discoveryTemplates(), violations);
         enrolment.providers().forEach((provider, verification) -> placeholders(
                 "providers." + provider.wireName() + ".verify_argv", verification.verifyArgv(), violations));
+        enrolment.projectScripts().forEach((id, script) -> schema(
+                "project_scripts." + id + ARGUMENT_SCHEMA, script.argumentSchema(), violations));
         for (var writePath : enrolment.writePaths()) {
             writePath(writePath, bases).ifPresent(violations::add);
         }
@@ -142,6 +156,24 @@ class EnrolmentPolicy {
             tokens.add(matcher.group());
         }
         return tokens;
+    }
+
+    /**
+     * Refuses a schema, at its root or in one of its properties, that matches a string by a pattern — a schema of type
+     * {@code string} or an untyped one, both of which the validator applies its pattern to — and admits a
+     * {@code maxLength} above {@link ArgumentSchema#PATTERN_MAX_LENGTH_CEILING}.
+     */
+    private static void schema(String place, ArgumentSchema schema, List<String> violations) {
+        var maxLength = schema.maxLength();
+        var matchesStrings = schema.type() == null || schema.type() == ProjectEnrolment.SchemaType.STRING;
+        if (matchesStrings && schema.pattern() != null && maxLength != null
+                && maxLength > ArgumentSchema.PATTERN_MAX_LENGTH_CEILING) {
+            violations.add(place + ABOVE_CEILING.formatted(maxLength, ArgumentSchema.PATTERN_MAX_LENGTH_CEILING));
+        }
+        var properties = schema.properties();
+        if (properties != null) {
+            properties.forEach((name, property) -> schema(place + "." + name, property, violations));
+        }
     }
 
     private static Optional<String> writePath(String value, List<Path> bases) {

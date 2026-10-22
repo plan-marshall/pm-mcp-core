@@ -172,7 +172,7 @@ _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.a
 What a worker does while it serves a task, one entry per activity, in an append-only journal per task in the store of the task's scope: `plans/<plan_id>/tasks/activity/<queue_task_id>.jsonl`, and the same below `epics/<epic_id>/`, `workspace/`, and the machine scope. The runtime maps each line of the worker's output stream onto one harness-neutral kind through the `headless.events` pointers of the harness's client profile and adds what it knows itself (link:../client-profiles/01-profile-schema.adoc#worker-activity[Client Profiles Specification, What a Worker Does]); the off-track signals are computed from the journal (link:../model-work/03-supervision-and-recycling.adoc#worker-off-track[Model Work Specification, A Worker Off Track]).
 
 * *Written while the worker runs*: the runtime appends each entry as its line arrives, under the journal's own leaf lock taken on the file (like the plan mailbox's), outside the scope's transaction journal and digest sidecar, like a job log; a torn last line is ignored by a reader and repaired by the next writer (xref:01-format-and-session-log.adoc#format-versioning[Format Versioning & Atomic Write Discipline], item 6). Every text and target is masked like every job log before it is written (link:../job-runtime/01-pipeline-and-subprocesses.adoc[Job Runtime Specification]).
-* *Harness and server entries*: the harness's kinds are `text` (what the model wrote, cut to the compiled bound of 2,000 characters), `tool_call` (the tool's name and its target: a path, a command line, a server link with its id, never its whole arguments), `tool_result` (its size and whether it failed, never its content), `file_changed` (a path of the worktree), and `turn` (its usage, from the usage pointers). The server's kinds are `link` (a link of the task the worker followed: `ack`, `submit`, `ask`, `consult`, `yield`, `infeasible`), `question` (a question the worker asked), `answer_ack` (its acknowledgement of an answer), `signal` (an off-track signal with the action taken), and `attempt_end` (how the attempt ended, with the count of the output lines that matched no mapping, which are counted and never shown). A harness whose profile declares `headless.events: null` has only server entries.
+* *Harness and server entries*: the harness's kinds are `text` (what the model wrote, cut to the compiled bound of 2,000 characters), `tool_call` (the tool's name and its target: a path, a command line, a server link with its id, never its whole arguments), `tool_result` (its size and whether it failed, never its content), `file_changed` (a path of the worktree), and `turn` (its usage, from the usage pointers, and its stop reason where the profile maps one). The server's kinds are `link` (a link of the task the worker followed: `ack`, `submit`, `ask`, `consult`, `yield`, `infeasible`), `question` (a question the worker asked), `answer_ack` (its acknowledgement of an answer), `signal` (an off-track signal with the action taken), and `attempt_end` (how the attempt ended, with the count of the output lines that matched no mapping, which are counted and never shown). A harness whose profile declares `headless.events: null` has only server entries.
 * *Bounded per task*: a journal holds at most the compiled bound of 5,000 entries; an append beyond it rewrites the journal without its oldest `text` entries, never a server entry, by an atomic write-and-rename under the same leaf lock. `seq` is never reused, so a client's cursor stays valid and a gap in `seq` shows what gave way.
 * *Untrusted*: a text or a target may come from the project, a review comment, or a tool result: the clients show it as plain text, never as markup or a link they follow, and no model reads the journal as instructions (`PM-SEC-1`).
 * *Served to both clients*: the entries from a cursor and a live stream that a client opens only while it shows the task (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#process-resource[Runtime & Interaction Model Specification, The Plan's Process as a Structure]).
@@ -198,6 +198,7 @@ What a worker does while it serves a task, one entry per activity, in an append-
     "tool": { "type": ["object", "null"], "required": ["name", "target"], "additionalProperties": false, "description": "tool_call only.", "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 128 }, "target": { "type": ["string", "null"], "maxLength": 1000, "description": "A path, a command line, or a server link with its id; masked; untrusted." } } },
     "result": { "type": ["object", "null"], "required": ["bytes", "failed"], "additionalProperties": false, "description": "tool_result only.", "properties": { "bytes": { "type": "integer", "minimum": 0 }, "failed": { "type": "boolean" } } },
     "path": { "type": ["string", "null"], "maxLength": 1000, "description": "file_changed only: a path relative to the worktree." },
+    "stop_reason": { "type": ["string", "null"], "enum": ["end_turn", "tool_use", "max_tokens", "refusal", "other", null], "description": "turn only: the turn's stop reason as the profile maps it (client-profiles/01, What a Worker Does); null where the profile maps none. Recorded only; no rule reads it." },
     "usage": { "type": ["object", "null"], "description": "turn only: the turn's token components, each a measured integer, unmeasured, or not_applicable (store-schemas/05, Usage Columns)." },
     "link": { "type": ["object", "null"], "required": ["rel", "target"], "additionalProperties": false, "description": "link only.", "properties": { "rel": { "type": "string", "enum": ["ack", "submit", "ask", "consult", "yield", "infeasible"] }, "target": { "type": ["string", "null"], "maxLength": 128, "description": "The entity or role the link names, for example TASK-007 or a consulted role." } } },
     "question_id": { "type": ["string", "null"], "pattern": "^Q-[0-9]{3,6}$", "description": "question and answer_ack only." },
@@ -325,7 +326,7 @@ The record of one calibration of a quorum declaration by the operator's calibrat
   "properties": {
     "format_version": { "type": "integer", "const": 1 },
     "decision_kind": { "type": "string", "enum": ["interpretation", "approach", "granularity", "placement", "test_strategy", "scope", "product_behaviour", "assurance", "external_fact"], "description": "The calibrated decision kind, covered by declaration_digest." },
-    "declaration_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 over the decision kind, the listed roles in their declared order with their qualification digests, and the score; equals the file name, and the record is valid only while they are unchanged." },
+    "declaration_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 over the decision kind, the listed roles in their declared order with their qualification digests and forms, and the score; equals the file name, and the record is valid only while they are unchanged." },
     "declaration": {
       "type": "object",
       "required": ["roles", "score"],
@@ -363,13 +364,14 @@ The record of one calibration of a quorum declaration by the operator's calibrat
   "$defs": {
     "roleConfig": {
       "type": "object",
-      "required": ["role", "qualification_digest", "harness", "model"],
+      "required": ["role", "form", "qualification_digest", "harness", "model"],
       "additionalProperties": false,
       "properties": {
         "role": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
+        "form": { "type": "string", "enum": ["warm", "fresh"], "description": "The form the role's vote tasks ran in at the calibration; a judgment role is fresh." },
         "qualification_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "The role's qualification digest at the calibration (Role Qualification Record)." },
         "harness": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "The harness of the qualification record the digest names." },
-        "model": { "type": "string" }
+        "model": { "type": "string", "description": "For a judgment role the versioned model id." }
       }
     }
   }

@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -32,6 +33,7 @@ import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 
@@ -492,9 +494,69 @@ class PlanInstanceStoreTest {
                 var refused = assertThrows(IllegalStateException.class,
                         () -> store.recordComposed(transaction, second, texts, compositionRecord));
                 assertAll(
-                        () -> assertNotEquals(first.text(), corrupted, "the recorded text was changed"),
+                        () -> assertEquals(Optional.of(corrupted), store.readVersion(1),
+                                "the refused record left the recorded text as it was"),
                         () -> assertTrue(refused.getMessage().contains("version 1"), refused.getMessage()),
                         () -> assertInstanceOf(IllegalArgumentException.class, refused.getCause()),
+                        () -> assertEquals(Optional.empty(), store.readVersion(2)),
+                        () -> assertEquals(1, logLines().size(), "no log line was written"));
+            }
+        }
+
+        @Test
+        @DisplayName("a version 2 is refused with the parser diagnostic when the recorded version 1 is refused by the "
+                + "parser, and nothing is recorded")
+        void parserRefusedPreviousHeader() throws Exception {
+            var first = version1();
+            recordComposed(first, texts());
+            var second = waiverVersion(first, List.of());
+            var compositionRecord = CompositionRecord.composed(second, Optional.of(first), COMPOSED_AT);
+            var texts = texts();
+            var corrupted = first.text().replace("\nscope plan\n", "\nscope team\n");
+            Files.writeString(scope.resolve(PlanInstanceStore.versionPath(1)), corrupted, StandardCharsets.UTF_8);
+
+            try (var lock = new HoldingEverything()) {
+                var transaction = ScopeTransaction.open(lock, scope, event -> {
+                    // no audit record is owed
+                }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
+                var refused = assertThrows(IllegalStateException.class,
+                        () -> store.recordComposed(transaction, second, texts, compositionRecord));
+                assertAll(
+                        () -> assertEquals(Optional.of(corrupted), store.readVersion(1),
+                                "the refused record left the recorded text as it was"),
+                        () -> assertTrue(refused.getMessage().contains("refused by the parser"), refused.getMessage()),
+                        () -> assertTrue(refused.getMessage().contains("expected a scope"), refused.getMessage()),
+                        () -> assertNull(refused.getCause(), "a parser refusal carries no cause"),
+                        () -> assertEquals(Optional.empty(), store.readVersion(2)),
+                        () -> assertEquals(1, logLines().size(), "no log line was written"));
+            }
+        }
+
+        @Test
+        @DisplayName("a version 2 is refused when the recorded version 1 carries no instance header, and nothing "
+                + "is recorded")
+        void headerlessPreviousVersion() throws Exception {
+            var first = version1();
+            recordComposed(first, texts());
+            var second = waiverVersion(first, List.of());
+            var compositionRecord = CompositionRecord.composed(second, Optional.of(first), COMPOSED_AT);
+            var texts = texts();
+            var headerless = first.text().lines()
+                    .filter(line -> !line.startsWith("instance "))
+                    .collect(Collectors.joining("\n", "", "\n"));
+            Files.writeString(scope.resolve(PlanInstanceStore.versionPath(1)), headerless, StandardCharsets.UTF_8);
+
+            try (var lock = new HoldingEverything()) {
+                var transaction = ScopeTransaction.open(lock, scope, event -> {
+                    // no audit record is owed
+                }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
+                var refused = assertThrows(IllegalStateException.class,
+                        () -> store.recordComposed(transaction, second, texts, compositionRecord));
+                assertAll(
+                        () -> assertEquals(Optional.of(headerless), store.readVersion(1),
+                                "the refused record left the recorded text as it was"),
+                        () -> assertTrue(refused.getMessage().contains("no readable header"), refused.getMessage()),
+                        () -> assertNull(refused.getCause(), "a headerless version carries no cause"),
                         () -> assertEquals(Optional.empty(), store.readVersion(2)),
                         () -> assertEquals(1, logLines().size(), "no log line was written"));
             }
