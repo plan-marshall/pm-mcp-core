@@ -1717,3 +1717,24 @@ worktree's status is unchanged after the map is computed. The self-review is ref
 replaced coordinate that no own call names.
 Source:: Article analysis `barely-read-the-code` of plan-marshall-documentation (the operator reads a diagram of the
 change before its code).
+
+[#PM-WATCH-PHASE-115]
+=== PM-WATCH-PHASE-115: Two plans landed in parallel never leave one ADR number twice on the base
+
+Anchor:: link:../specification/phase-workflows/06-finalize-re-entry-and-merge.adoc#adr-number-at-landing[Phase Workflows § ADR Number at Landing]
+Hazard:: Each plan numbers a new ADR from its own worktree, so two plans running at the same time take the same next
+number. The files have different names, so the surface checks, the overlap at admission and the rebase all pass, and
+both land. A renumbering that misses a reference leaves a link to the other plan's decision; one that renames an ADR
+the plan only updated breaks links that are already on the base.
+Guard:: A fixture repository with two plans that each add `NNN` as the same next number: the first lands unchanged;
+the second is renumbered under the mutex before its sync, its file renamed, its title and every reference in its
+changed files (an AsciiDoc link, the `adr_id` of an intent decision) rewritten, the push followed by the evidence
+wait, and the landing record lists the renumbering. A plan that only updates an existing ADR keeps its number. A
+number free on the base is never changed. The same fixture runs through `landing.main` and `landing.files`.
+Fixture:: duplicate ADR numbers on `main` in four `plan-marshall` epics (`cui-http` `quality-report-remediation`
+PLAN-14, ADR-0016 taken twice; `quality-report-remediation-26-09-03` PLAN-04, four duplicate numbers;
+`plan-marshall` `code-intelligence-substrate-26-09-21` PLAN-02, about 90 minutes spent on ADR-012), about 8 events in
+the landing records of `plan-marshall-telemetry`.
+Source:: Article analysis `pocock-skills-update` of plan-marshall-documentation (parallel implementers collide on a
+shared registry that no ticket names); plan-marshall's own fix is a landing check on duplicate numbers in `manage-adr`.
+
