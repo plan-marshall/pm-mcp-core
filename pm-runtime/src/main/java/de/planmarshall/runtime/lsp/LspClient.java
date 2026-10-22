@@ -238,7 +238,7 @@ public final class LspClient implements AutoCloseable {
                     process.destroyForcibly();
                 }
             }
-        } catch (InterruptedException e) {
+        } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
             process.destroyForcibly();
         } finally {

@@ -110,7 +110,7 @@ public final class JGitOperations implements GitOperations {
     public GitResult<RepositoryInfo> open(Path root) {
         try (Repository repository = openRepository(root)) {
             return GitResult.ok(info(repository));
-        } catch (RepositoryNotFoundException e) {
+        } catch (RepositoryNotFoundException _) {
             return GitResult.of(GitOutcome.NOT_A_REPOSITORY, root.toString());
         } catch (IOException | IllegalArgumentException e) {
             return failure(e);
@@ -161,7 +161,7 @@ public final class JGitOperations implements GitOperations {
         }
         try (Repository main = openRepository(input.root())) {
             return addWorktree(main, input, target);
-        } catch (RepositoryNotFoundException e) {
+        } catch (RepositoryNotFoundException _) {
             return GitResult.of(GitOutcome.NOT_A_REPOSITORY, input.root().toString());
         } catch (RefusingFS.CapabilityRefusedException e) {
             return GitResult.of(GitOutcome.CAPABILITY_MISSING, e.getReason());
@@ -265,7 +265,7 @@ public final class JGitOperations implements GitOperations {
             }
             worktrees.addAll(LinkedWorktrees.list(commonDir));
             return GitResult.ok(List.copyOf(worktrees));
-        } catch (RepositoryNotFoundException e) {
+        } catch (RepositoryNotFoundException _) {
             return GitResult.of(GitOutcome.NOT_A_REPOSITORY, root.toString());
         } catch (IOException | IllegalArgumentException e) {
             return failure(e);
@@ -326,9 +326,9 @@ public final class JGitOperations implements GitOperations {
                     .setAllowEmpty(false)
                     .call();
             return GitResult.ok(toInfo(commit));
-        } catch (EmptyCommitException e) {
+        } catch (EmptyCommitException _) {
             return GitResult.of(GitOutcome.NOTHING_TO_COMMIT, "no changes");
-        } catch (RepositoryNotFoundException e) {
+        } catch (RepositoryNotFoundException _) {
             return GitResult.of(GitOutcome.NOT_A_REPOSITORY, input.root().toString());
         } catch (RefusingFS.CapabilityRefusedException e) {
             return GitResult.of(GitOutcome.CAPABILITY_MISSING, e.getReason());
@@ -353,7 +353,7 @@ public final class JGitOperations implements GitOperations {
                 commits.add(toInfo(commit));
             }
             return GitResult.ok(List.copyOf(commits));
-        } catch (RepositoryNotFoundException e) {
+        } catch (RepositoryNotFoundException _) {
             return GitResult.of(GitOutcome.NOT_A_REPOSITORY, root.toString());
         } catch (IOException e) {
             return failure(e);
@@ -380,7 +380,7 @@ public final class JGitOperations implements GitOperations {
             return GitResult.ok(List.copyOf(updates));
         } catch (RefusingFS.CapabilityRefusedException e) {
             return GitResult.of(GitOutcome.CAPABILITY_MISSING, e.getReason());
-        } catch (InvalidRemoteException e) {
+        } catch (InvalidRemoteException _) {
             return GitResult.of(GitOutcome.UNKNOWN_REVISION, input.remote());
         } catch (GitAPIException | IOException | JGitInternalException | URISyntaxException e) {
             return failure(e);
@@ -412,7 +412,7 @@ public final class JGitOperations implements GitOperations {
             return GitResult.of(GitOutcome.FAILED, "no update reported for " + input.remoteRef());
         } catch (RefusingFS.CapabilityRefusedException e) {
             return GitResult.of(GitOutcome.CAPABILITY_MISSING, e.getReason());
-        } catch (InvalidRemoteException e) {
+        } catch (InvalidRemoteException _) {
             return GitResult.of(GitOutcome.UNKNOWN_REVISION, input.remote());
         } catch (GitAPIException | IOException | JGitInternalException | URISyntaxException e) {
             return failure(e);
@@ -430,7 +430,7 @@ public final class JGitOperations implements GitOperations {
                 }
             }
             Files.createDirectories(cache);
-            try (Git _ = Git.init().setBare(true).setGitDir(cache.toFile()).setFs(fs).call()) {
+            try (var _ = Git.init().setBare(true).setGitDir(cache.toFile()).setFs(fs).call()) {
                 return GitResult.ok(cache.toRealPath());
             }
         } catch (RepositoryNotFoundException _) {

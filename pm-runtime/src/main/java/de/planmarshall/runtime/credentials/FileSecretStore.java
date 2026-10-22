@@ -242,7 +242,7 @@ public final class FileSecretStore implements SecretStore {
                     default -> throw invalid(file, "undeclared field '" + field + "'");
                 }
             }
-        } catch (JsonProcessingException e) {
+        } catch (JsonProcessingException _) {
             throw invalid(file, "malformed JSON");
         }
         if (version == null || version != FORMAT_VERSION) {
