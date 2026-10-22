@@ -125,6 +125,69 @@ class SchemaSubsetTest {
         }
     }
 
+    /**
+     * {@code maxLength} is checked before {@code pattern}, so an over-long value is reported as such and never reaches
+     * the regular expression engine.
+     */
+    @Nested
+    @DisplayName("the length is checked before the pattern")
+    class LengthBeforePattern {
+
+        private static final String BOUNDED = "{\"pattern\":\"^a+$\",\"maxLength\":3}";
+
+        @Test
+        @DisplayName("a value over maxLength that also fails its pattern yields only the length error")
+        void overLongSkipsFailingPattern() {
+            // Arrange
+            var value = "\"bbbb\"";
+
+            // Act
+            var errors = validate(value, BOUNDED);
+
+            // Assert
+            assertEquals(List.of("$: longer than 3"), errors);
+        }
+
+        @Test
+        @DisplayName("a value over maxLength with a pattern that does not compile yields the length error alone")
+        void overLongSkipsBrokenPattern() {
+            // Arrange
+            var schema = "{\"pattern\":\"(\",\"maxLength\":3}";
+
+            // Act
+            var errors = validate("\"abcd\"", schema);
+
+            // Assert
+            assertEquals(List.of("$: longer than 3"), errors);
+        }
+
+        @Test
+        @DisplayName("a value inside the bound still yields the pattern error")
+        void insideBoundEvaluatesPattern() {
+            // Arrange
+            var value = "\"bb\"";
+
+            // Act
+            var errors = validate(value, BOUNDED);
+
+            // Assert
+            assertEquals(List.of("$: does not match ^a+$"), errors);
+        }
+
+        @Test
+        @DisplayName("a value of exactly maxLength code points still goes through the pattern")
+        void exactBoundEvaluatesPattern() {
+            // Arrange
+            var matching = "\"aaa\"";
+            var failing = "\"abb\"";
+
+            // Act and Assert
+            assertAll(
+                    () -> assertEquals(List.of(), validate(matching, BOUNDED), "matching"),
+                    () -> assertEquals(List.of("$: does not match ^a+$"), validate(failing, BOUNDED), "failing"));
+        }
+    }
+
     @Nested
     @ExtendWith(NonLatinDigits.class)
     @DisplayName("under a default locale with non-Latin digits")
