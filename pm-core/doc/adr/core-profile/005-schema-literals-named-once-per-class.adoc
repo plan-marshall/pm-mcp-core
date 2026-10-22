@@ -11,12 +11,12 @@ Accepted
 
 == Context
 
-The Sonar analysis of `main` reported 123 `java:S1192` issues ("Define a constant instead of duplicating this
-literal") in the package `de.planmarshall.core.profile`. 111 of them sit in `ProfileValidator` and its `Checker`, the
-rest in `ProfileLoader`, `ProfileStages`, `ShippedProfiles` and `VerificationRecord`. The literals are the member names
-and JSON Pointer segments of the client profile schema (`"display_name"`, `"/headless/argv"`, …) and a few refusal
-details (`"not a JSON Pointer: '%s'"`). Each occurs between three and nine times, once per place that reads, refuses
-or names the member.
+The Sonar analysis of `main` reported `java:S1192` issues ("Define a constant instead of duplicating this literal") in
+the package `de.planmarshall.core.profile`: most of them in `ProfileValidator` and its `Checker`, the rest in
+`ProfileLoader`, `ProfileStages`, `ShippedProfiles` and `VerificationRecord`. The literals are the member names and JSON
+Pointer segments of the client profile schema (`"display_name"`, `"/headless/argv"`, …) and a few refusal details
+(`"not a JSON Pointer: '%s'"`). Each occurs between three and nine times, once per place that reads, refuses or names
+the member.
 
 The literals are the vocabulary of a closed schema, so a typo in one of them is a defect the compiler cannot see: a
 refusal that names `"/headless/arg"` instead of `"/headless/argv"` still compiles.

@@ -52,7 +52,8 @@ Sonar configuration of the project (`.github/project.yml` `sonar:`) stays untouc
 A package that holds only its `package-info.java` no longer fails the Sonar analysis, so the required package
 structure and a clean analysis can both hold. A later change must not use the same multicriteria entry for another
 rule without extending the entry list, and a package that gains a type keeps its `package-info.java` as before. The
-ignore is scoped to `package-info.java`, so `java:S4032` still reports a package that holds types but is unused.
+ignore is scoped to `package-info.java` files, so it changes the analysis of no other file; `java:S4032` does not fire
+on a package that holds a type in the first place, so no other rule's verdict is affected either.
 
 == Source
 
