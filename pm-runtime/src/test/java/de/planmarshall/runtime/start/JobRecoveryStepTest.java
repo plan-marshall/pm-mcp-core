@@ -374,10 +374,10 @@ class JobRecoveryStepTest {
                     () -> assertKilled(read(job), RUNTIME_RESTART),
                     () -> assertEquals(JobRecoveryStep.Rule.UNIDENTIFIABLE, step().rule(job)),
                     () -> assertEquals(List.of(new AuditEvent(JobRecoveryStep.JOB_RECOVERED,
-                            AuditEvent.CATEGORY_STORE, AuditEvent.OUTCOME_SUCCEEDED,
-                            Map.of(AuditEvent.DETAIL_PROJECT_ID, PROJECT_A, JobRecoveryStep.DETAIL_JOB_ID,
-                                    job.jobId().value(), JobRecoveryStep.DETAIL_NOTE,
-                                    JobRecoveryStep.ORPHAN_UNIDENTIFIABLE))), audit.events(),
+                                    AuditEvent.CATEGORY_STORE, AuditEvent.OUTCOME_SUCCEEDED,
+                                    Map.of(AuditEvent.DETAIL_PROJECT_ID, PROJECT_A, JobRecoveryStep.DETAIL_JOB_ID,
+                                            job.jobId().value(), JobRecoveryStep.DETAIL_NOTE,
+                                            JobRecoveryStep.ORPHAN_UNIDENTIFIABLE))), audit.events(),
                             "the job is noted as unidentifiable"),
                     () -> assertEquals(new Outcome.Done("1 jobs settled killed {UNIDENTIFIABLE=1}, 0 groups "
                             + "terminated; worker part of 0 workers " + RecoveryStep.NOT_IMPLEMENTED), outcome));
@@ -388,8 +388,9 @@ class JobRecoveryStepTest {
         void recordWithPidWithoutAProcessStartIsRefused() {
             // The record refuses a PID without the process start it was spawned with, so the guard's
             // "no start recorded" branch cannot be reached from a stored record.
-            assertThrows(IllegalArgumentException.class,
-                    () -> postSpawn(ownPid(), null, BOOT.plusSeconds(60)));
+            var pid = ownPid();
+            var later = BOOT.plusSeconds(60);
+            assertThrows(IllegalArgumentException.class, () -> postSpawn(pid, null, later));
         }
     }
 

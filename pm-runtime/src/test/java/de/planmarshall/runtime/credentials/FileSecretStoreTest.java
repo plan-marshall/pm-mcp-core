@@ -222,7 +222,8 @@ class FileSecretStoreTest {
             store.put(CredentialAccount.global("github"), "x");
             Files.setPosixFilePermissions(directory.resolve("github.json"), PosixFilePermissions.fromString(mode));
 
-            var e = assertThrows(SecretStoreException.class, () -> store.get(CredentialAccount.global("github")));
+            var account = CredentialAccount.global("github");
+            var e = assertThrows(SecretStoreException.class, () -> store.get(account));
             assertEquals(SecretStoreException.Reason.INSECURE, e.reason());
             assertEquals("credentials_file_insecure", e.reason().code());
         }
@@ -233,9 +234,10 @@ class FileSecretStoreTest {
             store.put(CredentialAccount.global("github"), "x");
             Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwxr-xr-x"));
 
-            var e = assertThrows(SecretStoreException.class, () -> store.get(CredentialAccount.global("github")));
+            var account = CredentialAccount.global("github");
+            var e = assertThrows(SecretStoreException.class, () -> store.get(account));
             assertEquals(SecretStoreException.Reason.INSECURE, e.reason());
-            assertThrows(SecretStoreException.class, () -> store.put(CredentialAccount.global("github"), "y"));
+            assertThrows(SecretStoreException.class, () -> store.put(account, "y"));
         }
 
         @Test
@@ -244,7 +246,8 @@ class FileSecretStoreTest {
             store.put(CredentialAccount.global("other"), "x");
             Files.createSymbolicLink(directory.resolve("github.json"), directory.resolve("other.json"));
 
-            var e = assertThrows(SecretStoreException.class, () -> store.get(CredentialAccount.global("github")));
+            var account = CredentialAccount.global("github");
+            var e = assertThrows(SecretStoreException.class, () -> store.get(account));
             assertEquals(SecretStoreException.Reason.INSECURE, e.reason());
         }
 
@@ -263,7 +266,8 @@ class FileSecretStoreTest {
             store.put(CredentialAccount.global("github"), "x");
             Files.writeString(directory.resolve("github.json"), content);
 
-            var e = assertThrows(SecretStoreException.class, () -> store.get(CredentialAccount.global("github")));
+            var account = CredentialAccount.global("github");
+            var e = assertThrows(SecretStoreException.class, () -> store.get(account));
             assertEquals(SecretStoreException.Reason.INVALID, e.reason());
             assertTrue(e.getMessage().contains("github.json"), e.getMessage());
         }
@@ -273,7 +277,8 @@ class FileSecretStoreTest {
         void unwritable() throws Exception {
             Files.writeString(base.resolve("credentials"), "a file, not a directory");
 
-            var e = assertThrows(SecretStoreException.class, () -> store.put(CredentialAccount.global("github"), "x"));
+            var account = CredentialAccount.global("github");
+            var e = assertThrows(SecretStoreException.class, () -> store.put(account, "x"));
             assertEquals(SecretStoreException.Reason.FAILED, e.reason());
         }
     }
