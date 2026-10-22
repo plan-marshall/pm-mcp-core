@@ -42,7 +42,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]
 |Task queue and task protocol
 |`open`
-|link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]
+|link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]
 |Milestone 4
 
 |link:worker-launch.adoc[`worker-launch`]

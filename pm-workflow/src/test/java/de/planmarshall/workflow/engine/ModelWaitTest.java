@@ -9,6 +9,7 @@
  */
 package de.planmarshall.workflow.engine;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -90,14 +91,40 @@ class ModelWaitTest {
 
     @Test
     void shouldKeepTheBoundedWindowOfAPmWaitThatQualifiesForProgress() {
-        var wait = WaitSelection.select(connection(true), Optional.of("p-1"), ModelCall.PM_WAIT, WaitSettings.defaults(),
-                clock);
+        var settings = WaitSettings.defaults();
+        var wait = WaitSelection.select(connection(true), Optional.of("p-1"), ModelCall.PM_WAIT, settings, clock);
 
         var progress = assertInstanceOf(ModelWait.Progress.class, wait);
         assertEquals(BOUNDED, progress.window());
         assertEquals(T0.plus(BOUNDED), progress.answerAt());
-        assertEquals(47, progress.progressFrames().size());
-        assertGapsAtMost(pointsOf(progress), WaitSettings.defaults().progressInterval());
+        assertEquals(BOUNDED.dividedBy(settings.progressInterval()) - 1, progress.progressFrames().size());
+        assertGapsAtMost(pointsOf(progress), settings.progressInterval());
+    }
+
+    @Test
+    void shouldSelectTheSameWaitsForAPmWaitInAllFourCombinations() {
+        var settings = WaitSettings.defaults();
+        var progress = assertInstanceOf(ModelWait.Progress.class,
+                WaitSelection.select(connection(true), Optional.of("p-1"), ModelCall.PM_WAIT, settings, clock));
+        assertEquals(BOUNDED, progress.window());
+        assertEquals(BOUNDED, assertInstanceOf(ModelWait.Bounded.class,
+                WaitSelection.select(connection(true), Optional.empty(), ModelCall.PM_WAIT, settings, clock)).window());
+        assertEquals(BOUNDED, assertInstanceOf(ModelWait.Bounded.class,
+                WaitSelection.select(connection(false), Optional.of("p-1"), ModelCall.PM_WAIT, settings, clock)).window());
+        assertEquals(BOUNDED, assertInstanceOf(ModelWait.Bounded.class,
+                WaitSelection.select(connection(false), Optional.empty(), ModelCall.PM_WAIT, settings, clock)).window());
+    }
+
+    @Test
+    void shouldTightenTheIntervalOfAPmWaitToItsWindow() {
+        var shortConnection = new ConnectionSettings(Duration.ofSeconds(15), IDLE, true);
+        var longInterval = new WaitSettings(Duration.ofSeconds(1800), Duration.ofSeconds(60));
+
+        var progress = assertInstanceOf(ModelWait.Progress.class,
+                WaitSelection.select(shortConnection, Optional.of("p-1"), ModelCall.PM_WAIT, longInterval, clock));
+        assertEquals(Duration.ofSeconds(15), progress.window());
+        assertEquals(Duration.ofSeconds(15), progress.interval());
+        assertGapsAtMost(pointsOf(progress), progress.interval());
     }
 
     @Test
@@ -119,6 +146,8 @@ class ModelWaitTest {
         assertEquals(BOUNDED, assertInstanceOf(ModelWait.Bounded.class,
                 WaitSelection.select(new ConnectionSettings(BOUNDED, BOUNDED.plusSeconds(30), false), Optional.empty(),
                         ModelCall.PM_WAIT, WaitSettings.defaults(), clock)).window());
+        assertDoesNotThrow(() -> new ConnectionSettings(Duration.ofSeconds(15), IDLE, true));
+        assertDoesNotThrow(() -> new ConnectionSettings(Duration.ofSeconds(3600), IDLE, true));
     }
 
     @Test
@@ -128,9 +157,21 @@ class ModelWaitTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new WaitSettings(Duration.ofSeconds(7201), Duration.ofSeconds(5)));
         assertThrows(IllegalArgumentException.class,
-                () -> new WaitSettings(Duration.ofSeconds(1800), Duration.ofSeconds(0)));
+                () -> new WaitSettings(Duration.ofSeconds(1800), Duration.ofNanos(999_999_999)));
         assertThrows(IllegalArgumentException.class,
                 () -> new WaitSettings(Duration.ofSeconds(1800), Duration.ofSeconds(61)));
+        assertDoesNotThrow(() -> new WaitSettings(Duration.ofSeconds(60), Duration.ofSeconds(1)));
+        assertDoesNotThrow(() -> new WaitSettings(Duration.ofSeconds(7200), Duration.ofSeconds(60)));
+    }
+
+    @Test
+    void shouldRefuseAProgressWaitWhoseIntervalItsWindowCannotCarry() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new ModelWait.Progress(ModelCall.PM_BUILD, T0, Duration.ofSeconds(60), Duration.ofNanos(1)));
+        assertThrows(IllegalArgumentException.class,
+                () -> new ModelWait.Progress(ModelCall.PM_BUILD, T0, Duration.ofSeconds(60), Duration.ofSeconds(61)));
+        assertDoesNotThrow(
+                () -> new ModelWait.Progress(ModelCall.PM_BUILD, T0, Duration.ofSeconds(60), Duration.ofSeconds(60)));
     }
 
     private static ConnectionSettings connection(boolean progressResetsTimeout) {

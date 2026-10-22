@@ -22,7 +22,8 @@ import de.planmarshall.core.spi.WorkflowClock;
  * {@code connection.progress_resets_timeout} and a {@code _meta.progressToken} in the request; without either the
  * call is held by the bounded long-poll. For a {@code pm_build} that qualifies, the wait holds up to the progress wait
  * upper bound; a {@code pm_wait} keeps the bounded wait window in both cases, and the progress frames hold the host's
- * timer through it.
+ * timer through it. A {@code pm_wait} whose bounded window is shorter than the machine's interval takes that window as
+ * its interval, so the wait never carries an interval longer than its own window.
  *
  * @since 0.1
  */
@@ -55,6 +56,9 @@ public final class WaitSelection {
             return new ModelWait.Bounded(call, clock.now(), connection.boundedWait());
         }
         var window = call == ModelCall.PM_BUILD ? settings.progressWaitMax() : connection.boundedWait();
-        return new ModelWait.Progress(call, clock.now(), window, settings.progressInterval());
+        var interval = call == ModelCall.PM_WAIT && settings.progressInterval().compareTo(connection.boundedWait()) > 0
+                ? connection.boundedWait()
+                : settings.progressInterval();
+        return new ModelWait.Progress(call, clock.now(), window, interval);
     }
 }

@@ -31,6 +31,9 @@ public record WaitSettings(Duration progressWaitMax, Duration progressInterval) 
     /** The longest progress wait upper bound the machine configuration admits. */
     public static final Duration MAX_PROGRESS_WAIT_MAX = Duration.ofSeconds(7200);
 
+    /** The shortest interval between two progress frames. */
+    public static final Duration MIN_PROGRESS_INTERVAL = Duration.ofSeconds(1);
+
     /** The fixed interval between two progress frames, {@code 5}. */
     public static final Duration DEFAULT_PROGRESS_INTERVAL = Duration.ofSeconds(5);
 
@@ -40,7 +43,7 @@ public record WaitSettings(Duration progressWaitMax, Duration progressInterval) 
     /**
      * @throws NullPointerException     if a component is {@code null}
      * @throws IllegalArgumentException if the upper bound is outside 60 to 7200 seconds, or the interval is outside 1
-     *                                  to 60 seconds or longer than the upper bound
+     *                                  to 60 seconds
      */
     public WaitSettings {
         Objects.requireNonNull(progressWaitMax, "progressWaitMax");
@@ -49,14 +52,10 @@ public record WaitSettings(Duration progressWaitMax, Duration progressInterval) 
             throw new IllegalArgumentException("the progress wait upper bound %s is outside %s to %s"
                     .formatted(progressWaitMax, MIN_PROGRESS_WAIT_MAX, MAX_PROGRESS_WAIT_MAX));
         }
-        if (progressInterval.isNegative() || progressInterval.isZero()
+        if (progressInterval.compareTo(MIN_PROGRESS_INTERVAL) < 0
                 || progressInterval.compareTo(MAX_PROGRESS_INTERVAL) > 0) {
-            throw new IllegalArgumentException("the progress interval %s is outside 1 to %s"
-                    .formatted(progressInterval, MAX_PROGRESS_INTERVAL));
-        }
-        if (progressInterval.compareTo(progressWaitMax) > 0) {
-            throw new IllegalArgumentException("the progress interval %s is longer than the upper bound %s"
-                    .formatted(progressInterval, progressWaitMax));
+            throw new IllegalArgumentException("the progress interval %s is outside %s to %s"
+                    .formatted(progressInterval, MIN_PROGRESS_INTERVAL, MAX_PROGRESS_INTERVAL));
         }
     }
 

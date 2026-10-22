@@ -76,7 +76,7 @@ public sealed interface ModelWait permits ModelWait.Bounded, ModelWait.Progress 
 
     /**
      * The progress-reset wait: it holds the call for its window and emits a progress frame at every interval after the
-     * start, so that no gap the host reads as idle is longer than the interval.
+     * start that falls before the answer, so that no gap the host reads as idle is longer than the interval.
      *
      * @param call      the call
      * @param startedAt the instant the wait started at
@@ -95,9 +95,10 @@ public sealed interface ModelWait permits ModelWait.Bounded, ModelWait.Progress 
         public Progress {
             requireComponents(call, startedAt, window);
             Objects.requireNonNull(interval, "interval");
-            if (interval.isNegative() || interval.isZero() || interval.compareTo(window) > 0) {
-                throw new IllegalArgumentException("the progress interval %s is not between 1 and the window %s"
-                        .formatted(interval, window));
+            if (interval.compareTo(WaitSettings.MIN_PROGRESS_INTERVAL) < 0 || interval.compareTo(window) > 0) {
+                throw new IllegalArgumentException(
+                        "the progress interval %s is not between %s and the window %s"
+                                .formatted(interval, WaitSettings.MIN_PROGRESS_INTERVAL, window));
             }
         }
 

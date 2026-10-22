@@ -54,7 +54,12 @@ single rule and a value per wait keep that decision testable without a running r
 * The blank progress token is treated as no token: a host that sends an empty value gets the bounded wait, never a
   silent progress wait.
 * The progress interval is fixed by `WaitSettings`; a machine configuration outside the bounds is refused when the value
-  is built rather than clamped.
+  is built rather than clamped. The one adjustment is a `pm_wait` whose bounded window is shorter than the machine's
+  interval: it takes that window as its interval, so a progress wait never carries an interval longer than its own
+  window.
+* This ADR carries the model-held waits that
+  link:002-every-wait-is-an-engine-event.adoc[ADR 002] left to the `waits` work package; it supersedes that split for
+  those two calls and leaves ADR 002's rule for the engine's own waits unchanged.
 
 == Source
 
