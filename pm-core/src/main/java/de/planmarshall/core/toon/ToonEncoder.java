@@ -255,11 +255,7 @@ public final class ToonEncoder {
     }
 
     private static String inline(List<ToonValue> elements) {
-        var values = new ArrayList<String>(elements.size());
-        for (ToonValue element : elements) {
-            values.add(primitive(element, false));
-        }
-        return String.join(JOIN, values);
+        return String.join(JOIN, elements.stream().map(element -> primitive(element, false)).toList());
     }
 
     /**

@@ -14,6 +14,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -47,7 +48,6 @@ import org.eclipse.jgit.transport.RefSpec;
 import org.eclipse.jgit.transport.RemoteConfig;
 import org.eclipse.jgit.transport.RemoteRefUpdate;
 import org.eclipse.jgit.transport.TagOpt;
-import org.eclipse.jgit.transport.TrackingRefUpdate;
 import org.eclipse.jgit.transport.Transport;
 import org.eclipse.jgit.transport.URIish;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
@@ -372,12 +372,11 @@ public final class JGitOperations implements GitOperations {
             input.credential().ifPresent(c -> command.setCredentialsProvider(
                     new UsernamePasswordCredentialsProvider(c.username(), c.secret())));
             FetchResult result = command.call();
-            var updates = new ArrayList<RefUpdate>();
-            for (TrackingRefUpdate update : result.getTrackingRefUpdates()) {
-                updates.add(new RefUpdate(update.getLocalName(), id(update.getOldObjectId()),
-                        id(update.getNewObjectId()), update.getResult().name().toLowerCase(Locale.ROOT)));
-            }
-            return GitResult.ok(List.copyOf(updates));
+            var updates = result.getTrackingRefUpdates().stream()
+                    .map(update -> new RefUpdate(update.getLocalName(), id(update.getOldObjectId()),
+                            id(update.getNewObjectId()), update.getResult().name().toLowerCase(Locale.ROOT)))
+                    .toList();
+            return GitResult.ok(updates);
         } catch (RefusingFS.CapabilityRefusedException e) {
             return GitResult.of(GitOutcome.CAPABILITY_MISSING, e.getReason());
         } catch (InvalidRemoteException _) {
@@ -605,13 +604,10 @@ public final class JGitOperations implements GitOperations {
     }
 
     private static CommitInfo toInfo(RevCommit commit) {
-        var parents = new ArrayList<String>();
-        for (RevCommit parent : commit.getParents()) {
-            parents.add(parent.name());
-        }
+        var parents = Arrays.stream(commit.getParents()).map(RevCommit::name).toList();
         PersonIdent author = commit.getAuthorIdent();
         PersonIdent committer = commit.getCommitterIdent();
-        return new CommitInfo(commit.name(), List.copyOf(parents), new Identity(author.getName(), author.getEmailAddress()),
+        return new CommitInfo(commit.name(), parents, new Identity(author.getName(), author.getEmailAddress()),
                 author.getWhenAsInstant(), new Identity(committer.getName(), committer.getEmailAddress()),
                 committer.getWhenAsInstant(), commit.getFullMessage());
     }

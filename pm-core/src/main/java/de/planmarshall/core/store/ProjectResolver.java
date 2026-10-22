@@ -157,7 +157,7 @@ public final class ProjectResolver {
                     refused = StoreRefusal.unreadable(file, ProjectEnrolment.FORMAT_VERSION,
                             "the file cannot be read: " + e.getMessage(), e);
                 }
-                continue;
+                content = Optional.empty();
             }
             if (content.isEmpty()) {
                 continue;
