@@ -338,7 +338,7 @@ class SubprocessJobRunnerTest {
 
         @Test
         @DisplayName("a write-ahead record that cannot be written leaves no running job and no store")
-        void writeAheadFailureRegistersNothing() throws IOException {
+        void writeAheadFailureRegistersNothing() throws Exception {
             var directory = Files.createDirectories(jobs.directoryPath());
             Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("r-x------"));
             try {
@@ -1176,7 +1176,7 @@ class SubprocessJobRunnerTest {
 
         @Test
         @DisplayName("a thread that cannot be started terminates and settles the job before the failure is passed on")
-        void threadCannotBeStarted() throws IOException {
+        void threadCannotBeStarted() throws Exception {
             FakePmExec.install(home, FakePmExec.Mode.REPORT);
             var failure = new IllegalStateException("no virtual thread");
             runner = SubprocessJobRunner.builder().base(fixture.base).lockManager(locks)
@@ -1629,7 +1629,7 @@ class SubprocessJobRunnerTest {
 
         @Test
         @DisplayName("a cancel in flight when the exit is observed is answered true and is the cause that is read")
-        void cancelInFlightIsTheCauseRead() throws Exception {
+        void cancelInFlightIsTheCauseRead() {
             var inside = new CountDownLatch(1);
             var proceed = new CountDownLatch(1);
             var process = new StubProcess(() -> {
@@ -1738,7 +1738,7 @@ class SubprocessJobRunnerTest {
 
         @Test
         @DisplayName("the wait for the launch report reports the interrupt by ending without one")
-        void awaitReportReportsInterrupt() throws IOException {
+        void awaitReportReportsInterrupt() throws Exception {
             var logPath = temp.resolve("job.log");
             Files.writeString(logPath, "");
             var process = new StubProcess(() -> true);

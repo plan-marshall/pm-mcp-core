@@ -212,6 +212,18 @@ public final class LspClient implements AutoCloseable {
     }
 
     /**
+     * Waits for the next diagnostics the server publishes for a document.
+     *
+     * @param file    the document
+     * @param timeout the longest wait
+     * @return the published diagnostics, or an empty list when none arrived in time
+     * @throws InterruptedException when the wait is interrupted
+     */
+    List<Diagnostic> awaitPublishedDiagnostics(Path file, Duration timeout) throws InterruptedException {
+        return client.awaitDiagnostics(file.toUri().toString(), timeout);
+    }
+
+    /**
      * @return whether the process is alive
      */
     public boolean isAlive() {
