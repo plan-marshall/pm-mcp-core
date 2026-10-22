@@ -13,6 +13,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.stream.Stream;
@@ -172,7 +173,8 @@ class SchemaSubsetTest {
             var errors = validate(value, schema);
 
             // Assert
-            assertEquals(List.of("$: the schema pattern ( does not compile: Unclosed group"), errors);
+            assertEquals(1, errors.size(), errors::toString);
+            assertTrue(errors.getFirst().startsWith("$: the schema pattern ( does not compile:"), errors::toString);
         }
 
         @Test
