@@ -14,27 +14,18 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.role.EffectiveRole;
-import de.planmarshall.core.role.EffortValue;
-import de.planmarshall.core.role.HarnessProfile;
-import de.planmarshall.core.role.RoleArtifact;
-import de.planmarshall.core.role.RoleArtifactValidator;
 import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.role.RoleResolution;
 import de.planmarshall.core.role.RoleResolver;
-import de.planmarshall.core.role.RoleSkill;
 import de.planmarshall.core.role.RoleValidationReason;
 
 /**
@@ -148,35 +139,6 @@ class RoleCompositionTest {
     }
 
     private static EffectiveRole role(RoleClass roleClass, RoleForm form) {
-        var artifact = artifact(roleClass, form);
-        return EffectiveRole.of(artifact, "acme-cli", "acme-standard", new EffortValue(null),
-                List.of(new RoleSkill("skill://pm/role/x/SKILL.md", "a".repeat(64))), "1.4",
-                Optional.empty(), profile());
-    }
-
-    private static RoleArtifact artifact(RoleClass roleClass, RoleForm form) {
-        var tools = roleClass == RoleClass.ZERO_TOOL
-                ? "[]"
-                : "[\"pm_wait\",\"pm_state\",\"pm_do\",\"pm_skill\",\"pm_skill_file\"]";
-        var recycling = form == RoleForm.WARM
-                ? ",\"recycling\":{\"idle_wakeups\":null,\"token_budget\":10000,\"tasks_per_generation\":null}"
-                : "";
-        var json = """
-                {"format_version":1,"name":"role-x","description":"A role.","class":"%s","tools":%s,
-                 "harness":"acme-cli","model":"acme-standard","effort":null,"form":"%s","count":2,
-                 "skills":["skill://pm/role/x/SKILL.md"],"budget_floor_seconds":300%s}
-                """.formatted(roleClass.wireName(), tools, form.wireName(), recycling);
-        return RoleArtifactValidator.validate(json.getBytes(StandardCharsets.UTF_8), "role-x");
-    }
-
-    private static HarnessProfile profile() {
-        var classes = new LinkedHashMap<RoleClass, HarnessProfile.ToolSet>();
-        classes.put(RoleClass.WRITER, HarnessProfile.ToolSet.ENFORCED);
-        classes.put(RoleClass.READ_ONLY, HarnessProfile.ToolSet.ADVISORY);
-        classes.put(RoleClass.ZERO_TOOL, HarnessProfile.ToolSet.ENFORCED);
-        return new HarnessProfile("acme-cli", true, true, Set.of("*"), classes,
-                Map.of("acme-standard", List.of("medium", "high")),
-                Map.of("frontier", "acme-frontier", "standard", "acme-standard", "fast", "acme-fast"),
-                400_000, 3, new HarnessProfile.Resumability(true, 600, true, 604_800), "ask_user");
+        return ModelFixtures.role("role-x", roleClass, form);
     }
 }
