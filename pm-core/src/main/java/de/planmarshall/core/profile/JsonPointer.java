@@ -44,11 +44,11 @@ public final class JsonPointer {
             throw ProfileRefusal.invalid(document, "", "not a JSON Pointer: it must be empty or start with '/'");
         }
         var tokens = pointer.substring(1).split("/", -1);
-        var path = "";
+        var path = new StringBuilder();
         for (var token : tokens) {
             var name = token.replace("~1", "/").replace("~0", "~");
-            path += "/" + name;
-            var shown = path;
+            path.append('/').append(name);
+            var shown = path.toString();
             if (current.isObject()) {
                 current = current.member(name).orElseThrow(() -> ProfileRefusal.invalid(document, pointer,
                         "the pointer does not resolve at '%s'".formatted(shown)));
@@ -58,18 +58,18 @@ public final class JsonPointer {
                     index = Integer.parseInt(name);
                 } catch (NumberFormatException _) {
                     throw ProfileRefusal.invalid(document, pointer,
-                            "the pointer has an array index that is not a number at '%s'".formatted(path));
+                            "the pointer has an array index that is not a number at '%s'".formatted(shown));
                 }
                 var elements = current.elements();
                 if (index < 0 || index >= elements.size()) {
                     throw ProfileRefusal.invalid(document, pointer,
-                            "the pointer does not resolve at '%s': index %d of %d".formatted(path, index,
+                            "the pointer does not resolve at '%s': index %d of %d".formatted(shown, index,
                                     elements.size()));
                 }
                 current = elements.get(index);
             } else {
                 throw ProfileRefusal.invalid(document, pointer,
-                        "the pointer descends into a value that is not an object or array at '%s'".formatted(path));
+                        "the pointer descends into a value that is not an object or array at '%s'".formatted(shown));
             }
         }
         return current;

@@ -1,0 +1,53 @@
+= ADR 005: The schema literals of the profile validator are named once, per class
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-22
+
+== Context
+
+The Sonar analysis of `main` reported 123 `java:S1192` issues ("Define a constant instead of duplicating this
+literal") in the package `de.planmarshall.core.profile`. 111 of them sit in `ProfileValidator` and its `Checker`, the
+rest in `ProfileLoader`, `ProfileStages`, `ShippedProfiles` and `VerificationRecord`. The literals are the member names
+and JSON Pointer segments of the client profile schema (`"display_name"`, `"/headless/argv"`, …) and a few refusal
+details (`"not a JSON Pointer: '%s'"`). Each occurs between three and nine times, once per place that reads, refuses
+or names the member.
+
+The literals are the vocabulary of a closed schema, so a typo in one of them is a defect the compiler cannot see: a
+refusal that names `"/headless/arg"` instead of `"/headless/argv"` still compiles.
+
+== Decision
+
+Every repeated literal is named once, as a `private static final String` constant of the class that uses it:
+`NAME_*` for a member name (`NAME_DISPLAY_NAME`), `PTR_*` for a JSON Pointer segment with its leading slash
+(`PTR_ARGV`), `MSG_*` for a refusal detail (`MSG_NOT_A_POINTER`). `ProfileValidator` and its `Checker` carry the
+constants of the schema vocabulary; `VerificationRecord.RecordChecker` carries the vocabulary of the record;
+`ProfileLoader`, `ProfileStages` and `ShippedProfiles` each carry their own file-name suffix (`PROFILE_SUFFIX`,
+`PROFILE_NAME`).
+
+The constants are private to their class. There is no package-wide holder class.
+
+== Alternatives Considered
+
+* *One package-wide holder class (`ProfileSchemaTerms`) for every literal.* Rejected: `ProfileValidator` would need
+  either 111 static imports or a 25-character qualifier at every use, and no literal except `.json` is used by more
+  than one class, so the holder would buy nothing and cost readability.
+* *Leave the literals and suppress `java:S1192` for the package.* Rejected: the duplicates are the defect the rule
+  names, and a typo in one of them is not visible to the compiler.
+
+== Consequences
+
+A member name or pointer segment is spelled once, so a refusal and the value it refuses cannot drift apart. A later
+change that adds a schema member adds its constant beside the others and uses it everywhere; a literal that occurs
+once or twice stays a literal, because the rule does not ask for a constant there.
+
+== Source
+
+* Pull request: the pull request of work package PLAN-94 (`chore/94-sonar-main-backlog`), Deliverable 9.
+* Work package: `.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-94-sonar-main-backlog.md`.
+* ADR link:001-hand-written-closed-validator-over-jackson-core.adoc[001 The Hand-Written Closed Validator].

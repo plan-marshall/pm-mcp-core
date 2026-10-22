@@ -198,3 +198,14 @@ block's members to its allowed set, its required set and its `check*` method, an
 
 The stages are the verification's. `ProfileStages` only holds their results and compares the usage figures; a new stage
 adds its result type and its value to this package, while running the stage stays with the package that owns the probe.
+
+The schema vocabulary is spelled once. `ProfileValidator` names each member of the schema as a `NAME_*` constant and each
+JSON Pointer segment it refuses on as a `PTR_*` constant, and each refusal detail that recurs as a `MSG_*` constant;
+`VerificationRecord.RecordChecker` does the same for the record
+(link:../adr/core-profile/005-schema-literals-named-once-per-class.adoc[ADR 005]). A new member adds its constant beside
+the others and uses it in its allowed set, its required set and its `check*` method, so a refusal and the value it
+refuses cannot drift apart.
+
+A loaded profile and a shipped profile compare by the content of their document bytes, not by the array identity:
+`LoadedProfile` and `ProfileSets.ShippedProfile` override `equals`, `hashCode` and `toString` for that, and their compact
+constructors copy the bytes, so a caller cannot mutate a value the profile holds.

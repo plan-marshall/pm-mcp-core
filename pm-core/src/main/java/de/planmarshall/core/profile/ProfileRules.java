@@ -13,6 +13,7 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * What profile validation needs to know that is not part of the profile document (PM-CLIENT-5): the paths a client's
@@ -44,10 +45,9 @@ public record ProfileRules(Set<String> managedBundlePaths, Set<String> harnessHo
     }
 
     private static Set<String> copy(Set<String> values, String name) {
-        var copy = new LinkedHashSet<String>();
-        for (var value : Objects.requireNonNull(values, name)) {
-            copy.add(Objects.requireNonNull(value, name + " entry"));
-        }
+        var copy = Objects.requireNonNull(values, name).stream()
+                .map(value -> Objects.requireNonNull(value, name + " entry"))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
         return Collections.unmodifiableSet(copy);
     }
 }
