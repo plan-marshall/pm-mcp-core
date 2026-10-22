@@ -994,7 +994,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * Whether the PID of a started process now names another process, so that neither its group nor the PID itself may
      * be signalled. A PID that no process owns any more was not reused: a process group still living under that id is
      * the job's surviving group, and a group that is gone answers {@code ESRCH}. A live process of that PID that
-     * started at another instant is a reused PID.
+     * started at another instant is a reused PID. A caller that must end the job anyway destroys the started process
+     * through its handle, never by its PID.
      */
     static boolean pidReused(Launched launched) {
         var handle = ProcessHandle.of(launched.pid());
@@ -1121,7 +1122,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 // the handle's PID, never the one a launch report names: this path ends the process the runner started
                 var pid = launched.pid();
                 // a PID reused by another process is not signalled; a group that outlived its leader is still the job's
-                if (!pidReused(launched)) {
+                if (pidReused(launched)) {
+                    // the PID is never signalled, but the started process must not outlive the cause: the wait has no bound
+                    process.destroyForcibly();
+                } else {
                     report = termination.terminate(pid, process.isAlive());
                     if (report.ending() == Ending.GROUP_KILLED) {
                         LOGGER.warn(WARN.JOB_TERMINATION_ESCALATED, job.latest.jobId(), pid, cause.name());
