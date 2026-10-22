@@ -2,10 +2,10 @@
   "id": "PLAN-84",
   "slug": "job-runner-residuals",
   "workstream": "WS-04",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-84-job-runner-residuals",
+  "pr": "#135",
+  "landing": "landings/PLAN-84.md",
   "seq": 84
 }
