@@ -2,10 +2,10 @@
   "id": "PLAN-93",
   "slug": "index-done-dependencies",
   "workstream": "WS-10",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-93-index-done-dependencies",
+  "pr": "#136",
+  "landing": "landings/PLAN-93.md",
   "seq": 93
 }
