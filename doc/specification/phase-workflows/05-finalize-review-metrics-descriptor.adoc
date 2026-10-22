@@ -257,6 +257,16 @@ The operator of a large change reads its structure before its lines: which modul
 4. *Judged at Self-Review*: The facts of `review-requirement` carry the map; every removed or replaced third-party coordinate that no own call (xref:03-q-gate-and-execute.adoc#own-calls[Own Calls of a Writer]) and no deliverable names is judged there (xref:04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Step Catalogue], `pre-submission-self-review`). An added coordinate stays the Dependency Delta Check's.
 5. *Result*: `change_map: {state: complete | partial | indeterminate, modules_added[], modules_removed[], edges_added[], edges_removed[], replaced[], cause}` in the finalize facts; `indeterminate` when the realized footprint is not `measured`. The map blocks nothing by itself.
 
+[#merge-danger]
+== Merge Danger
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-13[PM-WF-13: Finalize Step Ordering Bands, Verdict Currency & Pre-Merge Barrier]_
+
+Before the operator merges, the pull request says what would be hard to undo and how far the change reaches. The server composes this from the plan's records, without a model, whenever it renders the server sections of the body:
+
+1. *Hard to Undo*: every decision of the plan whose reversibility is `costly` or `irreversible` (link:../model-work/06-envelopes-questions-deadlines.adoc#decision-structure[Model Work Specification, The Decision Structure]), `irreversible` first, each with its title, the option taken, who took it (the operator, a quorum, or a server rule), and its `pm://` URI. With none recorded the section says `No costly or irreversible decision recorded`; it never states that the change is safe to undo.
+2. *Reach*: the modules with a path in the realized footprint and the modules that depend on them directly, both from the change map's crawl at `HEAD` (<<change-map>>), as two counts and the module names up to `20`; with a map that is `partial` or `indeterminate` the reach is named as not computed, never as empty.
+3. *Rendering*: the server-owned section `## Merge Danger` of the pull-request body, rendered with the other server sections (xref:04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Step Catalogue], `create-pr`), and the same lists in the landing record. The section blocks nothing.
+
 == Java `FinalizeStepDescriptor` Record Schema & Static Checks
 
 *Status: IN PROGRESS.* Every built-in, bundle, or project-local finalize step is represented in `pm-workflow` by the immutable record link:../../../pm-workflow/src/main/java/de/planmarshall/workflow/finalize/FinalizeStepDescriptor.java[`FinalizeStepDescriptor`] with its nested types `Lane`, `LaneClass`, `InputScope`, and `ConfigurableKey` and its order constants (link:../../../pm-workflow/doc/developer/workflow-finalize.adoc[Finalize Pipeline Developer Guide]); `pm-workflow` holds no table of the default steps, whose roster is part of the assembly.

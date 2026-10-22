@@ -145,7 +145,7 @@ The write-ahead job journal, one record per job written at its fixed points (que
     "gate_facts": {
       "type": ["object", "null"],
       "description": "Server-derived gate coverage facts of a build job whose result is a gate result (job-runtime.adoc Gate Honesty Verification, item 2); null for every other job. Only gate_coverage, degraded, and uncovered are rendered.",
-      "required": ["gate_coverage", "degraded", "empty_scope", "structural_limits", "uncovered", "parity_population"],
+      "required": ["gate_coverage", "degraded", "empty_scope", "structural_limits", "uncovered", "parity_population", "skipped_tests"],
       "additionalProperties": false,
       "properties": {
         "gate_coverage": { "type": "string", "enum": ["COMPLETE", "PARTIAL", "UNKNOWN"] },
@@ -163,6 +163,20 @@ The write-ahead job journal, one record per job written at its fixed points (que
           }
         },
         "empty_scope": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "Dimensions attempted over an empty scope; neither a pass nor a gap." },
+        "skipped_tests": {
+          "type": "array",
+          "description": "Tests that skipped themselves at run time in a module of the realized footprint (job-runtime.adoc Gate Honesty Verification, item 3); recorded only, never rendered, never a degradation.",
+          "items": {
+            "type": "object",
+            "required": ["module", "test", "reason"],
+            "additionalProperties": false,
+            "properties": {
+              "module": { "type": "string", "minLength": 1 },
+              "test": { "type": "string", "minLength": 1, "maxLength": 512 },
+              "reason": { "type": ["string", "null"], "maxLength": 1000, "description": "The skip reason the parser reads; null where the log gives none." }
+            }
+          }
+        },
         "structural_limits": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 }, "description": "Per checked analysis kind its registered limit, or UNKNOWN when none is registered; never omitted." },
         "uncovered": {
           "type": "object",
@@ -216,7 +230,7 @@ Lessons live in the project's lesson store in the per-project machine store and 
   "$id": "https://cuioss.de/plan-marshall-mcp/schemas/lesson-front-matter.json",
   "title": "LessonFrontMatter",
   "type": "object",
-  "required": ["format_version", "lesson_id", "title", "component", "category", "status", "created_at", "tool_version", "provenance", "audience", "revision", "sources", "revisions", "claim", "retired"],
+  "required": ["format_version", "lesson_id", "title", "component", "category", "remedy", "status", "created_at", "tool_version", "provenance", "audience", "revision", "sources", "revisions", "claim", "retired"],
   "additionalProperties": false,
   "$defs": {
     "source": {
@@ -238,6 +252,17 @@ Lessons live in the project's lesson store in the per-project machine store and 
     "category": { "type": "string", "enum": ["bug", "improvement", "anti-pattern", "arch-constraint"] },
     "bundle": { "type": ["string", "null"] },
     "rule": { "type": ["string", "null"], "description": "Required for arch-constraint, where it is the recurrence key and part of the duplicate key (Upstream Release, Duplicates); absent otherwise." },
+    "remedy": {
+      "type": "object",
+      "required": ["kind", "statement", "check"],
+      "additionalProperties": false,
+      "description": "What would have prevented the mistake (Remedy). A submit parameter of every lesson the lessons role authors; the recurring-waiver lesson of lessons-capture is review_standard.",
+      "properties": {
+        "kind": { "type": "string", "enum": ["check", "wire_check", "review_standard", "pointer"], "description": "check: a deterministic check to add; wire_check: an existing check that ran too late or not at all; review_standard: a judgment rule for the review roles; pointer: a reference to where the information was." },
+        "statement": { "type": "string", "minLength": 10, "maxLength": 1000, "description": "The check, the standard, or the pointer, stated so that a plan can implement it." },
+        "check": { "type": ["string", "null"], "minLength": 1, "maxLength": 512, "description": "wire_check: the existing check (its gate, test, or rule name) and where it ran; null for every other kind." }
+      }
+    },
     "recurrence_count": { "type": ["integer", "null"], "minimum": 1, "description": "arch-constraint only." },
     "last_seen": { "type": ["string", "null"], "format": "date", "description": "arch-constraint only (UTC)." },
     "status": { "type": "string", "enum": ["active", "upstream_pending", "retired"], "description": "upstream_pending: an upstream-audience lesson awaiting the operator's reviewed release (Upstream Release); retired iff retired is set." },
@@ -351,6 +376,7 @@ Lessons live in the project's lesson store in the per-project machine store and 
 * *No Bulk Mutation*: The lesson store is never wiped or bulk-mutated; no bulk-mutation verb exists. A removal answering `absent` is not proof that the lesson never existed and is never retried automatically; it is reported together with the store-resolution discriminator.
 * *Version Provenance*: The runtime stamps `tool_version` from its own release version (`PM-DIST-1`) at creation; it is never a `submit` parameter. An operator override is stored in `tool_version_override` beside the stamped value.
 * *Provenance*: Every new lesson records `provenance` (`run_artifact`, `tool_return`, or `operator_action`); the server sets it where the creating transition determines it (a recurring-waiver lesson of `lessons-capture` is `run_artifact`) and otherwise requires it as a `submit` parameter.
+* *Remedy*: Every lesson states what would have prevented its mistake in `remedy`, a parameter of `submit:lesson`. A mistake a machine can detect (a fixed pattern, a banned API, an import or file-location rule, a format) takes `check`, and `wire_check` when a check that would have caught it already exists but ran later than the task or not at all, naming that check; a `wire_check` lesson never adds a written rule beside the check. A judgment call takes `review_standard`, a rule for the review roles rather than for the writer, and missing information takes `pointer`. The server refuses `wire_check` without `check`, and `check` set for any other kind (`invalid_link_args`, detail `remedy_check_mismatch`). A plan started with the lesson among its sources carries the remedy in its intent as the change to make.
 * *Audience Classification*: A lesson's `audience` is `upstream` iff its `component` names a component shipped by the `PM-MCP` distribution (a built-in skill, recipe, or finalize-step identifier from the compiled-in catalogue); every other component, including a project-prefixed one (`api-sheriff:maven-build`) and one without a bundle prefix (`integration-tests`), is `local`. The classification never inspects the repository layout. An operator override of the classification is persisted on the lesson in `audience_override` in addition to its audit record, so a lesson admitted by an override is never indistinguishable from a classified one. *Deliberate change vs. `plan-marshall`*: `manage-lessons add` decides ownership by the existence of `marketplace/bundles/{prefix}`, which misfiles a consumer's own prefixed component as foreign.
 * *Upstream Release (`PM-ARCH-2`)*: An `upstream` lesson is created `upstream_pending` and stays in the local store; nothing transmits it automatically. It leaves the workstation only through the operator action `pm-operator lesson release --lesson <lesson_id>`, which renders the issue body for review and either hands it to the operator to file or, on the operator's explicit confirmation, runs a filing job through the enrolled CI provider. A `local` lesson is never offered this action; naming one is refused with `audience_mismatch`, which states the lesson's audience and leaves it unchanged. A successful filing records the issue in `promotions[]` (`kind: issue`) and returns the lesson to `active`.
 ** *Rendering*: The issue body is rendered from the stored record only: body, `component`, producing `plan_id`, and the recorded `tool_version`, never values sampled at filing time.
