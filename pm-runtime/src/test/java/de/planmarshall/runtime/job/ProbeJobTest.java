@@ -175,7 +175,7 @@ class ProbeJobTest {
 
     @Test
     @DisplayName("a launcher failure that exits 127 does not settle a probe that declares 127 succeeded")
-    void launcherFailureIsNotADeclaredSuccess() throws Exception {
+    void launcherFailureIsNotADeclaredSuccess() throws IOException {
         FakePmExec.install(home, FakePmExec.Mode.EXIT_127);
 
         var jobId = started(onMachine(Set.of(0, 127), "version"));
@@ -248,7 +248,7 @@ class ProbeJobTest {
 
     @Test
     @DisplayName("a probe whose launcher cannot be started settles failed, its declared 127 does not apply")
-    void missingLauncherIsNotADeclaredSuccess() throws Exception {
+    void missingLauncherIsNotADeclaredSuccess() throws IOException {
         Files.delete(home.resolve("bin/pm-exec"));
 
         var jobId = started(onMachine(Set.of(0, 127), "version"));
