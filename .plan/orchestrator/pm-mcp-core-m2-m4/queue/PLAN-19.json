@@ -2,10 +2,10 @@
   "id": "PLAN-19",
   "slug": "profile-loader",
   "workstream": "WS-05",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-19-profile-loader",
+  "pr": "#137",
+  "landing": "landings/PLAN-19.md",
   "seq": 19
 }
