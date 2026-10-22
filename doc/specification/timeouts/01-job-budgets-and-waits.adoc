@@ -189,6 +189,13 @@ A `timed_out` `git worktree remove` can leave a partially deleted tree. Before a
 == Waits & Long-Polls
 _Implementation watch: link:../../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-5[PM-WATCH-JOB-5]_
 
+The bounded wait window, the progress wait upper bound and the progress notification interval are implemented for the
+only calls a model holds, `pm_wait` and a running `pm_build`, by the wait value and the selection of
+`pm-workflow` package `workflow.engine`; see
+link:../../../pm-workflow/doc/developer/workflow-engine.adoc#_waits_held_by_a_model[Workflow Engine Developer Guide § Waits Held by a Model].
+The remaining rows of this section and the wait attribution of the job runtime are implemented elsewhere or remain open
+(<<ci-repoll-cadence>>, <<review-bot-windows>>, <<merge-queue-wait>> and the item PM-WATCH-JOB-5).
+
 [cols="2,3,2,2,2,3,2"]
 |===
 |Name |Value / derivation |Configurable? |Floor / cap |Applies to |Behaviour on expiry |Defined for

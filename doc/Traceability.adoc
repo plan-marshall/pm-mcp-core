@@ -186,6 +186,18 @@ Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/Stal
 
 Documentation: link:../pm-runtime/doc/developer/runtime-start.adoc#_the_stalled_scope_detection[Runtime Start Developer Guide § The Stalled-Scope Detection], link:../pm-runtime/doc/adr/runtime-start/015-stall-derived-on-read-one-record-per-episode.adoc[ADR runtime-start/015]
 
+Implementation (the connection independence of the two calls a model holds, as far as the library module
+`pm-workflow` carries it: the server selects a bounded long-poll or a progress-reset wait from the client profile and
+the request's progress token, and a progress wait emits a frame at every interval, so a host never reads the hold as
+an idle connection and the call never ends as a transport timeout. Not implemented yet: the relay, the MCP tool
+binding, and the worker supervision that reads the profile): link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WaitSelection.java[WaitSelection],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/ModelWait.java[ModelWait]
+
+Verified by (the waits a model holds): link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/ModelWaitTest.java[ModelWaitTest]
+
+Documentation (the waits a model holds): link:../pm-workflow/doc/developer/workflow-engine.adoc#_waits_held_by_a_model[Workflow Engine Developer Guide § Waits Held by a Model],
+link:../pm-workflow/doc/adr/workflow-engine/012-model-waits-selected-from-the-connection-profile-and-token.adoc[ADR workflow-engine/012]
+
 [#PM-ARCH-10]
 === PM-ARCH-10: One Cleanup of Work History & Automatic Removal of Residue
 
@@ -306,6 +318,28 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/WorkflowEngine
 
 Documentation: link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer Guide],
 link:../pm-core/doc/developer/core-store.adoc[Workflow State Store and Engine Ports Developer Guide]
+
+[#PM-WF-8]
+=== PM-WF-8: Asynchronous Job Links & Wait Transitions
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-8[PM-WF-8]
+
+Implementation (the two waits a model holds and the server's selection of either, as far as the library module
+`pm-workflow` carries it: a bounded long-poll that answers at its window and emits no frame, and a progress-reset wait
+that emits a frame at every interval after the start and answers at its window, so no gap is longer than the interval;
+the selection from the calling connection's `connection.progress_resets_timeout` and the request's progress token, where
+a qualifying `pm_build` takes the progress upper bound and a `pm_wait` keeps its bounded window. Not implemented yet:
+the binding of `pm_wait` and `pm_build`, the relay's `notifications/progress` sender, cancellation, and the
+representations of a job): link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/ModelWait.java[ModelWait],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WaitSelection.java[WaitSelection],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/ConnectionSettings.java[ConnectionSettings],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WaitSettings.java[WaitSettings],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/ModelCall.java[ModelCall]
+
+Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/ModelWaitTest.java[ModelWaitTest]
+
+Documentation: link:../pm-workflow/doc/developer/workflow-engine.adoc#_waits_held_by_a_model[Workflow Engine Developer Guide § Waits Held by a Model],
+link:../pm-workflow/doc/adr/workflow-engine/012-model-waits-selected-from-the-connection-profile-and-token.adoc[ADR workflow-engine/012]
 
 [#PM-WF-10]
 === PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates
@@ -1086,6 +1120,27 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreIdentityCod
 
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_operator_and_question_stores[Scope Stores Developer Guide § Operator and Question Stores, the Project Store and the Project Resolution],
 link:../../plan-marshall-documentation/doc/concepts/store-integrity.adoc#format-versions[Concepts § Store Integrity, Format Versions], link:../../plan-marshall-documentation/doc/developer/store-substrate.adoc#format-versions[Developer Guide § Store Substrate, Format Versions and Refusals], link:../../plan-marshall-documentation/doc/developer/findings-and-analysis.adoc#analysis-result[Developer Guide § Findings and Code Analysis, The Analysis Result and Its Codec], link:../../plan-marshall-documentation/doc/developer/enrolment-store.adoc#schema-and-codec[Developer Guide § Enrolment Store, Schema and Codec]
+
+[#PM-IMPL-4]
+=== PM-IMPL-4: Bounded Long-Poll & Progress-Reset Waiting Primitives
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-4[PM-IMPL-4]
+
+Implementation (the waits of the two calls a model holds, as far as the library module `pm-workflow` carries them: the
+bounded long-poll and the progress-reset wait are values over their start and window, the progress frames are the
+intervals after the start up to the answer, and the server selects the wait from the client profile's
+`connection.progress_resets_timeout` and the request's `_meta.progressToken`; the bounded window and the machine's
+progress upper bound are validated at their specification bounds. Not implemented yet: the MCP tool binding, the
+relay's `notifications/progress` sender, and the cancellation of a held call):
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/ModelWait.java[ModelWait],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WaitSelection.java[WaitSelection],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/ConnectionSettings.java[ConnectionSettings],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WaitSettings.java[WaitSettings]
+
+Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/ModelWaitTest.java[ModelWaitTest]
+
+Documentation: link:../pm-workflow/doc/developer/workflow-engine.adoc#_waits_held_by_a_model[Workflow Engine Developer Guide § Waits Held by a Model],
+link:../pm-workflow/doc/adr/workflow-engine/012-model-waits-selected-from-the-connection-profile-and-token.adoc[ADR workflow-engine/012]
 
 [#PM-IMPL-5]
 === PM-IMPL-5: Declarative Workflow DSL & Automated Diagram Generation
