@@ -92,7 +92,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 - Depends on: PLAN-29 (`worker-launch`); PLAN-28 (`task-queue-and-protocol`)
 - Blocks: PLAN-34 (`role-qualification`); PLAN-35 (`supervision-scenarios`); PLAN-51 (`plan-and-epic-control`); PLAN-59 (`runtime-control`); PLAN-60 (`runtime-metrics`); PLAN-66 (`worker-activity`); PLAN-73 (`question-continuation`)
 - Overlaps with: no other plan by package; every plan through `doc/plans/README.adoc`; the plans of the same module through its log holder, which is not a declared surface
-- Adjacent to: the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` and the client contract `pm-api` in `pm-mcp-clients`, which stay untouched — a change there is a pull request in that repository; and `plan-marshall-documentation`, where only a requirement correction or a change of `cross-cutting.adoc` or of a specification that lives there goes, in a pull request there
+- Adjacent to (added 2026-10-22): `worker-launch` (PLAN-29), which carries the worker half of termination step 3a (the descendant tracker for the kind `llm`, decided by the operator on the analysis of PLAN-84); ADR `runtime-job/013` and the runner's Javadoc say the supervisor wires it because it starts the worker, so PLAN-29 tells this plan in its pull request body if the wiring has to sit in the start path here; the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` and the client contract `pm-api` in `pm-mcp-clients`, which stay untouched — a change there is a pull request in that repository; and `plan-marshall-documentation`, where only a requirement correction or a change of `cross-cutting.adoc` or of a specification that lives there goes, in a pull request there
 
 ## Hand-Off Command
 

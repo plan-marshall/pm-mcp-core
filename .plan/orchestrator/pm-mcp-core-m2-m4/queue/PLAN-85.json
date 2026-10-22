@@ -2,10 +2,10 @@
   "id": "PLAN-85",
   "slug": "store-records-advisories",
   "workstream": "WS-02",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-85-store-records-advisories",
+  "pr": "#129",
+  "landing": "landings/PLAN-85.md",
   "seq": 85
 }

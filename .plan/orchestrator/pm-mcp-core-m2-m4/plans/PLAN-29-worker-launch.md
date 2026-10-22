@@ -33,6 +33,13 @@ The bullets of `doc/plans/worker-launch.adoc` § What, in its words (regenerated
 - Specification: Model Work § Worker Launch; § Job Token, Generation & Connection Binding; § Launch Prompt & Contract Envelope; § Skill Delivery Record & Re-Delivery; § Working Directory, Project Files & Zero-Tool Isolation; § Harness Eligibility & Launch Refusals; Store Schemas § Harness Enrolment Store; § Job Record; Client Profiles § Update Evidence; CLI & Security § Credentials & Operator; Client Profiles § `headless`
 - Watch: Model Work; CLI & Security; Client Profiles; Job Runtime
 
+## Carried From PLAN-84: Termination Step 3a For A Worker
+
+Decided by the operator on 2026-10-22 (the analysis of PLAN-84, #135 `0bf64f7`): this package owns the worker half of termination step 3a of `doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc` (§ Process Termination & Cancellation Protocol, step 3a). The package file does not name it; this plan carries it. #135 built it for a probe only: `ProcessTreeTracker` records a probe's descendants with their start instants, refreshes them while the job runs, sweeps them at its end and audits a survivor as `job_descendant_survived` (ADR `pm-runtime/doc/adr/runtime-job/013-record-and-sweep-descendants.adoc`, `PM_RUNTIME-137` and `-138`).
+
+- **Deliver:** a job of the kind `llm` gets the same recording, sweep and audit as a probe, with a test that a descendant of a fixture worker that leaves the group is ended with the job and a survivor is audited. Read first: `SubprocessJobRunner` (the kind condition at the start of the supervision, and the Javadoc sentence "a worker's descendants are the supervisor's, which starts the worker"), `ProcessTreeTracker`, `TerminationProtocol.terminate(long pid, boolean leaderMayLive)` and ADRs `runtime-job/010` to `013`. ADR 013 and that Javadoc say the supervisor wires the tracker for a worker, because the supervisor starts it; the runner starts every job it is given, so the wiring is one condition in the runner for the kind `llm`, and this package decides it at the trace matrix, records the decision in an ADR, and tells `supervisor` (PLAN-30) in the pull request body if the wiring has to sit in its start path instead.
+- **Not here:** the Linux child-subreaper of the launcher (`PR_SET_CHILD_SUBREAPER` in `pm-exec`, a binary of `pm-mcp-clients`): a package there is owed (Open Defects of the epic); this package launches through the launcher as the specification describes and works with a launcher that stays as the job's process. The sentence "and the runtime status shows it" has no runtime-status surface in this repository; the trace matrix names where a survivor is shown (the audit record is the only place today) and reports it if none exists.
+
 ## Standing Constraints
 
 Set by the operator for every plan of this epic on 2026-10-09, beside the rules of `CLAUDE.md`:
@@ -75,6 +82,9 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 - Verify-first clause: before scoping, read the roadmap item this package serves for what the code already covers, list the open pull requests for one that names `worker-launch`, and check in `doc/plans/README.adoc` that every dependency is `done`; a refutation of any claim above loops back to re-scope.
   - verdict: corroborated | checked_at: 7756dfd6a98067e2e331b40211784ebc0f605c25 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: row worker-launch is open in the index at 7756dfd; open PRs (ci pr list): #129 (PLAN-85) and #71 (a dependabot bump), none names the package; doc/plans/worker-launch.adoc last changed in 72aec5c; the claims above were re-read individually
 
+- OBSERVED: the descendant tracker is wired for the probe kind only, and the code and ADR 013 name the supervisor for a worker — `pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java` (`if (job.latest.kind() == JobId.Kind.PROBE)` before `new ProcessTreeTracker(...)`, and the class Javadoc), `pm-runtime/doc/adr/runtime-job/013-record-and-sweep-descendants.adoc` § Context
+  - verdict: corroborated | checked_at: 9732401d6041fcaf45319877b7147debca5b950e | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: SubprocessJobRunner.java at 9732401 line 864: 'if (job.latest.kind() == JobId.Kind.PROBE)' guards 'job.tracks(new ProcessTreeTracker(...))'; the class Javadoc (line 140) says 'a worker's descendants are the supervisor's, which starts the worker'; ADR runtime-job/013 § Context says 'a worker is started by the supervisor, which does not exist yet' and § Decision 'the supervisor wires the same tracker for a worker'
+
 ## Expected Surface
 
 - OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/` — production code
@@ -87,6 +97,9 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 - HYPOTHESIS: `pm-runtime/doc/developer/runtime-security.adoc` — developer documentation of the package; created or extended
 - HYPOTHESIS: `pm-runtime/doc/adr/runtime-security/` — ADRs of the package's design decisions; new directory if absent
 - OBSERVED: `doc/plans/worker-launch.adoc` — the package file, deleted when the package is done
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java` — the kind condition of the descendant tracker (carried from PLAN-84)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/job/ProcessTreeTracker.java` — the tracker, extended to the kind `llm` (carried from PLAN-84)
+- OBSERVED: `doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc` — specification part (step 3a); the implemented sections deleted
 - OBSERVED: `doc/implementation-watch/client-profiles.adoc` — watch document; the covered items deleted
 - OBSERVED: `doc/implementation-watch/job-runtime.adoc` — watch document; the covered items deleted
 - OBSERVED: `doc/implementation-watch/model-work.adoc` — watch document; the covered items deleted
@@ -98,7 +111,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 - Depends on: PLAN-27 (`job-confinement-and-environment`); PLAN-26 (`role-sets-and-model-caller`)
 - Blocks: PLAN-30 (`supervisor`); PLAN-31 (`slots-usage-and-budgets`); PLAN-73 (`question-continuation`)
 - Overlaps with: PLAN-11 (`enrolment-store`) in `runtime.security`; PLAN-31 (`slots-usage-and-budgets`) in `runtime.launch`; every plan through `doc/plans/README.adoc`; the plans of the same module through its log holder, which is not a declared surface
-- Adjacent to: the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` and the client contract `pm-api` in `pm-mcp-clients`, which stay untouched — a change there is a pull request in that repository; and `plan-marshall-documentation`, where only a requirement correction or a change of `cross-cutting.adoc` or of a specification that lives there goes, in a pull request there
+- Adjacent to (added 2026-10-22): `supervisor` (PLAN-30), whose package starts the workers and which ADR runtime-job/013 names as the wiring point of the tracker for a worker; `pm-exec` in `pm-mcp-clients`, which owes the Linux child-subreaper; the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` and the client contract `pm-api` in `pm-mcp-clients`, which stay untouched — a change there is a pull request in that repository; and `plan-marshall-documentation`, where only a requirement correction or a change of `cross-cutting.adoc` or of a specification that lives there goes, in a pull request there
 
 ## Hand-Off Command
 
