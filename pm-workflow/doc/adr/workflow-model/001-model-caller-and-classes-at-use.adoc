@@ -1,0 +1,70 @@
+= ADR 001: The model caller is a collaborator over ports, and the required role class travels with the use
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-23
+
+== Context
+
+The runtime has exactly one model caller. Every model step of every workflow goes through it, and no other part of the
+runtime knows what a role is for. When a model state creates a task, the caller resolves the role, qualifies it, checks
+its availability and queues it; the supervisor then serves the task. The callers of a model state are the workflow
+engine and the packages that compose a unit.
+
+The composition check needs the class each use requires. The specification says every entity kind declares, with its
+registration, the class its tasks require. The existing `verify.EntityKind` carries a name, an optional entity unit and
+the return-evaluation primitive — not a class. One kind admits two classes: the vote kind is `read_only`, or `zero_tool`
+as a judgment role on a `system_one` endpoint of the protocol. A single class member could not express that without a
+second registration and a judgment-endpoint lookup inside the kind registry.
+
+== Decision
+
+`ModelCaller` is a plain collaborator: it holds a resolver of the plan's effective role set, a resolver of the steward's
+configuration, a `QualificationLookup`, an `AvailabilityGuard` and a `ModelQueue`, and it carries no store, no worker and
+no session. `call(ModelJob)` runs Resolve → class fit → Qualify → Available → Queue and returns a sealed
+`ModelCallResult`: `Queued` with the queue task id, the form and the configuration digest, or `Closed` with one of
+`role_undefined`, `class_mismatch`, `role_unqualified`, `role_unavailable`. A closed task is recorded through the queue's
+`close`.
+
+*Serve has no session path in this class.* The supervisor serves the task; `ModelJob` and `ModelCallResult` carry no
+session id, and the caller neither starts nor resumes a worker.
+
+The required class travels with the **use**, not with the entity-kind record: `RoleUse` holds the state, the role and the
+set of classes its use admits, with compiled factories for a model state (`RoleUse.forModelJob`) and a consultation
+(`RoleUse.forConsultation`). `RoleComposition` resolves each use and refuses with `CompositionRefusal`. The same class
+set is applied at task creation (`ModelJob.accepts`), so an artifact edit that changes a role's class closes the task with
+`class_mismatch`.
+
+== Alternatives Considered
+
+* *Add the required class to `verify.EntityKind`.* Refused: the vote kind admits two classes and the judgment-endpoint
+  exception needs more than one value; a set member plus a judgment-endpoint lookup would put role knowledge into the
+  verifier's record and make every existing constructor carry it. The use is the place the class is actually decided.
+* *Let the caller read the stores and the qualification records itself.* Refused: the stores are other packages', and the
+  specification asks the package to read the assignment stores "through a port". The ports also keep the tests on fixture
+  stores.
+* *Let the caller own Serve.* Refused: serving is the supervisor's, and a caller that starts or resumes workers would
+  duplicate the launch contract and acquire a session path the specification says Serve does not have.
+* *Return an exception for a closed task.* Refused: a role cause is a value the state routes; `role_undefined`,
+  `class_mismatch`, `role_unqualified` and `role_unavailable` are the closed outcome vocabulary of a queue task.
+
+== Consequences
+
+* The wiring composes the caller: `RoleCatalog.forPlan(overrides)` for the plan's roles, `name -> catalog.resolveSteward()`
+  for the steward, the qualification record reader of the role-qualification package, the start-failure guard of the
+  supervisor, and the task queue of the task protocol.
+* A new entity kind passes its class set where it registers its use; the compiled mapping in `RoleUse.classesOf` covers
+  the shipped kinds only.
+* A session-resume feature must be added to the supervisor and the launch, never to this class; a review that finds a
+  session id on `ModelJob` or `ModelCallResult` should refuse it.
+
+== Source
+
+Pull request of the work package `role-sets-and-model-caller` (`doc/plans/role-sets-and-model-caller.adoc`, deleted with
+the package), specification `doc/specification/model-work/01-roles-and-configuration.adoc` § Composition Check and
+§ The Model Caller, and `doc/specification/model-work/02-task-protocol.adoc#task-outcomes`.

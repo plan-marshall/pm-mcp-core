@@ -265,6 +265,37 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineResumeTe
 
 Documentation: link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer Guide]
 
+[#PM-WF-5]
+=== PM-WF-5: Model Work as Role Tasks & Single-Level Leaf Constraint
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-5[PM-WF-5]
+
+Implementation (bullets 2, 3, 4 and the consultation half of bullet 5, as far as the library module `pm-workflow`
+carries it: the one model caller that turns a `job llm` state into a queue task in the order Resolve, Qualify, Available,
+Queue — with the closed reasons `role_undefined`, `class_mismatch`, `role_unqualified`, `role_unavailable` for a task
+that closes without an attempt and the `form_downgraded` record of a warm role that runs fresh — which reads the role's
+effective harness, model and effort (bullet 3) and queues at its configuration digest; the class fit of a named role
+against its entity kind at composition and at task creation, a consulted `zero_tool` role refused (bullets 4 and 5); and
+the validation of the role's tool set within the bound of its class. Not implemented here, and not claimed by this
+package: packaging into envelopes (bullet 1), the launch composition and the worker's connection (bullets 3, 4 and 5's
+service side), the submit and question protocol (bullet 6), the end observation and job budgets (bullet 7), and the
+`zero_tool` worker run (bullet 8), which belong to `task-queue-and-protocol`, `worker-launch`, `supervisor` and
+`job-confinement-and-environment`): link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/ModelCaller.java[ModelCaller],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/ModelJob.java[ModelJob],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/ModelCallResult.java[ModelCallResult],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/ModelQueue.java[ModelQueue],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/QualificationLookup.java[QualificationLookup],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/AvailabilityGuard.java[AvailabilityGuard],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/RoleComposition.java[RoleComposition],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/RoleUse.java[RoleUse],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/CompositionRefusal.java[CompositionRefusal]
+
+Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/ModelCallerTest.java[ModelCallerTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/RoleCompositionTest.java[RoleCompositionTest]
+
+Documentation: link:../pm-workflow/doc/developer/workflow-model.adoc[The One Model Caller Developer Guide],
+link:../pm-workflow/doc/adr/workflow-model/001-model-caller-and-classes-at-use.adoc[ADR workflow-model/001]
+
 [#PM-WF-6]
 === PM-WF-6: Independent Server-Side Transition & Parameter Validation
 
@@ -962,6 +993,28 @@ Documentation: link:../pm-runtime/doc/developer/runtime-job.adoc[Developer Guide
 
 == link:../../plan-marshall-documentation/doc/requirements/13-client-profiles.adoc[Client Profiles]
 
+[#PM-CLIENT-2]
+=== PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]
+
+Implementation (the role side of bullet 1's *Models & Effort* and *Headless Model Jobs* dimensions, as far as the library
+modules carry it: the facts of a validated client profile that a role is validated and resolved against — worker
+eligibility, the models that accept a restricted tool set, the classes the harness runs, the effort values per model, the
+model tiers, the context-budget fallback, the idle wakeups, the resumability that cuts a role's continuation bounds, and
+the harness's ask-user tool that no role may name — projected from the profile document; a role of a class the harness
+cannot run is invalid with `harness_class_not_runnable`, and the steward takes its model from the harness's tier
+`standard`. Not implemented here: the translation of skills, links and prompts, and the composition of a launch from the
+`headless` block, which belong to the host-integration and worker-launch packages): link:../pm-core/src/main/java/de/planmarshall/core/role/HarnessProfile.java[HarnessProfile],
+link:../pm-core/src/main/java/de/planmarshall/core/role/RoleValidation.java[RoleValidation],
+link:../pm-core/src/main/java/de/planmarshall/core/role/RoleCatalog.java[RoleCatalog],
+link:../pm-core/src/main/java/de/planmarshall/core/role/StewardConfiguration.java[StewardConfiguration]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/RoleValidationTableTest.java[RoleValidationTableTest],
+link:../pm-core/src/test/java/de/planmarshall/core/role/RoleEffectiveConfigurationTest.java[RoleEffectiveConfigurationTest]
+
+Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Artifacts Developer Guide]
+
 [#PM-CLIENT-5]
 === PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy
 
@@ -1336,6 +1389,51 @@ Documentation: link:../pm-core/doc/developer/core-store.adoc#_operator_and_quest
 link:../../plan-marshall-documentation/doc/concepts/locks-and-leases.adoc[Concepts § Locks and Leases], link:../../plan-marshall-documentation/doc/concepts/store-integrity.adoc[Concepts § Store Integrity], link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#rebaseline[Concepts § Enrolment, Re-Baseline], link:../../plan-marshall-documentation/doc/developer/locks-and-leases.adoc[Developer Guide § Locks and Leases], link:../../plan-marshall-documentation/doc/developer/store-substrate.adoc[Developer Guide § Store Substrate], link:../../plan-marshall-documentation/doc/developer/enrolment-store.adoc#store[Developer Guide § Enrolment Store, The Store]
 
 == link:../../plan-marshall-documentation/doc/requirements/16-model-work.adoc[Model Work]
+
+[#PM-WORK-1]
+=== PM-WORK-1: Roles as Configuration
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1]
+
+Implementation (bullets 1 to 6, and the steward's and judge's configuration sources of bullet 7, as far as the library
+modules carry them: the one role artifact with its closed schema — including the members whose bounds are compiled, the
+`off_track` thresholds and the form of a `zero_tool` role — and both digests over the effective values; the shipped,
+machine and project sets with whole-artifact replacement, and the six resolution levels of the harness, model and effort
+with the assignment stores, the plan override and the model catalogues read through the `RoleEnvironment` port; the
+effective model catalogue, the project's else the machine's, with `model_not_allowed`; validation against the client
+profile and the catalogue with the ten reasons of the table; the composition check with `role_undefined` and
+`class_mismatch`, at composition and at task creation; the one model caller with the judge and steward skipping Qualify,
+and the steward's harness from `harnesses.default` of `machine-config.json` and its model from the tier `standard`. Not
+implemented here, and not claimed by this package: the escalation assignment (bullet 9), the shipped artifacts, tiers,
+qualification records and their calibration (bullets 7 and 8, which are the release assembly's and
+`machine-onboarding-unit`'s), the resolution `roles.default`, the grading and the record validity (PM-WORK-6), and the
+launch): link:../pm-core/src/main/java/de/planmarshall/core/role/RoleArtifact.java[RoleArtifact],
+link:../pm-core/src/main/java/de/planmarshall/core/role/RoleArtifactValidator.java[RoleArtifactValidator],
+link:../pm-core/src/main/java/de/planmarshall/core/role/RoleSetLoader.java[RoleSetLoader],
+link:../pm-core/src/main/java/de/planmarshall/core/role/ShippedRoles.java[ShippedRoles],
+link:../pm-core/src/main/java/de/planmarshall/core/role/RoleCatalog.java[RoleCatalog],
+link:../pm-core/src/main/java/de/planmarshall/core/role/EffectiveRole.java[EffectiveRole],
+link:../pm-core/src/main/java/de/planmarshall/core/role/RoleDigests.java[RoleDigests],
+link:../pm-core/src/main/java/de/planmarshall/core/role/RoleValidation.java[RoleValidation],
+link:../pm-core/src/main/java/de/planmarshall/core/role/RoleEnvironment.java[RoleEnvironment],
+link:../pm-core/src/main/java/de/planmarshall/core/role/StewardConfiguration.java[StewardConfiguration],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/ModelCaller.java[ModelCaller],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/RoleComposition.java[RoleComposition]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/RoleArtifactValidatorTest.java[RoleArtifactValidatorTest],
+link:../pm-core/src/test/java/de/planmarshall/core/role/RoleSetLoaderTest.java[RoleSetLoaderTest],
+link:../pm-core/src/test/java/de/planmarshall/core/role/ShippedRolesTest.java[ShippedRolesTest],
+link:../pm-core/src/test/java/de/planmarshall/core/role/RoleValidationTableTest.java[RoleValidationTableTest],
+link:../pm-core/src/test/java/de/planmarshall/core/role/RoleEffectiveConfigurationTest.java[RoleEffectiveConfigurationTest],
+link:../pm-core/src/test/java/de/planmarshall/core/role/RoleDigestTest.java[RoleDigestTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/RoleCompositionTest.java[RoleCompositionTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/ModelCallerTest.java[ModelCallerTest]
+
+Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Artifacts Developer Guide],
+link:../pm-workflow/doc/developer/workflow-model.adoc[The One Model Caller Developer Guide],
+link:../pm-core/doc/adr/core-role/001-role-sets-and-the-effective-configuration.adoc[ADR core-role/001],
+link:../pm-core/doc/adr/core-role/002-two-digests-over-the-effective-values.adoc[ADR core-role/002],
+link:../pm-workflow/doc/adr/workflow-model/001-model-caller-and-classes-at-use.adoc[ADR workflow-model/001]
 
 [#PM-WORK-6]
 === PM-WORK-6: Role Qualification

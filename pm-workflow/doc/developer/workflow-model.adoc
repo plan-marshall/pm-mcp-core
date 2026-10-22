@@ -1,0 +1,92 @@
+= The One Model Caller (`workflow.model`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-5[PM-WF-5], link:{docs}/Requirements.adoc#PM-WORK-1[PM-WORK-1]_
+
+Package `de.planmarshall.workflow.model` of `pm-workflow` holds the *one model caller* and the *composition checks* of a
+role. Every model step of every workflow goes through the caller; no other part of the runtime knows what a role is for.
+
+The package owns four things:
+
+* `ModelCaller`, the ordered Resolve → Qualify → Available → Queue steps (Serve belongs to the supervisor);
+* `RoleComposition`, the `role_undefined`/`class_mismatch` check of a composed unit;
+* `RoleUse`, the role a unit names with the classes its use admits;
+* the ports the caller needs — `QualificationLookup`, `AvailabilityGuard`, `ModelQueue` — so the caller carries no store
+  and no session of its own.
+
+Specification: `model-work/01-roles-and-configuration.adoc#model-caller` and `#role-composition`, with the closed task
+outcomes of `model-work/02-task-protocol.adoc#task-outcomes`. The effective configuration itself is
+link:https://github.com/plan-marshall/pm-mcp-core/blob/main/pm-core/doc/developer/core-role.adoc[`core.role`'s].
+
+== The Caller
+
+`ModelCaller.call(ModelJob job)` acts in this order:
+
+. *Resolve*: the resolver of the plan's effective role set (`RoleCatalog.forPlan`) — or, for the `steward`, the resolver
+  of its machine-derived configuration (`RoleCatalog.resolveSteward`) — returns the role's effective configuration. An
+  absent or invalid role closes the task with `role_undefined`, naming the validation reason where there is one.
+. *Class fit*: the entity kind decides the class the task requires. `RoleUse.classesOf` maps `screen` to `zero_tool`,
+  `task` to `writer`, `vote` to `read_only` or `zero_tool`, and every other kind to `writer` or `read_only`; a
+  consultation admits every class but `zero_tool`. A mismatch, or a consulted `zero_tool` role, closes the task with
+  `class_mismatch`.
+. *Qualify*: a lookup by the role's qualification digest. Without a record the task closes with `role_unqualified`; a
+  warm artifact that only qualifies fresh runs fresh and the result carries `formDowngraded`. The `judge` and the
+  `steward` skip this step.
+. *Available*: while the start-failure guard of the role on its harness holds, the task closes with `role_unavailable`.
+. *Queue*: the task is queued at the role's configuration digest, with its effective harness, model and effort.
+
+*Serve has no session path here.* The supervisor serves the task with a warm worker or starts a fresh one; the caller
+neither starts a worker nor resumes a stored harness session, and `ModelJob`/`ModelCallResult` carry no session id. A
+future session-resume feature belongs to the supervisor and the launch, never to this class.
+
+== Composition
+
+`RoleComposition.check(List<RoleUse>)` resolves every role a composed unit names and refuses the composition at the first
+one it cannot use. The refusal is `CompositionRefusal`, a value with its reason, the role, the state, the role's class and
+the required classes:
+
+* `role_undefined` — the role is absent, or its artifact or effective values failed validation (the validation reason
+  travels with the refusal);
+* `class_mismatch` — the role's class is not one the use admits.
+
+The same check runs at task creation: a role whose class an edit changed so that it no longer fits closes its task with
+`class_mismatch` instead of running (`ModelCaller`, step 2). This is the guard of `PM-WATCH-DISP-49`, now carried here:
+a `read_only` role cannot take the task envelope, a `writer` role cannot screen untrusted text, and a `zero_tool` role
+cannot be consulted.
+
+== Why the Class Travels with the Use
+
+The specification says every entity kind declares, with its registration, the class its tasks require. This package keeps
+that declaration with the *use* (`RoleUse`) rather than adding a member to `verify.EntityKind`, because one kind admits
+two classes: the vote kind is `read_only`, or `zero_tool` as a judgment role on a `system_one` endpoint of the protocol.
+A single class member on the kind could not express that without a second registration; a set on the use can, and a unit
+that registers a new kind passes its own set. The compiled mapping in `RoleUse.classesOf` is the table for the shipped
+kinds. See link:../adr/workflow-model/001-model-caller-and-classes-at-use.adoc[ADR workflow-model/001].
+
+== Invariants and Failure Modes
+
+* A task the caller closes without an attempt carries exactly one of `role_undefined`, `class_mismatch`,
+  `role_unqualified`, `role_unavailable`; its state takes the conservative fallback.
+* Resolve precedes Qualify precedes Available. A role that is not qualified never reaches the availability check, so an
+  unqualified role on a harness whose guard holds closes `role_unqualified`, not `role_unavailable`.
+* The caller reads the effective configuration at every call: the resolvers it holds load the role sets and the
+  assignment stores afresh.
+* A queue task id must match `^qt-[0-9a-f]{16}$`; `ModelQueue.Queued` refuses anything else.
+* The caller holds no worker, no job and no session. If a change needs one, it belongs to the supervisor.
+
+== Tests
+
+`ModelCallerTest` (the order, the four closure reasons, the form downgrade, the judge and steward skipping Qualify, the
+class mismatch, the unavailable role), `RoleCompositionTest` (`role_undefined`, `class_mismatch`, the matched controls of
+the shipped kinds and a consultation).
+
+== Related
+
+* link:../../../pm-core/doc/developer/core-role.adoc[Role Artifacts, Role Sets and the Effective Configuration Developer Guide]
+* link:../adr/workflow-model/001-model-caller-and-classes-at-use.adoc[ADR workflow-model/001]

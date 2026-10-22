@@ -1,0 +1,69 @@
+= ADR 002: Two digests over the effective values, and the canonical input they cover
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-23
+
+== Context
+
+A role has two digests. The *configuration digest* identifies the configuration a worker generation is started with, which
+an offer compares; the *qualification digest* binds a qualification record to exactly the members the grading measured.
+The specification fixes what each covers, and a change of a member outside the qualification digest must leave the
+record valid — otherwise a role falls to its conservative fallback for an edit the grading never measured. A changed
+assignment or plan override of the harness, the model or the effort must change both digests, so the qualification is
+stale in every project the configuration applies to.
+
+The plan override and the assignment stores are operator data; the digests must be computed from the effective values,
+not from the documents the values came from.
+
+== Decision
+
+Both digests are the SHA-256 of the canonical JSON (RFC 8785, `core.profile.CanonicalJson`) of a small object, 64
+lower-case hexadecimal digits:
+
+* the configuration digest covers `artifact` (the effective artifact with `description` removed and `harness`, `model`
+  and `effort` replaced by the effective values), `harness_version` (the enrolled harness's major.minor) and
+  `skill_digests` (per skill URI the digest of its files as the project resolves them);
+* the qualification digest covers `configuration` — `harness`, `harness_version`, `model`, `effort`, `tools`, `class`,
+  `skill_digests`, exactly the members the qualification record records under `configuration` — and, only where the
+  harness reports one, `weights_identity` beside it.
+
+`EffortValue` distinguishes "a level names no effort flag" (`value == null`, a value) from "the level names nothing"
+(an empty `Optional`), so the effective effort is rendered as JSON `null` only where the effective configuration really
+has no effort.
+
+The `off_track` thresholds are validated against the compiled values in `RoleArtifact.OffTrackSignal` (the caps) and their
+floors (the values from `timeouts/01#off-track-thresholds`): a value above the cap or below the floor is
+`schema_invalid`, so the digest never covers a threshold the supervisor could not use.
+
+== Alternatives Considered
+
+* *One digest over the artifact document.* Refused: an edit of `count` or `recycling` would invalidate a qualification
+  record the grading never measured, and an assignment change would not be visible in the digest at all.
+* *Include `description` in the configuration digest.* Refused: the specification says a description edit changes
+  neither digest.
+* *Put the weights identity inside `configuration`.* Refused: the qualification record's `configuration` object is closed
+  and does not carry it; adding it there would make every record fail its own schema. It travels beside `configuration`
+  in the digest input, and only when the harness reports one.
+* *Order the effort values by a compiled ladder.* Refused: the harness's `headless.model_efforts` order is the one
+  authority; an unlisted value counts as unsupported only when it is below the first listed value.
+
+== Consequences
+
+* The digest input is a versioned contract of this package. A new artifact member that the grading measures must be added
+  to both the artifact rendering and the qualification `configuration`; a member outside the grading goes only into the
+  configuration rendering.
+* A consumer that recomputes a qualification digest must reproduce the `weights_identity` rule exactly.
+* `RoleDigestTest` is the table: an edit of a member names which digests change.
+
+== Source
+
+Pull request of the work package `role-sets-and-model-caller` (`doc/plans/role-sets-and-model-caller.adoc`, deleted with
+the package), specification `doc/specification/model-work/01-roles-and-configuration.adoc` § Role Artifact Schema and
+§ Qualification Records, `doc/specification/store-schemas/16-task-queue.adoc#qualification-record`, and
+`doc/specification/timeouts/01-job-budgets-and-waits.adoc#off-track-thresholds`.
