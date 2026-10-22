@@ -321,6 +321,48 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/PendingEntrySchemaParit
 
 Documentation: link:../pm-core/doc/developer/core-store.adoc[Scope Stores Developer Guide]
 
+[#PM-WF-12]
+=== PM-WF-12: Question Records vs Operator Overrides
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-12[PM-WF-12]
+
+Implementation (the question record and its log as far as the library module `pm-core` carries them: the closed, typed
+record of one event of a question — asked, revised, adjudicated, delivered, answered, withdrawn or cancelled — with the
+set named by its first question and the decision carried on that first question's line only; one append-only
+`questions.jsonl` per plan, epic and workspace scope and `pending/<entry_id>/questions.jsonl`, appended only through the
+scope's transaction and moved into the scope an entry creates; the record's invariants held by the store under the scope
+lock: exactly one closing line per question, an answer, an adjudication and a delivery naming the current revision, a set
+asked whole and revised as a whole, and every append refused `Unreadable` while the log holds a refused line, with
+`already_answered` and `conflict` returned as refusal values and nothing appended; an answer names its channel and, for
+the web channel, its paired device. The operator waits that deliver a decision, the answer channels and their
+validation, the adjudication by quorum, the engine's check that an answer fits its part, and the representation of the
+open decisions are not traced here): link:../pm-core/src/main/java/de/planmarshall/core/store/QuestionRecord.java[QuestionRecord],
+link:../pm-core/src/main/java/de/planmarshall/core/store/QuestionRecordCodec.java[QuestionRecordCodec],
+link:../pm-core/src/main/java/de/planmarshall/core/store/QuestionLog.java[QuestionLog],
+link:../pm-core/src/main/java/de/planmarshall/core/store/QuestionRefusal.java[QuestionRefusal],
+link:../pm-core/src/main/java/de/planmarshall/core/store/QuestionEvent.java[QuestionEvent],
+link:../pm-core/src/main/java/de/planmarshall/core/store/QuestionChannel.java[QuestionChannel]
+
+Verified by (the question record and its log): link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionRecordCodecTest.java[QuestionRecordCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionRecordRoundTripTest.java[QuestionRecordRoundTripTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionRecordRefusalsTest.java[QuestionRecordRefusalsTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionRecordMembersOnTheirEventsTest.java[QuestionRecordMembersOnTheirEventsTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogTest.java[QuestionLogTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogRevisionTest.java[QuestionLogRevisionTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogClosingTest.java[QuestionLogClosingTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogAnswerRevisionTest.java[QuestionLogAnswerRevisionTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogCurrentLineTest.java[QuestionLogCurrentLineTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogRefusedLineTest.java[QuestionLogRefusedLineTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogMalformedTest.java[QuestionLogMalformedTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/EntryQuestionMoveTest.java[EntryQuestionMoveTest]
+
+Documentation: link:../pm-core/doc/developer/core-store.adoc#_question_log[Scope Stores Developer Guide § The Question Log],
+link:../pm-core/doc/adr/core-store/032-question-store-in-core-store-read-through-a-runtime-adapter.adoc[ADR core-store/032],
+link:../pm-core/doc/adr/core-store/033-question-invariants-held-by-the-store-as-refusal-values.adoc[ADR core-store/033],
+link:../pm-core/doc/adr/core-store/036-entry-question-file-moved-by-the-store.adoc[ADR core-store/036],
+link:../pm-core/doc/adr/core-store/039-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR core-store/039],
+link:../pm-core/doc/adr/core-store/040-a-question-set-is-asked-whole.adoc[ADR core-store/040]
+
 [#PM-WF-14]
 === PM-WF-14: Task Envelopes, Model Slots & Usage per Task
 
@@ -684,12 +726,58 @@ Implementation (the first bullet as far as the library module `pm-core` carries 
 link:../pm-core/src/main/java/de/planmarshall/core/store/ProjectResolution.java[ProjectResolution],
 link:../pm-core/src/main/java/de/planmarshall/core/store/PathConfinement.java[PathConfinement]
 
-Verified by (the project resolution): link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectResolverTest.java[ProjectResolverTest],
+Verified by (the project resolution): link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectResolverMainCheckoutTest.java[ProjectResolverMainCheckoutTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectResolverWorktreeTest.java[ProjectResolverWorktreeTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectResolverNestedCheckoutTest.java[ProjectResolverNestedCheckoutTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectResolverMovedCheckoutTest.java[ProjectResolverMovedCheckoutTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectResolverUnenrolledTest.java[ProjectResolverUnenrolledTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectResolverUnrecognisedGitTest.java[ProjectResolverUnrecognisedGitTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectResolverEnrolmentTest.java[ProjectResolverEnrolmentTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectResolverContractTest.java[ProjectResolverContractTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/LinkedWorktreeConfinementTest.java[LinkedWorktreeConfinementTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/PathConfinementTest.java[PathConfinementTest]
 
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_project_resolution[Scope Stores Developer Guide § The Project Resolution],
 link:../pm-core/doc/adr/core-store/037-project-resolution-file-based-from-the-pointer-files.adoc[ADR core-store/037]
+
+[#PM-SEC-3]
+=== PM-SEC-3: Operator Channel Isolation (Operator CLI & Paired Web Devices)
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-3[PM-SEC-3]
+
+Implementation (the operator's act as a typed record, as far as the library module `pm-core` carries it: every waiver
+act of a plan is one append-only line of `waivers.jsonl` that names the operator's channel (`cli` or `web`), the paired
+device for a web act and the reason with its class, its revocation is a new `revoked` line and the consumed budget stays
+a separate counter; every evaluation that relied on a `met` waiver is one line of `waiver-consumptions.jsonl`; a waiver
+request is a typed member of the plan's status, at most one pending at a time and each request id once, and its answer
+records the channel, the device and a decline's reason; an answer line of a question names its channel and, exactly for
+the web channel, its paired device, so a web answer without a device and a device on another channel are refused. The
+operator CLI and the paired web devices, their authentication and the local API of either channel, the withdrawal of a
+grant, the filing and announcement of a waiver request, and the prompt for an operator wait are not traced here):
+link:../pm-core/src/main/java/de/planmarshall/core/store/WaiverRecord.java[WaiverRecord],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WaiverLog.java[WaiverLog],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WaiverConsumptionRecord.java[WaiverConsumptionRecord],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WaiverConsumptionLog.java[WaiverConsumptionLog],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WaiverRequest.java[WaiverRequest],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WaiverRequestOutcome.java[WaiverRequestOutcome],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java[WorkflowStatus],
+link:../pm-core/src/main/java/de/planmarshall/core/store/QuestionRecord.java[QuestionRecord],
+link:../pm-core/src/main/java/de/planmarshall/core/store/QuestionChannel.java[QuestionChannel]
+
+Verified by (the operator's acts and their channel): link:../pm-core/src/test/java/de/planmarshall/core/store/WaiverRecordCodecTest.java[WaiverRecordCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/WaiverLogTest.java[WaiverLogTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/WaiverConsumptionCodecTest.java[WaiverConsumptionCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/WaiverConsumptionLogTest.java[WaiverConsumptionLogTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java[WorkflowStatusCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusSchemaParityTest.java[WorkflowStatusSchemaParityTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionRecordRefusalsTest.java[QuestionRecordRefusalsTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionRecordRoundTripTest.java[QuestionRecordRoundTripTest]
+
+Documentation: link:../pm-core/doc/developer/core-store.adoc#_waiver_logs[Scope Stores Developer Guide § The Waiver Logs],
+link:../pm-core/doc/developer/core-store.adoc#_waiver_requests[§ The Waiver Requests of a Plan],
+link:../pm-core/doc/adr/core-store/034-waiver-logs-appended-through-the-scope-transaction.adoc[ADR core-store/034],
+link:../pm-core/doc/adr/core-store/035-waiver-requests-typed-in-the-status-document.adoc[ADR core-store/035],
+link:../pm-core/doc/adr/core-store/041-a-waiver-request-is-held-once-and-one-is-pending.adoc[ADR core-store/041]
 
 [#PM-SEC-4]
 === PM-SEC-4: Local Transport Isolation, Operator-Gated Network Exposure & Stream Hygiene
@@ -989,6 +1077,9 @@ link:../pm-core/src/main/java/de/planmarshall/core/store/ProjectStoreIdentityCod
 Verified by (the operator and question stores and the project store identity): link:../pm-core/src/test/java/de/planmarshall/core/store/WaiverRecordCodecTest.java[WaiverRecordCodecTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/WaiverConsumptionCodecTest.java[WaiverConsumptionCodecTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionRecordCodecTest.java[QuestionRecordCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionRecordRoundTripTest.java[QuestionRecordRoundTripTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionRecordRefusalsTest.java[QuestionRecordRefusalsTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionRecordMembersOnTheirEventsTest.java[QuestionRecordMembersOnTheirEventsTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java[WorkflowStatusCodecTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusSchemaParityTest.java[WorkflowStatusSchemaParityTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreIdentityCodecTest.java[ProjectStoreIdentityCodecTest]
@@ -1231,6 +1322,12 @@ link:../pm-core/src/main/java/de/planmarshall/core/store/ProjectStore.java[Proje
 Verified by (the operator and question stores and the project store): link:../pm-core/src/test/java/de/planmarshall/core/store/WaiverLogTest.java[WaiverLogTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/WaiverConsumptionLogTest.java[WaiverConsumptionLogTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogTest.java[QuestionLogTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogRevisionTest.java[QuestionLogRevisionTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogClosingTest.java[QuestionLogClosingTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogAnswerRevisionTest.java[QuestionLogAnswerRevisionTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogCurrentLineTest.java[QuestionLogCurrentLineTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogRefusedLineTest.java[QuestionLogRefusedLineTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogMalformedTest.java[QuestionLogMalformedTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/EntryQuestionMoveTest.java[EntryQuestionMoveTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusStoreTest.java[WorkflowStatusStoreTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreTest.java[ProjectStoreTest]

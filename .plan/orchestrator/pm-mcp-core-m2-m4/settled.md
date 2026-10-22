@@ -1,6 +1,6 @@
 # Settled narrative: pm-mcp-core-m2-m4
 
-Sections of `epic.md` whose subject is closed, moved here verbatim by `cleanup` on 2026-10-12 with the operator's confirmation. Each origin keeps a pointer.
+Sections of `epic.md` whose subject is closed, moved here verbatim by `cleanup` on 2026-10-12 with the operator's confirmation. Each origin keeps a pointer. A second pass on 2026-10-21 (the operator's word) added the sections from "Defect: the specs of the plans of the packages amended by #111 were behind their package files" on.
 
 ## Watch: PR #16 before the first land
 
@@ -177,3 +177,115 @@ Closed by pm-mcp-core #116 (`c39ce3b`, 2026-10-20, `feat(runtime): read question
 implementation (verified 2026-10-20 at `c39ce3b`; the two others are `pm-workflow` test fixtures). It needed no package file: the plan carried no row
 in `doc/plans/` and none was added. What stays open: the CDI producer and the end-to-end `question` state path (`plan-marshall-mcp`), the
 pending-entry addressing the port lacks (an Open Defect of `epic.md`), and the concept and user documentation at the milestone exit.
+
+## Defect: the specs of the plans of the packages amended by #111 were behind their package files
+
+- **The specs of the plans of the packages amended by #111 are behind their package files (found by the landing of PLAN-78, 2026-10-20).**
+  Eleven package files gained bullets, `epic-decomposition` was split and `epic-review.adoc` is new, so the specs written from the old
+  files omit the new scope. Staged: PLAN-27 (`job-confinement-and-environment`), 28 (`task-queue-and-protocol`), 29 (`worker-launch`),
+  30 (`supervisor`), 34 (`role-qualification`), 35 (`supervision-scenarios`), 66 (`worker-activity`). Parked: PLAN-19 (`profile-loader`),
+  43 (`phase-sub-workflows`), 53 (`epic-decomposition`), 58 (`operator-reports`), 68 (`chat-plan-revision`). PLAN-53's scope now covers only
+  half of what its package file said: the review of an epic's findings and watches is the package `epic-review`, which no row owns. Run
+  `cleanup` (it flags every spec whose declared surface moved), then regenerate the specs of those plans and add the row for `epic-review`
+  before any of them is emitted. **Resolved by `cleanup` on 2026-10-21:** all twelve specs were regenerated from their package files, the row for `epic-review` is PLAN-92, and the operator asked for the cleanup. Not done by the landing; the operator's word is owed. Remainders the landing lists for the operator:
+  two figures of `model-work/09` § Navigation Figures that no package names (`Most expensive turns`, `Largest tool results`; `worker-activity`
+  has room, 9 bullets), the truncation rule and the two `DRAFT` use cases (no owner, operator decision), and the items owed to
+  `plan-marshall-mcp` and `pm-mcp-clients` (`landings/PLAN-78.md`) — source: landing PLAN-78, corroborated 2026-10-20.
+
+Closed by `cleanup` on 2026-10-21 at 99971f3 (the operator asked for it): the twelve specs named here were regenerated from their package files, 15 more that had drifted with them (27 in all), the row for `epic-review` is PLAN-92 (cut from PLAN-53), and a regeneration diff reads `current` for every live spec with a package file. Verified by `corpus verdicts`: 0 blocking claims (12 before).
+
+## Watch: documentation PR #95, the pin advance of the migration inventory
+
+- RETIRED 2026-10-21: plan-marshall-documentation PR #95 (the pin advance of the migration inventory to `297ae30`, opened by PLAN-37) was merged on the operator's word as `963e879`; the roadmap on `origin/main` names `297ae30661ab…`. The sibling repository has no CI configuration for the `ci` abstraction (`CI provider not configured`), so the pull request was read and merged with `gh` in that checkout (no checks and no rulesets exist there); the gap is filed as a finding in the `live-blockers` inbox.
+
+Closed: merged as `963e879` on the operator's word on 2026-10-21; nothing further is owed here.
+
+## Watch: #125 reached main without a rewrite the pre-commit gate applies
+
+- **#125 reached `main` without a rewrite the pre-commit gate applies (observed).** #127 carries it (declaration-only). PLAN-83's lane ran on the stale
+  executor that rejected the canonical build names; whether `verify -Ppre-commit` ran there is not in its landing. Regenerating the executor is the
+  remedy already owed.
+
+Closed: #127 (`c7780a0`) merged the rewrite. What stays open is the stale executor, tracked in the watch on the executor and in the findings filed in plan-marshall's `live-blockers` inbox.
+
+## Watch: PLAN-64 met #121 and #125 and landed
+
+- **PLAN-64 met #121 and #125 and landed (closed 2026-10-21).** `corpus declaration-currency` predicted the overlap; the branch merged both squashes
+  (`da892e9`) and renumbered its ADR to `runtime-start/015`, and #122 merged as `c6da0e2`. The uncommitted `ServiceUnitInstallerTest.java` edit seen in
+  its worktree was a build rewrite of #125's file, landed apart as #127 (`c7780a0`), not part of #122 (`landings/PLAN-64.md`). PLAN-84 (`doc/LogMessages.adoc`,
+  the directory `runtime/start/` of its test surface), PLAN-85 and PLAN-89 (`doc/Traceability.adoc`, `README.adoc`) overlap the landed footprints too. PLAN-87's
+  hypothesis `ScopeSessionLogTest.java` no longer exists (the spec is corrected); PLAN-28 and PLAN-73 declare `core-queue.adoc` and `core/queue/`, which
+  PLAN-28 recreates.
+
+Closed: the landing is recorded in `landings/PLAN-64.md`; the open remainders are the Sonar issues (PLAN-87 Deliverable 5) and the items owed to `plan-marshall-mcp`, each a watch of its own.
+
+## Watch: cross-repository blockers of profile-loader and job-confinement-and-environment
+
+- Cross-repository blockers: `profile-loader` waits on `pm-mcp-clients` / `profile-documents`;
+  `job-confinement-and-environment` waits on `pm-mcp-clients` / `exec-read-denied-paths` —
+  re-check when those merge and their `SNAPSHOT` is deployed.
+
+Closed on 2026-10-21: `profile-documents`, `exec-read-denied-paths` and `installation-layout` are `done` in the index of `pm-mcp-clients` (`origin/main`). PLAN-19 was unparked by `cleanup`; the index of this repository still names them, which PLAN-93 corrects.
+
+## Watch: differential-test-harness blocked on an operator tool decision
+
+- `differential-test-harness` is `blocked` on an operator tool decision (a Python interpreter in
+  the test environment and a `plan-marshall` checkout at the pinned inventory commit).
+
+Closed: the decision of 2026-10-18 (pm-mcp-core #101, documentation #94) dropped the differential harness; PLAN-37 was re-written as the tests of the ported scripts and shipped as #106.
+
+## Watch: documentation #82, #83, #84 and pm-mcp-core #84
+
+- Documentation #82, #83, #84 and pm-mcp-core #84 (analysed 2026-10-17; the local documentation checkout was pulled to 595a525):
+  - #82 (use cases) and #83 (requirements and specifications aligned): no plan scope changes. The companion engine change is
+    pm-mcp-core #82 (28d04ef), already on `main`, where the plan files differ only in link labels ("CLI, Coordination & Security" is
+    now "Credentials & Enrolment", "Runtime Model" is "Runtime Lifecycle"); the specs of PLAN-45, 46, 48, 49, 51, 60 and 64 carry the old
+    labels, which regeneration corrects. Small semantic edits: PM-ARCH-1 (`pm-operator` reads `language.interface` from
+    `machine-config.json` while no runtime answers; PLAN-26, 63, 74 mention that file), PM-WF-19 (the decision store of a
+    pending entry before its scope exists, moving into the scope at creation; PLAN-47 and PLAN-48), PM-WF-1 (the workspace scope
+    rests in `project.completed`, `setup.completed` is the sub-workflow's terminal; PLAN-45). The roadmap changed labels only.
+  - #84 (articles, non-functional findings) changes requirements PM-SKILL-1/2/4, PM-SEC-5, PM-CLIENT-2, PM-EXEC-1/5, PM-DIST-1, PM-SVC-2,
+    PM-WORK-6/7, PM-WF-14, PM-TEST-6. Its engine counterpart, pm-mcp-core #84, MERGED on 2026-10-17 (`5197490`), so `corpus verdicts` now
+    reports 379 stale claims (every spec declares the README row, which every merge touches; staleness is reported, never promoted). It touches 16 files, among them parts
+    declared by PLAN-19, 20, 26, 27, 28, 29, 30, 34, 35, 45, 46, 48, 49, 51, 58, 59, 60, 61, 63, 64, 66, 73 and 74. A trial merge
+    (`git merge-tree`) with the branches of PLAN-74 and PLAN-75 shows no conflict.
+  - Running plans: PLAN-20 (job runner, plan `plan-20-job-runner`) is the one concerned. Its package covers termination and the
+    outcome table; #84 adds termination step 3a (launcher stays as job process, subreaper), the refusal reason
+    `harness_update_unverified` and the `agent_started` signal's process-tree basis. The launcher itself is `pm-exec` in
+    `pm-mcp-clients`. PLAN-20 works from a worktree cut before #84; at the landing of PLAN-75 it was already in `5-execute`
+    (3 commits, 2 behind `main`), so #84 merged AFTER its outline: the plan has not read the new termination step 3a, the refusal reason
+    or the signal unless it is told. Not sent: the operator's word is owed (heads-up to `plan-20-job-runner`'s mailbox).
+    PLAN-74 shares two lines of `store-schemas/11` and `/12` with #84 (a digest description and the self-update paragraph); no
+    conflict. PLAN-69 and PLAN-75 (PR #85) are not concerned.
+  - After pm-mcp-core #84 merges: run `cleanup` (it flags every spec whose declared surface moved), then hand-check the owners
+    named in the Open Defect "New specification obligations that no package file owns".
+
+Closed: the engine counterpart #84 was merged on 2026-10-17 (`5197490`) and its obligations were given owners by #111 (PLAN-78); PLAN-20, the running plan concerned, shipped as #92; the old link labels of the specs were corrected by the regeneration of `cleanup` on 2026-10-21.
+
+## Defect: the enrolled-pattern length rule missing from the Job Runtime specification
+
+- Documentation behind the code: the Job Runtime specification (now in pm-mcp-core, `doc/specification/job-runtime/`)
+  lacks PLAN-18's mandatory `maxLength` for enrolled patterns (doc #46 merged before the review fixes). A small direct
+  PR in pm-mcp-core — source: PR check of 2026-10-13; **staged on 2026-10-19 as item 4 of PLAN-89** (to be re-read first). (Part (b), the Workflow DSL watch items, was
+  closed by documentation #72, merged 2026-10-14 with PLAN-56.)
+
+Closed by pm-mcp-core #126 (`c45a968`, 2026-10-21, PLAN-89): the rule is stated in `job-runtime/03-parsers-and-gates.adoc` and `store-schemas/11`, and the bound is itself bounded (`ArgumentSchema.PATTERN_MAX_LENGTH_CEILING`, 256 code points; ADR `runtime-enrolment/007`). What stays open: `SchemaSubset.checkString` of the verification corpus (an Open Defect of `epic.md`).
+
+## Defect: Traceability cites two tests that do not prove the spend removal
+
+- **`doc/Traceability.adoc` cites two tests that do not prove the spend removal.** Lines 247 and 248 list `CompositionRulesTest`
+  and `PlanInstanceComposerTest` under PM-WF-14 "Verified by (no spend limit)", although #83 only renamed a gate name in their
+  fixtures. Two entries to remove: the advisory code-review finding PLAN-72 left open (verified on acb5bba). Fold it into the next
+  plan that edits the PM-WF-14 block (PLAN-61 `token-usage` implements PM-WF-14) or into a one-line `docs` change — source:
+  landing PLAN-72. **Staged on 2026-10-19 as item 3 of PLAN-89** (the lines are 279-280 at 98ce971).
+
+Closed by pm-mcp-core #126 (`c45a968`, 2026-10-21, PLAN-89, item 3): both entries were removed from the PM-WF-14 block.
+
+## Defect: the index names three done packages of pm-mcp-clients, and the dangling roadmap link
+
+- **The index still names three packages of `pm-mcp-clients` that are `done` there (found by `cleanup`, 2026-10-21).** Owner: PLAN-93, after PLAN-89.
+  PLAN-89's pull request #126 does not touch the `profile-loader` row.
+- **plan-marshall-documentation `doc/roadmap.adoc:242` links `pm-core/doc/developer/core-queue.adoc`, which pm-mcp-core #122 removed (found by the landing of PLAN-89, verified at documentation `origin/main`, 2026-10-21).**
+  A dangling link; the documentation workflow `links.yml` checks both trees. Owed in the documentation repository with the PLAN-64 Deliverable 7 roadmap update (`_Remaining_`).
+
+Closed 2026-10-22: pm-mcp-core #136 (`7756dfd`, PLAN-93) dropped the three dependencies from `doc/plans/README.adoc` (`landings/PLAN-93.md`). The documentation repository no longer links `core-queue.adoc` at its `origin/main` (`b8c61b3`: `roadmap.adoc` holds no `core-queue`; `trace.py` over it and this repository at `7756dfd` reports `BROKEN LINKS 0`), so the second entry is closed without a plan of this epic.

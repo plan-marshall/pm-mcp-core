@@ -28,6 +28,7 @@ The work-package index `doc/plans/README.adoc` still names three packages of `pm
 
 Set by the operator for every plan of this epic on 2026-10-09, beside the rules of `CLAUDE.md`:
 
+- **Sibling checkouts from the plan worktree (found by PLAN-72, 2026-10-17).** The plan runs in `.plan/local/worktrees/{plan}/`, three directories deeper than the main checkout, so `../plan-marshall-documentation` (as `CLAUDE.md` and the links of the package file write it) does not resolve there. Run the links check with the absolute paths of the sibling checkout, `python3 /home/oliver/git/plan-marshall-documentation/.claude/skills/doc-review/scripts/trace.py /home/oliver/git/plan-marshall-documentation/doc .`, and record the run so the functional review finds it.
 - **Java 25 is the baseline.** Write for Java 25 and use its language and library features where they fit; no fallback for an older release. The release comes from the parent POM and is not overridden here.
 - **HTTP calls go through `cui-http`.** No direct `java.net.http` or other HTTP client. The build forbids `cui-http` in `pm-core` and `pm-workflow`, so an HTTP call belongs in `pm-runtime` or a provider module, behind an interface the foundation declares.
 - **HTTP tests use `cui-test-mockwebserver-junit5`.** Every test that involves HTTP runs against it; no hand-made fake server. The operator's statement is the consent `CLAUDE.md` requires for adding it as a test-scope dependency.
@@ -53,8 +54,8 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
   - verdict: corroborated | checked_at: 99971f36592d4680bf171cc195c4652bc0b4de9d | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: grep of doc/plans/README.adoc at 99971f3: the three links name ../../../pm-mcp-clients/doc/plans/<name>.adoc; git cat-file -e origin/main:doc/plans/<name>.adoc fails in pm-mcp-clients for each of them
 - HYPOTHESIS: no other cell of the index names a package that is `done` in its own repository — confirm/refute at deliverable 2 (verify-at-outline)
   - verdict: unverifiable | checked_at: 99971f36592d4680bf171cc195c4652bc0b4de9d | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
-- Verify-first clause: before editing, list the open pull requests for one that touches `doc/plans/README.adoc` (PLAN-89, pull request #126, does) and wait for it to land, so the two edits do not collide; re-read the two indexes at `origin/main`.
-  - verdict: unverifiable | checked_at: 99971f36592d4680bf171cc195c4652bc0b4de9d | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: procedural clause for the executing plan at refine, not evaluable now; open pull requests at 99971f3: #129, #126 (touches doc/plans/README.adoc), #71
+- Verify-first clause: before editing, list the open pull requests for one that touches `doc/plans/README.adoc` (PLAN-89's #126, which touched the same file, landed as `c45a968`) and re-read the two indexes at `origin/main`.
+  - verdict: unverifiable | checked_at: 3d4baf7dc8efc49bf1f13e1ab1d4a01b4abe534a | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: procedural clause for the executing plan at refine, not evaluable now; open pull requests at 3d4baf7: #129 (PLAN-85) and #71; none touches doc/plans/README.adoc
 
 ## Expected Surface
 
@@ -62,7 +63,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-89 (`plans-index-and-traceability-corrections`) (pull request #126 edits the same file; start after it has landed)
+- Depends on: nothing (PLAN-89, whose pull request #126 edited the same file, landed as `c45a968` on 2026-10-21)
 - Overlaps with: computed by `corpus cross-check` at emit time; every plan through `doc/plans/README.adoc`
 - Adjacent to: `pm-mcp-clients` and `plan-marshall-mcp`, whose indexes it reads and does not change
 

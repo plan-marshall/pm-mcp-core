@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -69,7 +70,9 @@ class ProbeJobTest {
             case "$1" in
               version) echo "probe 1.0"; exit 0 ;;
               declared) echo "probe 1.0"; exit 3 ;;
+              declared127) echo "probe 1.0"; exit 127 ;;
               pwd) pwd; exit 0 ;;
+              detach) @SETSID@ @SLEEP@ 120 & echo $! > @PIDFILE@; @SLEEP@ 1.5; exit 0 ;;
               sleep) exec @SLEEP@ "$2" ;;
             esac
             exit 2
@@ -85,10 +88,16 @@ class ProbeJobTest {
         fixture = new JobEnrolmentFixture();
         probe = fixture.base.resolve("found/probe");
         Files.createDirectories(probe.getParent());
-        Files.writeString(probe, PROBE_SCRIPT.replace("@SLEEP@", FakePmExec.tool("sleep").toString()));
-        Files.setPosixFilePermissions(probe, PosixFilePermissions.fromString("rwx------"));
+        installProbe(fixture.base.resolve("detached.pid"));
         home = FakePmExec.install(fixture.base.resolve("home"), FakePmExec.Mode.REPORT);
         runner = runner(fixture.base);
+    }
+
+    private void installProbe(Path pidFile) throws IOException {
+        Files.writeString(probe, PROBE_SCRIPT.replace("@SLEEP@", FakePmExec.tool("sleep").toString())
+                .replace("@SETSID@", FakePmExec.tool("setsid").toString())
+                .replace("@PIDFILE@", pidFile.toString()));
+        Files.setPosixFilePermissions(probe, PosixFilePermissions.fromString("rwx------"));
     }
 
     private SubprocessJobRunner runner(Path base) {
@@ -162,6 +171,95 @@ class ProbeJobTest {
                 () -> assertEquals(Fate.INDETERMINATE, settled.fate()),
                 () -> assertEquals(8, settled.outcomeRow()),
                 () -> assertEquals(0L, settled.exitCode()));
+    }
+
+    @Test
+    @DisplayName("a launcher failure that exits 127 does not settle a probe that declares 127 succeeded")
+    void launcherFailureIsNotADeclaredSuccess() throws IOException {
+        FakePmExec.install(home, FakePmExec.Mode.EXIT_127);
+
+        var jobId = started(onMachine(Set.of(0, 127), "version"));
+
+        var settled = settled(jobId);
+
+        assertAll(
+                () -> assertEquals(Status.ENDED, settled.status()),
+                () -> assertEquals(Fate.FAILED, settled.fate(), "the launcher never started the probe"),
+                () -> assertEquals(10, settled.outcomeRow(), "row 7 would read the declared code of a job not started"),
+                () -> assertEquals(127L, settled.exitCode()));
+    }
+
+    @Test
+    @DisplayName("matched control: a probe that ends with the 127 it declares, after its launcher reported, succeeded")
+    void declared127FromTheProbe() {
+        var jobId = started(onMachine(Set.of(0, 127), "declared127"));
+
+        var settled = settled(jobId);
+
+        assertAll(
+                () -> assertEquals(Fate.SUCCEEDED, settled.fate()),
+                () -> assertEquals(7, settled.outcomeRow()),
+                () -> assertEquals(127L, settled.exitCode()));
+    }
+
+    @Test
+    @DisplayName("a descendant that left the process group is ended with the probe")
+    void descendantOutsideTheGroupIsEnded() throws Exception {
+        var pidFile = fixture.base.resolve("detached.pid");
+        var jobId = started(onMachine(Set.of(0), "detach"));
+
+        var settled = settled(jobId);
+        var descendant = Long.parseLong(Files.readString(pidFile).trim());
+        awaitDead(descendant);
+
+        assertAll(
+                () -> assertEquals(Fate.SUCCEEDED, settled.fate()),
+                () -> assertTrue(settled.jobWallTime().orElseThrow().toMillis() >= 1000,
+                        "the probe ran long enough to be refreshed"),
+                () -> assertFalse(alive(descendant), "the descendant is not left running: " + descendant));
+    }
+
+    /** Waits until a PID is no longer alive, so a killed process is not seen as a zombie for one instant. */
+    private static void awaitDead(long pid) {
+        var deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        while (alive(pid)) {
+            if (System.nanoTime() >= deadline) {
+                throw new AssertionError("the descendant %d is still alive".formatted(pid));
+            }
+            Thread.onSpinWait();
+        }
+    }
+
+    private static boolean alive(long pid) {
+        return ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false);
+    }
+
+    @Test
+    @DisplayName("matched control: a probe that starts no descendant leaves nothing to end")
+    void noDescendantToEnd() {
+        var jobId = started(onMachine(Set.of(0), "version"));
+
+        var settled = settled(jobId);
+
+        assertAll(
+                () -> assertEquals(Fate.SUCCEEDED, settled.fate()),
+                () -> assertFalse(Files.exists(fixture.base.resolve("detached.pid"))));
+    }
+
+    @Test
+    @DisplayName("a probe whose launcher cannot be started settles failed, its declared 127 does not apply")
+    void missingLauncherIsNotADeclaredSuccess() throws IOException {
+        Files.delete(home.resolve("bin/pm-exec"));
+
+        var jobId = started(onMachine(Set.of(0, 127), "version"));
+
+        var settled = settled(jobId);
+
+        assertAll(
+                () -> assertEquals(Status.ENDED, settled.status()),
+                () -> assertEquals(Fate.FAILED, settled.fate()),
+                () -> assertEquals(10, settled.outcomeRow()),
+                () -> assertNull(settled.exitCode(), "no exit was observed"));
     }
 
     @Test

@@ -116,6 +116,9 @@ public class QuestionRecordCodec {
     private static final String FIELD_PASSAGES = "passages";
     private static final String FIELD_QUEUE_TASK_ID = "queue_task_id";
 
+    /** The members every line requires, beside the ones its event requires; {@code format_version} is checked first. */
+    static final List<String> REQUIRED_BY_RECORD = List.of(FIELD_EVENT, FIELD_QUESTION_ID, FIELD_AT);
+
     /** The members each event requires besides the ones every line has; a member listed here may be {@code null}. */
     static final Map<QuestionEvent, List<String>> REQUIRED_BY_EVENT = Map.of(
             QuestionEvent.ASKED, List.of(FIELD_CLASS, FIELD_ORIGIN, FIELD_SOURCE_ENTITY, FIELD_ASKING_ROLE, FIELD_PHASE,
@@ -314,7 +317,8 @@ public class QuestionRecordCodec {
                 default -> throw undeclared(field);
             }
         }
-        requireFields(seen, RECORD, FIELD_FORMAT_VERSION, FIELD_EVENT, FIELD_QUESTION_ID, FIELD_AT);
+        requireFields(seen, RECORD, FIELD_FORMAT_VERSION);
+        requireFields(seen, RECORD, REQUIRED_BY_RECORD.toArray(String[]::new));
         requireFields(seen, "%s line".formatted(Objects.requireNonNull(event, FIELD_EVENT).wireName()),
                 REQUIRED_BY_EVENT.get(event).toArray(String[]::new));
         try {

@@ -1,0 +1,52 @@
+= ADR 012: The Runner Prunes a Settled Job's Store and Keeps a Bounded Record Cache
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-21
+
+== Context
+
+The runner kept the `JobRecordStore` of every job it ever started in a map, because `recordOf(jobId)` and
+`awaitSettled(jobId, timeout)` read a settled job through it after the job had left the running jobs. The map therefore
+grew for the lifetime of the process, one store per job. The settled record itself is durable in the job's store, and a
+caller that needs it can read it there; the runner needs only a recent window for the answers its API promises.
+
+== Decision
+
+* A job's store leaves the runner's map when its fate is recorded (`SubprocessJobRunner.leave`, `settleQueued`,
+  `refuse`, and the refused probe), and its settled record is kept in a bounded insertion-ordered cache,
+  `settledRecordsKept` (default `SETTLED_RECORD_CACHE`, 1024), whose oldest entry is evicted first.
+* `recordOf(jobId)` answers from that cache first and reads the store only for a job whose fate is not recorded yet.
+  A job whose settlement stopped at a failed step keeps its store, because its record is still `running` and the
+  recovery of the next runtime start settles it.
+* A settled job outside the cache is answered `Optional.empty()` by `recordOf`; its record is read from its store by a
+  caller that needs it, which is also what a caller of another runtime instance does.
+
+== Alternatives Considered
+
+1. *Keep every store, as before.*
+_Rejected_: the map grows without bound with the runtime's lifetime.
+2. *Keep every settled record without a bound.*
+_Rejected_: it moves the leak from stores to records.
+3. *Reconstruct a store from the `JobId`.*
+_Rejected_: the store's location is the job's scope (project, machine, onboarding entry), which the `JobId` does not
+carry.
+
+== Consequences
+
+* A caller of `recordOf` after more than the window's further settlements in the same runtime must read the job's store
+  itself; the API's answer is a window, not a history. The default window is `SETTLED_RECORD_CACHE` (1024); the
+  builder's `settledRecordsKept` sets it.
+* The cache is an optimisation, never the source of truth: no fate is written through it.
+
+== Source
+
+* Work package: PLAN-84 `job-runner-residuals`
+* pull request 92 note 5 (the store map of the runner is not pruned)
+* `pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java`
+* link:../../../../doc/specification/store-schemas/10-job-and-lesson-records.adoc[Store Schemas § Job Record]

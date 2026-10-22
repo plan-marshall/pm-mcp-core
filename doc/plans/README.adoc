@@ -216,7 +216,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:runtime-control.adoc[`runtime-control`]
 |Controlling the runtime from the clients: stop now or after a drain, the withdrawable drain, restart, the update check, the upgrade
 |`blocked`
-|link:supervisor.adoc[`supervisor`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the consent store); link:../../../pm-mcp-clients/doc/plans/installation-layout.adoc[`pm-mcp-clients` / `installation-layout`]; the operator's answer to the open question of the registry credential, for the update check and the fetch (no work package)
+|link:supervisor.adoc[`supervisor`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the consent store); the operator's answer to the open question of the registry credential, for the update check and the fetch (no work package)
 |Milestone 2; the client work of `pm-mcp-clients`
 
 |link:runtime-metrics.adoc[`runtime-metrics`]

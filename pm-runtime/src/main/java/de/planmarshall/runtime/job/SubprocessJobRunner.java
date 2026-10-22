@@ -24,7 +24,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.InstantSource;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -37,9 +40,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import lombok.Builder;
 
+import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.JobRunner;
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.service.LockTransaction;
@@ -48,6 +54,7 @@ import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.JobRecord;
 import de.planmarshall.core.store.JobRecord.Confinement;
 import de.planmarshall.core.store.JobRecord.Execution;
+import de.planmarshall.core.store.JobRecord.Fate;
 import de.planmarshall.core.store.JobRecord.Status;
 import de.planmarshall.core.store.JobRecordStore;
 import de.planmarshall.core.store.StoreRefusal;
@@ -129,13 +136,20 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * declares, decide its fate, and otherwise its exit code and output are left to the step that asked for it, which the
  * runner's output parser does not read. The runner never starts a probe again.
  * <p>
+ * A probe's descendants that leave its process group are recorded while it runs and ended with it
+ * ({@link ProcessTreeTracker}, termination step 3a); a worker's descendants are the supervisor's, which starts the
+ * worker.
+ * <p>
  * A job leaves the running jobs only once its settlement has run, on every path the runner owns: an exception of the
  * {@link OutputParser}, of the derivation of the settled record or of the {@link TerminationProtocol}, also an
  * {@link Error} on the thread that waits for the job, is followed by a fallback settlement from what the runner observed
- * before the exception is passed on. What is guaranteed is that the settlement ran: the job is settled, or its
- * settlement stopped at a failed step ({@code PM_RUNTIME-207}), or a fault of the lock manager inside the settlement
- * itself was passed on; in the last two cases the record stays {@code running} and the recovery of the next runtime
- * start settles it.
+ * before the exception is passed on. A fallback that fails as well is followed by a last-resort attempt: the record the
+ * fallback was about to write is written again, and a minimal ended record ({@code indeterminate}, row 5) is written
+ * when the derivation itself failed, so the job does not stay {@code running}. What is guaranteed is that a settlement was
+ * attempted: the job is settled, or its settlement stopped at a failed step ({@code PM_RUNTIME-207}), or a fault of the
+ * lock manager inside the settlement itself was passed on; in the last two cases the record stays {@code running} and
+ * the recovery of the next runtime start settles it. The failure is logged with {@code PM_RUNTIME-208}, which names the
+ * failure and not a guarantee that the settlement ran.
  * <p>
  * Specification: {@code doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc} (Subprocess Lifecycle &
  * Process-Group Isolation; Process Termination & Cancellation Protocol; Outcome Derivation);
@@ -158,6 +172,22 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
     /** The refusal of a probe whose kind the operator did not consent to. */
     public static final String CONSENT_REQUIRED = "consent_required";
+
+    /** The security audit record of a descendant that outlived the sweep of a job's process tree. */
+    public static final String JOB_DESCENDANT_SURVIVED = "job_descendant_survived";
+
+    /** The detail of that record that names the descendant's executable. */
+    public static final String DETAIL_EXECUTABLE = "executable";
+
+    /** The detail of that record that names the descendant's PID. */
+    public static final String DETAIL_PID = "pid";
+
+    /** The detail of that record that names the job. */
+    public static final String DETAIL_JOB_ID = "job_id";
+
+    /** The audit sink of a runner whose caller names none: the sweep still runs, its survivors are not recorded. */
+    private static final AuditSink NO_AUDIT = _ -> {
+    };
 
     /**
      * How long a start waits for the launch report of the launcher, from the spawn: the launcher writes it right
@@ -200,6 +230,13 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
     /** The signal names of the operating system the runtime runs on. */
     private static final SignalTable SIGNALS = SignalTable.of(System.getProperty("os.name", ""));
+
+    /**
+     * The default number of settled records the runner keeps after it pruned their store:
+     * {@link #recordOf(JobId)} answers a settled job of this window, and the durable record of an older one is read
+     * from its store by the caller. The builder's {@code settledRecordsKept} overrides it.
+     */
+    static final int SETTLED_RECORD_CACHE = 1024;
 
     /**
      * The closed tables of the names of the signals 1 to 31 by their numbers. The two systems agree on 19 numbers, 1
@@ -252,13 +289,22 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private final OutputParser parser;
     private final PrimitiveJobs primitives;
     private final InstantSource clock;
+    private final Supervision supervision;
+    private final AuditSink audit;
 
     /**
-     * The store of every job this runner started, kept after the job is settled and never pruned, because
-     * {@link #recordOf(JobId)} and {@link #awaitSettled(JobId, Duration)} read a settled job through it once it has left
-     * the running jobs.
+     * The store of every job this runner started and whose settlement has not recorded its fate yet. A job whose fate
+     * is recorded leaves this map: its record is kept in {@link #settledRecords}, so the map does not grow with every
+     * settled job.
      */
     private final Map<JobId, JobRecordStore> stores = new ConcurrentHashMap<>();
+
+    /**
+     * The most settled records of jobs whose store was pruned, newest last, read by {@link #recordOf(JobId)}. Bounded:
+     * the durable record stays in the job's store, which a caller that needs an older one reads itself.
+     */
+    private final Map<JobId, JobRecord> settledRecords = Collections.synchronizedMap(new LinkedHashMap<>());
+    private final int settledRecordsKept;
     private final Map<JobId, RunningJob> running = new ConcurrentHashMap<>();
     private final Map<JobId, QueuedJob> queued = new ConcurrentHashMap<>();
 
@@ -287,12 +333,18 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * @param parser           the parser of the job log of an ended job that is no probe
      * @param primitives       the jobs of the primitives the engine port starts
      * @param clock            the clock of the records and the budgets; {@code null} for the system clock
-     * @throws NullPointerException if an argument other than the clock is {@code null}
+     * @param supervision      how the thread that waits for a job is started; {@code null} for a virtual thread per job
+     * @param audit            where a surviving descendant of a probe is written; {@code null} for no audit record
+     * @param settledRecordsKept how many settled records the runner keeps after it pruned their store; {@code null} for
+     *                         {@value #SETTLED_RECORD_CACHE}
+     * @throws NullPointerException if an argument other than the clock, the supervision, the audit sink and the
+     *                              settled-record window is {@code null}
      */
     @Builder
     private SubprocessJobRunner(Path base, LockManager lockManager, VerifyNotResolvePipeline pipeline,
             PmExecLauncher launcher, TerminationProtocol termination, Environment environment,
-            ProbeEnvironment probeEnvironment, OutputParser parser, PrimitiveJobs primitives, InstantSource clock) {
+            ProbeEnvironment probeEnvironment, OutputParser parser, PrimitiveJobs primitives, InstantSource clock,
+            Supervision supervision, AuditSink audit, Integer settledRecordsKept) {
         this.base = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
         this.lockManager = Objects.requireNonNull(lockManager, "lockManager");
         this.pipeline = Objects.requireNonNull(pipeline, "pipeline");
@@ -303,6 +355,13 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         this.parser = Objects.requireNonNull(parser, "parser");
         this.primitives = Objects.requireNonNull(primitives, "primitives");
         this.clock = clock == null ? InstantSource.system() : clock;
+        this.supervision = supervision == null ? Supervision.VIRTUAL_THREADS : supervision;
+        this.audit = audit == null ? NO_AUDIT : audit;
+        this.settledRecordsKept = settledRecordsKept == null ? SETTLED_RECORD_CACHE : settledRecordsKept;
+        if (this.settledRecordsKept < 1) {
+            throw new IllegalArgumentException("The settled-record cache keeps at least one record: "
+                    + this.settledRecordsKept);
+        }
     }
 
     /**
@@ -351,6 +410,31 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
          * @return what the parser found
          */
         ParseResult parse(JobId.Kind kind, String output);
+    }
+
+    /**
+     * How the thread that waits for a job is started. It is a seam for the failure of the start itself, whose path
+     * terminates the started process and settles the job before the failure is passed on to the caller.
+     * <p>
+     * An implementation starts the task asynchronously and returns once it runs. It must not run the task on the
+     * caller's thread and must not start it and then throw: the runner settles the job when {@link #start} throws, so
+     * a task that already runs would be settled twice.
+     *
+     * @since 0.1
+     */
+    @FunctionalInterface
+    public interface Supervision {
+
+        /** Starts one virtual thread per job; the only implementation the runtime uses. */
+        Supervision VIRTUAL_THREADS = (name, onFailure, task) -> Thread.ofVirtual().name(name)
+                .uncaughtExceptionHandler((thread, failure) -> onFailure.accept(failure)).start(task);
+
+        /**
+         * @param name       the name of the thread
+         * @param onFailure  what the thread's uncaught-exception handler runs, with the failure
+         * @param task       what the thread runs
+         */
+        void start(String name, Consumer<Throwable> onFailure, Runnable task);
     }
 
     /**
@@ -462,7 +546,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                     first = draft.status(Status.REFUSED).fate(outcome.fate()).outcomeRow(outcome.row())
                             .refusalReason(refusal.reason().code()).endedAt(now).build();
                     store.writeFate(transaction, first);
-                    stores.put(jobId, store);
+                    remember(first);
                 } else {
                     draft.argvDigest(argvDigest(((ProbeVerification.Verified) verification).argv()));
                     first = admit(transaction, store, draft);
@@ -594,22 +678,47 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     }
 
     private void settleQueued(QueuedJob waiting, OutcomeDerivation.Outcome outcome) {
-        settleRecord(waiting.store(), waiting.job().toBuilder().status(Status.ENDED).fate(outcome.fate())
-                .outcomeRow(outcome.row()).endedAt(clock.instant()).build());
+        var settled = waiting.job().toBuilder().status(Status.ENDED).fate(outcome.fate())
+                .outcomeRow(outcome.row()).endedAt(clock.instant()).build();
+        if (settleRecord(waiting.store(), settled)) {
+            remember(settled);
+            stores.remove(settled.jobId());
+        }
     }
 
     /**
-     * Reads the record of a job this runner started, from its store.
+     * Reads the record of a job this runner started: a settled record from the runner's bounded window of them, a job
+     * whose fate is not recorded yet from its store.
      *
      * @param jobId the job
-     * @return the record; empty for a job this runner did not start
+     * @return the record; empty for a job this runner did not start, or for a settled one outside the window
      * @throws StoreRefusal         if the record is unreadable
      * @throws UncheckedIOException if the record cannot be read
      */
     @Override
     public Optional<JobRecord> recordOf(JobId jobId) {
         Objects.requireNonNull(jobId, ARG_JOB_ID);
+        var settled = settledRecords.get(jobId);
+        if (settled != null) {
+            return Optional.of(settled);
+        }
         return Optional.ofNullable(stores.get(jobId)).flatMap(store -> store.read(jobId));
+    }
+
+    /** @return the stores the runner holds for jobs whose settlement has not recorded their fate yet */
+    int storesHeld() {
+        return stores.size();
+    }
+
+    /** Keeps a settled record for {@link #recordOf(JobId)}, evicting the oldest beyond the configured bound. */
+    private void remember(JobRecord settled) {
+        synchronized (settledRecords) {
+            settledRecords.put(settled.jobId(), settled);
+            while (settledRecords.size() > settledRecordsKept) {
+                var eldest = settledRecords.keySet().iterator().next();
+                settledRecords.remove(eldest);
+            }
+        }
     }
 
     /**
@@ -675,7 +784,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                     .fate(outcome.fate()).outcomeRow(outcome.row()).refusalReason(reason).endedAt(now).build();
             store.writeFate(transaction, settled);
         }
-        stores.put(settled.jobId(), store);
+        remember(settled);
         LOGGER.info(INFO.JOB_SETTLED, settled.jobId(), settled.fate().wireName(), settled.outcomeRow());
         return new JobRunner.StartResult.Refused(reason);
     }
@@ -721,8 +830,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * A job whose process was started leaves the running jobs only settled as well: when its post-spawn record cannot
      * be written, or the thread that waits for it cannot be started, its process group is terminated and the job is
      * settled from its observed end ({@code settleUnsupervised}) before the failure is passed on to the caller. A
-     * failure of the thread that waits for the job ({@code supervise}) is logged with {@code PM_RUNTIME-208} after
-     * that thread's fallback settlement has run.
+     * failure of the thread that waits for the job ({@code supervise}) is logged with {@code PM_RUNTIME-208} after that
+     * thread's fallback settlement has been attempted.
      */
     private JobRunner.StartResult run(RunningJob job, Function<Path, Launch> launchOf) {
         var jobId = job.latest.jobId();
@@ -752,6 +861,11 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         JobRecord reported = null;
         try {
             job.launched(launched.process());
+            if (job.latest.kind() == JobId.Kind.PROBE) {
+                // step 3a: the descendants a probe may leave the group with, recorded while it runs
+                job.tracks(new ProcessTreeTracker(launched.pid(), termination.signals()));
+                job.refreshTree();
+            }
             var awaited = awaitReport(job, launched.process(), log, spawnedAt.plus(reportWait(job.budget)));
             observedLength = awaited.observedLength();
             if (awaited.report().isPresent()) {
@@ -759,10 +873,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 writePostSpawn(job, reported);
             }
             var length = observedLength;
-            Thread.ofVirtual().name("job-" + jobId)
-                    .uncaughtExceptionHandler((thread, failure) -> LOGGER.error(failure,
-                            ERROR.JOB_SUPERVISION_FAILED, jobId, failure))
-                    .start(() -> supervise(job, launched, spawnedAt, length));
+            supervision.start("job-" + jobId,
+                    failure -> LOGGER.error(failure, ERROR.JOB_SUPERVISION_FAILED, jobId, failure),
+                    () -> supervise(job, launched, spawnedAt, length));
             supervised = true;
         } finally {
             if (!supervised) {
@@ -833,8 +946,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private boolean terminateAndSettle(RunningJob job, Launched launched, Instant spawnedAt, long observedLength) {
         var cancelBeforeGroup = terminateByHandle(job.latest.jobId(), launched);
         var exit = waitFor(launched.process());
+        var endedAt = clock.instant();
+        auditSurvivors(job, job.sweepTree());
         // the end of the process is observed: the cancel door closes here and the cause it returns is the one read
-        settleEnded(job, new Ended(spawnedAt, clock.instant(), exit.value(), job.closeCancelDoor(),
+        settleEnded(job, new Ended(spawnedAt, endedAt, exit.value(), job.closeCancelDoor(),
                 cancelBeforeGroup), observedLength);
         return exit.interrupted();
     }
@@ -842,22 +957,30 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     /**
      * Terminates the process group of a job by the PID of its process handle, never by the one its log reports: this
      * path must end the process the runner started, and a report that differs would leave it running while the wait
-     * that follows has no bound. When the termination protocol does not reach the job (its signal is refused, or it
-     * fails with an exception), the process is destroyed through its handle, so it is never left running; the failure
-     * of the protocol is logged with {@code PM_RUNTIME-132} and not passed on, so it does not replace a failure this
-     * path follows.
+     * that follows has no bound. A PID whose live process started elsewhere was reused and is not signalled; a group
+     * that outlived its leader is still the job's and is terminated with steps 1 to 3, and step 4 (the bare PID) is
+     * skipped because the leader has ended. When the termination protocol does not reach the job (its signal is
+     * refused, or it fails with an exception or an error), the process is destroyed through its handle, so it is never
+     * left running; the failure of the protocol is logged with {@code PM_RUNTIME-132} and not passed on, so it does not
+     * replace a failure this path follows.
      *
      * @return whether the termination reached the job before its group existed
      */
-    private boolean terminateByHandle(JobId jobId, Launched launched) {
+    // java:S1181 does not apply: an Error of the signalling primitive is caught only so the process is destroyed
+    // through its handle and the job can still be settled, not to swallow it; the failure is logged.
+    @SuppressWarnings("java:S1181")
+    boolean terminateByHandle(JobId jobId, Launched launched) {
         var reached = false;
         var cancelBeforeGroup = false;
         try {
-            var report = termination.terminate(launched.pid());
-            reached = report.ending() != Ending.SIGNAL_REFUSED;
-            cancelBeforeGroup = report.cancelBeforeGroup();
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            // a PID the protocol refuses, or a signal call that failed (ProcessGroupSignals)
+            // A PID reused by another process is not signalled; a group that outlived its leader is still the job's.
+            if (!pidReused(launched)) {
+                var report = termination.terminate(launched.pid(), launched.process().isAlive());
+                reached = report.ending() != Ending.SIGNAL_REFUSED;
+                cancelBeforeGroup = report.cancelBeforeGroup();
+            }
+        } catch (RuntimeException | Error e) {
+            // a PID the protocol refuses, a signal call that failed (ProcessGroupSignals), or an error of the primitive
             LOGGER.warn(e, WARN.JOB_TERMINATION_FAILED, jobId, e.getMessage());
         } finally {
             if (!reached) {
@@ -867,9 +990,54 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         return cancelBeforeGroup;
     }
 
+    /**
+     * Whether the PID of a started process now names another process, so that neither its group nor the PID itself may
+     * be signalled. A PID that no process owns any more was not reused: a process group still living under that id is
+     * the job's surviving group, and a group that is gone answers {@code ESRCH}. A live process of that PID that
+     * started at another instant is a reused PID. A caller that must end the job anyway destroys the started process
+     * through its handle, never by its PID.
+     */
+    static boolean pidReused(Launched launched) {
+        var handle = ProcessHandle.of(launched.pid());
+        if (handle.isEmpty()) {
+            return false;
+        }
+        var current = handle.flatMap(found -> found.info().startInstant());
+        var own = launched.process().toHandle().info().startInstant();
+        return current.isEmpty() || own.isEmpty() || !own.get().equals(current.get());
+    }
+
+    /**
+     * Writes the security audit record {@value #JOB_DESCENDANT_SURVIVED} of every descendant that outlived the sweep of
+     * a job's process tree, with its PID and executable. A record the sink refuses is logged and does not stop the
+     * settlement.
+     */
+    // java:S1181 does not apply: the audit sink is the caller's and a fault of it must not abort the settlement;
+    // the failure is logged.
+    @SuppressWarnings("java:S1181")
+    void auditSurvivors(RunningJob job, List<ProcessTreeTracker.Survivor> survivors) {
+        for (var survivor : survivors) {
+            var details = new HashMap<String, Object>();
+            details.put(DETAIL_JOB_ID, job.latest.jobId().value());
+            details.put(DETAIL_PID, survivor.pid());
+            survivor.command().ifPresent(command -> details.put(DETAIL_EXECUTABLE, command));
+            try {
+                audit.append(new AuditEvent(JOB_DESCENDANT_SURVIVED, AuditEvent.CATEGORY_SECURITY,
+                        AuditEvent.OUTCOME_FAILED, details));
+            } catch (RuntimeException | Error e) {
+                LOGGER.warn(e, WARN.JOB_DESCENDANT_AUDIT_FAILED, job.latest.jobId(), e.getMessage());
+            }
+        }
+    }
+
     /** Takes a job out of the running jobs and completes the wait for its settlement with its record. */
     private void leave(RunningJob job, boolean interrupted) {
-        running.remove(job.latest.jobId());
+        var jobId = job.latest.jobId();
+        running.remove(jobId);
+        if (job.latest.status().isSettled()) {
+            remember(job.latest);
+            stores.remove(jobId);
+        }
         job.settled.complete(job.latest);
         if (interrupted) {
             Thread.currentThread().interrupt();
@@ -877,7 +1045,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     }
 
     /** The launch report and how much of the log was read for it. */
-    private record AwaitedReport(Optional<LaunchReport> report, long observedLength) {
+    record AwaitedReport(Optional<LaunchReport> report, long observedLength) {
     }
 
     /**
@@ -892,11 +1060,17 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * has passed. The deadline is that of the report wait, not the budget of the job: a launcher that hangs before it
      * writes its report must not hold the start for the whole budget, and a cancel ends the wait at once.
      */
-    private AwaitedReport awaitReport(RunningJob job, Process process, JobLog log, Instant deadline) {
+    AwaitedReport awaitReport(RunningJob job, Process process, JobLog log, Instant deadline) {
         var interrupted = false;
+        var nextRefresh = clock.instant().plus(ProcessTreeTracker.REFRESH_INTERVAL);
         try {
             while (true) {
                 var alive = process.isAlive();
+                // a descendant may detach during the report wait: refresh at least once per second, as the sweep expects
+                if (alive && !clock.instant().isBefore(nextRefresh)) {
+                    job.refreshTree();
+                    nextRefresh = clock.instant().plus(ProcessTreeTracker.REFRESH_INTERVAL);
+                }
                 if (log.readLines(0) instanceof JobLog.Lines(var lines, var nextOffset, var report)
                         && (report.isPresent() || !lines.isEmpty())) {
                     return new AwaitedReport(report, nextOffset);
@@ -928,9 +1102,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * observed then ({@code terminateAndSettle}). An {@link Error}, such as a {@link StackOverflowError} of a regular
      * expression in the parser, takes the same path, because only {@code finally} blocks carry it. The failure is
      * passed on to the thread's handler, which logs it with {@code PM_RUNTIME-208}; a failure of the fallback
-     * settlement itself replaces it. A fate that cannot be written stops the settlement at its failed step
-     * ({@code PM_RUNTIME-207}), and a fault of the lock manager inside the settlement is passed on: in both cases the
-     * record stays {@code running} and the recovery of the next runtime start settles it.
+     * settlement itself is followed by a last-resort ended record, so the job is not left {@code running}. A fate that
+     * cannot be written stops the settlement at its failed step ({@code PM_RUNTIME-207}), and a fault of the lock
+     * manager inside the settlement is passed on: in both cases the record stays {@code running} and the recovery of
+     * the next runtime start settles it.
      */
     private void supervise(RunningJob job, Launched launched, Instant spawnedAt, long observedLength) {
         var interrupted = false;
@@ -944,18 +1119,28 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             interrupted = awaited.interrupted();
             if (awaited.cause().isPresent()) {
                 cause = awaited.cause().get();
-                var pid = job.latest.isSpawnRecorded() ? job.latest.pid() : launched.pid();
-                report = termination.terminate(pid);
-                if (report.ending() == Ending.GROUP_KILLED) {
-                    LOGGER.warn(WARN.JOB_TERMINATION_ESCALATED, job.latest.jobId(), pid, cause.name());
-                } else if (report.ending() == Ending.SIGNAL_REFUSED) {
+                // the handle's PID, never the one a launch report names: this path ends the process the runner started
+                var pid = launched.pid();
+                // a PID reused by another process is not signalled; a group that outlived its leader is still the job's
+                if (pidReused(launched)) {
+                    // the PID is never signalled, but the started process must not outlive the cause: the wait has no bound
                     process.destroyForcibly();
+                } else {
+                    report = termination.terminate(pid, process.isAlive());
+                    if (report.ending() == Ending.GROUP_KILLED) {
+                        LOGGER.warn(WARN.JOB_TERMINATION_ESCALATED, job.latest.jobId(), pid, cause.name());
+                    } else if (report.ending() == Ending.SIGNAL_REFUSED) {
+                        process.destroyForcibly();
+                    }
                 }
+                job.sweepTree();
             }
             var exit = waitFor(process);
             interrupted |= exit.interrupted();
+            var endedAt = clock.instant();
+            auditSurvivors(job, job.sweepTree());
             ended = true;
-            settleEnded(job, new Ended(spawnedAt, clock.instant(), exit.value(), Optional.ofNullable(cause),
+            settleEnded(job, new Ended(spawnedAt, endedAt, exit.value(), Optional.ofNullable(cause),
                     report != null && report.cancelBeforeGroup()), observedLength);
         } finally {
             try {
@@ -992,6 +1177,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         var exit = process.onExit();
         var interrupted = false;
         while (true) {
+            if (process.isAlive()) {
+                // only while the job's own process lives: a reused root PID would enrol the strangers below it
+                job.refreshTree();
+            }
             if (exit.isDone()) {
                 return new Awaited(job.closeCancelDoor(), interrupted);
             }
@@ -1003,8 +1192,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 job.cause.complete(Termination.BUDGET_EXPIRED);
                 continue;
             }
+            var bound = remaining.compareTo(ProcessTreeTracker.REFRESH_INTERVAL) < 0 ? remaining
+                    : ProcessTreeTracker.REFRESH_INTERVAL;
             try {
-                CompletableFuture.anyOf(exit, job.cause).get(Math.max(1, remaining.toMillis()), TimeUnit.MILLISECONDS);
+                CompletableFuture.anyOf(exit, job.cause).get(Math.max(1, bound.toMillis()), TimeUnit.MILLISECONDS);
             } catch (TimeoutException _) {
                 // the budget is checked at the top of the loop
             } catch (InterruptedException _) {
@@ -1016,14 +1207,14 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     }
 
     /** The exit value of an ended process. */
-    private record Exit(int value, boolean interrupted) {
+    record Exit(int value, boolean interrupted) {
     }
 
     // java:S2142 does not apply: the interrupt is deferred, not swallowed. Re-interrupting inside the loop would make the
     // next waitFor throw at once, so the wait for the process end would never complete; the flag is returned in
     // Exit.interrupted() and every caller passes it to leave(), which restores it once the job is settled.
     @SuppressWarnings("java:S2142")
-    private static Exit waitFor(Process process) {
+    static Exit waitFor(Process process) {
         var interrupted = false;
         while (true) {
             try {
@@ -1051,15 +1242,50 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * Derives the fate of an ended process job and settles it. When the derivation fails before the settlement started
      * (the {@link OutputParser}, which this runner does not own, or the settled record), the job is settled from the
      * same observation without the parser's finding, so the parser is never called again, and the failure is passed on.
-     * A failure of that fallback replaces the failure it follows.
+     * A failure of that fallback is followed by a last-resort ended record.
      */
+    // java:S1181 does not apply: an Error is caught only to settle the job from what was observed before it is passed
+    // on, as the class contract requires; it is rethrown.
+    @SuppressWarnings("java:S1181")
     private void settleEnded(RunningJob job, Ended ended, long observedLength) {
         try {
             settle(job, ended, observedLength, true);
-        } finally {
-            if (!job.settling) {
-                settle(job, ended, observedLength, false);
+        } catch (RuntimeException | Error failure) {
+            if (job.settling) {
+                // the primary settlement reached its record write and failed there (PM_RUNTIME-207); a fate replaces
+                // only a record that is not settled yet, so a second attempt would not help
+                throw failure;
             }
+            try {
+                settle(job, ended, observedLength, false);
+            } catch (RuntimeException | Error fallbackFailure) {
+                failure.addSuppressed(fallbackFailure);
+                lastResort(job, failure);
+            }
+            throw failure;
+        }
+    }
+
+    /**
+     * Settles a job whose fallback settlement failed as well: the record the fallback was about to write is written
+     * again, so a fault of the write is retried once; when the derivation itself failed, a minimal ended record with the
+     * table's outcome for evidence the runner could not read ({@code indeterminate}, row 5) is written instead, so the
+     * job is not left {@code running} until the next runtime start. A write that fails here too is logged and left to
+     * the recovery.
+     */
+    // java:S1181 does not apply: the last-resort write is the final attempt to settle the job; an Error is logged and
+    // the record stays running for the recovery instead of aborting the settlement path.
+    @SuppressWarnings("java:S1181")
+    private void lastResort(RunningJob job, Throwable failure) {
+        var current = job.latest;
+        var settled = job.pendingSettled != null ? job.pendingSettled
+                : current.toBuilder().status(Status.ENDED).fate(Fate.INDETERMINATE).outcomeRow(5)
+                        .endedAt(clock.instant()).build();
+        try {
+            settle(job, settled);
+        } catch (RuntimeException | Error writeFailure) {
+            failure.addSuppressed(writeFailure);
+            LOGGER.error(writeFailure, ERROR.JOB_LAST_RESORT_FAILED, current.jobId(), writeFailure.getMessage());
         }
     }
 
@@ -1073,11 +1299,12 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         var waitStatus = waitStatus(ended.exitValue(), SIGNALS);
         LogState logState;
         ParseResult parse;
+        var launcherFailure = false;
         switch (new JobLog(job.store.logPath(current.jobId())).readWhole(observedLength)) {
             case JobLog.Complete complete -> {
                 logState = LogState.READABLE;
-                parse = !withParser || current.kind() == JobId.Kind.PROBE
-                        || LaunchReport.isLauncherFailure(complete.reading(), ended.exitValue()) ? ParseResult.NOTHING
+                launcherFailure = LaunchReport.isLauncherFailure(complete.reading(), ended.exitValue());
+                parse = !withParser || current.kind() == JobId.Kind.PROBE || launcherFailure ? ParseResult.NOTHING
                         : parser.parse(current.kind(), complete.reading().jobOutput());
             }
             case JobLog.Unavailable unavailable -> {
@@ -1085,8 +1312,11 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 parse = ParseResult.NOTHING;
             }
         }
+        // A launcher that failed before it started the command has no exit of its own: the exit codes the probe
+        // declares are codes of a probe that ran, so they do not apply to a launcher failure (127 included).
+        var declaredExitCodes = launcherFailure ? Set.<Integer>of() : job.successExitCodes;
         var outcome = OutcomeDerivation.derive(new ProcessEnded(current.kind(), ended.termination(), waitStatus,
-                logState, parse, job.successExitCodes, true));
+                logState, parse, declaredExitCodes, true));
         var settled = current.toBuilder().status(Status.ENDED).fate(outcome.fate()).outcomeRow(outcome.row())
                 .spawnedAt(ended.spawnedAt()).endedAt(ended.endedAt())
                 .exitCode(waitStatus instanceof Exited(var code) ? Long.valueOf(code) : null)
@@ -1117,7 +1347,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             var logState = log.readWhole(0) instanceof JobLog.Unavailable unavailable
                     && unavailable.state() != LogState.MISSING ? unavailable.state() : LogState.READABLE;
             var outcome = OutcomeDerivation.derive(new ProcessEnded(current.kind(), cause,
-                    new Exited(EXECVE_FAILED), logState, ParseResult.NOTHING, job.successExitCodes, true));
+                    new Exited(EXECVE_FAILED), logState, ParseResult.NOTHING, Set.of(), true));
             settle(job, current.toBuilder().status(Status.ENDED).fate(outcome.fate()).outcomeRow(outcome.row())
                     .endedAt(clock.instant()).build());
         } finally {
@@ -1128,6 +1358,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     /** Runs the settlement of a running job's settled record; from here on no fallback settles the job again. */
     private void settle(RunningJob job, JobRecord settled) {
         job.settling = true;
+        job.pendingSettled = settled;
         if (settleRecord(job.store, settled)) {
             job.latest = settled;
         }
@@ -1266,6 +1497,17 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         @SuppressWarnings("java:S3077")
         private volatile Process process;
 
+        /** The process tree of a probe, refreshed while it runs so its descendants are ended with it; null otherwise. */
+        // java:S3077 does not apply: the reference is replaced as a whole and never mutated in place (ProcessTreeTracker
+        // is used through its own thread-safe state), so volatile publishes it safely.
+        @SuppressWarnings("java:S3077")
+        private volatile ProcessTreeTracker tree;
+
+        /** The record a settlement attempt was about to write, for the last-resort retry of a failed write; null before. */
+        // java:S3077 does not apply: JobRecord is immutable and the reference is replaced as a whole, never mutated.
+        @SuppressWarnings("java:S3077")
+        private volatile JobRecord pendingSettled;
+
         /**
          * Whether the settlement of the job has started; a fallback settlement runs only before it, because a fate
          * replaces only a record that is not settled yet. Read and written by the one thread that settles the job.
@@ -1291,6 +1533,35 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
         void launched(Process launched) {
             this.process = launched;
+        }
+
+        /** Records the tree of the job; {@code null} for a job whose descendants are not tracked. */
+        void tracks(ProcessTreeTracker tracker) {
+            this.tree = tracker;
+        }
+
+        /** Remembers the descendants the job has now; nothing for a job without a tree. */
+        void refreshTree() {
+            var current = tree;
+            if (current != null) {
+                current.refresh();
+            }
+        }
+
+        /** Ends the remembered descendants still alive; nothing for a job without a tree. */
+        // java:S1181 does not apply: a sweep that fails must not prevent the settlement; the failure is logged.
+        @SuppressWarnings("java:S1181")
+        List<ProcessTreeTracker.Survivor> sweepTree() {
+            var current = tree;
+            if (current == null) {
+                return List.of();
+            }
+            try {
+                return current.sweep();
+            } catch (RuntimeException | Error e) {
+                LOGGER.warn(e, WARN.JOB_DESCENDANT_SWEEP_FAILED, latest.jobId(), e.getMessage());
+                return List.of();
+            }
         }
 
         /**
