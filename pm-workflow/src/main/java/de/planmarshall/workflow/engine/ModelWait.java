@@ -91,14 +91,14 @@ public sealed interface ModelWait permits ModelWait.Bounded, ModelWait.Progress 
         /**
          * @throws NullPointerException     if a component is {@code null}
          * @throws IllegalArgumentException if the window is not positive or the interval is not between one second and
-         *                                  the window
+         *                                  below the window
          */
         public Progress {
             requireComponents(call, startedAt, window);
             Objects.requireNonNull(interval, "interval");
-            if (interval.compareTo(WaitSettings.MIN_PROGRESS_INTERVAL) < 0 || interval.compareTo(window) > 0) {
+            if (interval.compareTo(WaitSettings.MIN_PROGRESS_INTERVAL) < 0 || interval.compareTo(window) >= 0) {
                 throw new IllegalArgumentException(
-                        "the progress interval %s is not between %s and the window %s"
+                        "the progress interval %s is not between %s and below the window %s"
                                 .formatted(interval, WaitSettings.MIN_PROGRESS_INTERVAL, window));
             }
         }

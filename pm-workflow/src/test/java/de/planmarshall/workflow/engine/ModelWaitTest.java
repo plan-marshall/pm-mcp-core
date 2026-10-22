@@ -116,7 +116,7 @@ class ModelWaitTest {
     }
 
     @Test
-    void shouldTightenTheIntervalOfAWaitToItsWindow() {
+    void shouldHalveTheIntervalOfAWaitWhenItsWindowCannotCarryIt() {
         var shortConnection = new ConnectionSettings(Duration.ofSeconds(15), IDLE, true);
         var longInterval = new WaitSettings(Duration.ofSeconds(1800), Duration.ofSeconds(60));
 
@@ -178,9 +178,9 @@ class ModelWaitTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new ModelWait.Progress(ModelCall.PM_BUILD, T0, Duration.ofSeconds(60), Duration.ofNanos(1)));
         assertThrows(IllegalArgumentException.class,
-                () -> new ModelWait.Progress(ModelCall.PM_BUILD, T0, Duration.ofSeconds(60), Duration.ofSeconds(61)));
-        assertDoesNotThrow(
                 () -> new ModelWait.Progress(ModelCall.PM_BUILD, T0, Duration.ofSeconds(60), Duration.ofSeconds(60)));
+        assertDoesNotThrow(
+                () -> new ModelWait.Progress(ModelCall.PM_BUILD, T0, Duration.ofSeconds(60), Duration.ofSeconds(59)));
     }
 
     private static ConnectionSettings connection(boolean progressResetsTimeout) {

@@ -388,7 +388,7 @@ this package; the selection and the windows are.
 * *One rule*: the progress qualification (profile flag **and** token) exists only in `WaitSelection`; no call surface
   repeats it (link:../adr/workflow-engine/012-model-waits-selected-from-the-connection-profile-and-token.adoc[ADR 012]).
 * *No frame gap longer than the interval*: a progress wait emits a frame at every interval after the start that falls
-  before the answer, at least one, and its interval is between 1 and 60 seconds and never longer than its window.
+  before the answer, at least one, and its interval is between 1 and 60 seconds and shorter than its window.
 * *The bounded window of `pm_wait` never widens*: a qualifying `pm_wait` is a progress wait whose window stays
   `bounded_wait_seconds`; only `pm_build` takes `progress_wait_max_seconds`.
 * *A blank token is no token*: an empty `_meta.progressToken` selects the bounded wait.
@@ -406,7 +406,7 @@ resets no timer
 |The progress upper bound is outside 60 to 7200 seconds, or the interval outside 1 to 60 seconds
 |`IllegalArgumentException` from `WaitSettings`; no wait is built.
 
-|A `Progress` is built with an interval below one second or above its window
+|A `Progress` is built with an interval below one second or not below its window
 |`IllegalArgumentException`; the record refuses the inconsistent value.
 |===
 
@@ -583,7 +583,8 @@ its bounds, every address of another scope refused `scope_not_found` without a r
 address, a deleted entry `scope_not_found`, an unreadable entry `entry_unreadable`
 |`ModelWaitTest` |A bounded wait answers at its window, a progress wait leaves no gap longer than the interval, the
 selection over the four combinations of the profile's `progress_resets_timeout` and the request's token for both calls,
-the bounded window of a qualifying `pm_wait`, the interval tightened to a wait's window, a blank token as no token, the
+the bounded window of a qualifying `pm_wait`, the interval halved when it is not shorter than the window, a blank
+token as no token, the
 bounds of `ConnectionSettings` and `WaitSettings` with their accepted boundary values, and a `Progress` refused with an
 interval below one second or above its window
 |===
