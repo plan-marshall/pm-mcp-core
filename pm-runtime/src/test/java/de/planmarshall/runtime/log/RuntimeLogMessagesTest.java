@@ -180,10 +180,16 @@ class RuntimeLogMessagesTest {
                         "Launcher of job '%s' not started, the job had no process: %s"),
                 Arguments.of(RuntimeLogMessages.WARN.JOB_TERMINATION_FAILED, "PM_RUNTIME-132",
                         "Termination of job '%s' failed, its process is destroyed through its handle: %s"),
+                Arguments.of(RuntimeLogMessages.WARN.JOB_DESCENDANT_AUDIT_FAILED, "PM_RUNTIME-137",
+                        "The surviving descendant of job '%s' could not be audited: %s"),
+                Arguments.of(RuntimeLogMessages.WARN.JOB_DESCENDANT_SWEEP_FAILED, "PM_RUNTIME-138",
+                        "The descendant sweep of job '%s' failed, the job is settled without it: %s"),
                 Arguments.of(RuntimeLogMessages.ERROR.JOB_SETTLEMENT_STEP_FAILED, "PM_RUNTIME-207",
                         "Settlement of job '%s' stopped at step '%s': %s"),
                 Arguments.of(RuntimeLogMessages.ERROR.JOB_SUPERVISION_FAILED, "PM_RUNTIME-208",
-                        "Supervision of job '%s' failed, its settlement ran from what the runner observed: %s"));
+                        "Supervision of job '%s' failed: %s"),
+                Arguments.of(RuntimeLogMessages.ERROR.JOB_LAST_RESORT_FAILED, "PM_RUNTIME-209",
+                        "Last-resort settlement of job '%s' failed: %s"));
     }
 
     @ParameterizedTest(name = "{1}")

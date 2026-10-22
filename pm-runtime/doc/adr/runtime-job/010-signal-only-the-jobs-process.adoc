@@ -1,0 +1,66 @@
+= ADR 010: A PID Is Signalled Only While It Is the Job's
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-21
+
+== Context
+
+The runtime signals a job's process group by an id it learned earlier: the recovery reads the `pid` of a job record left
+`running` by a previous runtime instance, and the runner reads the `pid` of the launch report, the first line of the job
+log. Between the end of the job's process and a signal, the operating system may reap the process, reuse its PID for
+another process, and let that process become the leader of a new process group. A signal to the recorded id would then
+end a process that is not the job's. The window is real on every path that signals after an observation: the recovery of
+a crashed runtime, the cancel and budget branch of the waiter (a cancel may have won although the process exited by
+itself), and a termination after an answered cancel.
+
+The job record carries the PID and `process_started_at`, which the launcher reported before `execve`; the runner
+additionally holds the `Process` handle of the process it started, whose PID cannot be reused while the process lives.
+
+== Decision
+
+* The recovery signals a recorded PID unless the PID is held by a live process that started at another instant than the
+  recorded `process_started_at` (within one second, `JobRecoveryStep.START_TOLERANCE`: the launch report carries the
+  operating system's start in whole seconds, so an exact match is not available). A live process that started elsewhere
+  means the PID was reused: neither its group nor the PID is signalled, and the job is settled like rule (c), with the
+  audit note `orphan unidentifiable`. A PID that no process owns any more was not reused — the kernel does not hand out a
+  PID that a process group still holds — so a group still living under that id is the job's surviving group and is
+  terminated.
+* The runner terminates the process group by the PID of its `Process` handle, never by the PID a launch report names,
+  and applies the same distinction: a live process of that PID that started elsewhere is a reused PID and nothing is
+  signalled; a group that outlived its leader is still the job's and is terminated.
+* The same distinction covers `terminateByHandle`, the path that ends a process whose waiting thread failed or whose
+  post-spawn record could not be written.
+
+== Alternatives Considered
+
+1. *Signal the recorded PID unconditionally and rely on the kernel to answer `ESRCH`.*
+_Rejected_: `ESRCH` is the answer only while no process of that PID exists; once the PID is reused the signal is
+delivered to a stranger. The note's hazard is exactly that case.
+2. *Compare the recorded start exactly.*
+_Rejected_: the launch report has whole-second precision, so a matching process would often be refused as reused.
+3. *Keep the launch report's PID for the runner's termination and check only the record's start.*
+_Rejected_: a report is job output, not evidence of the process the runner started; the handle is.
+
+== Consequences
+
+* A reused PID is never signalled, at the price that a live process group of a *reused* leader is left alone; a live
+  process group whose leader merely exited is still terminated, because no process owns its PID then.
+* The recovery needs `process_started_at` on every record with a PID. The record's invariant already refuses a PID
+  without it, so no record shape changes.
+* The group keeps the guarantee the specification relies on: a process-group id is not reused while a member lives, so
+  a group of the recorded id that still exists is the job's.
+
+== Source
+
+* Work package: PLAN-84 `job-runner-residuals`
+* pull request 92 note 5 (recovery PID reuse, the PID read from the job log, a termination after an answered cancel)
+* link:../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc[Job Runtime § Process Termination & Cancellation Protocol] (step 6, live orphans)
+* link:../../../../doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc[Runtime Lifecycle § Per-Project Recovery] (step 3)
+* `pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/start/JobRecoveryStep.java`

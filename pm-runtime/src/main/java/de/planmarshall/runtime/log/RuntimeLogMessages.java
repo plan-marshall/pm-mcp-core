@@ -696,6 +696,27 @@ public final class RuntimeLogMessages {
                 .identifier(136)
                 .template("The kept state of service unit '%s' could not be removed after a successful load: %s")
                 .build();
+
+        /**
+         * Logged when the security audit record {@code job_descendant_survived} of a descendant that outlived the
+         * sweep of a job's process tree cannot be written; names the job and the failure. The sweep has sent its
+         * signals; the job is settled regardless.
+         */
+        public static final LogRecord JOB_DESCENDANT_AUDIT_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(137)
+                .template("The surviving descendant of job '%s' could not be audited: %s")
+                .build();
+
+        /**
+         * Logged when the sweep of a job's remembered descendants fails; names the job and the failure. The sweep is
+         * not retried and the job is settled regardless, so the settlement is never blocked by a failing sweep.
+         */
+        public static final LogRecord JOB_DESCENDANT_SWEEP_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(138)
+                .template("The descendant sweep of job '%s' failed, the job is settled without it: %s")
+                .build();
     }
 
     /** ERROR level messages. */
@@ -773,13 +794,27 @@ public final class RuntimeLogMessages {
                 .build();
 
         /**
-         * Logged when the virtual thread that waits for a job fails with an exception or an error, after its fallback
-         * settlement from what the runner observed has run; names the job and the failure.
+         * Logged when the virtual thread that waits for a job fails with an exception or an error; names the job and the
+         * failure. A settlement from what the runner observed may have run before it, but it need not have: a fault of
+         * the lock manager can be the failure itself or precede the fallback, and a job whose fate was not recorded is
+         * settled by the recovery of the next runtime start.
          */
         public static final LogRecord JOB_SUPERVISION_FAILED = LogRecordModel.builder()
                 .prefix(PREFIX)
                 .identifier(208)
-                .template("Supervision of job '%s' failed, its settlement ran from what the runner observed: %s")
+                .template("Supervision of job '%s' failed: %s")
+                .build();
+
+        /**
+         * Logged when the last-resort settlement of a job fails as well: the fallback settlement had thrown and the
+         * retry of the record it was about to write, or the minimal ended record for a failed derivation, could not be
+         * written either; names the job and the failure. The record stays {@code running} and the recovery of the next
+         * runtime start settles it.
+         */
+        public static final LogRecord JOB_LAST_RESORT_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(209)
+                .template("Last-resort settlement of job '%s' failed: %s")
                 .build();
     }
 }

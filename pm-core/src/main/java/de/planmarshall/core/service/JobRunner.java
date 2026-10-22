@@ -71,10 +71,14 @@ public interface JobRunner<R, C> {
     boolean cancel(JobId jobId, CancelCause cause);
 
     /**
-     * Reads the record of a job.
+     * Reads the record of a job this runner started.
+     * <p>
+     * The durable record is the job store's; a runner may answer a bounded window of the jobs it started and settled,
+     * so a caller that needs the record of an older job reads it from its store.
      *
      * @param jobId the job
-     * @return the record as it is now; empty if the runner knows no such job
+     * @return the record as it is now; empty if the runner knows no such job, or its settled record lies outside the
+     *         window the runner keeps
      */
     Optional<JobRecord> recordOf(JobId jobId);
 

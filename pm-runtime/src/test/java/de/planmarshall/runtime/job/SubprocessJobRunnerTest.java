@@ -65,10 +65,12 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 
+import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.JobRunner;
 import de.planmarshall.core.service.JobRunner.CancelCause;
 import de.planmarshall.core.service.LockManager;
@@ -317,6 +319,82 @@ class SubprocessJobRunnerTest {
         }
 
         @Test
+        @DisplayName("the store map is pruned when the fate is recorded; the settled record stays readable")
+        void storeMapIsPruned() {
+            var jobId = started(runner.start(git(60, "sleep", "60")));
+            var heldWhileRunning = runner.storesHeld();
+
+            var cancelled = runner.cancel(jobId, CancelCause.ENGINE_CANCEL);
+            var settled = settled(jobId);
+
+            assertAll(
+                    () -> assertTrue(cancelled),
+                    () -> assertEquals(1, heldWhileRunning, "the running job's store is held"),
+                    () -> assertEquals(0, runner.storesHeld(), "the settled job's store is pruned"),
+                    () -> assertEquals(Optional.of(settled), runner.recordOf(jobId),
+                            "the settled record is still read"),
+                    () -> assertEquals(Optional.of(settled), runner.awaitSettled(jobId, Duration.ZERO)));
+        }
+
+        @Test
+        @DisplayName("a write-ahead record that cannot be written leaves no running job and no store")
+        void writeAheadFailureRegistersNothing() throws IOException {
+            var directory = Files.createDirectories(jobs.directoryPath());
+            Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("r-x------"));
+            try {
+                var request = git(30, "ok");
+                assertThrows(UncheckedIOException.class, () -> runner.start(request));
+
+                assertAll(
+                        () -> assertTrue(runner.runningJobs().isEmpty(), "the job was never registered"),
+                        () -> assertEquals(0, runner.storesHeld(), "no store was left behind"),
+                        () -> assertTrue(jobs.records().isEmpty(), "no record was written"));
+            } finally {
+                Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwx------"));
+            }
+        }
+
+        @Test
+        @DisplayName("a queued job settled by the drain has its store pruned too")
+        void queuedJobStoreIsPruned() {
+            runner.stopAdmitting();
+            var jobId = started(runner.start(git(30, "ok")));
+            var heldWhileQueued = runner.storesHeld();
+
+            var settledIds = runner.settleQueued();
+            var settled = settled(jobId);
+
+            assertAll(
+                    () -> assertEquals(List.of(jobId), settledIds),
+                    () -> assertEquals(1, heldWhileQueued, "the queued job's store is held"),
+                    () -> assertEquals(0, runner.storesHeld(), "the settled queued job's store is pruned"),
+                    () -> assertEquals(Status.ENDED, settled.status()),
+                    () -> assertEquals(Fate.KILLED, settled.fate()),
+                    () -> assertEquals(Optional.of(settled), runner.recordOf(jobId)));
+        }
+
+        @Test
+        @DisplayName("a settled record beyond the cache bound is no longer answered by recordOf")
+        void settledRecordWindowIsBounded() {
+            runner = SubprocessJobRunner.builder().base(fixture.base).lockManager(locks)
+                    .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
+                    .termination(new TerminationProtocol(ProcessGroupSignals.system()))
+                    .environment(job -> ENVIRONMENT).probeEnvironment(candidate -> ENVIRONMENT)
+                    .parser((kind, output) -> SUCCESS).primitives(request -> Optional.empty())
+                    .settledRecordsKept(1).build();
+            var first = started(runner.start(git(30, "ok")));
+            settled(first);
+            var second = started(runner.start(git(30, "ok")));
+            var secondSettled = settled(second);
+
+            assertAll(
+                    () -> assertEquals(Optional.empty(), runner.recordOf(first),
+                            "the oldest settled record left the window"),
+                    () -> assertEquals(Optional.of(secondSettled), runner.recordOf(second)),
+                    () -> assertEquals(0, runner.storesHeld(), "both stores are pruned"));
+        }
+
+        @Test
         @DisplayName("a job that exits 0 with its success marker settles succeeded, its child wall time within its own")
         void childWallWithinWallTime() {
             var jobId = started(runner.start(git(30, "ok")));
@@ -439,6 +517,41 @@ class SubprocessJobRunnerTest {
                     () -> assertEquals("SIGTERM", settled.signal()),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
                             WARN.JOB_TERMINATION_ESCALATED.resolveIdentifierString()));
+        }
+    }
+
+    @Nested
+    @EnabledOnOs(OS.LINUX)
+    @DisplayName("terminates the process it started, never the one a report names")
+    class ReportedPidIsNotTrusted {
+
+        @BeforeEach
+        void install() {
+            // each test installs the launcher it needs
+        }
+
+        @Test
+        @DisplayName("a cancel signals the started process, not the PID the launch report names")
+        void cancelSignalsTheStartedProcess() throws Exception {
+            var foreign = new ProcessBuilder(FakePmExec.tool("setsid").toString(),
+                    FakePmExec.tool("sleep").toString(), "30").start();
+            try {
+                FakePmExec.installReportingPid(home, foreign.pid());
+                var jobId = started(runner.start(git(60, "sleep", "5")));
+
+                var cancelled = runner.cancel(jobId, CancelCause.ENGINE_CANCEL);
+                var settled = settled(jobId);
+
+                assertAll(
+                        () -> assertTrue(cancelled, "the job was running and the cancel decided its end"),
+                        () -> assertEquals(Fate.CANCELLED, settled.fate()),
+                        () -> assertEquals(foreign.pid(), settled.pid(), "the record carries the reported PID"),
+                        () -> assertTrue(foreign.isAlive(),
+                                "the process group of the reported PID was not signalled"));
+            } finally {
+                foreign.destroyForcibly();
+                foreign.waitFor(10, TimeUnit.SECONDS);
+            }
         }
     }
 
@@ -884,6 +997,41 @@ class SubprocessJobRunnerTest {
         }
 
         @Test
+        @DisplayName("an Error of the termination step still settles the job before it is passed on")
+        void terminationFailsWithError() {
+            var signals = new ProcessGroupSignals() {
+
+                @Override
+                public Answer signalGroup(long pgid, Signal signal) {
+                    permissions("rwx------");
+                    throw new StackOverflowError("kill(-%d) failed".formatted(pgid));
+                }
+
+                @Override
+                public Answer signalProcess(long pid, Signal signal) {
+                    permissions("rwx------");
+                    throw new StackOverflowError("kill(%d) failed".formatted(pid));
+                }
+            };
+            runner = runner(new TerminationProtocol(signals), request -> Optional.empty(), job -> {
+                locks.beforeNextTransaction(() -> permissions("r-x------"));
+                return ENVIRONMENT;
+            });
+            var request = git(600, "sleep", "600");
+
+            assertThrows(UncheckedIOException.class, () -> runner.start(request));
+
+            var settled = jobs.records().getFirst();
+            assertAll(
+                    () -> assertEquals(Status.ENDED, settled.status(), "the job is not left running unsettled"),
+                    () -> assertEquals(Fate.KILLED, settled.fate()),
+                    () -> assertEquals(4, settled.outcomeRow()),
+                    () -> assertEquals("SIGKILL", settled.signal(), "destroyed through its handle"),
+                    () -> assertFalse(alive(settled.pid()), "the process is not left running"),
+                    () -> assertTrue(runner.runningJobs().isEmpty()));
+        }
+
+        @Test
         @DisplayName("matched control: a job whose post-spawn record is written is started and settled by its exit")
         void writtenPostSpawn() {
             runner = recordingSignals(false);
@@ -1000,6 +1148,58 @@ class SubprocessJobRunnerTest {
                             WARN.JOB_TERMINATION_FAILED.resolveIdentifierString()),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
                             "Supervision of job '%s' failed".formatted(jobId), IllegalStateException.class));
+        }
+
+        @Test
+        @DisplayName("a fallback that fails as well: the job is still settled, by the last-resort record")
+        void fallbackFails() throws Exception {
+            var failure = new IllegalStateException("the parser failed");
+            var lockFailure = new IllegalStateException("the lock manager failed inside the settlement");
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), job -> ENVIRONMENT,
+                    (kind, output) -> {
+                        locks.failNextTransaction(lockFailure);
+                        throw failure;
+                    }, request -> Optional.empty());
+
+            var jobId = started(runner.start(git(30, "ok")));
+            var settled = settled(jobId);
+            supervisionFailureLogged.await();
+
+            assertAll(
+                    () -> assertEquals(Status.ENDED, settled.status(),
+                            "a failing fallback does not leave the job unsettled"),
+                    () -> assertEquals(Fate.INDETERMINATE, settled.fate()),
+                    () -> assertEquals(8, settled.outcomeRow(), "the fallback's record was written on the retry"),
+                    () -> assertFalse(runner.runningJobs().contains(jobId)),
+                    () -> assertEquals(Optional.of(settled), runner.recordOf(jobId)));
+        }
+
+        @Test
+        @DisplayName("a thread that cannot be started terminates and settles the job before the failure is passed on")
+        void threadCannotBeStarted() throws IOException {
+            FakePmExec.install(home, FakePmExec.Mode.REPORT);
+            var failure = new IllegalStateException("no virtual thread");
+            runner = SubprocessJobRunner.builder().base(fixture.base).lockManager(locks)
+                    .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
+                    .termination(new TerminationProtocol(ProcessGroupSignals.system()))
+                    .environment(job -> ENVIRONMENT).probeEnvironment(candidate -> ENVIRONMENT)
+                    .parser((kind, output) -> SUCCESS).primitives(request -> Optional.empty())
+                    .supervision((name, onFailure, task) -> {
+                        throw failure;
+                    }).build();
+            var request = git(600, "sleep", "600");
+
+            var thrown = assertThrows(IllegalStateException.class, () -> runner.start(request));
+
+            var settled = jobs.records().getFirst();
+            assertAll(
+                    () -> assertEquals(failure, thrown, "the failure is passed on to the caller"),
+                    () -> assertEquals(Status.ENDED, settled.status(), "the job does not stay running"),
+                    () -> assertEquals(Fate.KILLED, settled.fate()),
+                    () -> assertEquals(4, settled.outcomeRow()),
+                    () -> assertEquals("SIGTERM", settled.signal(), "the started process was terminated"),
+                    () -> assertTrue(runner.runningJobs().isEmpty(), "no job is left running"),
+                    () -> assertEquals(0, runner.storesHeld(), "the settled job's store is pruned"));
         }
 
         @Test
@@ -1155,6 +1355,129 @@ class SubprocessJobRunnerTest {
         @DisplayName("a pause of the plan that holds now is the termination PAUSE_NOW")
         void pauseNow() {
             assertEquals(Termination.PAUSE_NOW, SubprocessJobRunner.termination(CancelCause.PLAN_PAUSED_NOW));
+        }
+
+        @Test
+        @DisplayName("a reused PID is not signalled, at the primitive; the started process and an unowned PID are")
+        void pidReuse() throws Exception {
+            var first = new ProcessBuilder(FakePmExec.tool("setsid").toString(), FakePmExec.tool("sleep").toString(),
+                    "30").start();
+            // the start instant has the clock tick's granularity: a later start makes the two distinguishable
+            first.waitFor(50, TimeUnit.MILLISECONDS);
+            var second = new ProcessBuilder(FakePmExec.tool("setsid").toString(), FakePmExec.tool("sleep").toString(),
+                    "30").start();
+            try {
+                var recorded = new CopyOnWriteArrayList<Long>();
+                ProcessGroupSignals signals = new ProcessGroupSignals() {
+
+                    @Override
+                    public Answer signalGroup(long pgid, Signal signal) {
+                        recorded.add(pgid);
+                        return new NoSuchProcess();
+                    }
+
+                    @Override
+                    public Answer signalProcess(long pid, Signal signal) {
+                        recorded.add(pid);
+                        return new NoSuchProcess();
+                    }
+                };
+                runner = runner(new TerminationProtocol(signals), request -> Optional.empty());
+                var reused = new PmExecLauncher.Launched(second, first.pid());
+
+                var cancelBeforeGroup = runner.terminateByHandle(JobId.random(JobId.Kind.GIT), reused);
+
+                assertAll(
+                        () -> assertTrue(SubprocessJobRunner.pidReused(reused),
+                                "the PID of the first is owned by the first, not by the second's handle"),
+                        () -> assertFalse(cancelBeforeGroup),
+                        () -> assertTrue(recorded.isEmpty(), "a reused PID is never signalled: " + recorded),
+                        () -> assertFalse(SubprocessJobRunner.pidReused(
+                                        new PmExecLauncher.Launched(first, first.pid())),
+                                "the process the runner started is not a reused PID"),
+                        () -> assertFalse(SubprocessJobRunner.pidReused(new PmExecLauncher.Launched(
+                                        new StubProcess(() -> false), 1_999_999_999L)),
+                                "a PID no process owns leaves a surviving group to be terminated"));
+            } finally {
+                first.destroyForcibly();
+                second.destroyForcibly();
+                first.waitFor(10, TimeUnit.SECONDS);
+                second.waitFor(10, TimeUnit.SECONDS);
+            }
+        }
+
+        @Test
+        @DisplayName("a descendant that outlived the sweep is written as a security audit record")
+        void survivingDescendantIsAudited() {
+            var events = new CopyOnWriteArrayList<AuditEvent>();
+            runner = SubprocessJobRunner.builder().base(fixture.base).lockManager(locks)
+                    .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
+                    .termination(new TerminationProtocol(ProcessGroupSignals.system()))
+                    .environment(job -> ENVIRONMENT).probeEnvironment(candidate -> ENVIRONMENT)
+                    .parser((kind, output) -> SUCCESS).primitives(request -> Optional.empty())
+                    .audit(events::add).build();
+            var jobId = JobId.random(JobId.Kind.PROBE);
+            var jobRecord = JobRecord.builder().jobId(jobId).execution(JobRecord.Execution.PROCESS)
+                    .scope(new Scope(Scope.Type.MACHINE, null))
+                    .status(Status.RUNNING).budgetKey(BUDGET_KEY).budgetSeconds(30).budgetDerivation(FLOOR)
+                    .argvDigest("ab".repeat(32)).confinement(JobRecord.Confinement.UNAVAILABLE)
+                    .createdAt(Instant.now()).clampedValues(List.of()).build();
+            var job = new SubprocessJobRunner.RunningJob(jobRecord, null, new JobBudget(BUDGET_KEY, 30, FLOOR),
+                    Set.of());
+
+            runner.auditSurvivors(job, List.of(new ProcessTreeTracker.Survivor(11, Optional.of("/usr/bin/sleep")),
+                    new ProcessTreeTracker.Survivor(12, Optional.empty())));
+
+            assertAll(
+                    () -> assertEquals(2, events.size()),
+                    () -> assertEquals(SubprocessJobRunner.JOB_DESCENDANT_SURVIVED, events.get(0).event()),
+                    () -> assertEquals("security", events.get(0).category()),
+                    () -> assertEquals("failed", events.get(0).outcome()),
+                    () -> assertEquals(11L, events.get(0).details().get(SubprocessJobRunner.DETAIL_PID)),
+                    () -> assertEquals(jobId.value(), events.get(0).details().get(SubprocessJobRunner.DETAIL_JOB_ID)),
+                    () -> assertEquals("/usr/bin/sleep",
+                            events.get(0).details().get(SubprocessJobRunner.DETAIL_EXECUTABLE)),
+                    () -> assertFalse(events.get(1).details()
+                            .containsKey(SubprocessJobRunner.DETAIL_EXECUTABLE), "no executable known"));
+        }
+
+        @Test
+        @DisplayName("a sweep that throws is logged and does not keep the job from being settled")
+        void failingSweepDoesNotAbortTheSettlement() {
+            var start = Instant.parse("2026-10-21T10:00:00Z");
+            ProcessGroupSignals throwing = new ProcessGroupSignals() {
+
+                @Override
+                public Answer signalGroup(long pgid, Signal signal) {
+                    throw new IllegalStateException("the primitive failed");
+                }
+
+                @Override
+                public Answer signalProcess(long pid, Signal signal) {
+                    throw new IllegalStateException("the primitive failed");
+                }
+            };
+            var tracker = new ProcessTreeTracker(4242, root -> Set.of(new ProcessTreeTracker.Member(11, start)),
+                    pid -> Optional.of(start), throwing, InstantSource.system(), duration -> {
+                    });
+            tracker.refresh();
+            var jobId = JobId.random(JobId.Kind.PROBE);
+            var jobRecord = JobRecord.builder().jobId(jobId).execution(JobRecord.Execution.PROCESS)
+                    .scope(new Scope(Scope.Type.MACHINE, null)).status(Status.RUNNING).budgetKey(BUDGET_KEY)
+                    .budgetSeconds(30).budgetDerivation(FLOOR).argvDigest("ab".repeat(32))
+                    .confinement(JobRecord.Confinement.UNAVAILABLE).createdAt(Instant.now())
+                    .clampedValues(List.of()).build();
+            var job = new SubprocessJobRunner.RunningJob(jobRecord, null, new JobBudget(BUDGET_KEY, 30, FLOOR),
+                    Set.of());
+            job.tracks(tracker);
+
+            var survivors = job.sweepTree();
+
+            assertAll(
+                    () -> assertEquals(List.of(), survivors, "the sweep answers no survivor"),
+                    () -> assertTrue(runner.runningJobs().isEmpty(), "the test runner starts no job"),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            "The descendant sweep of job '%s' failed".formatted(jobId)));
         }
 
         @Test
@@ -1374,14 +1697,79 @@ class SubprocessJobRunnerTest {
         }
     }
 
+    @Nested
+    @DisplayName("keeps the interrupt status of every wait and ends the wait with it")
+    class Interrupts {
+
+        @TempDir
+        Path temp;
+
+        private SubprocessJobRunner.RunningJob job() {
+            return new SubprocessJobRunner.RunningJob(null, null, new JobBudget(BUDGET_KEY, 30, FLOOR), Set.of());
+        }
+
+        @Test
+        @DisplayName("the wait for the process reports the interrupt and still returns the exit")
+        void waitForReportsInterrupt() {
+            var exit = SubprocessJobRunner.waitFor(new StubProcess(() -> true, true));
+
+            assertAll(
+                    () -> assertEquals(7, exit.value()),
+                    () -> assertTrue(exit.interrupted()));
+        }
+
+        @Test
+        @DisplayName("the wait for the end of the process reports the interrupt; the exit still ends it")
+        void awaitEndOrCauseReportsInterrupt() {
+            var process = new StubProcess(() -> true);
+            var job = job();
+            job.launched(process);
+            Thread.currentThread().interrupt();
+            var ending = CompletableFuture.runAsync(process::ended,
+                    CompletableFuture.delayedExecutor(50, TimeUnit.MILLISECONDS));
+
+            var awaited = runner.awaitEndOrCause(job, process, Instant.now().plusSeconds(30));
+            ending.join();
+
+            assertAll(
+                    () -> assertTrue(awaited.interrupted()),
+                    () -> assertEquals(Optional.empty(), awaited.cause()));
+        }
+
+        @Test
+        @DisplayName("the wait for the launch report reports the interrupt by ending without one")
+        void awaitReportReportsInterrupt() throws IOException {
+            var logPath = temp.resolve("job.log");
+            Files.writeString(logPath, "");
+            var process = new StubProcess(() -> true);
+            var job = job();
+            job.launched(process);
+            Thread.currentThread().interrupt();
+
+            var awaited = runner.awaitReport(job, process, new JobLog(logPath), Instant.now().plusSeconds(30));
+            var interruptStatus = Thread.interrupted();
+
+            assertAll(
+                    () -> assertTrue(awaited.report().isEmpty()),
+                    () -> assertEquals(0L, awaited.observedLength()),
+                    () -> assertTrue(interruptStatus, "the interrupt is restored for the caller"));
+        }
+    }
+
     /** A process whose exit and liveness the test controls. */
     private static final class StubProcess extends Process {
-
         private final CompletableFuture<Process> exit = new CompletableFuture<>();
         private final BooleanSupplier alive;
+        private final boolean interruptOnFirstWait;
+        private int waits;
 
         StubProcess(BooleanSupplier alive) {
+            this(alive, false);
+        }
+
+        StubProcess(BooleanSupplier alive, boolean interruptOnFirstWait) {
             this.alive = alive;
+            this.interruptOnFirstWait = interruptOnFirstWait;
         }
 
         /** Completes the exit of the process. */
@@ -1415,8 +1803,11 @@ class SubprocessJobRunnerTest {
         }
 
         @Override
-        public int waitFor() {
-            return 0;
+        public int waitFor() throws InterruptedException {
+            if (interruptOnFirstWait && waits++ == 0) {
+                throw new InterruptedException("the test interrupts the wait");
+            }
+            return 7;
         }
 
         @Override
@@ -1437,6 +1828,7 @@ class SubprocessJobRunnerTest {
         private final Set<LockTransaction> open = ConcurrentHashMap.newKeySet();
         private final List<LockKey> acquired = new CopyOnWriteArrayList<>();
         private final AtomicReference<Runnable> beforeNext = new AtomicReference<>();
+        private final AtomicReference<RuntimeException> failNext = new AtomicReference<>();
 
         RecordingLocks(LockManager delegate) {
             this.delegate = delegate;
@@ -1447,11 +1839,20 @@ class SubprocessJobRunnerTest {
             beforeNext.set(action);
         }
 
+        /** Fails the next transaction when it is opened, before it reaches the delegate. */
+        void failNextTransaction(RuntimeException failure) {
+            failNext.set(failure);
+        }
+
         @Override
         public LockTransaction openTransaction() {
             var action = beforeNext.getAndSet(null);
             if (action != null) {
                 action.run();
+            }
+            var failure = failNext.getAndSet(null);
+            if (failure != null) {
+                throw failure;
             }
             var transaction = delegate.openTransaction();
             var recording = new LockTransaction() {

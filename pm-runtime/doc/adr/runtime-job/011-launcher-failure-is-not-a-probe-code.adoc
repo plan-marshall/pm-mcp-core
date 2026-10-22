@@ -1,0 +1,48 @@
+= ADR 011: A Launcher Failure Is Never a Probe's Declared Exit Code
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-21
+
+== Context
+
+A probe declares the exit codes that mean success for it, and outcome row 7 reads them in place of exit code `0`. A
+launcher that fails before `execve` writes no launch report and exits `64` (usage), `126` (confinement could not be
+applied) or `127` (`execve` failed); the runtime settles such a job from that exit. A probe whose declared set contains
+one of those codes would therefore have a command that never ran settled `succeeded`, because the exit of the launcher
+is indistinguishable from the exit of the command by its value alone. The launch report is what distinguishes them: a
+launcher failure is a log without a report and one of those exits (`LaunchReport.isLauncherFailure`).
+
+== Decision
+
+* A log without a launch report whose exit is `64`, `126` or `127` is a launcher failure, and its exit codes are not the
+  probe's: the derivation reads an empty declared set, so the exit decides by rows 9 or 10 like any other non-zero exit.
+* The same holds for a launcher the runtime cannot start at all (`settleUnlaunched`): it had no process and its exit
+  `127` is not a probe's.
+* A probe that ends with a declared code after its launcher reported still settles `succeeded` by row 7, `127` included.
+
+== Alternatives Considered
+
+1. *Remove `127` from every probe's declared set when it is recorded.*
+_Rejected_: the candidate record is the scan's, and a probe can legitimately use `127`; the defect is the launcher
+failure, not the declared code.
+2. *Refuse a candidate that declares `64`, `126` or `127`.*
+_Rejected_: it would reject a real probe to guard a launcher failure the runtime can detect itself.
+
+== Consequences
+
+* A declared exit code is read only for a probe that actually ran, as the specification's outcome row 7 assumes.
+* The distinction depends on the launch report, so a launcher that writes a report and then fails is not a launcher
+  failure; it is a job of its own and is decided by its exit.
+
+== Source
+
+* Work package: PLAN-84 `job-runner-residuals`
+* pull request 92 note 5 (a probe whose declared success codes include `127`)
+* link:../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc[Job Runtime § Outcome Derivation] (row 7, probes), § Launch report
+* `pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java`, `LaunchReport.java`
