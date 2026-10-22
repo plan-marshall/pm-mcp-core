@@ -6,10 +6,17 @@ workstream: WS-10
 > Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
 > Lives at `plans/PLAN-40-module-developer-docs.md` and is queued as one row file, `queue/PLAN-40.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
-> This spec is SELF-SUFFICIENT: the emitted command is a one-line pointer and carries no
-> brief, so every per-plan carry is authored here and nowhere else.
+> This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
+> the emitted command is a one-line pointer and carries no brief, so every per-plan carry is
+> authored here and the epic-wide rules are in `standing-rules.md`, read first.
 > See `persona-plan-orchestrator/standards/orchestration-model.md` for the tier and
 > hand-off contract.
+
+## First Instruction: Read The Standing Rules
+
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
+
+Rules that apply to this plan: R13.
 
 ## Objective
 
@@ -69,15 +76,19 @@ taken-over guides are complete here; relative links resolve.
 
 ## Standing Constraints
 
+Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named in the First Instruction above):
+
 - Documentation only: no production code, no test, no POM change. The Maven gates have nothing to
   build; say so rather than reporting them green.
+
 - Write from the code as it is on `main`; a statement the code contradicts is corrected, not
   copied from an older guide.
-- Never copy the module listing or the dependency rules of the Module Structure Specification; link them.
-- The usual flow of `CLAUDE.md` § Git Workflow. No pull request in `plan-marshall-documentation`.
-- Log messages: none.
 
-- **Format versions stay 1 (operator decision 2026-10-13).** Nothing is released yet, so every versioned artifact (`format_version` of a store document, record, sidecar, journal, codec) stays at version 1. A format change replaces version 1 in place: no version bump, no reader for an older version, no migration. Do not raise a `FORMAT_VERSION` constant, a `format_version` in a fixture, schema or specification example, or an ADR that records a bump.
+- Never copy the module listing or the dependency rules of the Module Structure Specification; link them.
+
+- The usual flow of `CLAUDE.md` § Git Workflow. No pull request in `plan-marshall-documentation`.
+
+- Log messages: none.
 
 - **Carried from PLAN-39 (#53).** PLAN-39 backfilled ADRs and renumbered them after collisions (at 238c823 core-store runs to 028, runtime-start to 011, workflow-verify to 025). Developer files that cite ADR ranges (for example `workflow-verify.adoc`: "ADRs 001 to 012") must cite the current ones; check every ADR reference in the files you write.
 
