@@ -24,9 +24,11 @@ bound a schema declares for exactly that reason.
 == Decision
 
 `SchemaSubset.checkString` tests `maxLength` first, counted in code points as before. A value longer than the bound is
-reported once as `<path>: longer than <N>` and the `pattern` is neither compiled nor matched. A value inside the bound,
-and a value of exactly `maxLength` code points, goes through the pattern as before: `re.search` semantics through
-`PythonRegex`, with the existing messages. No signature, message text or other type changes.
+reported as `<path>: longer than <N>` and the `pattern` is neither compiled nor matched. The length check replaces only
+the pattern check: `const` and `enum` are evaluated in `check` before `checkString` and are still reported beside a
+length error. A value inside the bound, and a value of exactly `maxLength` code points, goes through the pattern as
+before: `re.search` semantics through `PythonRegex`, with the existing messages. No signature, message text or other
+type changes.
 
 == Alternatives Considered
 
@@ -39,8 +41,8 @@ and a value of exactly `maxLength` code points, goes through the pattern as befo
 
 == Consequences
 
-* An over-long value is refused on its length alone; its pattern is not evaluated, so a value that is both too long
-  and a pattern mismatch reports only the length error.
+* An over-long value reports the length error instead of the pattern error: a value that is both too long and a pattern
+  mismatch reports the length error alone, while a `const` or `enum` violation is still reported beside it.
 * An over-long value with a schema pattern that does not compile yields the length error alone and does not throw.
   The broken pattern is reported for the next value inside the bound, sometimes never — a schema defect can stay
   hidden while every value checked against it is over-long. Nothing else in the validator compiles a schema pattern to
