@@ -2,10 +2,10 @@
   "id": "PLAN-96",
   "slug": "spec-ahead-work-packages",
   "workstream": "WS-10",
-  "status": "launched",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-96-spec-ahead-work-packages",
+  "pr": "#143",
+  "landing": "landings/PLAN-96.md",
   "seq": 98
 }
