@@ -162,6 +162,20 @@ class SchemaSubsetTest {
         }
 
         @Test
+        @DisplayName("a value inside the bound with the same broken pattern still reports the pattern error")
+        void insideBoundReportsBrokenPattern() {
+            // Arrange
+            var schema = "{\"pattern\":\"(\",\"maxLength\":3}";
+            var value = "\"abc\"";
+
+            // Act
+            var errors = validate(value, schema);
+
+            // Assert
+            assertEquals(List.of("$: the schema pattern ( does not compile: Unclosed group"), errors);
+        }
+
+        @Test
         @DisplayName("a value inside the bound still yields the pattern error")
         void insideBoundEvaluatesPattern() {
             // Arrange
