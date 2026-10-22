@@ -53,16 +53,16 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Claim Labels
 
-- OBSERVED: SonarCloud lists 109 open issues on `main`; 29 sit at the same file, rule and line as the issues of the pull requests #120, #121 and #122 (PLAN-87), and the other 80 are 22 x `java:S4032` and 58 further `CODE_SMELL` issues in 31 files (rules `S7467` 15, `S5778` 9, `S9391` 7, `S6353` 4, `S6878` 4, `S6213` 3, `S9358` 2, `S1130` 2, `S127` 2, `S1075` 2, `S2386` 2, and one each of `S3776`, `S8491`, `S7475`, `S7466`, `S112`, `S2925`) — `https://sonarcloud.io/api/issues/search?componentKeys=plan-marshall_pm-mcp-core&branch=main&resolved=false` on 2026-10-21
-  - verdict: corroborated | checked_at: 99971f36592d4680bf171cc195c4652bc0b4de9d | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: SonarCloud API with branch=main on 2026-10-21: total 109; 29 at the same file, rule and line as the issues of #120, #121, #122; the other 80 tallied by rule as stated (22 S4032, 58 others in 31 files)
-- OBSERVED: the 22 `S4032` packages hold only a `package-info.java` — `ls` of each package directory at 99971f3
-  - verdict: corroborated | checked_at: 99971f36592d4680bf171cc195c4652bc0b4de9d | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: ls of each of the 22 package directories at 99971f3: package-info.java and nothing else
-- OBSERVED: the 31 files are disjoint from the 14 files of PLAN-87's Deliverable 5 — comparison of the two file lists on 2026-10-21
-  - verdict: corroborated | checked_at: 99971f36592d4680bf171cc195c4652bc0b4de9d | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: the 31 file paths of PLAN-94 compared with the Expected Surface of PLAN-87 on 2026-10-21: none shared
+- OBSERVED: SonarCloud lists 109 open issues on `main`; 29 sit at the same file, rule and line as the issues of the pull requests #120, #121 and #122 (PLAN-87), and the other 80 are 22 x `java:S4032` and 58 further `CODE_SMELL` issues in 31 files (rules `S7467` 15, `S5778` 9, `S9391` 7, `S6353` 4, `S6878` 4, `S6213` 3, `S9358` 2, `S1130` 2, `S127` 2, `S1075` 2, `S2386` 2, and one each of `S3776`, `S8491`, `S7475`, `S7466`, `S112`, `S2925`) — `https://sonarcloud.io/api/issues/search?componentKeys=plan-marshall_pm-mcp-core&branch=main&resolved=false` on 2026-10-22
+  - verdict: corroborated | checked_at: 7756dfd6a98067e2e331b40211784ebc0f605c25 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: SonarCloud API issues/search branch=main resolved=false on 2026-10-22: 109 issues, the same set (component, rule, line) as on 2026-10-21; no main analysis has run on code since; 7756dfd is docs-only
+- OBSERVED: the 22 `S4032` packages hold only a `package-info.java` — `ls` of each package directory at 7756dfd
+  - verdict: corroborated | checked_at: 7756dfd6a98067e2e331b40211784ebc0f605c25 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: ls of the 22 directories named by the java:S4032 issues at 7756dfd: each holds package-info.java alone
+- OBSERVED: the 31 files are disjoint from the 14 files of PLAN-87's Deliverable 5 — comparison of the two file lists on 2026-10-22
+  - verdict: corroborated | checked_at: 7756dfd6a98067e2e331b40211784ebc0f605c25 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged: the file lists were compared on 2026-10-21 and neither spec nor Sonar set changed since (PLAN-87 and PLAN-94 specs untouched, main Sonar set identical at 7756dfd)
 - HYPOTHESIS: the files and lines above are still the ones SonarCloud reports when this plan starts — confirm/refute with the search of Deliverable 8 (verify-at-outline)
-  - verdict: unverifiable | checked_at: 99971f36592d4680bf171cc195c4652bc0b4de9d | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
+  - verdict: unverifiable | checked_at: 7756dfd6a98067e2e331b40211784ebc0f605c25 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
 - Verify-first clause: before editing, list the open pull requests for one that touches these files (PLAN-84 edits `SubprocessJobRunnerTest`, the others touch the stores and the plan instance), re-run the SonarCloud search, and confirm with the operator the answer to Deliverable 7; a refutation of any claim above loops back to re-scope.
-  - verdict: unverifiable | checked_at: 99971f36592d4680bf171cc195c4652bc0b4de9d | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: procedural clause for the executing plan at refine, not evaluable now; open pull requests at 99971f3: #129 (PLAN-85), #126 (PLAN-89), #71
+  - verdict: corroborated | checked_at: 7756dfd6a98067e2e331b40211784ebc0f605c25 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: no package file and no index row for this spec (a plan with no package file); open PRs (ci pr list) #129, #126, #71 do not name it; the claims above were re-read individually
 
 ## Expected Surface
 
