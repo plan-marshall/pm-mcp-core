@@ -89,7 +89,8 @@ final class RoleFixtures {
                 Map.of(RoleClass.WRITER, HarnessProfile.ToolSet.ENFORCED,
                         RoleClass.READ_ONLY, HarnessProfile.ToolSet.ADVISORY,
                         RoleClass.ZERO_TOOL, HarnessProfile.ToolSet.ENFORCED),
-                Map.of(MODEL, List.of("medium", "high"), "acme-fast", List.of()),
+                Map.of(MODEL, List.of("medium", "high"), "acme-frontier", List.of("medium", "high"),
+                        "acme-fast", List.of()),
                 Map.of("frontier", "acme-frontier", "standard", MODEL, "fast", "acme-fast"),
                 400_000, 3,
                 new HarnessProfile.Resumability(true, 600, true, 604_800), "ask_user");
