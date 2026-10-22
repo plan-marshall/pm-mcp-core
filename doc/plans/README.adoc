@@ -15,12 +15,6 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 [cols="3,4,1,3,2",options="header"]
 |===
 |Package |Deliverable |Status |Depends on |Serves
-|link:profile-loader.adoc[`profile-loader`]
-|Profile loader and validation
-|`open`
-|nothing
-|Milestone 2
-
 |link:plan-instance-versions.adoc[`plan-instance-versions`]
 |Plan instance versions: the triggers of the composition events, the engine's switch to the version in force, `instance_version`, Rules 13 and 14 at composition, the instance resources
 |`open`
@@ -36,19 +30,19 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:job-confinement-and-environment.adoc[`job-confinement-and-environment`]
 |Job confinement and job environment in the daemon
 |`open`
-|link:profile-loader.adoc[`profile-loader`]
+|link:../../../pm-mcp-clients/doc/plans/exec-read-denied-paths.adoc[`pm-mcp-clients` / `exec-read-denied-paths`]
 |Milestone 4
 
 |link:waits.adoc[`waits`]
 |Bounded and progress waits
 |`open`
-|link:profile-loader.adoc[`profile-loader`]
+|nothing
 |Milestone 4
 
 |link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]
 |Role artifacts, role sets and the model caller
 |`open`
-|link:profile-loader.adoc[`profile-loader`]
+|nothing
 |Milestone 4
 
 |link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]
@@ -72,7 +66,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:worker-activity.adoc[`worker-activity`]
 |What a worker does: the activity of a task mapped per harness, the activity journal, the off-track signals and their actions
 |`open`
-|link:supervisor.adoc[`supervisor`]; link:profile-loader.adoc[`profile-loader`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]
+|link:supervisor.adoc[`supervisor`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]
 |Milestone 4
 
 |link:slots-usage-and-budgets.adoc[`slots-usage-and-budgets`]
@@ -90,7 +84,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:question-continuation.adoc[`question-continuation`]
 |Continuation after a question: hold, suspend and resume, the answer acknowledgement, the answer in the next task, the question bound, the stage `resumability` of the profile verification
 |`open`
-|link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:supervisor.adoc[`supervisor`]; link:worker-launch.adoc[`worker-launch`]; link:profile-loader.adoc[`profile-loader`]; link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:../../../plan-marshall-mcp/doc/plans/question-loop-verification.adoc[`plan-marshall-mcp` / `question-loop-verification`]
+|link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:supervisor.adoc[`supervisor`]; link:worker-launch.adoc[`worker-launch`]; link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:../../../plan-marshall-mcp/doc/plans/question-loop-verification.adoc[`plan-marshall-mcp` / `question-loop-verification`]
 |Milestone 4
 
 |link:role-qualification.adoc[`role-qualification`]
@@ -210,7 +204,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:token-usage.adoc[`token-usage`]
 |Tokens, not money: every reported figure recorded raw (the cost stored, never shown), the usage pointers with `reasoning` and the not-applicable declaration, the unified token figure with its split and coverage, what a harness reports recorded by the verification, parsing fixtures per harness and version
 |`open`
-|link:profile-loader.adoc[`profile-loader`]; link:slots-usage-and-budgets.adoc[`slots-usage-and-budgets`]; link:role-qualification.adoc[`role-qualification`]
+|link:slots-usage-and-budgets.adoc[`slots-usage-and-budgets`]; link:role-qualification.adoc[`role-qualification`]
 |Milestone 4; the client work of `pm-mcp-clients`
 
 |link:operator-reports.adoc[`operator-reports`]

@@ -1,0 +1,48 @@
+= ADR 003: A Refused Profile Is a Value and the Next Set Stays in Force
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-21
+
+== Context
+
+Three sets hold profiles for one client id, and the nearest winning document is the effective one. A machine profile
+that fails its record, its sidecar or the supported range, or a project profile whose `detection` differs from the
+machine one, must not stop the runtime: the specification says the profile of the next set stays in force, and the
+refusal is reported in both clients and by `pm-operator profile show`.
+
+== Decision
+
+* `ProfileSet.refused()` returns one `RefusedProfile(clientId, kind, refusal)` per profile that did not count, and
+  `effective(clientId)` returns the nearest profile that did.
+* The loader never throws for a refused profile; only an unreadable directory (an I/O failure of the listing) is an
+  unchecked failure.
+* A profile whose `detection.precedence` is already used by an effective profile is refused, so the detection table
+  stays pairwise distinct.
+* A project profile is read only for a client id the machine or shipped set defines, and its `detection`, `identity`
+  and `headless.executable` must equal that document.
+
+== Alternatives Considered
+
+* *Throw on the first refusal.* One hostile file in the machine directory would stop every harness of the machine.
+* *Merge the sets.* A partial merge would mix a verified and an unverified document; the specification requires the
+  nearest document as a whole.
+* *Fall back silently.* The operator would not learn that an installed profile does not count; the refusal is part of
+  the reported state.
+
+== Consequences
+
+* Callers must read `refused()` to report a broken installation; the effective set alone hides it.
+* `ProfileRefusal` is both the thrown exception of validation and the value in `RefusedProfile`.
+* The shipped set remains effective for a client id whose machine profile is refused, which is the behaviour the
+  specification requires.
+
+== Source
+
+* Work package `profile-loader` (PLAN-19)
+* link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#profile-sets[Client Profiles § Profile Sets]

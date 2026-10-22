@@ -1,0 +1,48 @@
+= ADR 001: The Profile Validator Is Hand-Written over `jackson-core`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-21
+
+== Context
+
+A client profile is untrusted input that starts a process and puts text in front of a model. The specification requires
+a closed shape, closed enumerations, bounded arrays and strings, a bounded reader, and a refusal that names the document
+and the JSON Pointer of the failing value. `pm-core` has the streaming API of `jackson-core` in production and
+`com.networknt:json-schema-validator` in test scope only; a JSON Schema library in production would add a dependency the
+foundation's guard does not admit, and the schema of the specification also carries rules a JSON Schema cannot state
+(the role-class gating, the update-evidence rule, the resume slot, the launch and path hardening).
+
+== Decision
+
+* The package reads a document into its own immutable `JsonNode` tree with `jackson-core`, bounded at 64 KiB, 16 levels
+  and 64 KiB strings, with no member twice.
+* `ProfileValidator` checks the schema block by block and then the rules stated with the blocks. Every failure is a
+  `ProfileRefusal` with the document and the JSON Pointer of the value.
+* The validator names no harness. The bundle-managed paths and harness homes are `ProfileRules` data.
+
+== Alternatives Considered
+
+* *Use `json-schema-validator` in production.* It would still need a separate pass for every rule the schema cannot
+  state, and it would make a test-scope dependency a production one; the foundation guard admits only `pm-api` among the
+  product's modules and no other JSON library.
+* *Validate while streaming and never build a tree.* The digest of the canonical JSON and the JSON Pointer of a failure
+  both need the whole value, and the canonical writer needs it sorted; the tree is the one form that serves both.
+
+== Consequences
+
+* The validator is the single place a schema member is added; `ProfileValidatorTest` holds a refusing fixture per rule.
+* A member the validator does not know refuses the profile, which is the fail-closed direction the specification asks
+  for.
+* The package carries its own JSON tree; `JsonDocument`, `JsonNode`, `JsonPointer` and `CanonicalJson` are public.
+
+== Source
+
+* Work package `profile-loader` (PLAN-19), branch `feature/19-profile-loader`
+* link:../../../../doc/specification/client-profiles/01-profile-schema.adoc[Client Profiles § Normative Client Profile JSON Schema]
+* link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#profile-hardening[Client Profiles § A Profile Is Untrusted Input]

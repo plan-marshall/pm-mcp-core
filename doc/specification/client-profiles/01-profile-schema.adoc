@@ -564,12 +564,8 @@ A client profile is the one configuration document of a harness: `classpath:/pro
 
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation]_
 
-A harness exists for the system as its profile document and as nothing else. The code reads profiles through one generic reader and holds no harness by name: no constant, no `switch`, no class, and no test fixture of production code names `claude`, `opencode`, or any other client. What the code implements are the mechanisms the schema names (a slot, a delivery mode, a signal match, a class with an enforced or an advisory tool set); which of them a harness uses is data.
-
-* *One document, two readers*: the documents are resources of `pm-api`. Its reader parses the `detection` and `identity` objects with the streaming API of `jackson-core` and skips the rest; these two objects of all profiles are the host-detection table (xref:../../../../plan-marshall-documentation/doc/specification/host-integration/01-host-detection.adoc#host-detection-table[Host-Detection Table]) that `pm-operator` uses for its operator checks. The profile loader of `pm-core` reads the whole document from the same resource and validates it against the schema above.
-* *A new or changed harness is a changed document*: a new harness is a new profile; a new measurement, a new harness version, or a corrected value is a change of its profile. The document is produced by the profile verification (<<profile-verification>>), on the release's reference machines for a shipped profile and on the operator's machine for a machine profile (<<profile-sets>>). Neither needs a change of Java code, as long as the harness needs no mechanism the schema lacks; a new mechanism is a change of the schema and of the reader, made once for all harnesses.
-* *Validation*: profile validation runs when the runtime loads the profiles and as a build test over every shipped profile. Beside the schema it checks that `client_id` equals the file name, that the `detection.precedence` values are pairwise different, and the rules stated with each block below. A profile that fails is refused as a whole, with the document and the JSON Pointer of the failing value; the runtime never runs on a part of a profile.
-* *Unknown values fail closed*: a profile value the reader does not know (a delivery mode, a capability, a tool-set kind of a newer schema) refuses the profile; it is never ignored.
+Implemented by the profile reader of `pm-api` and by `ProfileLoader` and `ProfileValidator` of `pm-core`; see
+link:../../../pm-core/doc/developer/core-profile.adoc[Client Profiles Developer Guide].
 
 [#role-classes]
 === Role Classes of a Harness
@@ -676,7 +672,7 @@ A model served on this machine over HTTP runs `zero_tool` only, as an endpoint h
 
 [#worker-block]
 === Worker Block
-_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-10[PM-WATCH-CLIENT-10], link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-11[PM-WATCH-CLIENT-11]_
+_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-11[PM-WATCH-CLIENT-11]_
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation]_
 
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3: Supervision & Recycling]_
@@ -693,9 +689,9 @@ The `worker` block holds the per-host values of the task protocol and of supervi
 |`worker.ack_informational` |`false` |`true` |`null` |`null`
 |`worker.silence_grace_seconds` |`30` |`30` |`null` |`null`
 |`worker.idle_wakeups` |`3` |`3` |`null` |`null`
-|`connection.idle_timeout_seconds` |`1800` |`60` |`180` |_(provisional)_
-|`connection.bounded_wait_seconds` |`240` |`240` |`150` |_(provisional)_
-|`connection.progress_resets_timeout` |`true` |`true` |`false` |_(provisional)_
+|`connection.idle_timeout_seconds` |`1800` |`60` |`180` |`270` _(provisional)_
+|`connection.bounded_wait_seconds` |`240` |`240` |`150` |`240` _(provisional)_
+|`connection.progress_resets_timeout` |`true` |`true` |`false` |`false` _(provisional)_
 |===
 
 Rules of the block, checked by profile validation:
@@ -770,7 +766,7 @@ _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.
 Usage is read from the harness output through `headless.usage`, never asked from a model, recorded as the harness reports it, and shown in tokens, never in money.
 
 * *Recorded as reported*: each pointer is a JSON Pointer into a turn line and fills the column of the same name in the task's metrics row (link:../store-schemas/05-metrics-and-quality-report.adoc#metrics-store[Store Schemas Specification, Metrics Store]), except `cache_read` (`cache_read_input_tokens`), `cache_creation` (`cache_creation_input_tokens`, the cache write), and `reasoning` (`reasoning_tokens`, the reasoning or thinking tokens a harness reports apart from its output). A harness whose output figure already contains its reasoning declares `reasoning` `"not_applicable"`, so nothing is counted twice. The pointer `cost_usd`, the capability `cost_field`, and the column `cost_usd` stay as recorded data: never shown, never summed into a figure the operator sees, and never read by a rule.
-* *Not reported or not applicable*: a pointer `null` means the harness does not report the figure (recorded `unmeasured`, reason `not_reported_by_harness`); `"not_applicable"` means the figure does not exist for this harness by design, such as Antigravity's cache creation, recorded as `"not_applicable"` and counted `0`, so that the harness is still measured. `"not_applicable"`, `unmeasured`, and a measured `0` are three distinct values. Profile validation refuses `"not_applicable"` for `input_tokens` and `output_tokens`.
+* *Not reported or not applicable*: a pointer `null` means the harness does not report the figure (recorded `unmeasured`, reason `not_reported_by_harness`); `"not_applicable"` means the figure does not exist for this harness by design, such as Antigravity's cache creation, recorded as `"not_applicable"` and counted `0`, so that the harness is still measured. `"not_applicable"`, `unmeasured`, and a measured `0` are three distinct values. The usage validation in <<token-usage>> refuses `"not_applicable"` for `input_tokens` and `output_tokens`; the profile loader checks only the shape of the usage block.
 * *One figure*: `headless.usage` has no pointer for the total: `total_tokens` is the sum of the five token components, a not-applicable one counting `0`, when every applicable one is measured, otherwise `unmeasured`, unweighted and the same for every harness (link:../model-work/09-completion-usage-and-spend.adoc#job-result-schema[Model Work Specification, Worker Result & Usage Parsing]); the views derive its split, `tokens_in` (input, cache read, cache creation) and `tokens_out` (output, reasoning), and show it as `1.24 M tokens (1.10 M in · 0.14 M out)` with its coverage, in the number format of the client.
 * *Usage report of a harness*: the harness lists of the onboarding and of the machine's settings show per enrolled harness and version what it reports of its usage: `complete` (every token figure reported or not applicable), `partial` (naming what is missing), or `not_reported`, from the profile's declaration and, for a verified profile, from the `usage_report` of its verification (<<profile-verification>>), kept with the harness enrolment (link:../store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas Specification, Harness Enrolment Store]).
 * *Measured per version*: recorded outputs of each harness and version are parsing fixtures, so a changed output format fails a test; the usage measurement of the evaluation is repeated for every new harness and harness version before its figures are trusted (link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#host-values[Evaluation Reference, Hosts as Relay Starters and Workers]).
@@ -815,37 +811,14 @@ The shipped declarations: `claude` maps its `stream-json` events (`assistant` te
 [#profile-sets]
 === Profile Sets
 
-_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-13[PM-WATCH-CLIENT-13]_
-
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy]_
 
-[cols="1,3,3"]
-|===
-|Set |Profile documents |Written by
-
-|Shipped
-|`classpath:/profiles/<client_id>.json`, compiled into the release, each with its verification record `classpath:/profiles/verification/<client_id>.json`
-|The release, from the output of the profile verification (<<profile-verification>>) on the release's reference machines
-
-|Machine
-|`<PM_MCP_BASE>/profiles/<client_id>.json`, each with its verification record `<PM_MCP_BASE>/profiles/verification/<client_id>.json`
-|`pm-operator profile install`, or the onboarding's `harness.verify-profile` for a harness added from a draft (<<unknown-harness>>), from a candidate the profile verification wrote on this machine; never by hand and never by a model (the directory lies below `<PM_MCP_BASE>`, which no job can write)
-
-|Project
-|`<PM_MCP_BASE>/projects/<project_id>/profiles/<client_id>.json`, each with its verification record `…/profiles/verification/<client_id>.json`
-|`pm-operator profile install --project`, the same way; it lies in the per-project machine store, never in the repository, so no commit and no pull request can change how a harness is started (link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-6[PM-EXT-6])
-|===
-
-* *Whole documents, nearest set wins*: the effective profile of a `client_id` for a project is the document of the project set, else of the machine set, else of the shipped set, always as a whole; documents are never merged. A machine profile of a `client_id` the release does not ship adds a harness.
-* *A project profile changes how a harness works, not which harness it is*: a project profile exists only for a `client_id` that the machine or the shipped set defines, and its `detection`, `identity`, and `headless.executable` equal those of that profile; validation refuses it otherwise. Detection and the operator checks are therefore the same in every project of the machine.
-* *Bound to its verification*: a machine or project profile is valid only together with a verification record whose `profile_digest` equals the SHA-256 of the canonical JSON (RFC 8785) of the profile document, and whose HMAC sidecar (`<client_id>.json.hmac`, written with the key of the enrolment store) verifies. A profile without such a record, one edited after its verification, or a record that fails its HMAC is refused as `profile_unverified`, and the profile of the next set stays in force; the refusal is reported in both clients and by `pm-operator profile show`.
-* *Bound to the harness that was measured*: the record names the harness by executable name, exact version, and the SHA-256 of the executable file. When the enrolled harness reports a version outside `headless.supported_versions`, the launch refusal `harness_version_unsupported` applies as for a shipped profile; when its version or digest differs from the record of a machine or project profile inside that range, launches go on and both clients report the profile as `verified_on_other_build` until it is verified again.
-* *Read by the operator CLI*: `pm-operator` reads the `detection` objects of the machine profiles beside those of the shipped ones (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#cli-file-reads[CLI, Coordination & Security Specification, Direct file reads]), so a harness the operator added counts for the operator checks. A machine profile the runtime refuses is ignored by it as well.
+Implemented by `ProfileLoader`, `ProfileSet` and `VerificationRecord` of `pm-core`; the sets are written by the
+onboarding (`machine-onboarding-unit`) and read by `pm-operator` there. See
+link:../../../pm-core/doc/developer/core-profile.adoc[Client Profiles Developer Guide].
 
 [#profile-verification]
 === Profile Verification
-
-_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-13[PM-WATCH-CLIENT-13]_
 
 `pm-operator profile verify <client_id>` tests a harness on this machine and emits its profile. It is the only way a profile comes into being: the shipped profiles are its output on the release's reference machines, and the values of the link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc[Evaluation Reference] are its measurements.
 
@@ -984,37 +957,15 @@ A machine whose harness has no shipped or installed profile can still be onboard
 [#profile-hardening]
 === A Profile Is Untrusted Input
 
-_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-13[PM-WATCH-CLIENT-13]_
+Implemented by `ProfileValidator` and the bounded reader of `pm-core`: closed shape, bounded strings, the
+model-readable character set, the launch and path rules, the one pattern, and the refusing fixture of each rule. See
+link:../../../pm-core/doc/developer/core-profile.adoc[Client Profiles Developer Guide].
 
-A profile starts a process and puts text in front of a model, and a profile may come from somewhere else than the machine that uses it (a draft the operator received, a profile offered for a later release, link:../../../../plan-marshall-documentation/doc/later-improvements.adoc[Later Improvements]). The reader therefore treats every profile, draft, and verification record as hostile data. The rules below are part of profile validation in every set, the shipped one included, and each has a refusing fixture.
-
-[cols="1,4"]
-|===
-|Rule |Content
-
-|Closed shape
-|Every object of the profile and of the record refuses unknown members, every enumeration is closed, and every array has an upper bound (64 items; `argv` and each `args` 128). A document is at most 64 KiB and is parsed with the streaming reader, bounded in depth (16) and in string length before any value is used.
-
-|Strings
-|Every string is NFC, a single line, without control characters, and at most 256 characters (an `argv`, `args`, or `env` item 1,024). A value that names something is matched against the pattern of its kind: identifiers, variable names, tool names (`^[A-Za-z0-9_.:-]{1,64}$`), model identifiers, JSON Pointers (RFC 6901), home-relative paths.
-
-|Text a model reads
-|`display_name`, the tool names of `tools`, the `replacement` of an idiom, and `skill_loading.load_directive_template` are rendered into skills and representations. Each is limited to the characters of an identifier, a command name, or a call expression (letters, digits, and `_ . : / - $ = , ( ) " { } < >` and the space), with the closed placeholders as the only `{{…}}`; none can carry a sentence, a line break, or markup.
-
-|Launch
-|`headless.executable` is a bare name; its path comes only from the harness enrolment, which the operator made with the path, version, and digest shown. `argv`, `args`, and `env` values are passed without a shell. They may hold only literals and the closed set of slots; an item that names a URL, an absolute path, or a home path outside `writable_paths` is refused, since a launch reaches files and servers only through its slots. `env` may set no variable of the loader, of an interpreter, or of the job environment (`PATH`, `HOME`, `LD_*`, `DYLD_*`, `NODE_OPTIONS`, `PYTHON*`, `JAVA_TOOL_OPTIONS`, `PM_MCP_*`) and none that matches a credential pattern.
-
-|Paths
-|`writable_paths`, `mcp_config.path`, and `data_home.login_file` are relative, hold no `..` and no symbolic-link traversal out of their root, and never name a harness home as a whole, a settings, skill, or command file a bundle manages, or anything below `<PM_MCP_BASE>`.
-
-|Patterns
-|`identity.version_pattern` is the only regular expression. It is at most 128 characters, uses no backreference and no look-around, has exactly one capture group, and is applied to at most 4 KiB of probe output under a time bound.
-
-|Claims
-|No value of a profile is believed because the profile says so: `worker.eligible`, a runnable `zero_tool` class, and an `enforced` tool set count only with the stages of the bound record `passed` on the runtime's platform (<<profile-verification>>), and a record is believed only from the verification of this machine or of the release.
-|===
-
-*Install shows what will run*: `pm-operator profile install` prints the executable, the complete `argv`, the `args` of every class, and the `env` of the candidate before it asks for confirmation, because no rule can decide whether a harness flag is harmless.
+*Claims.* No value of a profile is believed because the profile says so: `worker.eligible`, a runnable `zero_tool`
+class and an `enforced` tool set count only with the stages of the bound record `passed` on the runtime's platform
+(<<profile-verification>>). The profile loader carries the record, its platform and its stages with the loaded profile;
+the check on load is not implemented in this package, belongs to the launch path (`worker-launch`, not yet decided
+there), and is open (link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-13[PM-WATCH-CLIENT-13]).
 
 [#profile-override-hierarchy]
 === Profile Override Hierarchy

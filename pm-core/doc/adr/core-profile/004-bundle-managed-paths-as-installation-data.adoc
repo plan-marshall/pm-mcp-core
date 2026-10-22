@@ -1,0 +1,49 @@
+= ADR 004: Bundle-Managed Paths and Harness Homes Are Installation Data
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-21
+
+== Context
+
+Profile validation refuses a `headless.writable_paths` entry that covers a settings, command or skill file a client's
+bundle manages, and a harness home as a whole. The names of those files and homes belong to a client bundle, and
+`pm-core` may not name a harness: the loader holds no constant, switch, class or test fixture of production code named
+after a client. The set of managed files is also not known to the shipped-profile build test before a bundle is
+installed.
+
+== Decision
+
+* `ProfileRules` carries `managedBundlePaths` and `harnessHomes`, read by the caller from the installation's bundle
+  manifests and directory layout.
+* `ProfileValidator` applies the path rules with those sets and names no harness.
+* `ProfileRules.none()` is the build test's rule set: it binds only the rules the document carries by itself, and the
+  installed profile validation adds the installation's sets.
+
+== Alternatives Considered
+
+* *Hard-code the shipped clients' paths in the validator.* It would violate the harness-neutrality rule and would need a
+  change of `pm-core` for every new harness.
+* *Read the bundle manifests inside the validator.* The manifests live outside the dependency rules of `pm-core` (the
+  bundle content of `pm-mcp-server`), and a validation would then depend on a client bundle being installed.
+* *Skip the managed-path rule in the build test and enforce it only at install.* The shipped profiles would go
+  unguarded; the rule is now enforced wherever the caller supplies the sets, and the test covers the mechanism with
+  fixtures.
+
+== Consequences
+
+* The caller of the loader must supply the sets; an empty set weakens the path rule, which is documented and is the
+  build test's state.
+* `ProfileNeutralityArchTest` keeps the loader free of harness names, and the control fixture proves the rule fails on a
+  named class.
+
+== Source
+
+* Work package `profile-loader` (PLAN-19)
+* link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#headless-writable-paths[Client Profiles § Writable Paths]
+* link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#harness-as-data[Client Profiles § The Profile Is the Harness]
