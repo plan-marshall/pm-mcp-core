@@ -207,5 +207,5 @@ the others and uses it in its allowed set, its required set and its `check*` met
 refuses cannot drift apart.
 
 A loaded profile and a shipped profile compare by the content of their document bytes, not by the array identity:
-`LoadedProfile` and `ProfileSets.ShippedProfile` override `equals`, `hashCode` and `toString` for that, and their compact
-constructors copy the bytes, so a caller cannot mutate a value the profile holds.
+`LoadedProfile` and `ProfileSets.ShippedProfile` override `equals`, `hashCode` and `toString` for that. Their compact
+constructors clone the bytes on the way in, so the value the record was built from cannot change it afterwards.

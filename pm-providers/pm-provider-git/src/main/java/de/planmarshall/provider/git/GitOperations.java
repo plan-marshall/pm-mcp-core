@@ -293,8 +293,11 @@ public interface GitOperations {
 
         @Override
         public boolean equals(Object other) {
-            return other instanceof GitCredential(String username, char[] secret)
-                    && Objects.equals(this.username, username) && Arrays.equals(this.secret, secret);
+            if (this == other) {
+                return true;
+            }
+            return other instanceof GitCredential(String otherUsername, char[] otherSecret)
+                    && Objects.equals(username, otherUsername) && Arrays.equals(secret, otherSecret);
         }
 
         @Override
