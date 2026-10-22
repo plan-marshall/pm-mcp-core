@@ -41,6 +41,9 @@ import de.planmarshall.runtime.job.ProcessGroupSignals.Signal;
  * ended, nothing is signalled further, and the job is settled from its exit status. An interrupt of the waiting thread
  * cuts the wait short and goes straight to {@code SIGKILL}, so no group is left running; the interrupt status is kept.
  * <p>
+ * Step 3a — a worker's or a probe's descendant that left the group or started a new session — is not part of this
+ * protocol: the runtime records that tree separately ({@link ProcessTreeTracker}) and ends it at the job's end.
+ * <p>
  * Specification: {@code doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc} (Process Termination &
  * Cancellation Protocol, steps 1 to 4); {@code doc/specification/timeouts/01-job-budgets-and-waits.adoc} (Termination
  * grace period). The retry of step 4 is carried by the constants of this class alone.
@@ -91,6 +94,11 @@ public final class TerminationProtocol {
         this.signals = Objects.requireNonNull(signals, "signals");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.pause = Objects.requireNonNull(pause, "pause");
+    }
+
+    /** @return the signalling primitive, so the process-tree sweep of a job uses the same one */
+    ProcessGroupSignals signals() {
+        return signals;
     }
 
     /**
@@ -160,9 +168,24 @@ public final class TerminationProtocol {
      * @throws IllegalArgumentException if the id is no PID of a job
      */
     public Report terminate(long pid) {
+        return terminate(pid, true);
+    }
+
+    /**
+     * Terminates the process group of a job, steps 1 to 4, for a caller that knows whether the job's process still
+     * lives.
+     *
+     * @param pid           the job PID, which is its process-group id
+     * @param leaderMayLive whether the job's process may still live; {@code false} skips step 4, the {@code SIGTERM} to
+     *                      the bare PID, because a PID whose process ended may have been reused by another process
+     * @return how the termination ended
+     * @throws IllegalArgumentException if the id is no PID of a job
+     */
+    public Report terminate(long pid, boolean leaderMayLive) {
         var answer = signals.signalGroup(pid, Signal.SIGTERM);
         if (answer instanceof NoSuchProcess) {
-            return cancelBeforeGroup(pid);
+            return leaderMayLive ? cancelBeforeGroup(pid)
+                    : new Report(Ending.GROUP_NOT_REACHED, false, OptionalInt.empty());
         }
         if (answer instanceof Refused(var errno)) {
             return refused(errno, false);

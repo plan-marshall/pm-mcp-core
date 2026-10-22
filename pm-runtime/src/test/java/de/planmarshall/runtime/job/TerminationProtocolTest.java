@@ -214,6 +214,20 @@ class TerminationProtocolTest {
         }
 
         @Test
+        @DisplayName("a caller that knows the leader ended skips the bare-PID step: a freed PID may be reused")
+        void deadLeaderSkipsTheBarePidStep() {
+            var signals = new RecordingSignals(groupAnswers(Map.of(Signal.SIGTERM, List.of(ESRCH)), DELIVERED));
+
+            var report = new TerminationProtocol(signals, time, time).terminate(PID, false);
+
+            assertAll(
+                    () -> assertEquals(new Report(Ending.GROUP_NOT_REACHED, false, OptionalInt.empty()), report),
+                    () -> assertEquals(List.of(new Call(true, PID, Signal.SIGTERM)), signals.calls),
+                    () -> assertEquals(0, signals.count(false, Signal.SIGTERM)),
+                    () -> assertEquals(Duration.ZERO, time.slept()));
+        }
+
+        @Test
         @DisplayName("a process that has already ended is not in the window: nothing further is signalled")
         void alreadyEnded() {
             var signals = new RecordingSignals(groupAnswers(Map.of(Signal.SIGTERM, List.of(ESRCH)), ESRCH));

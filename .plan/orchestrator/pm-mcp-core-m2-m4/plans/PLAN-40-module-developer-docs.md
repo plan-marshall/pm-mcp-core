@@ -20,31 +20,28 @@ WS-10: `{module}/doc/developer/{package}.adoc`, the package name with dots repla
 
 ## Deliverables
 
-Re-grounded by cleanup on 2026-10-16 against main at 238c823. Since staging, every module plan writes
-the files of its own packages (CLAUDE.md § Module Documentation), so fifteen files exist already:
-`pm-core` `core-queue`, `core-role-corpus`, `core-store`; `pm-runtime` `runtime-audit`, `runtime-corpus`,
-`runtime-job`, `runtime-start`; `pm-workflow` `workflow-diagram`, `workflow-engine`, `workflow-finalize`,
-`workflow-plan`, `workflow-scenario`, `workflow-unit`, `workflow-verify`; `pm-provider-git` `provider-git`.
-25 packages with production code still have none. This plan writes the missing ones, and folds into the existing ones the guides
+Re-grounded by cleanup on 2026-10-21 against main at 3d4baf7; the package file `doc/plans/module-developer-docs.adoc` and its index row came with #126 (PLAN-89). Since staging, every module plan writes
+the files of its own packages (CLAUDE.md § Module Documentation), so 21 files exist already:
+`pm-core` `core-role-corpus`, `core-service`, `core-store`; `pm-runtime` `runtime-audit`, `runtime-corpus`,
+`runtime-credentials`, `runtime-enrolment`, `runtime-job`, `runtime-question`, `runtime-start`; `pm-workflow` `workflow-ast`, `workflow-diagram`,
+`workflow-dsl`, `workflow-engine`, `workflow-finalize`, `workflow-plan`, `workflow-scenario`, `workflow-unit`, `workflow-verify`; `pm-provider-git` `provider-git`, `provider-git-ported`
+(`core-queue` is gone with PLAN-64). A directory scan finds 16 packages of the three engine modules with production code and none
+(`core-analysis`, `core-findings`, `core-log`, `core-spi`, `core-spi-validation`, `core-toon`; `runtime-credentials-dbus`, `runtime-ingest`, `runtime-lock`, `runtime-log`, `runtime-lsp`, `runtime-security`, `runtime-web`, `runtime-workspace`; `workflow-classification`, `workflow-log`), beside the four provider modules `pm-provider-ci`, `-github`, `-gitlab` and `-sonar`. This plan writes the missing ones, and folds into the existing ones the guides
 that `plan-marshall-documentation` still holds below `doc/developer/` (ten files on its main;
 `primitive-spi.adoc` merged with #20).
 
 1. **`pm-core/doc/developer/`** — new: `core-analysis.adoc` and `core-findings.adoc` (take over
-   `findings-and-analysis.adoc`), `core-service.adoc` (lock manager interface, `LiveWork`, audit
-   events and sink, internal fault; the core part of `locks-and-leases.adoc`), `core-spi.adoc`
+   `findings-and-analysis.adoc`), `core-spi.adoc`
    (takes over `primitive-spi.adoc`, covers `core.spi.validation`), `core-log.adoc` (how to add a
    log record — written from the holder layout the log-holder session plan lands, see Dependencies),
-   `core-toon.adoc`. Extend `core-store.adoc`, never overwrite it: take over `store-substrate.adoc`
+   `core-toon.adoc`. Extend `core-service.adoc` (it exists now) with what the core part of `locks-and-leases.adoc` holds and it does not: the lock manager interface, `LiveWork`, audit events and sink, internal fault. Extend `core-store.adoc`, never overwrite it: take over `store-substrate.adoc`
    and `enrolment-store.adoc` (`EnrolmentStore`, `EnrolmentSidecar`, `EnrolmentCodec`,
    `ProjectEnrolment`) and the confinement types, where the file does not cover them yet.
-2. **`pm-workflow/doc/developer/`** — new: `workflow-dsl.adoc` and `workflow-ast.adoc` (take over
-   `workflow-dsl.adoc` of `plan-marshall-documentation`, split by package), `workflow-classification.adoc`.
-   The seven existing files (`workflow-plan` among them) stay; correct only ADR references they get wrong.
-3. **`pm-runtime/doc/developer/`** — new: `runtime-credentials.adoc` (with `runtime.credentials.dbus`),
-   `runtime-enrolment.adoc` (the runtime half of `enrolment-store.adoc`: check, HMAC, key, policy,
-   snapshot), `runtime-ingest.adoc`, `runtime-lock.adoc` (the runtime part of `locks-and-leases.adoc`;
+2. **`pm-workflow/doc/developer/`** — new: `workflow-classification.adoc` (`workflow-log` is covered by `core-log.adoc`'s section on the holders, or gets its own file: decide at outline). `workflow-dsl.adoc` and `workflow-ast.adoc` exist now (PLAN-69): fold into them what `workflow-dsl.adoc` of `plan-marshall-documentation` still holds and they do not, split by package.
+   The nine existing files (`workflow-plan` among them) stay; correct only ADR references they get wrong.
+3. **`pm-runtime/doc/developer/`** — new: `runtime-ingest.adoc`, `runtime-lock.adoc` (the runtime part of `locks-and-leases.adoc`;
    one instance per runtime; the POSIX channel-close caveat of `JsonlStoreFile`), `runtime-lsp.adoc`,
-   `runtime-security.adoc`, `runtime-web.adoc`, `runtime-workspace.adoc`. Extend `runtime-start.adoc`
+   `runtime-security.adoc`, `runtime-web.adoc`, `runtime-workspace.adoc` (`runtime-log` as for `workflow-log`). Extend `runtime-credentials.adoc` with `runtime.credentials.dbus`, `runtime-enrolment.adoc` with the runtime half of `enrolment-store.adoc` (check, HMAC, key, policy, snapshot) where they do not cover it, and `runtime-start.adoc`
    with what `runtime-lifecycle.adoc` holds and the file does not.
 4. **The provider modules** — new `doc/developer/` in each: `provider-ci.adoc` (the shared HTTP base
    through `cui-http`, testing on `cui-test-mockwebserver-junit5` with single-use route responses and
@@ -58,7 +55,7 @@ that `plan-marshall-documentation` still holds below `doc/developer/` (ten files
    in `plan-marshall-documentation` and the pointer from its `DeveloperGuide.adoc` are made by the
    documentation-repository session (`.plan/temp/doc-structure-single-pr-plan.md`), not by this plan.
 
-Scope-bloat note: five deliverables, about 22 new files and three extended ones. Documentation only,
+Scope-bloat note: five deliverables, about 14 new files and eight extended ones. Documentation only,
 one file per package, so it stays one plan; split by module at outline if the plan judges otherwise.
 
 Each file explains what the package is for, its main types and how they work together, how to use
@@ -86,14 +83,16 @@ taken-over guides are complete here; relative links resolve.
 
 ## Claim Labels
 
-- OBSERVED: `plan-marshall-documentation` main holds ten files below `doc/developer/`: `assembly-boundary`, `enrolment-store`, `findings-and-analysis`, `locks-and-leases`, `primitive-spi`, `project-setup`, `registry-setup`, `runtime-lifecycle`, `store-substrate`, `workflow-dsl` — `git ls-tree origin/main doc/developer` at `963e879` on 2026-10-21 (re-grounded by cleanup)
-  - verdict: corroborated | checked_at: 99971f36592d4680bf171cc195c4652bc0b4de9d | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: git ls-tree origin/main doc/developer in plan-marshall-documentation (963e879) lists exactly the ten files named
+- OBSERVED: `plan-marshall-documentation` main holds ten files below `doc/developer/`: `assembly-boundary`, `enrolment-store`, `findings-and-analysis`, `locks-and-leases`, `primitive-spi`, `project-setup`, `registry-setup`, `runtime-lifecycle`, `store-substrate`, `workflow-dsl` — `git ls-tree origin/main doc/developer` at `b8c61b3` on 2026-10-22 (re-grounded by cleanup)
+  - verdict: corroborated | checked_at: 7756dfd6a98067e2e331b40211784ebc0f605c25 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: git ls-tree origin/main doc/developer at plan-marshall-documentation b8c61b3: the same ten files
 - OBSERVED: 21 module developer files exist (`core-role-corpus`, `core-service`, `core-store`; `runtime-audit`, `runtime-corpus`, `runtime-credentials`, `runtime-enrolment`, `runtime-job`, `runtime-question`, `runtime-start`; `workflow-ast`, `workflow-diagram`, `workflow-dsl`, `workflow-engine`, `workflow-finalize`, `workflow-plan`, `workflow-scenario`, `workflow-unit`, `workflow-verify`; `provider-git`, `provider-git-ported`) and a directory scan finds 16 packages of `pm-core`, `pm-runtime` and `pm-workflow` with production code and none: `core-analysis`, `core-findings`, `core-log`, `core-spi`, `core-spi-validation`, `core-toon`, `runtime-credentials-dbus`, `runtime-ingest`, `runtime-lock`, `runtime-log`, `runtime-lsp`, `runtime-security`, `runtime-web`, `runtime-workspace`, `workflow-classification`, `workflow-log` (the provider modules `pm-provider-ci`, `-github`, `-gitlab`, `-sonar` are not scanned); one of the seven taken-over guides has a counterpart in a module now: `workflow-dsl` (PLAN-69) — `find . -path '*/doc/developer/*.adoc'` and the package directories at 99971f3 on 2026-10-21 (re-grounded by cleanup)
-  - verdict: contradicted | checked_at: 99971f36592d4680bf171cc195c4652bc0b4de9d | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: at 99971f3 21 module developer files exist (not fifteen): core-queue is gone (PLAN-64 #122) and core-service, runtime-credentials, runtime-enrolment, runtime-question, workflow-ast, workflow-dsl and provider-git-ported are new; the directory scan finds 16 packages of the three engine modules with production code and no developer file (not 25); workflow-dsl is a counterpart of a taken-over guide; claim rewritten
+  - verdict: corroborated | checked_at: 7756dfd6a98067e2e331b40211784ebc0f605c25 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: ls */doc/developer at 7756dfd: the same 21 files; the 16 packages without one were counted by directory scan on 2026-10-21 and no package gained or lost production code since (git diff --stat 99971f3..HEAD over src/main is test-and-fix only)
 - HYPOTHESIS: the package list per module is the set of packages with production code below `src/main/java` — confirm/refute at the first module (verify-at-outline)
-  - verdict: unverifiable | checked_at: 99971f36592d4680bf171cc195c4652bc0b4de9d | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan; the scan of this pass used the rule 'a package directory with a class other than package-info.java'
+  - verdict: unverifiable | checked_at: 7756dfd6a98067e2e331b40211784ebc0f605c25 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
 - Verify-first clause: before writing, check that the log-holder session plan has landed, which module plans landed developer files since 2026-10-13, and whether the documentation-repository session already removed or moved a guide; take the content from wherever it is now.
-  - verdict: corroborated | checked_at: 99971f36592d4680bf171cc195c4652bc0b4de9d | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: the preconditions hold at 99971f3 as far as they can be read: no open pull request names the package (#129, #126, #71); the row module-developer-docs is not yet in the index (PLAN-89, pull request #126, adds it); the guides of plan-marshall-documentation doc/developer are the ten of claim 0
+  - verdict: corroborated | checked_at: 7756dfd6a98067e2e331b40211784ebc0f605c25 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: row None is open in the index at 7756dfd; open PRs (ci pr list): #129 (PLAN-85) and #71 (a dependabot bump), none names the package; None last changed in None; the claims above were re-read individually
+- OBSERVED: the package file `doc/plans/module-developer-docs.adoc` exists and the index row `module-developer-docs` is `open` and depends on nothing — read at `origin/main` `7756dfd` (added by #126, PLAN-89)
+  - verdict: corroborated | checked_at: 7756dfd6a98067e2e331b40211784ebc0f605c25 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: module-developer-docs.adoc exists and the index row is open at 7756dfd
 
 ## Expected Surface
 
@@ -110,7 +109,7 @@ taken-over guides are complete here; relative links resolve.
 ## Dependencies and Sequencing
 
 - Depends on: nothing in the index. The log-holder plan has landed (ADR `doc/adr/005-one-log-message-holder-per-module.adoc`; `CoreLogMessages`, `RuntimeLogMessages`, `WorkflowLogMessages` exist), so `core-log.adoc` is written from that result. PLAN-08, PLAN-10, PLAN-11 and PLAN-36 have shipped (re-grounded 2026-10-16).
-- **Precondition, found by cleanup on 2026-10-16: this plan has no package file and no index row.** `doc/plans/module-developer-docs.adoc` and a row of `doc/plans/README.adoc` do not exist, and neither ever did, although the Standing Constraints of every plan have the pull request remove the row and delete the file. The index is the only place that states a package's status, so the row stays parked until a `docs(plans)` change in this repository adds the package file and its row; then it is staged again, and the Standing Constraints hold as written.
+- **Precondition met (2026-10-21).** The package file `doc/plans/module-developer-docs.adoc` and its index row (`open`, depends on nothing, Milestones 2 to 4) were added by #126 (PLAN-89, `c45a968`); the Standing Constraints hold as written: the plan's pull request removes the row and deletes the package file. The package file's four bullets (one file per package, the guides that move here, existing files extended and never overwritten, written from `main`) are covered by the deliverables below, which are the finer-grained brief.
 - Overlaps with: PLAN-39 none; later plans write `doc/developer/{package}.adoc` of their own packages — a later plan in a package this plan documents (for example `core.store`) extends the same file, so the two are sequenced by the gate
 - Adjacent to: `plan-marshall-documentation`, untouched by this plan
 
