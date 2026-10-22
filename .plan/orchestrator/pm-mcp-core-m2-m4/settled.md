@@ -280,3 +280,12 @@ Closed by pm-mcp-core #126 (`c45a968`, 2026-10-21, PLAN-89): the rule is stated 
   landing PLAN-72. **Staged on 2026-10-19 as item 3 of PLAN-89** (the lines are 279-280 at 98ce971).
 
 Closed by pm-mcp-core #126 (`c45a968`, 2026-10-21, PLAN-89, item 3): both entries were removed from the PM-WF-14 block.
+
+## Defect: the index names three done packages of pm-mcp-clients, and the dangling roadmap link
+
+- **The index still names three packages of `pm-mcp-clients` that are `done` there (found by `cleanup`, 2026-10-21).** Owner: PLAN-93, after PLAN-89.
+  PLAN-89's pull request #126 does not touch the `profile-loader` row.
+- **plan-marshall-documentation `doc/roadmap.adoc:242` links `pm-core/doc/developer/core-queue.adoc`, which pm-mcp-core #122 removed (found by the landing of PLAN-89, verified at documentation `origin/main`, 2026-10-21).**
+  A dangling link; the documentation workflow `links.yml` checks both trees. Owed in the documentation repository with the PLAN-64 Deliverable 7 roadmap update (`_Remaining_`).
+
+Closed 2026-10-22: pm-mcp-core #136 (`7756dfd`, PLAN-93) dropped the three dependencies from `doc/plans/README.adoc` (`landings/PLAN-93.md`). The documentation repository no longer links `core-queue.adoc` at its `origin/main` (`b8c61b3`: `roadmap.adoc` holds no `core-queue`; `trace.py` over it and this repository at `7756dfd` reports `BROKEN LINKS 0`), so the second entry is closed without a plan of this epic.
