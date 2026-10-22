@@ -979,9 +979,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 reached = report.ending() != Ending.SIGNAL_REFUSED;
                 cancelBeforeGroup = report.cancelBeforeGroup();
             }
-        }
-        /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
-        catch (RuntimeException | Error e) {
+            // cui-rewrite:disable InvalidExceptionUsageRecipe
+        } catch (RuntimeException | Error e) {
             // a PID the protocol refuses, a signal call that failed (ProcessGroupSignals), or an error of the primitive
             LOGGER.warn(e, WARN.JOB_TERMINATION_FAILED, jobId, e.getMessage());
         } finally {
@@ -1026,9 +1025,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             try {
                 audit.append(new AuditEvent(JOB_DESCENDANT_SURVIVED, AuditEvent.CATEGORY_SECURITY,
                         AuditEvent.OUTCOME_FAILED, details));
-            }
-            /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
-            catch (RuntimeException | Error e) {
+                // cui-rewrite:disable InvalidExceptionUsageRecipe
+            } catch (RuntimeException | Error e) {
                 LOGGER.warn(e, WARN.JOB_DESCENDANT_AUDIT_FAILED, job.latest.jobId(), e.getMessage());
             }
         }
@@ -1254,9 +1252,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private void settleEnded(RunningJob job, Ended ended, long observedLength) {
         try {
             settle(job, ended, observedLength, true);
-        }
-        /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
-        catch (RuntimeException | Error failure) {
+            // cui-rewrite:disable InvalidExceptionUsageRecipe
+        } catch (RuntimeException | Error failure) {
             if (job.settling) {
                 // the primary settlement reached its record write and failed there (PM_RUNTIME-207); a fate replaces
                 // only a record that is not settled yet, so a second attempt would not help
@@ -1264,9 +1261,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             }
             try {
                 settle(job, ended, observedLength, false);
-            }
-            /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
-            catch (RuntimeException | Error fallbackFailure) {
+                // cui-rewrite:disable InvalidExceptionUsageRecipe
+            } catch (RuntimeException | Error fallbackFailure) {
                 failure.addSuppressed(fallbackFailure);
                 lastResort(job, failure);
             }
@@ -1291,9 +1287,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 .endedAt(clock.instant()).build();
         try {
             settle(job, settled);
-        }
-        /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
-        catch (RuntimeException | Error writeFailure) {
+            // cui-rewrite:disable InvalidExceptionUsageRecipe
+        } catch (RuntimeException | Error writeFailure) {
             failure.addSuppressed(writeFailure);
             LOGGER.error(writeFailure, ERROR.JOB_LAST_RESORT_FAILED, current.jobId(), writeFailure.getMessage());
         }
@@ -1568,9 +1563,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             }
             try {
                 return current.sweep();
-            }
-            /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
-            catch (RuntimeException | Error e) {
+                // cui-rewrite:disable InvalidExceptionUsageRecipe
+            } catch (RuntimeException | Error e) {
                 LOGGER.warn(e, WARN.JOB_DESCENDANT_SWEEP_FAILED, latest.jobId(), e.getMessage());
                 return List.of();
             }
