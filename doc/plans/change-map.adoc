@@ -1,0 +1,32 @@
+= The change map of a large change
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `change-map`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 10 (roadmap item _Implement the change map of a plan_; `PM-WF-13`, `PM-WF-21`), beside the Dependency Delta Check
+Where:: pm-workflow (the computation, the facts of the finalize step, the judgment at the self-review); pm-core (the module discovery crawl it reads, over a tree of git objects)
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* *Implements* link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#change-map[Phase Workflows § Change Map] and the removed-coordinates half of link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#dependency-delta[§ Dependency Delta Check] (watch link:../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-114[PM-WATCH-PHASE-114]).
+* *Two trees*: the in-process crawl of the module discovery runs over the tree at `base_ref`, read from git objects and never checked out, and over the worktree at `HEAD`. Enrolled discovery jobs are not run for the map; a module whose edges only such a job provides is drawn without them and marked `edges_partial`. The map is computed without a model, with the Dependency Delta Check, at Phase 6 entry and after every `finalize.settle-commit`.
+* *The delta*: `modules_added[]`, `modules_removed[]`, `edges_added[]` and `edges_removed[]` (`from` module, `to` module), and the third-party coordinates of the dependency delta, `added[]` and `removed[]`, where a removed and an added coordinate of the same module and scope form a `replaced[]` pair. A module whose descriptor failed to parse on either side is named with its diagnostic, and the map is `partial`, never complete.
+* *The rendering*: a fixed-width text diagram of at most `20` boxes: the modules the delta names and those with a path in the realized footprint, each with its direct neighbours; an added edge drawn `+-->`, a removed edge `--x`, a removed or replaced third-party dependency named under its module. A larger map is rendered as the lists alone. It is shown in the server-owned section `## Change Map` of the pull-request body, in the landing record, in the completion report, and as the resource `pm://plan/{plan_id}/change-map`.
+* *Where it and the own calls are read*: the server-owned sections `## Own Calls` (shortcuts first, each with its limit and ending condition) and `## Change Map` of the pull-request body, the landing record, and the completion report, and the resource of the plan; the calls themselves are recorded by link:own-calls.adoc[`own-calls`]. The `simplify` review receives the shortcuts as facts and proposes the removal of none whose `ends_when` has not occurred.
+* *Judged at the self-review*: the facts of `review-requirement` carry the map and the calls, and the self-review judges each own call against the intent record and each removed or replaced coordinate no call and no deliverable names; it is refused when it omits a result for a replaced coordinate that no own call names. An added coordinate stays the Dependency Delta Check's.
+* *The result*: `change_map: {state: complete | partial | indeterminate, modules_added[], modules_removed[], edges_added[], edges_removed[], replaced[], cause}` in the finalize facts; `indeterminate` when the realized footprint is not `measured`. The map blocks nothing by itself.
+* *Left out*: the module discovery, the build-file dependency parser, and the Dependency Delta Check (Milestone 10, no work package); the guidance and the rendering in the clients.
+
+== Trace
+
+Requirements stay in `plan-marshall-documentation`; the specification sections and watch documents are those of this repository, or of `plan-marshall-documentation` where a link leads there. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-13[PM-WF-13]; link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-21[PM-WF-21]; link:../../../plan-marshall-documentation/doc/requirements/15-extensions-and-recipes.adoc#PM-EXT-3[PM-EXT-3] (module discovery and build map, the crawl it reads)
+* Specification: the sections the first bullet of _What_ names; link:../specification/domain-extensions/03-module-discovery.adoc[Domain Extensions § Module Discovery]; link:../specification/phase-workflows/03-q-gate-and-execute.adoc#own-calls[Phase Workflows § Own Calls of a Writer]; link:../../../plan-marshall-documentation/doc/specification/mcp-tools/03-resource-uris.adoc[MCP Tools § Resource URIs]; link:../specification/phase-workflows/04-finalize-step-bands.adoc[Phase Workflows § Step Catalogue] (`pre-submission-self-review`)
+* Watch: link:../implementation-watch/phase-workflows.adoc[Phase Workflows]
+
+== Done When
+
+The guards of PM-WATCH-PHASE-114 pass: for fixture repositories whose base and head differ by an added module, a removed module edge, and a replaced coordinate, the map equals the crawl of each tree checked out in a scratch directory; a descriptor that fails to parse at `base_ref` yields `partial` with its diagnostic and never `modules_removed`; the status of the worktree is unchanged after the map is computed; the self-review is refused when it omits a result for a replaced coordinate that no own call names; a map of more than `20` boxes is rendered as the lists alone. The pull-request section, the landing record, and the completion report list the own calls and the change map of a fixture plan, shortcuts first.

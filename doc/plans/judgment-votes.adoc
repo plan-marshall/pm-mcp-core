@@ -1,0 +1,33 @@
+= A judgment role as a voter of the decision quorum
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `judgment-votes`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 14 (the second half of the roadmap item _Implement the protocol `system_one` of the endpoint harness and the judgment vote_: the vote, the grading, the form in the calibration record), after the decision quorum of Milestone 8, whose roadmap items have no work package yet
+Where:: pm-workflow (the voter of the adjudication, the composition check of a declaration); pm-core (the members of the decision record and of the calibration record it fills)
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* *Implements* link:../specification/model-work/10-decision-quorum.adoc#judgment-vote[Model Work § Judgment Votes], the class rule of link:../specification/client-profiles/04-judgment-endpoint.adoc#judgment-endpoint[Client Profiles § Judgment Endpoint] in the composition check of link:../specification/model-work/01-roles-and-configuration.adoc#role-composition[Roles & Configuration], and the member `form` of the role configuration in link:../specification/store-schemas/16-task-queue.adoc#decision-calibration-record[Store Schemas § Decision Calibration Record] (watch link:../implementation-watch/model-work.adoc#PM-WATCH-DISP-63[PM-WATCH-DISP-63]).
+* *Parts it votes on*: a part of the answer type `one`. A set that holds a part of another type for a kind whose declaration lists the judgment role ends the role's task `infeasible`, and the set escalates with `role_unavailable`.
+* *Two orders, one vote*: the first request lists the options sorted by `branch_key`, the second in the opposite order, both carrying every question of the entity. For each question the choice `c` is the option the first request chooses; the confidence is the integer part of `100` times the lower of the probability of `c` in the first request and in the second. A second request that prefers another option gives `c` a probability below one half, so the vote stays below every score a declaration can name (`50` to `100`) and the set escalates (`below_score`, or `disagreement` if another role chose another option). The `confidence` member of the service's answer is never used.
+* *A rationale the server composed*: `<model id>: <branch_key> at <p1> sorted, <p2> reversed`, with `rationale_origin: server`; a judgment role writes no prose, and no role of another kind reads the rationale as reasoning. The vote carries the versioned model id the answer named and both distributions in `probabilities` (`sorted` and `reversed`), so that a later model can be graded or trained on the decisions and the operator's final answers. The members of the vote record and their rendering are link:decision-engine.adoc[`decision-engine`]'s; this package fills them.
+* *The class rule*: a judgment role serves the entity kinds that declare a typed form, today the kind `vote`; a kind of the text form (the screener's `screen`, the grading kind `zero_tool`) on a judgment role, and a typed kind on a role of the protocol `openai_chat`, is `class_mismatch` in the composition check.
+* *Calibration form*: the role configuration of a calibration record carries `form` (`warm` or `fresh`; a judgment role is `fresh`) and, for a judgment role, `model` as the versioned id; the declaration digest covers the form. A judgment role answers a calibration item with its two requests, and the decision rule applies with the declared score. The calibration itself (the corpus items, the automatic share, the false automatic share, `calibration_failed`) is the quorum's.
+* *Grading*: a judgment role is graded on the `exact_choice` decision items of its own topic before it decides, like every role of the class `zero_tool` (the mechanics are link:role-qualification.adoc[`role-qualification`]'s; the item kind is the roadmap's word and is confirmed against the corpus at the trace matrix).
+* *What it can use*: only the entity's facts and options; a judgment role is one voter and never the only reason to trust a text that a fact quotes.
+* *Left out*: the endpoint and its protocol (`judgment-endpoint`); the declarations, the adjudication unit, the decision rule, and the calibration run (the decision quorum, no work package); the rendering of the vote in both clients.
+
+== Trace
+
+Requirements stay in `plan-marshall-documentation`; the specification sections and watch documents are those of this repository, or of `plan-marshall-documentation` where a link leads there. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-18[PM-WF-18]; link:../../../plan-marshall-documentation/doc/requirements/13-client-profiles.adoc#PM-CLIENT-2[PM-CLIENT-2]; link:../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
+* Specification: the sections the first bullet of _What_ names; link:../specification/model-work/10-decision-quorum.adoc#blind-input[Model Work § Blind Input]; link:../specification/model-work/10-decision-quorum.adoc#quorum-calibration[§ Quorum Calibration]; link:../specification/store-schemas/18-decision-records.adoc#decision-record[Store Schemas § Decision Record]; link:../specification/model-work/11-decision-records.adoc[Model Work § Decision Records]
+* Watch: link:../implementation-watch/model-work.adoc[Model Work]
+
+== Done When
+
+A fixture quorum whose roles are a judgment role (a stub of the protocol, both orders) and a worker role decides automatically when both choose the same option at or above the score, and escalates with `below_score` when the second order prefers another option, with `disagreement` when the roles differ, and with `role_unavailable` when a part is not of the type `one`; the vote record carries `rationale_origin: server`, the versioned model id, and both distributions, and a vote of a model carries `probabilities: null`; the composition check refuses a text-form kind on a judgment role and a typed kind on a role of the protocol `openai_chat` with `class_mismatch`; a calibration item answered by a judgment role records `form: fresh` and the versioned model id.

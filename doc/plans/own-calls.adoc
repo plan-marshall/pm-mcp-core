@@ -1,0 +1,31 @@
+= A writer states its own calls
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `own-calls`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 9 (roadmap item _Implement the own calls of a writer_; `PM-WF-11`, `PM-WF-19`, `PM-TEST-6`)
+Where:: pm-workflow (the parameter of `submit:TASK-NNN`, its checks, and the records); pm-core (the named parameter schema `own-call`, the decision record at the point `execute.own-call`)
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* *Implements* link:../specification/phase-workflows/03-q-gate-and-execute.adoc#own-calls[Phase Workflows § Own Calls of a Writer], the schema `own-call` of link:../specification/hypermedia-format/02-link-grammar.adoc#named-parameter-schemas[Hypermedia Format § Named Parameter Schemas], the decision point `execute.own-call` of link:../specification/model-work/11-decision-records.adoc#decision-points[Model Work § Decision Points], and the `submit:TASK-NNN` parameter of link:../specification/state-catalogue/10-entity-units.adoc[State Catalogue § Entity Units] (watch link:../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-113[PM-WATCH-PHASE-113]).
+* *The submission*: `submit:TASK-NNN` carries the required parameter `own_calls:list<schema[own-call]>`, at most `10` items; an empty list states that the task settled nothing the plan left open. Each item carries `call` (`10..500` characters), `options` (one to four alternatives, each `1..200` characters; one alternative is the choice not to do it), `reason` (`10..500` characters, naming the evidence), `touches` (identifiers of the intent record and the outline: `AC-<n>`, `CN-<n>`, `NG-<n>`, `DC-<n>`, a deliverable number; may be empty), and `kind`: `design`, or `shortcut` with `site` (a path of the task's changed paths, with a line), `limit`, and `ends_when`.
+* *The server checks*, each violation refused with `invalid_link_args` and `rejected.detail` naming the item: every identifier of `touches` exists in the plan's current intent record or outline; a `shortcut`'s `site` is a path of the task's Task Diff Record; and a call may not choose against a decision of the intent record whose decider is `operator` or `quorum` (such a choice is a task question, `ask:TASK-NNN`).
+* *The records*: in the transaction that accepts the submit, each item becomes a decision record at the decision point `execute.own-call` with the decider `role`, its `options`, its `choice` (the `call`), and its `rationale` (the `reason`). A task that ends without its submit records no own call; a re-offer submits its own.
+* *Reading is the change map's*: the pull-request body, the landing record, the completion report, and the self-review read the calls; that is the roadmap item of link:change-map.adoc[`change-map`] (Milestone 10), which also needs the module discovery. This package records the calls and nothing reads them yet.
+* *Left to the content repository*: the guidance in the skill of the `implement` role (what an own call is and is not) and the writer scenarios for own calls and shortcuts are model-facing content and evaluation of `plan-marshall-mcp`.
+* *Left out*: the reading of the calls at the pull request, the landing record, the completion report, and the self-review (`change-map`); the guidance of the `implement` role skill and the writer scenarios (`plan-marshall-mcp`); the rendering in both clients.
+
+== Trace
+
+Requirements stay in `plan-marshall-documentation`; the specification sections and watch documents are those of this repository, or of `plan-marshall-documentation` where a link leads there. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-11[PM-WF-11]; link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-19[PM-WF-19]; link:../../../plan-marshall-documentation/doc/requirements/12-testing.adoc#PM-TEST-6[PM-TEST-6]
+* Specification: the sections the first bullet of _What_ names; link:../specification/workflow-dsl/07-loop-back-diagrams-verification.adoc[Workflow DSL § Shortcut Marker]
+* Watch: link:../implementation-watch/phase-workflows.adoc[Phase Workflows]
+
+== Done When
+
+The guards of PM-WATCH-PHASE-113 pass: a submit without `own_calls` is refused; one with a `touches` identifier the records do not hold is refused; one with a call against a `DC` item of decider `operator` is refused and the detail names the item; one with a `shortcut` whose `site` is outside the Task Diff Record is refused; an empty list is accepted. A decision record exists per call at `execute.own-call` with the decider `role`, its options, its choice, and its rationale, written in the transaction that accepts the submit; a task that ends without its submit records none, and a re-offer submits its own.
