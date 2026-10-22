@@ -116,15 +116,24 @@ class ModelWaitTest {
     }
 
     @Test
-    void shouldTightenTheIntervalOfAPmWaitToItsWindow() {
+    void shouldTightenTheIntervalOfAWaitToItsWindow() {
         var shortConnection = new ConnectionSettings(Duration.ofSeconds(15), IDLE, true);
         var longInterval = new WaitSettings(Duration.ofSeconds(1800), Duration.ofSeconds(60));
 
-        var progress = assertInstanceOf(ModelWait.Progress.class,
+        var pmWait = assertInstanceOf(ModelWait.Progress.class,
                 WaitSelection.select(shortConnection, Optional.of("p-1"), ModelCall.PM_WAIT, longInterval, clock));
-        assertEquals(Duration.ofSeconds(15), progress.window());
-        assertEquals(Duration.ofSeconds(15), progress.interval());
-        assertGapsAtMost(pointsOf(progress), progress.interval());
+        assertEquals(Duration.ofSeconds(15), pmWait.window());
+        assertEquals(Duration.ofMillis(7_500), pmWait.interval());
+        assertFalse(pmWait.progressFrames().isEmpty());
+        assertGapsAtMost(pointsOf(pmWait), pmWait.interval());
+
+        var pmBuild = assertInstanceOf(ModelWait.Progress.class, WaitSelection.select(connection(true),
+                Optional.of("p-1"), ModelCall.PM_BUILD,
+                new WaitSettings(Duration.ofSeconds(60), Duration.ofSeconds(60)), clock));
+        assertEquals(Duration.ofSeconds(60), pmBuild.window());
+        assertEquals(Duration.ofSeconds(30), pmBuild.interval());
+        assertFalse(pmBuild.progressFrames().isEmpty());
+        assertGapsAtMost(pointsOf(pmBuild), pmBuild.interval());
     }
 
     @Test

@@ -22,7 +22,8 @@ import java.util.Objects;
  * The wait is a value over the instant it started at and the window it may hold; it neither sleeps nor reads a clock
  * of its own, so a caller with a virtual clock decides when the wait is answered and when a progress frame is due.
  * A bounded wait answers at its window and emits no frame. A progress wait emits a frame at every interval after the
- * start and answers at its window, so no gap of its hold is longer than the interval.
+ * start that falls before the answer, at least one, and answers at its window, so no gap of its hold is longer than the
+ * interval.
  *
  * @since 0.1
  */

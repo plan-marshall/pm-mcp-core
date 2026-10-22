@@ -29,8 +29,8 @@ answered and that a progress wait leaves no idle gap.
   `progress_wait_max_seconds`); a qualifying `pm_wait` keeps the bounded window and is held through it by the progress
   frames, as the specification requires.
 * `ModelWait` is the value of the hold: `Bounded` answers at its window and emits no frame, `Progress` emits a frame at
-  every interval after the start and answers at its window. Both are pure over `startedAt` and their window, so a
-  caller with a virtual clock decides the passage of time.
+  every interval after the start that falls before the answer, at least one, and answers at its window. Both are pure
+  over `startedAt` and their window, so a caller with a virtual clock decides the passage of time.
 * `ConnectionSettings` carries the three `connection` values and repeats the profile-validation bounds
   (15..3600 seconds, and the 30-second margin below the idle timeout where progress resets no timer); `WaitSettings`
   carries the machine's progress upper bound (60..7200 seconds) and the interval (1..60 seconds).
@@ -54,9 +54,8 @@ single rule and a value per wait keep that decision testable without a running r
 * The blank progress token is treated as no token: a host that sends an empty value gets the bounded wait, never a
   silent progress wait.
 * The progress interval is fixed by `WaitSettings`; a machine configuration outside the bounds is refused when the value
-  is built rather than clamped. The one adjustment is a `pm_wait` whose bounded window is shorter than the machine's
-  interval: it takes that window as its interval, so a progress wait never carries an interval longer than its own
-  window.
+  is built rather than clamped. The one adjustment is a wait whose window is not longer than the machine's interval: it
+  takes half its window as the interval, so a progress wait always emits at least one frame before it answers.
 * This ADR carries the model-held waits that
   link:002-every-wait-is-an-engine-event.adoc[ADR 002] left to the `waits` work package; it supersedes that split for
   those two calls and leaves ADR 002's rule for the engine's own waits unchanged.

@@ -9,6 +9,7 @@
  */
 package de.planmarshall.workflow.engine;
 
+import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -22,8 +23,8 @@ import de.planmarshall.core.spi.WorkflowClock;
  * {@code connection.progress_resets_timeout} and a {@code _meta.progressToken} in the request; without either the
  * call is held by the bounded long-poll. For a {@code pm_build} that qualifies, the wait holds up to the progress wait
  * upper bound; a {@code pm_wait} keeps the bounded wait window in both cases, and the progress frames hold the host's
- * timer through it. A {@code pm_wait} whose bounded window is shorter than the machine's interval takes that window as
- * its interval, so the wait never carries an interval longer than its own window.
+ * timer through it. A wait whose window is not longer than the machine's interval takes half its window as the
+ * interval, so it always emits at least one frame before it answers.
  *
  * @since 0.1
  */
@@ -56,9 +57,19 @@ public final class WaitSelection {
             return new ModelWait.Bounded(call, clock.now(), connection.boundedWait());
         }
         var window = call == ModelCall.PM_BUILD ? settings.progressWaitMax() : connection.boundedWait();
-        var interval = call == ModelCall.PM_WAIT && settings.progressInterval().compareTo(connection.boundedWait()) > 0
-                ? connection.boundedWait()
-                : settings.progressInterval();
+        var interval = effectiveInterval(window, settings.progressInterval());
         return new ModelWait.Progress(call, clock.now(), window, interval);
+    }
+
+    /**
+     * The interval a progress wait uses: the machine's interval when it is shorter than the window, otherwise half the
+     * window, so that a wait always emits at least one frame before it answers.
+     *
+     * @param window    the window the wait may hold
+     * @param interval  the machine's interval
+     * @return the effective interval, below the window and at least one second
+     */
+    private static Duration effectiveInterval(Duration window, Duration interval) {
+        return interval.compareTo(window) < 0 ? interval : window.dividedBy(2);
     }
 }
