@@ -56,24 +56,24 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Claim Labels
 
-- OBSERVED: no work package builds this: none of the package files under `doc/plans/` names `03-endpoint-harness`, `endpoint harness`, `profile_kind`, and the index has no row for `endpoint-harness` — `grep` of `doc/plans/` and `ls doc/plans/endpoint-harness.adoc` at `0bf64f7`
-  - verdict: corroborated | checked_at: 0bf64f7578d6024cca76116c1e34618fdaf59ff5 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: grep -i of ['03-endpoint-harness', 'endpoint harness', 'profile_kind'] over doc/plans/*.adoc at 0bf64f7: no hit; doc/plans/endpoint-harness.adoc absent; README.adoc names no row `endpoint-harness`; the staged specs carry the content only as 'not carried' (Open Defect of the epic, cleanup 2026-10-22)
+- OBSERVED: no work package builds this: none of the package files under `doc/plans/` names `03-endpoint-harness`, `endpoint harness`, `profile_kind`, and the index has no row for `endpoint-harness` — `grep` of `doc/plans/` and `ls doc/plans/endpoint-harness.adoc` at `4617865`
+  - verdict: corroborated | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: git grep -il of 03-endpoint-harness, endpoint harness, profile_kind over doc/plans at 4617865 finds nothing; no row and no file for endpoint-harness
 - OBSERVED: the specification this plan builds exists and carries the anchors it names — `doc/specification/client-profiles/03-endpoint-harness.adoc`, `doc/implementation-watch/client-profiles.adoc`
-  - verdict: corroborated | checked_at: 0bf64f7578d6024cca76116c1e34618fdaf59ff5 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: anchors found at 0bf64f7: doc/specification/client-profiles/03-endpoint-harness.adoc: [#endpoint-harness], [#endpoint-profile-schema], [#endpoint-request], [#endpoint-enrolment], [#weights-identity], [#endpoint-verification]; doc/implementation-watch/client-profiles.adoc: [#PM-WATCH-CLIENT-14]
-- OBSERVED: the dependencies named below are queue rows of this ledger (PLAN-96, PLAN-19, PLAN-26, PLAN-29, PLAN-34); `PLAN-96` is the plan that writes the package file and the index row
-  - verdict: corroborated | checked_at: 0bf64f7578d6024cca76116c1e34618fdaf59ff5 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: queue rows read at the head of the ledger: PLAN-96, PLAN-19, PLAN-26, PLAN-29, PLAN-34 exist; PLAN-96 is staged by this stage
+  - verdict: corroborated | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: anchors found at 4617865 in: implementation-watch/client-profiles.adoc: PM-WATCH-CLIENT-14
+- OBSERVED: the dependencies named below are queue rows of this ledger (PLAN-96, PLAN-26, PLAN-29, PLAN-34; PLAN-19 shipped as #137); `PLAN-96` is the plan that writes the package file and the index row
+  - verdict: corroborated | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: queue rows at 4617865: PLAN-96 staged, PLAN-19 shipped, PLAN-26 staged, PLAN-29 staged, PLAN-34 staged; PLAN-96 is staged and writes the package files
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line and the specification parts — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 0bf64f7578d6024cca76116c1e34618fdaf59ff5 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
+  - verdict: unverifiable | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan; 6 OBSERVED surface paths checked at 4617865, all exist
 - HYPOTHESIS: the milestone in the `Serves` line and the edges of the `Dependencies` section are the orchestrator's reading of the roadmap and of the specification, not an operator decision — confirm/refute at `doc/plans/README.adoc` and the roadmap items of `plan-marshall-documentation` (verify-at-outline)
-  - verdict: unverifiable | checked_at: 0bf64f7578d6024cca76116c1e34618fdaf59ff5 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
+  - verdict: unverifiable | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
 - Verify-first clause: before scoping, check that PLAN-96 has landed (the package file and the index row exist), that the packages this one depends on are done or in flight, and list the open pull requests for one that names the package; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 0bf64f7578d6024cca76116c1e34618fdaf59ff5 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: open PRs (ci pr list) on 2026-10-22: #137, #129, #71; none names the package (none touches doc/plans/endpoint-harness.adoc: it does not exist yet); PLAN-96 not yet landed, it is the dependency
+  - verdict: corroborated | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: no package file and no index row for this spec (a plan with no package file); the only open PR (ci pr list) is #71, a dependabot bump, which does not name it; the claims above were re-read individually
 
 ## Expected Surface
 
 - HYPOTHESIS: `doc/plans/endpoint-harness.adoc` — the package file, written by PLAN-96; deleted when the package is done
 - OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/` — the endpoint profile beside the client profile (`package-info.java` only today; PLAN-19 builds the client profile there)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/` — the endpoint profile beside the client profile (the client profile loader of PLAN-19, #137, lives there: 17 classes and the package-info; the endpoint profile goes beside it)
 - OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/enrolment/` — the harness enrolment: the executable owner check and the weights identity
 - OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/` — the launch of a task (`package-info.java` only today)
 - HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/` — the HTTP adapter of the endpoint harness (new package; the HTTP call belongs to `pm-runtime`, behind an interface `pm-core` declares)
@@ -84,7 +84,7 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-96 (`spec-ahead-work-packages`); PLAN-19 (`profile-loader`); PLAN-26 (`role-sets-and-model-caller`); PLAN-29 (`worker-launch`); PLAN-34 (`role-qualification`)
+- Depends on: PLAN-96 (`spec-ahead-work-packages`); PLAN-26 (`role-sets-and-model-caller`); PLAN-29 (`worker-launch`); PLAN-34 (`role-qualification`)
 - Blocks: PLAN-98
 - Overlaps with: computed by `corpus cross-check` at emit time
 ## Hand-Off Command
