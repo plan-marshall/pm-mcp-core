@@ -236,6 +236,36 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |`blocked`
 |link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:operator-reports.adoc[`operator-reports`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (the archives of plans); link:epic-resource-and-release.adoc[`epic-resource-and-release`] (the archives of epics, the release; the unenrolment); link:chat.adoc[`chat`] (ended work, read-only); link:runtime-metrics.adoc[`runtime-metrics`] (the token figures kept); link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the machine's settings); link:project-onboarding-unit.adoc[`project-onboarding-unit`] (the project's values)
 |Milestone 10; the client work of `pm-mcp-clients`
+
+|link:endpoint-harness.adoc[`endpoint-harness`]
+|The endpoint harness: a model served on the loopback interface, its profile, its request, its enrolment and the identity of its weights
+|`open`
+|link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:worker-launch.adoc[`worker-launch`]; link:role-qualification.adoc[`role-qualification`] (the weights identity is a member of the qualification digest)
+|Milestone 14
+
+|link:judgment-endpoint.adoc[`judgment-endpoint`]
+|The judgment endpoint: typed questions answered with a probability per option by a hosted service or a model served in the same format
+|`open`
+|link:endpoint-harness.adoc[`endpoint-harness`]
+|Milestone 14
+
+|link:judgment-votes.adoc[`judgment-votes`]
+|A judgment role votes: two requests, the confidence from the lower probability, a rationale composed by the server, the class rule, and the calibration form
+|`blocked`
+|link:judgment-endpoint.adoc[`judgment-endpoint`]; link:decision-engine.adoc[`decision-engine`] (the vote members of the decision record); link:role-qualification.adoc[`role-qualification`] (the grading); the decision quorum with its declarations, the adjudication unit, and its calibration (no work package)
+|Milestone 14
+
+|link:own-calls.adoc[`own-calls`]
+|Own calls of a writer: the choices a task settled that the plan left open, submitted with the task, checked by the server, and recorded as decisions
+|`blocked`
+|link:decision-engine.adoc[`decision-engine`] (the decision records); link:phase-sub-workflows.adoc[`phase-sub-workflows`]; the task envelope with its `submit` link and the Task Diff Record (no work package)
+|Milestone 9
+
+|link:change-map.adoc[`change-map`]
+|The change map: which modules a change adds or removes, which dependencies between modules it adds or removes, and which third-party dependencies it adds, removes, or replaces
+|`blocked`
+|link:own-calls.adoc[`own-calls`]; link:phase-sub-workflows.adoc[`phase-sub-workflows`]; the module discovery and the build-file dependency parser, the Dependency Delta Check, and the finalize pipeline of Milestone 10 (no work package)
+|Milestone 10
 |===
 
 The work packages of the other repositories: link:../../../pm-mcp-clients/doc/plans/README.adoc[`pm-mcp-clients`] and link:../../../plan-marshall-mcp/doc/plans/README.adoc[`plan-marshall-mcp`].
