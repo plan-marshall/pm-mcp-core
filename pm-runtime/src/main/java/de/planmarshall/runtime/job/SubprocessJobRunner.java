@@ -979,7 +979,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 reached = report.ending() != Ending.SIGNAL_REFUSED;
                 cancelBeforeGroup = report.cancelBeforeGroup();
             }
-        } catch (RuntimeException | Error e) {
+        }
+        /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
+        catch (RuntimeException | Error e) {
             // a PID the protocol refuses, a signal call that failed (ProcessGroupSignals), or an error of the primitive
             LOGGER.warn(e, WARN.JOB_TERMINATION_FAILED, jobId, e.getMessage());
         } finally {
@@ -1024,7 +1026,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             try {
                 audit.append(new AuditEvent(JOB_DESCENDANT_SURVIVED, AuditEvent.CATEGORY_SECURITY,
                         AuditEvent.OUTCOME_FAILED, details));
-            } catch (RuntimeException | Error e) {
+            }
+            /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
+            catch (RuntimeException | Error e) {
                 LOGGER.warn(e, WARN.JOB_DESCENDANT_AUDIT_FAILED, job.latest.jobId(), e.getMessage());
             }
         }
@@ -1192,17 +1196,29 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 job.cause.complete(Termination.BUDGET_EXPIRED);
                 continue;
             }
-            var bound = remaining.compareTo(ProcessTreeTracker.REFRESH_INTERVAL) < 0 ? remaining
-                    : ProcessTreeTracker.REFRESH_INTERVAL;
-            try {
-                CompletableFuture.anyOf(exit, job.cause).get(Math.max(1, bound.toMillis()), TimeUnit.MILLISECONDS);
-            } catch (TimeoutException _) {
-                // the budget is checked at the top of the loop
-            } catch (InterruptedException _) {
-                interrupted = true;
-            } catch (ExecutionException e) {
-                throw new IllegalStateException("Neither the exit nor the cause of a job completes exceptionally", e);
-            }
+            interrupted |= awaitBound(exit, job.cause, remaining);
+        }
+    }
+
+    /**
+     * Waits one bound of the refresh interval for the exit or the cause.
+     *
+     * @return whether the wait was interrupted
+     */
+    private static boolean awaitBound(CompletableFuture<Process> exit, CompletableFuture<Termination> cause,
+            Duration remaining) {
+        var bound = remaining.compareTo(ProcessTreeTracker.REFRESH_INTERVAL) < 0 ? remaining
+                : ProcessTreeTracker.REFRESH_INTERVAL;
+        try {
+            CompletableFuture.anyOf(exit, cause).get(Math.max(1, bound.toMillis()), TimeUnit.MILLISECONDS);
+            return false;
+        } catch (TimeoutException _) {
+            // the budget is checked at the top of the loop
+            return false;
+        } catch (InterruptedException _) {
+            return true;
+        } catch (ExecutionException e) {
+            throw new IllegalStateException("Neither the exit nor the cause of a job completes exceptionally", e);
         }
     }
 
@@ -1250,7 +1266,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private void settleEnded(RunningJob job, Ended ended, long observedLength) {
         try {
             settle(job, ended, observedLength, true);
-        } catch (RuntimeException | Error failure) {
+        }
+        /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
+        catch (RuntimeException | Error failure) {
             if (job.settling) {
                 // the primary settlement reached its record write and failed there (PM_RUNTIME-207); a fate replaces
                 // only a record that is not settled yet, so a second attempt would not help
@@ -1258,7 +1276,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             }
             try {
                 settle(job, ended, observedLength, false);
-            } catch (RuntimeException | Error fallbackFailure) {
+            }
+            /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
+            catch (RuntimeException | Error fallbackFailure) {
                 failure.addSuppressed(fallbackFailure);
                 lastResort(job, failure);
             }
@@ -1280,10 +1300,12 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         var current = job.latest;
         var settled = job.pendingSettled != null ? job.pendingSettled
                 : current.toBuilder().status(Status.ENDED).fate(Fate.INDETERMINATE).outcomeRow(5)
-                        .endedAt(clock.instant()).build();
+                .endedAt(clock.instant()).build();
         try {
             settle(job, settled);
-        } catch (RuntimeException | Error writeFailure) {
+        }
+        /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
+        catch (RuntimeException | Error writeFailure) {
             failure.addSuppressed(writeFailure);
             LOGGER.error(writeFailure, ERROR.JOB_LAST_RESORT_FAILED, current.jobId(), writeFailure.getMessage());
         }
@@ -1558,7 +1580,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             }
             try {
                 return current.sweep();
-            } catch (RuntimeException | Error e) {
+            }
+            /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
+            catch (RuntimeException | Error e) {
                 LOGGER.warn(e, WARN.JOB_DESCENDANT_SWEEP_FAILED, latest.jobId(), e.getMessage());
                 return List.of();
             }

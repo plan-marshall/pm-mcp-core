@@ -396,12 +396,15 @@ public final class ToonEncoder {
 
     /** Refuses unpaired surrogates (§ 3). */
     private static void checkScalarValues(String value) {
-        for (int i = 0; i < value.length(); i++) {
+        var i = 0;
+        while (i < value.length()) {
             char c = value.charAt(i);
             if (Character.isHighSurrogate(c) && i + 1 < value.length() && Character.isLowSurrogate(value.charAt(i + 1))) {
-                i++;
+                i += 2;
             } else if (Character.isSurrogate(c)) {
                 throw new ToonEncodingException(Reason.UNPAIRED_SURROGATE, "at index " + i);
+            } else {
+                i++;
             }
         }
     }

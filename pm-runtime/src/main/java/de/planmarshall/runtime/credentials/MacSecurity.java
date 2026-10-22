@@ -297,6 +297,7 @@ final class MacSecurity {
     }
 
     /** A downcall; {@link MethodHandle#invokeExact} declares {@link Throwable}. */
+    @SuppressWarnings("java:S112") // The throws clause mirrors MethodHandle.invokeExact, which declares Throwable.
     @FunctionalInterface
     private interface Downcall<T> {
         T call() throws Throwable;

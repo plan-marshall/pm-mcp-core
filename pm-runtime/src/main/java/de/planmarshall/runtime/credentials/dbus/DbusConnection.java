@@ -36,6 +36,8 @@ public final class DbusConnection implements AutoCloseable {
 
     /** Bus name, path and interface of the message bus itself. */
     public static final String BUS = "org.freedesktop.DBus";
+    // java:S1075: the object path is fixed by the D-Bus specification, not by configuration.
+    @SuppressWarnings("java:S1075")
     private static final String BUS_PATH = "/org/freedesktop/DBus";
     private static final String CANNOT_CONNECT = "cannot connect to the bus at ";
 
@@ -125,13 +127,15 @@ public final class DbusConnection implements AutoCloseable {
 
     private static String unescape(String value) {
         var bytes = new ByteArrayOutputStream();
-        for (int i = 0; i < value.length(); i++) {
+        var i = 0;
+        while (i < value.length()) {
             char c = value.charAt(i);
             if (c == '%' && i + 2 < value.length()) {
                 bytes.write(HexFormat.fromHexDigits(value, i + 1, i + 3));
-                i += 2;
+                i += 3;
             } else {
                 bytes.write(c);
+                i++;
             }
         }
         return bytes.toString(StandardCharsets.UTF_8);
