@@ -23,7 +23,6 @@ import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.ProjectEnrolment.ContainerEngine;
 import de.planmarshall.core.store.ProjectEnrolment.HostTool;
-import de.planmarshall.core.store.ProjectEnrolment.Wrapper;
 
 /**
  * Builds every job environment from scratch (PM-SEC-5, PM-EXEC-1, PM-EXEC-5): nothing is inherited from the runtime's
@@ -43,7 +42,8 @@ import de.planmarshall.core.store.ProjectEnrolment.Wrapper;
  *
  * @since 0.1
  */
-public final class JobEnvironmentComposer {
+public final class JobEnvironmentComposer implements SubprocessJobRunner.Environment,
+        SubprocessJobRunner.ProbeEnvironment {
 
     /** The variable naming the system temporary directory. */
     public static final String TMPDIR = "TMPDIR";
@@ -71,6 +71,7 @@ public final class JobEnvironmentComposer {
 
     private final Path base;
     private final Path systemTemp;
+    private final Path deviceRoot;
     private final Path runtimeSocket;
     private final String userName;
     private final String userHome;
@@ -80,11 +81,44 @@ public final class JobEnvironmentComposer {
      * @param systemTemp the system temporary directory
      */
     public JobEnvironmentComposer(Path base, Path systemTemp) {
+        this(base, systemTemp, Path.of("/dev"));
+    }
+
+    /**
+     * @param base       the runtime base directory {@code <PM_MCP_BASE>}
+     * @param systemTemp the system temporary directory
+     * @param deviceRoot the device nodes directory
+     */
+    public JobEnvironmentComposer(Path base, Path systemTemp, Path deviceRoot) {
         this.base = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
         this.systemTemp = Objects.requireNonNull(systemTemp, "systemTemp").toAbsolutePath().normalize();
+        this.deviceRoot = Objects.requireNonNull(deviceRoot, "deviceRoot").toAbsolutePath().normalize();
         this.runtimeSocket = this.base.resolve(JobConfinementComposer.RUNTIME_SOCKET);
         this.userName = System.getProperty("user.name", "");
         this.userHome = System.getProperty("user.home", "");
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>A worker's token, data home, egress proxy and harness switches are supplied by the caller that runs a worker;
+     * this implementation of the seam passes none of them.
+     */
+    @Override
+    public Map<String, String> of(VerifiedJob job, JobId jobId) {
+        return forJob(job.enrolment(), jobId, Map.of(), Optional.empty(), Optional.empty(), Optional.empty(),
+                Optional.empty(), Optional.empty(), Optional.empty(), false);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>A probe's captured enrolment rows are empty when the caller supplies none.
+     */
+    @Override
+    public Map<String, String> of(ProbeCandidate candidate, JobId jobId) {
+        return forProbe(candidate.executable().path(), candidate.interpreter().map(ProbeCandidate.DigestedFile::path),
+                candidate.kind() == ProbeCandidate.Kind.LOGIN, new TreeMap<>());
     }
 
     /**
@@ -99,12 +133,13 @@ public final class JobEnvironmentComposer {
      * @param sshAuthSock        the SSH agent socket of a {@code git} job, when the effective remote needs it
      * @param committerName      the committer name of a commit-creating {@code git} job; empty otherwise
      * @param committerEmail     the committer email of a commit-creating {@code git} job; empty otherwise
+     * @param runRepositoryHooks whether a {@code git} job runs repository hooks
      * @return the complete environment
      */
     public Map<String, String> forJob(ProjectEnrolment enrolment, JobId jobId,
             Map<String, String> harnessSwitches, Optional<String> jobToken, Optional<String> workerDataVariable,
             Optional<String> egressProxy, Optional<String> sshAuthSock, Optional<String> committerName,
-            Optional<String> committerEmail) {
+            Optional<String> committerEmail, boolean runRepositoryHooks) {
         Objects.requireNonNull(enrolment, "enrolment");
         Objects.requireNonNull(jobId, "jobId");
         var environment = new TreeMap<String, String>();
@@ -118,7 +153,9 @@ public final class JobEnvironmentComposer {
             case BUILD, PROJECT_SCRIPT -> buildToolchain(environment, enrolment);
             case GIT -> {
                 git(environment, enrolment, sshAuthSock, committerName, committerEmail);
-                buildToolchain(environment, enrolment);
+                if (runRepositoryHooks) {
+                    buildToolchain(environment, enrolment);
+                }
             }
             case CI -> ci(environment, enrolment);
             case LLM -> worker(environment, jobId, harnessSwitches, jobToken, workerDataVariable, egressProxy);
@@ -134,15 +171,16 @@ public final class JobEnvironmentComposer {
     }
 
     /**
-     * The environment of a probe: the rows that name all job types, the {@code enrolment} rows of the machine, and a
-     * {@code PATH} holding only the directories of the probed executable and its interpreter.
+     * The probe environment.
      *
-     * @param executable   the absolute path of the probed executable
-     * @param interpreter  the absolute path of its interpreter, if it is a script
-     * @param loginProbe   whether the probe needs the harness's login environment
+     * @param executable  the probed executable
+     * @param interpreter its interpreter, for a script
+     * @param loginProbe  whether the probe needs the harness's login environment
+     * @param captured    the captured enrolment rows of the machine
      * @return the complete environment
      */
-    public Map<String, String> forProbe(Path executable, Optional<Path> interpreter, boolean loginProbe) {
+    public Map<String, String> forProbe(Path executable, Optional<Path> interpreter, boolean loginProbe,
+            SortedMap<String, String> captured) {
         Objects.requireNonNull(executable, "executable");
         var environment = new TreeMap<String, String>();
         var directories = new ArrayList<String>();
@@ -152,7 +190,7 @@ public final class JobEnvironmentComposer {
         environment.put("HOME", userHome);
         environment.put("USER", userName);
         environment.put("LOGNAME", userName);
-        environment.put("LC_ALL", DEFAULT_LC_ALL);
+        locale(environment, Objects.requireNonNull(captured, "captured"));
         environment.put(TMPDIR, systemTemp.toString());
         if (loginProbe) {
             environment.put("NO_COLOR", "1");
@@ -163,12 +201,26 @@ public final class JobEnvironmentComposer {
 
     private void buildToolchain(Map<String, String> environment, ProjectEnrolment enrolment) {
         copy(environment, enrolment.buildEnvironment(), List.of("JAVA_HOME", "GRADLE_USER_HOME"));
-        var store = BuildDaemonStore.path(base, enrolment.projectId(), List.of(Path.of(enrolment.projectRoot())));
-        environment.put("MVND_DAEMON_STORAGE", BuildDaemonStore.mvnd(store).toString());
+        environment.put("MVND_DAEMON_STORAGE", BuildDaemonStore.mvnd(daemonStore(enrolment)).toString());
         if (enrolment.containerEngine() == ContainerEngine.DOCKER) {
             copy(environment, enrolment.buildEnvironment(), List.of("DOCKER_HOST", "DOCKER_CONFIG"));
             copyPrefixed(environment, enrolment.buildEnvironment(), TESTCONTAINERS_PREFIX);
         }
+    }
+
+    /**
+     * The daemon store over the same write set the confinement composes, before the store itself is added, so the
+     * environment and the write set name one directory.
+     */
+    private Path daemonStore(ProjectEnrolment enrolment) {
+        var write = new ArrayList<Path>();
+        write.add(Path.of(enrolment.projectRoot()));
+        for (var path : enrolment.writePaths()) {
+            write.add(Path.of(path));
+        }
+        write.add(systemTemp);
+        write.add(deviceRoot);
+        return BuildDaemonStore.path(base, enrolment.projectId(), write);
     }
 
     private void git(Map<String, String> environment, ProjectEnrolment enrolment,
@@ -263,9 +315,6 @@ public final class JobEnvironmentComposer {
         var directories = new LinkedHashSet<String>();
         for (HostTool tool : enrolment.hostTools()) {
             directories.add(Path.of(tool.executablePath()).getParent().toString());
-        }
-        for (Wrapper wrapper : enrolment.wrappers()) {
-            directories.add(Path.of(enrolment.projectRoot()).resolve(wrapper.relativePath()).getParent().toString());
         }
         return String.join(":", directories);
     }

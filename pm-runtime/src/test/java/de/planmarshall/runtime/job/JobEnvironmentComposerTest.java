@@ -18,6 +18,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -61,11 +62,29 @@ class JobEnvironmentComposerTest {
                 "LC_ALL", "");
 
         @Test
+        @DisplayName("the MVND daemon store is a write path of the job's confinement")
+        void daemonStoreIsWritable() {
+            var enrolment = enrolment(null, Map.of());
+            var job = JobId.random(JobId.Kind.BUILD);
+
+            var environment = composer().forJob(enrolment, job, Map.of(), Optional.empty(), Optional.empty(),
+                    Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), false);
+            var store = Path.of(environment.get("MVND_DAEMON_STORAGE")).getParent();
+            var confinement = new JobConfinementComposer(base, Path.of("/tmp"), Path.of("/dev"), Optional.empty())
+                    .forJob(enrolment, job, List.of(), false);
+
+            assertAll(
+                    () -> assertTrue(confinement.writePaths().contains(store),
+                            () -> "the store " + store + " is not in " + confinement.writePaths()),
+                    () -> assertEquals(BuildDaemonStore.mvnd(store), Path.of(environment.get("MVND_DAEMON_STORAGE"))));
+        }
+
+        @Test
         @DisplayName("has the enrolled toolchain, a PATH of the host tools and no flag injector")
         void toolchain() {
             var environment = composer().forJob(enrolment(null, captured), JobId.random(JobId.Kind.BUILD), Map.of(),
                     Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
-                    Optional.empty());
+                    Optional.empty(), false);
 
             assertAll(
                     () -> assertEquals("/usr/bin", environment.get("PATH")),
@@ -84,7 +103,7 @@ class JobEnvironmentComposerTest {
         void sanitised() {
             var environment = composer().forJob(enrolment(null, captured), JobId.random(JobId.Kind.BUILD), Map.of(),
                     Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
-                    Optional.empty());
+                    Optional.empty(), false);
 
             assertAll(
                     () -> assertFalse(environment.containsKey("DBUS_SESSION_BUS_ADDRESS")),
@@ -102,10 +121,10 @@ class JobEnvironmentComposerTest {
 
             var without = composer().forJob(enrolment(null, withEngine), JobId.random(JobId.Kind.BUILD), Map.of(),
                     Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
-                    Optional.empty());
+                    Optional.empty(), false);
             var with = composer().forJob(enrolment(ContainerEngine.DOCKER, withEngine),
                     JobId.random(JobId.Kind.BUILD), Map.of(), Optional.empty(), Optional.empty(), Optional.empty(),
-                    Optional.empty(), Optional.empty(), Optional.empty());
+                    Optional.empty(), Optional.empty(), Optional.empty(), false);
 
             assertAll(
                     () -> assertFalse(without.containsKey("DOCKER_HOST")),
@@ -128,7 +147,7 @@ class JobEnvironmentComposerTest {
             var environment = composer().forJob(enrolment(null, Map.of()), job,
                     Map.of("CLAUDE_CODE_DISABLE_AUTO_MEMORY", "1"), Optional.of("job-token"),
                     Optional.of("XDG_DATA_HOME"), Optional.of("http://127.0.0.1:41234"), Optional.empty(),
-                    Optional.empty(), Optional.empty());
+                    Optional.empty(), Optional.empty(), false);
 
             var data = base.resolve("run/jobs").resolve(job.value()).resolve("data");
             assertAll(
@@ -153,7 +172,7 @@ class JobEnvironmentComposerTest {
                     enrolment(null, Map.of("GH_CONFIG_DIR", "/home/op/.config/gh", "GLAB_CONFIG_DIR",
                             "/home/op/.config/glab", "XDG_CONFIG_HOME", "/home/op/.config")),
                     JobId.random(JobId.Kind.CI), Map.of(), Optional.empty(), Optional.empty(), Optional.empty(),
-                    Optional.empty(), Optional.empty(), Optional.empty());
+                    Optional.empty(), Optional.empty(), Optional.empty(), false);
 
             assertAll(
                     () -> assertEquals("/home/op/.config/gh", environment.get("GH_CONFIG_DIR")),
@@ -168,7 +187,7 @@ class JobEnvironmentComposerTest {
         void git() {
             var environment = composer().forJob(enrolment(null, Map.of()), JobId.random(JobId.Kind.GIT), Map.of(),
                     Optional.empty(), Optional.empty(), Optional.empty(), Optional.of("/run/ssh-agent"),
-                    Optional.of("pm-mcp"), Optional.of("noreply@example.test"));
+                    Optional.of("pm-mcp"), Optional.of("noreply@example.test"), false);
 
             assertAll(
                     () -> assertEquals("0", environment.get("GIT_TERMINAL_PROMPT")),
@@ -188,7 +207,7 @@ class JobEnvironmentComposerTest {
         @DisplayName("has a PATH of the probed executable and its interpreter only")
         void path() {
             var environment = composer().forProbe(Path.of("/opt/tool/bin/tool"),
-                    Optional.of(Path.of("/usr/bin/python3")), false);
+                    Optional.of(Path.of("/usr/bin/python3")), false, new TreeMap<>());
 
             assertAll(
                     () -> assertEquals("/usr/bin:/opt/tool/bin", environment.get("PATH")),

@@ -95,7 +95,7 @@ class JobDrainParticipantTest {
         runner = SubprocessJobRunner.builder().base(base).lockManager(enrolment.locks)
                 .pipeline(new VerifyNotResolvePipeline(enrolment.check, (buildSystem, verb) -> Optional.empty()))
                 .launcher(new PmExecLauncher(home)).termination(new TerminationProtocol(ProcessGroupSignals.system()))
-                .environment(job -> ENVIRONMENT).probeEnvironment(candidate -> ENVIRONMENT)
+                .environment((job, jobId) -> ENVIRONMENT).probeEnvironment((candidate, jobId) -> ENVIRONMENT)
                 .parser((kind, output) -> {
                     throw new AssertionError("the output of a probe is left to the step that asked for it");
                 }).primitives(request -> Optional.empty()).build();

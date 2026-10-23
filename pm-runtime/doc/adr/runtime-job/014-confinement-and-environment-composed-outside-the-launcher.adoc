@@ -35,7 +35,7 @@ values that depend on both (the daemon store, the worker's data directory, the j
   `PmExecLauncher.Launch`. A caller that supplies none keeps today's behaviour (`JobConfinement.none()`).
 * `JobEnvironmentComposer` composes the environment of a job kind from the enrolment and runtime values, and the
   environment of a probe from the probed executable and its interpreter. It is a concrete class beside the runner's
-  `Environment`/`ProbeEnvironment` seams, which stay the caller's; the assembly wires it.
+  `Environment`/`ProbeEnvironment` seams; the runner defaults both seams to it and a caller may supply its own.
 * `BuildDaemonStore` computes `<base>/projects/<project_id>/daemons/<digest>/` from the write set before the store is
   added, so the digest is not self-referential, and names the `mvnd` and Gradle registry arguments.
 * `WorkerEgressProxy` is the runtime's HTTP `CONNECT` proxy, one per worker generation, with the destination allowlist

@@ -9,8 +9,12 @@
  */
 package de.planmarshall.runtime.job;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -24,13 +28,15 @@ import java.util.Objects;
  * two write sets.
  * <p>
  * The store is {@code <PM_MCP_BASE>/projects/<project_id>/daemons/<write_set_digest>/}, where the digest is the first
- * 16 lower-case hex characters of the SHA-256 over the job's sorted write set. The runtime creates the directory at job
- * start; it reads nothing from it and trusts nothing in it. The store is readable and writable only for the
+ * 16 lower-case hex characters of the SHA-256 over the job's sorted, de-duplicated write set. The store is created with
+ * mode {@code 0700} when the job's confinement is composed. It holds only the registries and logs of the build daemons;
+ * the runtime reads nothing from it and trusts nothing in it. It is readable and writable only for the
  * {@code build} and {@code project_script} jobs of the project and for a {@code git} job that runs repository hooks.
  * <p>
  * The build tools find it through {@code MVND_DAEMON_STORAGE=<store>/mvnd} (an environment value) and through
- * {@code -Dorg.gradle.daemon.registry.base=<store>/gradle} appended to the argument vector of a Gradle wrapper; the
- * flag-injecting {@code GRADLE_OPTS} is never exported.
+ * {@code -Dorg.gradle.daemon.registry.base=<store>/gradle}, which {@link #gradleRegistryArgument(Path)} renders for the
+ * caller that appends it to the argument vector of a Gradle wrapper; the flag-injecting {@code GRADLE_OPTS} is never
+ * exported.
  * <p>
  * Specification: {@code doc/specification/job-runtime/02-confinement-and-environment.adoc} (Build Daemons).
  *
@@ -67,7 +73,10 @@ public final class BuildDaemonStore {
     public static String digest(List<Path> writeSet) {
         var sorted = new ArrayList<String>();
         for (var path : Objects.requireNonNull(writeSet, "writeSet")) {
-            sorted.add(Objects.requireNonNull(path, "path").toAbsolutePath().normalize().toString());
+            var normalized = Objects.requireNonNull(path, "path").toAbsolutePath().normalize().toString();
+            if (!sorted.contains(normalized)) {
+                sorted.add(normalized);
+            }
         }
         sorted.sort(String::compareTo);
         var joined = String.join("\n", sorted);
@@ -94,6 +103,22 @@ public final class BuildDaemonStore {
         }
         Objects.requireNonNull(projectId, "projectId");
         return base.resolve("projects").resolve(projectId).resolve(DAEMONS).resolve(digest(writeSet));
+    }
+
+    /**
+     * Creates the daemon store with mode {@code 0700}.
+     *
+     * @param store the daemon store of the project and write set
+     * @throws java.io.UncheckedIOException if the directory cannot be created
+     */
+    public static void ensure(Path store) {
+        Objects.requireNonNull(store, "store");
+        try {
+            Files.createDirectories(store);
+            Files.setPosixFilePermissions(store, PosixFilePermissions.fromString("rwx------"));
+        } catch (IOException e) {
+            throw new UncheckedIOException("Cannot create the daemon store " + store, e);
+        }
     }
 
     /**

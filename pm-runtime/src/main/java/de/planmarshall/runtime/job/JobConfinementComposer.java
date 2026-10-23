@@ -84,6 +84,18 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
     }
 
     /**
+     * The composer of a runtime that knows no session bus socket: the whole per-user runtime directory
+     * {@code /run/user} is denied on Linux, which holds the session bus socket and the rootless container engine's
+     * socket, and nothing is denied on macOS.
+     *
+     * @param base the runtime base directory
+     * @return the composer
+     */
+    public static JobConfinementComposer standard(Path base) {
+        return standard(base, Optional.of(Path.of("/run/user")));
+    }
+
+    /**
      * Composes the confinement of a job.
      *
      * @param enrolment           the verified enrolment of the job's project
@@ -106,10 +118,10 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
         var read = new ArrayList<Path>();
         var jobPrivate = jobPrivate(jobId);
         switch (jobId.kind()) {
-            case BUILD, PROJECT_SCRIPT -> write.add(BuildDaemonStore.path(base, enrolment.projectId(), write));
+            case BUILD, PROJECT_SCRIPT -> addDaemonStore(write, enrolment);
             case GIT -> {
                 if (runRepositoryHooks) {
-                    write.add(BuildDaemonStore.path(base, enrolment.projectId(), write));
+                    addDaemonStore(write, enrolment);
                 }
             }
             case CI -> write.addAll(cliConfigDirectories(enrolment.buildEnvironment()));
@@ -128,6 +140,16 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
     }
 
     /**
+     * Adds the project's daemon store to the write set and creates it. The digest is taken over the write set before
+     * the store is added, so the path is not self-referential.
+     */
+    private void addDaemonStore(List<Path> write, ProjectEnrolment enrolment) {
+        var store = BuildDaemonStore.path(base, enrolment.projectId(), write);
+        BuildDaemonStore.ensure(store);
+        write.add(store);
+    }
+
+    /**
      * Composes the confinement of a probe, which is verified against a candidate record and not against an enrolment.
      *
      * @param jobId                the id of the probe job
@@ -143,14 +165,15 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
         var write = new ArrayList<Path>();
         write.add(systemTemp);
         write.add(deviceRoot);
+        var jobPrivate = jobPrivate(jobId);
         checkoutRoot.ifPresent(root -> {
             write.add(root);
             write.addAll(toolchainCaches);
         });
         if (harnessProbe) {
             write.addAll(harnessWritablePaths);
+            write.add(jobPrivate.resolve(DATA));
         }
-        var jobPrivate = jobPrivate(jobId);
         return new JobConfinement(write, List.of(jobPrivate), denied(null));
     }
 
@@ -166,7 +189,13 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
     private List<Path> denied(ProjectEnrolment enrolment) {
         var denied = new ArrayList<Path>();
         denied.add(base);
-        sessionBusSocket.ifPresent(denied::add);
+        sessionBusSocket.ifPresent(socket -> {
+            denied.add(socket);
+            var parent = socket.getParent();
+            if (parent != null) {
+                denied.add(parent.resolve("docker.sock"));
+            }
+        });
         if (enrolment == null || enrolment.containerEngine() == null) {
             for (var socket : CONTAINER_SOCKETS) {
                 denied.add(Path.of(socket));
@@ -180,10 +209,13 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
 
     private static Optional<Path> unixDockerHost(SortedMap<String, String> environment) {
         var value = environment.get("DOCKER_HOST");
-        if (value == null || !value.startsWith("unix://")) {
+        if (value == null || !value.startsWith("unix:")) {
             return Optional.empty();
         }
-        var path = value.substring("unix://".length());
+        var path = value.substring("unix:".length());
+        if (path.startsWith("//")) {
+            path = path.substring(2);
+        }
         return path.isEmpty() ? Optional.empty() : JobConfinementComposer.optionalAbsolute(path);
     }
 

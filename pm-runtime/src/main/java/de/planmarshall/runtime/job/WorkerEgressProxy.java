@@ -151,7 +151,7 @@ public final class WorkerEgressProxy implements AutoCloseable {
                 return;
             }
             var destination = parts[1].toLowerCase(Locale.ROOT);
-            if (!endpoints.contains(destination)) {
+            if (!isHostPort(destination) || !endpoints.contains(destination)) {
                 refuse(client.getOutputStream(), destination);
                 return;
             }
@@ -164,6 +164,24 @@ public final class WorkerEgressProxy implements AutoCloseable {
         } finally {
             open.remove(client);
         }
+    }
+
+    /** @return whether the text is a host and a decimal port, the shape of an admitted endpoint */
+    private static boolean isHostPort(String text) {
+        var separator = text.lastIndexOf(':');
+        if (separator <= 0 || separator == text.length() - 1) {
+            return false;
+        }
+        var port = text.substring(separator + 1);
+        if (port.length() > 5 || port.charAt(0) == '0') {
+            return false;
+        }
+        for (var index = 0; index < port.length(); index++) {
+            if (port.charAt(index) < '0' || port.charAt(index) > '9') {
+                return false;
+            }
+        }
+        return Integer.parseInt(port) <= 65535;
     }
 
     private void refuse(OutputStream out, String destination) throws IOException {
@@ -179,11 +197,15 @@ public final class WorkerEgressProxy implements AutoCloseable {
         var port = Integer.parseInt(destination.substring(separator + 1));
         try (var remote = new Socket()) {
             open.add(remote);
-            remote.connect(new InetSocketAddress(host, port), CONNECT_TIMEOUT_MILLIS);
-            respond(client.getOutputStream(), "200 Connection Established");
-            var up = Thread.startVirtualThread(() -> copy(client, remote));
-            copy(remote, client);
-            up.join();
+            try {
+                remote.connect(new InetSocketAddress(host, port), CONNECT_TIMEOUT_MILLIS);
+                respond(client.getOutputStream(), "200 Connection Established");
+                var up = Thread.startVirtualThread(() -> copy(client, remote));
+                copy(remote, client);
+                up.join();
+            } finally {
+                open.remove(remote);
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {

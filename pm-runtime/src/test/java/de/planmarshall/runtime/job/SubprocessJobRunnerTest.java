@@ -166,7 +166,7 @@ class SubprocessJobRunnerTest {
     }
 
     private SubprocessJobRunner runner(TerminationProtocol termination, SubprocessJobRunner.PrimitiveJobs primitives) {
-        return runner(termination, primitives, job -> ENVIRONMENT);
+        return runner(termination, primitives, (job, ignoredJobId) -> ENVIRONMENT);
     }
 
     private SubprocessJobRunner runner(TerminationProtocol termination, SubprocessJobRunner.PrimitiveJobs primitives,
@@ -184,11 +184,12 @@ class SubprocessJobRunnerTest {
             SubprocessJobRunner.OutputParser parser, SubprocessJobRunner.PrimitiveJobs primitives,
             InstantSource clock) {
         return SubprocessJobRunner.builder().base(fixture.base).lockManager(locks).pipeline(fixture.pipeline())
-                .launcher(new PmExecLauncher(home)).termination(termination).environment(job -> {
+                .launcher(new PmExecLauncher(home)).termination(termination).environment((job, ignoredJobId) -> {
             observations.add(new Observation(jobs.records(),
                     locks.anyOpenHolds(fixture.store.lockKey(PROJECT))));
-            return environment.of(job);
-        }).probeEnvironment(candidate -> ENVIRONMENT).parser(parser).primitives(primitives).clock(clock).build();
+            return environment.of(job, ignoredJobId);
+        }).probeEnvironment((candidate, jobId) -> ENVIRONMENT).parser(parser).primitives(primitives).clock(clock)
+                .build();
     }
 
     /**
@@ -379,7 +380,7 @@ class SubprocessJobRunnerTest {
             runner = SubprocessJobRunner.builder().base(fixture.base).lockManager(locks)
                     .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
                     .termination(new TerminationProtocol(ProcessGroupSignals.system()))
-                    .environment(job -> ENVIRONMENT).probeEnvironment(candidate -> ENVIRONMENT)
+                    .environment((job, ignoredJobId) -> ENVIRONMENT).probeEnvironment((candidate, jobId) -> ENVIRONMENT)
                     .parser((kind, output) -> SUCCESS).primitives(request -> Optional.empty())
                     .settledRecordsKept(1).build();
             var first = started(runner.start(git(30, "ok")));
@@ -689,7 +690,7 @@ class SubprocessJobRunnerTest {
             var origin = Instant.parse("2026-10-18T10:00:00Z");
             // every reading of the clock is one second later, so the bound passes after a few polls, not after 10 s
             InstantSource clock = () -> origin.plusSeconds(ticks.getAndIncrement());
-            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), job -> ENVIRONMENT,
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), (job, ignoredJobId) -> ENVIRONMENT,
                     (kind, output) -> ParseResult.NOTHING, request -> Optional.empty(), clock);
 
             var result = assertTimeoutPreemptively(Duration.ofSeconds(5),
@@ -712,7 +713,7 @@ class SubprocessJobRunnerTest {
         void cancelEndsTheWait() throws Exception {
             var launching = new CountDownLatch(1);
             var launched = new AtomicReference<JobId>();
-            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty(), job -> {
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty(), (job, ignoredJobId) -> {
                 launched.set(jobs.records().getFirst().jobId());
                 launching.countDown();
                 return ENVIRONMENT;
@@ -741,7 +742,7 @@ class SubprocessJobRunnerTest {
         void environmentThrows() {
             var failure = new IllegalArgumentException("environment refused");
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty(),
-                    job -> {
+                    (job, ignoredJobId) -> {
                         throw failure;
                     });
             var request = git(30, "ok");
@@ -755,7 +756,7 @@ class SubprocessJobRunnerTest {
         @DisplayName("an environment name the operating system refuses settles the job failed by row 10")
         void environmentNameRefused() {
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty(),
-                    job -> Map.of("NAME=VALUE", "x"));
+                    (job, ignoredJobId) -> Map.of("NAME=VALUE", "x"));
             var request = git(30, "ok");
 
             var thrown = assertThrows(IllegalArgumentException.class, () -> runner.start(request));
@@ -768,7 +769,7 @@ class SubprocessJobRunnerTest {
         void cancelBeforeLauncherNotStarted() {
             var cancelled = new AtomicBoolean();
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty(),
-                    job -> {
+                    (job, ignoredJobId) -> {
                         cancelled.set(runner.cancel(jobs.records().getFirst().jobId(), CancelCause.ENGINE_CANCEL));
                         return ENVIRONMENT;
                     });
@@ -784,7 +785,7 @@ class SubprocessJobRunnerTest {
             var cancelled = new AtomicBoolean();
             var failure = new IllegalArgumentException("environment refused");
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty(),
-                    job -> {
+                    (job, ignoredJobId) -> {
                         cancelled.set(runner.cancel(jobs.records().getFirst().jobId(), CancelCause.ENGINE_CANCEL));
                         throw failure;
                     });
@@ -801,7 +802,7 @@ class SubprocessJobRunnerTest {
         void cancelDuringSettlementIsAnsweredFalse() {
             var late = new AtomicReference<Boolean>();
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty(),
-                    job -> {
+                    (job, ignoredJobId) -> {
                         var jobId = jobs.records().getFirst().jobId();
                         // the settlement of the unlaunched job opens its transaction after it has taken the cause of
                         // the cancels and before the job leaves the running jobs: the window of a late cancel
@@ -909,7 +910,7 @@ class SubprocessJobRunnerTest {
                     return refuseSignals ? new Refused(EPERM) : system.signalProcess(pid, signal);
                 }
             };
-            return runner(new TerminationProtocol(signals), request -> Optional.empty(), job -> {
+            return runner(new TerminationProtocol(signals), request -> Optional.empty(), (job, ignoredJobId) -> {
                 if (beforePostSpawn != null) {
                     locks.beforeNextTransaction(beforePostSpawn);
                 }
@@ -1013,7 +1014,7 @@ class SubprocessJobRunnerTest {
                     throw new StackOverflowError("kill(%d) failed".formatted(pid));
                 }
             };
-            runner = runner(new TerminationProtocol(signals), request -> Optional.empty(), job -> {
+            runner = runner(new TerminationProtocol(signals), request -> Optional.empty(), (job, ignoredJobId) -> {
                 locks.beforeNextTransaction(() -> permissions("r-x------"));
                 return ENVIRONMENT;
             });
@@ -1070,7 +1071,7 @@ class SubprocessJobRunnerTest {
         @DisplayName("a parser that throws: the job is settled without its finding, by row 8 for exit 0")
         void parserThrows() throws Exception {
             var failure = new IllegalStateException("the parser failed");
-            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), job -> ENVIRONMENT,
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), (job, ignoredJobId) -> ENVIRONMENT,
                     (kind, output) -> {
                         throw failure;
                     }, request -> Optional.empty());
@@ -1084,7 +1085,7 @@ class SubprocessJobRunnerTest {
         @DisplayName("a parser that fails with an error: the job is settled the same way")
         void parserFailsWithError() throws Exception {
             var failure = new StackOverflowError("a regular expression recursed too deep");
-            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), job -> ENVIRONMENT,
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), (job, ignoredJobId) -> ENVIRONMENT,
                     (kind, output) -> {
                         throw failure;
                     }, request -> Optional.empty());
@@ -1155,7 +1156,7 @@ class SubprocessJobRunnerTest {
         void fallbackFails() throws Exception {
             var failure = new IllegalStateException("the parser failed");
             var lockFailure = new IllegalStateException("the lock manager failed inside the settlement");
-            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), job -> ENVIRONMENT,
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), (job, ignoredJobId) -> ENVIRONMENT,
                     (kind, output) -> {
                         locks.failNextTransaction(lockFailure);
                         throw failure;
@@ -1182,7 +1183,7 @@ class SubprocessJobRunnerTest {
             runner = SubprocessJobRunner.builder().base(fixture.base).lockManager(locks)
                     .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
                     .termination(new TerminationProtocol(ProcessGroupSignals.system()))
-                    .environment(job -> ENVIRONMENT).probeEnvironment(candidate -> ENVIRONMENT)
+                    .environment((job, ignoredJobId) -> ENVIRONMENT).probeEnvironment((candidate, jobId) -> ENVIRONMENT)
                     .parser((kind, output) -> SUCCESS).primitives(request -> Optional.empty())
                     .supervision((name, onFailure, task) -> {
                         throw failure;
@@ -1413,7 +1414,7 @@ class SubprocessJobRunnerTest {
             runner = SubprocessJobRunner.builder().base(fixture.base).lockManager(locks)
                     .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
                     .termination(new TerminationProtocol(ProcessGroupSignals.system()))
-                    .environment(job -> ENVIRONMENT).probeEnvironment(candidate -> ENVIRONMENT)
+                    .environment((job, ignoredJobId) -> ENVIRONMENT).probeEnvironment((candidate, jobId) -> ENVIRONMENT)
                     .parser((kind, output) -> SUCCESS).primitives(request -> Optional.empty())
                     .audit(events::add).build();
             var jobId = JobId.random(JobId.Kind.PROBE);
@@ -1562,7 +1563,7 @@ class SubprocessJobRunnerTest {
         @DisplayName("a cancel answered true decides the fate by its cause although the process exited by itself first")
         void cancelAnsweredBeforeTheExitDecidesTheFate() {
             var cancelled = new AtomicBoolean();
-            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty(), job -> {
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty(), (job, ignoredJobId) -> {
                 var jobId = jobs.records().getFirst().jobId();
                 // The post-spawn write is the first transaction after the launch, before the waiting thread starts: the
                 // report is read and the job lives, so the cancel is answered true; the job is then released, ends by
@@ -1595,7 +1596,7 @@ class SubprocessJobRunnerTest {
         @DisplayName("matched control: a cancel that arrives while the settlement runs is answered false, the exit decides")
         void cancelDuringSettlementIsAnsweredFalse() {
             var late = new AtomicReference<Boolean>();
-            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty(), job -> {
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty(), (job, ignoredJobId) -> {
                 var jobId = jobs.records().getFirst().jobId();
                 // the first hook fires at the post-spawn write and arms the second for the next transaction, which is
                 // the settlement of the ended job, after its cancel door was closed

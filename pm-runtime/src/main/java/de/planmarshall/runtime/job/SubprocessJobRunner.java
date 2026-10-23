@@ -353,9 +353,11 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         this.launcher = Objects.requireNonNull(launcher, "launcher");
         this.termination = Objects.requireNonNull(termination, "termination");
         this.confinementComposer = confinementComposer != null ? confinementComposer
-                : JobConfinementComposer.standard(this.base, Optional.empty());
-        this.environment = Objects.requireNonNull(environment, "environment");
-        this.probeEnvironment = Objects.requireNonNull(probeEnvironment, "probeEnvironment");
+                : JobConfinementComposer.standard(this.base);
+        this.environment = environment != null ? environment
+                : new JobEnvironmentComposer(this.base, Path.of("/tmp"), Path.of("/dev"));
+        this.probeEnvironment = probeEnvironment != null ? probeEnvironment
+                : new JobEnvironmentComposer(this.base, Path.of("/tmp"), Path.of("/dev"));
         this.parser = Objects.requireNonNull(parser, "parser");
         this.primitives = Objects.requireNonNull(primitives, "primitives");
         this.clock = clock == null ? InstantSource.system() : clock;
@@ -378,10 +380,11 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     public interface Environment {
 
         /**
-         * @param job the verified job
+         * @param job   the verified job
+         * @param jobId the id of the job
          * @return the complete environment of the job
          */
-        Map<String, String> of(VerifiedJob job);
+        Map<String, String> of(VerifiedJob job, JobId jobId);
     }
 
     /**
@@ -395,9 +398,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
         /**
          * @param candidate the candidate record of the verified probe
+         * @param jobId     the id of the probe job
          * @return the complete environment of the probe
          */
-        Map<String, String> of(ProbeCandidate candidate);
+        Map<String, String> of(ProbeCandidate candidate, JobId jobId);
     }
 
     /**
@@ -573,8 +577,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 : Optional.<Path>empty();
         var confinement = confinementComposer.forProbe(first.jobId(), checkoutRoot, List.of(),
                 candidate.kind() != ProbeCandidate.Kind.SCRIPT, List.of());
-        return run(job, log -> new Launch(verified.workingDirectory(), verified.argv(), probeEnvironment.of(candidate),
-                Optional.empty(), log, confinement));
+        return run(job, log -> new Launch(verified.workingDirectory(), verified.argv(),
+                probeEnvironment.of(candidate, first.jobId()), Optional.empty(), log, confinement));
     }
 
     /**
@@ -820,7 +824,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         if (job == null) {
             return new JobRunner.StartResult.Started(first.jobId());
         }
-        return run(job, log -> Launch.of(verified, environment.of(verified), request.stdin(), log,
+        return run(job, log -> Launch.of(verified, environment.of(verified, job.latest.jobId()), request.stdin(), log,
                 confinementComposer.forJob(verified.enrolment(), job.latest.jobId(), List.of(), false)));
     }
 
