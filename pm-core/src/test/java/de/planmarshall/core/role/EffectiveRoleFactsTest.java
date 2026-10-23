@@ -120,6 +120,13 @@ class EffectiveRoleFactsTest {
     }
 
     @Test
+    @DisplayName("a non-finite threshold is refused")
+    void nonFiniteThresholdIsRefused() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new RoleArtifact.OffTrackSetting(Double.NaN, RoleArtifact.OffTrackAction.SHOW));
+    }
+
+    @Test
     @DisplayName("an off-track setting outside the signal's bounds is refused")
     void offTrackSettingIsGuarded() {
         var setting = new RoleArtifact.OffTrackSetting(9.0, RoleArtifact.OffTrackAction.SHOW);

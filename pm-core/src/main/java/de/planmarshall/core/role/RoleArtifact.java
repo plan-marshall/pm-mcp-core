@@ -229,6 +229,9 @@ Map<OffTrackSignal, OffTrackSetting> offTrack) {
         /** @throws NullPointerException if the action is {@code null} */
         public OffTrackSetting {
             Objects.requireNonNull(action, "action");
+            if (threshold != null && !Double.isFinite(threshold)) {
+                throw new IllegalArgumentException("a threshold is finite, not " + threshold);
+            }
         }
 
         /**

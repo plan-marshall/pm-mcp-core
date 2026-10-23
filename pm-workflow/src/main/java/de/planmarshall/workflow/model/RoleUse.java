@@ -9,8 +9,10 @@
  */
 package de.planmarshall.workflow.model;
 
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import de.planmarshall.core.role.RoleClass;
 
@@ -62,7 +64,9 @@ public record RoleUse(String stateId, String role, Set<RoleClass> acceptedClasse
     }
 
     /** The classes a {@code consult role} clause admits: every class but {@code zero_tool}. */
-    public static final Set<RoleClass> CONSULTATION_CLASSES = Set.of(RoleClass.WRITER, RoleClass.READ_ONLY);
+    public static final Set<RoleClass> CONSULTATION_CLASSES = Arrays.stream(RoleClass.values())
+            .filter(roleClass -> roleClass != RoleClass.ZERO_TOOL)
+            .collect(Collectors.toUnmodifiableSet());
 
     /**
      * @param entityKind a registered entity kind
