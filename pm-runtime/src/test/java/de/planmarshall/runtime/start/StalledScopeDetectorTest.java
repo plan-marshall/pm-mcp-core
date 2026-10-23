@@ -478,8 +478,9 @@ class StalledScopeDetectorTest {
         var progressed = plan().updatedAt(LAST_PROGRESS.plusSeconds(800)).build();
         fail.set(true);
         var view = View.of(PROJECT, progressed);
+        var failedAt = LAST_PROGRESS.plusSeconds(1_400);
 
-        assertThrows(UncheckedIOException.class, () -> detector.detect(view, LAST_PROGRESS.plusSeconds(1_400)));
+        assertThrows(UncheckedIOException.class, () -> detector.detect(view, failedAt));
         detector.detect(view, LAST_PROGRESS.plusSeconds(1_500));
 
         assertAll(

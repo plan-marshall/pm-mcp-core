@@ -454,8 +454,8 @@ class CredentialStoreMoveResumeTest {
 
             var refusal = assertThrows(CredentialStoreChoice.Refusal.class,
                     () -> choice.record(locks, USER, Store.FILE));
-            var resume = resumeMove();
-            var move = assertThrows(IllegalStateException.class, () -> resume.move(Store.OS));
+            var resumption = resumeMove();
+            var move = assertThrows(IllegalStateException.class, () -> resumption.move(Store.OS));
 
             assertAll(
                     () -> assertEquals(CredentialStoreChoice.Refusal.Reason.ASPECT_OWNED, refusal.reason()),

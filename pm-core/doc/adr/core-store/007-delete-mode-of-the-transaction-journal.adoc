@@ -70,6 +70,6 @@ The operator decided to add the delete mode now (refine, question q1):
 
 * Operator decision q1 of the work package `session-log-and-generations` (refine)
 * Operator decision of 2026-10-13: format versions stay 1 while nothing is released
-* The pull request that carries this ADR
+* link:https://github.com/plan-marshall/pm-mcp-core/pull/148[The pull request that carries this ADR]
 * link:../../../../doc/specification/store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas § Transaction Journal]
 * link:../../../../doc/specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending Entry Record]
