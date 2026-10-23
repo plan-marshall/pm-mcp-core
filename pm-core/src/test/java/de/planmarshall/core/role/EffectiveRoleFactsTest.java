@@ -80,7 +80,7 @@ class EffectiveRoleFactsTest {
         assertAll(
                 () -> assertEquals(120_000, role(RoleFixtures.valid()
                         .set("/context_budget_tokens", 120_000).artifact(), profile(
-                                new HarnessProfile.Resumability(false, null, false, null), 200_000, 3))
+                        new HarnessProfile.Resumability(false, null, false, null), 200_000, 3))
                         .contextBudgetTokens(), "the artifact wins"),
                 () -> assertEquals(200_000, role(artifact, profile(
                         new HarnessProfile.Resumability(false, null, false, null), 200_000, 3))

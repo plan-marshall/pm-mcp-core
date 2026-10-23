@@ -32,7 +32,7 @@ import de.planmarshall.core.role.RoleClass;
  * @since 0.1
  */
 public record ModelJob(Optional<String> scopeId, String stateId, String entityKey, String role, boolean consultation,
-        Set<RoleClass> acceptedClasses) {
+Set<RoleClass> acceptedClasses) {
 
     /**
      * @throws NullPointerException     if a component is {@code null}
