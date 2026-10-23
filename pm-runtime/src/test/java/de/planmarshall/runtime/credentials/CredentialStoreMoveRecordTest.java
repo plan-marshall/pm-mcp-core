@@ -105,9 +105,9 @@ class CredentialStoreMoveRecordTest {
         var wireNames = new HashSet<String>();
 
         for (var operation : Operation.values()) {
-            var record = new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, Phase.COPYING, false, operation,
+            var written = new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, Phase.COPYING, false, operation,
                     TRANSACTION);
-            var read = read(new String(record.write(), StandardCharsets.UTF_8));
+            var read = read(new String(written.write(), StandardCharsets.UTF_8));
 
             assertAll(
                     () -> assertEquals(operation, read.operation()),

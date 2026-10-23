@@ -141,10 +141,8 @@ public final class StalledScopeDetector {
             Objects.requireNonNull(idleSince, "idleSince");
         }
 
-        /** @return the kind of the hold */
-        public String kind() {
-            return "stalled";
-        }
+        /** The kind of every hold this detector opens. */
+        public static final String KIND = "stalled";
     }
 
     /**
