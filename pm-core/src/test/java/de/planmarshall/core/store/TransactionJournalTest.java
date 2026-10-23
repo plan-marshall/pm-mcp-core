@@ -130,6 +130,15 @@ class TransactionJournalTest {
         }
 
         @Test
+        @DisplayName("a journal is written in format version 1")
+        void writtenFormatVersion() {
+            var journal = new TransactionJournal(ID, JournalScopeType.PLAN, "store-substrate", CREATED_AT,
+                    List.of(REPLACE));
+
+            assertTrue(new String(journal.write(), UTF_8).startsWith("{\"format_version\":1,"));
+        }
+
+        @Test
         @DisplayName("a journal is written in the documented field order, a replace with a null size before")
         void writtenShape() {
             var journal = new TransactionJournal(ID, JournalScopeType.PLAN, "store-substrate", CREATED_AT,
@@ -364,13 +373,13 @@ class TransactionJournalTest {
         }
 
         @Test
-        @DisplayName("a journal of version 2, which had no delete target, is refused as outdated")
-        void version2Outdated() {
-            var refusal = assertRefused(Outcome.FORMAT_OUTDATED, document("2", replaceTarget()));
+        @DisplayName("a journal of another version is refused as outdated")
+        void anotherVersionOutdated() {
+            var refusal = assertRefused(Outcome.FORMAT_OUTDATED, document("0", replaceTarget()));
 
             assertAll(
-                    () -> assertEquals(OptionalInt.of(2), refusal.found()),
-                    () -> assertEquals(3, refusal.current()));
+                    () -> assertEquals(OptionalInt.of(0), refusal.found()),
+                    () -> assertEquals(1, refusal.current()));
         }
 
         @Test

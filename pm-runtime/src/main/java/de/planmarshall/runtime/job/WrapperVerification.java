@@ -42,14 +42,13 @@ import de.planmarshall.runtime.job.JobRefusal.Reason;
 class WrapperVerification {
 
     /**
-     * @param projectId        the project
      * @param enrolment        the verified enrolment of the project
      * @param workingDirectory the canonical working directory of the job, the root of the verified tree
      * @param name             the wrapper the job runs
      * @return the absolute path of the verified wrapper, or the refusal
      * @throws UncheckedIOException if a file exists and cannot be read
      */
-    static VerifyNotResolvePipeline.Stage<Path> verify(String projectId, ProjectEnrolment enrolment,
+    static VerifyNotResolvePipeline.Stage<Path> verify(ProjectEnrolment enrolment,
             Path workingDirectory, WrapperName name) {
         Objects.requireNonNull(workingDirectory, "workingDirectory");
         var enrolled = enrolment.wrappers().stream().filter(wrapper -> wrapper.name() == name).findFirst();

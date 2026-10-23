@@ -287,7 +287,7 @@ final class PortedFixtures {
                 String[] fixtures = body.substring(arrow + " -> ".length()).strip().split(" ");
                 try {
                     entry = new RosterEntry(Set.of(fixtures), "");
-                } catch (IllegalArgumentException duplicate) {
+                } catch (IllegalArgumentException _) {
                     throw refusal(ROSTER, index + 1, "maps the case to a duplicate fixture: " + line);
                 }
             } else if (excluded > 0) {

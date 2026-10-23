@@ -9,7 +9,6 @@
  */
 package de.planmarshall.runtime.job;
 
-import static de.planmarshall.runtime.job.JobEnrolmentFixture.PROJECT;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_BINDING;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_ID;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_PATH;
@@ -70,7 +69,7 @@ class ExecutableCheckTest {
     }
 
     private VerifyNotResolvePipeline.Stage<List<String>> check(ProjectEnrolment checked, JobRequest.Target target) {
-        return ExecutableCheck.check(PROJECT, checked, fixture.root, target);
+        return ExecutableCheck.check(checked, fixture.root, target);
     }
 
     private List<String> passed(ProjectEnrolment checked, JobRequest.Target target) {
