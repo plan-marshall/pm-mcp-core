@@ -889,6 +889,23 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/EnrolmentSide
 
 Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#integrity[Concepts § Enrolment, Integrity], link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#residual-risk[Concepts § Enrolment, Residual Risk], link:../../plan-marshall-documentation/doc/developer/enrolment-store.adoc#integrity-key[Developer Guide § Enrolment Store, The Integrity Key], link:../pm-runtime/doc/developer/runtime-enrolment.adoc[Developer Guide § Integrity Key and Sidecars (`runtime.enrolment`)], link:../pm-runtime/doc/developer/runtime-credentials.adoc#_the_first_recording_reconciles_the_key_of_both_stores[Developer Guide § The First Recording Reconciles the Key of Both Stores (`runtime.credentials`)], link:../pm-runtime/doc/adr/runtime-credentials/007-the-first-recording-reconciles-both-stores.adoc[ADR runtime-credentials/007]
 
+Implementation (the runtime side of the confinement and the job environment: the write set, the extra read paths and the read-denied paths composed from the verified enrolment and passed to `pm-exec` as `--write`/`--read`/`--deny-read`; the per-project daemon store keyed by the first 16 hex characters of the SHA-256 over the sorted write set; the container-engine opt-in withholding the container variables and denying the engine's sockets without it; the session bus socket denied and its variables never passed; the environment table built from scratch per job kind and the probe environment; and the worker egress proxy with its `headless.endpoints` allowlist and `egress_refused` audit record. The Landlock and Seatbelt enforcement, the network namespace and the egress tunnel enforcement are `pm-exec` work in `pm-mcp-clients` and are not implemented here; the `egress` field of the job record is not implemented here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobConfinement.java[JobConfinement],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobConfinementComposer.java[JobConfinementComposer],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/BuildDaemonStore.java[BuildDaemonStore],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobEnvironmentComposer.java[JobEnvironmentComposer],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/WorkerEgressProxy.java[WorkerEgressProxy],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/PmExecLauncher.java[PmExecLauncher],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java[SubprocessJobRunner],
+link:../pm-core/src/main/java/de/planmarshall/core/service/AuditEvent.java[AuditEvent]
+
+Verified by (the confinement and the environment): link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/JobConfinementTest.java[JobConfinementTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/JobConfinementComposerTest.java[JobConfinementComposerTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/BuildDaemonStoreTest.java[BuildDaemonStoreTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/JobEnvironmentComposerTest.java[JobEnvironmentComposerTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/WorkerEgressProxyTest.java[WorkerEgressProxyTest]
+
+Documentation (the confinement and the environment): link:../pm-runtime/doc/developer/runtime-job.adoc#_confinement_and_environment[Developer Guide § Confinement and Job Environment (`runtime.job`)], link:../pm-runtime/doc/adr/runtime-job/014-confinement-and-environment-composed-outside-the-launcher.adoc[ADR runtime-job/014]
+
 == link:../../plan-marshall-documentation/doc/requirements/09-technology.adoc[Technology]
 
 [#PM-TECH-3]

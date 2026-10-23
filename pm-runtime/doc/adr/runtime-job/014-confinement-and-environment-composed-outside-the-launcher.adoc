@@ -1,0 +1,73 @@
+= ADR 014: The Confinement and the Job Environment Are Composed Here, Applied by the Launcher
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-23
+
+== Context
+
+The job runtime specification puts the filesystem confinement, the build daemon store, the container-engine opt-in and
+the job environment in the runtime's step at job start, and the enforcement in the launcher `pm-exec`, a binary of
+`pm-mcp-clients` outside this repository. The runtime must compose the read and write sets, the denied paths and the
+environment from the project's verified enrolment; the launcher applies them and reports the confinement it achieved.
+
+The existing `PmExecLauncher` started `pm-exec -- <argv>` with no confinement options, and the runner's `Environment`
+seam received only a `VerifiedJob`, which carries neither the job id nor the job kind. The environment table names
+values that depend on both (the daemon store, the worker's data directory, the job id).
+
+== Decision
+
+* `JobConfinement` is the runtime's confinement value: the write set, the extra read paths and the read-denied paths,
+  rendered as the `--write`, `--read` and `--deny-read` options of the launcher. `PmExecLauncher.Launch` carries it, and
+  the launcher's command line is its absolute path, the options, `--` and the verified vector.
+* `JobConfinementComposer` composes it from the enrolment and the job id at job start. The write set is the project
+  root, the enrolment's `write_paths`, the system temporary directory and the device nodes; a `build` or
+  `project_script` job and a hook-running `git` job add the project's daemon store; a `ci` job adds its CLI
+  configuration directories; a worker adds its profile's writable sub-paths and its `data/` directory; a probe adds the
+  checkout root and caches of a script. The base directory is denied and writable only as the daemon store and a
+  worker's data directory. The session bus socket and, without the opt-in, the container engine's sockets are denied.
+* `SubprocessJobRunner` composes the confinement for every job and probe it launches and passes it through
+  `PmExecLauncher.Launch`. A caller that supplies none keeps today's behaviour (`JobConfinement.none()`).
+* `JobEnvironmentComposer` composes the environment of a job kind from the enrolment and runtime values, and the
+  environment of a probe from the probed executable and its interpreter. It is a concrete class beside the runner's
+  `Environment`/`ProbeEnvironment` seams, which stay the caller's; the assembly wires it.
+* `BuildDaemonStore` computes `<base>/projects/<project_id>/daemons/<digest>/` from the write set before the store is
+  added, so the digest is not self-referential, and names the `mvnd` and Gradle registry arguments.
+* `WorkerEgressProxy` is the runtime's HTTP `CONNECT` proxy, one per worker generation, with the destination allowlist
+  of the profile's `headless.endpoints` and the `egress_refused` audit record.
+
+Enforcement is not claimed here: on a platform whose launcher applies no ruleset the launch report says
+`confinement: unavailable`. The macOS Seatbelt profile, the network namespace and the egress tunnel enforcement are
+`pm-exec` work in `pm-mcp-clients` and remain owed to that repository.
+
+== Alternatives Considered
+
+1. *Put the composition in the assembly.* _Rejected_: the composition reads the verified enrolment and the job id,
+   both of which the runner owns at launch; duplicating that knowledge in the assembly would let the two drift.
+2. *Extend the `Environment` seam with the job id and kind.* _Rejected_: the seam is the caller's allowlist and is
+   implemented by tests and the assembly; a concrete composer with its own signature keeps that seam unchanged and
+   leaves the choice of wiring to the caller.
+3. *Let the launcher compute the sets from the enrolment.* _Rejected_: the launcher may not read a project's
+   enrolment; the runtime passes the sets as an argument vector, so an enrolment change takes effect for the next job.
+
+== Consequences
+
+* Every job the runner launches now carries the confinement options; a launcher that does not understand them refuses
+  the invocation, which is a visible deployment mismatch rather than a silent unconfined job.
+* A daemon store's digest changes when the write set changes, so a new enrolment gets a new store and its own daemons.
+* The environment composer's `PATH` is built from the enrolled host tools; a project whose tool is not enrolled has no
+  directory for it and the job fails with the tool's own error.
+* The macOS and network-namespace enforcement remain untested and unimplemented here; the package's acceptance for
+  those clauses is owed to `pm-mcp-clients`.
+
+== Source
+
+* Work package: PLAN-27 `job-confinement-and-environment`
+* link:../../../../doc/specification/job-runtime/02-confinement-and-environment.adoc[Job Runtime § Linux Filesystem Confinement, Build Daemons, Container Engine, Session Bus, Probe Jobs, Worker Egress Proxy, Job Environment]
+* link:../developer/runtime-job.adoc#_confinement_and_environment[Job Runtime Developer Guide § Confinement and Job Environment]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/job/JobConfinement.java`, `JobConfinementComposer.java`, `BuildDaemonStore.java`, `JobEnvironmentComposer.java`, `WorkerEgressProxy.java`, `PmExecLauncher.java`, `SubprocessJobRunner.java`
