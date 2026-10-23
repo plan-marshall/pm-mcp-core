@@ -39,6 +39,7 @@ import java.util.regex.Pattern;
 public final class ShippedRoles {
 
     private static final String DIRECTORY = "roles";
+    private static final String SUFFIX = ".json";
     private static final String RESERVED = "default-assignment";
     private static final Pattern ROLE_NAME = Pattern.compile("^[a-z][a-z0-9-]{1,31}$");
 
@@ -88,7 +89,7 @@ public final class ShippedRoles {
         try (var entries = Files.list(directory)) {
             for (var entry : entries.sorted().toList()) {
                 var name = entry.getFileName().toString();
-                if (Files.isRegularFile(entry) && name.endsWith(".json")) {
+                if (Files.isRegularFile(entry) && name.endsWith(SUFFIX)) {
                     add(name, Files.readAllBytes(entry), documents);
                 }
             }
@@ -105,7 +106,7 @@ public final class ShippedRoles {
         while (entries.hasMoreElements()) {
             var entry = entries.nextElement();
             var name = entry.getName();
-            if (entry.isDirectory() || !name.startsWith(prefix) || !name.endsWith(".json")) {
+            if (entry.isDirectory() || !name.startsWith(prefix) || !name.endsWith(SUFFIX)) {
                 continue;
             }
             var relative = name.substring(prefix.length());
@@ -122,7 +123,7 @@ public final class ShippedRoles {
     }
 
     private static void add(String fileName, byte[] document, Map<String, byte[]> documents) {
-        var name = fileName.substring(0, fileName.length() - ".json".length());
+        var name = fileName.substring(0, fileName.length() - SUFFIX.length());
         if (RESERVED.equals(name)) {
             return;
         }

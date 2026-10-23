@@ -12,6 +12,7 @@ package de.planmarshall.core.role;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -32,15 +33,21 @@ import de.planmarshall.core.profile.EnrolledHarness;
  */
 public final class RoleValidation {
 
-    /** The PM-MCP tools every role of the class names (PM-WORK-1, Tool Sets). */
-    private static final Set<String> REQUIRED_TOOLS = Set.of("pm_wait", "pm_state", "pm_do", "pm_skill",
-            "pm_skill_file");
+    /** The PM-MCP tools every role names (PM-WORK-1, Tool Sets). */
+    private static final String PM_WAIT = "pm_wait";
+    private static final String PM_STATE = "pm_state";
+    private static final String PM_DO = "pm_do";
+    private static final String PM_SKILL = "pm_skill";
+    private static final String PM_SKILL_FILE = "pm_skill_file";
+    private static final String PM_BUILD = "pm_build";
+    private static final String PM_LSP = "pm_lsp";
 
-    private static final Set<String> WRITER_TOOLS = Set.of("pm_wait", "pm_state", "pm_do", "pm_skill", "pm_skill_file",
-            "pm_build", "pm_lsp");
+    private static final Set<String> REQUIRED_TOOLS = Set.of(PM_WAIT, PM_STATE, PM_DO, PM_SKILL, PM_SKILL_FILE);
 
-    private static final Set<String> READ_ONLY_TOOLS = Set.of("pm_wait", "pm_state", "pm_do", "pm_skill", "pm_skill_file",
-            "pm_lsp");
+    private static final Set<String> WRITER_TOOLS = Set.of(PM_WAIT, PM_STATE, PM_DO, PM_SKILL, PM_SKILL_FILE, PM_BUILD,
+            PM_LSP);
+
+    private static final Set<String> READ_ONLY_TOOLS = Set.of(PM_WAIT, PM_STATE, PM_DO, PM_SKILL, PM_SKILL_FILE, PM_LSP);
 
     /** Harness tools that no role may name: they start a sub-agent, ask the user, or reach the web. */
     private static final Set<String> FORBIDDEN_TOOLS = Set.of("agent", "task", "spawn_agent", "webfetch", "websearch",
@@ -50,10 +57,26 @@ public final class RoleValidation {
     }
 
     /**
+     * The three effective values a role is validated with.
+     *
+     * @param harness the effective harness
+     * @param model   the effective model
+     * @param effort  the effective effort
+     * @since 0.1
+     */
+    public record Values(String harness, String model, EffortValue effort) {
+
+        /** Rejects {@code null} components. */
+        public Values {
+            Objects.requireNonNull(harness, "harness");
+            Objects.requireNonNull(model, "model");
+            Objects.requireNonNull(effort, "effort");
+        }
+    }
+
+    /**
      * @param artifact    the validated artifact
-     * @param harness     the effective harness
-     * @param model       the effective model
-     * @param effort      the effective effort
+     * @param values      the effective harness, model and effort
      * @param profile     the facts of the harness's profile, or empty when no profile has the harness
      * @param enrolled    the enrolled build of the harness, or empty when it is not enrolled
      * @param catalogue   the effective model catalogue
@@ -62,9 +85,12 @@ public final class RoleValidation {
      * @return the resolved skills of the role
      * @throws RoleRefusal with the reason of the failing row of the table
      */
-    public static List<RoleSkill> check(RoleArtifact artifact, String harness, String model, EffortValue effort,
-            Optional<HarnessProfile> profile, Optional<EnrolledHarness> enrolled, Optional<ModelCatalogue> catalogue,
-            RoleEnvironment environment, boolean steward) {
+    public static List<RoleSkill> check(RoleArtifact artifact, Values values, Optional<HarnessProfile> profile,
+            Optional<EnrolledHarness> enrolled, Optional<ModelCatalogue> catalogue, RoleEnvironment environment,
+            boolean steward) {
+        var harness = values.harness();
+        var model = values.model();
+        var effort = values.effort();
         var facts = profile.orElseThrow(() -> invalid(RoleValidationReason.HARNESS_UNKNOWN, artifact,
                 "no client profile has the client id '%s'".formatted(harness)));
         enrolled.orElseThrow(() -> invalid(RoleValidationReason.HARNESS_UNKNOWN, artifact,
@@ -147,19 +173,23 @@ public final class RoleValidation {
         }
         var askUser = profile.askUserTool() == null ? "" : profile.askUserTool();
         for (var tool : tools) {
-            if (tool.equals(askUser)) {
-                throw invalid(RoleValidationReason.TOOL_NOT_PERMITTED, artifact,
-                        "the role names the tool that asks the user, '%s'".formatted(tool));
-            }
-            if (FORBIDDEN_TOOLS.contains(tool.toLowerCase(Locale.ROOT))) {
-                throw invalid(RoleValidationReason.TOOL_NOT_PERMITTED, artifact,
-                        "the role names the forbidden harness tool '%s'".formatted(tool));
-            }
-            if (tool.startsWith("pm_") && !allowed.contains(tool)) {
-                throw invalid(RoleValidationReason.TOOL_NOT_PERMITTED, artifact,
-                        "the PM-MCP tool '%s' is outside the %s tool set"
-                                .formatted(tool, artifact.roleClass().wireName()));
-            }
+            requirePermitted(artifact, tool, allowed, askUser);
+        }
+    }
+
+    private static void requirePermitted(RoleArtifact artifact, String tool, Set<String> allowed, String askUser) {
+        if (tool.equals(askUser)) {
+            throw invalid(RoleValidationReason.TOOL_NOT_PERMITTED, artifact,
+                    "the role names the tool that asks the user, '%s'".formatted(tool));
+        }
+        if (FORBIDDEN_TOOLS.contains(tool.toLowerCase(Locale.ROOT))) {
+            throw invalid(RoleValidationReason.TOOL_NOT_PERMITTED, artifact,
+                    "the role names the forbidden harness tool '%s'".formatted(tool));
+        }
+        if (tool.startsWith("pm_") && !allowed.contains(tool)) {
+            throw invalid(RoleValidationReason.TOOL_NOT_PERMITTED, artifact,
+                    "the PM-MCP tool '%s' is outside the %s tool set"
+                            .formatted(tool, artifact.roleClass().wireName()));
         }
     }
 

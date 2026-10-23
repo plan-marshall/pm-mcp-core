@@ -103,7 +103,7 @@ final class RoleFixtures {
      * @return the enrolled build of that harness
      */
     static EnrolledHarness enrolled(String clientId, String version) {
-        return new EnrolledHarness("acme", version, "sha256:" + "0".repeat(64));
+        return new EnrolledHarness(clientId, version, "sha256:" + "0".repeat(64));
     }
 
     /** @return the enrolled build of the base harness */

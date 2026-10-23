@@ -149,7 +149,7 @@ String askUserTool) {
                 worker.member("eligible").flatMap(JsonNode::booleanValue).orElse(false),
                 declared, restrictedModels, classes, efforts(headless), tiers(headless),
                 headless.isNull() ? null : integer(headless, "context_budget_tokens"),
-                worker.member("idle_wakeups").filter(value -> value.isInteger()).map(value -> (int) value
+                worker.member("idle_wakeups").filter(JsonNode::isInteger).map(value -> (int) value
                         .integerValue().orElse(0)).orElse(null),
                 resumability(headless),
                 document.member("tools").flatMap(tools -> tools.member("ask_user")).flatMap(JsonNode::text).orElse(""));
@@ -217,7 +217,7 @@ String askUserTool) {
     }
 
     private static Integer integer(JsonNode node, String member) {
-        return node.member(member).filter(value -> value.isInteger()).map(value -> (int) value.integerValue()
+        return node.member(member).filter(JsonNode::isInteger).map(value -> (int) value.integerValue()
                 .orElse(0)).orElse(null);
     }
 }

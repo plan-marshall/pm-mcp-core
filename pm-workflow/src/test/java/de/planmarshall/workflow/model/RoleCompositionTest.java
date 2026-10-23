@@ -45,7 +45,7 @@ class RoleCompositionTest {
     void writerOnTaskComposes() {
         var composition = composition(Map.of("implement", role(RoleClass.WRITER, RoleForm.FRESH)));
 
-        assertDoesNotThrow(() -> composition.check(List.of(RoleUse.forModelJob(STATE, "task", "implement"))));
+        composes(composition, RoleUse.forModelJob(STATE, "task", "implement"));
     }
 
     @Test
@@ -53,7 +53,7 @@ class RoleCompositionTest {
     void writerOnEnvelopeComposes() {
         var composition = composition(Map.of("implement", role(RoleClass.WRITER, RoleForm.FRESH)));
 
-        assertDoesNotThrow(() -> composition.check(List.of(RoleUse.forModelJob(STATE, "envelope", "implement"))));
+        composes(composition, RoleUse.forModelJob(STATE, "envelope", "implement"));
     }
 
     @Test
@@ -61,7 +61,7 @@ class RoleCompositionTest {
     void zeroToolOnJudgeKindComposes() {
         var composition = composition(Map.of("judge", role(RoleClass.ZERO_TOOL, RoleForm.FRESH)));
 
-        assertDoesNotThrow(() -> composition.check(List.of(RoleUse.forModelJob(STATE, "zero_tool", "judge"))));
+        composes(composition, RoleUse.forModelJob(STATE, "zero_tool", "judge"));
     }
 
     @Test
@@ -69,7 +69,7 @@ class RoleCompositionTest {
     void zeroToolOnDecisionComposes() {
         var composition = composition(Map.of("judge", role(RoleClass.ZERO_TOOL, RoleForm.FRESH)));
 
-        assertDoesNotThrow(() -> composition.check(List.of(RoleUse.forModelJob(STATE, "decision", "judge"))));
+        composes(composition, RoleUse.forModelJob(STATE, "decision", "judge"));
     }
 
     @Test
@@ -77,8 +77,7 @@ class RoleCompositionTest {
     void writerOnDecisionMismatches() {
         var composition = composition(Map.of("implement", role(RoleClass.WRITER, RoleForm.FRESH)));
 
-        var refusal = assertThrows(CompositionRefusal.class,
-                () -> composition.check(List.of(RoleUse.forModelJob(STATE, "decision", "implement"))));
+        var refusal = refused(composition, RoleUse.forModelJob(STATE, "decision", "implement"));
 
         assertAll(
                 () -> assertEquals(CompositionRefusal.Reason.CLASS_MISMATCH, refusal.reason()),
@@ -90,8 +89,7 @@ class RoleCompositionTest {
     void readOnlyOnEnvelopeMismatches() {
         var composition = composition(Map.of("review-code", role(RoleClass.READ_ONLY, RoleForm.FRESH)));
 
-        var refusal = assertThrows(CompositionRefusal.class,
-                () -> composition.check(List.of(RoleUse.forModelJob(STATE, "envelope", "review-code"))));
+        var refusal = refused(composition, RoleUse.forModelJob(STATE, "envelope", "review-code"));
 
         assertAll(
                 () -> assertEquals(CompositionRefusal.Reason.CLASS_MISMATCH, refusal.reason()),
@@ -103,7 +101,7 @@ class RoleCompositionTest {
     void zeroToolOnScreenComposes() {
         var composition = composition(Map.of("screener", role(RoleClass.ZERO_TOOL, RoleForm.FRESH)));
 
-        assertDoesNotThrow(() -> composition.check(List.of(RoleUse.forModelJob(STATE, "screen", "screener"))));
+        composes(composition, RoleUse.forModelJob(STATE, "screen", "screener"));
     }
 
     @Test
@@ -111,7 +109,7 @@ class RoleCompositionTest {
     void readOnlyOnDecisionComposes() {
         var composition = composition(Map.of("triage-review", role(RoleClass.READ_ONLY, RoleForm.FRESH)));
 
-        assertDoesNotThrow(() -> composition.check(List.of(RoleUse.forModelJob(STATE, "decision", "triage-review"))));
+        composes(composition, RoleUse.forModelJob(STATE, "decision", "triage-review"));
     }
 
     @Test
@@ -119,8 +117,7 @@ class RoleCompositionTest {
     void readOnlyOnTaskMismatches() {
         var composition = composition(Map.of("review-code", role(RoleClass.READ_ONLY, RoleForm.FRESH)));
 
-        var refusal = assertThrows(CompositionRefusal.class,
-                () -> composition.check(List.of(RoleUse.forModelJob(STATE, "task", "review-code"))));
+        var refusal = refused(composition, RoleUse.forModelJob(STATE, "task", "review-code"));
 
         assertAll(
                 () -> assertEquals(CompositionRefusal.Reason.CLASS_MISMATCH, refusal.reason()),
@@ -135,8 +132,7 @@ class RoleCompositionTest {
     void absentRoleIsUndefined() {
         var composition = composition(Map.of());
 
-        var refusal = assertThrows(CompositionRefusal.class,
-                () -> composition.check(List.of(RoleUse.forModelJob(STATE, "task", "implement"))));
+        var refusal = refused(composition, RoleUse.forModelJob(STATE, "task", "implement"));
 
         assertAll(
                 () -> assertEquals(CompositionRefusal.Reason.ROLE_UNDEFINED, refusal.reason()),
@@ -152,8 +148,7 @@ class RoleCompositionTest {
                 Optional.of(RoleValidationReason.MODEL_NOT_ALLOWED), "the catalogue does not allow the model");
         var composition = new RoleComposition(resolver);
 
-        var refusal = assertThrows(CompositionRefusal.class,
-                () -> composition.check(List.of(RoleUse.forModelJob(STATE, "task", "implement"))));
+        var refusal = refused(composition, RoleUse.forModelJob(STATE, "task", "implement"));
 
         assertAll(
                 () -> assertEquals(CompositionRefusal.Reason.ROLE_UNDEFINED, refusal.reason()),
@@ -166,8 +161,7 @@ class RoleCompositionTest {
     void consultedZeroToolMismatches() {
         var composition = composition(Map.of("screener", role(RoleClass.ZERO_TOOL, RoleForm.FRESH)));
 
-        var refusal = assertThrows(CompositionRefusal.class,
-                () -> composition.check(List.of(RoleUse.forConsultation(STATE, "screener"))));
+        var refusal = refused(composition, RoleUse.forConsultation(STATE, "screener"));
 
         assertAll(
                 () -> assertEquals(CompositionRefusal.Reason.CLASS_MISMATCH, refusal.reason()),
@@ -179,7 +173,17 @@ class RoleCompositionTest {
     void consultedReadOnlyComposes() {
         var composition = composition(Map.of("architecture", role(RoleClass.READ_ONLY, RoleForm.FRESH)));
 
-        assertDoesNotThrow(() -> composition.check(List.of(RoleUse.forConsultation(STATE, "architecture"))));
+        composes(composition, RoleUse.forConsultation(STATE, "architecture"));
+    }
+
+    private static void composes(RoleComposition composition, RoleUse use) {
+        var uses = List.of(use);
+        assertDoesNotThrow(() -> composition.check(uses));
+    }
+
+    private static CompositionRefusal refused(RoleComposition composition, RoleUse use) {
+        var uses = List.of(use);
+        return assertThrows(CompositionRefusal.class, () -> composition.check(uses));
     }
 
     private static RoleComposition composition(Map<String, EffectiveRole> roles) {

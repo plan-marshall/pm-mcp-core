@@ -177,8 +177,8 @@ class RoleArtifactValidatorTest {
     @Test
     @DisplayName("the name must equal the file name")
     void nameMustEqualFileName() {
-        var refusal = assertThrows(RoleRefusal.class,
-                () -> RoleArtifactValidator.validate(RoleFixtures.validBytes(), "review-code"));
+        var document = RoleFixtures.validBytes();
+        var refusal = assertThrows(RoleRefusal.class, () -> RoleArtifactValidator.validate(document, "review-code"));
 
         assertAll(
                 () -> assertEquals(RoleValidationReason.SCHEMA_INVALID, refusal.reason()),

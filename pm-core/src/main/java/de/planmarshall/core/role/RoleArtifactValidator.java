@@ -34,6 +34,7 @@ import de.planmarshall.core.profile.ProfileRefusal;
  *
  * @since 0.1
  */
+@SuppressWarnings("java:S1192") // the member names are the schema's own strings, set members and pointer segments alike
 public final class RoleArtifactValidator {
 
     /** The one format version a role artifact declares. */
@@ -58,8 +59,10 @@ public final class RoleArtifactValidator {
     private static final Pattern ROLE_NAME = Pattern.compile("^[a-z][a-z0-9-]{1,31}$");
     private static final Pattern CLIENT_ID = Pattern.compile("^[a-z][a-z0-9-]{0,31}$");
     private static final Pattern TOOL = Pattern.compile("^[A-Za-z][A-Za-z0-9_.-]{0,63}$");
-    private static final Pattern SKILL_URI = Pattern.compile(
-            "^skill://pm/[a-z0-9][a-z0-9_-]*(/[a-z0-9][a-z0-9_-]*)*/SKILL\\.md$");
+    private static final Pattern SKILL_URI = Pattern.compile("^skill://pm/[a-z0-9][a-z0-9_/-]*/SKILL\\.md$");
+    private static final Pattern SKILL_SEGMENT = Pattern.compile("[a-z0-9][a-z0-9_-]*");
+    private static final String SKILL_PREFIX = "skill://pm/";
+    private static final String SKILL_SUFFIX = "/SKILL.md";
 
     private static final Map<String, RoleArtifact.OffTrackSignal> SIGNALS = signals();
 
@@ -199,6 +202,12 @@ public final class RoleArtifactValidator {
                 var skill = string(elements.get(index), "/skills/" + index, "skills[" + index + "]", 256);
                 if (!SKILL_URI.matcher(skill).matches()) {
                     throw invalid("/skills/" + index, "not a skill URI: '%s'".formatted(skill));
+                }
+                var path = skill.substring(SKILL_PREFIX.length(), skill.length() - SKILL_SUFFIX.length());
+                for (var segment : path.split("/", -1)) {
+                    if (!SKILL_SEGMENT.matcher(segment).matches()) {
+                        throw invalid("/skills/" + index, "not a skill URI: '%s'".formatted(skill));
+                    }
                 }
                 if (!seen.add(skill)) {
                     throw invalid("/skills/" + index, "the skill '%s' occurs twice".formatted(skill));

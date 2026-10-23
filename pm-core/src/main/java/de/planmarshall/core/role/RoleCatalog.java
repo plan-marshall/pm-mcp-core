@@ -36,7 +36,7 @@ public final class RoleCatalog {
     /** The shipped role that scores a rubric item of the role grading. */
     public static final String JUDGE = "judge";
 
-    private static final Pattern VERSION_PART = Pattern.compile("[0-9]+");
+    private static final Pattern VERSION_PART = Pattern.compile("\\d+");
 
     private final RoleSets sets;
     private final RoleEnvironment environment;
@@ -112,8 +112,8 @@ public final class RoleCatalog {
         var enrolled = environment.enrolledHarness(harness);
         var catalogue = environment.projectCatalogue().or(environment::machineCatalogue);
         try {
-            var skills = RoleValidation.check(artifact, harness, model, effort, profile, enrolled, catalogue,
-                    environment, steward);
+            var skills = RoleValidation.check(artifact, new RoleValidation.Values(harness, model, effort), profile,
+                    enrolled, catalogue, environment, steward);
             var facts = profile.orElseThrow();
             var version = majorMinor(enrolled.orElseThrow().version());
             var weights = environment.weightsIdentity(harness, model);

@@ -143,9 +143,10 @@ class RoleValidationTableTest {
     void refuses(RoleArtifact artifact, Optional<HarnessProfile> profile, Optional<EnrolledHarness> enrolled,
             Optional<ModelCatalogue> catalogue, RoleEnvironment environment, boolean steward,
             RoleValidationReason expected, String why) {
+        var effort = artifact.effort();
+        var values = new RoleValidation.Values(RoleFixtures.HARNESS, RoleFixtures.MODEL, effort);
         var refusal = assertThrows(RoleRefusal.class,
-                () -> RoleValidation.check(artifact, RoleFixtures.HARNESS, RoleFixtures.MODEL, artifact.effort(),
-                        profile, enrolled, catalogue, environment, steward), why);
+                () -> RoleValidation.check(artifact, values, profile, enrolled, catalogue, environment, steward), why);
 
         assertEquals(expected, refusal.reason(), why);
     }
@@ -166,7 +167,7 @@ class RoleValidationTableTest {
 
     private static List<RoleSkill> check(RoleArtifact artifact, HarnessProfile profile, ModelCatalogue catalogue,
             EffortValue effort, RoleEnvironment environment, boolean steward) {
-        return RoleValidation.check(artifact, RoleFixtures.HARNESS, RoleFixtures.MODEL, effort,
+        return RoleValidation.check(artifact, new RoleValidation.Values(RoleFixtures.HARNESS, RoleFixtures.MODEL, effort),
                 Optional.of(profile), Optional.of(RoleFixtures.enrolled()), Optional.of(catalogue), environment,
                 steward);
     }

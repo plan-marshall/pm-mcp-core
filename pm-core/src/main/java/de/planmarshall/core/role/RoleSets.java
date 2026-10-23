@@ -10,9 +10,11 @@
 package de.planmarshall.core.role;
 
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * The three role sets of a machine and a project (PM-WORK-1, Role Sets &amp; Precedence): what the release ships, what the
@@ -37,15 +39,41 @@ public record RoleSets(Map<String, ShippedRole> shipped, Path machineDirectory, 
     /**
      * One shipped role. The release compiles the document, so it is trusted without a record of the installation; the
      * build test validates it.
+     * <p>
+     * A class rather than a record: the document is an array, whose identity equality a record would inherit, and two
+     * shipped documents with the same bytes are the same role.
      *
-     * @param document the role document, UTF-8 encoded
      * @since 0.1
      */
-    public record ShippedRole(byte[] document) {
+    public static final class ShippedRole {
 
-        /** Copies the document. */
-        public ShippedRole {
-            document = document.clone();
+        private final byte[] document;
+
+        /**
+         * @param document the role document, UTF-8 encoded
+         */
+        public ShippedRole(byte[] document) {
+            this.document = Objects.requireNonNull(document, "document").clone();
+        }
+
+        /** @return a copy of the role document, UTF-8 encoded */
+        public byte[] document() {
+            return document.clone();
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof ShippedRole role && Arrays.equals(document, role.document);
+        }
+
+        @Override
+        public int hashCode() {
+            return Arrays.hashCode(document);
+        }
+
+        @Override
+        public String toString() {
+            return "ShippedRole[%d bytes]".formatted(document.length);
         }
     }
 
