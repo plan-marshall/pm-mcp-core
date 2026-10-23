@@ -3,7 +3,7 @@
   "slug": "spec-coverage-pass",
   "workstream": "WS-10",
   "status": "staged",
-  "lane": "plan-marshall",
+  "lane": "runbook",
   "plan_marshall_plan_id": "",
   "pr": "",
   "landing": "",
