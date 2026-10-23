@@ -115,6 +115,7 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Dependencies and Sequencing
 
+- After #150 (`ac34703`, 2026-10-23): `icon` is a required key of every unit's frontmatter (`UnitFrontmatter` carries `String icon` after `type`; grammar `[a-z][a-z0-9._-]{0,63}`, no `..` segment; the printer prints it after `type`; `PlanUnitMerger` and `PlanInstanceComposer` keep the icon of the part or template they merge or compose; format 1, no compatibility path). Every unit this plan writes or restructures (the six phase sub-workflows, `plan.pmwf`, `land.pmwf`) and every fixture or inline unit of its tests carries an `icon:` line. The default units live in `plan-marshall-mcp`, and their `icon:` lines wait for its package `default-units-and-drift-tests` (`blocked`): the clause that runs the verifier and the fuzzer over the default units needs that package. The `workflow-dsl` ADR directory exists (ADRs 001 to 008): the next free number is 009 against `origin/main` (R11).
 - Depends on: PLAN-42 (`operator-wait-and-machine-scope`)
 - Blocks: PLAN-50 (`recipe-workflows`); PLAN-55 (`chat`); PLAN-62 (`process-designer`); PLAN-67 (`process-and-overview`)
 - Restructures: the flat plan unit of PLAN-13, PLAN-17 and PLAN-24; Rule 7's depth limit of PLAN-41

@@ -114,6 +114,7 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Dependencies and Sequencing
 
+- After #150 (`ac34703`, 2026-10-23): `icon` is a required key of every unit's frontmatter (grammar `[a-z][a-z0-9._-]{0,63}`, no `..` segment, format 1). Every `.pmwf` fixture and inline unit this plan adds to the DSL, parser, printer and engine tests carries an `icon:` line, and the printer prints it after `type`; `UnitFrontmatterReader`, `WorkflowPrinter` and the DSL tests it extends were changed by that PR, so read them at the head of `main`. The `workflow-dsl` ADR directory exists (ADRs 001 to 008), not new as the Expected Surface hypothesis says: the next free number is 009 against `origin/main` (R11).
 - Depends on: PLAN-28 (`task-queue-and-protocol`); PLAN-30 (`supervisor`); PLAN-29 (`worker-launch`); PLAN-26 (`role-sets-and-model-caller`); `plan-marshall-mcp` / `question-loop-verification`
 - Blocks: PLAN-35 (`supervision-scenarios`)
 - Overlaps with: computed by `corpus cross-check` at emit time; every plan through `doc/plans/README.adoc` and `doc/Traceability.adoc`; the plans of the same module through its log holder, which is not a declared surface

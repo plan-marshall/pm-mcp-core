@@ -1,0 +1,14 @@
+{
+  "format_version": 1,
+  "name": "interpret",
+  "description": "Interprets the operator's own words in a decision.",
+  "class": "read_only",
+  "tools": ["pm_wait", "pm_state", "pm_do", "pm_skill", "pm_skill_file"],
+  "harness": "acme-cli",
+  "model": "acme-standard",
+  "effort": null,
+  "form": "fresh",
+  "count": 2,
+  "skills": ["skill://pm/role/interpret/SKILL.md"],
+  "budget_floor_seconds": 300
+}
