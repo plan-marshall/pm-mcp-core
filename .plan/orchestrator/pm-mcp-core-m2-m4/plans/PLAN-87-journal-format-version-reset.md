@@ -16,7 +16,7 @@ workstream: WS-02
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R17, R18.
 
 Plan parameters (the values the rules ask for):
 
@@ -36,7 +36,7 @@ The operator decided on 2026-10-13 that every versioned artifact stays at versio
 
 5. **The open SonarCloud issues of the landed pull requests #120, #121 and #122 (added by the operator on 2026-10-21).** Fix the 29 issues the landings left untriaged, in the code, not with a suppression (a rename, a method reference, a constant, an unnamed pattern, a split lambda, a simpler expression, a removed parameter): #120 one (`java:S7467`, `PortedFixtures`); #121 ten (`S6213` x5 restricted identifiers, `S5961` too many assertions in one method, `S1130`, `S9358`, `S5778`, `S1172` unused parameter `from`); #122 eighteen (`S5778` x5, `S7467` x3, `S6213` x2, `S1612` x2, `S1192` x2 CRITICAL duplicate literals in `AuditEvent`, `S3400`, `S9358`, `S8786` a super-linear regex, `S1172` unused `projectId` in `WrapperVerification`). Re-list them first (the lines below are those of the pull-request heads; the files changed on `main` since), fix those still open on `main`, and report in the pull request body each issue as fixed, already gone, or dismissed with the reason — a dismissal (`wontfix`, `falsepositive`) needs a stated reason and is the exception. A behaviour change is out of scope: where a fix would alter what a test asserts or what a method returns, keep the behaviour and say so.
 
-**Done when:** `TransactionJournal.FORMAT_VERSION` is 1; every issue of Deliverable 5 is fixed or reported as gone or dismissed with a reason, and the SonarCloud analysis of the pull request lists none of them as new; no file of the repository states a journal `format_version` of 2 or 3 except as the refused example of a test; the journal tests, the recovery tests and `verify`, `verify -Ppre-commit`, `verify -Pcoverage` and `verify -Pintegration-tests` are green; the pull request body lists the sweep of Deliverable 4. **Sonar:** the SonarCloud search of the pull request (`pullRequest=<N>&resolved=false`) lists no open issue other than one dismissed with its reason, and its quality gate is green, before the pull request is reported ready.
+**Done when:** `TransactionJournal.FORMAT_VERSION` is 1; every issue of Deliverable 5 is fixed or reported as gone or dismissed with a reason, and the SonarCloud analysis of the pull request lists none of them as new; no file of the repository states a journal `format_version` of 2 or 3 except as the refused example of a test; the journal tests, the recovery tests and `verify`, `verify -Ppre-commit`, `verify -Pcoverage` and `verify -Pintegration-tests` are green; the pull request body lists the sweep of Deliverable 4; the links check (R17, absolute paths of the sibling checkout) reports `BROKEN LINKS 0` and the run is recorded in the pull request body. **Sonar:** the SonarCloud search of the pull request (`pullRequest=<N>&resolved=false`) lists no open issue other than one dismissed with its reason, and its quality gate is green, before the pull request is reported ready.
 
 **Trace starting set:**
 
@@ -97,13 +97,14 @@ None beyond the standing rules named in the First Instruction above.
 ## Dependencies and Sequencing
 
 - Depends on: nothing
+- Runs beside PLAN-94 (`sonar-main-backlog`, running), PLAN-25 and PLAN-26 (running): PLAN-94 owns the other 89 and the 176 SonarCloud issues, never the 29 of Deliverable 5; do not fix an issue that sits in PLAN-94's list, and merge the base branch (the lane's step 7) before the merge gate, because #144 (PLAN-95) changed `SubprocessJobRunner.java`, `SubprocessJobRunnerTest.java`, `ProbeJobTest.java`, `ProcessTreeTrackerTest.java` and `JobRecoveryStepTest.java` after the line numbers of Deliverable 5 were taken. `verify -Ppre-commit` should no longer rewrite those five files (PLAN-95 committed its rewrite of them); if it rewrites any other file outside this spec's surface, ask the operator before committing the rewrite.
 - Overlaps with: computed by `corpus cross-check` at emit time; PLAN-85 `store-records-advisories` and PLAN-88 touch `core.store` and `core-store.adoc` through other passages; every plan through `doc/Traceability.adoc` only if it adds entries
 - Adjacent to: the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` and the client contract `pm-api` in `pm-mcp-clients`, which stay untouched
 
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-87-journal-format-version-reset.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-87-journal-format-version-reset.md
 ```
 
 ## Write-Boundary
