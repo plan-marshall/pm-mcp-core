@@ -35,7 +35,7 @@ import de.planmarshall.provider.ci.Json;
 public final class GlabCommands {
 
     private static final String MERGE_REQUESTS = "/merge_requests/";
-    private static final Pattern HOST = Pattern.compile("[A-Za-z0-9][A-Za-z0-9.-]*(:[0-9]{1,5})?");
+    private static final Pattern HOST = Pattern.compile("[A-Za-z0-9][A-Za-z0-9.-]*(:\\d{1,5})?");
     private static final Pattern DISCUSSION_ID = Pattern.compile("[A-Za-z0-9]{1,64}");
     private static final Pattern BRANCH = Pattern.compile("[A-Za-z0-9._/][A-Za-z0-9._/-]{0,254}");
 

@@ -1629,7 +1629,7 @@ class SubprocessJobRunnerTest {
 
         @Test
         @DisplayName("a cancel in flight when the exit is observed is answered true and is the cause that is read")
-        void cancelInFlightIsTheCauseRead() throws Exception {
+        void cancelInFlightIsTheCauseRead() {
             var inside = new CountDownLatch(1);
             var proceed = new CountDownLatch(1);
             var process = new StubProcess(() -> {

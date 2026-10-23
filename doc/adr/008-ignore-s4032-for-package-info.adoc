@@ -1,0 +1,63 @@
+= ADR 008: Ignore `java:S4032` for the `package-info.java` of a package without types
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-22
+
+== Context
+
+SonarCloud reported 21 `java:S4032` ("Remove this package") issues on `main`, one per package that holds only a
+`package-info.java`: `core.architecture`, `core.build`, `core.config`, `core.discovery`, `core.domain`, `core.id`,
+`core.recipe`, `runtime.launch`, `runtime.worker`, `workflow.consult`, `workflow.decision`, `workflow.envelope`,
+`workflow.epic`, `workflow.hypermedia`, `workflow.model`, `workflow.primitive`, `workflow.question`,
+`workflow.screening`, `workflow.setup`, `workflow.spend` and `workflow.task`.
+
+The packages cannot be removed. The Module Structure Specification (`plan-marshall-documentation`,
+`doc/specification/module-structure.adoc` § Packages) lists every one of them and states that "every package exists in
+the code with a `package-info.java` … also where no type has arrived yet"; `CLAUDE.md` requires the file; and each
+package is the home of a staged plan or of a specification section that gets its work package.
+
+The rule cannot be suppressed in the source. `UselessPackageInfoCheck.endOfAnalysis` reports the issue on the file
+(`addIssueOnFile`, "Remove this package.") with no line, while `SuppressWarningFilter` visits classes, methods and
+variables and matches the issue's line. A `package-info.java` of such a package declares no type, so neither
+`@SuppressWarnings("java:S4032")` nor `NOSONAR` can reach it; the repository uses no `NOSONAR` in any case.
+
+== Decision
+
+The rule is ignored for the file `**/package-info.java` in the analysis configuration of the repository. The root
+`pom.xml` carries the three properties `sonar.issue.ignore.multicriteria` = `e1`,
+`sonar.issue.ignore.multicriteria.e1.ruleKey` = `java:S4032` and
+`sonar.issue.ignore.multicriteria.e1.resourceKey` = `**/package-info.java`. The ignore is a property only: it adds no
+dependency and no plugin. The packages, their `package-info.java` files and their Javadoc stay as they are, and the
+Sonar configuration of the project (`.github/project.yml` `sonar:`) stays untouched.
+
+== Alternatives Considered
+
+* *Remove the 21 packages.* Rejected: the Module Structure Specification requires each of them, and the operator
+  allowed the removal only of a package that is empty and referenced nowhere, which none of the 21 is.
+* *Suppress the rule in the source with `@SuppressWarnings` or `NOSONAR`.* Rejected: the issue is reported on the
+  file with no line, and the suppression filter matches a line, so neither annotation can reach it (verified in the
+  SonarJava sources on 2026-10-22).
+* *Dismiss the 21 issues in SonarCloud one by one.* Kept as the fallback: if the analysis property does not take
+  effect on SonarCloud for a file-level issue, the issues are dismissed as `wontfix` with the reason above instead of
+  iterating on the property.
+
+== Consequences
+
+A package that holds only its `package-info.java` no longer fails the Sonar analysis, so the required package
+structure and a clean analysis can both hold. A later change must not use the same multicriteria entry for another
+rule without extending the entry list, and a package that gains a type keeps its `package-info.java` as before. The
+ignore is scoped to `package-info.java` files, so it changes the analysis of no other file; `java:S4032` does not fire
+on a package that holds a type in the first place, so no other rule's verdict is affected either.
+
+== Source
+
+* Pull request: the pull request of work package PLAN-94 (`chore/94-sonar-main-backlog`).
+* Work package: `.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-94-sonar-main-backlog.md`, Deliverable 7.
+* `plan-marshall-documentation`, `doc/specification/module-structure.adoc` § Packages.
+* `CLAUDE.md` § Code Standards ("Every package has a `package-info.java` with Javadoc").

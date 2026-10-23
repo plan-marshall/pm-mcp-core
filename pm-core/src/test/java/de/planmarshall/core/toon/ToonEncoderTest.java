@@ -186,11 +186,12 @@ class ToonEncoderTest {
         @Test
         @DisplayName("refuses unpaired surrogates in values and keys")
         void unpairedSurrogate() {
-            var inValue = assertThrows(ToonEncodingException.class, () -> ToonEncoder.encode(new ToonString("a\uD800")));
-            var inKey = assertThrows(ToonEncodingException.class,
-                    () -> ToonEncoder.encode(ToonObject.builder().add("\uDC00", 1).build()));
-            var reversed = assertThrows(ToonEncodingException.class,
-                    () -> ToonEncoder.encode(new ToonString("\uDC00\uD800")));
+            var value = new ToonString("a\uD800");
+            var inValue = assertThrows(ToonEncodingException.class, () -> ToonEncoder.encode(value));
+            var object = ToonObject.builder().add("\uDC00", 1).build();
+            var inKey = assertThrows(ToonEncodingException.class, () -> ToonEncoder.encode(object));
+            var reversedValue = new ToonString("\uDC00\uD800");
+            var reversed = assertThrows(ToonEncodingException.class, () -> ToonEncoder.encode(reversedValue));
 
             assertEquals(Reason.UNPAIRED_SURROGATE, inValue.getReason());
             assertEquals(Reason.UNPAIRED_SURROGATE, inKey.getReason());

@@ -1,4 +1,4 @@
-= ADR 007: The Transaction Journal Gets a Delete Mode, in Format Version 3
+= ADR 007: The Transaction Journal Gets a Delete Mode, in Format Version 1
 :nofooter:
 
 == Status
@@ -7,7 +7,7 @@ Accepted
 
 == Date
 
-2026-10-13
+2026-10-23
 
 == Context
 
@@ -19,6 +19,9 @@ journal would leave a sidecar entry without its file: the next integrity check w
 
 The default reading of the package left the delete out (the stores only, the sweep wiring later). The journal document
 has a closed shape and a `format_version`; a new target shape changes it.
+
+The operator decided on 2026-10-13 that every versioned artifact stays at version 1 while nothing is released, and
+that a format change replaces version 1 in place: no version bump, no reader for an older version, no migration.
 
 == Decision
 
@@ -33,8 +36,9 @@ The operator decided to add the delete mode now (refine, question q1):
    roll-forward is idempotent and a delete is never an invariant violation.
 4. A store with neither a file nor a sidecar entry is consistent (`ScopeIntegrity.Absent`), so a completed delete never
    raises `store_tampered`.
-5. `TransactionJournal.FORMAT_VERSION` goes from 2 to 3. A version-2 journal is refused as outdated, as version 1 is.
-   There is no reader of version 2 and no shim.
+5. The journal's document is `format_version` 1, which carries the owed events and the delete target;
+   `TransactionJournal.FORMAT_VERSION` stays 1. There is no bump, no reader of an earlier shape and no shim, and a
+   journal of another version is refused as outdated or newer.
 
 == Alternatives Considered
 
@@ -44,15 +48,19 @@ The operator decided to add the delete mode now (refine, question q1):
 2. *Remove the store and rewrite the sidecar in a second write after the transaction*.
    _Rejected_: two writes without one journal are exactly the state the journal exists to avoid; a crash between them
    reports `store_tampered`.
-3. *Keep format version 2 and accept both target shapes*.
-   _Rejected_: before 1.0 a reader accepts exactly the current version of a file kind; a second shape under the same
-   version would let an older binary read a journal it cannot apply.
+3. *Bump the format version to mark the new target shape*.
+   _Rejected_: the operator decided on 2026-10-13 that nothing is released yet, so every versioned artifact stays at
+   version 1 and a format change replaces version 1 in place; a bump would add a version a released binary never read.
 
 == Consequences
 
 * Every store of a scope can be removed with the guarantees of every other write; the pending entry record
   (`PendingEntryStore.remove`) is the first user.
-* A journal left by a runtime of the previous version is refused as outdated after an upgrade; the drain rule of the
+* The journal has one shape, `format_version` 1. The earlier work packages that raised the constant to version 2
+  (`PLAN-06`, #26) and version 3 (`PLAN-12`, #51) are reset by the plan that carries this ADR: the constant, its
+  Javadoc, the developer guide, the specification part and the tests state version 1, and an earlier version is the
+  refused example of a test alone.
+* A journal left by a binary of another format version is refused as outdated or newer; the drain rule of the
   specification (finish the scopes before upgrading) applies.
 * `ScopeIntegrity.Verification` has a fourth member, `Absent`, beside `Verified`, `Mismatch` and `Untracked`.
 * `TransactionJournalTest`, `ScopeTransactionTest`, `JournalRecoveryTest`, `DigestSidecarTest` and `ScopeIntegrityTest`
@@ -61,6 +69,7 @@ The operator decided to add the delete mode now (refine, question q1):
 == Source
 
 * Operator decision q1 of the work package `session-log-and-generations` (refine)
-* `doc/plans/session-log-and-generations.adoc`
+* Operator decision of 2026-10-13: format versions stay 1 while nothing is released
+* link:https://github.com/plan-marshall/pm-mcp-core/pull/148[The pull request that carries this ADR]
 * link:../../../../doc/specification/store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas § Transaction Journal]
 * link:../../../../doc/specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending Entry Record]

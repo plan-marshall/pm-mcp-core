@@ -68,7 +68,7 @@ class ProfileLoaderTest {
         assertAll(
                 () -> assertEquals(LoadedProfile.State.VERIFIED, loaded.state(CLIENT).orElseThrow()),
                 () -> assertEquals(ProfileSetKind.SHIPPED, loaded.effective(CLIENT).orElseThrow().kind()),
-                () -> assertNull(loaded.effective(CLIENT).orElseThrow().record(),
+                () -> assertNull(loaded.effective(CLIENT).orElseThrow().verificationRecord(),
                         "A shipped profile is bound to no installation record"),
                 () -> assertTrue(loaded.refused().isEmpty(), loaded.refused()::toString));
     }
@@ -77,7 +77,7 @@ class ProfileLoaderTest {
     @DisplayName("a machine profile of a client id the release does not ship adds a harness")
     void machineProfileAddsHarness(@TempDir Path machine) throws Exception {
         var document = ProfileFixtures.validBytes();
-        write(machine, CLIENT, document, record(document, "1.5.0", OTHER_SHA), sidecar(key, document));
+        write(machine, CLIENT, document, verificationRecord(document, "1.5.0", OTHER_SHA), sidecar(key, document));
 
         var loaded = loader.load(ProfileSets.withMachine(Map.of(), machine));
 
@@ -85,7 +85,7 @@ class ProfileLoaderTest {
                 () -> assertTrue(loaded.refused().isEmpty(), loaded.refused()::toString),
                 () -> assertEquals(LoadedProfile.State.VERIFIED, loaded.state(CLIENT).orElseThrow()),
                 () -> assertEquals(ProfileSetKind.MACHINE, loaded.effective(CLIENT).orElseThrow().kind()),
-                () -> assertEquals(CLIENT, loaded.effective(CLIENT).orElseThrow().record().clientId(),
+                () -> assertEquals(CLIENT, loaded.effective(CLIENT).orElseThrow().verificationRecord().clientId(),
                         "The loaded profile carries the record it was bound to"));
     }
 
@@ -93,7 +93,7 @@ class ProfileLoaderTest {
     @DisplayName("a verified machine profile replaces the shipped document as a whole")
     void machineProfileReplacesShipped(@TempDir Path machine) throws Exception {
         var document = ProfileFixtures.valid().set("/display_name", "Acme CLI Pro").bytes();
-        write(machine, CLIENT, document, record(document, "1.5.0", OTHER_SHA), sidecar(key, document));
+        write(machine, CLIENT, document, verificationRecord(document, "1.5.0", OTHER_SHA), sidecar(key, document));
         var shipped = shipped(ProfileFixtures.validBytes());
 
         var loaded = loader.load(ProfileSets.withMachine(Map.of(CLIENT, shipped), machine));
@@ -125,7 +125,7 @@ class ProfileLoaderTest {
     void editedAfterRecordFallsBack(@TempDir Path machine) throws Exception {
         var verified = ProfileFixtures.validBytes();
         var edited = ProfileFixtures.valid().set("/display_name", "Acme CLI Edited").bytes();
-        write(machine, CLIENT, edited, record(verified, "1.5.0", OTHER_SHA), sidecar(key, verified));
+        write(machine, CLIENT, edited, verificationRecord(verified, "1.5.0", OTHER_SHA), sidecar(key, verified));
 
         var loaded = loader.load(ProfileSets.withMachine(Map.of(CLIENT, shipped(ProfileFixtures.validBytes())),
                 machine));
@@ -140,7 +140,7 @@ class ProfileLoaderTest {
     void failingHmacFallsBack(@TempDir Path machine) throws Exception {
         var document = ProfileFixtures.validBytes();
         var otherKey = new SecretKeySpec("fedcba9876543210fedcba9876543210".getBytes(UTF_8), "HmacSHA256");
-        write(machine, CLIENT, document, record(document, "1.5.0", OTHER_SHA), sidecar(otherKey, document));
+        write(machine, CLIENT, document, verificationRecord(document, "1.5.0", OTHER_SHA), sidecar(otherKey, document));
 
         var loaded = loader.load(ProfileSets.withMachine(Map.of(CLIENT, shipped(ProfileFixtures.validBytes())),
                 machine));
@@ -154,7 +154,7 @@ class ProfileLoaderTest {
     @DisplayName("a record of another build inside the supported range marks the profile verified_on_other_build")
     void otherBuildInsideRange(@TempDir Path machine) throws Exception {
         var document = ProfileFixtures.validBytes();
-        write(machine, CLIENT, document, record(document, "1.0.0", SHA), sidecar(key, document));
+        write(machine, CLIENT, document, verificationRecord(document, "1.0.0", SHA), sidecar(key, document));
 
         var loaded = loader.load(ProfileSets.withMachine(Map.of(), machine));
 
@@ -169,7 +169,7 @@ class ProfileLoaderTest {
     @DisplayName("a record of a build outside the supported range is refused")
     void otherBuildOutsideRangeRefused(@TempDir Path machine) throws Exception {
         var document = ProfileFixtures.validBytes();
-        write(machine, CLIENT, document, record(document, "1.5.0", OTHER_SHA), sidecar(key, document));
+        write(machine, CLIENT, document, verificationRecord(document, "1.5.0", OTHER_SHA), sidecar(key, document));
         var shipped = shipped(ProfileFixtures.validBytes());
         var newer = new ProfileLoader(key, Map.of(CLIENT, new EnrolledHarness("acme", "2.5.0", OTHER_SHA)),
                 ProfileRules.none());
@@ -183,11 +183,11 @@ class ProfileLoaderTest {
 
     @Test
     @DisplayName("a project profile whose detection differs from the machine one is refused")
-    void projectDetectionDiffersRefused(@TempDir Path machine, @TempDir Path project) throws Exception {
+    void projectDetectionDiffersRefused(@TempDir Path project) throws Exception {
         var base = ProfileFixtures.validBytes();
         var projectDocument = ProfileFixtures.valid().set("/headless/argv", List.of("--other"))
                 .set("/detection/precedence", 10).bytes();
-        write(project, CLIENT, projectDocument, record(projectDocument, "1.5.0", OTHER_SHA),
+        write(project, CLIENT, projectDocument, verificationRecord(projectDocument, "1.5.0", OTHER_SHA),
                 sidecar(key, projectDocument));
 
         var loaded = loader.load(ProfileSets.withProject(
@@ -203,7 +203,7 @@ class ProfileLoaderTest {
     void projectProfileReplacesWholeDocument(@TempDir Path project) throws Exception {
         var base = ProfileFixtures.validBytes();
         var projectDocument = ProfileFixtures.valid().set("/display_name", "Acme CLI Project").bytes();
-        write(project, CLIENT, projectDocument, record(projectDocument, "1.5.0", OTHER_SHA),
+        write(project, CLIENT, projectDocument, verificationRecord(projectDocument, "1.5.0", OTHER_SHA),
                 sidecar(key, projectDocument));
 
         var loaded = loader.load(ProfileSets.withProject(Map.of(CLIENT, shipped(base)), null, project),
@@ -219,7 +219,7 @@ class ProfileLoaderTest {
     @DisplayName("a record that names another client is refused")
     void recordClientIdMismatchFallsBack(@TempDir Path machine) throws Exception {
         var document = ProfileFixtures.validBytes();
-        write(machine, CLIENT, document, record(document, "1.5.0", OTHER_SHA, "other-cli", "acme"),
+        write(machine, CLIENT, document, verificationRecord(document, "1.5.0", OTHER_SHA, "other-cli", "acme"),
                 sidecar(key, document));
 
         var loaded = loader.load(ProfileSets.withMachine(Map.of(CLIENT, shipped(ProfileFixtures.validBytes())),
@@ -236,7 +236,7 @@ class ProfileLoaderTest {
         var base = ProfileFixtures.valid().set("/headless", null)
                 .set("/worker/eligible", false)
                 .set("/worker/restricted_models", null).bytes();
-        write(project, CLIENT, base, record(base, "1.5.0", OTHER_SHA), sidecar(key, base));
+        write(project, CLIENT, base, verificationRecord(base, "1.5.0", OTHER_SHA), sidecar(key, base));
 
         var loaded = loader.load(ProfileSets.withProject(Map.of(CLIENT, shipped(base)), null, project),
                 "plan-marshall");
@@ -250,7 +250,7 @@ class ProfileLoaderTest {
     @DisplayName("a profile whose client id is not its file name is refused")
     void clientIdMustEqualFileName(@TempDir Path machine) throws Exception {
         var document = ProfileFixtures.valid().set("/client_id", "other-cli").bytes();
-        write(machine, CLIENT, document, record(document, "1.5.0", OTHER_SHA), sidecar(key, document));
+        write(machine, CLIENT, document, verificationRecord(document, "1.5.0", OTHER_SHA), sidecar(key, document));
 
         var loaded = loader.load(ProfileSets.withMachine(Map.of(CLIENT, shipped(ProfileFixtures.validBytes())),
                 machine));
@@ -264,10 +264,10 @@ class ProfileLoaderTest {
     @DisplayName("two profiles of one detection precedence do not both take effect")
     void precedenceIsUnique(@TempDir Path machine) throws Exception {
         var document = ProfileFixtures.validBytes();
-        write(machine, CLIENT, document, record(document, "1.5.0", OTHER_SHA), sidecar(key, document));
+        write(machine, CLIENT, document, verificationRecord(document, "1.5.0", OTHER_SHA), sidecar(key, document));
         var other = ProfileFixtures.valid().set("/client_id", "other-cli").set("/headless/executable", "other")
                 .bytes();
-        write(machine, "other-cli", other, record(other, "1.5.0", OTHER_SHA, "other-cli", "other"), sidecar(key, other));
+        write(machine, "other-cli", other, verificationRecord(other, "1.5.0", OTHER_SHA, "other-cli", "other"), sidecar(key, other));
         var otherLoader = new ProfileLoader(key, Map.of(CLIENT, enrolled, "other-cli",
                 new EnrolledHarness("other", "1.5.0", OTHER_SHA)), ProfileRules.none());
 
@@ -290,30 +290,26 @@ class ProfileLoaderTest {
         return loaded.refused().getFirst().refusal();
     }
 
-    private byte[] record(byte[] document, String version, String sha) {
-        return record(document, version, sha, CLIENT, "acme");
+    private byte[] verificationRecord(byte[] document, String version, String sha) {
+        return verificationRecord(document, version, sha, CLIENT, "acme");
     }
 
-    private byte[] record(byte[] document, String version, String sha, String clientId) {
-        return record(document, version, sha, clientId, "acme");
-    }
-
-    private byte[] record(byte[] document, String version, String sha, String clientId, String executable) {
+    private byte[] verificationRecord(byte[] document, String version, String sha, String clientId, String executable) {
         var profile = JsonDocument.parse(document, clientId);
-        var record = new LinkedHashMap<String, Object>();
-        record.put("format_version", 1);
-        record.put("client_id", clientId);
-        record.put("profile_schema_version", 1);
-        record.put("profile_digest", CanonicalJson.digest(profile));
-        record.put("verified_at", "2026-10-21T08:00:00Z");
-        record.put("tool", Map.of("version", "0.4.0", "commit", "02ffcbd"));
-        record.put("harness", Map.of("executable", executable,
+        var recordBytes = new LinkedHashMap<String, Object>();
+        recordBytes.put("format_version", 1);
+        recordBytes.put("client_id", clientId);
+        recordBytes.put("profile_schema_version", 1);
+        recordBytes.put("profile_digest", CanonicalJson.digest(profile));
+        recordBytes.put("verified_at", "2026-10-21T08:00:00Z");
+        recordBytes.put("tool", Map.of("version", "0.4.0", "commit", "02ffcbd"));
+        recordBytes.put("harness", Map.of("executable", executable,
                 "version", version, "executable_sha256", sha, "models", List.of("acme-standard")));
-        record.put("platform", Map.of("os", "linux", "arch", "x86_64", "confinement", "landlock"));
-        record.put("stages", Map.of("identity", Map.of("status", "passed"),
+        recordBytes.put("platform", Map.of("os", "linux", "arch", "x86_64", "confinement", "landlock"));
+        recordBytes.put("stages", Map.of("identity", Map.of("status", "passed"),
                 "launch", Map.of("status", "passed")));
-        record.put("values", List.of());
-        return CanonicalJson.write(ProfileFixtures.node(record)).getBytes(UTF_8);
+        recordBytes.put("values", List.of());
+        return CanonicalJson.write(ProfileFixtures.node(recordBytes)).getBytes(UTF_8);
     }
 
     private static byte[] sidecar(SecretKey key, byte[] document) {
@@ -327,12 +323,12 @@ class ProfileLoaderTest {
         }
     }
 
-    private static void write(Path directory, String clientId, byte[] document, byte[] record, byte[] hmac)
+    private static void write(Path directory, String clientId, byte[] document, byte[] recordBytes, byte[] hmac)
             throws IOException {
         Files.createDirectories(directory.resolve("verification"));
         Files.write(directory.resolve(clientId + ".json"), document);
-        if (record != null) {
-            Files.write(directory.resolve("verification").resolve(clientId + ".json"), record);
+        if (recordBytes != null) {
+            Files.write(directory.resolve("verification").resolve(clientId + ".json"), recordBytes);
         }
         Files.write(directory.resolve(clientId + ".json.hmac"), hmac);
     }

@@ -74,13 +74,13 @@ public final class CredentialStoreMoveResume {
      */
     public Optional<CredentialStoreMoveRecord> run() {
         var resumed = move.resume();
-        resumed.ifPresent(record -> {
-            if (record.operation() == Operation.FIRST_RECORDING) {
-                LOGGER.info(INFO.CREDENTIAL_STORE_FIRST_RECORDING_RESUMED, record.to().value(), record.from().value(),
-                        record.phase().value());
+        resumed.ifPresent(stored -> {
+            if (stored.operation() == Operation.FIRST_RECORDING) {
+                LOGGER.info(INFO.CREDENTIAL_STORE_FIRST_RECORDING_RESUMED, stored.to().value(), stored.from().value(),
+                        stored.phase().value());
             } else {
-                LOGGER.info(INFO.CREDENTIAL_STORE_MOVE_RESUMED, record.from().value(), record.to().value(),
-                        record.phase().value());
+                LOGGER.info(INFO.CREDENTIAL_STORE_MOVE_RESUMED, stored.from().value(), stored.to().value(),
+                        stored.phase().value());
             }
         });
         return resumed;

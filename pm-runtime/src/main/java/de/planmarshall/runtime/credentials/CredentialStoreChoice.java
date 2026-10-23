@@ -380,7 +380,7 @@ public final class CredentialStoreChoice {
         }
         var firstRecording = moveRecord.read(transaction)
                 .map(document -> CredentialStoreMoveRecord.read(moveRecord.store(), document))
-                .filter(record -> record.operation() == Operation.FIRST_RECORDING);
+                .filter(stored -> stored.operation() == Operation.FIRST_RECORDING);
         if (firstRecording.isEmpty()) {
             throw new IllegalArgumentException("the credential-store aspect writes credentials.store in the transaction "
                     + "of another caller only while the record of its first recording is open; it records a store "
@@ -392,7 +392,7 @@ public final class CredentialStoreChoice {
     private void requireMove(LockTransaction transaction) {
         var move = moveRecord.read(transaction)
                 .map(document -> CredentialStoreMoveRecord.read(moveRecord.store(), document))
-                .filter(record -> record.operation() == Operation.MOVE);
+                .filter(stored -> stored.operation() == Operation.MOVE);
         if (move.isEmpty()) {
             throw new IllegalStateException(
                     "the store move records credentials.store of %s only while the record %s of a move exists"

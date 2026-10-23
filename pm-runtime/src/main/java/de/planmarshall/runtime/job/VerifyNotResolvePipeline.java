@@ -131,7 +131,7 @@ public final class VerifyNotResolvePipeline {
         var workingDirectory = ((Confined) confinement).path();
 
         List<String> executable;
-        switch (ExecutableCheck.check(projectId, enrolment, workingDirectory, request.target())) {
+        switch (ExecutableCheck.check(enrolment, workingDirectory, request.target())) {
             case Stage.Failed<List<String>>(var refusal) -> {
                 return refused(projectId, refusal);
             }

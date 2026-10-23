@@ -377,7 +377,7 @@ class JGitOperationsTest {
 
         @Test
         @DisplayName("refuses remotes outside the policy before sending anything, and unknown remotes")
-        void refusesRemotes() throws Exception {
+        void refusesRemotes() {
             var httpsOnly = new JGitOperations(RemotePolicy.httpsOrigin(URI.create("https://github.com")));
             var credential = Optional.of(new GitCredential("x-access-token", "secret".toCharArray()));
 

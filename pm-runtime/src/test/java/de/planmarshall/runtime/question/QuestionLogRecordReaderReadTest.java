@@ -150,7 +150,7 @@ class QuestionLogRecordReaderReadTest {
                     transaction.acquire(plan.lockKey());
                     locked.countDown();
                     release.await();
-                } catch (InterruptedException e) {
+                } catch (InterruptedException _) {
                     Thread.currentThread().interrupt();
                 } catch (RuntimeException e) {
                     failure.set(e);

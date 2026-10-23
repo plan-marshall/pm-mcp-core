@@ -70,7 +70,7 @@ public final class ToonEncoder {
      */
     private static final char BYTE_ORDER_MARK = '\uFEFF';
 
-    private static final Pattern NUMERIC_LIKE = Pattern.compile("^[+-]?[0-9]+(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?$");
+    private static final Pattern NUMERIC_LIKE = Pattern.compile("^[+-]?\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$");
     private static final Pattern UNQUOTED_KEY = Pattern.compile("^[A-Za-z_][A-Za-z0-9_.]*$");
     private static final BigDecimal PLAIN_MIN = new BigDecimal("1e-6");
     private static final BigDecimal PLAIN_LIMIT = new BigDecimal("1e21");
@@ -255,11 +255,7 @@ public final class ToonEncoder {
     }
 
     private static String inline(List<ToonValue> elements) {
-        var values = new ArrayList<String>(elements.size());
-        for (ToonValue element : elements) {
-            values.add(primitive(element, false));
-        }
-        return String.join(JOIN, values);
+        return String.join(JOIN, elements.stream().map(element -> primitive(element, false)).toList());
     }
 
     /**
@@ -314,9 +310,9 @@ public final class ToonEncoder {
 
     private static String primitive(ToonValue value, boolean root) {
         return switch (value) {
-            case ToonString string -> string(string.value(), root);
-            case ToonNumber number -> number(number.value());
-            case ToonBoolean bool -> String.valueOf(bool.value());
+            case ToonString(String string) -> string(string, root);
+            case ToonNumber(BigDecimal number) -> number(number);
+            case ToonBoolean(boolean bool) -> String.valueOf(bool);
             case ToonNull _ -> "null";
             default -> throw new IllegalStateException("not a primitive: " + value);
         };
@@ -400,12 +396,15 @@ public final class ToonEncoder {
 
     /** Refuses unpaired surrogates (§ 3). */
     private static void checkScalarValues(String value) {
-        for (int i = 0; i < value.length(); i++) {
+        var i = 0;
+        while (i < value.length()) {
             char c = value.charAt(i);
             if (Character.isHighSurrogate(c) && i + 1 < value.length() && Character.isLowSurrogate(value.charAt(i + 1))) {
-                i++;
+                i += 2;
             } else if (Character.isSurrogate(c)) {
                 throw new ToonEncodingException(Reason.UNPAIRED_SURROGATE, "at index " + i);
+            } else {
+                i++;
             }
         }
     }

@@ -10,7 +10,7 @@ The modules of this repository, their packages and their dependency rules are li
 [#packages]
 == Packages
 
-The packages listed serve roadmap Milestones 2 to 4, the packages the client work of `pm-mcp-clients` needs, and the engine packages of Milestones 9, 10, and 14, each serving the items named in its _Serves_ column; the rest of the later milestones is not cut into packages yet, and a package that names one of them as the home of something says what is left out here. This table is the only place that states the status of a package and what it depends on; the package files do not repeat either. The table lists the packages not yet done: a done package leaves the table and its file is deleted, so its implementation, its developer documentation and its ADRs are what remain of it. A package is *ready* when its status is `open` and its _Depends on_ column names no package of this table (a dependency in another repository is done when its row there says so). Ready packages can be worked in parallel, also across the repositories. A dependency that has no work package yet keeps a package `blocked`; it is replaced by the package when that is planned. A package that depends on a `blocked` package is `blocked` too.
+The packages listed serve roadmap Milestones 2 to 4, the packages the client work of `pm-mcp-clients` needs, and the engine packages of Milestones 6, 8, 9, 10, and 14, each serving the items named in its _Serves_ column; the rest of the later milestones is not cut into packages yet, and a package that names one of them as the home of something says what is left out here. This table is the only place that states the status of a package and what it depends on; the package files do not repeat either. The table lists the packages not yet done: a done package leaves the table and its file is deleted, so its implementation, its developer documentation and its ADRs are what remain of it. A package is *ready* when its status is `open` and its _Depends on_ column names no package of this table (a dependency in another repository is done when its row there says so). Ready packages can be worked in parallel, also across the repositories. A dependency that has no work package yet keeps a package `blocked`; it is replaced by the package when that is planned. A package that depends on a `blocked` package is `blocked` too.
 
 [cols="3,4,1,3,2",options="header"]
 |===
@@ -36,7 +36,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:worker-launch.adoc[`worker-launch`]
 |Worker launch and harness enrolment
 |`open`
-|link:job-confinement-and-environment.adoc[`job-confinement-and-environment`]
+|link:job-confinement-and-environment.adoc[`job-confinement-and-environment`]; link:client-profile-rendering.adoc[`client-profile-rendering`] (the rendered launch prompt)
 |Milestone 4
 
 |link:supervisor.adoc[`supervisor`]
@@ -149,8 +149,8 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 
 |link:chat-plan-revision.adoc[`chat-plan-revision`]
 |A plan's revision from a chat, applied through the re-planning path
-|`blocked`
-|link:chat.adoc[`chat`]; the re-planning of a running plan, its unit `replan` and its guards (no work package)
+|`open`
+|link:chat.adoc[`chat`]; link:re-planning.adoc[`re-planning`] (the re-planning of a running plan, its unit `replan` and its guards)
 |Milestone 9; the client work of `pm-mcp-clients`
 
 |link:plan-and-epic-control.adoc[`plan-and-epic-control`]
@@ -233,8 +233,8 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 
 |link:judgment-votes.adoc[`judgment-votes`]
 |A judgment role votes: two requests, the confidence from the lower probability, a rationale composed by the server, the class rule, and the calibration form
-|`blocked`
-|link:judgment-endpoint.adoc[`judgment-endpoint`]; link:decision-engine.adoc[`decision-engine`] (the vote members of the decision record); link:role-qualification.adoc[`role-qualification`] (the grading); the decision quorum with its declarations, the adjudication unit, and its calibration (no work package)
+|`open`
+|link:judgment-endpoint.adoc[`judgment-endpoint`]; link:decision-engine.adoc[`decision-engine`] (the vote members of the decision record); link:role-qualification.adoc[`role-qualification`] (the grading); link:decision-quorum-and-calibration.adoc[`decision-quorum-and-calibration`] (the decision declarations, the adjudication unit, and the calibration)
 |Milestone 14
 
 |link:own-calls.adoc[`own-calls`]
@@ -246,7 +246,55 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:change-map.adoc[`change-map`]
 |The change map: which modules a change adds or removes, which dependencies between modules it adds or removes, and which third-party dependencies it adds, removes, or replaces
 |`blocked`
-|link:own-calls.adoc[`own-calls`]; link:phase-sub-workflows.adoc[`phase-sub-workflows`]; the module discovery and the build-file dependency parser, the Dependency Delta Check, and the finalize pipeline of Milestone 10 (no work package)
+|link:own-calls.adoc[`own-calls`]; link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:domain-extensions-and-architecture.adoc[`domain-extensions-and-architecture`] (the module discovery and the build-file dependency parser); link:finalize-pipeline-and-merge.adoc[`finalize-pipeline-and-merge`] (the Dependency Delta Check and the finalize pipeline of Milestone 10)
+|Milestone 10
+
+|link:domain-extensions-and-architecture.adoc[`domain-extensions-and-architecture`]
+|The four-axis domain descriptors, the provenance-preserving edge and path merges, module discovery with the build map and the `pm://architecture/*` resources, and the `documentation` domain verbs
+|`open`
+|nothing
+|Milestone 6
+
+|link:client-profile-rendering.adoc[`client-profile-rendering`]
+|The on-the-fly placeholder rendering of the client profiles: the placeholder table, the rendering invariants and the per-variant digest, the calibration axis, the host-resident surface inventory
+|`open`
+|nothing
+|Milestone 14
+
+|link:build-parsers-and-gate-honesty.adoc[`build-parsers-and-gate-honesty`]
+|The native build output and coverage parsers, `failed_unparsed`, the gate honesty checks with their coverage facts and baseline separation, and the adaptive timeout and failure evidence
+|`open`
+|nothing
+|Milestone 6
+
+|link:decision-quorum-and-calibration.adoc[`decision-quorum-and-calibration`]
+|The decision declarations and the adjudication unit `adjudicate.decisions` with the shipped quorum roles, the decision rule and its record, and the quorum calibration with its records and shipped calibration
+|`open`
+|link:decision-engine.adoc[`decision-engine`]; link:role-qualification.adoc[`role-qualification`]
+|Milestone 8
+
+|link:remediation-units.adoc[`remediation-units`]
+|The six remediation policy units with their evidence, their closed action set, the shared template and the call-site budgets, and the compiled invariants
+|`open`
+|link:decision-engine.adoc[`decision-engine`]; link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:role-qualification.adoc[`role-qualification`] (the triage roles and the conservative fallback)
+|Milestones 8 and 10
+
+|link:re-planning.adoc[`re-planning`]
+|The re-planning of a running plan: the record, the server-detected triggers, the unit `replan` with its actions and guards, and the budgets and fallback
+|`open`
+|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:plan-instance-versions.adoc[`plan-instance-versions`]
+|Milestones 9 and 10
+
+|link:access-grants.adoc[`access-grants`]
+|The cross-project and cross-repository access grant: its record and three stores, the operator's act and its audit, and the check that holds an access without a grant
+|`open`
+|link:start-source-intake.adoc[`start-source-intake`]; link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]
+|Milestone 9
+
+|link:finalize-pipeline-and-merge.adoc[`finalize-pipeline-and-merge`]
+|The finalize pipeline from re-entry to merge: verdict currency and the step records of a firing, the merge path's states, the Pre-Merge Review Barrier and its waivable gates, the composite wait, and the pre-merge Dependency Delta Check
+|`open`
+|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:domain-extensions-and-architecture.adoc[`domain-extensions-and-architecture`]; link:re-planning.adoc[`re-planning`] (the `finalize.replan` call and the triggers it consumes)
 |Milestone 10
 |===
 

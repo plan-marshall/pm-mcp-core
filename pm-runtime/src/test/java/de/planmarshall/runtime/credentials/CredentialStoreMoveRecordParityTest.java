@@ -85,7 +85,7 @@ class CredentialStoreMoveRecordParityTest {
 
     private static Path document() {
         var root = System.getProperty("pm.specification.root");
-        var file = (root == null || root.isBlank() ? Path.of("..") : Path.of(root)).resolve(DOCUMENT);
+        var file = Path.of(root == null || root.isBlank() ? ".." : root).resolve(DOCUMENT);
         if (!Files.isRegularFile(file)) {
             throw new AssertionError("the specification document is absent: " + file.toAbsolutePath());
         }

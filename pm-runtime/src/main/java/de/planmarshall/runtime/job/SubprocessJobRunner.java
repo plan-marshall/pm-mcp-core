@@ -1194,17 +1194,32 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 job.cause.complete(Termination.BUDGET_EXPIRED);
                 continue;
             }
-            var bound = remaining.compareTo(ProcessTreeTracker.REFRESH_INTERVAL) < 0 ? remaining
-                    : ProcessTreeTracker.REFRESH_INTERVAL;
-            try {
-                CompletableFuture.anyOf(exit, job.cause).get(Math.max(1, bound.toMillis()), TimeUnit.MILLISECONDS);
-            } catch (TimeoutException _) {
-                // the budget is checked at the top of the loop
-            } catch (InterruptedException _) {
-                interrupted = true;
-            } catch (ExecutionException e) {
-                throw new IllegalStateException("Neither the exit nor the cause of a job completes exceptionally", e);
-            }
+            interrupted |= awaitBound(exit, job.cause, remaining);
+        }
+    }
+
+    /**
+     * Waits one bound of the refresh interval for the exit or the cause.
+     *
+     * @return whether the wait was interrupted
+     */
+    // java:S2142 does not apply: the interrupt is deferred, not swallowed — it is reported in the return value and
+    // restored by leave() once the job is settled, so the wait can finish instead of throwing at once.
+    @SuppressWarnings("java:S2142")
+    private static boolean awaitBound(CompletableFuture<Process> exit, CompletableFuture<Termination> cause,
+            Duration remaining) {
+        var bound = remaining.compareTo(ProcessTreeTracker.REFRESH_INTERVAL) < 0 ? remaining
+                : ProcessTreeTracker.REFRESH_INTERVAL;
+        try {
+            CompletableFuture.anyOf(exit, cause).get(Math.max(1, bound.toMillis()), TimeUnit.MILLISECONDS);
+            return false;
+        } catch (TimeoutException _) {
+            // the budget is checked at the top of the loop
+            return false;
+        } catch (InterruptedException _) {
+            return true;
+        } catch (ExecutionException e) {
+            throw new IllegalStateException("Neither the exit nor the cause of a job completes exceptionally", e);
         }
     }
 

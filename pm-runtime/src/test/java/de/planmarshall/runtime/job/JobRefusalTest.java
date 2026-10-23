@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.RecordComponent;
 import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
@@ -55,7 +56,7 @@ class JobRefusalTest {
     @DisplayName("the record carries the reason, the detail and the changed paths, and nothing else")
     void componentsAreReasonDetailAndChangedPaths() {
         var components = Stream.of(JobRefusal.class.getRecordComponents())
-                .map(component -> component.getName()).toList();
+                .map(RecordComponent::getName).toList();
 
         assertEquals(List.of("reason", "detail", "changedPaths"), components);
     }

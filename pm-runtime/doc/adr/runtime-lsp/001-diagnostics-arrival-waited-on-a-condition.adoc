@@ -1,0 +1,46 @@
+= ADR 001: The diagnostics of a document are waited for on a condition
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-22
+
+== Context
+
+A language server publishes diagnostics as a notification, asynchronously to the request that caused them. The test
+`LspClientTest.linksAndDiagnostics` waited for the first publication by polling the cache with `Thread.sleep(50)` in a
+bounded loop. That is a `java:S2925` finding, and it is also the wrong shape for a test: a slow server makes the test
+sleep longer than it must, and a fast one still sleeps at least one interval.
+
+The cache lives in `PoolLanguageClient`, the client side LSP4J dispatches to; `LspClient` is the only caller that needs
+to wait.
+
+== Decision
+
+`PoolLanguageClient.publishDiagnostics` stores the diagnostics under one monitor and signals every waiter with
+`notifyAll()`. `PoolLanguageClient.awaitDiagnostics(uri, timeout)` waits on that monitor until the document has a
+publication or the timeout expires, and `LspClient.awaitPublishedDiagnostics(file, timeout)` forwards to it as a
+package-private method, so the test waits for the condition it asserts on and no public API grows.
+
+== Alternatives Considered
+
+* *Keep the polling loop with `Thread.sleep`.* Rejected: it is the `java:S2925` finding, and it makes the test wait a
+  fixed interval for an event that may already have happened.
+* *Busy-spin on `Thread.onSpinWait()`.* Rejected: it burns a core for the whole wait and is no more deterministic.
+* *Expose the arrival future publicly on `LspClient`.* Rejected: the wait is a test's need, not a caller's; a public
+  method would fix an API the runtime does not need.
+
+== Consequences
+
+The test waits exactly as long as the server takes, and the monitor is the single place that orders a publication
+against a waiter. A later notification the runtime must wait for is cached and signalled the same way. The wait returns
+an empty list on timeout, so a test that expects a publication still asserts on its content.
+
+== Source
+
+* Pull request: the pull request of work package PLAN-94 (`chore/94-sonar-main-backlog`), Deliverable 5.
+* Work package: `.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-94-sonar-main-backlog.md`.
