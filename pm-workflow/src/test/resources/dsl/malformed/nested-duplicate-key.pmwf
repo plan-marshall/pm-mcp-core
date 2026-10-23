@@ -2,11 +2,12 @@
 name: demo
 description: A malformed unit written for the parser tests.
 type: instance
+icon: workflow.default
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: INSTANCE_HEADER line 12
+# expect: INSTANCE_HEADER line 13
 # The member 'policy_calls' is not interpreted by the reader; the object inside it names 'unit' twice.
 workflow demo version 1 format 1
 instance {"event":"plan","inputs":{"composition_rules":{"digest":"d","revision":"r"},"config_hash":"c","plan_facts_digest":"f","sub_units":[],"templates":[]},"plan_id":"demo","policy_calls":[{"call_site":"demo.run","unit":"a","unit":"b"}],"version":1}

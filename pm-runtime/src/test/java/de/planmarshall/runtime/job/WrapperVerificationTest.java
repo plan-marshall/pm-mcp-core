@@ -11,7 +11,6 @@ package de.planmarshall.runtime.job;
 
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.MAVEN_CONFIG;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.MVNW;
-import static de.planmarshall.runtime.job.JobEnrolmentFixture.PROJECT;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.WRAPPER_PROPERTIES;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -60,7 +59,7 @@ class WrapperVerificationTest {
     }
 
     private VerifyNotResolvePipeline.Stage<Path> verify(ProjectEnrolment checked, Path tree, WrapperName name) {
-        return WrapperVerification.verify(PROJECT, checked, tree, name);
+        return WrapperVerification.verify(checked, tree, name);
     }
 
     private Path passed(ProjectEnrolment checked, Path tree) {

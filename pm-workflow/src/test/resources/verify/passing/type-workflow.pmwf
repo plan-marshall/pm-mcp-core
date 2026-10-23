@@ -2,6 +2,7 @@
 name: verify.type-workflow
 description: A started plan unit of the type workflow, written for the verifier tests.
 type: workflow
+icon: unit.plan
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall

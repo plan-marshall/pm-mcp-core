@@ -68,8 +68,8 @@ final class AstWithoutLocations {
 
     private static UnitFrontmatter strip(UnitFrontmatter frontmatter) {
         return new UnitFrontmatter(frontmatter.name(), frontmatter.description(), frontmatter.type(),
-                frontmatter.entries(), frontmatter.exits(), frontmatter.modificationDate(), frontmatter.version(),
-                frontmatter.author(), frontmatter.signature(), NOWHERE);
+                frontmatter.icon(), frontmatter.entries(), frontmatter.exits(), frontmatter.modificationDate(),
+                frontmatter.version(), frontmatter.author(), frontmatter.signature(), NOWHERE);
     }
 
     private static DecisionDeclaration strip(DecisionDeclaration decision) {

@@ -177,11 +177,11 @@ class AuditCodecTest {
                     "\"scope_type\":\"entry\",\"scope_id\":\"ent-0123456789abcdef\"");
             var input = bytes(line);
 
-            var record = AuditCodec.readRecord(LOG, input);
+            var readRecord = AuditCodec.readRecord(LOG, input);
 
             assertAll(
-                    () -> assertEquals(AuditRecord.Scope.ENTRY, record.scopeType()),
-                    () -> assertEquals("ent-0123456789abcdef", record.scopeId()));
+                    () -> assertEquals(AuditRecord.Scope.ENTRY, readRecord.scopeType()),
+                    () -> assertEquals("ent-0123456789abcdef", readRecord.scopeId()));
         }
 
         @Test

@@ -27,7 +27,7 @@ import java.util.regex.Pattern;
  */
 public final class SupportedVersions {
 
-    private static final Pattern VERSION = Pattern.compile("^[0-9]+\\.[0-9]+\\.[0-9]+(-[A-Za-z0-9.-]+)?$");
+    private static final Pattern VERSION = Pattern.compile("^\\d+\\.\\d+\\.\\d+(-[A-Za-z0-9.-]+)?$");
     private static final Pattern COMPARATOR = Pattern.compile("^(>=|<=|>|<|=)?(.*)$");
 
     private final List<Bound> bounds;
@@ -123,7 +123,7 @@ public final class SupportedVersions {
                 case ">=", "=" -> version.compareTo(low) > 0 ? version : low;
                 case ">" -> {
                     var next = version.next();
-                    yield next == null ? null : (next.compareTo(low) > 0 ? next : low);
+                    yield next == null ? null : max(next, low);
                 }
                 default -> low;
             };
@@ -134,10 +134,18 @@ public final class SupportedVersions {
                 case "<=", "=" -> version.compareTo(high) < 0 ? version : high;
                 case "<" -> {
                     var previous = version.previous();
-                    yield previous == null ? null : (previous.compareTo(high) < 0 ? previous : high);
+                    yield previous == null ? null : min(previous, high);
                 }
                 default -> high;
             };
+        }
+
+        private static Version max(Version left, Version right) {
+            return left.compareTo(right) > 0 ? left : right;
+        }
+
+        private static Version min(Version left, Version right) {
+            return left.compareTo(right) < 0 ? left : right;
         }
     }
 
@@ -187,7 +195,10 @@ public final class SupportedVersions {
                 return comparison;
             }
             if (suffix == null || other.suffix == null) {
-                return suffix == null ? (other.suffix == null ? 0 : 1) : -1;
+                if (suffix == null) {
+                    return other.suffix == null ? 0 : 1;
+                }
+                return -1;
             }
             return suffix.compareTo(other.suffix);
         }

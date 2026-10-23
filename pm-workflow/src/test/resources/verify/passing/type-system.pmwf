@@ -2,6 +2,7 @@
 name: verify.type-system
 description: A started entity unit of the type system, written for the verifier tests.
 type: system
+icon: unit.setup
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall

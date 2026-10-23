@@ -1,0 +1,72 @@
+= ADR 001: Role sets replace as a whole, and the effective configuration is read afresh
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-23
+
+== Context
+
+A role is one JSON artifact, and the roles that exist are the artifacts of the effective role set of a project. Three
+sets contribute — shipped, machine, project — and the harness, model and effort of a role are further changed by the
+machine's and the project's role assignment and by the plan's override. The specification requires an edited artifact or
+a changed assignment to apply at every composition, at every task creation and at every offer, while a running worker
+generation keeps the configuration it was started with. An invalid artifact must count as an undefined role; it must not
+fall back to a lower set.
+
+The question is where the package makes these three rules true: in the loader, in a cache, or in the consumer.
+
+== Decision
+
+`RoleSetLoader` loads the three sets per call, from lowest to highest precedence. An artifact replaces the artifact of the
+same name as a whole and is never merged; a higher set adds a role. A refused higher artifact removes the lower artifact
+from the effective set, so the role is undefined rather than falling back.
+
+`RoleCatalog` also creates the effective set per resolution and reads the assignment stores, the catalogues and the
+skills through `RoleEnvironment` on every call. Nothing is cached between calls. A caller that needs a configuration for
+a whole unit creates one resolver (`RoleCatalog.forPlan`) and resolves every name through it; each name is still read
+afresh, so two names of one unit can see two instants of the stores — the specification's read at every composition, task
+creation and offer wins over a unit-wide snapshot.
+
+The harness, model and effort of a role are placed at the specification's order: the artifact of the set that defines the
+role supplies its three members at that set's level (shipped, machine, project), the machine assignment follows the
+machine artifact, the project assignment follows the project artifact, and the plan's override comes last. A project
+artifact therefore replaces the machine artifact and the machine assignment it landed on, its three members included;
+only where no project artifact exists does the machine assignment apply. `RoleSetLoader` reports the defining set so the
+catalog can place the artifact's members, instead of applying them all at level 1.
+
+Every external fact arrives through `RoleEnvironment`; the package reads no store file and no classpath for the
+assignment stores, the plan overrides, the model catalogues, the profiles, the enrolment or the skills.
+
+== Alternatives Considered
+
+* *Merge members of the sets.* Refused: the specification says an artifact replaces the lower one as a whole, and a merged
+  artifact would make a member's provenance ambiguous.
+* *Fall back to the lower artifact when the higher one is invalid.* Refused: the specification says an invalid role counts
+  as undefined, so a fallback would run a configuration the operator did not choose.
+* *Cache the effective set and the assignments.* Refused: the specification requires the read at every composition, task
+  creation and offer, and a cache would keep a changed assignment from applying to queued tasks. A generation keeps its
+  configuration through its digest, not through a cache in this package.
+* *Let the package read the stores directly.* Refused: the stores are written by the onboarding and by
+  `plan-and-epic-control`; a second reader would duplicate their codecs and their locking. The port keeps the tests on
+  fixture stores, as the specification asks.
+
+== Consequences
+
+* A read is more expensive than a cached one. The role sets are small, and the specification's correctness rule wins.
+* Every consumer of the effective configuration must call the catalog again; it must not hold an `EffectiveRole` across
+  reads when it needs the current values.
+* The ports are the extension point: a new external fact is a new `RoleEnvironment` method, implemented by the wiring and
+  by the fixture store.
+* The steward is the one exception and states it in code: `resolveSteward` reads the machine's default harness and the
+  default assignment instead of the artifact's values.
+
+== Source
+
+Pull request of the work package `role-sets-and-model-caller` (`doc/plans/role-sets-and-model-caller.adoc`, deleted with
+the package), specification `doc/specification/model-work/01-roles-and-configuration.adoc` § Role Sets & Precedence and
+§ Role Assignment, and `doc/specification/workflow-dsl/09-plan-instance.adoc` § Plan Overrides.

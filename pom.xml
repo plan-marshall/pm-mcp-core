@@ -61,6 +61,12 @@
         <pm.guard.runtime-libraries.skip>false</pm.guard.runtime-libraries.skip>
         <pm.guard.provider.skip>true</pm.guard.provider.skip>
         <pm.guard.provider-contract.skip>true</pm.guard.provider-contract.skip>
+        <!-- java:S4032 ("Remove this package") reports on a package-info.java that holds no type. The Module
+             Structure Specification requires every package to exist with its package-info.java also where no type
+             has arrived yet, so the rule is ignored for those files only (ADR 008). -->
+        <sonar.issue.ignore.multicriteria>e1</sonar.issue.ignore.multicriteria>
+        <sonar.issue.ignore.multicriteria.e1.ruleKey>java:S4032</sonar.issue.ignore.multicriteria.e1.ruleKey>
+        <sonar.issue.ignore.multicriteria.e1.resourceKey>**/package-info.java</sonar.issue.ignore.multicriteria.e1.resourceKey>
     </properties>
 
     <dependencyManagement>

@@ -63,6 +63,7 @@ class EngineResumeTest {
             name: sub.worker
             description: A unit written for the tests of pm-workflow.
             type: subworkflow
+            icon: workflow.default
             entry: main
             exit: done
             modification_date: 2026-01-15

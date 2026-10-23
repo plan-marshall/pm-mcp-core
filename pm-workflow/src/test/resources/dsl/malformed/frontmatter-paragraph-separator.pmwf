@@ -2,13 +2,14 @@
 name: Malformed unit
 description: A malformed unit written for the parser tests.
 type: subworkflow
+icon: workflow.default
 exit: done
 exit_description: x 
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: FRONTMATTER line 6 column 20
+# expect: FRONTMATTER line 7 column 20
 # The exit description holds a paragraph separator, U+2029 PARAGRAPH SEPARATOR.
 workflow demo version 1 format 1
 scope subworkflow

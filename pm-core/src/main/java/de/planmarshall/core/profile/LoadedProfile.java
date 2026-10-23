@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.profile;
 
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -25,11 +27,37 @@ import java.util.Optional;
  * @param document the validated tree
  * @param bytes    the document, UTF-8 encoded, as its digest and sidecar are computed over it
  * @param state    the state its verification record gives it
- * @param record   the verification record the profile was bound to; {@code null} for a shipped profile
+ * @param verificationRecord the verification record the profile was bound to; {@code null} for a shipped profile
  * @since 0.1
  */
 public record LoadedProfile(String clientId, ProfileSetKind kind, JsonNode document, byte[] bytes, State state,
-VerificationRecord record) {
+VerificationRecord verificationRecord) {
+
+    @Override
+    public boolean equals(Object other) {
+        return other instanceof LoadedProfile(String otherClientId, ProfileSetKind otherKind, JsonNode otherDocument,
+                byte[] otherBytes, State otherState, VerificationRecord otherRecord)
+                && Objects.equals(clientId, otherClientId) && kind == otherKind
+                && Objects.equals(document, otherDocument) && Arrays.equals(bytes, otherBytes) && state == otherState
+                && Objects.equals(verificationRecord, otherRecord);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(clientId, kind, document, Arrays.hashCode(bytes), state, verificationRecord);
+    }
+
+    @Override
+    public String toString() {
+        return "LoadedProfile[clientId=" + clientId + ", kind=" + kind + ", document=" + document + ", bytes=["
+                + bytes.length + " bytes], state=" + state + ", verificationRecord=" + verificationRecord + "]";
+    }
+
+    /** @return a copy of the document bytes, so the digest and hash of the value cannot change from outside */
+    @Override
+    public byte[] bytes() {
+        return bytes.clone();
+    }
 
     /** The state a verification record gives a profile. The set is closed. */
     public enum State {

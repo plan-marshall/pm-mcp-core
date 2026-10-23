@@ -96,11 +96,7 @@ public final class DbusReader {
             case 'a' -> readArray(type.substring(1));
             case '(' -> {
                 align(8);
-                var fields = new ArrayList<>();
-                for (var field : Signatures.split(type.substring(1, type.length() - 1))) {
-                    fields.add(readValue(field));
-                }
-                yield fields;
+                yield Signatures.split(type.substring(1, type.length() - 1)).stream().map(this::readValue).toList();
             }
             default -> throw new DbusException(DbusException.LOCAL, "unsupported type " + type);
         };

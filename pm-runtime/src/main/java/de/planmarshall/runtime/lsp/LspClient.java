@@ -212,6 +212,18 @@ public final class LspClient implements AutoCloseable {
     }
 
     /**
+     * Returns the cached diagnostics of a document, waiting for its first publication when none is cached.
+     *
+     * @param file    the document
+     * @param timeout the longest wait
+     * @return the published diagnostics, or an empty list when none arrived in time
+     * @throws InterruptedException when the wait is interrupted
+     */
+    List<Diagnostic> awaitPublishedDiagnostics(Path file, Duration timeout) throws InterruptedException {
+        return client.awaitDiagnostics(file.toUri().toString(), timeout);
+    }
+
+    /**
      * @return whether the process is alive
      */
     public boolean isAlive() {
@@ -238,7 +250,7 @@ public final class LspClient implements AutoCloseable {
                     process.destroyForcibly();
                 }
             }
-        } catch (InterruptedException e) {
+        } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
             process.destroyForcibly();
         } finally {

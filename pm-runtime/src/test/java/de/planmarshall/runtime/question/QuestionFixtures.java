@@ -138,8 +138,8 @@ final class QuestionFixtures {
         }
     }
 
-    static String line(QuestionRecord record) {
-        return new String(QuestionRecordCodec.write(record), UTF_8);
+    static String line(QuestionRecord questionRecord) {
+        return new String(QuestionRecordCodec.write(questionRecord), UTF_8);
     }
 
     /** Writes raw lines, each terminated by the fixture's ending; the file is the scope's question log. */

@@ -16,7 +16,7 @@ workstream: WS-10
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R13.
+Rules that apply to this plan: R13, R17.
 
 ## Objective
 
@@ -71,7 +71,7 @@ and failure modes, and links to the specification sections it implements (absolu
 into `plan-marshall-documentation`) and to the package's ADRs. It does not repeat Javadoc
 type-by-type; it links the types relatively.
 
-**Done when:** every package with production code in every module has its developer file; the
+**Done when:** the links check (R17, absolute paths of the sibling checkout) reports `BROKEN LINKS 0` and the run is recorded in the pull request body; the change is documents only, so the lane's docs-only classification applies and no full `verify` is owed; every package with production code in every module has its developer file; the
 taken-over guides are complete here; relative links resolve.
 
 ## Standing Constraints
@@ -121,13 +121,14 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 
 - Depends on: nothing
 - **Precondition met (2026-10-21).** The package file `doc/plans/module-developer-docs.adoc` and its index row (`open`, depends on nothing, Milestones 2 to 4) were added by #126 (PLAN-89, `c45a968`); the Standing Constraints hold as written: the plan's pull request removes the row and deletes the package file. The package file's four bullets (one file per package, the guides that move here, existing files extended and never overwritten, written from `main`) are covered by the deliverables below, which are the finer-grained brief.
+- Runs beside PLAN-26 (`role-sets-and-model-caller`) and PLAN-87 (`journal-format-version-reset`), both running: PLAN-26 writes `pm-core/doc/developer/core-role.adoc` and `pm-workflow/doc/developer/workflow-model.adoc`, PLAN-87 edits `pm-core/doc/developer/core-store.adoc`. Do not write those three files from the code of an earlier head: read them at the head of `main`, extend them and never overwrite them, and merge the base branch (the lane's step 7) before the merge gate. #150 changed `workflow-dsl.adoc` and `workflow-ast.adoc` (a required `icon` in the unit frontmatter) and #145 changed `workflow-engine.adoc`: those guides are current at the head of `main`.
 - Overlaps with: PLAN-39 none; later plans write `doc/developer/{package}.adoc` of their own packages — a later plan in a package this plan documents (for example `core.store`) extends the same file, so the two are sequenced by the gate
 - Adjacent to: `plan-marshall-documentation`, untouched by this plan
 
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-40-module-developer-docs.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-40-module-developer-docs.md
 ```
 
 ## Write-Boundary

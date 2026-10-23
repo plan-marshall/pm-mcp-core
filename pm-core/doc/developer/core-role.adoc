@@ -1,0 +1,194 @@
+= Role Artifacts, Role Sets and the Effective Configuration (`core.role`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-WORK-1[PM-WORK-1], link:{docs}/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]_
+
+Package `de.planmarshall.core.role` of `pm-core` owns the *role*: one JSON artifact per role, the shipped, machine and
+project sets it lives in, the effective configuration the role runs on, and the two digests that bind a worker generation
+and a qualification record to it. No class of this package names a harness: a harness is its client profile
+(link:core-profile.adoc[`core.profile`]), and a role is the document an operator or the release supplies. The two roles
+the specification fixes by name — the judge and the steward — appear only as the model caller's and the catalog's
+named exemptions.
+
+The package owns five things:
+
+* the *artifact validator*, the closed schema of a role artifact including the members whose bounds are compiled
+  (`off_track` thresholds, the form of a `zero_tool` role);
+* the *set loader*, the whole-artifact precedence of the shipped, machine and project sets;
+* the *effective configuration*, the six levels that supply the harness, model and effort of a role;
+* the *two digests*, the configuration digest of a worker generation and the qualification digest of a record;
+* *validation against the client profile and the model catalogue*, the table of reasons that makes an invalid role
+  undefined.
+
+The stores the package reads — the machine and project `role-assignments.json`, the plan's `overrides.json`, the model
+catalogues, the client profiles, the enrolment, the skills and the machine configuration — arrive through one port,
+link:https://github.com/plan-marshall/pm-mcp-core/blob/main/pm-core/src/main/java/de/planmarshall/core/role/RoleEnvironment.java[`RoleEnvironment`].
+Writing them is `machine-onboarding-unit`'s, `project-onboarding-unit`'s and `plan-and-epic-control`'s; the runtime never
+reads a role, a harness or a model from git-tracked configuration.
+
+Specification (the sections this package was built against): `model-work/01-roles-and-configuration.adoc`,
+`client-profiles/01-profile-schema.adoc#role-classes`,
+`store-schemas/12-machine-stores.adoc#model-catalogue` and `#role-assignments-store`,
+`workflow-dsl/09-plan-instance.adoc#plan-overrides`. The package's pull request does not delete those specification
+sections or their watch items: other specification parts link to them from more than a hundred places, and
+`model-work/01` still carries the escalation assignment, the shipped role content and the qualification text that this
+package does not implement, so the deletion belongs to the packages that complete the document. The package's own file
+and its index row are removed.
+
+== The Three Sets
+
+[cols="1,3,2"]
+|===
+|Set |Where |Notes
+
+|Shipped
+|`classpath:/roles/<name>.json`, supplied by the assembly
+|Read by `ShippedRoles`; `default-assignment.json` and the `qualification/` subdirectory are not roles and are skipped.
+
+|Machine
+|`<PM_MCP_BASE>/roles/<name>.json`
+|The operator, for every project of the machine; holds no qualification records.
+
+|Project
+|`<PM_MCP_BASE>/projects/<project_id>/roles/<name>.json`
+|The operator, for one project; holds the records the operator makes under `qualification/`.
+|===
+
+An artifact replaces the artifact of the same name in a lower set *as a whole*; members are never merged. A higher set
+adds a role the lower sets do not define. An artifact of a higher set that fails validation leaves the role *undefined*:
+`RoleSetLoader` removes the lower artifact rather than falling back to it, because the specification says an invalid role
+counts as undefined.
+
+The loader reads the sets afresh at every call. The specification requires an edited artifact or a changed assignment to
+apply at every composition, every task creation and every offer, so `RoleCatalog` creates the set per resolution rather
+than caching it.
+
+== The Effective Configuration
+
+`RoleCatalog.resolve(role, planOverride)` takes the role's harness, model and effort from these levels, each later level
+overriding only what it names:
+
+[cols="1,4"]
+|===
+|Level |Source
+
+|1 |The shipped artifact's own `harness`, `model`, `effort`, where it defines the role
+|2 |The machine artifact's three members, where it defines the role (it replaces the shipped artifact as a whole)
+|3 |The machine's `role-assignments.json`
+|4 |The project artifact's three members, where it defines the role (it replaces the artifact of the lower sets as a whole, so its members come after the machine assignment)
+|5 |The project's `role-assignments.json`
+|6 |The plan's `overrides.json` (`roles.<name>`)
+|===
+
+`RoleSetLoader` reports the set the effective artifact came from, so the catalog inserts the artifact's own members at
+their level. Where a project artifact exists, the machine assignment of level 3 has no effect: the project artifact
+replaces the artifact it landed on, its three members included. Where no project artifact exists, the machine assignment
+lands on the machine or shipped artifact and applies.
+
+`RoleAssignment` carries three optional members. An `Optional` that is empty means "this level names nothing"; an
+`EffortValue` whose `value` is `null` means "this level names no effort flag", which clears the effort of the levels
+below. The distinction is load-bearing and is the reason `EffortValue` exists as a wrapper.
+
+The steward is the exception: `resolveSteward()` takes its harness from `harnesses.default` of `machine-config.json`, its
+model from the tier `standard` of that harness's profile, and the effort of its default assignment. Its artifact's
+`harness` and `model` are not read, and `model_not_allowed` never applies to it. Every resolution of the steward routes
+there, also when a composed unit names it, so no caller reads its artifact's values.
+
+`EffectiveRole` carries the values a worker generation needs: the effective artifact, the three effective values, the
+resolved skills with their digests, the harness major.minor, the weights identity where the harness reports one, the
+continuation bounds cut to the harness's `headless.resumability`, one effective off-track setting per signal (a signal
+the artifact does not name takes the compiled threshold and the action `show`), the context budget (artifact, then
+harness fallback, then the compiled `400000`) and the effective idle wakeups.
+
+== The Two Digests
+
+`RoleDigests.configuration(role)` is the SHA-256 of the canonical JSON (RFC 8785) of
+
+----
+{"artifact": <effective artifact without description, with the effective harness, model, effort>,
+ "harness_version": "<major.minor>",
+ "skill_digests": {"<skill URI>": "<sha256>"}}
+----
+
+It identifies the configuration a worker generation is started with; an offer compares it, and a generation with an
+outdated digest is offered no task.
+
+`RoleDigests.qualification(role)` is the SHA-256 of the canonical JSON of exactly the graded members:
+
+----
+{"configuration": {"harness": ..., "harness_version": ..., "model": ..., "effort": ...,
+                   "tools": [...], "class": ..., "skill_digests": {...}},
+ "weights_identity": "..."}
+----
+
+The `configuration` object is the shape of the qualification record's `configuration` member. The weights identity is
+added beside it only where the harness reports one, so an enrolment that starts reporting it invalidates the record.
+
+Both digests are 64 lower-case hexadecimal digits, because the configuration digest and the record's
+`qualification_digest` carry that pattern.
+
+*Pitfall (the hazard of `PM-WATCH-DISP-48`, now carried here).* A digest bound to too many members makes a role fall to
+its conservative fallback for an edit the grading never measured; one bound to too few stays valid after the model or a
+skill changed. The rule: a change of `count`, `recycling`, `budget_floor_seconds`, `context_budget_tokens`, `questions`,
+`off_track` or `form` changes the configuration digest and keeps the qualification digest; a change of `description`
+changes neither; a change of `harness`, `model`, `effort`, `tools`, `class`, a skill digest or the harness major.minor
+changes both; the weights identity changes only the qualification digest. `RoleDigestTest` is the table.
+
+== Validation
+
+`RoleValidation.check(...)` runs the rows of the specification's table in order and refuses the role with the first that
+fails:
+
+[cols="2,4"]
+|===
+|Reason |Checked against
+
+|`schema_invalid` |`RoleArtifactValidator`: the closed schema, the name against the file name, `recycling` for `warm`,
+`questions`/`off_track` not on `zero_tool`, an `off_track` threshold above the compiled value or below its floor
+|`harness_unknown` |`RoleEnvironment.profile` and `.enrolledHarness`
+|`harness_not_eligible` |`worker.eligible`
+|`harness_class_not_runnable` |`headless.classes.<class>` non-null
+|`model_restricted` |`worker.restricted_models` where the class is enforced (always for `zero_tool`)
+|`effort_unsupported` |`headless.model_efforts` of the model (or `*`)
+|`model_not_allowed` |the effective catalogue, the project's else the machine's; never the steward
+|`tool_not_permitted` |the tool set of the class, the PM-MCP tools every role names, the forbidden harness tools
+|`form_not_permitted` |a `zero_tool` role is `fresh`
+|`skill_unresolved` |`RoleEnvironment.resolveSkill`, and the first skill is a role or an extension skill
+|===
+
+The table has no `session_first_not_permitted`; `RoleValidationReason` deliberately does not declare it.
+
+`RoleValidationReason` is the refusal vocabulary; `RoleRefusal` carries the role, the reason, the JSON Pointer where a
+value broke a rule, and a detail. `RoleCatalog` turns a refusal into `RoleResolution.Undefined` — the consumer's
+"undefined" is a value, not an exception.
+
+== Invariants and Failure Modes
+
+* A role set, an assignment and an override are operator files. Never add a code path that reads them from the repository.
+* Validation is per read. A value that a later change makes invalid (an unenrolled harness, a model the catalogue no
+  longer allows) makes the role invalid at its next read, exactly like an invalid artifact.
+* An invalid role never falls back to a lower set.
+* `RoleEnvironment` is the only way out of the package. A new external fact is a new port method, not a file read.
+* The shipped reader skips `default-assignment.json` and every subdirectory. A new reserved file in `classpath:/roles/`
+  needs the same treatment, or the build test fails with "not named by a role name".
+
+== Tests
+
+`RoleArtifactValidatorTest` (the closed schema, every `schema_invalid` case), `RoleSetLoaderTest` (whole-artifact
+precedence, the invalid higher artifact, the name check, the superseded refusal), `RoleValidationTableTest` (the table row
+by row, the reason set and the steward control), `RoleEffectiveConfigurationTest` (the levels, the fresh read, the
+steward, the catalogue precedence), `RoleDigestTest` (the digest table), `EffectiveRoleFactsTest` (the resumability cut,
+the context-budget and idle fallbacks, the off-track defaults), `ShippedRolesTest` (the classpath reader and the reserved
+file).
+
+== Related
+
+* link:core-profile.adoc[Client Profiles Developer Guide] — the harness and its profile.
+* link:../adr/core-role/001-role-sets-and-the-effective-configuration.adoc[ADR core-role/001]
+* link:../adr/core-role/002-two-digests-over-the-effective-values.adoc[ADR core-role/002]

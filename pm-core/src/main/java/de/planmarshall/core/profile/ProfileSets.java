@@ -10,6 +10,7 @@
 package de.planmarshall.core.profile;
 
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -48,6 +49,27 @@ public record ProfileSets(Map<String, ShippedProfile> shipped, Path machineDirec
         /** Copies the document. */
         public ShippedProfile {
             document = document.clone();
+        }
+
+        /** @return a copy of the document, so the hash of the value cannot change from outside */
+        @Override
+        public byte[] document() {
+            return document.clone();
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof ShippedProfile(byte[] otherDocument) && Arrays.equals(document, otherDocument);
+        }
+
+        @Override
+        public int hashCode() {
+            return Arrays.hashCode(document);
+        }
+
+        @Override
+        public String toString() {
+            return "ShippedProfile[document=[" + document.length + " bytes]]";
         }
     }
 

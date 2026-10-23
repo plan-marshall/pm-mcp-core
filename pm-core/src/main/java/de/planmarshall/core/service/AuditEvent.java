@@ -302,8 +302,8 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
         var details = new LinkedHashMap<String, Object>();
         details.put(DETAIL_SCOPE_TYPE, Objects.requireNonNull(scopeType, "scopeType"));
         details.put(DETAIL_SCOPE_ID, Objects.requireNonNull(scopeId, "scopeId"));
-        details.put(DETAIL_STATE, Objects.requireNonNull(state, "state"));
-        details.put(DETAIL_CAUSE, Objects.requireNonNull(cause, "cause"));
+        details.put(DETAIL_STATE, Objects.requireNonNull(state, DETAIL_STATE));
+        details.put(DETAIL_CAUSE, Objects.requireNonNull(cause, DETAIL_CAUSE));
         details.put(DETAIL_IDLE_SINCE, Objects.requireNonNull(idleSince, "idleSince").toString());
         details.put(DETAIL_IDLE_SECONDS, idleSeconds);
         return new AuditEvent(PLAN_STALLED, CATEGORY_TRANSITION, OUTCOME_WARNING, details);

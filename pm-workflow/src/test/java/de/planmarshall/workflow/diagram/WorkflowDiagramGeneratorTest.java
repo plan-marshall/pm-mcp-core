@@ -204,6 +204,7 @@ class WorkflowDiagramGeneratorTest {
                     name: adjudicate.decisions
                     description: A unit written for the tests of pm-workflow.
                     type: subworkflow
+                    icon: workflow.default
                     exit: done
                     modification_date: 2026-01-15
                     version: 0.1.0
@@ -239,6 +240,7 @@ class WorkflowDiagramGeneratorTest {
                 name: diagram.entries
                 description: A sub-workflow with three entries written for the diagram tests.
                 type: subworkflow
+                icon: workflow.default
                 entry: review
                 entry: repair
                 entry: recheck
@@ -303,6 +305,7 @@ class WorkflowDiagramGeneratorTest {
                     name: diagram.collision
                     description: A unit written for the tests of pm-workflow.
                     type: system
+                    icon: workflow.default
                     modification_date: 2026-01-15
                     version: 0.1.0
                     author: plan-marshall
@@ -347,6 +350,7 @@ class WorkflowDiagramGeneratorTest {
                     name: diagram.phases
                     description: A unit written for the tests of pm-workflow.
                     type: system
+                    icon: workflow.default
                     modification_date: 2026-01-15
                     version: 0.1.0
                     author: plan-marshall
@@ -386,6 +390,7 @@ class WorkflowDiagramGeneratorTest {
                     name: diagram.undeclared
                     description: A unit written for the tests of pm-workflow.
                     type: system
+                    icon: workflow.default
                     modification_date: 2026-01-15
                     version: 0.1.0
                     author: plan-marshall
@@ -539,6 +544,7 @@ class WorkflowDiagramGeneratorTest {
                     name: plan
                     description: A unit written for the tests of pm-workflow.
                     type: workflow
+                    icon: workflow.default
                     modification_date: 2026-01-15
                     version: 0.1.0
                     author: plan-marshall
@@ -730,6 +736,7 @@ class WorkflowDiagramGeneratorTest {
                     name: diagram.parameters
                     description: A unit written for the tests of pm-workflow.
                     type: system
+                    icon: workflow.default
                     modification_date: 2026-01-15
                     version: 0.1.0
                     author: plan-marshall

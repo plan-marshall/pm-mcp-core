@@ -2,11 +2,12 @@
 name: verify.cycle-measure-step-list-settle
 description: A unit written for the verifier tests.
 type: workflow
+icon: workflow.default
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: STEP_COMPLETION state verify.entry line 19
+# expect: STEP_COMPLETION state verify.entry line 20
 # The pass of the dispatch hub through verify.two returns to it without settling a step.
 workflow verify.cycle-measure-step-list-settle version 1 format 1
 scope plan

@@ -2,6 +2,7 @@
 name: Malformed unit
 description: A malformed unit written for the parser tests.
 type: subworkflow
+icon: workflow.default
 entry: main
 exit: done
 entry_description: The description of the entry stands below the exit, not below its entry.
@@ -9,7 +10,7 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: FRONTMATTER line 7 column 1
+# expect: FRONTMATTER line 8 column 1
 # The description of the entry does not stand directly below its entry line.
 workflow demo version 1 format 1
 scope subworkflow

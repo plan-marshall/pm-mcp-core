@@ -492,23 +492,26 @@ class WorkflowStatusCodecTest {
         @DisplayName("a second pending request is refused: at most one awaits the operator")
         void onePendingAtATime() {
             var second = PENDING.replace("\"WR-1\"", "\"WR-2\"");
-            var refusal = assertThrows(StoreRefusal.class, () -> read(withRequests(PENDING, second)));
+            var document = withRequests(PENDING, second);
+            var refusal = assertThrows(StoreRefusal.class, () -> read(document));
             var status = read(DOCUMENT);
             var pending = read(withRequests(PENDING)).waiverRequests().getFirst();
+            var duplicated = List.of(pending, pending.toBuilder().requestId("WR-2").build());
 
             assertAll(
                     () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
                     () -> assertEquals(FILE, refusal.file()),
                     () -> assertTrue(refusal.getMessage().contains("waiver_requests"), refusal.getMessage()),
-                    () -> assertThrows(IllegalArgumentException.class, () -> status.withWaiverRequests(
-                            List.of(pending, pending.toBuilder().requestId("WR-2").build()))));
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> status.withWaiverRequests(duplicated)));
         }
 
         @Test
         @DisplayName("the same request id filed twice is refused, whatever its outcome")
         void requestIdTwice() {
             var declined = request("\"declined\"", "null", ANSWERED_CLI);
-            var refusal = assertThrows(StoreRefusal.class, () -> read(withRequests(declined, PENDING)));
+            var document = withRequests(declined, PENDING);
+            var refusal = assertThrows(StoreRefusal.class, () -> read(document));
 
             assertAll(
                     () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),

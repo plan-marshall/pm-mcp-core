@@ -9,10 +9,12 @@
  */
 package de.planmarshall.runtime.lsp;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.MessageActionItem;
 import org.eclipse.lsp4j.MessageParams;
@@ -33,6 +35,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 final class PoolLanguageClient implements LanguageClient {
 
     private final Map<String, List<Diagnostic>> diagnostics = new ConcurrentHashMap<>();
+    private final Object arrivals = new Object();
 
     @Override
     public void telemetryEvent(Object object) {
@@ -41,7 +44,32 @@ final class PoolLanguageClient implements LanguageClient {
 
     @Override
     public void publishDiagnostics(PublishDiagnosticsParams params) {
-        diagnostics.put(params.getUri(), List.copyOf(params.getDiagnostics()));
+        synchronized (arrivals) {
+            diagnostics.put(params.getUri(), List.copyOf(params.getDiagnostics()));
+            arrivals.notifyAll();
+        }
+    }
+
+    /**
+     * Waits until the server published diagnostics for a document.
+     *
+     * @param uri     the document URI
+     * @param timeout the longest wait
+     * @return the published diagnostics, or an empty list when none arrived in time
+     * @throws InterruptedException when the wait is interrupted
+     */
+    List<Diagnostic> awaitDiagnostics(String uri, Duration timeout) throws InterruptedException {
+        var deadline = System.nanoTime() + timeout.toNanos();
+        synchronized (arrivals) {
+            while (!diagnostics.containsKey(uri)) {
+                var remaining = deadline - System.nanoTime();
+                if (remaining <= 0) {
+                    return List.of();
+                }
+                TimeUnit.NANOSECONDS.timedWait(arrivals, remaining);
+            }
+            return diagnostics.get(uri);
+        }
     }
 
     @Override

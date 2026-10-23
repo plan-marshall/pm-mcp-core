@@ -18,7 +18,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:plan-instance-versions.adoc[`plan-instance-versions`]
 |Plan instance versions: the triggers of the composition events, the engine's switch to the version in force, `instance_version`, Rules 13 and 14 at composition, the instance resources
 |`open`
-|link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]
+|nothing
 |Milestones 3 and 4
 
 |link:module-developer-docs.adoc[`module-developer-docs`]
@@ -33,22 +33,16 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:../../../pm-mcp-clients/doc/plans/exec-read-denied-paths.adoc[`pm-mcp-clients` / `exec-read-denied-paths`]
 |Milestone 4
 
-|link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]
-|Role artifacts, role sets and the model caller
-|`open`
-|nothing
-|Milestone 4
-
 |link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]
 |Task queue and task protocol
 |`open`
-|link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]
+|nothing
 |Milestone 4
 
 |link:worker-launch.adoc[`worker-launch`]
 |Worker launch and harness enrolment
 |`open`
-|link:job-confinement-and-environment.adoc[`job-confinement-and-environment`]; link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:client-profile-rendering.adoc[`client-profile-rendering`] (the rendered launch prompt)
+|link:job-confinement-and-environment.adoc[`job-confinement-and-environment`]; link:client-profile-rendering.adoc[`client-profile-rendering`] (the rendered launch prompt)
 |Milestone 4
 
 |link:supervisor.adoc[`supervisor`]
@@ -78,13 +72,13 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:question-continuation.adoc[`question-continuation`]
 |Continuation after a question: hold, suspend and resume, the answer acknowledgement, the answer in the next task, the question bound, the stage `resumability` of the profile verification
 |`open`
-|link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:supervisor.adoc[`supervisor`]; link:worker-launch.adoc[`worker-launch`]; link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:../../../plan-marshall-mcp/doc/plans/question-loop-verification.adoc[`plan-marshall-mcp` / `question-loop-verification`]
+|link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:supervisor.adoc[`supervisor`]; link:worker-launch.adoc[`worker-launch`]; link:../../../plan-marshall-mcp/doc/plans/question-loop-verification.adoc[`plan-marshall-mcp` / `question-loop-verification`]
 |Milestone 4
 
 |link:role-qualification.adoc[`role-qualification`]
 |Role qualification
 |`open`
-|link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:supervisor.adoc[`supervisor`]
+|link:supervisor.adoc[`supervisor`]
 |Milestone 4
 
 |link:supervision-scenarios.adoc[`supervision-scenarios`]
@@ -156,7 +150,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:chat.adoc[`chat`]
 |Chatting with the planning role: one sub-workflow for a plan, an epic, a decision, a start, and ended work, routed to its role, every change through read-back
 |`open`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:role-qualification.adoc[`role-qualification`]; link:decision-engine.adoc[`decision-engine`]; link:start-from-clients.adoc[`start-from-clients`] (chat while starting); link:start-source-intake.adoc[`start-source-intake`] (the entry's `chat/` and its move); link:process-and-overview.adoc[`process-and-overview`] (ended work)
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:role-qualification.adoc[`role-qualification`]; link:decision-engine.adoc[`decision-engine`]; link:start-from-clients.adoc[`start-from-clients`] (chat while starting); link:start-source-intake.adoc[`start-source-intake`] (the entry's `chat/` and its move); link:process-and-overview.adoc[`process-and-overview`] (ended work)
 |Milestone 8; the client work of `pm-mcp-clients`
 
 |link:chat-plan-revision.adoc[`chat-plan-revision`]
@@ -222,7 +216,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:process-designer.adoc[`process-designer`]
 |Designing a plan's process: the machine level of workflow units and its precedence, the validation with its composition dry-run, placing and removing at machine and project level (the project's as a short landing) with their audit, the catalogue of building blocks
 |`open`
-|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:recipe-workflows.adoc[`recipe-workflows`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the plan axes and their variants); link:start-source-intake.adoc[`start-source-intake`] (the short landings); link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`] (the effective role set)
+|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:recipe-workflows.adoc[`recipe-workflows`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the plan axes and their variants); link:start-source-intake.adoc[`start-source-intake`] (the short landings)
 |Milestone 11; the client work of `pm-mcp-clients`
 
 |link:cleanup.adoc[`cleanup`]
@@ -234,7 +228,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:endpoint-harness.adoc[`endpoint-harness`]
 |The endpoint harness: a model served on the loopback interface, its profile, its request, its enrolment and the identity of its weights
 |`open`
-|link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:worker-launch.adoc[`worker-launch`]; link:role-qualification.adoc[`role-qualification`] (the weights identity is a member of the qualification digest)
+|link:worker-launch.adoc[`worker-launch`]; link:role-qualification.adoc[`role-qualification`] (the weights identity is a member of the qualification digest)
 |Milestone 14
 
 |link:judgment-endpoint.adoc[`judgment-endpoint`]
@@ -270,7 +264,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:client-profile-rendering.adoc[`client-profile-rendering`]
 |The on-the-fly placeholder rendering of the client profiles: the placeholder table, the rendering invariants and the per-variant digest, the calibration axis, the host-resident surface inventory
 |`open`
-|link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]
+|nothing
 |Milestone 14
 
 |link:build-parsers-and-gate-honesty.adoc[`build-parsers-and-gate-honesty`]

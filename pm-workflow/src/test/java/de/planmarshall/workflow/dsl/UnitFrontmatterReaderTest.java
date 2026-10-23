@@ -53,11 +53,12 @@ class UnitFrontmatterReaderTest {
 
     private static final String RESOURCE = "fixture.pmwf";
 
-    /** A valid frontmatter, one line per element; it stands on lines 2 to 11, the closing {@code ---} on line 12. */
+    /** A valid frontmatter, one line per element; it stands on lines 2 to 12, the closing {@code ---} on line 13. */
     private static final List<String> VALID = List.of(
             "name: Commit and Push",
             "description: Commits the changes of the plan's worktree and pushes its branch.",
             "type: subworkflow",
+            "icon: git.commit",
             "entry: commit",
             "entry_description: The worktree holds the changes to commit, or is clean.",
             "exit: done",
@@ -134,6 +135,7 @@ class UnitFrontmatterReaderTest {
                     () -> assertEquals("Commits the changes of the plan's worktree and pushes its branch.",
                             frontmatter.description()),
                     () -> assertEquals(UnitType.SUBWORKFLOW, frontmatter.type()),
+                    () -> assertEquals("git.commit", frontmatter.icon()),
                     () -> assertEquals(List.of(new InterfaceElement("commit",
                                     Optional.of("The worktree holds the changes to commit, or is clean."))),
                             frontmatter.entries()),
@@ -150,11 +152,11 @@ class UnitFrontmatterReaderTest {
         @Test
         @DisplayName("keeps three entries in their order, each with its description")
         void keepsThreeEntriesInOrder() {
-            var source = unit(List.of(VALID.get(0), VALID.get(1), VALID.get(2), "entry: post_run",
+            var source = unit(List.of(VALID.get(0), VALID.get(1), VALID.get(2), VALID.get(3), "entry: post_run",
                     "entry_description: The run is over.", "entry: hand_back",
                     "entry_description: The branch holds commits beyond the base.", "entry: merge",
-                    "entry_description: The plan is ready to merge.", VALID.get(5), VALID.get(7), VALID.get(8),
-                    VALID.get(9)));
+                    "entry_description: The plan is ready to merge.", VALID.get(6), VALID.get(8), VALID.get(9),
+                    VALID.get(10)));
 
             var entries = read(source).frontmatter().entries();
 
@@ -167,10 +169,10 @@ class UnitFrontmatterReaderTest {
         @Test
         @DisplayName("reads entries and exits without descriptions, and a unit without either")
         void readsElementsWithoutDescriptions() {
-            var withoutDescriptions = unit(List.of(VALID.get(0), VALID.get(1), VALID.get(2), "entry: commit",
-                    "exit: done", "exit: failed", VALID.get(7), VALID.get(8), VALID.get(9)));
-            var withoutInterface = unit(List.of(VALID.get(0), VALID.get(1), "type: workflow", VALID.get(7),
-                    VALID.get(8), VALID.get(9)));
+            var withoutDescriptions = unit(List.of(VALID.get(0), VALID.get(1), VALID.get(2), VALID.get(3),
+                    "entry: commit", "exit: done", "exit: failed", VALID.get(8), VALID.get(9), VALID.get(10)));
+            var withoutInterface = unit(List.of(VALID.get(0), VALID.get(1), "type: workflow",
+                    "icon: workflow.default", VALID.get(8), VALID.get(9), VALID.get(10)));
 
             var described = read(withoutDescriptions).frontmatter();
             var bare = read(withoutInterface).frontmatter();
@@ -217,8 +219,9 @@ class UnitFrontmatterReaderTest {
         @Test
         @DisplayName("lets the lines stand in any order but the descriptions")
         void readsAnyOrder() {
-            var reversed = new ArrayList<>(List.of(VALID.get(9), VALID.get(8), VALID.get(7), VALID.get(5),
-                    VALID.get(6), VALID.get(3), VALID.get(4), VALID.get(2), VALID.get(1), VALID.get(0)));
+            var reversed = new ArrayList<>(List.of(VALID.get(10), VALID.get(9), VALID.get(8), VALID.get(6),
+                    VALID.get(7), VALID.get(4), VALID.get(5), VALID.get(2), VALID.get(3), VALID.get(1),
+                    VALID.get(0)));
 
             var frontmatter = read(unit(reversed)).frontmatter();
 
@@ -259,6 +262,7 @@ class UnitFrontmatterReaderTest {
                     Arguments.of("a repeated single key", appended("name: Second Name"), APPENDED_LINE, 1),
                     Arguments.of("a repeated signature", appended("signature: a", "signature: b"),
                             APPENDED_LINE + 1, 1),
+                    Arguments.of("a repeated icon", appended("icon: phase.init"), APPENDED_LINE, 1),
                     Arguments.of("an entry description below another key", appended("entry_description: x"),
                             APPENDED_LINE, 1),
                     Arguments.of("an exit description below another key", appended("exit_description: x"),
@@ -266,9 +270,9 @@ class UnitFrontmatterReaderTest {
                     Arguments.of("a description as the first line",
                             List.of("exit_description: x", VALID.get(0)), 2, 1),
                     Arguments.of("an exit description below an entry",
-                            replaced("entry", "entry: commit", "exit_description: x"), 6, 1),
+                            replaced("entry", "entry: commit", "exit_description: x"), 7, 1),
                     Arguments.of("a second description of one entry",
-                            replaced("entry_description", "entry_description: a", "entry_description: b"), 7, 1),
+                            replaced("entry_description", "entry_description: a", "entry_description: b"), 8, 1),
                     Arguments.of("a single-quoted value", appended("signature: 'abc'"), APPENDED_LINE, 12),
                     Arguments.of("a value opening with an indicator", appended("signature: %abc"), APPENDED_LINE,
                             12),
@@ -320,7 +324,7 @@ class UnitFrontmatterReaderTest {
         }
 
         @ParameterizedTest(name = "{0}")
-        @ValueSource(strings = {"name", "description", "type", "modification_date", "version", "author"})
+        @ValueSource(strings = {"name", "description", "type", "icon", "modification_date", "version", "author"})
         @DisplayName("refuses a frontmatter that lacks a required key at its closing line")
         void refusesMissingKey(String key) {
             var diagnostic = refuse(unit(without(key)));
@@ -380,6 +384,11 @@ class UnitFrontmatterReaderTest {
                     Arguments.of("an empty author", "author", "author:", 8),
                     Arguments.of("an author of 101 characters", "author", "author: " + "a".repeat(101), 9),
                     Arguments.of("a type outside the closed set", "type", "type: process", 7),
+                    Arguments.of("an icon with a path segment", "icon", "icon: ../x", 7),
+                    Arguments.of("an icon with a slash", "icon", "icon: a/b", 7),
+                    Arguments.of("an icon that starts upper case", "icon", "icon: Phase.Init", 7),
+                    Arguments.of("an icon with a backslash", "icon", "icon: a\\\\b", 7),
+                    Arguments.of("an icon of 65 characters", "icon", "icon: a" + "b".repeat(64), 7),
                     Arguments.of("an entry that is no identifier", "entry", "entry: Commit", 8),
                     Arguments.of("an entry of 33 characters", "entry", "entry: " + "e".repeat(33), 8),
                     Arguments.of("an exit that is no outcome id", "exit", "exit: 1done", 7),
@@ -420,6 +429,8 @@ class UnitFrontmatterReaderTest {
                             "exit_description: " + "e".repeat(500)),
                     Arguments.of("an author of 1 character", "author", "author: a"),
                     Arguments.of("an author of 100 characters", "author", "author: " + "a".repeat(100)),
+                    Arguments.of("an icon of 64 characters", "icon", "icon: a" + "b".repeat(63)),
+                    Arguments.of("a dotted icon id", "icon", "icon: axis.method.test-first"),
                     Arguments.of("an entry of 32 characters", "entry", "entry: " + "e".repeat(32)),
                     Arguments.of("today as the date", "modification_date",
                             "modification_date: " + LocalDate.now(ZoneOffset.UTC)),
@@ -442,7 +453,7 @@ class UnitFrontmatterReaderTest {
 
             var diagnostic = refuse(unit(lines));
 
-            assertRefused(diagnostic, 6, 8);
+            assertRefused(diagnostic, 7, 8);
         }
 
         @Test
@@ -452,7 +463,7 @@ class UnitFrontmatterReaderTest {
 
             var diagnostic = refuse(unit(lines));
 
-            assertRefused(diagnostic, 8, 7);
+            assertRefused(diagnostic, 9, 7);
         }
     }
 
@@ -611,7 +622,7 @@ class UnitFrontmatterReaderTest {
             var diagnostic = refuse(unit(replaced("version", "version: " + value)));
 
             assertAll(
-                    () -> assertRefused(diagnostic, 10, 10),
+                    () -> assertRefused(diagnostic, 11, 10),
                     () -> assertTrue(diagnostic.message().contains(echoed + "..."), diagnostic::message),
                     () -> assertFalse(diagnostic.message().contains(value), diagnostic::message));
         }
@@ -666,7 +677,7 @@ class UnitFrontmatterReaderTest {
 
         private static String specificationPart() throws IOException {
             var property = System.getProperty("pm.specification.root");
-            var root = property == null || property.isBlank() ? Path.of("..") : Path.of(property);
+            var root = Path.of(property == null || property.isBlank() ? ".." : property);
             return Files.readString(root.toAbsolutePath().normalize()
                     .resolve("doc/specification/workflow-dsl/01-grammar.adoc"), StandardCharsets.UTF_8);
         }

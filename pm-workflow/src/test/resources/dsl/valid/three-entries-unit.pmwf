@@ -2,6 +2,7 @@
 name: Review and repair
 description: "A sub-workflow written for the parser tests: three entries, each with its description."
 type: subworkflow
+icon: remediation.review
 entry: review
 entry_description: The change is ready for its review.
 entry: repair

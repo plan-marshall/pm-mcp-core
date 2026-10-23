@@ -57,6 +57,8 @@ public final class ProfileLoader {
     private static final String SUFFIX = ".json";
     private static final String HMAC = ".hmac";
     private static final String HMAC_ALGORITHM = "HmacSHA256";
+    /** How a profile document is named in a refusal: its directory, its client id and its suffix. */
+    private static final String PROFILE_NAME = "%s/%s%s";
 
     private final SecretKey key;
     private final Map<String, EnrolledHarness> enrolled;
@@ -104,9 +106,9 @@ public final class ProfileLoader {
         for (var entry : sets.shipped().entrySet()) {
             var clientId = entry.getKey();
             try {
-                var profile = ProfileValidator.validate(entry.getValue().document(),
-                        "%s/%s%s".formatted(PROFILES, clientId, SUFFIX), rules);
-                requireClientId(profile, clientId, clientId + SUFFIX);
+                var name = PROFILE_NAME.formatted(PROFILES, clientId, SUFFIX);
+                var profile = ProfileValidator.validate(entry.getValue().document(), name, rules);
+                requireClientId(profile, clientId, name);
                 place(new LoadedProfile(clientId, ProfileSetKind.SHIPPED, profile, entry.getValue().document(),
                         LoadedProfile.State.VERIFIED, null), effective, refused);
             } catch (ProfileRefusal refusal) {
@@ -133,7 +135,7 @@ public final class ProfileLoader {
             try {
                 var base = effective.get(clientId);
                 if (base == null) {
-                    throw ProfileRefusal.invalid("%s/%s%s".formatted(PROFILES, clientId, SUFFIX), "/client_id",
+                    throw ProfileRefusal.invalid(PROFILE_NAME.formatted(PROFILES, clientId, SUFFIX), "/client_id",
                             "a project profile exists only for a client id the machine or shipped set defines");
                 }
                 var profile = readVerified(directory, clientId, ProfileSetKind.PROJECT);
@@ -148,14 +150,14 @@ public final class ProfileLoader {
     /** Reads one profile of a machine or project set and binds it to its record, its sidecar and the enrolled build. */
     private LoadedProfile readVerified(Path directory, String clientId, ProfileSetKind kind) {
         var document = read(directory.resolve(clientId + SUFFIX));
-        var name = "%s/%s%s".formatted(kind.wireName(), clientId, SUFFIX);
+        var name = PROFILE_NAME.formatted(kind.wireName(), clientId, SUFFIX);
         var profile = ProfileValidator.validate(document, name, rules);
         requireClientId(profile, clientId, name);
-        var record = record(directory, clientId, name);
-        if (!clientId.equals(record.clientId())) {
-            throw ProfileRefusal.unverified(name, "the record names the client '%s'".formatted(record.clientId()));
+        var verification = verificationRecord(directory, clientId, name);
+        if (!clientId.equals(verification.clientId())) {
+            throw ProfileRefusal.unverified(name, "the record names the client '%s'".formatted(verification.clientId()));
         }
-        if (!CanonicalJson.digest(profile).equals(record.profileDigest())) {
+        if (!CanonicalJson.digest(profile).equals(verification.profileDigest())) {
             throw ProfileRefusal.unverified(name,
                     "the record's profile_digest is not the digest of the document");
         }
@@ -164,14 +166,14 @@ public final class ProfileLoader {
         if (build == null) {
             throw ProfileRefusal.unverified(name, "the harness '%s' is not enrolled".formatted(clientId));
         }
-        if (!record.harness().executable().equals(build.executable())) {
+        if (!verification.harness().executable().equals(build.executable())) {
             throw ProfileRefusal.unverified(name,
                     "the record names the executable '%s', the enrolment '%s'".formatted(
-                            record.harness().executable(), build.executable()));
+                            verification.harness().executable(), build.executable()));
         }
         var state = LoadedProfile.State.VERIFIED;
-        if (!build.version().equals(record.harness().version())
-                || !build.executableSha256().equals(record.harness().executableSha256())) {
+        if (!build.version().equals(verification.harness().version())
+                || !build.executableSha256().equals(verification.harness().executableSha256())) {
             var supported = profile.member("headless")
                     .filter(headless -> !headless.isNull())
                     .flatMap(headless -> headless.member("supported_versions"))
@@ -185,10 +187,10 @@ public final class ProfileLoader {
             }
             state = LoadedProfile.State.VERIFIED_ON_OTHER_BUILD;
         }
-        return new LoadedProfile(clientId, kind, profile, document, state, record);
+        return new LoadedProfile(clientId, kind, profile, document, state, verification);
     }
 
-    private VerificationRecord record(Path directory, String clientId, String name) {
+    private VerificationRecord verificationRecord(Path directory, String clientId, String name) {
         var file = directory.resolve(VERIFICATION).resolve(clientId + SUFFIX);
         if (!Files.isRegularFile(file)) {
             throw ProfileRefusal.unverified(name, "no verification record at '%s'".formatted(file));
@@ -234,7 +236,7 @@ public final class ProfileLoader {
     private void requireClientId(JsonNode profile, String clientId, String name) {
         var declared = ProfileValidator.clientId(profile);
         if (!declared.equals(clientId)) {
-            throw ProfileRefusal.invalid("%s/%s%s".formatted(PROFILES, clientId, SUFFIX), "/client_id",
+            throw ProfileRefusal.invalid(name, "/client_id",
                     "the document declares '%s', its file name is '%s'".formatted(declared, clientId));
         }
     }

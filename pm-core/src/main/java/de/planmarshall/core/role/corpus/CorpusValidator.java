@@ -571,7 +571,7 @@ public final class CorpusValidator {
             case null -> false;
             case JsonNull _ -> false;
             case JsonBoolean(var bool) -> bool;
-            case JsonNumber(var number, var _) -> number.signum() != 0;
+            case JsonNumber(var number, _) -> number.signum() != 0;
             case JsonString(var string) -> !string.isEmpty();
             case JsonList(var elements) -> !elements.isEmpty();
             case JsonObject(var members) -> !members.isEmpty();

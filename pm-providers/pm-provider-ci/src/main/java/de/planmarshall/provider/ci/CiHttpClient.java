@@ -146,7 +146,7 @@ public final class CiHttpClient implements AutoCloseable {
             return CiResponse.failure(Outcome.REFUSED, "redirect refused: " + e.getReason());
         } catch (IOException e) {
             return CiResponse.failure(Outcome.TRANSPORT_FAILED, e.getClass().getSimpleName());
-        } catch (InterruptedException e) {
+        } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
             return CiResponse.failure(Outcome.TRANSPORT_FAILED, "interrupted");
         }
@@ -218,7 +218,7 @@ public final class CiHttpClient implements AutoCloseable {
     private static Optional<Long> seconds(String value) {
         try {
             return Optional.of(Long.parseLong(value.trim()));
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return Optional.empty();
         }
     }

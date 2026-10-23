@@ -1,0 +1,17 @@
+{
+  "format_version": 1,
+  "roles": {
+    "interpret": {
+      "tier": "fast",
+      "effort": "medium",
+      "preferred_harness": "acme-cli",
+      "advisory": "Interprets the operator's words."
+    },
+    "steward": {
+      "tier": "standard",
+      "effort": "medium",
+      "preferred_harness": "acme-cli",
+      "advisory": "Advises the operator on the machine's choices."
+    }
+  }
+}

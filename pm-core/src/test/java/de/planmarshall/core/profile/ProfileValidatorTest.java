@@ -213,7 +213,188 @@ class ProfileValidatorTest {
                     Arguments.of(ProfileFixtures.valid().set("/headless/events", map("kind_pointer", "/type",
                                     "kinds", map("text", null, "tool_call", null, "tool_result", null,
                                     "file_changed", null, "turn", map("match", List.of("result"))))),
-                            "/headless/events/kinds/turn/stop_reason", "a turn without its stop reason"));
+                            "/headless/events/kinds/turn/stop_reason", "a turn without its stop reason"),
+                    Arguments.of(ProfileFixtures.valid().set("/schema_version", 2),
+                            "/schema_version", "another schema version"),
+                    Arguments.of(ProfileFixtures.valid().set("/display_name", ""),
+                            "/display_name", "an empty display name"),
+                    Arguments.of(ProfileFixtures.valid().set("/min_daemon_version", "newest"),
+                            "/min_daemon_version", "a minimum daemon version that is no version"),
+                    Arguments.of(ProfileFixtures.valid().set("/icon", map("form", "source",
+                                    "source", "https://example.test/icons/acme.svg", "bundled", "acme-icon")),
+                            "/icon/bundled", "an icon of the form source with a bundled name"),
+                    Arguments.of(ProfileFixtures.valid().set("/icon", map("form", "bundled",
+                                    "source", "https://example.test/icons/acme.svg", "bundled", "acme-icon")),
+                            "/icon/source", "an icon of the form bundled with a source URL"),
+                    Arguments.of(ProfileFixtures.valid().set("/icon", map("form", "bundled",
+                                    "source", null, "bundled", "Acme")),
+                            "/icon/bundled", "a bundled icon name that is no name"),
+                    Arguments.of(ProfileFixtures.valid().set("/icon", 1),
+                            "/icon", "an icon that is no object"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/executable", "Acme"),
+                            "/headless/executable", "an executable name that is no bare name"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/models_probe",
+                                    map("argv", List.of("acme", "models"), "format", "lines", "pointer", "/id")),
+                            "/headless/models_probe/pointer", "a line-wise models probe with a pointer"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/weights_probe",
+                                    map("source", "models_listing", "pointer", null, "argv", null, "pattern", null)),
+                            "/headless/weights_probe/pointer", "a models-listing weights probe without a pointer"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/weights_probe",
+                                    map("source", "models_listing", "pointer", "id", "argv", null, "pattern", null)),
+                            "/headless/weights_probe/pointer", "a models-listing pointer that is no pointer"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/weights_probe",
+                                    map("source", "models_listing", "pointer", "/id", "argv", null,
+                                            "pattern", "(id)")),
+                            "/headless/weights_probe/pattern", "a models-listing weights probe with a pattern"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/weights_probe",
+                                    map("source", "argv", "pointer", "/id", "argv", List.of("acme", "{{model}}"),
+                                            "pattern", "(id)")),
+                            "/headless/weights_probe/pointer", "an argv weights probe with a pointer"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/weights_probe",
+                                    map("source", "argv", "pointer", null, "argv", null, "pattern", "(id)")),
+                            "/headless/weights_probe/argv", "an argv weights probe without an argv"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/weights_probe",
+                                    map("source", "argv", "pointer", null,
+                                            "argv", List.of("acme", "{{model}}"), "pattern", null)),
+                            "/headless/weights_probe/pattern", "an argv weights probe without a pattern"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/update_evidence/method", "code_signature")
+                                    .set("/headless/update_evidence/signer", ""),
+                            "/headless/update_evidence/signer", "an empty signer"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/mcp_config/delivery", "file"),
+                            "/headless/mcp_config/path", "a delivery file without a path"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/mcp_config/path", "settings.json"),
+                            "/headless/mcp_config/path", "a delivery slot with a path"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/env", map("x-y", "1")),
+                            "/headless/env/x-y", "an environment variable name that is no name"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/capabilities",
+                                    List.of("project_settings_control", "extension_isolation", "bogus")),
+                            "/headless/capabilities/2", "an undeclared capability"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/output/result_pointer", "result"),
+                            "/headless/output/result_pointer", "a result pointer that is no pointer"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/events", map("kind_pointer", "type",
+                                    "kinds", map("text", null, "tool_call", null, "tool_result", null,
+                                    "file_changed", null, "turn", map("match", List.of("result"),
+                                    "stop_reason", "/stop_reason")))),
+                            "/headless/events/kind_pointer", "a kind pointer that is no pointer"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/endpoints", List.of("acme")),
+                            "/headless/endpoints/0", "an endpoint without a port"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/endpoints", List.of("acme:0")),
+                            "/headless/endpoints/0", "an endpoint with port zero"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/endpoints", List.of("acme:65536")),
+                            "/headless/endpoints/0", "an endpoint beyond the port range"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/writable_paths/0", "/etc/acme"),
+                            "/headless/writable_paths/0", "a writable path that is no home-relative path"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/data_home",
+                                    map("variable", "x-y", "login_file", ".auth")),
+                            "/headless/data_home/variable", "a data home variable that is no name"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/data_home",
+                                    map("variable", "LD_PRELOAD", "login_file", ".auth")),
+                            "/headless/data_home/variable", "a data home that relocates a job variable"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/resumability/max_hold_seconds", null)
+                                    .set("/headless/resumability/hold", true),
+                            "/headless/resumability/max_hold_seconds", "a hold without its max_hold_seconds"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/resumability/resume",
+                                    map("argv", List.of("--resume", "{{session_id}}"), "session_id", "session",
+                                            "max_age_seconds", 600)),
+                            "/headless/resumability/resume/session_id", "a resume session_id that is no pointer"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/resumability/resume",
+                                    map("argv", List.of("--resume", "{{session_id}}"), "session_id", "/session",
+                                            "max_age_seconds", 60)),
+                            "/headless/resumability/resume/max_age_seconds", "a resume max_age_seconds below the bound"),
+                    Arguments.of(ProfileFixtures.valid().set("/connection/transport", "http"),
+                            "/connection/transport", "a transport that is not stdio"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless", null),
+                            "/worker/eligible", "an eligible worker host without a headless block"),
+                    Arguments.of(ProfileFixtures.valid().set("/worker/ack_informational", true),
+                            "/worker/ack_deadline_seconds", "an informational acknowledgement without a deadline"),
+                    Arguments.of(ProfileFixtures.valid().set("/worker/restricted_models", null),
+                            "/worker/restricted_models", "an enforced class without restricted_models"),
+                    Arguments.of(ProfileFixtures.valid()
+                                    .set("/detection/process_markers", List.of("x-y")),
+                            "/detection/process_markers/0", "a process marker that is no variable"),
+                    Arguments.of(ProfileFixtures.valid()
+                                    .set("/detection/reaches", List.of("command", "command")),
+                            "/detection/reaches/1", "a reach that occurs twice"),
+                    Arguments.of(ProfileFixtures.valid()
+                                    .set("/detection/primary_signals/0/variable", "x-y"),
+                            "/detection/primary_signals/0/variable", "a signal variable that is no variable"),
+                    Arguments.of(ProfileFixtures.valid().set("/identity/version_pattern", null),
+                            "/identity", "a version probe without its pattern"),
+                    Arguments.of(ProfileFixtures.valid().set("/display_name", "Acme\nCLI"),
+                            "/display_name", "a display name that is no single line"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/argv", List.of("--task", "{{bogus}}")),
+                            "/headless/argv/1", "an argv placeholder that is not closed"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/argv", List.of("--task", "")),
+                            "/headless/argv/1", "an empty argv item"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/argv", List.of("~/acme")),
+                            "/headless/argv/0", "a home path in argv"),
+                    Arguments.of(ProfileFixtures.valid().set("/identity/version_pattern", "a".repeat(129)),
+                            "/identity/version_pattern", "a version pattern longer than 128 characters"),
+                    Arguments.of(ProfileFixtures.valid().set("/identity/version_pattern", "(a)\\1"),
+                            "/identity/version_pattern", "a version pattern with a backreference"),
+                    Arguments.of(ProfileFixtures.valid().set("/identity/version_pattern", "acme"),
+                            "/identity/version_pattern", "a version pattern without a capture group"),
+                    Arguments.of(ProfileFixtures.valid().set("/client_id", 1),
+                            "/client_id", "a client id that is no string"),
+                    Arguments.of(ProfileFixtures.valid().set("/schema_version", "1"),
+                            "/schema_version", "a schema version that is no integer"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/tool_result_limit_chars", 1),
+                            "/headless/tool_result_limit_chars", "a tool-result limit below the bound"),
+                    Arguments.of(ProfileFixtures.valid().set("/worker/eligible", "yes"),
+                            "/worker/eligible", "an eligibility that is no boolean"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/agent_mode", "bogus"),
+                            "/headless/agent_mode", "an undeclared agent mode"),
+                    Arguments.of(ProfileFixtures.valid()
+                                    .set("/headless/classes", map("writer", null, "read_only", null, "zero_tool", null))
+                                    .set("/headless/capabilities", 1),
+                            "/headless/capabilities", "capabilities that are no array"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/endpoints", List.of()),
+                            "/headless/endpoints", "an empty endpoint list"),
+                    Arguments.of(ProfileFixtures.valid()
+                                    .set("/headless/classes", map("writer", null, "read_only", null, "zero_tool", null))
+                                    .set("/headless/capabilities", List.of("")),
+                            "/headless/capabilities/0", "an empty capability"),
+                    Arguments.of(ProfileFixtures.valid()
+                                    .set("/headless/classes", map("writer", null, "read_only", null, "zero_tool", null))
+                                    .set("/headless/capabilities", List.of("ephemeral", "ephemeral")),
+                            "/headless/capabilities/1", "a capability that occurs twice"),
+                    Arguments.of(ProfileFixtures.valid()
+                                    .set("/tools/idioms", map("lint", map("disposition", "bogus", "replacement", null))),
+                            "/tools/idioms/lint/disposition", "an undeclared idiom disposition"),
+                    Arguments.of(ProfileFixtures.valid()
+                                    .set("/tools/idioms", map("lint", map("disposition", "rewrite", "replacement",
+                                            "x;y"))),
+                            "/tools/idioms/lint/replacement", "an idiom replacement a model cannot read"));
+        }
+
+        @Test
+        @DisplayName("the optional blocks and every alternative form load")
+        void acceptedExtensions() {
+            var idioms = ProfileFixtures.valid()
+                    .set("/tools/idioms", map("lint", map("disposition", "rewrite", "replacement", "replace x")));
+            var efforts = ProfileFixtures.valid()
+                    .set("/headless/model_efforts", map("acme-frontier", List.of("high")));
+            var budget = ProfileFixtures.valid().set("/headless/context_budget_tokens", 20000);
+            var models = ProfileFixtures.valid().set("/headless/models_probe",
+                    map("argv", List.of("acme", "models"), "format", "json", "pointer", "/id"));
+            var hold = ProfileFixtures.valid().set("/headless/resumability/hold", true)
+                    .set("/headless/resumability/max_hold_seconds", 120);
+            var prefix = ProfileFixtures.valid()
+                    .set("/headless/model_tiers", map("frontier", "acme/frontier", "standard", "acme/standard",
+                            "fast", "acme/fast"))
+                    .set("/worker/restricted_models", List.of("acme/*"));
+            var signal = ProfileFixtures.valid().set("/detection/primary_signals/0/equals", "acme");
+            var ports = ProfileFixtures.valid().set("/headless/endpoints", List.of("acme:1", "acme:65535"));
+
+            assertAll(
+                    () -> ProfileValidator.validate(idioms.bytes(), DOCUMENT, ProfileRules.none()),
+                    () -> ProfileValidator.validate(efforts.bytes(), DOCUMENT, ProfileRules.none()),
+                    () -> ProfileValidator.validate(budget.bytes(), DOCUMENT, ProfileRules.none()),
+                    () -> ProfileValidator.validate(models.bytes(), DOCUMENT, ProfileRules.none()),
+                    () -> ProfileValidator.validate(hold.bytes(), DOCUMENT, ProfileRules.none()),
+                    () -> ProfileValidator.validate(prefix.bytes(), DOCUMENT, ProfileRules.none()),
+                    () -> ProfileValidator.validate(signal.bytes(), DOCUMENT, ProfileRules.none()),
+                    () -> ProfileValidator.validate(ports.bytes(), DOCUMENT, ProfileRules.none()));
         }
 
         /** A map that, unlike {@link Map#of}, admits a null value. */
@@ -229,8 +410,9 @@ class ProfileValidatorTest {
         @MethodSource("refusals")
         @DisplayName("a failing value refuses the profile with its document and pointer")
         void refuses(ProfileFixtures.ProfileFixture fixture, String pointer, String because) {
+            var bytes = fixture.bytes();
             var refusal = assertThrows(ProfileRefusal.class,
-                    () -> ProfileValidator.validate(fixture.bytes(), DOCUMENT, ProfileRules.none()));
+                    () -> ProfileValidator.validate(bytes, DOCUMENT, ProfileRules.none()), because);
 
             assertAll(
                     () -> assertEquals(ProfileRefusal.Outcome.PROFILE_INVALID, refusal.outcome(), because),
@@ -298,9 +480,10 @@ class ProfileValidatorTest {
     void managedPathRefused() {
         var rules = new ProfileRules(Set.of("~/.acme/settings.json"), Set.of());
         var fixture = ProfileFixtures.valid().set("/headless/writable_paths/0", "~/.acme");
+        var bytes = fixture.bytes();
 
         var refusal = assertThrows(ProfileRefusal.class,
-                () -> ProfileValidator.validate(fixture.bytes(), DOCUMENT, rules));
+                () -> ProfileValidator.validate(bytes, DOCUMENT, rules));
 
         assertEquals("/headless/writable_paths/0", refusal.pointer());
     }
@@ -310,9 +493,10 @@ class ProfileValidatorTest {
     void harnessHomeRefused() {
         var rules = new ProfileRules(Set.of(), Set.of("~/.acme"));
         var fixture = ProfileFixtures.valid().set("/headless/writable_paths/0", "~/.acme");
+        var bytes = fixture.bytes();
 
         var refusal = assertThrows(ProfileRefusal.class,
-                () -> ProfileValidator.validate(fixture.bytes(), DOCUMENT, rules));
+                () -> ProfileValidator.validate(bytes, DOCUMENT, rules));
 
         assertEquals("/headless/writable_paths/0", refusal.pointer());
     }
@@ -322,8 +506,9 @@ class ProfileValidatorTest {
     void duplicateMemberRefused() {
         var document = "{\"schema_version\":1,\"schema_version\":1}".getBytes(StandardCharsets.UTF_8);
 
+        var rules = ProfileRules.none();
         var refusal = assertThrows(ProfileRefusal.class,
-                () -> ProfileValidator.validate(document, DOCUMENT, ProfileRules.none()));
+                () -> ProfileValidator.validate(document, DOCUMENT, rules));
 
         assertAll(
                 () -> assertEquals(ProfileRefusal.Outcome.PROFILE_INVALID, refusal.outcome()),
@@ -335,8 +520,9 @@ class ProfileValidatorTest {
     void oversizedDocumentRefused() {
         var document = new byte[JsonDocument.MAX_BYTES + 1];
 
+        var rules = ProfileRules.none();
         var refusal = assertThrows(ProfileRefusal.class,
-                () -> ProfileValidator.validate(document, DOCUMENT, ProfileRules.none()));
+                () -> ProfileValidator.validate(document, DOCUMENT, rules));
 
         assertAll(
                 () -> assertEquals(ProfileRefusal.Outcome.PROFILE_INVALID, refusal.outcome()),

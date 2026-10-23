@@ -275,6 +275,10 @@ public final class ProjectUnitLoader {
         };
     }
 
+    /** An author value and the line it stands on, read from the raw source. */
+    private record RawAuthor(int line, String value) {
+    }
+
     /**
      * Stage 2, the author: a project unit whose author equals {@value #RESERVED_AUTHOR} after NFKC normalisation,
      * removal of its format characters, stripping of its surrounding whitespace and case folding is a
@@ -282,10 +286,6 @@ public final class ProjectUnitLoader {
      * every other finding of it as well. The author is read from the raw head of the source before the parse, so a
      * unit whose frontmatter is refused for a format character is still reported as naming the reserved author.
      */
-    /** An author value and the line it stands on, read from the raw source. */
-    private record RawAuthor(int line, String value) {
-    }
-
     private static void checkAuthor(String path, String source, List<UnitFinding> findings) {
         rawAuthor(source).filter(author -> RESERVED_AUTHOR.equals(normalised(author.value())))
                 .ifPresent(author -> findings.add(new UnitFinding(UnitFinding.Kind.RULE,
