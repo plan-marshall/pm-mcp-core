@@ -4,9 +4,10 @@
 
 ## START HERE
 
-**Resume anchor**: DRAINED 2026-10-23 (seventh drain): PLAN-26 (#146, 964f673) analysed and shipped (landings/PLAN-26.md), after PLAN-25 (#145), PLAN-95 (#144), PLAN-96 (#143) and PLAN-19 (#137); the inbox is empty. RUNNING, runbook lane on opencode, 3 of 4 slots: PLAN-87 journal-format-version-reset, PLAN-94 sonar-main-backlog, PLAN-103 spec-coverage-pass (all operator-confirmed). EMITTED FOR THE RUNBOOK LANE, awaiting the operator's launch (auto_emit false, row staged, lane runbook, spec adapted and landed with the ledger land that follows this anchor): PLAN-28 task-queue-and-protocol (the operator accepted its 2-file overlap with PLAN-103: the index and task-queue-and-protocol.adoc). Next action: the operator launches PLAN-28 and confirms the start (record launched, then running); await the PRs of PLAN-87, 94, 103 and 28; analyze each landing. PLAN-26 SHIPPED: PLAN-28 and PLAN-71 have no unmet dependency; PLAN-29 waits on PLAN-27; PLAN-34 on PLAN-30; PLAN-97 on 29 and 34. READY FOR THE NEXT FREE SLOT (specs adapted for the runbook lane; check each landed before emitting): PLAN-71 plan-instance-versions (2 files with PLAN-103, 3 with others), PLAN-40 module-developer-docs (1 file with PLAN-87: no prompt; wide), PLAN-42 operator-wait-and-machine-scope (3 files each with PLAN-87 and PLAN-94), PLAN-86 provider-http-module (7 files with PLAN-94; its documentation PR goes through the operator), PLAN-27 job-confinement-and-environment (HELD BACK by the operator: after PLAN-94), PLAN-102 (launched FROM plan-marshall-mcp; surface prose). A lane reads its spec from the main checkout and runbook_lane resolve refuses the worktree path: every spec edit needs a land before the emit (finding filed in plan-marshall live-blockers as pm-mcp-core-m2-m4-006, high priority; staged there as PLAN-LB-90). executor_absent_from_worktree is structural (the executor is gitignored, worktree-create supplies none, prepare_execute is not run by the lane); tracked in plan-marshall live-blockers (PLAN-LB-73, owner PLAN-LB-89 parked); four landings of this epic show every build in process. #150 (required icon in the pmwf unit frontmatter) was folded into PLAN-43, 42, 73, 50, 62, 71; the workflow-dsl ADR directory runs to 008, next 009. STANDING RULES live in standing-rules.md (r1, R01 to R18). SONAR: only main and pull requests are analysed; lanes open the PR first and read pullRequest=N by plain HTTP. PLAN-19 merged on a red SonarCloud gate: 293 issues on main, PLAN-94 owns them (PLAN-87 owns 29 other ones). The marshalld build server runs. PARKED: PLAN-99, 100, 101 (PLAN-103 cuts their packages) and PLAN-49, 59, 63, 68. OPERATOR DECISIONS OWED: whether the instruction to delete implemented specification sections and covered watch items stands (PLAN-25 and PLAN-26 both kept them with reasons); whether the nine unbounded patterns of imported-item.schema.json and the ProfileValidator 30 s margin become plans; whether the worker half of step 3a belongs to PLAN-29 or PLAN-30 (ADR runtime-job/013 names the supervisor); a package in pm-mcp-clients for the Linux child-subreaper of pm-exec; whether to file the cost data of executor_absent_from_worktree with live-blockers. SHIPPED: PLAN-26 #146, PLAN-25 #145, PLAN-95 #144, PLAN-96 #143, PLAN-19 #137, PLAN-85 #129, PLAN-84 #135, PLAN-93 #136, PLAN-89 #126, PLAN-91 #131, PLAN-64 #122 (+#127), PLAN-83 #125, PLAN-82 #121, PLAN-90 #120. OWED outside: pm-mcp-server start wiring in plan-marshall-mcp; roadmap check-offs and the concept docs of the stores, the job runtime, the profile slice, the waits and the role sets in the documentation repository. WATCHES: opencode landings carry total_tokens unknown (16 now); /tmp inode exhaustion; the merge queue dequeued #145 once on a Maven Central 403; two unverified bot leads on the descendant sweep; the native build of pm-mcpd has never run (PLAN-102); findings -001 to -006 and lessons queued in plan-marshall's live-blockers and lessons-routing inboxes (uncommitted there until its land).
+**Resume anchor**: DRAINED 2026-10-23 (seventh drain): PLAN-26 (#146, 964f673) analysed and shipped (landings/PLAN-26.md), after PLAN-25 (#145), PLAN-95 (#144), PLAN-96 (#143) and PLAN-19 (#137); the inbox is empty. RUNNING, runbook lane on opencode, 4 of 4 slots used, all operator-confirmed: PLAN-28 task-queue-and-protocol (started 2026-10-23, its 2-file overlap with PLAN-103 accepted), PLAN-87 journal-format-version-reset, PLAN-94 sonar-main-backlog, PLAN-103 spec-coverage-pass. Next action: await the PRs of PLAN-28, 87, 94 and 103 and analyze each landing; nothing is emitted while the four slots are full. READY FOR THE NEXT FREE SLOT (specs adapted and landed for the runbook lane, rows lane runbook; a spec edited later needs a land before the emit): PLAN-71 plan-instance-versions (2 files with PLAN-103, more with others), PLAN-40 module-developer-docs (1 file with PLAN-87: no prompt; wide), PLAN-42 operator-wait-and-machine-scope (3 files each with PLAN-87 and PLAN-94), PLAN-86 provider-http-module (7 files with PLAN-94; its documentation PR goes through the operator), PLAN-27 job-confinement-and-environment (HELD BACK by the operator: after PLAN-94), PLAN-102 (launched FROM plan-marshall-mcp; surface prose). PLAN-29 waits on PLAN-27; PLAN-34 on PLAN-30; PLAN-97 on 29 and 34. A lane reads its spec from the main checkout and runbook_lane resolve refuses the worktree path (finding pm-mcp-core-m2-m4-006 in plan-marshall live-blockers, high, staged there as PLAN-LB-90). executor_absent_from_worktree is structural (gitignored executor, worktree-create supplies none, prepare_execute not run by the lane): tracked in plan-marshall live-blockers as PLAN-LB-73 and PLAN-LB-89 (parked); the cost data and a request to prioritise were filed as pm-mcp-core-m2-m4-007 and the operator pinged plan-marshall as well. #150 (required icon in the pmwf unit frontmatter) was folded into PLAN-43, 42, 73, 50, 62, 71; the workflow-dsl ADR directory runs to 008, next 009. STANDING RULES live in standing-rules.md (r1, R01 to R18). SONAR: only main and pull requests are analysed; lanes open the PR first and read pullRequest=N by plain HTTP. PLAN-19 merged on a red SonarCloud gate: 293 issues on main, PLAN-94 owns them (PLAN-87 owns 29 other ones). The marshalld build server runs. PARKED: PLAN-99, 100, 101 (PLAN-103 cuts their packages) and PLAN-49, 59, 63, 68. OPERATOR DECISIONS OWED: whether the instruction to delete implemented specification sections and covered watch items stands (PLAN-25 and PLAN-26 both kept them with reasons); whether the nine unbounded patterns of imported-item.schema.json and the ProfileValidator 30 s margin become plans; whether the worker half of step 3a belongs to PLAN-29 or PLAN-30 (ADR runtime-job/013 names the supervisor); a package in pm-mcp-clients for the Linux child-subreaper of pm-exec. SHIPPED: PLAN-26 #146, PLAN-25 #145, PLAN-95 #144, PLAN-96 #143, PLAN-19 #137, PLAN-85 #129, PLAN-84 #135, PLAN-93 #136, PLAN-89 #126, PLAN-91 #131, PLAN-64 #122 (+#127), PLAN-83 #125, PLAN-82 #121, PLAN-90 #120. OWED outside: pm-mcp-server start wiring in plan-marshall-mcp; roadmap check-offs and the concept docs of the stores, the job runtime, the profile slice, the waits and the role sets in the documentation repository. WATCHES: opencode landings carry total_tokens unknown (16 now); /tmp inode exhaustion; the merge queue dequeued #145 once on a Maven Central 403; two unverified bot leads on the descendant sweep; the native build of pm-mcpd has never run (PLAN-102); findings -001 to -007 and lessons queued in plan-marshall's live-blockers and lessons-routing inboxes (uncommitted there until its land).
 **Phase**: orchestrating
 **Running**:
+- PLAN-28 (WS-05)
 - PLAN-87 (WS-02)
 - PLAN-94 (WS-06)
 - PLAN-103 (WS-10)
@@ -20,40 +21,39 @@
 - PLAN-99 (WS-03)
 **Queue** (staged, in order):
 1. PLAN-27 (WS-04)
-2. PLAN-28 (WS-05)
-3. PLAN-29 (WS-04)
-4. PLAN-30 (WS-04)
-5. PLAN-31 (WS-04)
-6. PLAN-32 (WS-05)
-7. PLAN-34 (WS-05)
-8. PLAN-35 (WS-06)
-9. PLAN-40 (WS-10)
-10. PLAN-42 (WS-03)
-11. PLAN-43 (WS-03)
-12. PLAN-45 (WS-03)
-13. PLAN-46 (WS-03)
-14. PLAN-47 (WS-03)
-15. PLAN-48 (WS-03)
-16. PLAN-50 (WS-03)
-17. PLAN-51 (WS-03)
-18. PLAN-53 (WS-03)
-19. PLAN-55 (WS-05)
-20. PLAN-57 (WS-03)
-21. PLAN-58 (WS-03)
-22. PLAN-60 (WS-01)
-23. PLAN-61 (WS-04)
-24. PLAN-62 (WS-03)
-25. PLAN-66 (WS-04)
-26. PLAN-67 (WS-03)
-27. PLAN-71 (WS-03)
-28. PLAN-73 (WS-05)
-29. PLAN-76 (WS-03)
-30. PLAN-77 (WS-03)
-31. PLAN-86 (WS-08)
-32. PLAN-92 (WS-03)
-33. PLAN-97 (WS-05)
-34. PLAN-98 (WS-05)
-35. PLAN-102 (WS-04)
+2. PLAN-29 (WS-04)
+3. PLAN-30 (WS-04)
+4. PLAN-31 (WS-04)
+5. PLAN-32 (WS-05)
+6. PLAN-34 (WS-05)
+7. PLAN-35 (WS-06)
+8. PLAN-40 (WS-10)
+9. PLAN-42 (WS-03)
+10. PLAN-43 (WS-03)
+11. PLAN-45 (WS-03)
+12. PLAN-46 (WS-03)
+13. PLAN-47 (WS-03)
+14. PLAN-48 (WS-03)
+15. PLAN-50 (WS-03)
+16. PLAN-51 (WS-03)
+17. PLAN-53 (WS-03)
+18. PLAN-55 (WS-05)
+19. PLAN-57 (WS-03)
+20. PLAN-58 (WS-03)
+21. PLAN-60 (WS-01)
+22. PLAN-61 (WS-04)
+23. PLAN-62 (WS-03)
+24. PLAN-66 (WS-04)
+25. PLAN-67 (WS-03)
+26. PLAN-71 (WS-03)
+27. PLAN-73 (WS-05)
+28. PLAN-76 (WS-03)
+29. PLAN-77 (WS-03)
+30. PLAN-86 (WS-08)
+31. PLAN-92 (WS-03)
+32. PLAN-97 (WS-05)
+33. PLAN-98 (WS-05)
+34. PLAN-102 (WS-04)
 - PLAN-01 (WS-01) — plan=lock-manager-and-leases — PR #20 — landing=landings/PLAN-01.md — status: shipped
 - PLAN-02 (WS-03) — plan=primitive-spi-and-validators — PR #18 — landing=landings/PLAN-02.md — status: shipped
 - PLAN-03 (WS-01) — plan=workspace-confinement — PR #19 — landing=landings/PLAN-03.md — status: shipped
@@ -118,7 +118,7 @@
 | # | Plan | Workstream | Status | Surface (expected) | Lane |
 |---|------|------------|--------|--------------------|------|
 | 1 | PLAN-27 | WS-04 | staged | doc/implementation-watch/job-runtime.adoc; doc/plans/README.adoc; doc/plans/job-confinement-and-environment.adoc; doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc; doc/specification/job-runtime/02-confinement-and-environment.adoc; pm-providers/pm-provider-git/doc/adr/provider-git/; pm-providers/pm-provider-git/doc/developer/provider-git.adoc; pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/; pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/; pm-runtime/doc/adr/runtime-job/; pm-runtime/doc/developer/runtime-job.adoc; pm-runtime/src/main/java/de/planmarshall/runtime/job/; pm-runtime/src/test/java/de/planmarshall/runtime/job/ | runbook |
-| 2 | PLAN-28 | WS-05 | staged | doc/implementation-watch/model-work.adoc; doc/implementation-watch/store-schemas.adoc; doc/plans/README.adoc; doc/plans/task-queue-and-protocol.adoc; doc/specification/model-work/02-task-protocol.adoc; doc/specification/store-schemas/16-task-queue.adoc; pm-core/doc/adr/core-queue/; pm-core/doc/developer/core-queue.adoc; pm-core/src/main/java/de/planmarshall/core/queue/; pm-core/src/test/java/de/planmarshall/core/queue/; pm-workflow/doc/adr/workflow-task/; pm-workflow/doc/developer/workflow-task.adoc; pm-workflow/src/main/java/de/planmarshall/workflow/task/; pm-workflow/src/test/java/de/planmarshall/workflow/task/ | runbook |
+| 2 | PLAN-28 | WS-05 | running | doc/implementation-watch/model-work.adoc; doc/implementation-watch/store-schemas.adoc; doc/plans/README.adoc; doc/plans/task-queue-and-protocol.adoc; doc/specification/model-work/02-task-protocol.adoc; doc/specification/store-schemas/16-task-queue.adoc; pm-core/doc/adr/core-queue/; pm-core/doc/developer/core-queue.adoc; pm-core/src/main/java/de/planmarshall/core/queue/; pm-core/src/test/java/de/planmarshall/core/queue/; pm-workflow/doc/adr/workflow-task/; pm-workflow/doc/developer/workflow-task.adoc; pm-workflow/src/main/java/de/planmarshall/workflow/task/; pm-workflow/src/test/java/de/planmarshall/workflow/task/ | runbook |
 | 3 | PLAN-29 | WS-04 | staged | doc/implementation-watch/client-profiles.adoc; doc/implementation-watch/job-runtime.adoc; doc/implementation-watch/model-work.adoc; doc/plans/README.adoc; doc/plans/worker-launch.adoc; doc/specification/client-profiles/01-profile-schema.adoc; doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc; doc/specification/model-work/04-worker-launch.adoc; pm-runtime/doc/adr/runtime-launch/; pm-runtime/doc/adr/runtime-security/; pm-runtime/doc/developer/runtime-launch.adoc; pm-runtime/doc/developer/runtime-security.adoc; pm-runtime/src/main/java/de/planmarshall/runtime/job/ProcessTreeTracker.java; pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java; pm-runtime/src/main/java/de/planmarshall/runtime/launch/; pm-runtime/src/main/java/de/planmarshall/runtime/security/; pm-runtime/src/test/java/de/planmarshall/runtime/launch/; pm-runtime/src/test/java/de/planmarshall/runtime/security/ | plan-marshall |
 | 4 | PLAN-30 | WS-04 | staged | doc/implementation-watch/client-profiles.adoc; doc/implementation-watch/model-work.adoc; doc/plans/README.adoc; doc/plans/supervisor.adoc; doc/specification/client-profiles/01-profile-schema.adoc; doc/specification/model-work/03-supervision-and-recycling.adoc; pm-core/src/main/java/de/planmarshall/core/profile/LoadedProfile.java; pm-core/src/main/java/de/planmarshall/core/profile/VerificationRecord.java; pm-runtime/doc/adr/runtime-worker/; pm-runtime/doc/developer/runtime-worker.adoc; pm-runtime/src/main/java/de/planmarshall/runtime/worker/; pm-runtime/src/test/java/de/planmarshall/runtime/worker/ | plan-marshall |
 | 5 | PLAN-31 | WS-04 | staged | doc/implementation-watch/model-work.adoc; doc/implementation-watch/store-schemas.adoc; doc/plans/README.adoc; doc/plans/slots-usage-and-budgets.adoc; doc/specification/model-work/09-completion-usage-and-spend.adoc; doc/specification/store-schemas/05-metrics-and-quality-report.adoc; doc/specification/timeouts/01-job-budgets-and-waits.adoc; pm-core/doc/adr/core-store/; pm-core/doc/developer/core-store.adoc; pm-core/src/main/java/de/planmarshall/core/store/; pm-core/src/test/java/de/planmarshall/core/store/; pm-runtime/doc/adr/runtime-launch/; pm-runtime/doc/developer/runtime-launch.adoc; pm-runtime/src/main/java/de/planmarshall/runtime/launch/; pm-runtime/src/test/java/de/planmarshall/runtime/launch/ | plan-marshall |
