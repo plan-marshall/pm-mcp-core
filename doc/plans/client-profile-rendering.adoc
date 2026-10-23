@@ -4,7 +4,7 @@
 link:README.adoc[Work packages of `pm-mcp-core`] » `client-profile-rendering`
 
 [horizontal]
-Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 4 (the on-the-fly profile translation of `PM-CLIENT-2` and the per-variant skill digest of `PM-SKILL-2`); the launch prompt and the skill tools of `pm-mcp-server`
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 14 (the items _Implement the on-the-fly client profile translation engine for every profile_ and _Serve the vocabulary skills through the catalogue … translated for the calling connection's profile and bound to the rendered skill digests_); the launch prompt and the skill tools of `pm-mcp-server`
 Where:: pm-core package `core.profile` (the renderer, the canonical placeholder table, the vocabulary translation, and the digest input the served skill bytes are computed from)
 Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
