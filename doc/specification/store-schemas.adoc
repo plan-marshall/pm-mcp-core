@@ -71,7 +71,7 @@ _See Requirements:_
 Implemented in (link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc[Module Structure Specification]):
 
 * link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-core[`pm-core`]: all persisted stores, format versioning, digests and lock ordering
-* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-provider-ci[`pm-provider-ci`]: part 09: the provider derivations
+* the CI contract (no module of this repository yet; the package that builds it creates its module): part 09: the provider derivations
 
 == Parts
 
