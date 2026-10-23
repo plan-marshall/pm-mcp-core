@@ -41,7 +41,8 @@ cached diagnostics of a document, waiting for its first publication when none is
 `utf-8`, falling back to `utf-16`, and every character offset the package reports is in the negotiated encoding. Every
 request is bounded by the instance's timeout. `close()` sends `shutdown` and `exit` and waits for the process; a server
 that does not end in time is destroyed and then destroyed forcibly. The listening future is cancelled in a `finally`
-block, so a client that is closed leaves no reader thread behind.
+block. Cleanup is requested, not awaited: `close()` does not wait for the process to end after a forcible destroy, nor
+for the reader thread to finish after the cancel.
 
 == Diagnostics
 

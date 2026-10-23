@@ -706,14 +706,14 @@ public final class ProfileValidator {
                 throw invalid(pointer + "/kind_pointer", MSG_NOT_A_POINTER.formatted(kindPointer));
             }
             var kinds = required(events, pointer, NAME_KINDS);
-            var members = Set.of("text", NAME_TOOL_CALL, "tool_result", "file_changed", "turn");
-            object(kinds, pointer + "/kinds", NAME_KINDS, members, members);
             var fields = Map.of(
                     "text", Set.of(NAME_MATCH, "text"),
                     NAME_TOOL_CALL, Set.of(NAME_MATCH, "tool", NAME_TARGET),
                     "tool_result", Set.of(NAME_MATCH, "size", "is_error"),
                     "file_changed", Set.of(NAME_MATCH, "path"),
                     "turn", Set.of(NAME_MATCH, "stop_reason"));
+            var members = fields.keySet();
+            object(kinds, pointer + "/kinds", NAME_KINDS, members, members);
             for (var member : members) {
                 var value = required(kinds, pointer + "/kinds", member);
                 if (value.isNull()) {
