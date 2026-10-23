@@ -388,8 +388,9 @@ class JobRecoveryStepTest {
         void recordWithPidWithoutAProcessStartIsRefused() {
             // The record refuses a PID without the process start it was spawned with, so the guard's
             // "no start recorded" branch cannot be reached from a stored record.
-            assertThrows(IllegalArgumentException.class,
-                    () -> postSpawn(ownPid(), null, BOOT.plusSeconds(60)));
+            var pid = ownPid();
+            var later = BOOT.plusSeconds(60);
+            assertThrows(IllegalArgumentException.class, () -> postSpawn(pid, null, later));
         }
     }
 

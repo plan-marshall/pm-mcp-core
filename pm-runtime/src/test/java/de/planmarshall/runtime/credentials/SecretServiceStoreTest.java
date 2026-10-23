@@ -58,6 +58,12 @@ class SecretServiceStoreTest {
         bus.close();
     }
 
+    @Test
+    @DisplayName("the service object path is the bus name as a path")
+    void servicePathIsTheBusNameAsAPath() {
+        assertEquals("/org/freedesktop/secrets", SecretServiceStore.SERVICE_PATH);
+    }
+
     @Nested
     @DisplayName("round trip")
     class RoundTrip {

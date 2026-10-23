@@ -158,8 +158,9 @@ public final class QuestionLogRecordReader implements QuestionRecordReader {
     }
 
     /** The record is resolved exactly when its current line is a closing line; that line's event is its outcome. */
-    private static QuestionRead resolved(QuestionRecord record) {
-        return record.closes() ? new QuestionRead.Resolved(record.event().wireName()) : new QuestionRead.Open();
+    private static QuestionRead resolved(QuestionRecord questionRecord) {
+        return questionRecord.closes() ? new QuestionRead.Resolved(questionRecord.event().wireName())
+                : new QuestionRead.Open();
     }
 
     /**

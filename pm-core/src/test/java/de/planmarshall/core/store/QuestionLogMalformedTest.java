@@ -101,7 +101,7 @@ class QuestionLogMalformedTest extends QuestionLogFixture {
         var fault = assertThrows(IllegalArgumentException.class,
                 () -> write(t -> log.append(t, List.of(asked("Q-001", "Q-001"), revised("Q-001", 2),
                         asked("Q-002", "Q-001")))));
-        var accepted = write(t -> log.append(t, List.of(asked("Q-003", "Q-003"), asked("Q-004", "Q-003"))));
+        write(t -> log.append(t, List.of(asked("Q-003", "Q-003"), asked("Q-004", "Q-003"))));
 
         assertAll(
                 () -> assertTrue(fault.getMessage().contains("revised already"), fault.getMessage()),

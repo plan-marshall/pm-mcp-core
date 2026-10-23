@@ -57,6 +57,9 @@ resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshal
 
 * link:doc/adr/core-analysis/[`doc/adr/core-analysis/`]: the code-analysis contract.
 * link:doc/adr/core-findings/[`doc/adr/core-findings/`]: the findings contract.
+* link:doc/adr/core-profile/[`doc/adr/core-profile/`]: the client profile validator, its digest and sidecar, the refused
+  profile as a value, the bundle-managed paths as installation data, and the schema literals named once per class
+  (link:doc/adr/core-profile/005-schema-literals-named-once-per-class.adoc[ADR 005]).
 * link:doc/adr/core-queue/[`doc/adr/core-queue/`]: the ADRs of the record this package removed; ADR 002 stands, ADRs 001 and 003 are superseded.
 * link:doc/adr/core-role-corpus/[`doc/adr/core-role-corpus/`]: the corpus formats, the row readers, the verdict of an import, the corpus validator and the Python meaning of its patterns.
 * link:doc/adr/core-service/[`doc/adr/core-service/`]: the service interfaces:

@@ -61,7 +61,7 @@ public final class Json {
     public static Object parseOrNull(String json) {
         try {
             return parse(json);
-        } catch (JsonFormatException e) {
+        } catch (JsonFormatException _) {
             return null;
         }
     }

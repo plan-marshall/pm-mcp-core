@@ -66,10 +66,8 @@ class LspClientTest {
             List<LspLocation> locations = client.definition(file, 0, 0);
 
             assertEquals(List.of(new LspLocation(file.toUri().toString(), 3, 4, 3, 9)), locations);
-            for (int i = 0; i < 100 && client.publishedDiagnostics(file).isEmpty(); i++) {
-                Thread.sleep(50);
-            }
-            assertEquals("fixture diagnostic", client.publishedDiagnostics(file).getFirst().getMessage().getLeft());
+            var diagnostics = client.awaitPublishedDiagnostics(file, TIMEOUT);
+            assertEquals("fixture diagnostic", diagnostics.getFirst().getMessage().getLeft());
             assertTrue(client.isAlive());
         }
     }

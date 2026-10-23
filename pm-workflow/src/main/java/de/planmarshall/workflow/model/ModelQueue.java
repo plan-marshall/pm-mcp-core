@@ -52,7 +52,7 @@ public interface ModelQueue {
      * @since 0.1
      */
     record Enqueue(Optional<String> scopeId, String stateId, String entityKey, String role, RoleForm form,
-            String configurationDigest, String harness, String model, EffortValue effort, boolean consultation) {
+    String configurationDigest, String harness, String model, EffortValue effort, boolean consultation) {
 
         /** Rejects {@code null} components. */
         public Enqueue {

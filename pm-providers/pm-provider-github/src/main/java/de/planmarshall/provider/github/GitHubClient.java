@@ -211,15 +211,14 @@ public final class GitHubClient {
     }
 
     private static ReviewThread thread(Object node) {
-        var comments = new ArrayList<ReviewComment>();
-        for (Object comment : Json.list(node, "comments", "nodes")) {
-            comments.add(new ReviewComment(Json.string(comment, "id").orElse(""),
-                    Json.string(comment, "databaseId").orElse(""), Json.string(comment, "author", "login"),
-                    Json.string(comment, "body").orElse(""), Json.string(comment, "createdAt").orElse("")));
-        }
+        var comments = Json.list(node, "comments", "nodes").stream()
+                .map(comment -> new ReviewComment(Json.string(comment, "id").orElse(""),
+                        Json.string(comment, "databaseId").orElse(""), Json.string(comment, "author", "login"),
+                        Json.string(comment, "body").orElse(""), Json.string(comment, "createdAt").orElse("")))
+                .toList();
         return new ReviewThread(Json.string(node, "id").orElse(""), Json.bool(node, "isResolved"),
                 Json.bool(node, "isOutdated"), Json.string(node, "path").orElse(""), Json.string(node, "line"),
-                List.copyOf(comments), !Json.bool(node, "comments", PAGE_INFO, "hasNextPage"));
+                comments, !Json.bool(node, "comments", PAGE_INFO, "hasNextPage"));
     }
 
     private static String document(String name) {

@@ -296,7 +296,10 @@ final class MacSecurity {
         return Optional.of(buffer.getString(0, StandardCharsets.UTF_8));
     }
 
-    /** A downcall; {@link MethodHandle#invokeExact} declares {@link Throwable}. */
+    /**
+     * A downcall; {@link MethodHandle#invokeExact} declares {@link Throwable}, so the interface mirrors it and
+     * {@link #call(Downcall)} maps the failure. The exact descriptor is the compile-time check of every call site.
+     */
     @FunctionalInterface
     private interface Downcall<T> {
         T call() throws Throwable;

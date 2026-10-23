@@ -201,29 +201,38 @@ public final class UnitFrontmatterReader {
                 }
                 var end = source.indexOf('\n', start);
                 var last = end < 0;
-                var text = last ? source.substring(start) : source.substring(start, end);
-                if (!last && !text.isEmpty() && text.charAt(text.length() - 1) == '\r') {
-                    text = text.substring(0, text.length() - 1);
-                }
+                var text = last ? source.substring(start) : withoutCarriageReturn(source.substring(start, end));
                 rejectForbiddenCharacter(text, number);
-                if (number == 1 && !DELIMITER.equals(text)) {
-                    throw new Refusal(1, 1, "the unit does not open with its frontmatter, a line '---'");
-                }
-                if (number > 1 && DELIMITER.equals(text)) {
+                if (number == 1) {
+                    requireOpening(text);
+                } else if (DELIMITER.equals(text)) {
                     return new Result.Read(complete(number), number + 1);
-                }
-                if (last && text.isEmpty() && number > 1) {
-                    throw new Refusal(number, 1, "the frontmatter is not closed by a line '---'");
-                }
-                if (number > 1) {
+                } else if (last && text.isEmpty()) {
+                    throw unclosed(number);
+                } else {
                     line(text, number);
                 }
                 if (last) {
-                    throw new Refusal(number, 1, "the frontmatter is not closed by a line '---'");
+                    throw unclosed(number);
                 }
                 start = end + 1;
                 number++;
             }
+        }
+
+        private static String withoutCarriageReturn(String text) {
+            return !text.isEmpty() && text.charAt(text.length() - 1) == '\r' ? text.substring(0, text.length() - 1)
+                    : text;
+        }
+
+        private static void requireOpening(String text) {
+            if (!DELIMITER.equals(text)) {
+                throw new Refusal(1, 1, "the unit does not open with its frontmatter, a line '---'");
+            }
+        }
+
+        private static Refusal unclosed(int number) {
+            return new Refusal(number, 1, "the frontmatter is not closed by a line '---'");
         }
 
         private void line(String text, int number) {

@@ -229,11 +229,11 @@ public final class GitLabClient {
     }
 
     private static Discussion discussion(Object json) {
-        var notes = new ArrayList<Note>();
-        for (Object note : Json.list(json, "notes")) {
-            notes.add(new Note(Json.string(note, "id").orElse(""), Json.string(note, "author", "username").orElse(""),
-                    Json.string(note, "body").orElse(""), Json.bool(note, "resolvable"), Json.bool(note, "resolved")));
-        }
-        return new Discussion(Json.string(json, "id").orElse(""), List.copyOf(notes));
+        var notes = Json.list(json, "notes").stream()
+                .map(note -> new Note(Json.string(note, "id").orElse(""),
+                        Json.string(note, "author", "username").orElse(""), Json.string(note, "body").orElse(""),
+                        Json.bool(note, "resolvable"), Json.bool(note, "resolved")))
+                .toList();
+        return new Discussion(Json.string(json, "id").orElse(""), notes);
     }
 }
