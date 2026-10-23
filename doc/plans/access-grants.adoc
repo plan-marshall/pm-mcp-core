@@ -27,10 +27,10 @@ Requirements stay in `plan-marshall-documentation`; the specification sections a
 
 == Done When
 
-Each of the three target shapes validates and every mixed or partial shape is refused with the member named; a record with an unknown key is refused; a `read-write` grant naming an `org` or a `repo` is refused while a `project_id` grant admits it.
+Each of the three target shapes validates and every mixed or partial shape is refused with the member named; a record with an unknown key is refused; a `read-write` grant naming an `org` or a `repo` is refused while a `project_id` grant admits it; an act naming the plan's own project, a project that is not enrolled, or a plan that has already ended is refused with the reason named, and nothing is written.
 
 A grant written by the operator's act lands in the store the act names (the plan's, the pending entry's, or the project's workspace) and nowhere else; the entry's grant moves into the plan's store in the `start.create-scope` transaction and is absent from the pending entry afterwards; the project's `grants.jsonl` is read by every later start of the project; every line is mirrored as an `access_granted` audit record and the file is covered by the scope's digest sidecar.
 
 An access outside the project without a grant is refused `grant_missing` and raised as `precondition_unmet` held for the operator with the grant as its act, for a cross-project read, for an archived plan of another project and for another repository's issue named as a source; the same access with the grant proceeds; a grant of the one access does not admit another; a write outside the project without a `read-write` grant is refused.
 
-A granted provider read reports its completeness and is never read as absent when incomplete; a rate-limited read ends `rate_limited` with `resets_at` and is not retried by itself.
+The read-only provider reads of an organisation, group or repository outside the project (`--org`, `--repo`) are refused `grant_missing` without their grant and proceed with it, and each reports its completeness and is never read as absent when incomplete; a rate-limited read ends `rate_limited` with `resets_at` and is not retried by itself.
