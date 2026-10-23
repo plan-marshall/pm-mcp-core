@@ -15,10 +15,10 @@ import java.util.Optional;
 
 /**
  * The frontmatter a unit opens with (PM-IMPL-5): what the unit is for a person (its display name and description),
- * what kind of unit it is (its type), its interface (the entries through which control arrives and the exits through
- * which it leaves), and where it comes from (its last change, the release it was made with, its author, and a
- * signature reserved for verifying its origin). It is read without the body, so a list of units shows a unit's name,
- * description, type and interface from it alone.
+ * what kind of unit it is (its type), the icon that stands for it in a visual language (its icon id), its interface
+ * (the entries through which control arrives and the exits through which it leaves), and where it comes from (its last
+ * change, the release it was made with, its author, and a signature reserved for verifying its origin). It is read
+ * without the body, so a list of units shows a unit's name, description, type, icon and interface from it alone.
  * <p>
  * The entries and the exits keep the order the frontmatter declares them in; an element is never collapsed into
  * another. The lists are copied into immutable lists.
@@ -26,6 +26,7 @@ import java.util.Optional;
  * @param name             the display name of the unit, 3 to 100 characters
  * @param description      what the unit does and when it is used, 1 to 1000 characters
  * @param type             the kind of unit
+ * @param icon             the stable icon id that stands for the unit, never a file path
  * @param entries          the entries a caller enters the unit through, in declaration order
  * @param exits            the exits the unit returns to its caller through, in declaration order
  * @param modificationDate the date of the last change of the file
@@ -41,6 +42,7 @@ public record UnitFrontmatter(
 String name,
 String description,
 UnitType type,
+String icon,
 List<InterfaceElement> entries,
 List<InterfaceElement> exits,
 LocalDate modificationDate,
@@ -55,6 +57,7 @@ SourceLocation location) {
      * @param name             the display name of the unit
      * @param description      what the unit does and when it is used
      * @param type             the kind of unit
+     * @param icon             the stable icon id that stands for the unit
      * @param entries          the entries, in declaration order
      * @param exits            the exits, in declaration order
      * @param modificationDate the date of the last change of the file

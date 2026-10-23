@@ -20,8 +20,9 @@
  * ({@link de.planmarshall.workflow.ast.WorkflowDefinition.EntryBinding}) and state migrations
  * ({@link de.planmarshall.workflow.ast.StateMigration}).</li>
  * <li><b>Frontmatter</b>: {@link de.planmarshall.workflow.ast.UnitFrontmatter}, what the unit is for a person, its
- * unit type ({@link de.planmarshall.workflow.ast.UnitType}) and its interface, the entries and exits
- * ({@link de.planmarshall.workflow.ast.UnitFrontmatter.InterfaceElement}) in declaration order.</li>
+ * unit type ({@link de.planmarshall.workflow.ast.UnitType}), the stable icon id that stands for it, and its interface,
+ * the entries and exits ({@link de.planmarshall.workflow.ast.UnitFrontmatter.InterfaceElement}) in declaration
+ * order.</li>
  * <li><b>States and behaviours</b>: {@link de.planmarshall.workflow.ast.StateNode} with its terminal outcome
  * ({@link de.planmarshall.workflow.ast.TerminalOutcome}) and its closed behaviour
  * ({@link de.planmarshall.workflow.ast.StateBehavior}): links, {@code auto}, {@code job}, {@code job llm},

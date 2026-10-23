@@ -2,11 +2,12 @@
 name: verify.parameters
 description: A unit written for the verifier tests.
 type: system
+icon: workflow.default
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: PARAMETER_EQUIVALENCE state verify.entry line 18
+# expect: PARAMETER_EQUIVALENCE state verify.entry line 19
 # A plan unit whose link declares the bounded free parameter note with other bounds
 # than the parameter record of its primitive.
 workflow verify.parameters version 1 format 1

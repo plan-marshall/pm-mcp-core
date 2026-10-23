@@ -209,6 +209,7 @@ class CompiledInvariantsTest {
                     name: test.unknown
                     description: A project unit written for the invariant tests.
                     type: subworkflow
+                    icon: workflow.default
                     entry: main
                     exit: done
                     modification_date: 2026-01-15
@@ -516,6 +517,7 @@ class CompiledInvariantsTest {
                     name: remediation.spend
                     description: A unit written for the tests of pm-workflow.
                     type: subworkflow
+                    icon: workflow.default
                     exit: resolved
                     modification_date: 2026-01-15
                     version: 0.1.0

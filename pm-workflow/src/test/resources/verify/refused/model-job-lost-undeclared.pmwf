@@ -2,11 +2,12 @@
 name: verify.model-job-lost-undeclared
 description: A unit written for the verifier tests.
 type: system
+icon: workflow.default
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: MODEL_JOB_OUTCOMES state verify.entry line 15
+# expect: MODEL_JOB_OUTCOMES state verify.entry line 16
 # Only a plan unit, or a sub-workflow every caller chain of which ends in plan units, leaves lost undeclared (ADR 025).
 workflow verify.model-job-lost-undeclared version 1 format 1
 scope workspace

@@ -183,6 +183,7 @@ class DeclarationBoundsTest {
                     name: adjudicate.decisions
                     description: A unit written for the tests of pm-workflow.
                     type: subworkflow
+                    icon: workflow.default
                     exit: done
                     modification_date: 2026-01-15
                     version: 0.1.0
@@ -293,6 +294,7 @@ class DeclarationBoundsTest {
                 name: %1$s
                 description: A unit written for the tests of pm-workflow.
                 type: subworkflow
+                icon: workflow.default
                 entry: main
                 exit: continue
                 modification_date: 2026-01-15

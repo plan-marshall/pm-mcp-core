@@ -46,6 +46,7 @@ class InstancePrunerTest {
             name: Pruner link fixture
             description: A question state with a link, written for the pruner tests.
             type: system
+            icon: workflow.default
             modification_date: 2026-01-15
             version: 0.1.0
             author: plan-marshall

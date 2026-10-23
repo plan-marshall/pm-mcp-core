@@ -2,11 +2,12 @@
 name: verify.step-completion-same-transition
 description: A unit written for the verifier tests.
 type: workflow
+icon: workflow.default
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: STEP_COMPLETION state verify.entry line 22
+# expect: STEP_COMPLETION state verify.entry line 23
 # One transition completes the step twice. The firing walk reads the completions of a
 # transition once, so only the same-transition check refuses this; step-completion-firing.pmwf
 # pins the duplicate across two transitions of one firing.

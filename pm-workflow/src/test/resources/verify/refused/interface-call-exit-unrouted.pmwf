@@ -2,11 +2,12 @@
 name: verify.interface-call-exit-unrouted
 description: A unit written for the verifier tests.
 type: workflow
+icon: workflow.default
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: SUBWORKFLOW_CALL_CONTRACT state verify.entry line 14 column 1
+# expect: SUBWORKFLOW_CALL_CONTRACT state verify.entry line 15 column 1
 workflow verify.interface-call-exit-unrouted version 1 format 1
 scope plan
 start verify.entry

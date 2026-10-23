@@ -138,6 +138,7 @@ class VerificationResultTest {
                 name: verify.ordering-state
                 description: A unit written for the tests of pm-workflow.
                 type: subworkflow
+                icon: workflow.default
                 entry: main
                 exit: done
                 modification_date: 2026-01-15
@@ -187,6 +188,7 @@ class VerificationResultTest {
                 name: verify.ordering-rule
                 description: A unit written for the tests of pm-workflow.
                 type: system
+                icon: workflow.default
                 modification_date: 2026-01-15
                 version: 0.1.0
                 author: plan-marshall

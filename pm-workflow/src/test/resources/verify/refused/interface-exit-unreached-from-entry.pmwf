@@ -2,6 +2,7 @@
 name: verify.interface-exit-unreached-from-entry
 description: A unit written for the verifier tests.
 type: subworkflow
+icon: workflow.default
 entry: main
 exit: done
 exit: failed
@@ -10,7 +11,7 @@ version: 0.1.0
 author: plan-marshall
 ---
 # expect: INTERFACE_EXIT_REACHED state verify.entry line 1 column 1
-# expect: REACHABILITY state verify.failed line 27 column 1
+# expect: REACHABILITY state verify.failed line 28 column 1
 workflow verify.interface-exit-unreached-from-entry version 1 format 1
 scope subworkflow
 entry main -> verify.entry

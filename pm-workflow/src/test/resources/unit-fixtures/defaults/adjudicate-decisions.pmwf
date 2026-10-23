@@ -2,6 +2,7 @@
 name: adjudicate.decisions
 description: A unit written for the invariant and unit-loader tests.
 type: subworkflow
+icon: flow.adjudicate
 exit: decided
 exit: escalated
 modification_date: 2026-01-15
