@@ -9,7 +9,7 @@
  */
 /**
  * Sonar (SonarQube and SonarCloud) as a code analysis provider: the adapter of the code-analysis and findings
- * contracts of {@code pm-core}. It is no CI provider; of {@code pm-provider-http} it uses the shared HTTP base alone.
+ * contracts of {@code pm-core}. It is no CI provider; it depends on {@code pm-provider-http} for the shared HTTP base alone.
  * {@link de.planmarshall.provider.sonar.SonarProvider} holds the provider id, {@link
  * de.planmarshall.provider.sonar.SonarIssueKey} the key a finding of Sonar is answered on.
  * <p>

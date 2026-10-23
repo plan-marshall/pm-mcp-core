@@ -2,7 +2,7 @@
 :nofooter:
 
 `pm-provider-sonar` connects the engine to SonarQube and SonarCloud as a code analysis provider. It adapts the
-code-analysis and findings contracts of `pm-core`. It is no CI provider; of `pm-provider-http` it uses the shared HTTP
+code-analysis and findings contracts of `pm-core`. It is no CI provider; it depends on `pm-provider-http` for the shared HTTP
 base alone. What the module may depend on is stated in the
 https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/specification/module-structure.adoc[Module Structure Specification].
 
