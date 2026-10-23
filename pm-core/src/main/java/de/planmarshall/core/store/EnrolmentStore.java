@@ -599,13 +599,21 @@ public final class EnrolmentStore {
 
     private List<Path> deleteAll(List<Path> files) throws IOException {
         var deleted = new ArrayList<Path>();
-        for (var staged : files) {
-            if (Files.deleteIfExists(staged)) {
-                deleted.add(staged);
-            }
+        try {
+            files.stream().filter(EnrolmentStore::deleteIfExists).forEach(deleted::add);
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
         }
         SyncedFiles.forceDirectory(directory);
         return deleted;
+    }
+
+    private static boolean deleteIfExists(Path file) {
+        try {
+            return Files.deleteIfExists(file);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     /**

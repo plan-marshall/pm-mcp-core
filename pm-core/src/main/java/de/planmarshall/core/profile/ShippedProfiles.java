@@ -36,6 +36,8 @@ import java.util.regex.Pattern;
 public final class ShippedProfiles {
 
     private static final String DIRECTORY = "profiles";
+    /** The suffix of a shipped profile document. */
+    private static final String PROFILE_SUFFIX = ".json";
     private static final Pattern CLIENT_ID = Pattern.compile("^[a-z][a-z0-9-]{0,31}$");
 
     private ShippedProfiles() {
@@ -86,7 +88,7 @@ public final class ShippedProfiles {
         try (var entries = Files.list(directory)) {
             for (var entry : entries.sorted().toList()) {
                 var name = entry.getFileName().toString();
-                if (Files.isRegularFile(entry) && name.endsWith(".json")) {
+                if (Files.isRegularFile(entry) && name.endsWith(PROFILE_SUFFIX)) {
                     add(clientId(name), Files.readAllBytes(entry), documents);
                 }
             }
@@ -103,7 +105,7 @@ public final class ShippedProfiles {
         while (entries.hasMoreElements()) {
             var entry = entries.nextElement();
             var name = entry.getName();
-            if (entry.isDirectory() || !name.startsWith(prefix) || !name.endsWith(".json")) {
+            if (entry.isDirectory() || !name.startsWith(prefix) || !name.endsWith(PROFILE_SUFFIX)) {
                 continue;
             }
             var relative = name.substring(prefix.length());
@@ -124,7 +126,7 @@ public final class ShippedProfiles {
     }
 
     private static String clientId(String fileName) {
-        var name = fileName.substring(0, fileName.length() - ".json".length());
+        var name = fileName.substring(0, fileName.length() - PROFILE_SUFFIX.length());
         if (!CLIENT_ID.matcher(name).matches()) {
             throw new IllegalStateException(
                     "The shipped profile file '%s' is not named by a client id".formatted(fileName));

@@ -126,6 +126,16 @@ HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
     /** Reads one record with the closed shape of its kind. */
     private static final class RecordChecker {
 
+        // The member names and pointer segments of the record, named once each (ADR core-profile/005).
+        private static final String NAME_VERSION = "version";
+        private static final String NAME_CONFINEMENT = "confinement";
+        private static final String NAME_LANDLOCK_ABI = "landlock_abi";
+        private static final String NAME_STATUS = "status";
+        private static final String NAME_TRIALS = "trials";
+        private static final String NAME_RESULTS = "results";
+        private static final String NAME_POINTER = "pointer";
+        private static final String PTR_STATUS = "/status";
+
         private final String document;
 
         private RecordChecker(String document) {
@@ -160,15 +170,15 @@ HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
         }
 
         private void tool(JsonNode tool) {
-            object(tool, "/tool", "tool", Set.of("version", "commit"));
-            string(tool, "/tool/version", "version");
+            object(tool, "/tool", "tool", Set.of(NAME_VERSION, "commit"));
+            string(tool, "/tool/version", NAME_VERSION);
             string(tool, "/tool/commit", "commit");
         }
 
         private HarnessBuild harness(JsonNode harness) {
-            object(harness, "/harness", "harness", Set.of("executable", "version", "executable_sha256", "models"));
+            object(harness, "/harness", "harness", Set.of("executable", NAME_VERSION, "executable_sha256", "models"));
             var executable = string(harness, "/harness/executable", "executable");
-            var version = string(harness, "/harness/version", "version");
+            var version = string(harness, "/harness/version", NAME_VERSION);
             var sha = string(harness, "/harness/executable_sha256", "executable_sha256");
             if (!sha.matches("sha256:[0-9a-f]{64}")) {
                 throw ProfileRefusal.recordInvalid(document, "/harness/executable_sha256", "not a sha256: digest");
@@ -190,14 +200,14 @@ HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
         }
 
         private Platform platform(JsonNode platform) {
-            object(platform, "/platform", "platform", Set.of("os", "arch", "confinement"),
-                    Set.of("os", "arch", "confinement", "landlock_abi"));
+            object(platform, "/platform", "platform", Set.of("os", "arch", NAME_CONFINEMENT),
+                    Set.of("os", "arch", NAME_CONFINEMENT, NAME_LANDLOCK_ABI));
             var os = string(platform, "/platform/os", "os");
             var arch = string(platform, "/platform/arch", "arch");
-            var confinement = string(platform, "/platform/confinement", "confinement");
-            var abi = platform.member("landlock_abi");
+            var confinement = string(platform, "/platform/confinement", NAME_CONFINEMENT);
+            var abi = platform.member(NAME_LANDLOCK_ABI);
             if (abi.isPresent() && !abi.get().isNull()) {
-                integer(platform, "/platform/landlock_abi", "landlock_abi");
+                integer(platform, "/platform/landlock_abi", NAME_LANDLOCK_ABI);
             }
             return new Platform(os, arch, confinement);
         }
@@ -208,17 +218,17 @@ HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
             for (var name : stages.members().keySet()) {
                 var pointer = "/stages/" + name;
                 var stage = stages.members().get(name);
-                object(stage, pointer, name, Set.of("status"), Set.of("status", "results", "trials"));
-                var status = string(stage, pointer + "/status", "status");
+                object(stage, pointer, name, Set.of(NAME_STATUS), Set.of(NAME_STATUS, NAME_RESULTS, NAME_TRIALS));
+                var status = string(stage, pointer + PTR_STATUS, NAME_STATUS);
                 if (!Stage.STATUSES.contains(status)) {
-                    throw ProfileRefusal.recordInvalid(document, pointer + "/status",
+                    throw ProfileRefusal.recordInvalid(document, pointer + PTR_STATUS,
                             "not a stage status: '%s'".formatted(status));
                 }
-                var results = results(stage.member("results").orElse(null), pointer + "/results");
+                var results = results(stage.member(NAME_RESULTS).orElse(null), pointer + "/results");
                 Integer trials = null;
-                var trialNode = stage.member("trials").orElse(null);
+                var trialNode = stage.member(NAME_TRIALS).orElse(null);
                 if (trialNode != null) {
-                    trials = (int) integer(stage, pointer + "/trials", "trials");
+                    trials = (int) integer(stage, pointer + "/trials", NAME_TRIALS);
                 }
                 read.put(name, new Stage(status, results, trials));
             }
@@ -229,7 +239,7 @@ HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
             if (results == null) {
                 return Map.of();
             }
-            object(results, pointer, "results");
+            object(results, pointer, NAME_RESULTS);
             var read = new LinkedHashMap<String, String>();
             for (var entry : results.members().entrySet()) {
                 var value = entry.getValue();
@@ -249,12 +259,12 @@ HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
             for (var index = 0; index < values.elements().size(); index++) {
                 var pointer = "/values/" + index;
                 var value = values.elements().get(index);
-                object(value, pointer, "value", Set.of("pointer", "status"),
-                        Set.of("pointer", "status", "code", "figures"));
-                string(value, pointer + "/pointer", "pointer");
-                var status = string(value, pointer + "/status", "status");
+                object(value, pointer, "value", Set.of(NAME_POINTER, NAME_STATUS),
+                        Set.of(NAME_POINTER, NAME_STATUS, "code", "figures"));
+                string(value, pointer + "/pointer", NAME_POINTER);
+                var status = string(value, pointer + PTR_STATUS, NAME_STATUS);
                 if (!Set.of("measured", "confirmed", "declared", "not_measured").contains(status)) {
-                    throw ProfileRefusal.recordInvalid(document, pointer + "/status",
+                    throw ProfileRefusal.recordInvalid(document, pointer + PTR_STATUS,
                             "not a value status: '%s'".formatted(status));
                 }
             }
@@ -314,7 +324,7 @@ HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
             var text = string(root, pointer, "verified_at");
             try {
                 return Instant.parse(text);
-            } catch (DateTimeParseException e) {
+            } catch (DateTimeParseException _) {
                 throw ProfileRefusal.recordInvalid(document, pointer, "not an instant: '%s'".formatted(text));
             }
         }

@@ -147,30 +147,11 @@ public final class ProjectResolver {
         var matches = new TreeSet<String>();
         StoreRefusal refused = null;
         for (var projectId : enrolments.projectIds()) {
-            var file = enrolments.file(projectId);
-            Optional<byte[]> content;
-            try {
-                content = StoreSnapshot.read(file).content();
-            } catch (UncheckedIOException e) {
-                // A file that exists and cannot be read is refused like an undecodable one: it may name any root.
-                if (refused == null) {
-                    refused = StoreRefusal.unreadable(file, ProjectEnrolment.FORMAT_VERSION,
-                            "the file cannot be read: " + e.getMessage(), e);
-                }
-                continue;
-            }
-            if (content.isEmpty()) {
-                continue;
-            }
-            try {
-                var enrolment = enrolments.decode(projectId, content.get());
-                if (Path.of(enrolment.projectRoot()).equals(mainCheckout)) {
-                    matches.add(projectId);
-                }
-            } catch (StoreRefusal refusal) {
-                if (refused == null) {
-                    refused = refusal;
-                }
+            var match = match(projectId, mainCheckout);
+            if (match.matches()) {
+                matches.add(projectId);
+            } else if (refused == null) {
+                refused = match.refusal().orElse(null);
             }
         }
         if (matches.size() > 1) {
@@ -183,6 +164,34 @@ public final class ProjectResolver {
             return new MainCheckout(matches.first());
         }
         return new NotEnrolled(NotEnrolled.Reason.NO_ENROLMENT);
+    }
+
+    /**
+     * @return whether the enrolment names the main checkout, and the refusal when it could not be read
+     */
+    private Match match(String projectId, Path mainCheckout) {
+        var file = enrolments.file(projectId);
+        Optional<byte[]> content;
+        try {
+            content = StoreSnapshot.read(file).content();
+        } catch (UncheckedIOException e) {
+            // A file that exists and cannot be read is refused like an undecodable one: it may name any root.
+            return new Match(false, Optional.of(StoreRefusal.unreadable(file, ProjectEnrolment.FORMAT_VERSION,
+                    "the file cannot be read: " + e.getMessage(), e)));
+        }
+        if (content.isEmpty()) {
+            return new Match(false, Optional.empty());
+        }
+        try {
+            var enrolment = enrolments.decode(projectId, content.get());
+            return new Match(Path.of(enrolment.projectRoot()).equals(mainCheckout), Optional.empty());
+        } catch (StoreRefusal refusal) {
+            return new Match(false, Optional.of(refusal));
+        }
+    }
+
+    /** Whether one enrolment names the main checkout, with the refusal when it could not be read. */
+    private record Match(boolean matches, Optional<StoreRefusal> refusal) {
     }
 
     private static ProjectResolution classify(Path toplevel, Path mainCheckout, String projectId) {

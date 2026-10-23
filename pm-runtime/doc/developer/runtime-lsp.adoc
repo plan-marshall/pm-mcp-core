@@ -1,0 +1,81 @@
+= Language Server Client (`runtime.lsp`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+
+== Purpose
+
+Package `de.planmarshall.runtime.lsp` of `pm-runtime` speaks the Language Server Protocol to one language-server
+process. It is the runtime's only consumer of LSP4J (`pm-runtime` is the only module that depends on it) and it names no
+language server: the executable, its arguments and the workspace come from the caller.
+
+The package owns one thing: a bounded conversation with a server process. It spawns the process, negotiates the position
+encoding, sends the requests a caller asks for, caches the diagnostics the server publishes, and ends the process on
+`close()`.
+
+== Main Types
+
+[cols="1,3"]
+|===
+|Type |What it is
+
+|`LspClient` |One server instance. `start(command, workspace, timeout)` spawns and initializes it; `definition`,
+`open` and `publishedDiagnostics` are the requests and the cache; `close()` runs `shutdown`, `exit` and terminates the
+process if it does not end in time.
+
+|`PoolLanguageClient` |The client side of the protocol (LSP4J dispatches to it reflectively): it caches the published
+diagnostics per document, acknowledges messages and telemetry without user interaction, and lets a caller obtain the
+cached diagnostics of a document, waiting for its first publication when none is cached.
+
+|`LspException` |The one checked exception of the package, carrying a `Kind` (`REQUEST_FAILED`, `TIMEOUT`, …).
+
+|`LspClient.LspLocation` |A location answered by the server, 0-based as on the wire.
+|===
+
+== Lifecycle and Bounds
+
+`start` runs `initialize` and `initialized`; the position encoding is negotiated once, preferring `utf-32`, then
+`utf-8`, falling back to `utf-16`, and every character offset the package reports is in the negotiated encoding. Every
+request is bounded by the instance's timeout. `close()` sends `shutdown` and `exit` and waits for the process; a server
+that does not end in time is destroyed and then destroyed forcibly. The listening future is cancelled in a `finally`
+block. Cleanup is requested, not awaited: `close()` does not wait for the process to end after a forcible destroy, nor
+for the reader thread to finish after the cancel.
+
+== Diagnostics
+
+The server publishes diagnostics as notifications; `PoolLanguageClient.publishDiagnostics` caches them per document and
+signals the arrival under one monitor. `LspClient.awaitPublishedDiagnostics(file, timeout)` waits on that signal until
+the first publication of a document or the timeout, which is what a caller (and the test) waits for instead of
+sleeping (link:../adr/runtime-lsp/001-diagnostics-arrival-waited-on-a-condition.adoc[ADR 001]).
+
+== Invariants and Failure Modes
+
+[cols="1,2,2"]
+|===
+|Invariant |Held by |Failure
+
+|No request hangs the caller
+|`LspClient.await`
+|`LspException` with `Kind.TIMEOUT`
+
+|A closed client leaves no process and no reader thread
+|`LspClient.close`
+|the process is destroyed; the listening future is cancelled
+
+|Every offset is in the negotiated encoding
+|`start`
+|the encoding is negotiated once, before any request
+
+|The package names no language server
+|the caller
+|the executable and its arguments are data
+|===
+
+== Extending
+
+A new request is a method on `LspClient` that sends through `await(...)`, so it inherits the timeout; a new capability is
+declared in `clientCapabilities`. A new notification the package must cache is a method on `PoolLanguageClient`, with the
+state it keeps and the signal a waiter uses.

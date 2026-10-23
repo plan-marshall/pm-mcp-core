@@ -64,7 +64,7 @@ class ProfileNeutralityArchTest {
     void controlFixtureFails() throws Exception {
         var found = violationsIn(List.of(classFileOf(ClientNamedFixture.class)));
 
-        assertTrue(found.values().stream().flatMap(Set::stream).anyMatch("opencode"::equals), () -> found.toString());
+        assertTrue(found.values().stream().flatMap(Set::stream).anyMatch("opencode"::equals), found::toString);
     }
 
     private static Map<Path, Set<String>> violationsIn(List<Path> classFiles) throws IOException {

@@ -25,10 +25,10 @@ import lombok.experimental.UtilityClass;
 public final class PosixModes {
 
     /** {@code rwx------}. */
-    public static final Set<PosixFilePermission> DIRECTORY = PosixFilePermissions.fromString("rwx------");
+    public static final Set<PosixFilePermission> DIRECTORY = Set.copyOf(PosixFilePermissions.fromString("rwx------"));
 
     /** {@code rw-------}. */
-    public static final Set<PosixFilePermission> FILE = PosixFilePermissions.fromString("rw-------");
+    public static final Set<PosixFilePermission> FILE = Set.copyOf(PosixFilePermissions.fromString("rw-------"));
 
     /**
      * @return the creation attribute for a directory with mode {@code 0700}

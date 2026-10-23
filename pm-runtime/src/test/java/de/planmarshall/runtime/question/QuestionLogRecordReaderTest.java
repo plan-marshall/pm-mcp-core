@@ -299,13 +299,13 @@ class QuestionLogRecordReaderTest {
                     () -> assertNotEquals(new Open(), reader.read(request(QUESTION))));
         }
 
-        private QuestionRefusal appendRefused(QuestionRecord record) {
+        private QuestionRefusal appendRefused(QuestionRecord questionRecord) {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(plan.lockKey());
                 var write = ScopeTransaction.open(transaction, plan, event -> {
                     // the test records nothing
                 }, QuestionFixtures.CLOCK);
-                var refusal = new QuestionLog(plan).append(write, List.of(record));
+                var refusal = new QuestionLog(plan).append(write, List.of(questionRecord));
                 assertTrue(refusal.isPresent(), "ADR core-store/039 refuses every append to a log with a refused line");
                 return refusal.get();
             }

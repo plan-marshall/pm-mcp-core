@@ -62,9 +62,9 @@ public class FakeSecretService implements FakeBus.Handler {
             case "OpenSession" -> new FakeBus.Reply("vo",
                     List.of(new Variant("s", ""), "/org/freedesktop/secrets/session/1"));
             case "ReadAlias" -> new FakeBus.Reply("o", List.of(noDefaultCollection ? "/" : COLLECTION));
-            case "Get" -> "Locked".equals(args.get(1))
-                    ? new FakeBus.Reply("v", List.of(new Variant("b", collectionLocked)))
-                    : new FakeBus.Reply("v", List.of(new Variant("a{ss}", items.get(call.path()).attributes)));
+            case "Get" -> new FakeBus.Reply("v", List.of("Locked".equals(args.get(1))
+                    ? new Variant("b", collectionLocked)
+                    : new Variant("a{ss}", items.get(call.path()).attributes)));
             case "SearchItems" -> {
                 var wanted = (Map<String, String>) args.getFirst();
                 var matches = items.entrySet().stream()

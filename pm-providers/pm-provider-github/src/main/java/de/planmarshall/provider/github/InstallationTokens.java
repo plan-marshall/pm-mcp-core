@@ -152,7 +152,7 @@ public final class InstallationTokens implements AutoCloseable {
             var minted = new InstallationToken(token.get(), Instant.parse(expiresAt.get()));
             redaction.accept(minted.token());
             return CiResult.ok(minted);
-        } catch (DateTimeParseException e) {
+        } catch (DateTimeParseException _) {
             return CiResult.of(CiResult.Outcome.FAILED, "unreadable expires_at");
         }
     }

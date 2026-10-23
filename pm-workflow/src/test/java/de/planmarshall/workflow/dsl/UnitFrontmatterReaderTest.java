@@ -677,7 +677,7 @@ class UnitFrontmatterReaderTest {
 
         private static String specificationPart() throws IOException {
             var property = System.getProperty("pm.specification.root");
-            var root = property == null || property.isBlank() ? Path.of("..") : Path.of(property);
+            var root = Path.of(property == null || property.isBlank() ? ".." : property);
             return Files.readString(root.toAbsolutePath().normalize()
                     .resolve("doc/specification/workflow-dsl/01-grammar.adoc"), StandardCharsets.UTF_8);
         }

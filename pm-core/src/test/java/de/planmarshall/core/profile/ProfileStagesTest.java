@@ -91,9 +91,13 @@ class ProfileStagesTest {
     @Test
     @DisplayName("a figure that differs from the harness's own record fails the stage")
     void differingFigureFails() {
-        var refusal = assertThrows(ProfileRefusal.class, () -> ProfileStages.usage(profile(), turn("""
+        var loaded = profile();
+        var output = turn("""
                 {"usage":{"input_tokens":10,"output_tokens":5}}
-                """), Map.of("input_tokens", new BigDecimal("11"))));
+                """);
+        var harnessRecord = Map.of("input_tokens", new BigDecimal("11"));
+
+        var refusal = assertThrows(ProfileRefusal.class, () -> ProfileStages.usage(loaded, output, harnessRecord));
 
         assertAll(
                 () -> assertEquals("/usage/input_tokens", refusal.pointer()),
@@ -125,9 +129,10 @@ class ProfileStagesTest {
         var loaded = new LoadedProfile("acme-cli", ProfileSetKind.SHIPPED, tree, bytes,
                 LoadedProfile.State.VERIFIED, null);
 
-        var refusal = assertThrows(ProfileRefusal.class, () -> ProfileStages.usage(loaded, turn("""
+        var output = turn("""
                 {"usage":{"input_tokens":10,"output_tokens":5}}
-                """), Map.of()));
+                """);
+        var refusal = assertThrows(ProfileRefusal.class, () -> ProfileStages.usage(loaded, output, Map.of()));
 
         assertEquals("/usage/absent", refusal.pointer());
     }
@@ -140,7 +145,8 @@ class ProfileStagesTest {
                 """), Map.of());
         var figures = new LinkedHashMap<>(result.figures());
 
-        assertThrows(UnsupportedOperationException.class, () -> result.figures().clear());
+        var view = result.figures();
+        assertThrows(UnsupportedOperationException.class, view::clear);
         assertEquals(figures, result.figures());
     }
 }

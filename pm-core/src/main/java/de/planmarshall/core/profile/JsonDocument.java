@@ -132,7 +132,7 @@ public final class JsonDocument {
     private static long readInteger(JsonParser parser, String pointer, String document) throws IOException {
         try {
             return parser.getLongValue();
-        } catch (JsonProcessingException e) {
+        } catch (JsonProcessingException _) {
             throw ProfileRefusal.invalid(document, pointer, "an integer outside the range of a long");
         }
     }
