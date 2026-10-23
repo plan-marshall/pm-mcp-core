@@ -86,8 +86,10 @@ A new provider adapter depends on this module and `pm-core` alone among the modu
 * *An incomplete read is never the full set*: `PagedResult.complete()` is `true` only when the last
   page carried no `rel="next"`; a page cap, a failed page or a next link outside the origin leaves it
   `false`.
-* *No secret in a detail*: the detail of a non-OK outcome carries a provider message or a failing step,
-  never a token or a body.
+* *No secret added to a detail*: the detail of a non-OK outcome carries the provider's own message where it gave
+  one, otherwise the client's failing step; the client never appends its token, a credential or the request body.
+  A provider message is remote text, so a caller that emits or persists a detail passes it through the runtime's
+  `SecretRedactor` (`PM-CRED-5`; the canary-token guard of the implementation watch).
 * *Timeouts*: every request carries the connect timeout (10 s) and the read timeout (60 s) of
   `HttpClient`.
 

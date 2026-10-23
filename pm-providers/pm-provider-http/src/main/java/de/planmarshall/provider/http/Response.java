@@ -23,7 +23,9 @@ import java.util.Optional;
  * @param etag    the {@code ETag} of the response, for the next conditional request
  * @param next    the {@code rel="next"} target of the {@code Link} header
  * @param resetAt for {@link Outcome#RATE_LIMITED}: the instant from which the request may be re-issued
- * @param detail  the failure detail (never a secret)
+ * @param detail  the failure detail: the provider's own message where it gave one, otherwise the client's failing
+ *                step; no token, credential or request body (a provider message is remote text, to be passed
+ *                through the secret redactor where it is emitted; {@code PM-CRED-5})
  * @since 0.1
  */
 public record Response(Outcome outcome, int status, String body, Optional<String> etag, Optional<URI> next,

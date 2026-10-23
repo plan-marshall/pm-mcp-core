@@ -21,7 +21,9 @@ import java.util.Optional;
  * @param value    the value, present for {@link Outcome#OK}
  * @param complete for reads of a collection: whether every page was read; {@code true} otherwise
  * @param resetAt  for {@link Outcome#RATE_LIMITED}: when the operation may be re-issued
- * @param detail   the detail of a non-OK outcome (provider message or failing step, never a secret)
+ * @param detail   the detail of a non-OK outcome: the provider's own message where it gave one, otherwise the
+ *                 failing step; the client adds no token, no credential and no request body. A provider message
+ *                 is remote text, to be passed through the secret redactor where it is emitted ({@code PM-CRED-5})
  * @param <V>      the value type
  * @since 0.1
  */

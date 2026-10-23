@@ -1,8 +1,9 @@
 = `pm-providers`
 :nofooter:
 
-`pm-providers` is the aggregator of the provider modules. It holds no code. Each provider module connects the engine
-to one external system: git, a CI host or a code analysis service. What a provider module may depend on is stated in
+`pm-providers` is the aggregator of the provider modules. It holds no code. Its provider adapters connect the engine
+to external systems — git, a CI host or a code analysis service — and `pm-provider-http` supplies the shared HTTP
+infrastructure they build on. What a provider module may depend on is stated in
 the
 https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/specification/module-structure.adoc[Module Structure Specification].
 
