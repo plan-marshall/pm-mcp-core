@@ -1029,6 +1029,12 @@ class CredentialStoreChoiceTest {
             var resumed = move(choice).resume();
             var secondRun = move(choice).resume();
 
+            assertResumedAfterTheSwitchFails(choice, created, resumed, secondRun, recorded);
+        }
+
+        private void assertResumedAfterTheSwitchFails(CredentialStoreChoice choice, SecretKey created,
+                Optional<CredentialStoreMoveRecord> resumed, Optional<CredentialStoreMoveRecord> secondRun,
+                CredentialStoreMoveRecord recorded) {
             assertAll(
                     () -> assertEquals(Optional.of(Operation.FIRST_RECORDING),
                             resumed.map(CredentialStoreMoveRecord::operation)),
@@ -1264,7 +1270,7 @@ class CredentialStoreChoiceTest {
         @Test
         @DisplayName("neither the integrity key nor a credential value reaches a log record or a message, on the "
                 + "refused path")
-        void noSecretInALogOnARefusal() throws Exception {
+        void noSecretInALogOnARefusal() {
             var marker = "MARKER-6a1f0c-refusal";
             var choice = choice();
             var key = markerKey(marker);

@@ -199,7 +199,7 @@ class CredentialStoreMoveTest {
     /** Asserts the end state of a completed move from {@code from} into {@code to}. */
     private void assertMoved(Store from, Store to, SecretStore target, SecretStore old, SecretKey key) {
         assertAll(
-                () -> assertMovedState(from, to, target, old, key),
+                () -> assertMovedState(to, target, old, key),
                 () -> assertEquals(1, movedEvents().size()),
                 () -> assertEquals(Map.of(CredentialStoreMove.DETAIL_FROM, from.value(),
                                 CredentialStoreMove.DETAIL_TO, to.value(), CredentialStoreMove.DETAIL_ENTRIES, 2L),
@@ -211,7 +211,7 @@ class CredentialStoreMoveTest {
     }
 
     /** Asserts the stores and the record of a completed move, without its audit record. */
-    private void assertMovedState(Store from, Store to, SecretStore target, SecretStore old, SecretKey key) {
+    private void assertMovedState(Store to, SecretStore target, SecretStore old, SecretKey key) {
         assertAll(
                 () -> assertEquals(Optional.of(to), choice.recorded()),
                 () -> assertEquals(Optional.of(GITHUB_SECRET), target.get(GITHUB)),
@@ -721,7 +721,7 @@ class CredentialStoreMoveTest {
                     () -> assertEquals(stop.compareTo(Step.SWITCHED) < 0 ? Phase.COPYING : Phase.SWITCHED,
                             moveRecord.phase()),
                     () -> assertEquals(Optional.of(moveRecord), resumed),
-                    () -> assertMovedState(Store.OS, Store.FILE, fileStore, osStore, key),
+                    () -> assertMovedState(Store.FILE, fileStore, osStore, key),
                     () -> assertEquals(1, distinctEvents(movedEvents()).size(),
                             "the reader counts the completed move once, also where a stop after its audit record left "
                                     + "the record that hands it over again"));
@@ -939,17 +939,17 @@ class CredentialStoreMoveTest {
             });
 
             assertThrows(Stop.class, () -> stopped.move(Store.FILE));
-            var record = CredentialStoreMoveRecord.read(recordFile(), Files.readAllBytes(recordFile()));
+            var written = CredentialStoreMoveRecord.read(recordFile(), Files.readAllBytes(recordFile()));
             var first = movedEvents().getFirst();
 
             move().resume();
 
             assertAll(
-                    () -> assertEquals(record.transactionId().value(),
+                    () -> assertEquals(written.transactionId().value(),
                             first.details().get(AuditEvent.DETAIL_TRANSACTION_ID)),
-                    () -> assertTransactionIdAt(STARTED, record.transactionId().value()),
+                    () -> assertTransactionIdAt(STARTED, written.transactionId().value()),
                     () -> assertEquals(2, movedEvents().size(), "the audit record is delivered at least once"),
-                    () -> assertEquals(record.transactionId().value(),
+                    () -> assertEquals(written.transactionId().value(),
                             movedEvents().get(1).details().get(AuditEvent.DETAIL_TRANSACTION_ID)),
                     () -> assertEquals(List.of(first), distinctEvents(movedEvents()),
                             "the reader drops the record handed over twice and counts it once"),

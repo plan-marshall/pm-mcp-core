@@ -51,26 +51,25 @@ import de.planmarshall.runtime.job.JobRequest.WrapperBuild;
 class ExecutableCheck {
 
     /**
-     * @param projectId        the project
      * @param enrolment        the verified enrolment of the project
      * @param workingDirectory the canonical working directory of the job
      * @param target           what the job runs
      * @return the verified absolute start of the argument vector, or the refusal
      * @throws UncheckedIOException if a file exists and cannot be read
      */
-    static VerifyNotResolvePipeline.Stage<List<String>> check(String projectId, ProjectEnrolment enrolment,
+    static VerifyNotResolvePipeline.Stage<List<String>> check(ProjectEnrolment enrolment,
             Path workingDirectory, JobRequest.Target target) {
         return switch (target) {
             case HostToolCall call -> hostTool(enrolment, call.tool());
             case HostToolBuild _ -> hostTool(enrolment, HostToolName.NPM);
-            case WrapperBuild build -> wrapper(projectId, enrolment, workingDirectory, build.wrapper());
+            case WrapperBuild build -> wrapper(enrolment, workingDirectory, build.wrapper());
             case ProjectScriptCall call -> projectScript(enrolment, workingDirectory, call);
         };
     }
 
-    private static VerifyNotResolvePipeline.Stage<List<String>> wrapper(String projectId, ProjectEnrolment enrolment,
+    private static VerifyNotResolvePipeline.Stage<List<String>> wrapper(ProjectEnrolment enrolment,
             Path workingDirectory, WrapperName name) {
-        var wrapper = WrapperVerification.verify(projectId, enrolment, workingDirectory, name);
+        var wrapper = WrapperVerification.verify(enrolment, workingDirectory, name);
         if (wrapper instanceof VerifyNotResolvePipeline.Stage.Failed<Path>(var refusal)) {
             return VerifyNotResolvePipeline.Stage.failed(refusal);
         }

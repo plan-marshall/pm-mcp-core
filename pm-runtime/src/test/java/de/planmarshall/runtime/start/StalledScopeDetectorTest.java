@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.lang.reflect.RecordComponent;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -137,7 +138,7 @@ class StalledScopeDetectorTest {
             var hold = activity.hold().orElseThrow();
             assertAll(
                     () -> assertEquals(600, StalledScopeDetector.THRESHOLD.toSeconds()),
-                    () -> assertEquals("stalled", hold.kind()),
+                    () -> assertEquals("stalled", StalledHold.KIND),
                     () -> assertEquals(Cause.NO_PROGRESS, hold.cause()),
                     () -> assertEquals("no_progress", hold.cause().wireName()),
                     () -> assertEquals(AuditRecord.Scope.PLAN, hold.scopeType()),
@@ -208,16 +209,16 @@ class StalledScopeDetectorTest {
     void shouldRecordTheStall() {
         detector().detect(View.of(PROJECT, plan().build()), LAST_PROGRESS.plusSeconds(610));
 
-        var record = records.getFirst();
+        var stalled = records.getFirst();
         assertAll(
                 () -> assertEquals(1, records.size()),
-                () -> assertEquals("plan_stalled", record.event()),
-                () -> assertEquals(AuditEvent.PLAN_STALLED, record.event()),
-                () -> assertEquals("transition", record.category()),
-                () -> assertEquals("warning", record.outcome()),
+                () -> assertEquals("plan_stalled", stalled.event()),
+                () -> assertEquals(AuditEvent.PLAN_STALLED, stalled.event()),
+                () -> assertEquals("transition", stalled.category()),
+                () -> assertEquals("warning", stalled.outcome()),
                 () -> assertEquals(Map.of("scope_type", "plan", "scope_id", PLAN_ID, "state", "execute.review",
                                 "cause", "no_progress", "idle_since", LAST_PROGRESS.toString(), "idle_seconds", 610L),
-                        record.details()));
+                        stalled.details()));
     }
 
     @Test
@@ -336,10 +337,10 @@ class StalledScopeDetectorTest {
     private static void await(CyclicBarrier start, StalledScopeDetector detector, View view, Instant now) {
         try {
             start.await();
-        } catch (InterruptedException e) {
+        } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
             return;
-        } catch (BrokenBarrierException e) {
+        } catch (BrokenBarrierException _) {
             return;
         }
         detector.detect(view, now);
@@ -348,7 +349,7 @@ class StalledScopeDetectorTest {
     private static void join(Thread thread) {
         try {
             thread.join();
-        } catch (InterruptedException e) {
+        } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
         }
     }
@@ -375,9 +376,11 @@ class StalledScopeDetectorTest {
             }
         });
 
+        var view = View.of(PROJECT, plan().build());
+
         assertThrows(UncheckedIOException.class,
-                () -> detector.detect(View.of(PROJECT, plan().build()), LAST_PROGRESS.plusSeconds(700)));
-        detector.detect(View.of(PROJECT, plan().build()), LAST_PROGRESS.plusSeconds(710));
+                () -> detector.detect(view, LAST_PROGRESS.plusSeconds(700)));
+        detector.detect(view, LAST_PROGRESS.plusSeconds(710));
 
         assertAll(
                 () -> assertEquals(1, records.size()),
@@ -405,11 +408,12 @@ class StalledScopeDetectorTest {
         });
         detector.detect(View.of(PROJECT, plan().build()), LAST_PROGRESS.plusSeconds(700));
         var progressed = plan().updatedAt(LAST_PROGRESS.plusSeconds(800)).build();
+        var view = View.of(PROJECT, progressed);
 
         var thrown = assertThrows(IllegalStateException.class,
-                () -> detector.detect(View.of(PROJECT, progressed), LAST_PROGRESS.plusSeconds(1_400)));
+                () -> detector.detect(view, LAST_PROGRESS.plusSeconds(1_400)));
 
-        detector.detect(View.of(PROJECT, progressed), LAST_PROGRESS.plusSeconds(1_500));
+        detector.detect(view, LAST_PROGRESS.plusSeconds(1_500));
 
         assertAll(
                 () -> assertEquals("the operator stream is gone", thrown.getMessage()),
@@ -438,9 +442,11 @@ class StalledScopeDetectorTest {
             }
         });
 
+        var view = View.of(PROJECT, plan().build());
+
         assertThrows(IllegalStateException.class,
-                () -> detector.detect(View.of(PROJECT, plan().build()), LAST_PROGRESS.plusSeconds(700)));
-        detector.detect(View.of(PROJECT, plan().build()), LAST_PROGRESS.plusSeconds(710));
+                () -> detector.detect(view, LAST_PROGRESS.plusSeconds(700)));
+        detector.detect(view, LAST_PROGRESS.plusSeconds(710));
 
         assertAll(
                 () -> assertEquals(1, records.size()),
@@ -471,10 +477,10 @@ class StalledScopeDetectorTest {
         detector.detect(View.of(PROJECT, plan().build()), LAST_PROGRESS.plusSeconds(700));
         var progressed = plan().updatedAt(LAST_PROGRESS.plusSeconds(800)).build();
         fail.set(true);
+        var view = View.of(PROJECT, progressed);
 
-        assertThrows(UncheckedIOException.class,
-                () -> detector.detect(View.of(PROJECT, progressed), LAST_PROGRESS.plusSeconds(1_400)));
-        detector.detect(View.of(PROJECT, progressed), LAST_PROGRESS.plusSeconds(1_500));
+        assertThrows(UncheckedIOException.class, () -> detector.detect(view, LAST_PROGRESS.plusSeconds(1_400)));
+        detector.detect(view, LAST_PROGRESS.plusSeconds(1_500));
 
         assertAll(
                 () -> assertEquals(2, records.size()),
@@ -504,7 +510,7 @@ class StalledScopeDetectorTest {
         detector().detect(View.of(PROJECT, status), LAST_PROGRESS.plusSeconds(700));
 
         var components = Stream.of(WorkflowStatus.class.getRecordComponents())
-                .map(component -> component.getName()).toList();
+                .map(RecordComponent::getName).toList();
         assertAll(
                 () -> assertEquals(plan().build(), status),
                 () -> assertTrue(status.retained().isEmpty()),
@@ -525,12 +531,13 @@ class StalledScopeDetectorTest {
     @DisplayName("a missing project, status, view, instant or hold is refused")
     void shouldRefuseMissingValues() {
         var status = plan().build();
+        var target = detector();
+        var view = View.of(PROJECT, status);
 
         assertAll(
                 () -> assertThrows(NullPointerException.class, () -> new View(null, status, false, false, false, false)),
                 () -> assertThrows(NullPointerException.class, () -> new View(PROJECT, null, false, false, false, false)),
-                () -> assertThrows(NullPointerException.class,
-                        () -> detector().detect(View.of(PROJECT, status), null)),
+                () -> assertThrows(NullPointerException.class, () -> target.detect(view, null)),
                 () -> assertThrows(NullPointerException.class,
                         () -> new StalledHold(null, PLAN_ID, "execute.review", Cause.NO_PROGRESS, LAST_PROGRESS, 1)),
                 () -> assertThrows(NullPointerException.class,
@@ -552,10 +559,10 @@ class StalledScopeDetectorTest {
     @DisplayName("the threshold is the value of the timeouts specification, read from it")
     void thresholdIsTheSpecifiedValue() throws Exception {
         var property = System.getProperty("pm.specification.root");
-        var root = property == null || property.isBlank() ? Path.of("..") : Path.of(property);
+        var root = Path.of(property == null || property.isBlank() ? ".." : property);
         var specification = Files.readString(root.toAbsolutePath().normalize()
                 .resolve("doc/specification/timeouts/02-runtime-leases-operator-web.adoc"), UTF_8);
-        var matcher = Pattern.compile("\\[\\[stalled-threshold\\]\\]Stalled threshold\\s*\\n\\s*\\|`(\\d+)`")
+        var matcher = Pattern.compile("\\[\\[stalled-threshold\\]\\]Stalled threshold[ \\t]*\\R[ \\t]*\\|`(\\d+)`")
                 .matcher(specification);
 
         assertTrue(matcher.find(), "the specification states no stalled threshold");
