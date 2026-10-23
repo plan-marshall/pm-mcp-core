@@ -44,7 +44,7 @@ import de.planmarshall.workflow.ast.UnitType;
  * and {@code \\} only. The reader refuses, and the first refusal wins: a missing frontmatter, a tag, an anchor, an
  * alias, a merge key, a flow collection, a block scalar, a comment, a blank or indented line, a control character, a
  * format character (Cf, such as a bidi override or a zero-width space), a line separator (Zl), a paragraph separator
- * (Zp), an unknown key, a key of its own missing ({@code name}, {@code description}, {@code type},
+ * (Zp), an unknown key, a key of its own missing ({@code name}, {@code description}, {@code type}, {@code icon},
  * {@code modification_date}, {@code version}, {@code author}) or repeated (those and {@code signature}), a value that
  * is neither plain nor double-quoted, and an {@code entry_description} or {@code exit_description} that does not stand
  * directly below its {@code entry} or {@code exit} line, or is the second description of one element.
@@ -54,8 +54,10 @@ import de.planmarshall.workflow.ast.UnitType;
  * cut at {@value #MAX_ECHO_LENGTH} characters and marked with {@code ...}.
  * <p>
  * It checks every field: {@code name} 3 to 100 characters, {@code description} 1 to 1000, each entry and exit
- * description 1 to 500, {@code type} one of the {@link UnitType} wire names, an entry an identifier and an exit an
- * outcome id (the identifier grammar of the Identifier Registry, at most 32 characters), each unique, an exit never
+ * description 1 to 500, {@code type} one of the {@link UnitType} wire names, {@code icon} an icon id
+ * ({@code [a-z][a-z0-9._-]{0,63}} without {@code ..}, so no path, no blank and no separator but the dot, the dash and
+ * the underscore), an entry an identifier and an exit an outcome id (the identifier grammar of the Identifier
+ * Registry, at most 32 characters), each unique, an exit never
  * {@code stepped_out}, {@code modification_date} a valid calendar date {@code YYYY-MM-DD} not after the day of the
  * validation in UTC, {@code version} in the release version grammar, and {@code author} 1 to 100 characters. The
  * {@code signature} is carried and never verified.
@@ -82,6 +84,7 @@ public final class UnitFrontmatterReader {
     private static final String KEY_NAME = "name";
     private static final String KEY_DESCRIPTION = "description";
     private static final String KEY_TYPE = "type";
+    private static final String KEY_ICON = "icon";
     private static final String KEY_ENTRY = "entry";
     private static final String KEY_ENTRY_DESCRIPTION = "entry_description";
     private static final String KEY_EXIT = "exit";
@@ -92,14 +95,14 @@ public final class UnitFrontmatterReader {
     private static final String KEY_SIGNATURE = "signature";
 
     /** The keys that occur exactly once, in the order of the field table. */
-    private static final List<String> REQUIRED_KEYS = List.of(KEY_NAME, KEY_DESCRIPTION, KEY_TYPE,
+    private static final List<String> REQUIRED_KEYS = List.of(KEY_NAME, KEY_DESCRIPTION, KEY_TYPE, KEY_ICON,
             KEY_MODIFICATION_DATE, KEY_VERSION, KEY_AUTHOR);
 
     /** The keys that occur at most once. */
-    private static final Set<String> SINGLE_KEYS = Set.of(KEY_NAME, KEY_DESCRIPTION, KEY_TYPE, KEY_MODIFICATION_DATE,
-            KEY_VERSION, KEY_AUTHOR, KEY_SIGNATURE);
+    private static final Set<String> SINGLE_KEYS = Set.of(KEY_NAME, KEY_DESCRIPTION, KEY_TYPE, KEY_ICON,
+            KEY_MODIFICATION_DATE, KEY_VERSION, KEY_AUTHOR, KEY_SIGNATURE);
 
-    private static final Set<String> KEYS = Set.of(KEY_NAME, KEY_DESCRIPTION, KEY_TYPE, KEY_ENTRY,
+    private static final Set<String> KEYS = Set.of(KEY_NAME, KEY_DESCRIPTION, KEY_TYPE, KEY_ICON, KEY_ENTRY,
             KEY_ENTRY_DESCRIPTION, KEY_EXIT, KEY_EXIT_DESCRIPTION, KEY_MODIFICATION_DATE, KEY_VERSION, KEY_AUTHOR,
             KEY_SIGNATURE);
 
@@ -108,6 +111,9 @@ public final class UnitFrontmatterReader {
 
     /** The DSL identifier of the Identifier Registry, with its bound of 32 characters. */
     private static final Pattern IDENTIFIER = Pattern.compile("[a-z][a-z0-9_-]{0,31}");
+
+    /** The icon id: lowercase, at most 64 characters, and never a path. */
+    private static final Pattern ICON_ID = Pattern.compile("[a-z][a-z0-9._-]{0,63}");
 
     /** The release version of the Identifier Registry; its bound of 64 characters is checked apart. */
     private static final Pattern RELEASE_VERSION = Pattern.compile("\\d+\\.\\d+\\.\\d+(-[A-Za-z0-9.-]+)?");
@@ -264,6 +270,7 @@ public final class UnitFrontmatterReader {
                 case KEY_DESCRIPTION -> checkLength(key, value, 1, 1000, number, column);
                 case KEY_TYPE -> type = UnitType.fromWireName(value).orElseThrow(() -> new Refusal(number, column,
                         "the type '%s' is none of %s".formatted(echo(value), VALUE_TYPES)));
+                case KEY_ICON -> checkIcon(value, number, column);
                 case KEY_ENTRY -> entries.add(element(KEY_ENTRY, value, entryNames, number, column));
                 case KEY_EXIT -> {
                     if (STEPPED_OUT.equals(value)) {
@@ -345,7 +352,7 @@ public final class UnitFrontmatterReader {
                 }
             }
             return new UnitFrontmatter(singles.get(KEY_NAME), singles.get(KEY_DESCRIPTION), type,
-                    entries.stream().map(Element::toInterfaceElement).toList(),
+                    singles.get(KEY_ICON), entries.stream().map(Element::toInterfaceElement).toList(),
                     exits.stream().map(Element::toInterfaceElement).toList(), modificationDate,
                     singles.get(KEY_VERSION), singles.get(KEY_AUTHOR),
                     Optional.ofNullable(singles.get(KEY_SIGNATURE)), new SourceLocation(resourceName, 1, 1));
@@ -355,6 +362,17 @@ public final class UnitFrontmatterReader {
             if (value.length() > MAX_RELEASE_VERSION || !RELEASE_VERSION.matcher(value).matches()) {
                 throw new Refusal(number, column,
                         "the version '%s' is no release version such as 1.0.0".formatted(echo(value)));
+            }
+        }
+
+        /**
+         * Checks an icon id: {@code [a-z][a-z0-9._-]{0,63}}, never a path. The grammar already excludes the slash,
+         * the backslash, the blank and the colon, so only the dot-dot segment needs a rule of its own.
+         */
+        private static void checkIcon(String value, int number, int column) {
+            if (!ICON_ID.matcher(value).matches() || value.contains("..")) {
+                throw new Refusal(number, column,
+                        "the icon '%s' is no icon id such as phase.init".formatted(echo(value)));
             }
         }
 

@@ -387,6 +387,7 @@ public final class InvariantFixtures {
                 name: Entity unit
                 description: The entity unit of the invariant tests.
                 type: task
+                icon: workflow.default
                 exit: submitted
                 modification_date: 2026-01-15
                 version: 0.1.0

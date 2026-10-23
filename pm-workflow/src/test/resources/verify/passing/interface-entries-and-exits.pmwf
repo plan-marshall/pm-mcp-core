@@ -2,6 +2,7 @@
 name: verify.interface-entries-and-exits
 description: A called unit with two entries and two exits, written for the verifier tests.
 type: subworkflow
+icon: workflow.default
 entry: main
 entry: repair
 exit: done

@@ -1083,6 +1083,7 @@ class WorkflowValidatorTest {
                     name: verify.inline
                     description: A unit written for the tests of pm-workflow.
                     type: workflow
+                    icon: workflow.default
                     modification_date: 2026-01-15
                     version: 0.1.0
                     author: plan-marshall
@@ -1107,11 +1108,11 @@ class WorkflowValidatorTest {
 
         @ParameterizedTest(name = "{0}")
         @CsvSource(delimiter = ';', quoteCharacter = '"', value = {
-                "migrate verify.old -> verify.gone;12;targets 'verify.gone'",
-                "\"# no migration\";9;no migrate declaration names it"
+                "migrate verify.old -> verify.gone;13;targets 'verify.gone'",
+                "\"# no migration\";10;no migrate declaration names it"
         })
         @DisplayName("Should refuse a released name that is neither a state nor migrated to one, at the migration or "
-                + "at the unit header below the eight lines of the frontmatter")
+                + "at the unit header below the nine lines of the frontmatter")
         void shouldRefuseDroppedName(String migration, int line, String fragment) {
             var found = verify(migration + "\n");
 

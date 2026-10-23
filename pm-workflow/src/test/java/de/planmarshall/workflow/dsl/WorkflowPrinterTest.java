@@ -78,6 +78,7 @@ class WorkflowPrinterTest {
             name: Review and repair
             description: "A sub-workflow written for the parser tests: three entries, each with its description."
             type: subworkflow
+            icon: remediation.review
             entry: review
             entry_description: The change is ready for its review.
             entry: repair
@@ -101,6 +102,7 @@ class WorkflowPrinterTest {
             name: git.flow
             description: A unit written for the tests of pm-workflow.
             type: instance
+            icon: unit.plan
             modification_date: 2026-01-15
             version: 0.1.0
             author: plan-marshall
@@ -188,7 +190,8 @@ class WorkflowPrinterTest {
     /** A workspace unit whose only state rests on the given links. */
     private static WorkflowDefinition unitWithLinks(LinkSpec... links) {
         var frontmatter = new UnitFrontmatter("Demo unit", "A unit written for the printer tests.", UnitType.SYSTEM,
-                List.of(), List.of(), FIXTURE_DATE, "0.1.0", "plan-marshall", Optional.empty(), NOWHERE);
+                "workflow.default", List.of(), List.of(), FIXTURE_DATE, "0.1.0", "plan-marshall", Optional.empty(),
+                NOWHERE);
         return unitWith(frontmatter, links);
     }
 
@@ -303,7 +306,7 @@ class WorkflowPrinterTest {
                 + "indicator, and reads both back")
         void quotedValues() {
             var frontmatter = new UnitFrontmatter("-leading dash", "Says: \"quoted\" and a \\ backslash.",
-                    UnitType.SYSTEM, List.of(), List.of(), FIXTURE_DATE, "0.1.0", "plan-marshall",
+                    UnitType.SYSTEM, "workflow.default", List.of(), List.of(), FIXTURE_DATE, "0.1.0", "plan-marshall",
                     Optional.of("sig-1"), NOWHERE);
             var definition = unitWith(frontmatter, link(LinkRelation.NEXT, LinkForm.NOOP, Optional.empty()));
 
@@ -328,8 +331,8 @@ class WorkflowPrinterTest {
         @DisplayName("quotes every value the reader's isPlain refuses and reads it back unchanged, so the printer "
                 + "never emits a value the reader refuses")
         void quotesEveryValuePlainRefuses(String value) {
-            var frontmatter = new UnitFrontmatter("Demo unit", value, UnitType.SYSTEM, List.of(), List.of(),
-                    FIXTURE_DATE, "0.1.0", "plan-marshall", Optional.empty(), NOWHERE);
+            var frontmatter = new UnitFrontmatter("Demo unit", value, UnitType.SYSTEM, "workflow.default", List.of(),
+                    List.of(), FIXTURE_DATE, "0.1.0", "plan-marshall", Optional.empty(), NOWHERE);
             var definition = unitWith(frontmatter, link(LinkRelation.NEXT, LinkForm.NOOP, Optional.empty()));
 
             var printed = WorkflowPrinter.print(definition);
@@ -458,6 +461,7 @@ class WorkflowPrinterTest {
                     name: demo
                     description: A project unit written for the printer tests.
                     type: workflow
+                    icon: workflow.default
                     modification_date: 2026-01-15
                     version: 0.1.0
                     author: Erika Mustermann

@@ -2,6 +2,7 @@
 name: Commit and push
 description: A sub-workflow written for the parser tests.
 type: subworkflow
+icon: git.commit
 entry: stage
 entry_description: The change is ready to be staged.
 exit: done

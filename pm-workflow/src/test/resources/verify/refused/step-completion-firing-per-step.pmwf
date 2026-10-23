@@ -2,11 +2,12 @@
 name: verify.step-completion-firing-per-step
 description: A unit written for the verifier tests.
 type: workflow
+icon: workflow.default
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: STEP_COMPLETION state verify.after line 36
+# expect: STEP_COMPLETION state verify.after line 37
 # Step a is completed on the way into the opening of step b and completed again after it, in
 # one firing of a: the firing of a passes the opening of b and ends only at a's own opening.
 workflow verify.step-completion-firing-per-step version 1 format 1

@@ -55,9 +55,9 @@ Two components of the definition are not read from the text of one file:
 == The Frontmatter
 _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
 
-`UnitFrontmatter` is what a unit is for a person, what kind of unit it is, its interface, and where it comes from. It is
-read without the body (link:workflow-dsl.adoc#unit-frontmatter[Workflow DSL § The Unit Frontmatter]), so a list of units
-can show a unit's name, description, type and interface from it alone.
+`UnitFrontmatter` is what a unit is for a person, what kind of unit it is, the icon that stands for it, its interface,
+and where it comes from. It is read without the body (link:workflow-dsl.adoc#unit-frontmatter[Workflow DSL § The Unit
+Frontmatter]), so a list of units can show a unit's name, description, type, icon and interface from it alone.
 
 [cols="2,2,5"]
 |===
@@ -75,6 +75,11 @@ instead.
 |`type`
 |`UnitType`
 |The kind of unit (<<unit-types>>).
+
+|`icon`
+|`String`
+|The stable icon id that stands for the unit in the visual language, `[a-z][a-z0-9._-]{0,63}` without a `..` segment;
+never a file path (link:workflow-dsl.adoc#unit-frontmatter[Workflow DSL § The Unit Frontmatter]).
 
 |`entries`
 |`List<InterfaceElement>`

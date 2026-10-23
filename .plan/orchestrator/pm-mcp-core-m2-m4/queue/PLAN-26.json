@@ -2,10 +2,10 @@
   "id": "PLAN-26",
   "slug": "role-sets-and-model-caller",
   "workstream": "WS-05",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-26-role-sets-and-model-caller",
+  "pr": "#146",
+  "landing": "landings/PLAN-26.md",
   "seq": 26
 }

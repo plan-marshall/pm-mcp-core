@@ -140,11 +140,11 @@ class WorkflowParserRefusalTest {
         }
 
         @Test
-        @DisplayName("finds one fixture per refusal class: 14 of the body, 17 of the frontmatter, 2 of the entries")
+        @DisplayName("finds one fixture per refusal class: 14 of the body, 19 of the frontmatter, 2 of the entries")
         void fixturesPresent() {
             assertAll(
-                    () -> assertEquals(33, malformedFixtures().size()),
-                    () -> assertEquals(19, frontmatterAndEntryFixtures().size()));
+                    () -> assertEquals(35, malformedFixtures().size()),
+                    () -> assertEquals(21, frontmatterAndEntryFixtures().size()));
         }
 
         static Set<RefusalRule> statedRules() {

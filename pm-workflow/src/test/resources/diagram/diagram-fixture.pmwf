@@ -2,6 +2,7 @@
 name: diagram.fixture
 description: A unit written for the diagram tests.
 type: task
+icon: unit.task
 exit: done
 exit: failed
 modification_date: 2026-01-15

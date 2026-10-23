@@ -37,7 +37,7 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * printed source into the same tree, source locations aside.
  * <p>
  * The output is canonical: the frontmatter between its two {@code ---} lines in the order of its field table (name,
- * description, type, each entry with its description, each exit with its description, modification date, version,
+ * description, type, icon, each entry with its description, each exit with its description, modification date, version,
  * author, signature), each value plain when a plain scalar can carry it and double-quoted otherwise; the unit header,
  * the {@code instance} line with the header JSON exactly as it was read, the {@code scope} clause (with the
  * {@code param} and {@code result} declarations of a sub-workflow), the {@code declare} lines, the {@code decide} lines,
@@ -89,14 +89,15 @@ public final class WorkflowPrinter {
 
     /**
      * Prints the frontmatter between its two {@code ---} lines, in the order of the field table: name, description,
-     * type, each entry with its description, each exit with its description, modification date, version, author and
-     * signature.
+     * type, icon, each entry with its description, each exit with its description, modification date, version, author
+     * and signature.
      */
     private void printFrontmatter(UnitFrontmatter frontmatter) {
         line(0, UnitFrontmatterReader.DELIMITER);
         field("name", frontmatter.name());
         field("description", frontmatter.description());
         field("type", frontmatter.type().wireName());
+        field("icon", frontmatter.icon());
         frontmatter.entries().forEach(entry -> {
             field("entry", entry.name());
             entry.description().ifPresent(description -> field("entry_description", description));

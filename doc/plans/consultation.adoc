@@ -10,7 +10,7 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 == What
 
-* A worker's consultation of another role, served by the server with its own wait; the consulted role runs on its own effective harness and model (link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]).
+* A worker's consultation of another role, served by the server with its own wait; the consulted role runs on its own effective harness and model (link:../specification/model-work/01-roles-and-configuration.adoc#role-assignment[Model Work § Role Assignment]).
 * The rules of the link: one open consultation per task, no `consult` link while it is open; at most the compiled `3` consultation links per task over all its attempts; depth one, the consultation entity offering only `submit:answer`.
 * The answer through the next wait: a consultation closed `lost` delivered with `status: unavailable`; for a fenced asker the answer recorded in the asking task's facts and carried by the successor's offer, which offers no `consult` for it; the `consultation_ids` of the asker's submit validated against the consultations delivered to the task.
 

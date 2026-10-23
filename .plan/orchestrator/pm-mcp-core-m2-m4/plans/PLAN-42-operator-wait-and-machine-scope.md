@@ -16,7 +16,7 @@ workstream: WS-03
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R17, R18.
 
 Plan parameters (the values the rules ask for):
 
@@ -38,7 +38,7 @@ The bullets of `doc/plans/operator-wait-and-machine-scope.adoc` § What, in its 
 5. Where `waits` or `operator-and-question-stores` have already implemented question deadlines and fallbacks, this package removes them, and so the mention of a deadline in the Javadoc of `EngineEvent.QuestionResolved` of `workflow-engine`.
 6. Schema parity: the scope `machine` and the phase `machine` of the status store, and `WorkflowStatusSchemaParityTest.phasesEqualSchema` and `scopeTypesEqualSchema` re-enabled.
 
-**Done when** (the package's own acceptance): A test shows a plan in an operator wait with no open task and no task offered for its scope, holding no worker and no slot, another plan running on, and no transition by time; a test shows a waiver request ended by `decline`; a test shows the machine-onboarding guard refusing with `machine_not_onboarded` and `onboarding_incomplete` while the machine's first onboarding has not reached `onboard.completed`, the onboarding itself and the operator's verbs still answered, and passing once it has, and the machine scope's unit passing the graph check of a resident unit; the static verifier accepts an operator wait in a unit of any scope and refuses a `link` clause rendered to a model; `WorkflowStatusSchemaParityTest.phasesEqualSchema` and `scopeTypesEqualSchema` run without `@Disabled` and pass. **Sonar:** the SonarCloud search of the pull request (`pullRequest=<N>&resolved=false`) lists no open issue other than one dismissed with its reason, and its quality gate is green, before the pull request is reported ready.
+**Done when** (the package's own acceptance): A test shows a plan in an operator wait with no open task and no task offered for its scope, holding no worker and no slot, another plan running on, and no transition by time; a test shows a waiver request ended by `decline`; a test shows the machine-onboarding guard refusing with `machine_not_onboarded` and `onboarding_incomplete` while the machine's first onboarding has not reached `onboard.completed`, the onboarding itself and the operator's verbs still answered, and passing once it has, and the machine scope's unit passing the graph check of a resident unit; the static verifier accepts an operator wait in a unit of any scope and refuses a `link` clause rendered to a model; `WorkflowStatusSchemaParityTest.phasesEqualSchema` and `scopeTypesEqualSchema` run without `@Disabled` and pass. **Package bookkeeping:** `doc/plans/operator-wait-and-machine-scope.adoc` and its row of `doc/plans/README.adoc` are removed in the same pull request, and the links check (R17, absolute paths of the sibling checkout) reports `BROKEN LINKS 0`, the run recorded in the pull request body. **Build:** `verify`, `verify -Ppre-commit` (its rewrites reviewed and committed), `verify -Pcoverage` (80 % instruction and branch per module) and `verify -Pintegration-tests -pl pm-core -am` are green (the plan changes `pm-core` and `pm-workflow`; `pm-workflow` has no integration-test profile). **Sonar:** the SonarCloud search of the pull request (`pullRequest=<N>&resolved=false`) lists no open issue other than one dismissed with its reason, and its quality gate is green, before the pull request is reported ready.
 
 **Trace starting set** (the requirements, use cases and roadmap live in `../plan-marshall-documentation`; the specifications and watch documents of the engine in this repository, `doc/specification/` and `doc/implementation-watch/`):
 
@@ -86,6 +86,8 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Dependencies and Sequencing
 
+- After #150 (`ac34703`, 2026-10-23): `icon` is a required key of every unit's frontmatter (grammar `[a-z][a-z0-9._-]{0,63}`, no `..` segment, format 1). The resident unit `onboarding.pmwf` and every fixture or inline unit of this plan's tests carry an `icon:` line, and the operator-wait grammar this plan adds goes through `UnitFrontmatterReader`, `WorkflowPrinter` and the DSL tests as #150 changed them: read them at the head of `main`. The `workflow-dsl` ADR directory exists (ADRs 001 to 008, not new as the Expected Surface hypothesis says): the next free number is 009 against `origin/main` (R11).
+- Runs beside PLAN-87 (`journal-format-version-reset`, running) and PLAN-94 (`sonar-main-backlog`, running): PLAN-87 owns `TransactionJournal.java`, `core-store.adoc` and ADR `core-store/007`; PLAN-94 owns the Sonar issues in `EnrolmentStore.java`, `ProjectResolver.java` and `UnitFrontmatterReader.java`. Do not fix an issue of PLAN-94's list, re-read those files at the head of `main` and merge the base branch (the lane's step 7) before the merge gate.
 - Depends on: PLAN-25 (`waits`)
 - Blocks: PLAN-43 (`phase-sub-workflows`); PLAN-45 (`project-onboarding-unit`); PLAN-46 (`machine-onboarding-unit`); PLAN-47 (`decision-engine`); PLAN-48 (`start-from-clients`); PLAN-51 (`plan-and-epic-control`); PLAN-53 (`epic-decomposition`); PLAN-55 (`chat`); PLAN-58 (`operator-reports`); PLAN-63 (`cleanup`); PLAN-67 (`process-and-overview`); PLAN-76 (`start-source-intake`); PLAN-92 (`epic-review`)
 - Restructures: what PLAN-14 and PLAN-25 implement for question modes, deadlines and fallbacks; PLAN-41's Rule 10
@@ -93,7 +95,7 @@ None beyond the standing rules named in the First Instruction above.
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-42-operator-wait-and-machine-scope.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-42-operator-wait-and-machine-scope.md
 ```
 
 ## Write-Boundary

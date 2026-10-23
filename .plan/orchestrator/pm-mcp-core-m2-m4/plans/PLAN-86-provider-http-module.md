@@ -16,7 +16,7 @@ workstream: WS-08
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R17, R18.
 
 Plan parameters (the values the rules ask for):
 
@@ -38,7 +38,7 @@ Today `pm-provider-ci` holds the HTTP base and nothing else: `CiHttpClient`, `Ci
 5. **Remove the empty `pm-provider-ci` (operator decision, 2026-10-19).** After the move `pm-provider-ci` holds no class, and the move removes it: delete the module directory, its entries in `pm-providers/pom.xml`, the root POM and every dependent's POM, and the lines of the documents named in deliverable 4. The CI contract that module was named for has no work package; the package that builds it creates its module again and re-instates the row of the Module Structure Specification then. No stub, no placeholder `package-info.java` and no empty module is kept.
 6. **The Module Structure Specification in `plan-marshall-documentation`.** `doc/specification/module-structure.adoc` lists `pm-provider-ci` in the module tree and in the rows of `pm-provider-github`, `pm-provider-gitlab` and `pm-provider-forgejo`, and states the dependency rules and the roadmap item of Milestone 6 with it. It is a specification that lives in the documentation repository, so this plan opens one pull request there that corrects it to the state after the move (the module `pm-provider-http` as the shared HTTP base of every provider adapter; `pm-provider-ci` reinstated by the package that builds the CI contract). Merging that pull request is the operator's; list it in the pull request body here.
 
-**Done when:** `pm-provider-http` builds with the moved tests green and at least 80% coverage; no class of `de.planmarshall.provider.ci` remains; the directory `pm-providers/pm-provider-ci` and every reference to it as a module (POMs, enforcer executions, fixtures, `CLAUDE.md`, READMEs, specification parts) are gone; a provider adapter that depends on a sibling provider module fails the build and the existing fixtures still pass; the pull request in `plan-marshall-documentation` is open; `verify`, `verify -Ppre-commit`, `verify -Pcoverage` and `verify -Pintegration-tests` are green. **Sonar:** the SonarCloud search of the pull request (`pullRequest=<N>&resolved=false`) lists no open issue other than one dismissed with its reason, and its quality gate is green, before the pull request is reported ready.
+**Done when:** `pm-provider-http` builds with the moved tests green and at least 80% coverage; no class of `de.planmarshall.provider.ci` remains; the directory `pm-providers/pm-provider-ci` and every reference to it as a module (POMs, enforcer executions, fixtures, `CLAUDE.md`, READMEs, specification parts) are gone; a provider adapter that depends on a sibling provider module fails the build and the existing fixtures still pass; the pull request in `plan-marshall-documentation` is open (the lane never edits outside this repository: it writes the exact correction of `module-structure.adoc` into the pull request body of this repository and asks the operator with the question tool how the documentation pull request is opened; the answer is reported, and a clause the lane could not meet itself is reported as not met as written rather than as met); the links check (R17, absolute paths of the sibling checkout) reports `BROKEN LINKS 0`, the run recorded in the pull request body; `verify`, `verify -Ppre-commit`, `verify -Pcoverage` and `verify -Pintegration-tests` are green. **Sonar:** the SonarCloud search of the pull request (`pullRequest=<N>&resolved=false`) lists no open issue other than one dismissed with its reason, and its quality gate is green, before the pull request is reported ready.
 
 **Trace starting set:**
 
@@ -89,13 +89,14 @@ None beyond the standing rules named in the First Instruction above.
 ## Dependencies and Sequencing
 
 - Depends on: nothing
+- Runs beside PLAN-94 (`sonar-main-backlog`, running), which owns Sonar issues in `CiHttpClient.java`, `Json.java`, `GitHubClient.java`, `InstallationTokens.java` and `GitLabClient.java`, the very classes this plan moves (7 declared files shared). Moving a class with an open issue moves the issue: do not fix an issue of PLAN-94's list, merge the base branch (the lane's step 7) before the merge gate, and read what PLAN-94 changed in those files at the head of `main` first; if PLAN-94 has merged, move the fixed text.
 - Overlaps with: computed by `corpus cross-check` at emit time; PLAN-49 `forgejo-provider` builds on the module this plan creates and is re-grounded after it lands
 - Adjacent to: the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp`, which may name the moved classes in its wiring (`git grep` there before the plan finishes and list what it needs in the pull request body as **Owed outside this repository**; the other repositories check themselves), and `plan-marshall-documentation`, where only the correction of `module-structure.adoc` (deliverable 6) goes, in a pull request there
 
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-86-provider-http-module.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-86-provider-http-module.md
 ```
 
 ## Write-Boundary

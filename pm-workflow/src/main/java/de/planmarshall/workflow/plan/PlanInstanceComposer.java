@@ -223,9 +223,9 @@ public final class PlanInstanceComposer {
 
     /** The frontmatter of a composed version: the template's, with the type {@link UnitType#INSTANCE}. */
     private static UnitFrontmatter instanceFrontmatter(UnitFrontmatter template) {
-        return new UnitFrontmatter(template.name(), template.description(), UnitType.INSTANCE, template.entries(),
-                template.exits(), template.modificationDate(), template.version(), template.author(),
-                template.signature(), template.location());
+        return new UnitFrontmatter(template.name(), template.description(), UnitType.INSTANCE, template.icon(),
+                template.entries(), template.exits(), template.modificationDate(), template.version(),
+                template.author(), template.signature(), template.location());
     }
 
     private static List<InstanceInputs.UnitRef> unitRefs(List<UnitReference> references) {

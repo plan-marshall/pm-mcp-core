@@ -2,11 +2,12 @@
 name: verify.ask-without-entity-unit
 description: A unit written for the verifier tests.
 type: workflow
+icon: workflow.default
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: ENTITY_KIND_BINDING state verify.entry line 15
+# expect: ENTITY_KIND_BINDING state verify.entry line 16
 # The entity kind glance of the tests has no entity unit.
 workflow verify.ask-without-entity-unit version 1 format 1
 scope plan
