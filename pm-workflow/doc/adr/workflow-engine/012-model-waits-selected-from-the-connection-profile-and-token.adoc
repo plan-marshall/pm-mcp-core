@@ -1,0 +1,69 @@
+= ADR 012: A Model Wait Is Selected From the Connection Profile and the Progress Token
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-22
+
+== Context
+
+A model holds exactly two calls open: a worker's `pm_wait` and a running `pm_build` (PM-WF-8, PM-IMPL-4). The server
+decides without model involvement how long it holds either, and that decision is not one value: the bounded wait window
+is `connection.bounded_wait_seconds` of the calling connection's client profile, a progress wait may hold a `pm_build`
+up to `progress_wait_max_seconds`, and a progress wait exists only where the host sets
+`connection.progress_resets_timeout` and the request carries a `_meta.progressToken`
+(link:../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc#_bounded_long_poll_progress_reset_waiting_primitives_pm_wf_8_pm_impl_4[Job Runtime § Bounded Long-Poll & Progress-Reset Waiting Primitives],
+link:../../../../doc/specification/timeouts/01-job-budgets-and-waits.adoc#waits[Timeouts § Waits]). The engine needed a
+value that decides both without inventing a second wait, and a test with a virtual clock could then show when a call is
+answered and that a progress wait leaves no idle gap.
+
+== Decision
+
+* `WaitSelection.select` is the one rule. A progress wait needs both the profile's `progress_resets_timeout` and a
+  non-blank progress token in the request; if either is missing the call is held by a bounded wait.
+* A qualifying `pm_build` is held up to `WaitSettings.progressWaitMax` (the machine's
+  `progress_wait_max_seconds`); a qualifying `pm_wait` keeps the bounded window and is held through it by the progress
+  frames, as the specification requires.
+* `ModelWait` is the value of the hold: `Bounded` answers at its window and emits no frame, `Progress` emits a frame at
+  every interval after the start that falls before the answer, at least one, and answers at its window. Both are pure
+  over `startedAt` and their window, so a caller with a virtual clock decides the passage of time.
+* `ConnectionSettings` carries the three `connection` values and repeats the profile-validation bounds
+  (15..3600 seconds, and the 30-second margin below the idle timeout where progress resets no timer); `WaitSettings`
+  carries the machine's progress upper bound (60..7200 seconds) and the interval (1..60 seconds).
+
+Rationale: the specification puts the selection on the server and the two waits on the only calls a model holds; a
+single rule and a value per wait keep that decision testable without a running relay.
+
+== Alternatives Considered
+
+* A separate wait class per call (`PmWait`, `PmBuild`): rejected because the selection is one rule over the profile and
+  the token, and the call only selects the window of a qualifying progress wait.
+* A wait that reads the clock itself: rejected because the Done-when is stated over a virtual clock, and the engine's
+  clock is a port (`WorkflowClock`), not a static.
+* Deriving the progress qualification in the tool binding: rejected because the rule would then exist once per call
+  surface and could drift; `WaitSelection` is the only place.
+
+== Consequences
+
+* A caller creates the wait once, at the call's start, and answers when `answersAt(now)` holds; it sends
+  `progressFrames()` as the clock passes them. No frame is emitted for a bounded wait.
+* The blank progress token is treated as no token: a host that sends an empty value gets the bounded wait, never a
+  silent progress wait.
+* The progress interval is fixed by `WaitSettings`; a machine configuration outside the bounds is refused when the value
+  is built rather than clamped. The one adjustment is a wait whose window is not longer than the machine's interval: it
+  takes half its window as the interval, so a progress wait always emits at least one frame before it answers.
+* This ADR carries the model-held waits that
+  link:002-every-wait-is-an-engine-event.adoc[ADR 002] left to the `waits` work package; it supersedes that split for
+  those two calls and leaves ADR 002's rule for the engine's own waits unchanged.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/9c9d99c/doc/plans/waits.adoc[`waits`]
+* link:../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc#_bounded_long_poll_progress_reset_waiting_primitives_pm_wf_8_pm_impl_4[Job Runtime § Bounded Long-Poll & Progress-Reset Waiting Primitives]
+* link:../../../../doc/specification/timeouts/01-job-budgets-and-waits.adoc#waits[Timeouts § Waits & Long-Polls]
+* link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#worker-block[Client Profiles § Worker Block]
+* link:../../developer/workflow-engine.adoc#_waits_held_by_a_model[Workflow Engine Developer Guide § Waits Held by a Model]
