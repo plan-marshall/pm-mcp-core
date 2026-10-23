@@ -213,7 +213,9 @@ class ModelCallerTest {
     }
 
     private static ModelJob job(String entityKind, String role, boolean consultation) {
-        return new ModelJob(Optional.of("plan-1"), STATE, "entity-1", entityKind, role, consultation);
+        return consultation
+                ? ModelJob.consultation(Optional.of("plan-1"), STATE, "entity-1", role)
+                : ModelJob.forModelJob(Optional.of("plan-1"), STATE, "entity-1", entityKind, role);
     }
 
     /** One caller with its recorders. */

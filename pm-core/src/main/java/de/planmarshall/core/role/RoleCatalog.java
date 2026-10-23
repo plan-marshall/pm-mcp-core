@@ -36,7 +36,7 @@ public final class RoleCatalog {
     /** The shipped role that scores a rubric item of the role grading. */
     public static final String JUDGE = "judge";
 
-    private static final Pattern VERSION_PART = Pattern.compile("\\d+");
+    private static final Pattern VERSION = Pattern.compile("^(\\d+)\\.(\\d+)(?:\\..*)?$");
 
     private final RoleSets sets;
     private final RoleEnvironment environment;
@@ -121,6 +121,9 @@ public final class RoleCatalog {
                     weights, facts));
         } catch (RoleRefusal refusal) {
             return new RoleResolution.Undefined(artifact.name(), Optional.of(refusal.reason()), refusal.detail());
+        } catch (IllegalArgumentException invalidVersion) {
+            return new RoleResolution.Undefined(artifact.name(), Optional.of(RoleValidationReason.HARNESS_UNKNOWN),
+                    invalidVersion.getMessage());
         }
     }
 
@@ -144,11 +147,13 @@ public final class RoleCatalog {
     /**
      * @param version the exact version an enrolled harness reported
      * @return its major.minor, which binds a qualification record and both role digests
+     * @throws IllegalArgumentException if the version does not begin with {@code <major>.<minor>}
      */
     public static String majorMinor(String version) {
-        var dots = version.split("\\.", -1);
-        var major = dots.length > 0 && VERSION_PART.matcher(dots[0]).matches() ? dots[0] : "0";
-        var minor = dots.length > 1 && VERSION_PART.matcher(dots[1]).matches() ? dots[1] : "0";
-        return major + "." + minor;
+        var matcher = VERSION.matcher(version);
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException("the enrolled version '%s' has no major.minor".formatted(version));
+        }
+        return matcher.group(1) + "." + matcher.group(2);
     }
 }

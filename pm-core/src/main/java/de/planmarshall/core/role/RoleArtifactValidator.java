@@ -51,9 +51,6 @@ public final class RoleArtifactValidator {
 
     private static final Set<String> QUESTIONS = Set.of("hold_seconds", "resume_within_seconds");
 
-    private static final Set<String> OFF_TRACK_SIGNALS = Set.of("repeating", "no_progress", "over_size",
-            "outside_footprint");
-
     private static final Set<String> OFF_TRACK_MEMBERS = Set.of("threshold", "action");
 
     private static final Pattern ROLE_NAME = Pattern.compile("^[a-z][a-z0-9-]{1,31}$");
@@ -267,7 +264,7 @@ public final class RoleArtifactValidator {
             if (roleClass == RoleClass.ZERO_TOOL) {
                 throw invalid("/off_track", "a zero_tool role has no activity to watch, so it names no off_track");
             }
-            object(node, "/off_track", "off_track", Set.of(), OFF_TRACK_SIGNALS);
+            object(node, "/off_track", "off_track", Set.of(), SIGNALS.keySet());
             var settings = new LinkedHashMap<RoleArtifact.OffTrackSignal, RoleArtifact.OffTrackSetting>();
             for (var member : node.members().entrySet()) {
                 var signal = SIGNALS.get(member.getKey());

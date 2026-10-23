@@ -59,7 +59,7 @@ public final class CompositionRefusal extends RuntimeException {
 
     private CompositionRefusal(Reason reason, String role, String stateId, RoleClass roleClass,
             Set<RoleClass> requiredClasses, Optional<RoleValidationReason> validationReason, String detail) {
-        super(message(reason, role, stateId, roleClass, requiredClasses, validationReason, detail));
+        super(message(reason, role, stateId, roleClass, validationReason, detail));
         this.reason = Objects.requireNonNull(reason, "reason");
         this.role = Objects.requireNonNull(role, "role");
         this.stateId = Objects.requireNonNull(stateId, "stateId");
@@ -90,9 +90,10 @@ public final class CompositionRefusal extends RuntimeException {
      */
     public static CompositionRefusal classMismatch(String role, String stateId, RoleClass roleClass,
             Set<RoleClass> requiredClasses) {
+        var required = requiredClasses.stream().map(RoleClass::wireName).sorted().toList();
         return new CompositionRefusal(Reason.CLASS_MISMATCH, role, stateId, roleClass, Set.copyOf(requiredClasses),
                 Optional.empty(), "the role is %s, the use requires %s"
-                .formatted(roleClass == null ? "of no class" : roleClass.wireName(), requiredClasses));
+                        .formatted(roleClass == null ? "of no class" : roleClass.wireName(), required));
     }
 
     /** @return why the composition was refused */
@@ -131,15 +132,12 @@ public final class CompositionRefusal extends RuntimeException {
     }
 
     private static String message(Reason reason, String role, String stateId, RoleClass roleClass,
-            Set<RoleClass> requiredClasses, Optional<RoleValidationReason> validationReason, String detail) {
+            Optional<RoleValidationReason> validationReason, String detail) {
         var validation = validationReason.isEmpty()
                 ? ""
                 : " (%s)".formatted(validationReason.get().wireName());
         var classes = roleClass == null ? "" : " [%s]".formatted(roleClass.wireName());
-        var required = requiredClasses.isEmpty()
-                ? ""
-                : " required %s".formatted(requiredClasses.stream().map(RoleClass::wireName).sorted().toList());
         return "%s: %s names the role '%s'%s%s: %s".formatted(stateId, reason.wireName(), role, validation, classes,
-                detail) + required;
+                detail);
     }
 }

@@ -12,6 +12,7 @@ package de.planmarshall.core.role;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -116,6 +117,15 @@ class EffectiveRoleFactsTest {
                 () -> assertEquals(RoleArtifact.OffTrackSignal.NO_PROGRESS.compiledThreshold(),
                         role.offTrack().get(RoleArtifact.OffTrackSignal.NO_PROGRESS)
                                 .effectiveThreshold(RoleArtifact.OffTrackSignal.NO_PROGRESS)));
+    }
+
+    @Test
+    @DisplayName("an off-track setting outside the signal's bounds is refused")
+    void offTrackSettingIsGuarded() {
+        var setting = new RoleArtifact.OffTrackSetting(9.0, RoleArtifact.OffTrackAction.SHOW);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> setting.effectiveThreshold(RoleArtifact.OffTrackSignal.REPEATING));
     }
 
     @Test

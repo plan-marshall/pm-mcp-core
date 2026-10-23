@@ -113,7 +113,9 @@ public final class RoleValidation {
                             .formatted(harness, effort.value() == null ? "null" : effort.value(), model));
         }
         if (!steward) {
-            catalogue.ifPresent(allowed -> requireModelAllowed(allowed, artifact, harness, model));
+            var allowed = catalogue.orElseThrow(() -> invalid(RoleValidationReason.MODEL_NOT_ALLOWED, artifact,
+                    "no effective model catalogue exists"));
+            requireModelAllowed(allowed, artifact, harness, model);
         }
         tools(artifact, facts);
         if (artifact.zeroTool() && artifact.form() == RoleForm.WARM) {

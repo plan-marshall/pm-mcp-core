@@ -58,8 +58,11 @@ public record RoleUse(String stateId, String role, Set<RoleClass> acceptedClasse
      * @return the use of a {@code consult role} clause
      */
     public static RoleUse forConsultation(String stateId, String role) {
-        return new RoleUse(stateId, role, Set.of(RoleClass.WRITER, RoleClass.READ_ONLY), true);
+        return new RoleUse(stateId, role, CONSULTATION_CLASSES, true);
     }
+
+    /** The classes a {@code consult role} clause admits: every class but {@code zero_tool}. */
+    public static final Set<RoleClass> CONSULTATION_CLASSES = Set.of(RoleClass.WRITER, RoleClass.READ_ONLY);
 
     /**
      * @param entityKind a registered entity kind

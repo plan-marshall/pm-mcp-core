@@ -87,7 +87,6 @@ public record RoleSets(Map<String, ShippedRole> shipped, Path machineDirectory, 
     }
 
     /**
-     * @param shipped          the shipped roles
      * @param machineDirectory the machine role set
      * @return the sets with a machine set
      */
@@ -96,7 +95,6 @@ public record RoleSets(Map<String, ShippedRole> shipped, Path machineDirectory, 
     }
 
     /**
-     * @param shipped          the shipped roles
      * @param projectDirectory the project role set
      * @return the sets with a project set
      */

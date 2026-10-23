@@ -61,6 +61,9 @@ Map<OffTrackSignal, OffTrackSetting> offTrack) {
         Objects.requireNonNull(effort, "effort");
         Objects.requireNonNull(form, "form");
         Objects.requireNonNull(skills, "skills");
+        if (skills.isEmpty()) {
+            throw new IllegalArgumentException("a role names at least one skill, its role skill");
+        }
         tools = List.copyOf(tools);
         skills = List.copyOf(skills);
         offTrack = Collections.unmodifiableMap(new LinkedHashMap<>(offTrack));
@@ -231,9 +234,15 @@ Map<OffTrackSignal, OffTrackSetting> offTrack) {
         /**
          * @param signal the signal
          * @return the effective threshold of the signal
+         * @throws IllegalArgumentException if the threshold is outside the signal's floor and compiled value
          */
         public double effectiveThreshold(OffTrackSignal signal) {
-            return threshold == null ? signal.compiledThreshold() : threshold;
+            double effective = threshold == null ? signal.compiledThreshold() : threshold;
+            if (effective < signal.floor() || effective > signal.compiledThreshold()) {
+                throw new IllegalArgumentException("the threshold %s of '%s' is outside [%s, %s]".formatted(effective,
+                        signal.wireName(), signal.floor(), signal.compiledThreshold()));
+            }
+            return effective;
         }
     }
 }

@@ -164,6 +164,30 @@ class RoleEffectiveConfigurationTest {
     }
 
     @Test
+    @DisplayName("an absent model catalogue is model_not_allowed")
+    void absentCatalogueIsModelNotAllowed() {
+        var environment = RoleFixtures.environment().machineCatalogue(null);
+
+        var refusal = definedRisky(new RoleCatalog(RoleFixtures.shippedValid(), environment)
+                .resolve(RoleFixtures.ROLE, RoleAssignment.none()));
+
+        assertEquals(RoleValidationReason.MODEL_NOT_ALLOWED, refusal);
+    }
+
+    @Test
+    @DisplayName("an enrolled version without a major.minor leaves the role undefined")
+    void unparsableVersionIsUndefined() {
+        var environment = RoleFixtures.environment()
+                .enrolled(RoleFixtures.HARNESS, RoleFixtures.enrolled(RoleFixtures.HARNESS, "v1.4"));
+
+        var resolution = new RoleCatalog(RoleFixtures.shippedValid(), environment)
+                .resolve(RoleFixtures.ROLE, RoleAssignment.none());
+
+        assertEquals(Optional.of(RoleValidationReason.HARNESS_UNKNOWN),
+                ((RoleResolution.Undefined) resolution).reason());
+    }
+
+    @Test
     @DisplayName("the effective catalogue is the project's, else the machine's")
     void projectCatalogueReplacesTheMachineCatalogue() {
         var environment = RoleFixtures.environment();
