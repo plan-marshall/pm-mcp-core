@@ -979,6 +979,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 reached = report.ending() != Ending.SIGNAL_REFUSED;
                 cancelBeforeGroup = report.cancelBeforeGroup();
             }
+            // cui-rewrite:disable InvalidExceptionUsageRecipe
         } catch (RuntimeException | Error e) {
             // a PID the protocol refuses, a signal call that failed (ProcessGroupSignals), or an error of the primitive
             LOGGER.warn(e, WARN.JOB_TERMINATION_FAILED, jobId, e.getMessage());
@@ -1024,6 +1025,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             try {
                 audit.append(new AuditEvent(JOB_DESCENDANT_SURVIVED, AuditEvent.CATEGORY_SECURITY,
                         AuditEvent.OUTCOME_FAILED, details));
+                // cui-rewrite:disable InvalidExceptionUsageRecipe
             } catch (RuntimeException | Error e) {
                 LOGGER.warn(e, WARN.JOB_DESCENDANT_AUDIT_FAILED, job.latest.jobId(), e.getMessage());
             }
@@ -1250,6 +1252,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private void settleEnded(RunningJob job, Ended ended, long observedLength) {
         try {
             settle(job, ended, observedLength, true);
+            // cui-rewrite:disable InvalidExceptionUsageRecipe
         } catch (RuntimeException | Error failure) {
             if (job.settling) {
                 // the primary settlement reached its record write and failed there (PM_RUNTIME-207); a fate replaces
@@ -1258,6 +1261,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             }
             try {
                 settle(job, ended, observedLength, false);
+                // cui-rewrite:disable InvalidExceptionUsageRecipe
             } catch (RuntimeException | Error fallbackFailure) {
                 failure.addSuppressed(fallbackFailure);
                 lastResort(job, failure);
@@ -1280,9 +1284,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         var current = job.latest;
         var settled = job.pendingSettled != null ? job.pendingSettled
                 : current.toBuilder().status(Status.ENDED).fate(Fate.INDETERMINATE).outcomeRow(5)
-                        .endedAt(clock.instant()).build();
+                .endedAt(clock.instant()).build();
         try {
             settle(job, settled);
+            // cui-rewrite:disable InvalidExceptionUsageRecipe
         } catch (RuntimeException | Error writeFailure) {
             failure.addSuppressed(writeFailure);
             LOGGER.error(writeFailure, ERROR.JOB_LAST_RESORT_FAILED, current.jobId(), writeFailure.getMessage());
@@ -1558,6 +1563,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             }
             try {
                 return current.sweep();
+                // cui-rewrite:disable InvalidExceptionUsageRecipe
             } catch (RuntimeException | Error e) {
                 LOGGER.warn(e, WARN.JOB_DESCENDANT_SWEEP_FAILED, latest.jobId(), e.getMessage());
                 return List.of();

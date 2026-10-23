@@ -111,6 +111,7 @@ class ProcessTreeTrackerTest {
                     () -> assertEquals(Set.of(11L, 12L), tracker.members()),
                     () -> assertEquals(List.of(), signals.calls, "a refresh signals nothing"));
         }
+
         @Test
         @DisplayName("a reused root PID records nothing new: the descendants below it are not the job's")
         void reusedRootRecordsNothing() {
@@ -144,7 +145,7 @@ class ProcessTreeTrackerTest {
 
             assertAll(
                     () -> assertEquals(List.of(new Call(11, Signal.SIGTERM)), signals.calls),
-                    () -> assertFalse(starts.containsKey(11L), "the member ended"),                    () -> assertEquals(List.of(), survivors));
+                    () -> assertFalse(starts.containsKey(11L), "the member ended"), () -> assertEquals(List.of(), survivors));
         }
 
         @Test
