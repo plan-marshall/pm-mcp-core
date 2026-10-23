@@ -2,10 +2,10 @@
   "id": "PLAN-95",
   "slug": "schema-subset-length-first",
   "workstream": "WS-05",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-95-schema-subset-length-first",
+  "pr": "#144",
+  "landing": "landings/PLAN-95.md",
   "seq": 97
 }

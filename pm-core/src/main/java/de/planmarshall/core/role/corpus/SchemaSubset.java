@@ -36,7 +36,8 @@ import de.planmarshall.core.role.corpus.JsonValue.JsonString;
  * written without fraction or exponent; {@code pattern} matches anywhere in the string unless anchored, with the
  * meaning Python's {@code re.search} gives it ({@link PythonRegex}: {@code $} matches at the end or before a final
  * {@code \n} only, {@code \d}, {@code \w} and {@code \s} are Python's Unicode classes);
- * {@code maxLength} counts code points; two numbers are equal by value, and a boolean equals no number. Each violation
+ * {@code maxLength} counts code points and is checked before {@code pattern}, so an over-long value is reported as such
+ * and its pattern is not evaluated; two numbers are equal by value, and a boolean equals no number. Each violation
  * is reported as a message that starts with the path of the value, {@code $} for the document.
  *
  * @since 0.1
@@ -137,6 +138,11 @@ public class SchemaSubset {
     }
 
     private static void checkString(String value, JsonObject schema, String path, List<String> errors) {
+        if (schema.get("maxLength").orElse(null) instanceof JsonNumber maxLength
+                && maxLength.value().compareTo(BigDecimal.valueOf(value.codePointCount(0, value.length()))) < 0) {
+            errors.add("%s: longer than %s".formatted(path, maxLength.value().toPlainString()));
+            return;
+        }
         if (schema.get("pattern").orElse(null) instanceof JsonString(var pattern)) {
             try {
                 if (!PythonRegex.compile(pattern).matcher(value).find()) {
@@ -146,10 +152,6 @@ public class SchemaSubset {
                 errors.add("%s: the schema pattern %s does not compile: %s".formatted(path, pattern,
                         e.getDescription()));
             }
-        }
-        if (schema.get("maxLength").orElse(null) instanceof JsonNumber maxLength
-                && maxLength.value().compareTo(BigDecimal.valueOf(value.codePointCount(0, value.length()))) < 0) {
-            errors.add("%s: longer than %s".formatted(path, maxLength.value().toPlainString()));
         }
     }
 
