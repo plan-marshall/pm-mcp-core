@@ -35,6 +35,11 @@
  * {@link de.planmarshall.core.store.RetryCounters}, and the engine drops the counts of every state of a sub-workflow
  * when it pops or unwinds that sub-workflow's frame.
  * <p>
+ * Besides the engine's own waits, the package holds the two waits a model holds (PM-WF-8, PM-IMPL-4): a
+ * {@link de.planmarshall.workflow.engine.ModelWait} is a bounded long-poll or a progress-reset wait over the instant it
+ * started at and the window it may hold, and {@link de.planmarshall.workflow.engine.WaitSelection} selects either from
+ * the calling connection's {@link de.planmarshall.workflow.engine.ConnectionSettings} and the request's progress token.
+ * <p>
  * Entity addressing (PM-ARCH-4, PM-WF-1): an {@link de.planmarshall.workflow.engine.EntityAddress} names an entity
  * within a plan, an epic, or the project's workspace scope, which a tool call names with {@code plan_id: NO_PLAN} and
  * which carries no scope id. {@link de.planmarshall.workflow.engine.EntityAddressResolver} checks the entity

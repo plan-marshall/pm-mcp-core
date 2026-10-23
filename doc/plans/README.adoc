@@ -33,12 +33,6 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:../../../pm-mcp-clients/doc/plans/exec-read-denied-paths.adoc[`pm-mcp-clients` / `exec-read-denied-paths`]
 |Milestone 4
 
-|link:waits.adoc[`waits`]
-|Bounded and progress waits
-|`open`
-|nothing
-|Milestone 4
-
 |link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]
 |Role artifacts, role sets and the model caller
 |`open`
@@ -48,7 +42,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]
 |Task queue and task protocol
 |`open`
-|link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:waits.adoc[`waits`]
+|link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]
 |Milestone 4
 
 |link:worker-launch.adoc[`worker-launch`]
@@ -102,7 +96,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]
 |Waiting for the operator as one mechanism of the workflow language, and the machine scope
 |`open`
-|link:waits.adoc[`waits`]
+|nothing
 |Milestone 7; the client work of `pm-mcp-clients`
 
 |link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]

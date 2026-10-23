@@ -15,7 +15,9 @@ verified unit of the Workflow DSL together with every sub-workflow the unit call
 outside event in one advance, and stops where the scope rests, ends, or carries a condition. Everything a run knows
 lives in the workflow state store `mcp/status.json`: the engine reads the status, returns the next one, and keeps
 nothing in memory between two advances, so a killed run resumes at the same state with the same call stack. Beside
-the interpreter, the package resolves the entity a call addresses within its scope (<<_entity_addressing>>).
+the interpreter, the package resolves the entity a call addresses within its scope (<<_entity_addressing>>) and
+decides how long the server holds open the two calls a model waits on, `pm_wait` and a running `pm_build`
+(<<_waits_held_by_a_model>>).
 
 The store and the ports the engine depends on belong to `pm-core` and are described in
 link:../../../pm-core/doc/developer/core-store.adoc[Workflow State Store and Engine Ports]. The AST the engine reads
@@ -50,6 +52,13 @@ outcome `exhausted` and the status unchanged.
 `RestingWait`:: What a resting state waits for, derived from the status alone: the `AwaitedEvent` kind, the jobs bound
 to the state (`active_job`, `active_jobs`) and the entities of its queue tasks (`active_tasks`). `accepts(event)`
 decides whether an event is the one the state waits for.
+`ModelWait`:: The wait the server holds open for a model, a bounded long-poll or a progress-reset wait. `Bounded`
+answers at its window and emits no frame; `Progress` emits a frame at every interval after the start and answers at its
+window. `answerAt`, `answersAt` and `progressFrames` are pure over the start and the window.
+`WaitSelection`:: The one rule that selects a wait: `select(connection, progressToken, call, settings, clock)`.
+`ConnectionSettings`:: The three `connection` values of a client profile a wait needs, with the profile-validation
+bounds. `WaitSettings`:: The machine-wide progress upper bound and interval.
+`ModelCall`:: The closed set of calls a model holds open: `PM_WAIT` and `PM_BUILD`.
 
 [source]
 ----
@@ -310,8 +319,101 @@ Not implemented in this package:
 * fan-out task states (`each`, `role each`), whose entity list the package that computes it parks; parking one is
   refused with `IllegalStateException`;
 * a persisted deadline of a composite job state that waits for time: the wait is derived as `TIME`, and the caller
-  delivers `TimeElapsed`;
-* waits held by a model (package `waits`).
+  delivers `TimeElapsed`.
+
+[#_waits_held_by_a_model]
+== Waits Held by a Model
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-8[PM-WF-8], link:{docs}/Requirements.adoc#PM-IMPL-4[PM-IMPL-4], link:{docs}/Requirements.adoc#PM-ARCH-8[PM-ARCH-8]_
+
+Implements link:{spec}/job-runtime/01-pipeline-and-subprocesses.adoc#_bounded_long_poll_progress_reset_waiting_primitives_pm_wf_8_pm_impl_4[Job Runtime § Bounded Long-Poll & Progress-Reset Waiting Primitives]
+and the bounded wait, progress wait and progress interval rows of
+link:{spec}/timeouts/01-job-budgets-and-waits.adoc#waits[Timeouts § Waits & Long-Polls].
+
+A model holds exactly two calls open, a worker's `pm_wait` and a running `pm_build`; every other wait is the engine's
+and is resumed by an `EngineEvent` (<<_wait_events_and_resumption>>). The server selects how it holds either one, with
+no model involvement, from the calling connection's client profile and the request's progress token:
+
+[cols="1,2,2,2"]
+|===
+|Call |Profile `progress_resets_timeout` |Progress token |Wait
+
+|`pm_wait`, `pm_build`
+|`false`
+|any
+|Bounded wait, `connection.bounded_wait_seconds`.
+
+|`pm_wait`, `pm_build`
+|`true`
+|absent or blank
+|Bounded wait, `connection.bounded_wait_seconds`.
+
+|`pm_wait`
+|`true`
+|present
+|Progress wait over the bounded window, held through it by the frames.
+
+|`pm_build`
+|`true`
+|present
+|Progress wait up to `progress_wait_max_seconds`.
+|===
+
+`WaitSelection.select` is the one rule of that table: a progress wait exists only where both the profile flag and a
+non-blank token are there, and only a `pm_build` takes the progress upper bound; a `pm_wait` keeps its bounded window
+even when it qualifies. A wait whose window is not longer than the machine's interval takes half its window as the
+interval, so a progress wait always emits at least one frame. `ModelWait` is the value of the hold and knows no clock of
+its own:
+
+* a `Bounded` wait answers at `startedAt + window` and has no progress frame;
+* a `Progress` wait answers at `startedAt + window` and emits a frame at `startedAt + n × interval` for every frame
+  before the answer, so no gap between the start, two frames, or the last frame and the answer is longer than the
+  interval.
+
+`answersAt(instant)` states when the call is answered and `progressFrames()` lists the frames in order; a caller with a
+virtual clock therefore drives a whole run without wall-clock time. The frames are what holds a host's tool-call timer
+through the bounded window of a `pm_wait`, so the wait never ends as an MCP transport timeout.
+
+`ConnectionSettings` carries `connection.bounded_wait_seconds`, `connection.idle_timeout_seconds` and
+`connection.progress_resets_timeout` and repeats the profile-validation bounds: the bounded wait is 15 to 3600 seconds,
+and for a host whose progress resets no timer it is at least 30 seconds below the idle timeout, at most the idle
+timeout minus 30 seconds. `WaitSettings` carries
+the machine's `progress_wait_max_seconds` (60 to 7200 seconds) and the interval (1 to 60 seconds), shipped as 1800 and
+5 seconds; an out-of-bounds value is refused when the value is built, and the only adjustment is the interval of a wait
+whose window is not longer than the machine's interval, halved to its window.
+
+The relay that binds `pm_wait` and `pm_build` to these values and the `notifications/progress` sender are not part of
+this package; the selection and the windows are.
+
+=== Invariants
+
+* *One rule*: the progress qualification (profile flag **and** token) exists only in `WaitSelection`; no call surface
+  repeats it (link:../adr/workflow-engine/012-model-waits-selected-from-the-connection-profile-and-token.adoc[ADR 012]).
+* *No frame gap longer than the interval*: a progress wait emits a frame at every interval after the start that falls
+  before the answer, at least one, and its interval is between 1 and 60 seconds and shorter than its window.
+* *The bounded window of `pm_wait` never widens*: a qualifying `pm_wait` is a progress wait whose window stays
+  `bounded_wait_seconds`; only `pm_build` takes `progress_wait_max_seconds`.
+* *A blank token is no token*: an empty `_meta.progressToken` selects the bounded wait.
+
+=== Failure Modes
+
+[cols="2,3"]
+|===
+|Failure |Behaviour
+
+|The bounded wait is outside 15 to 3600 seconds, or not 30 seconds below the idle timeout of a host whose progress
+resets no timer
+|`IllegalArgumentException` from `ConnectionSettings`; no wait is built.
+
+|The progress upper bound is outside 60 to 7200 seconds, or the interval outside 1 to 60 seconds
+|`IllegalArgumentException` from `WaitSettings`; no wait is built.
+
+|A `Progress` is built with an interval below one second or not below its window
+|`IllegalArgumentException`; the record refuses the inconsistent value.
+|===
+
+Also reported by the package: a `pm_build` whose window ends while the build still runs answers `status: running` with
+its `job_id`, and a `pm_build` continuing on an unknown or finished `job_id`, or one of another scope, is refused
+`invalid_arguments` (Milestone 6, not in this repository yet).
 
 [#_entity_addressing]
 == Entity Addressing
@@ -480,6 +582,12 @@ and next step; a frame resumed from the store keeps its entry and returns into t
 (`bootstrap-plan`, `bootstrap-epic`, `enrich-<module_id>`, the lesson review of kind `lessons-review`), the grammar at
 its bounds, every address of another scope refused `scope_not_found` without a read of the port for a plan or epic
 address, a deleted entry `scope_not_found`, an unreadable entry `entry_unreadable`
+|`ModelWaitTest` |A bounded wait answers at its window, a progress wait leaves no gap longer than the interval, the
+selection over the four combinations of the profile's `progress_resets_timeout` and the request's token for both calls,
+the bounded window of a qualifying `pm_wait`, the interval halved when it is not shorter than the window, a blank
+token as no token, the
+bounds of `ConnectionSettings` and `WaitSettings` with their accepted boundary values, and a `Progress` refused with an
+interval below one second or above its window
 |===
 
 == Developer Pitfalls
@@ -522,3 +630,5 @@ _Requirements: link:{docs}/Requirements.adoc#PM-WF-1[PM-WF-1], link:{docs}/Requi
 * link:../adr/workflow-engine/010-no-log-records-for-addressing.adoc[ADR 010]: addressing writes no log record.
 * link:../adr/workflow-engine/011-call-enters-the-callee-through-its-entry.adoc[ADR 011]: a call enters the callee
   through its entry, named or the sole one, and the frame records the entry in the transaction of the call.
+* link:../adr/workflow-engine/012-model-waits-selected-from-the-connection-profile-and-token.adoc[ADR 012]: a model
+  wait is selected from the connection profile and the progress token, one rule in `WaitSelection`.
