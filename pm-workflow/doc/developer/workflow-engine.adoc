@@ -375,7 +375,8 @@ through the bounded window of a `pm_wait`, so the wait never ends as an MCP tran
 
 `ConnectionSettings` carries `connection.bounded_wait_seconds`, `connection.idle_timeout_seconds` and
 `connection.progress_resets_timeout` and repeats the profile-validation bounds: the bounded wait is 15 to 3600 seconds,
-and for a host whose progress resets no timer it is at most 30 seconds below the idle timeout. `WaitSettings` carries
+and for a host whose progress resets no timer it is at least 30 seconds below the idle timeout, at most the idle
+timeout minus 30 seconds. `WaitSettings` carries
 the machine's `progress_wait_max_seconds` (60 to 7200 seconds) and the interval (1 to 60 seconds), shipped as 1800 and
 5 seconds; an out-of-bounds value is refused when the value is built, and the only adjustment is the interval of a wait
 whose window is not longer than the machine's interval, halved to its window.
