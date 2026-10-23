@@ -164,7 +164,12 @@ public final class ActivityJournal {
     public void appendNext(String queueTaskId, IntFunction<ActivityEntry> entry) {
         var file = journalPath(queueTaskId);
         Objects.requireNonNull(entry, "entry");
-        var key = new LockKey(LockLevel.LEAF, file, queueTaskId);
+        try {
+            Files.createDirectories(file.getParent());
+        } catch (IOException e) {
+            throw new UncheckedIOException("Activity journal directory cannot be created: " + file.getParent(), e);
+        }
+        var key = new LockKey(LockLevel.LEAF, lockFile(file), queueTaskId);
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(key);
             var current = Files.exists(file) ? read(file) : List.<ActivityEntry>of();
@@ -174,7 +179,6 @@ public final class ActivityJournal {
                 throw new IllegalArgumentException(
                         "The next entry of the journal has the seq %d, not %d".formatted(expected, built.seq()));
             }
-            Files.createDirectories(file.getParent());
             truncateTornTail(file);
             var entries = new ArrayList<>(current);
             entries.add(built);
@@ -186,6 +190,15 @@ public final class ActivityJournal {
         } catch (IOException e) {
             throw new UncheckedIOException("Activity journal cannot be written: " + file, e);
         }
+    }
+
+    /**
+     * The lock of a journal is a sibling file, not the journal itself: a bounded journal is replaced by an atomic
+     * rename, which replaces the inode, and a lock on the old inode would exclude nobody
+     * (link:../../adr/core-queue/006-the-journal-lock-is-a-sibling-file.adoc[ADR 006]).
+     */
+    private static Path lockFile(Path journal) {
+        return journal.resolveSibling(journal.getFileName() + ".lock");
     }
 
     /**

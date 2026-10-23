@@ -570,10 +570,10 @@ link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-TOOL-1[PM-TOOL-1
 
 Implementation (the task-protocol side of the verbs, as far as the library modules carry it and not yet bound to the MCP
 tool surface: every call of a task entity is checked, in the order of the specification, against the caller's job end,
-its fenced generation, the lease, the link the call stands for and the delivered skills, and the first valid submit or
-infeasible link closes the task exactly once; the arguments of an entity link against its closed schema are the entity
-representation's and are not validated here, and `pm_wait`, the tool schemas, the resource URIs and the transport are not
-implemented here): link:../pm-workflow/src/main/java/de/planmarshall/workflow/task/TaskProtocol.java[TaskProtocol],
+its fenced generation, the lease and the link the call stands for, and a submit also checks the delivered skills; the
+first valid submit or infeasible link closes the task exactly once; the arguments of an entity link against its closed
+schema are the entity representation's and are not validated here, and `pm_wait`, the tool schemas, the resource URIs
+and the transport are not implemented here): link:../pm-workflow/src/main/java/de/planmarshall/workflow/task/TaskProtocol.java[TaskProtocol],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/task/TaskCall.java[TaskCall],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/task/CallResult.java[CallResult],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/task/TaskRefusal.java[TaskRefusal],

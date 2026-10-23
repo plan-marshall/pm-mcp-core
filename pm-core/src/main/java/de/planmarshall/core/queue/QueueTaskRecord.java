@@ -706,8 +706,8 @@ Outcome outcome, LostReason reason, String questionId, Instant createdAt, Instan
             }
             if (end != null && end.counts() != counts) {
                 throw new IllegalArgumentException(
-                        "The attempt end '%s' %s a re-offer".formatted(end.wireName(),
-                                end.counts() ? "spends" : "spends no"));
+                        "The attempt end '%s' %s a re-offer, but the attempt says counts=%s"
+                                .formatted(end.wireName(), end.counts() ? "spends" : "spends no", counts));
             }
         }
     }
@@ -728,7 +728,7 @@ Outcome outcome, LostReason reason, String questionId, Instant createdAt, Instan
 
         /**
          * @throws NullPointerException     if a required component is {@code null}
-         * @throws IllegalArgumentException if the attempt is below 1, a value is negative, or an
+         * @throws IllegalArgumentException if the attempt is below 1, a value is negative or not finite, or an
          *                                  {@code agent_started} signal does not take the action {@code restart}
          */
         public Signal {

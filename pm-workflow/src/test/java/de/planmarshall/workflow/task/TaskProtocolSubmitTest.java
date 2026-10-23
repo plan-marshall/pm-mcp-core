@@ -203,6 +203,25 @@ class TaskProtocolSubmitTest {
     }
 
     @Test
+    @DisplayName("a generation that never held a closed task is refused job_scope_mismatch")
+    void otherGenerationAfterClose(@TempDir Path base) {
+        var locks = new TestLocks();
+        var queue = QueueStore.ofProject(base, "project-a", locks);
+        queue.create(TaskFixtures.queued("qt-0000000000000001", TaskFixtures.ROLE).build());
+        var protocol = protocol(queue, locks);
+        var call = TaskFixtures.call(TaskFixtures.task(protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION),
+                TaskFixtures.AT)));
+        protocol.acknowledge(call, TaskFixtures.AT.plusSeconds(1));
+        protocol.submit(call, TaskFixtures.AT.plusSeconds(2));
+
+        var refused = assertInstanceOf(CallResult.Refused.class,
+                protocol.submit(new TaskCall(call.queueTaskId(), TaskFixtures.SUCCESSOR),
+                        TaskFixtures.AT.plusSeconds(3)));
+
+        assertEquals(TaskRefusal.JOB_SCOPE_MISMATCH, refused.refusal());
+    }
+
+    @Test
     @DisplayName("a task whose budget is spent closes lost attempts_spent")
     void lostAttemptsSpent(@TempDir Path base) {
         var locks = new TestLocks();

@@ -38,6 +38,10 @@ detection to the port; the port's default `NONE` records nothing.
 
 * A production wiring must pass `AuditLogSecurityAudit`; with the default no security record is written. The protocol's
   tests use a recording port and `AuditLogSecurityAuditTest` proves the adapter's record.
+* The activity journal and the audit record follow the queue transaction, because they are other stores. A failed
+  journal append after an accepted restarting signal cannot be repaired by a retry: the attempt ended and a second call
+  is refused. A runtime that must not lose the mirror appends it before the queue write, or retries the mirror from its
+  own outbox.
 * A failed audit append propagates to the supervisor after the queue has already been updated. The detection is not
   repeatable through the same lease: the attempt ended, so a second call is refused `job_scope_mismatch`. A caller that
   must not lose the record appends it before the queue update, or retries the record from its own outbox; the port keeps

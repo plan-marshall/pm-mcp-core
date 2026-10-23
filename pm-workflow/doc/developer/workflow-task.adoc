@@ -26,8 +26,8 @@ It decides; the runtime transports (link:../adr/workflow-task/001-the-protocol-d
 `WaitRequest` and `WaitAnswer`::
 A wait names the caller's generation, the role, the generation's configuration digest, the role's current digest and
 the re-offer budget of the state. The answer is `Offered` (a task leased to the generation), `WaitAgain` (the window
-ended without a task) or `End` (`fenced` for a fenced generation, `recycled` when the generation's digest is not the
-role's current one).
+ended without a task: `no_task`, `paused`, `consulting`, `awaiting_answer` or `attempts_spent`) or `End` (`job_ended`,
+`fenced`, `recycled`, `drained` or `stopped`).
 
 `TaskCall` and `CallResult`::
 A call names the task and the caller's generation. The result is `Accepted` (the record after the call) or `Refused`
@@ -86,10 +86,13 @@ from a store the protocol does not own.
 
 == Invariants and failure modes
 
-* A generation holds at most one lease; a leased task is never offered to a second wait of the same generation.
-* The fence is checked before every other check and is persisted, so a replaced generation is refused after a restart.
-* A call on a task whose lease another generation holds is `job_scope_mismatch`; a call on a task that closed is
-  `stale_entity`; a submit before the acknowledgement is `link_not_available`.
+* A generation holds at most one lease; a leased task is never offered to a second wait of the same generation, and a
+  held task of a paused plan is not re-offered.
+* The fence is checked after the job's own end and before the lease and every link check, and is persisted, so a replaced
+  generation is refused after a restart.
+* A call on a task whose lease another generation holds is `job_scope_mismatch`; a call on a task that closed while the
+  caller's generation held it is `stale_entity`; a call of a generation that never held it is `job_scope_mismatch`; a
+  submit before the acknowledgement is `link_not_available`.
 * The first valid submit closes the task; a second submit never closes it again.
 * A pause spends no re-offer and is queued at once; the offer waits only for the plan to be started.
 * An `agent_started` signal never takes an action other than `restart`.

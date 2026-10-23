@@ -22,7 +22,7 @@ two to agree.
 
 `AttemptEnd.counts()` is the one definition of which end spends a re-offer. A transition that ends an attempt sets
 `counts` from it, then compares the number of counting attempts of the task with the budget the caller names for its
-state: when the count reaches the budget, the task closes `lost` with `attempts_spent`; otherwise it is queued again.
+state: when the count exceeds the budget, the task closes `lost` with `attempts_spent`; otherwise it is queued again.
 
 == Alternatives Considered
 

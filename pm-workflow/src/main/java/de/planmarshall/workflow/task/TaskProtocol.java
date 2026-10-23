@@ -425,6 +425,7 @@ public final class TaskProtocol {
     public CallResult offTrack(TaskCall call, OffTrackSignal signal, int budget, Instant at) {
         Objects.requireNonNull(signal, "signal");
         Objects.requireNonNull(at, "at");
+        requireBudget(budget);
         return signal(call, signal, budget, at, task -> new CallResult.Accepted(task), task -> {
         });
     }
@@ -441,9 +442,16 @@ public final class TaskProtocol {
      */
     public CallResult agentStarted(TaskCall call, SecurityAudit.Event event, int budget) {
         Objects.requireNonNull(event, "event");
+        requireBudget(budget);
         return signal(call, OffTrackSignal.agentStarted(event.executable()), budget, event.at(), task -> {
             if (!event.generationId().equals(call.generationId()) || !event.queueTaskId().equals(call.queueTaskId())) {
                 throw new IllegalArgumentException("The detection names another worker or task than the call: " + event);
+            }
+            var attempt = task.currentAttempt().orElseThrow().attempt();
+            if (event.attempt() != attempt) {
+                throw new IllegalArgumentException(
+                        "The detection names the attempt %d, the task runs the attempt %d: %s"
+                                .formatted(event.attempt(), attempt, event));
             }
             return new CallResult.Accepted(task);
         }, task -> audit.agentStarted(event));
@@ -531,6 +539,7 @@ public final class TaskProtocol {
                 if (task.lease() != null && task.lease().generationId().equals(generationId)) {
                     after.add(task.withAttempts(ended(task.attempts(), AttemptEnd.RESTART, at))
                             .withLease(null)
+                            .withContinuation(null)
                             .withStatus(Status.QUEUED));
                     ids.add(task.queueTaskId());
                 } else {
@@ -600,6 +609,12 @@ public final class TaskProtocol {
 
     private static QueueTaskRecord taskOf(List<QueueTaskRecord> records, TaskCall call) {
         return records.stream().filter(task -> task.queueTaskId().equals(call.queueTaskId())).findFirst().orElse(null);
+    }
+
+    private static void requireBudget(int budget) {
+        if (budget < 0) {
+            throw new IllegalArgumentException("A re-offer budget is not negative: " + budget);
+        }
     }
 
     private static List<Attempt> acknowledged(List<Attempt> attempts, Instant at) {

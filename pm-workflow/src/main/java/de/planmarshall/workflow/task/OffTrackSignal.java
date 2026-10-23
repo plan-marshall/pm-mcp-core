@@ -28,8 +28,8 @@ double measurement, double threshold) {
 
     /**
      * @throws NullPointerException     if a component is {@code null}
-     * @throws IllegalArgumentException if a value is negative, or an {@code agent_started} signal does not take the
-     *                                  action {@code restart}
+     * @throws IllegalArgumentException if a value is negative or not finite, or an {@code agent_started} signal does
+     *                                  not take the action {@code restart}
      */
     public OffTrackSignal {
         Objects.requireNonNull(signal, "signal");

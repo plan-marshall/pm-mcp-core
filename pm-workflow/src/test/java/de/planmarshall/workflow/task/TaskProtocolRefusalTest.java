@@ -12,6 +12,7 @@ package de.planmarshall.workflow.task;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -26,6 +27,7 @@ import de.planmarshall.core.queue.QueueStore;
 import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.queue.QueueTaskRecord.AttemptEnd;
 import de.planmarshall.core.queue.QueueTaskRecord.Outcome;
+import de.planmarshall.core.queue.QueueTaskRecord.SignalAction;
 import de.planmarshall.core.queue.QueueTaskRecord.Status;
 import de.planmarshall.core.role.RoleSkill;
 
@@ -85,6 +87,30 @@ class TaskProtocolRefusalTest {
         assertAll(
                 () -> assertEquals(new WaitAnswer.WaitAgain("paused"), answer),
                 () -> assertEquals(1, harness.queue().read(call.queueTaskId()).orElseThrow().attempts().size()));
+    }
+
+    @Test
+    @DisplayName("an off-track signal with a non-finite measurement is refused")
+    void nonFiniteSignal() {
+        assertAll(
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new OffTrackSignal(QueueTaskRecord.SignalName.REPEATING, SignalAction.SHOW,
+                                Double.NaN, 1)),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new OffTrackSignal(QueueTaskRecord.SignalName.REPEATING, SignalAction.SHOW, 1,
+                                Double.POSITIVE_INFINITY)));
+    }
+
+    @Test
+    @DisplayName("a negative re-offer budget is refused")
+    void negativeBudget(@TempDir Path base) {
+        var harness = harness(base);
+        var call = acknowledged(harness);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> harness.protocol().offTrack(call,
+                        new OffTrackSignal(QueueTaskRecord.SignalName.REPEATING, SignalAction.SHOW, 1, 1), -1,
+                        TaskFixtures.AT.plusSeconds(2)));
     }
 
     @Test

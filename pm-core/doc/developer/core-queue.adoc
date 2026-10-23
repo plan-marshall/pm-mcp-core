@@ -60,10 +60,12 @@ One line of `tasks/activity/<queue_task_id>.jsonl`: what a worker did (the harne
 
 `ActivityJournal`::
 The journal of a scope: `plans/<plan_id>/tasks/activity/`, `epics/<epic_id>/tasks/activity/`,
-`workspace/tasks/activity/` or `machine/tasks/activity/`. It appends one entry per line under its own leaf lock on the
-file, cuts a torn last line before the next append, and keeps the compiled bound of 5,000 entries by dropping the oldest
-`text` entries first and never a server entry; a journal whose excess lies in server entries alone keeps them, because a
-server entry is never cut.
+`workspace/tasks/activity/` or `machine/tasks/activity/`. It appends one entry per line under the leaf lock of the
+sibling `<queue_task_id>.jsonl.lock` — a bounded journal is replaced by an atomic rename, so the lock cannot sit on the
+journal itself (link:../adr/core-queue/006-the-journal-lock-is-a-sibling-file.adoc[ADR 006]) — cuts a torn last line
+before the next append, and keeps the compiled bound of 5,000 entries by dropping the oldest `text` entries first and
+never a server entry; a journal whose excess lies in server entries alone keeps them, because a server entry is never
+cut.
 
 == How to use and extend it
 
@@ -90,3 +92,5 @@ The runtime writes the `agent_started` detection through `workflow.task`'s proto
 * A queue that does not exist is empty, never an error; a record that exists and does not parse is a `StoreRefusal`
   naming the file, never an empty record.
 * A torn last line of a journal is cut by the next append; `seq` is never reused.
+* The journal's leaf lock is the sibling `<queue_task_id>.jsonl.lock`: the journal itself is replaced by a rename when it
+  exceeds its bound, and a lock on the replaced inode would exclude nobody.
