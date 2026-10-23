@@ -2,6 +2,7 @@
 name: Parser plan instance
 description: A plan instance written for the parser tests.
 type: instance
+icon: unit.plan
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall

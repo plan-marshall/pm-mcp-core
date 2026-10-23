@@ -2,11 +2,12 @@
 name: adjudicate.decisions
 description: A unit written for the verifier tests.
 type: workflow
+icon: workflow.default
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: ENTITY_KIND_BINDING state verify.entry line 15
+# expect: ENTITY_KIND_BINDING state verify.entry line 16
 # The unit is adjudicate.decisions, where the form 'role each' is admitted.
 workflow adjudicate.decisions version 1 format 1
 scope plan

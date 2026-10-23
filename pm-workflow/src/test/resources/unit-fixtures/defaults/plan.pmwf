@@ -2,6 +2,7 @@
 name: plan
 description: A unit written for the invariant and unit-loader tests.
 type: workflow
+icon: phase.plan
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall

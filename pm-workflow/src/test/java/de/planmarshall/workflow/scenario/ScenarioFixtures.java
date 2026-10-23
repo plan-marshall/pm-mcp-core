@@ -86,6 +86,7 @@ final class ScenarioFixtures {
             name: scenario.plan
             description: A unit written for the tests of pm-workflow.
             type: workflow
+            icon: workflow.default
             modification_date: 2026-01-15
             version: 0.1.0
             author: plan-marshall

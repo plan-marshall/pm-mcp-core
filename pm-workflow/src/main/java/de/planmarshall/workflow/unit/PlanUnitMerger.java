@@ -118,9 +118,9 @@ public final class PlanUnitMerger {
 
     /** The frontmatter of the merged unit: the first part's, with the type {@link UnitType#WORKFLOW}. */
     private static UnitFrontmatter workflowFrontmatter(UnitFrontmatter first) {
-        return new UnitFrontmatter(first.name(), first.description(), UnitType.WORKFLOW, first.entries(),
-                first.exits(), first.modificationDate(), first.version(), first.author(), first.signature(),
-                first.location());
+        return new UnitFrontmatter(first.name(), first.description(), UnitType.WORKFLOW, first.icon(),
+                first.entries(), first.exits(), first.modificationDate(), first.version(), first.author(),
+                first.signature(), first.location());
     }
 
     private static void checkPart(WorkflowDefinition first, WorkflowDefinition part, List<UnitFinding> findings) {

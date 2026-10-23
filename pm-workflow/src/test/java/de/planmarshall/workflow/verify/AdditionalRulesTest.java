@@ -76,6 +76,7 @@ class AdditionalRulesTest {
                 name: verify.inline
                 description: A unit written for the tests of pm-workflow.
                 type: workflow
+                icon: workflow.default
                 modification_date: 2026-01-15
                 version: 0.1.0
                 author: plan-marshall
@@ -309,6 +310,7 @@ class AdditionalRulesTest {
             name: verify.reviewed
             description: A unit written for the tests of pm-workflow.
             type: subworkflow
+            icon: workflow.default
             entry: main
             exit: done
             modification_date: 2026-01-15
@@ -462,6 +464,7 @@ class AdditionalRulesTest {
                 name: worker-task
                 description: A unit written for the tests of pm-workflow.
                 type: system
+                icon: workflow.default
                 modification_date: 2026-01-15
                 version: 0.1.0
                 author: plan-marshall
@@ -498,6 +501,7 @@ class AdditionalRulesTest {
                 name: consultation
                 description: A unit written for the tests of pm-workflow.
                 type: subworkflow
+                icon: workflow.default
                 entry: main
                 exit: done
                 modification_date: 2026-01-15
@@ -541,6 +545,7 @@ class AdditionalRulesTest {
                 name: subwf.test
                 description: A unit written for the tests of pm-workflow.
                 type: subworkflow
+                icon: workflow.default
                 entry: main
                 exit: done
                 modification_date: 2026-01-15
@@ -854,6 +859,7 @@ class AdditionalRulesTest {
                 name: verify.classify
                 description: A unit written for the tests of pm-workflow.
                 type: subworkflow
+                icon: workflow.default
                 entry: main
                 exit: done
                 modification_date: 2026-01-15
@@ -1494,6 +1500,7 @@ class AdditionalRulesTest {
                 name: %1$s
                 description: A unit written for the tests of pm-workflow.
                 type: subworkflow
+                icon: workflow.default
                 entry: main
                 exit: done
                 modification_date: 2026-01-15

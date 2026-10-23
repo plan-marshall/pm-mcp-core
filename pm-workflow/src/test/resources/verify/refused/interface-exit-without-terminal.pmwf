@@ -2,6 +2,7 @@
 name: verify.interface-exit-without-terminal
 description: A unit written for the verifier tests.
 type: subworkflow
+icon: workflow.default
 entry: main
 exit: done
 exit: waived

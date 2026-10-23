@@ -2,6 +2,7 @@
 name: remediation.qgate-findings
 description: A unit written for the invariant and unit-loader tests.
 type: subworkflow
+icon: remediation.qgate
 entry: main
 exit: resolved
 exit: waived

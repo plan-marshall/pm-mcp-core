@@ -2,11 +2,12 @@
 name: verify.abort-epic-twice
 description: A unit written for the verifier tests.
 type: system
+icon: workflow.default
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: ABORT_TERMINAL_TARGETING state epic.next-work line 29
+# expect: ABORT_TERMINAL_TARGETING state epic.next-work line 30
 workflow verify.abort-epic-twice version 1 format 1
 scope entity
 start verify.entry

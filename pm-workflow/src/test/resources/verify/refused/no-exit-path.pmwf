@@ -2,11 +2,12 @@
 name: verify.no-exit
 description: A unit written for the verifier tests.
 type: workflow
+icon: workflow.default
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: EXIT_PATH state verify.spin line 22
+# expect: EXIT_PATH state verify.spin line 23
 # A plan unit with a state whose every transition returns to itself, so it never
 # reaches a terminal state.
 workflow verify.no-exit version 1 format 1

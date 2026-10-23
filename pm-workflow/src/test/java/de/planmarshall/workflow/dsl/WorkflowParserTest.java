@@ -117,7 +117,7 @@ class WorkflowParserTest {
     private static final GuardExpr ALL_TASKS = new GuardExpr.AllTasksCompleted();
 
     /** The number of lines of the frontmatter {@link #frontmatter(UnitType)} writes, both {@code ---} lines included. */
-    static final int FRONTMATTER_LINES = 8;
+    static final int FRONTMATTER_LINES = 9;
 
     static String lines(String... lines) {
         return String.join("\n", lines) + "\n";
@@ -129,8 +129,8 @@ class WorkflowParserTest {
      */
     static String frontmatter(UnitType type) {
         return lines("---", "name: Demo unit", "description: A unit written for the parser tests.",
-                "type: " + type.wireName(), "modification_date: 2026-01-15", "version: 0.1.0", "author: plan-marshall",
-                "---");
+                "type: " + type.wireName(), "icon: workflow.default", "modification_date: 2026-01-15", "version: 0.1.0",
+                "author: plan-marshall", "---");
     }
 
     /** The type a unit of the scope declares in its frontmatter, as the Unit Types table assigns it. */
@@ -153,7 +153,8 @@ class WorkflowParserTest {
      */
     static String projectUnit(String... lines) {
         return lines("---", "name: Demo unit", "description: A project unit written for the parser tests.",
-                "type: workflow", "modification_date: 2026-01-15", "version: 0.1.0", "author: Erika Mustermann", "---")
+                "type: workflow", "icon: workflow.default", "modification_date: 2026-01-15", "version: 0.1.0",
+                "author: Erika Mustermann", "---")
                 + lines(lines);
     }
 
@@ -173,15 +174,15 @@ class WorkflowParserTest {
     }
 
     /** The frontmatter of a valid fixture without entries and exits, as stripped of its location. */
-    private static UnitFrontmatter frontmatter(String name, String description, UnitType type) {
-        return frontmatter(name, description, type, List.of(), List.of());
+    private static UnitFrontmatter frontmatter(String name, String description, UnitType type, String icon) {
+        return frontmatter(name, description, type, icon, List.of(), List.of());
     }
 
     /** The frontmatter of a valid fixture, as stripped of its location. */
-    private static UnitFrontmatter frontmatter(String name, String description, UnitType type,
+    private static UnitFrontmatter frontmatter(String name, String description, UnitType type, String icon,
             List<InterfaceElement> entries, List<InterfaceElement> exits) {
-        return new UnitFrontmatter(name, description, type, entries, exits, FIXTURE_DATE, "0.1.0", "plan-marshall",
-                Optional.empty(), NOWHERE);
+        return new UnitFrontmatter(name, description, type, icon, entries, exits, FIXTURE_DATE, "0.1.0",
+                "plan-marshall", Optional.empty(), NOWHERE);
     }
 
     private static InterfaceElement element(String name) {
@@ -298,7 +299,8 @@ class WorkflowParserTest {
                             to("failed", "plan.aborted", completes("init:prepare", StepCompletionStatus.FAILED)))),
                     NOWHERE);
             var expected = new WorkflowDefinition(
-                    frontmatter("Parser plan unit", "A plan unit written for the parser tests.", UnitType.WORKFLOW),
+                    frontmatter("Parser plan unit", "A plan unit written for the parser tests.", UnitType.WORKFLOW,
+                            "unit.plan"),
                     "plan", 3, WorkflowScope.PLAN, List.of(), Optional.empty(), Optional.empty(), declarations,
                     Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(), Optional.of("init.begin"), Map.of(),
                     List.of(new StateMigration("init.old", "init.begin", NOWHERE),
@@ -328,7 +330,7 @@ class WorkflowParserTest {
         @DisplayName("sub-workflow: param types, result schema, phase inherit, task states and consult roles")
         void subWorkflowUnit() {
             var frontmatter = frontmatter("Commit and push", "A sub-workflow written for the parser tests.",
-                    UnitType.SUBWORKFLOW, List.of(element("stage", "The change is ready to be staged.")),
+                    UnitType.SUBWORKFLOW, "git.commit", List.of(element("stage", "The change is ready to be staged.")),
                     List.of(element("done", "The change is committed and pushed."), element("skipped")));
             var expected = new WorkflowDefinition(frontmatter, "git.commit_and_push", 1, WorkflowScope.SUBWORKFLOW,
                     List.of(new ParamDecl("push", enumOf("enabled", "disabled"), NOWHERE),
@@ -399,7 +401,8 @@ class WorkflowParserTest {
                             guard(new GuardExpr.And(new GuardExpr.And(IN_WORKTREE, OPEN_FINDINGS), ALL_TASKS)),
                             "setup.leave", to("left", "setup.left"))));
             var expected = new WorkflowDefinition(frontmatter("Parser session unit",
-                    "A session-driven workspace unit written for the parser tests.", UnitType.SYSTEM), "setup.session",
+                    "A session-driven workspace unit written for the parser tests.", UnitType.SYSTEM, "unit.start"),
+                    "setup.session",
                     2, WorkflowScope.WORKSPACE, List.of(), Optional.empty(), Optional.empty(), Map.of(), Map.of(),
                     Map.of(), 1, UnitOrigin.DEFAULT, Map.of(), Optional.of("setup.choose"), Map.of(), List.of(),
                     states(state("setup.choose", "setup", choose),
@@ -427,7 +430,8 @@ class WorkflowParserTest {
             decisions.put("approach", new DecisionDeclaration.Quorum(List.of("architect", "reviewer"), 75, NOWHERE));
             decisions.put("scope", new DecisionDeclaration.Quorum(List.of("architect"), 60, NOWHERE));
             var expected = new WorkflowDefinition(frontmatter("Parser adjudication unit",
-                    "An adjudication unit written for the parser tests.", UnitType.SYSTEM), "adjudicate.decisions", 1,
+                    "An adjudication unit written for the parser tests.", UnitType.SYSTEM, "flow.adjudicate"),
+                    "adjudicate.decisions", 1,
                     WorkflowScope.ENTITY, List.of(), Optional.empty(), Optional.empty(), declarations, decisions,
                     Map.of(), 1, UnitOrigin.DEFAULT, Map.of(), Optional.of("adjudicate.vote"), Map.of(), List.of(),
                     states(state("adjudicate.vote", "inherit", new StateBehavior.ModelJob("decision",
@@ -452,7 +456,8 @@ class WorkflowParserTest {
                     new InstanceInputs.CompositionRules("r#3", RULES_DIGEST), PLAN_FACTS_DIGEST, Optional.empty(),
                     Optional.of("feature"), Optional.empty());
             var expected = new WorkflowDefinition(frontmatter("Parser plan instance",
-                    "A plan instance written for the parser tests.", UnitType.INSTANCE), "plan", 4, WorkflowScope.PLAN,
+                    "A plan instance written for the parser tests.", UnitType.INSTANCE, "unit.plan"), "plan", 4,
+                    WorkflowScope.PLAN,
                     List.of(), Optional.empty(),
                     Optional.of(new InstanceHeader("demo-plan", 4, "plan", inputs, INSTANCE_JSON)), Map.of(),
                     Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(), Optional.of("plan.run"), Map.of(), List.of(),
@@ -470,7 +475,7 @@ class WorkflowParserTest {
         void threeEntriesUnit() {
             var frontmatter = new UnitFrontmatter("Review and repair",
                     "A sub-workflow written for the parser tests: three entries, each with its description.",
-                    UnitType.SUBWORKFLOW,
+                    UnitType.SUBWORKFLOW, "remediation.review",
                     List.of(element("review", "The change is ready for its review."),
                             element("repair", "The review rejected the change; its findings are recorded as "
                                     + "\"open\"."),
@@ -529,8 +534,8 @@ class WorkflowParserTest {
         void entryBindingLocations() {
             var definition = DslFixtures.parseValid(THREE_ENTRIES_UNIT);
 
-            assertEquals(List.of(new SourceLocation(THREE_ENTRIES_UNIT, 23, 1),
-                            new SourceLocation(THREE_ENTRIES_UNIT, 24, 1), new SourceLocation(THREE_ENTRIES_UNIT, 25, 1)),
+            assertEquals(List.of(new SourceLocation(THREE_ENTRIES_UNIT, 24, 1),
+                            new SourceLocation(THREE_ENTRIES_UNIT, 25, 1), new SourceLocation(THREE_ENTRIES_UNIT, 26, 1)),
                     definition.entryBindings().values().stream().map(WorkflowDefinition.EntryBinding::location)
                             .toList());
         }
@@ -593,8 +598,8 @@ class WorkflowParserTest {
         /** The frontmatter of a sub-workflow that declares one entry and the exit {@code done}. */
         private static String frontmatterWithEntry(String entry) {
             return lines("---", "name: Demo unit", "description: A unit written for the parser tests.",
-                    "type: subworkflow", "entry: " + entry, "exit: done", "modification_date: 2026-01-15",
-                    "version: 0.1.0", "author: plan-marshall", "---");
+                    "type: subworkflow", "icon: workflow.default", "entry: " + entry, "exit: done",
+                    "modification_date: 2026-01-15", "version: 0.1.0", "author: plan-marshall", "---");
         }
     }
 
@@ -610,11 +615,11 @@ class WorkflowParserTest {
             var transition = ((StateBehavior.AutoStep) begin.behavior()).transitions().getFirst();
 
             assertAll(
-                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 12, 1), definition.location()),
-                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 19, 1), definition.migrations().get(0).location()),
-                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 22, 1), begin.location()),
-                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 27, 9), transition.location()),
-                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 28, 13),
+                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 13, 1), definition.location()),
+                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 20, 1), definition.migrations().get(0).location()),
+                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 23, 1), begin.location()),
+                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 28, 9), transition.location()),
+                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 29, 13),
                             transition.completions().getFirst().location()));
         }
 
@@ -625,16 +630,16 @@ class WorkflowParserTest {
             var adjudicate = DslFixtures.parseValid(ADJUDICATE_UNIT);
 
             assertAll(
-                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 14, 1),
+                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 15, 1),
                             plan.declarations().get("max_rounds").location()),
-                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 17, 1), plan.declarations().get("floor").location()),
-                    () -> assertEquals(new SourceLocation(ADJUDICATE_UNIT, 13, 1),
-                            adjudicate.declarations().get("max_rounds").location()),
+                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 18, 1), plan.declarations().get("floor").location()),
                     () -> assertEquals(new SourceLocation(ADJUDICATE_UNIT, 14, 1),
-                            adjudicate.decisions().get("interpretation").location()),
+                            adjudicate.declarations().get("max_rounds").location()),
                     () -> assertEquals(new SourceLocation(ADJUDICATE_UNIT, 15, 1),
+                            adjudicate.decisions().get("interpretation").location()),
+                    () -> assertEquals(new SourceLocation(ADJUDICATE_UNIT, 16, 1),
                             adjudicate.decisions().get("approach").location()),
-                    () -> assertEquals(new SourceLocation(ADJUDICATE_UNIT, 17, 1),
+                    () -> assertEquals(new SourceLocation(ADJUDICATE_UNIT, 18, 1),
                             adjudicate.declarations().get("panel").location()));
         }
 
@@ -647,10 +652,10 @@ class WorkflowParserTest {
             var detour = choose.links().get(1);
 
             assertAll(
-                    () -> assertEquals(new SourceLocation(SUBWORKFLOW_UNIT, 18, 1), param.location()),
-                    () -> assertEquals(new SourceLocation(SESSION_UNIT, 21, 5), detour.location()),
-                    () -> assertEquals(new SourceLocation(SESSION_UNIT, 21, 40), detour.freeParams().get(0).location()),
-                    () -> assertEquals(new SourceLocation(SESSION_UNIT, 21, 52),
+                    () -> assertEquals(new SourceLocation(SUBWORKFLOW_UNIT, 19, 1), param.location()),
+                    () -> assertEquals(new SourceLocation(SESSION_UNIT, 22, 5), detour.location()),
+                    () -> assertEquals(new SourceLocation(SESSION_UNIT, 22, 40), detour.freeParams().get(0).location()),
+                    () -> assertEquals(new SourceLocation(SESSION_UNIT, 22, 52),
                             detour.freeParams().get(1).location()));
         }
 
