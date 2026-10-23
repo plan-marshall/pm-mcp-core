@@ -45,6 +45,7 @@ public record RoleSets(Map<String, ShippedRole> shipped, Path machineDirectory, 
      *
      * @since 0.1
      */
+    @SuppressWarnings("java:S6206") // a record with a byte[] component inherits identity equality (S6218); this class compares the bytes
     public static final class ShippedRole {
 
         private final byte[] document;
