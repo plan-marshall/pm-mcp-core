@@ -48,7 +48,10 @@ public final class ActivityJournal {
     public static final int MAX_ENTRIES = 5000;
 
     /** The directory of the journal of a scope, relative to the home of the scope. */
-    public static final String DIRECTORY = "tasks/activity";
+    public static final String DIRECTORY_NAME = "tasks/activity";
+
+    /** The label of an entry in a refusal. */
+    private static final String ENTRY_LABEL = "entry";
 
     private static final Pattern SCOPE_ID = Pattern.compile("[a-z0-9][a-z0-9-]{1,62}[a-z0-9]");
     private static final byte NEWLINE = '\n';
@@ -97,7 +100,7 @@ public final class ActivityJournal {
             case PLAN -> project(canonical, projectId, "plans", scope.id(), lockManager);
             case EPIC -> project(canonical, projectId, "epics", scope.id(), lockManager);
             case WORKSPACE -> project(canonical, projectId, "workspace", null, lockManager);
-            case MACHINE -> new ActivityJournal(canonical.resolve("machine").resolve(DIRECTORY), lockManager);
+            case MACHINE -> new ActivityJournal(canonical.resolve("machine").resolve(DIRECTORY_NAME), lockManager);
         };
     }
 
@@ -116,7 +119,7 @@ public final class ActivityJournal {
                 root = root.resolve(id);
             }
         }
-        return new ActivityJournal(root.resolve(DIRECTORY), lockManager);
+        return new ActivityJournal(root.resolve(DIRECTORY_NAME), lockManager);
     }
 
     /** @return the journal directory, absolute and normalized */
@@ -255,14 +258,19 @@ public final class ActivityJournal {
         for (var index = bytes.length - 1; index >= 0; index--) {
             if (bytes[index] == NEWLINE) {
                 if (index + 1 < bytes.length) {
-                    Files.write(file, Arrays.copyOf(bytes, index + 1),
-                            StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                    truncateTo(file, index + 1);
                 }
                 return;
             }
         }
         if (bytes.length > 0) {
-            Files.write(file, new byte[0], StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            truncateTo(file, 0);
+        }
+    }
+
+    private static void truncateTo(Path file, long size) throws IOException {
+        try (var channel = java.nio.channels.FileChannel.open(file, StandardOpenOption.WRITE)) {
+            channel.truncate(size);
         }
     }
 

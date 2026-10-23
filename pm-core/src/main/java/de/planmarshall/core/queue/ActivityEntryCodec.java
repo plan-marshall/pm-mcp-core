@@ -194,6 +194,7 @@ public class ActivityEntryCodec {
         }
     }
 
+    @SuppressWarnings("java:S3776") // one case per schema field, in schema order, by design
     private static ActivityEntry readObject(JsonParser parser, byte[] document) throws IOException {
         requireObject(parser, ENTRY);
         var builder = ActivityEntry.builder();

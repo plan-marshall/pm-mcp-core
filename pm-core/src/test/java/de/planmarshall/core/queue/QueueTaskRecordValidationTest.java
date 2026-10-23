@@ -32,6 +32,7 @@ import de.planmarshall.core.queue.QueueTaskRecord.TaskClass;
  * {@link QueueTaskRecord#validate()} refuses every combination the schema rules out, and each nested record refuses its
  * own broken form. The record is built member by member, so these are the checks of the write and read boundary.
  */
+@SuppressWarnings("java:S5778") // the assertion table names one throwing builder call per case, by design
 @DisplayName("Queue task record validation")
 class QueueTaskRecordValidationTest {
 

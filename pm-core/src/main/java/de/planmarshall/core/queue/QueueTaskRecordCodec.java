@@ -32,7 +32,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -301,6 +300,7 @@ public class QueueTaskRecordCodec {
         }
     }
 
+    @SuppressWarnings("java:S3776") // one case per schema field, in schema order, by design
     private static QueueTaskRecord readObject(JsonParser parser) throws IOException {
         requireObject(parser, RECORD);
         var builder = QueueTaskRecord.builder();
@@ -565,10 +565,5 @@ public class QueueTaskRecordCodec {
         var name = string(parser, field);
         return values.apply(name).orElseThrow(() -> unreadable("'%s' has the unknown value '%s'".formatted(field,
                 name)));
-    }
-
-    /** Kept for the schema parity test: the members of the record in the order the codec writes them. */
-    static List<String> fields() {
-        return new ArrayList<>(FIELDS);
     }
 }

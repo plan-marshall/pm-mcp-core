@@ -66,7 +66,10 @@ Signal signal, String end, Integer unmappedLines, Instant at) {
     /** The compiled bound of a {@code text} entry. */
     public static final int TEXT_BOUND = 2000;
 
-    private static final Pattern QUESTION_ID = Pattern.compile("Q-[0-9]{3,6}");
+    private static final Pattern QUESTION_ID = Pattern.compile("Q-\\d{3,6}");
+
+    /** The label of the signal member in a refusal. */
+    private static final String SIGNAL_LABEL = "signal";
 
     /**
      * Whether the harness or the server recorded an entry.
@@ -307,7 +310,7 @@ Signal signal, String end, Integer unmappedLines, Instant at) {
          * @throws IllegalArgumentException if an {@code agent_started} signal does not take the action {@code restart}
          */
         public Signal {
-            Objects.requireNonNull(signal, "signal");
+            Objects.requireNonNull(signal, SIGNAL_LABEL);
             Objects.requireNonNull(action, "action");
             if (signal == SignalName.AGENT_STARTED && action != SignalAction.RESTART) {
                 throw new IllegalArgumentException(
@@ -322,6 +325,7 @@ Signal signal, String end, Integer unmappedLines, Instant at) {
      * @throws IllegalArgumentException if a value breaks its rule or a member is present on a kind it does not belong
      *                                  to
      */
+    @SuppressWarnings("java:S3776") // the closed-schema member table is one flat check list by design
     public ActivityEntry {
         if (seq < 1) {
             throw new IllegalArgumentException("'seq' counts from 1: " + seq);
@@ -352,7 +356,7 @@ Signal signal, String end, Integer unmappedLines, Instant at) {
             throw new IllegalArgumentException("'question_id' belongs to a question or an answer_ack entry, not a "
                     + kind.wireName() + " entry");
         }
-        onlyOn(kind, Kind.SIGNAL, signal, "signal");
+        onlyOn(kind, Kind.SIGNAL, signal, SIGNAL_LABEL);
         onlyOn(kind, Kind.ATTEMPT_END, end, "end");
         onlyOn(kind, Kind.ATTEMPT_END, unmappedLines, "unmapped_lines");
         if (kind == Kind.TOOL_CALL && tool == null) {
@@ -407,6 +411,9 @@ Signal signal, String end, Integer unmappedLines, Instant at) {
     private static void requireJsonObject(String raw) {
         if (raw == null) {
             return;
+        }
+        if (raw.indexOf('\n') >= 0 || raw.indexOf('\r') >= 0) {
+            throw new IllegalArgumentException("'usage' is one line: a line break splits the JSONL entry");
         }
         try (var parser = StrictJson.factory().createParser(raw)) {
             if (parser.nextToken() != JsonToken.START_OBJECT) {

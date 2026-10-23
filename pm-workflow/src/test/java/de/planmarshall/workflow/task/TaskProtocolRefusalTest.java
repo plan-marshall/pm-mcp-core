@@ -35,6 +35,7 @@ import de.planmarshall.core.role.RoleSkill;
  * The checks of a call the specification orders before the lease's own link: a job that ended, the skills a submit
  * requires, the ends that are no report, and the {@code infeasible} outcome.
  */
+@SuppressWarnings("java:S5778") // the refusal cases call one throwing method per case, by design
 @DisplayName("Task protocol refusals")
 class TaskProtocolRefusalTest {
 
@@ -65,8 +66,7 @@ class TaskProtocolRefusalTest {
     @Test
     @DisplayName("a wait of a generation whose job ended is answered end")
     void waitJobEnded(@TempDir Path base) {
-        var harness = harness(base, builder -> builder.jobState(
-                generation -> TaskFixtures.GENERATION.equals(generation)));
+        var harness = harness(base, builder -> builder.jobState(TaskFixtures.GENERATION::equals));
 
         var answer = harness.protocol().wait(TaskFixtures.waitFor(TaskFixtures.GENERATION), TaskFixtures.AT);
 
@@ -116,8 +116,7 @@ class TaskProtocolRefusalTest {
     @Test
     @DisplayName("a call after the worker's job ended is refused job_ended, before the lease")
     void jobEnded(@TempDir Path base) {
-        var harness = harness(base, builder -> builder.jobState(
-                generation -> TaskFixtures.GENERATION.equals(generation)));
+        var harness = harness(base, builder -> builder.jobState(TaskFixtures.GENERATION::equals));
         var offered = TaskFixtures.task(harness.protocol().wait(TaskFixtures.waitFor(TaskFixtures.SUCCESSOR),
                 TaskFixtures.AT));
 

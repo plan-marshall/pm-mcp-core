@@ -62,7 +62,7 @@ public final class AuditLogSecurityAudit implements SecurityAudit {
         details.put("generation_id", event.generationId());
         details.put("queue_task_id", event.queueTaskId());
         details.put("attempt", event.attempt());
-        var record = AuditRecord.builder()
+        var auditRecord = AuditRecord.builder()
                 .eventId(TransactionId.generate(clock).value())
                 .prevHash(AuditCodec.GENESIS_HASH)
                 .timestamp(event.at())
@@ -74,7 +74,7 @@ public final class AuditLogSecurityAudit implements SecurityAudit {
                 .build();
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(lockKey);
-            auditLog.append(transaction, record);
+            auditLog.append(transaction, auditRecord);
         }
     }
 }

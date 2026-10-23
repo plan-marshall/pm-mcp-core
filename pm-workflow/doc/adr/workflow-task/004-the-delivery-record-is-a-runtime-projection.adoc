@@ -38,9 +38,11 @@ the same delivery.
 
 == Consequences
 
-* A restart of the runtime empties the projection, so a generation is treated as if it had received nothing: the next
-  offer re-delivers its skills in-band and a submit does not refuse for a missing record. That is the safe direction —
-  the delivery is repeated, never skipped.
+* A restart of the runtime empties the projection, so the runtime must re-deliver the skills of every lease it
+  inherited: `TaskProtocol.deliverSkills` is the call, and a submit is refused `skills_not_loaded` until it is made.
+  That is the safe direction — the skills are required before a submit, never skipped — and a worker that waits again
+  for re-delivery spends a re-offer, so the re-delivery belongs with the recovery of the held leases, not with the
+  worker.
 * A production wiring that knows the persistent record may supply its own `SkillDelivery`; the protocol's check is the
   same.
 * The persistent record and its `delivered_at` instant remain a duty of `worker-launch` (out of this package).

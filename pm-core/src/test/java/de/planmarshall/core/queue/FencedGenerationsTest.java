@@ -24,6 +24,7 @@ import org.junit.jupiter.api.io.TempDir;
  * The generation fence is persisted beside the queue, so a late call of a fenced generation is refused after a
  * restart and a second fence keeps the instant of the first.
  */
+@SuppressWarnings("java:S5778") // the refusal cases call one throwing method per case, by design
 @DisplayName("Fenced generations")
 class FencedGenerationsTest {
 

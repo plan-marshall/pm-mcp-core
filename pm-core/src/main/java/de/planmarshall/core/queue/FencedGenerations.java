@@ -64,6 +64,7 @@ public final class FencedGenerations {
     public static final String FILE_NAME = "fences.json";
 
     private static final String DOCUMENT = "generation fences";
+    private static final String GENERATION_LABEL = "generationId";
     private static final String FIELD_FENCED = "fenced";
     private static final String FIELD_GENERATION_ID = "generation_id";
     private static final String FIELD_FENCED_AT = "fenced_at";
@@ -119,7 +120,7 @@ public final class FencedGenerations {
      * @return whether the generation was fenced
      */
     public boolean isFenced(String generationId) {
-        Objects.requireNonNull(generationId, "generationId");
+        Objects.requireNonNull(generationId, GENERATION_LABEL);
         return fenced().contains(generationId);
     }
 
@@ -132,7 +133,7 @@ public final class FencedGenerations {
      * @throws UncheckedIOException if the document cannot be read or written
      */
     public void fence(String generationId, Instant at) {
-        Objects.requireNonNull(generationId, "generationId");
+        Objects.requireNonNull(generationId, GENERATION_LABEL);
         Objects.requireNonNull(at, "at");
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(lockKey);
@@ -152,7 +153,7 @@ public final class FencedGenerations {
      */
     public void fence(LockTransaction transaction, String generationId, Instant at) {
         Objects.requireNonNull(transaction, "transaction");
-        Objects.requireNonNull(generationId, "generationId");
+        Objects.requireNonNull(generationId, GENERATION_LABEL);
         Objects.requireNonNull(at, "at");
         write(transaction, add(read(transaction), generationId, at));
     }
@@ -210,8 +211,7 @@ public final class FencedGenerations {
                 var field = nextField(parser, seen);
                 switch (field) {
                     case FIELD_FORMAT_VERSION -> integer(parser, field);
-                    case FIELD_FENCED -> fences = array(parser, field, (element, name) -> readFence(element, name,
-                            file));
+                    case FIELD_FENCED -> fences = array(parser, field, (element, name) -> readFence(element, name));
                     default -> throw undeclared(field);
                 }
             }
@@ -220,7 +220,7 @@ public final class FencedGenerations {
         });
     }
 
-    private static Fence readFence(JsonParser parser, String name, Path file) throws IOException {
+    private static Fence readFence(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
         String generationId = null;
         Instant fencedAt = null;
@@ -255,7 +255,7 @@ public final class FencedGenerations {
          * @throws IllegalArgumentException if the generation breaks its form
          */
         public Fence {
-            Objects.requireNonNull(generationId, "generationId");
+            Objects.requireNonNull(generationId, GENERATION_LABEL);
             Objects.requireNonNull(fencedAt, "fencedAt");
             if (!Pattern.matches("l-[0-9a-f]{16}", generationId)) {
                 throw new IllegalArgumentException("Not a generation (l- and 16 hex digits): " + generationId);

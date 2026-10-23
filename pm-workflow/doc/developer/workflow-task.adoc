@@ -32,9 +32,9 @@ ended without a task: `no_task`, `paused`, `consulting`, `awaiting_answer` or `a
 `TaskCall` and `CallResult`::
 A call names the task and the caller's generation. The result is `Accepted` (the record after the call) or `Refused`
 with a `TaskRefusal`: `job_ended` (the `JobState` port says the generation's job ended), `generation_fenced`,
-`stale_entity`, `job_scope_mismatch`, `link_not_available`, `skills_not_loaded`, in that order.
-`invalid_link_args` is the entity link's own check: the arguments of a link are validated against its closed schema by
-the entity representation, not by this package, which carries no link argument.
+`stale_entity`, `job_scope_mismatch`, `link_not_available`, `invalid_link_args`, `skills_not_loaded`, in that order.
+This package refuses `invalid_link_args` only for an off-track signal already held for the attempt with another action;
+the arguments of a link against its closed schema are validated by the entity representation.
 
 `SkillDelivery`::
 The skills each generation has received, by URI and digest, for the lifetime of the runtime. A new generation starts

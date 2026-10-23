@@ -29,6 +29,7 @@ import de.planmarshall.core.store.StoreRefusal;
  * The queue store: a record is written and read under the queue lock, the machine scope has its own queue, and a file
  * that is not a queue task record is no task.
  */
+@SuppressWarnings("java:S5778") // the refusal cases call one throwing method per case, by design
 @DisplayName("Queue store")
 class QueueStoreTest {
 

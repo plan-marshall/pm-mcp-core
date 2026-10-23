@@ -29,6 +29,7 @@ import de.planmarshall.core.queue.QueueTaskRecord.SignalName;
  * The activity journal of a task lies in the store of the task's scope and appends one entry per line under its own
  * leaf lock (Store Schemas § Activity Journal).
  */
+@SuppressWarnings("java:S5778") // the refusal cases call one throwing method per case, by design
 @DisplayName("Activity journal")
 class ActivityJournalTest {
 

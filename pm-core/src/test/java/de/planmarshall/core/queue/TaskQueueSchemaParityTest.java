@@ -52,6 +52,7 @@ import de.planmarshall.core.queue.QueueTaskRecord.TaskClass;
  * write is valid against its schema. The schemas are read from the specification of this repository below
  * {@value SpecificationDocument#ROOT_PROPERTY}.
  */
+@SuppressWarnings("java:S5778") // the schema table builds each value under test in its assertion, by design
 @DisplayName("Task queue schema parity")
 class TaskQueueSchemaParityTest {
 
@@ -174,8 +175,8 @@ class TaskQueueSchemaParityTest {
                     asking);
 
             assertAll(() -> assertEquals(1, ((Number) member(schema(ANCHOR), "format_version").get("const"))
-                    .intValue()), () -> records.forEach(record -> assertValid(validator,
-                    QueueTaskRecordCodec.write(record))));
+                    .intValue()), () -> records.forEach(task -> assertValid(validator,
+                    QueueTaskRecordCodec.write(task))));
         }
     }
 

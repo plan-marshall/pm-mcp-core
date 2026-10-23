@@ -73,9 +73,9 @@ Outcome outcome, LostReason reason, String questionId, Instant createdAt, Instan
     /** The format version of a queue task record that is read and written. */
     public static final int FORMAT_VERSION = 1;
 
-    private static final Pattern ROLE = Pattern.compile("[a-z][a-z0-9-]{1,31}");
-    private static final Pattern ENTITY = Pattern.compile("[A-Za-z0-9][A-Za-z0-9_.-]{0,63}");
-    private static final Pattern QUESTION_ID = Pattern.compile("Q-[0-9]{3,6}");
+    private static final Pattern ROLE_PATTERN = Pattern.compile("[a-z][a-z0-9-]{1,31}");
+    private static final Pattern ENTITY_PATTERN = Pattern.compile("[A-Za-z0-9][A-Za-z0-9_.-]{0,63}");
+    private static final Pattern QUESTION_ID = Pattern.compile("Q-\\d{3,6}");
     private static final Pattern DIGEST = Pattern.compile("[0-9a-f]{64}");
     private static final Pattern HEAD = Pattern.compile("[0-9a-f]{40}");
     private static final Pattern GENERATION = Pattern.compile("l-[0-9a-f]{16}");
@@ -710,6 +710,12 @@ Outcome outcome, LostReason reason, String questionId, Instant createdAt, Instan
                                 .formatted(end.wireName(), end.counts() ? "spends" : "spends no", counts));
             }
         }
+
+        private static void requireOrder(Instant first, Instant second, String name) {
+            if (second != null && second.isBefore(first)) {
+                throw new IllegalArgumentException("'%s' precedes the offer: %s".formatted(name, second));
+            }
+        }
     }
 
     /**
@@ -776,7 +782,7 @@ Outcome outcome, LostReason reason, String questionId, Instant createdAt, Instan
             if (QueueTaskId.parse(consultationId).isEmpty()) {
                 throw new IllegalArgumentException("Not a queue task id: " + consultationId);
             }
-            requireMatch(ROLE, Objects.requireNonNull(role, "role"), "role");
+            requireMatch(ROLE_PATTERN, Objects.requireNonNull(role, "role"), "role");
             requireGeneration(askedBy, "consultations.asked_by");
             Objects.requireNonNull(askedAt, "askedAt");
             Objects.requireNonNull(status, "status");
@@ -803,9 +809,9 @@ Outcome outcome, LostReason reason, String questionId, Instant createdAt, Instan
             throw new IllegalArgumentException("Not a queue task id: " + queueTaskId);
         }
         Objects.requireNonNull(kind, "kind");
-        requireMatch(ROLE, Objects.requireNonNull(role, "role"), "role");
+        requireMatch(ROLE_PATTERN, Objects.requireNonNull(role, "role"), "role");
         Objects.requireNonNull(scope, "scope");
-        requireMatch(ENTITY, Objects.requireNonNull(entity, "entity"), "entity");
+        requireMatch(ENTITY_PATTERN, Objects.requireNonNull(entity, "entity"), "entity");
         Objects.requireNonNull(stateId, "stateId");
         Objects.requireNonNull(status, "status");
         attempts = List.copyOf(Objects.requireNonNull(attempts, "attempts"));
@@ -918,12 +924,6 @@ Outcome outcome, LostReason reason, String questionId, Instant createdAt, Instan
         if (generation == null || !GENERATION.matcher(generation).matches()) {
             throw new IllegalArgumentException("'%s' is not a generation (l- and 16 hex digits): %s".formatted(name,
                     generation));
-        }
-    }
-
-    private static void requireOrder(Instant first, Instant second, String name) {
-        if (second != null && second.isBefore(first)) {
-            throw new IllegalArgumentException("'%s' precedes the offer: %s".formatted(name, second));
         }
     }
 

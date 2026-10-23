@@ -28,6 +28,8 @@ import de.planmarshall.core.role.RoleSkill;
  */
 public final class SkillDelivery {
 
+    private static final String GENERATION_LABEL = "generation";
+
     private final Map<String, Map<String, String>> delivered = new LinkedHashMap<>();
 
     /**
@@ -38,16 +40,16 @@ public final class SkillDelivery {
      * @return the skills to deliver in-band: those the generation has not received, or whose digest changed
      */
     public synchronized List<RoleSkill> deliver(String generation, List<RoleSkill> required) {
-        Objects.requireNonNull(generation, "generation");
+        Objects.requireNonNull(generation, GENERATION_LABEL);
         Objects.requireNonNull(required, "required");
-        var record = delivered.computeIfAbsent(generation, key -> new LinkedHashMap<>());
+        var deliveredSkills = delivered.computeIfAbsent(generation, key -> new LinkedHashMap<>());
         var inBand = new ArrayList<RoleSkill>();
         for (var skill : required) {
-            if (!skill.digest().equals(record.get(skill.uri()))) {
+            if (!skill.digest().equals(deliveredSkills.get(skill.uri()))) {
                 inBand.add(skill);
             }
         }
-        required.forEach(skill -> record.put(skill.uri(), skill.digest()));
+        required.forEach(skill -> deliveredSkills.put(skill.uri(), skill.digest()));
         return List.copyOf(inBand);
     }
 
@@ -57,10 +59,10 @@ public final class SkillDelivery {
      * @return the skills the generation has not received, or whose digest changed; it records nothing
      */
     public synchronized List<RoleSkill> missing(String generation, List<RoleSkill> required) {
-        Objects.requireNonNull(generation, "generation");
+        Objects.requireNonNull(generation, GENERATION_LABEL);
         Objects.requireNonNull(required, "required");
-        var record = delivered.getOrDefault(generation, Map.of());
-        return required.stream().filter(skill -> !skill.digest().equals(record.get(skill.uri()))).toList();
+        var deliveredSkills = delivered.getOrDefault(generation, Map.of());
+        return required.stream().filter(skill -> !skill.digest().equals(deliveredSkills.get(skill.uri()))).toList();
     }
 
     /**
@@ -68,7 +70,7 @@ public final class SkillDelivery {
      * @return the skills the generation has received, by URI and digest; empty for a new generation
      */
     public synchronized Map<String, String> recordOf(String generation) {
-        Objects.requireNonNull(generation, "generation");
+        Objects.requireNonNull(generation, GENERATION_LABEL);
         return Map.copyOf(delivered.getOrDefault(generation, Map.of()));
     }
 
@@ -78,6 +80,6 @@ public final class SkillDelivery {
      * @param generation the generation
      */
     public synchronized void forget(String generation) {
-        delivered.remove(Objects.requireNonNull(generation, "generation"));
+        delivered.remove(Objects.requireNonNull(generation, GENERATION_LABEL));
     }
 }

@@ -426,7 +426,7 @@ public final class TaskProtocol {
         Objects.requireNonNull(signal, "signal");
         Objects.requireNonNull(at, "at");
         requireBudget(budget);
-        return signal(call, signal, budget, at, task -> new CallResult.Accepted(task), task -> {
+        return signal(call, signal, budget, at, CallResult.Accepted::new, task -> {
         });
     }
 
@@ -483,9 +483,9 @@ public final class TaskProtocol {
             }
             return new CallResult.Accepted(endAttempt(recordedTask, AttemptEnd.OFF_TRACK, budget, at));
         });
-        if (recorded instanceof CallResult.Accepted accepted) {
-            appendMissingSignalEntry(accepted.task(), signal, at);
-            acceptedAction.accept(accepted.task());
+        if (recorded instanceof CallResult.Accepted(QueueTaskRecord acceptedTask)) {
+            appendMissingSignalEntry(acceptedTask, signal, at);
+            acceptedAction.accept(acceptedTask);
         }
         return recorded;
     }
@@ -575,6 +575,7 @@ public final class TaskProtocol {
         return skills.recordOf(generationId);
     }
 
+    @SuppressWarnings("java:S3776") // the refusal sequence is the specification's check order, read top to bottom
     private CallResult onLeasedTask(TaskCall call, Function<QueueTaskRecord, CallResult> action) {
         Objects.requireNonNull(call, "call");
         var result = new AtomicReference<CallResult>();
@@ -605,7 +606,8 @@ public final class TaskProtocol {
             }
             var decided = action.apply(task);
             result.set(decided);
-            return decided instanceof CallResult.Accepted accepted ? replace(records, accepted.task()) : records;
+            return decided instanceof CallResult.Accepted(QueueTaskRecord acceptedTask)
+                    ? replace(records, acceptedTask) : records;
         });
         return result.get();
     }

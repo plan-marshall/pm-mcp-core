@@ -36,6 +36,7 @@ import de.planmarshall.core.queue.QueueTaskRecord.Outcome;
  * the loop-back and the diagrams): whatever order the calls take, the task closes at most once with the outcome of its
  * own transition, and at least one run reaches the submission.
  */
+@SuppressWarnings("java:S5778") // the seeded runs are one scenario per case, by design
 @DisplayName("Task protocol interleavings")
 class TaskProtocolInterleavingTest {
 
@@ -88,8 +89,8 @@ class TaskProtocolInterleavingTest {
             var generation = random.nextBoolean() ? TaskFixtures.GENERATION : TaskFixtures.SUCCESSOR;
             var step = Step.values()[random.nextInt(Step.values().length)];
             var at = TaskFixtures.AT.plusSeconds(turn + 1L);
-            var record = queue.records().isEmpty() ? null : queue.records().getFirst();
-            var call = record == null ? null : TaskFixtures.call(record, generation);
+            var task = queue.records().isEmpty() ? null : queue.records().getFirst();
+            var call = task == null ? null : TaskFixtures.call(task, generation);
             switch (step) {
                 case WAIT -> {
                     var answer = protocol.wait(TaskFixtures.waitFor(generation), at);

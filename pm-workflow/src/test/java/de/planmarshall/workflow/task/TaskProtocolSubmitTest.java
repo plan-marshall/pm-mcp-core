@@ -37,6 +37,7 @@ import de.planmarshall.core.queue.QueueTaskRecord.Status;
  * of that generation is {@code stale_entity}, a late call of a replaced generation is {@code generation_fenced}, and a
  * lease survives a restart.
  */
+@SuppressWarnings("java:S5778") // the refusal cases call one throwing method per case, by design
 @DisplayName("Task protocol submits")
 class TaskProtocolSubmitTest {
 

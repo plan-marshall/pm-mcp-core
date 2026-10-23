@@ -24,7 +24,7 @@ import java.util.Optional;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.LockManager;
@@ -152,7 +152,7 @@ public final class QueueStore {
      * @throws UncheckedIOException if the queue or a record cannot be read or written
      * @throws InternalFaultException if the lock must not be acquired after the locks the transaction holds
      */
-    public List<QueueTaskRecord> updateAll(Function<List<QueueTaskRecord>, List<QueueTaskRecord>> revision) {
+    public List<QueueTaskRecord> updateAll(UnaryOperator<List<QueueTaskRecord>> revision) {
         return updateAll(revision, transaction -> {
         });
     }
@@ -170,7 +170,7 @@ public final class QueueStore {
      * @throws UncheckedIOException if the queue or a record cannot be read or written
      * @throws InternalFaultException if the lock must not be acquired after the locks the transaction holds
      */
-    public List<QueueTaskRecord> updateAll(Function<List<QueueTaskRecord>, List<QueueTaskRecord>> revision,
+    public List<QueueTaskRecord> updateAll(UnaryOperator<List<QueueTaskRecord>> revision,
             Consumer<LockTransaction> sideEffect) {
         Objects.requireNonNull(revision, "revision");
         Objects.requireNonNull(sideEffect, "sideEffect");

@@ -25,6 +25,7 @@ import de.planmarshall.core.role.RoleSkill;
  * The skills delivered to a generation (Model Work § Skill Delivery Record &amp; Re-Delivery): a new generation starts
  * with an empty record, an unchanged digest is not delivered again, and a changed digest is.
  */
+@SuppressWarnings("java:S5778") // one delivery case per scenario, by design
 @DisplayName("Skill delivery")
 class SkillDeliveryTest {
 
