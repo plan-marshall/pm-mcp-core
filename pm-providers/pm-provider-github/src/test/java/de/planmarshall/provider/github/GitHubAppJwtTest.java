@@ -22,7 +22,7 @@ import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Optional;
 
-import de.planmarshall.provider.ci.Json;
+import de.planmarshall.provider.http.Json;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

@@ -28,10 +28,10 @@ import mockwebserver3.MockResponse;
 import mockwebserver3.MockWebServer;
 import mockwebserver3.RecordedRequest;
 
-import de.planmarshall.provider.ci.CiEndpoint;
-import de.planmarshall.provider.ci.CiHttpClient;
-import de.planmarshall.provider.ci.CiResult;
-import de.planmarshall.provider.ci.Json;
+import de.planmarshall.provider.http.Endpoint;
+import de.planmarshall.provider.http.HttpClient;
+import de.planmarshall.provider.http.Json;
+import de.planmarshall.provider.http.Result;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,7 +55,7 @@ class GitLabClientTest {
     /** The requests the mock web server received, in arrival order. */
     private final List<RecordedRequest> requests = new CopyOnWriteArrayList<>();
     private String base;
-    private CiHttpClient http;
+    private HttpClient http;
     private GitLabClient client;
 
     @BeforeEach
@@ -70,7 +70,7 @@ class GitLabClientTest {
             }
         });
         base = "http://" + server.getHostName() + ":" + server.getPort() + "/";
-        http = new CiHttpClient(CiEndpoint.of(URI.create(base + "api/v4")), () -> Optional.of("glpat-secret"),
+        http = new HttpClient(Endpoint.of(URI.create(base + "api/v4")), () -> Optional.of("glpat-secret"),
                 Map.of());
         client = new GitLabClient(http, "group/project");
     }
@@ -109,7 +109,7 @@ class GitLabClientTest {
         void merges() {
             on("PUT", MR + "/merge", json(200, "{\"state\":\"merged\",\"merge_commit_sha\":\"m1\"}"));
 
-            CiResult<String> result = client.merge(12, "abc");
+            Result<String> result = client.merge(12, "abc");
 
             assertEquals(Optional.of("m1"), result.value());
             assertEquals(Optional.of("abc"), Json.string(body(0), "sha"));
@@ -124,9 +124,9 @@ class GitLabClientTest {
 
             var moved = client.merge(12, "stale");
 
-            assertEquals(CiResult.Outcome.REJECTED, moved.outcome());
+            assertEquals(Result.Outcome.REJECTED, moved.outcome());
             assertTrue(moved.detail().contains("SHA does not match"));
-            assertEquals(CiResult.Outcome.FAILED, client.merge(13, "x").outcome());
+            assertEquals(Result.Outcome.FAILED, client.merge(13, "x").outcome());
         }
 
         @Test
@@ -139,9 +139,9 @@ class GitLabClientTest {
 
             var refused = client.mergeTrainAdd(12, "abc");
 
-            assertEquals(CiResult.Outcome.REJECTED, refused.outcome());
+            assertEquals(Result.Outcome.REJECTED, refused.outcome());
             assertEquals("HTTP 400: Merge trains are not enabled for this project", refused.detail());
-            assertEquals(CiResult.Outcome.FAILED, client.mergeTrainAdd(13, "abc").outcome());
+            assertEquals(Result.Outcome.FAILED, client.mergeTrainAdd(13, "abc").outcome());
         }
 
         @Test
@@ -154,7 +154,7 @@ class GitLabClientTest {
 
             assertTrue(result.isOk());
             assertEquals(Optional.of("abc"), Json.string(body(0), "sha"));
-            assertEquals(CiResult.Outcome.NOT_FOUND, client.mergeTrainAdd(99, "abc").outcome());
+            assertEquals(Result.Outcome.NOT_FOUND, client.mergeTrainAdd(99, "abc").outcome());
         }
     }
 
@@ -191,7 +191,7 @@ class GitLabClientTest {
         @Test
         @DisplayName("reports a failed first page")
         void failedFirstPage() {
-            assertEquals(CiResult.Outcome.NOT_FOUND, client.discussions(404).outcome());
+            assertEquals(Result.Outcome.NOT_FOUND, client.discussions(404).outcome());
         }
 
         @Test
@@ -214,9 +214,9 @@ class GitLabClientTest {
         void replyFailures() {
             on("POST", MR + "/discussions/d9/notes", json(201, "{}"));
 
-            assertEquals(CiResult.Outcome.FAILED, client.reply(12, "d9", "x").outcome());
-            assertEquals(CiResult.Outcome.NOT_FOUND, client.reply(12, "zz", "x").outcome());
-            assertEquals(CiResult.Outcome.NOT_FOUND, client.resolve(12, "zz").outcome());
+            assertEquals(Result.Outcome.FAILED, client.reply(12, "d9", "x").outcome());
+            assertEquals(Result.Outcome.NOT_FOUND, client.reply(12, "zz", "x").outcome());
+            assertEquals(Result.Outcome.NOT_FOUND, client.resolve(12, "zz").outcome());
         }
     }
 
@@ -231,7 +231,7 @@ class GitLabClientTest {
                     response(200, "line 1\nline 2\n", Map.of("Content-Type", "text/plain")));
 
             assertEquals(Optional.of("line 1\nline 2\n"), client.jobTrace(5).value());
-            assertEquals(CiResult.Outcome.NOT_FOUND, client.jobTrace(6).outcome());
+            assertEquals(Result.Outcome.NOT_FOUND, client.jobTrace(6).outcome());
         }
 
         @Test
@@ -259,7 +259,7 @@ class GitLabClientTest {
             var result = client.tokenIdentity();
 
             var identity = result.value().orElseThrow();
-            assertEquals(CiResult.Outcome.OK, result.outcome());
+            assertEquals(Result.Outcome.OK, result.outcome());
             assertEquals("17", identity.userId());
             assertTrue(identity.active());
             assertEquals("", identity.id());
@@ -288,8 +288,8 @@ class GitLabClientTest {
             var refused = client.tokenIdentity();
 
             assertFalse(blocked.value().orElseThrow().active());
-            assertEquals(CiResult.Outcome.FAILED, unreadable.outcome());
-            assertEquals(CiResult.Outcome.AUTH_FAILED, refused.outcome());
+            assertEquals(Result.Outcome.FAILED, unreadable.outcome());
+            assertEquals(Result.Outcome.AUTH_FAILED, refused.outcome());
             assertEquals(6, requests.size());
         }
 
@@ -298,7 +298,7 @@ class GitLabClientTest {
         void identityWithoutFallback() {
             on("GET", SELF, json(500, "{\"message\":\"500 Internal Server Error\"}"));
 
-            assertEquals(CiResult.Outcome.FAILED, client.tokenIdentity().outcome());
+            assertEquals(Result.Outcome.FAILED, client.tokenIdentity().outcome());
             assertEquals(1, requests.size());
         }
 
@@ -307,7 +307,7 @@ class GitLabClientTest {
         void unauthorized() {
             on("GET", SELF, json(401, "{\"message\":\"401 Unauthorized\"}"));
 
-            assertEquals(CiResult.Outcome.AUTH_FAILED, client.tokenIdentity().outcome());
+            assertEquals(Result.Outcome.AUTH_FAILED, client.tokenIdentity().outcome());
         }
     }
 }
