@@ -212,8 +212,9 @@ delete with a staged path, a size before or a new digest.
 `ScopeIntegrity.Absent`:: The verification of a store that has neither a file nor a sidecar entry. That is the state a
 completed delete leaves, and it is consistent: only a sidecar entry that outlives its file is a `Mismatch`.
 
-The journal is written in `format_version` 3 (`TransactionJournal.FORMAT_VERSION`). A journal of version 1 (no owed
-audit records) or version 2 (no delete target) is refused as outdated; there is no reader for the older shapes.
+The journal is written in `format_version` 1 (`TransactionJournal.FORMAT_VERSION`), the only version: it carries the owed
+audit records and the delete target. A journal of another version is refused as outdated or newer; there is no reader
+for another shape.
 
 === The Five Steps for a Delete
 
@@ -242,8 +243,8 @@ delete, since it has no staged path. The digests step of the recovery drops the 
 * *Absent and untracked agree*: after a completed delete the store has neither file nor sidecar entry, and
   `ScopeIntegrity` verifies it `Absent`; a store whose file is gone while its entry remains is still a `Mismatch`, and a
   file without an entry is still `Untracked`.
-* *No shim*: a version-2 journal is refused as outdated, as version 1 is; the drain rule of the specification applies to
-  an upgrade.
+* *No shim*: a journal of another format version is refused as outdated or newer; the drain rule of the specification
+  applies to an upgrade.
 
 === Failure Modes
 
@@ -259,14 +260,14 @@ delete.
 |`JournalRecovery` removes the store if it is still present and drops its sidecar entry; the owed audit records are
 handed over again.
 
-|A journal of version 2 is found
-|It is refused as outdated (`format_outdated`); nothing is applied.
+|A journal of another format version is found
+|It is refused as outdated or newer (`format_outdated` or `format_newer`); nothing is applied.
 
 |A delete target in a journal carries a staged path, a size before or a digest
 |The journal is refused as unreadable.
 |===
 
-Tested by `TransactionJournalTest` (round trip of a delete target, version 2 refused, a delete target with staged
+Tested by `TransactionJournalTest` (round trip of a delete target, another version refused, a delete target with staged
 members refused), `ScopeTransactionTest` (a delete stopped after each step through the step hook, the delete of an
 absent store, a delete and a replace of one store refused), `JournalRecoveryTest` (a half-applied delete with the store
 present and absent, a torn journal of a delete, a repeated recovery), `DigestSidecarTest` and `ScopeIntegrityTest`.
@@ -1021,7 +1022,7 @@ parity check the specification has run ahead of is `@Disabled` with the work pac
 * link:../adr/core-store/005-retry-count-clearing-rule.adoc[ADR 005]: who clears a retry count, and when.
 * link:../adr/core-store/006-retry-counter-key-list.adoc[ADR 006]: the closed key list of `retry_counters`.
 * link:../adr/core-store/007-delete-mode-of-the-transaction-journal.adoc[ADR 007]: the journal gets a delete target
-  now, in format version 3, without a reader for version 2.
+  in format version 1, without a reader for another version.
 * link:../adr/core-store/008-pending-entry-record-engine-owned-members-typed.adoc[ADR 008]: of the pending entry record,
   the envelope and the engine-owned members are typed, `facts`, `source` and `options` kept raw (superseded by the
   work package `removed-concepts`, which removed the entry row it embedded).
