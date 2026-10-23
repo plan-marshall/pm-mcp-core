@@ -2,6 +2,7 @@
 name: plan
 description: A plan unit with the per-lane phase calls and their rework, written for the composer tests.
 type: workflow
+icon: unit.plan
 modification_date: 2026-10-21
 version: 0.1.0
 author: plan-marshall

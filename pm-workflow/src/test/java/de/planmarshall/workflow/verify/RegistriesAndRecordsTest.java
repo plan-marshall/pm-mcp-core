@@ -188,6 +188,7 @@ class RegistriesAndRecordsTest {
                 name: catalog.test
                 description: A unit written for the tests of pm-workflow.
                 type: subworkflow
+                icon: workflow.default
                 exit: done
                 modification_date: 2026-01-15
                 version: 0.1.0

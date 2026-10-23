@@ -76,6 +76,7 @@ final class EngineFixtures {
             name: sub.commit
             description: A unit written for the tests of pm-workflow.
             type: subworkflow
+            icon: workflow.default
             entry: main
             exit: done
             modification_date: 2026-01-15
@@ -208,6 +209,7 @@ final class EngineFixtures {
             name: workspace
             description: A unit written for the tests of pm-workflow.
             type: system
+            icon: workflow.default
             modification_date: 2026-01-15
             version: 0.1.0
             author: plan-marshall
@@ -324,6 +326,7 @@ final class EngineFixtures {
                 name: plan
                 description: A unit written for the tests of pm-workflow.
                 type: workflow
+                icon: workflow.default
                 modification_date: 2026-01-15
                 version: 0.1.0
                 author: plan-marshall

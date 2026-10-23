@@ -474,7 +474,8 @@ class AstNodeModelTest {
     private static UnitFrontmatter frontmatter(List<UnitFrontmatter.InterfaceElement> entries,
             List<UnitFrontmatter.InterfaceElement> exits) {
         return new UnitFrontmatter("Fixture unit", "A unit written for the node model test.", UnitType.WORKFLOW,
-                entries, exits, LocalDate.of(2026, 1, 15), "0.1.0", "plan-marshall", Optional.empty(), LOCATION);
+                "workflow.default", entries, exits, LocalDate.of(2026, 1, 15), "0.1.0", "plan-marshall",
+                Optional.empty(), LOCATION);
     }
 
     private static WorkflowDefinition definition(List<ParamDecl> params, List<StateMigration> migrations,

@@ -2,6 +2,7 @@
 name: verify.type-task-with-entries
 description: A unit written for the verifier tests.
 type: task
+icon: workflow.default
 entry: main
 exit: done
 modification_date: 2026-01-15

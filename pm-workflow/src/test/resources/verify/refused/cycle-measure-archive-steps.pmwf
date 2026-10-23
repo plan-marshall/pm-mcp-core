@@ -2,11 +2,12 @@
 name: verify.cycle-measure-archive-steps
 description: A unit written for the verifier tests.
 type: workflow
+icon: workflow.default
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: STEP_COMPLETION state verify.entry line 14
+# expect: STEP_COMPLETION state verify.entry line 15
 workflow verify.cycle-measure-archive-steps version 1 format 1
 scope plan
 start verify.entry

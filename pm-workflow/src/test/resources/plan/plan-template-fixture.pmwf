@@ -2,6 +2,7 @@
 name: plan
 description: A plan template written for the composer tests.
 type: workflow
+icon: unit.plan
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall

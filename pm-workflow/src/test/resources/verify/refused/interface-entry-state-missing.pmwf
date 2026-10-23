@@ -2,6 +2,7 @@
 name: verify.interface-entry-state-missing
 description: A unit written for the verifier tests.
 type: subworkflow
+icon: workflow.default
 entry: main
 entry: review
 exit: done
@@ -9,7 +10,7 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: STATE_EXISTS state verify.missing line 16 column 1
+# expect: STATE_EXISTS state verify.missing line 17 column 1
 workflow verify.interface-entry-state-missing version 1 format 1
 scope subworkflow
 entry main -> verify.entry

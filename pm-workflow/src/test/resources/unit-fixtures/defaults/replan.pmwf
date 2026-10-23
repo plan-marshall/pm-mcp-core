@@ -2,6 +2,7 @@
 name: replan
 description: A unit written for the invariant and unit-loader tests.
 type: subworkflow
+icon: flow.replan
 entry: main
 exit: replanned
 exit: declined

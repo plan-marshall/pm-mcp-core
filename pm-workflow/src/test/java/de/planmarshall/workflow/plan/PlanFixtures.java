@@ -197,6 +197,7 @@ final class PlanFixtures {
                 name: %1$s
                 description: An asking variant written for the composer tests.
                 type: subworkflow
+                icon: workflow.default
                 entry: main
                 exit: continue
                 modification_date: 2026-01-15
@@ -427,6 +428,7 @@ final class PlanFixtures {
                 name: %1$s
                 description: A phase call target written for the composer tests.
                 type: subworkflow
+                icon: workflow.default
                 entry: begin
                 exit: ready
                 exit: fix_requested

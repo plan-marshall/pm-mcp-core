@@ -2,11 +2,12 @@
 name: verify.outcome-missing
 description: A unit written for the verifier tests.
 type: workflow
+icon: workflow.default
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: OUTCOME_COVERAGE state verify.entry line 15
+# expect: OUTCOME_COVERAGE state verify.entry line 16
 # A plan unit whose auto state does not route the outcome skipped of its primitive.
 workflow verify.outcome-missing version 1 format 1
 scope plan

@@ -2,11 +2,12 @@
 name: verify.role-each-outside-adjudicate
 description: A unit written for the verifier tests.
 type: workflow
+icon: workflow.default
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: ENTITY_KIND_BINDING state verify.entry line 14
+# expect: ENTITY_KIND_BINDING state verify.entry line 15
 workflow verify.role-each-outside-adjudicate version 1 format 1
 scope plan
 start verify.entry
