@@ -2,10 +2,10 @@
   "id": "PLAN-94",
   "slug": "sonar-main-backlog",
   "workstream": "WS-06",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-94-sonar-main-backlog",
+  "pr": "#147",
+  "landing": "landings/PLAN-94.md",
   "seq": 94
 }
