@@ -17,7 +17,7 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 * *Where it and the own calls are read*: the server-owned sections `## Own Calls` (shortcuts first, each with its limit and ending condition) and `## Change Map` of the pull-request body, the landing record, and the completion report, and the resource of the plan; the calls themselves are recorded by link:own-calls.adoc[`own-calls`]. The `simplify` review receives the shortcuts as facts and proposes the removal of none whose `ends_when` has not occurred.
 * *Judged at the self-review*: the facts of `review-requirement` carry the map and the calls, and the self-review judges each own call against the intent record and each removed or replaced coordinate no call and no deliverable names; it is refused when it omits a result for a replaced coordinate that no own call names. An added coordinate stays the Dependency Delta Check's.
 * *The result*: `change_map: {state: complete | partial | indeterminate, modules_added[], modules_removed[], edges_added[], edges_removed[], replaced[], cause}` in the finalize facts; `indeterminate` when the realized footprint is not `measured`. The map blocks nothing by itself.
-* *Left out*: the module discovery, the build-file dependency parser, and the Dependency Delta Check (Milestone 10, no work package); the guidance and the rendering in the clients.
+* *Left out*: the module discovery and the build-file dependency parser (link:domain-extensions-and-architecture.adoc[`domain-extensions-and-architecture`]); the Dependency Delta Check and the finalize pipeline of Milestone 10 (link:finalize-pipeline-and-merge.adoc[`finalize-pipeline-and-merge`]); the guidance and the rendering in the clients.
 
 == Trace
 
