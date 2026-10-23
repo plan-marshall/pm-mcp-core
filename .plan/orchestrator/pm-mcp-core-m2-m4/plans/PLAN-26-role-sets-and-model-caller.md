@@ -16,7 +16,7 @@ workstream: WS-05
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R15, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R15, R17, R18.
 
 Plan parameters (the values the rules ask for):
 
@@ -37,7 +37,7 @@ The bullets of `doc/plans/role-sets-and-model-caller.adoc` § What, in its words
 4. The one model caller that turns a `job llm` state into queue tasks: Resolve reads the effective configuration; the `judge` and the `steward` skip Qualify; the steward's harness comes from `harnesses.default` of `machine-config.json` and its model from that harness's tier `standard` (`headless.model_tiers`), never from its artifact; Serve has no session path.
 5. The shipped set (the `interpret` and `steward` roles among them) is read from `classpath:/roles/`, which the assembly supplies; tests use fixture roles. The default assignment and its resolution `roles.default` are `machine-onboarding-unit`'s.
 
-**Done when** (the package's own acceptance): The validation table of the specification row by row, each reason with a refusing fixture; a role of a class its harness cannot run is `harness_class_not_runnable`; a valid artifact whose effective model the catalogue does not allow is `model_not_allowed`, a `steward` never; each level of the effective configuration overrides only what it names, and a changed assignment or plan override changes both digests; a task of the `judge` and of the `steward` is queued without a qualification record. **Sonar:** the SonarCloud search of the pull request (`pullRequest=<N>&resolved=false`) lists no open issue other than one dismissed with its reason, and its quality gate is green, before the pull request is reported ready.
+**Done when** (the package's own acceptance): The validation table of the specification row by row, each reason with a refusing fixture; a role of a class its harness cannot run is `harness_class_not_runnable`; a valid artifact whose effective model the catalogue does not allow is `model_not_allowed`, a `steward` never; each level of the effective configuration overrides only what it names, and a changed assignment or plan override changes both digests; a task of the `judge` and of the `steward` is queued without a qualification record. **Package bookkeeping:** `doc/plans/role-sets-and-model-caller.adoc` and its row of `doc/plans/README.adoc` are removed in the same pull request, the covered sections of the specification and watch documents named in the Expected Surface are deleted, and the links check (R17, absolute paths of the sibling checkout) reports `BROKEN LINKS 0`, the run recorded in the pull request body. **Build:** `verify`, `verify -Ppre-commit` (its rewrites reviewed and committed), `verify -Pcoverage` (80 % instruction and branch per module) and `verify -Pintegration-tests -pl pm-core -am` are green; `pm-workflow` has no integration-test profile. **Sonar:** the SonarCloud search of the pull request (`pullRequest=<N>&resolved=false`) lists no open issue other than one dismissed with its reason, and its quality gate is green, before the pull request is reported ready.
 
 **Trace starting set** (the requirements, use cases and roadmap live in `../plan-marshall-documentation`; the specifications and watch documents of the engine in this repository, `doc/specification/` and `doc/implementation-watch/`):
 
@@ -92,13 +92,14 @@ None beyond the standing rules named in the First Instruction above.
 
 - Depends on: nothing
 - Blocks: PLAN-28 (`task-queue-and-protocol`); PLAN-29 (`worker-launch`); PLAN-34 (`role-qualification`); PLAN-55 (`chat`); PLAN-62 (`process-designer`); PLAN-71 (`plan-instance-versions`); PLAN-73 (`question-continuation`)
+- Runs beside PLAN-95 (`schema-subset-length-first`, launched, the operator accepted the overlap on 2026-10-22): PLAN-95 changes only `SchemaSubset.checkString` and `SchemaSubsetTest` in `core.role.corpus`. Do not edit those two files; before the merge gate, merge the base branch (the lane's step 7) and read what PLAN-95 landed if it has merged. PLAN-94 (`sonar-main-backlog`) also edits `CorpusValidator.java` in the same subpackage: the same rule.
 - Overlaps with: PLAN-34 (`role-qualification`) in `core.role`, `workflow.model`; every plan through `doc/plans/README.adoc`; the plans of the same module through its log holder, which is not a declared surface
 - Adjacent to: the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` and the client contract `pm-api` in `pm-mcp-clients`, which stay untouched — a change there is a pull request in that repository; and `plan-marshall-documentation`, where only a requirement correction or a change of `cross-cutting.adoc` or of a specification that lives there goes, in a pull request there
 
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-26-role-sets-and-model-caller.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-26-role-sets-and-model-caller.md
 ```
 
 ## Write-Boundary
