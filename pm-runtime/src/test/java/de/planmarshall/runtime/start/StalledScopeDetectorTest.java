@@ -377,9 +377,9 @@ class StalledScopeDetectorTest {
         });
 
         var view = View.of(PROJECT, plan().build());
+        var failedAt = LAST_PROGRESS.plusSeconds(700);
 
-        assertThrows(UncheckedIOException.class,
-                () -> detector.detect(view, LAST_PROGRESS.plusSeconds(700)));
+        assertThrows(UncheckedIOException.class, () -> detector.detect(view, failedAt));
         detector.detect(view, LAST_PROGRESS.plusSeconds(710));
 
         assertAll(
@@ -409,9 +409,9 @@ class StalledScopeDetectorTest {
         detector.detect(View.of(PROJECT, plan().build()), LAST_PROGRESS.plusSeconds(700));
         var progressed = plan().updatedAt(LAST_PROGRESS.plusSeconds(800)).build();
         var view = View.of(PROJECT, progressed);
+        var failedAt = LAST_PROGRESS.plusSeconds(1_400);
 
-        var thrown = assertThrows(IllegalStateException.class,
-                () -> detector.detect(view, LAST_PROGRESS.plusSeconds(1_400)));
+        var thrown = assertThrows(IllegalStateException.class, () -> detector.detect(view, failedAt));
 
         detector.detect(view, LAST_PROGRESS.plusSeconds(1_500));
 
@@ -443,9 +443,9 @@ class StalledScopeDetectorTest {
         });
 
         var view = View.of(PROJECT, plan().build());
+        var failedAt = LAST_PROGRESS.plusSeconds(700);
 
-        assertThrows(IllegalStateException.class,
-                () -> detector.detect(view, LAST_PROGRESS.plusSeconds(700)));
+        assertThrows(IllegalStateException.class, () -> detector.detect(view, failedAt));
         detector.detect(view, LAST_PROGRESS.plusSeconds(710));
 
         assertAll(
