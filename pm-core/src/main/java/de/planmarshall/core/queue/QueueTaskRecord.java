@@ -784,6 +784,9 @@ Outcome outcome, LostReason reason, String questionId, Instant createdAt, Instan
             if ((status == ConsultationStatus.OPEN) != (closedAt == null)) {
                 throw new IllegalArgumentException("A consultation closes when it leaves the status 'open'");
             }
+            if (status == ConsultationStatus.OPEN && answer != null) {
+                throw new IllegalArgumentException("An open consultation has no answer");
+            }
             if ((deliveredAt == null) != (deliveredTo == null)) {
                 throw new IllegalArgumentException("An answer is delivered at an instant and to one place together");
             }

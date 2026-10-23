@@ -131,6 +131,8 @@ class TaskQueueSchemaParityTest {
                     () -> assertEquals(Set.of("work", "consultation"),
                             SpecificationDocument.array(member(schema, "kind").get("enum")).stream()
                                     .map(String::valueOf).collect(Collectors.toUnmodifiableSet())),
+                    () -> assertEquals(wireNames(QueueTaskRecord.Kind.values(), QueueTaskRecord.Kind::wireName),
+                            enumOf(schema, "kind")),
                     () -> assertEquals(wireNames(TaskClass.values(), TaskClass::wireName),
                             enumOf(schema, "class")),
                     () -> assertEquals(wireNames(Status.values(), Status::wireName), enumOf(schema, "status")),

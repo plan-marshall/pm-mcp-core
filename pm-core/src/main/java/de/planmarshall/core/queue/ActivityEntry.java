@@ -348,8 +348,10 @@ Signal signal, String end, Integer unmappedLines, Instant at) {
         onlyOn(kind, Kind.TURN, stopReason, "stop_reason");
         onlyOn(kind, Kind.TURN, usage, "usage");
         onlyOn(kind, Kind.LINK, link, "link");
-        onlyOn(kind, Kind.QUESTION, questionId, "question_id");
-        onlyOn(kind, Kind.ANSWER_ACK, questionId, "question_id");
+        if (questionId != null && kind != Kind.QUESTION && kind != Kind.ANSWER_ACK) {
+            throw new IllegalArgumentException("'question_id' belongs to a question or an answer_ack entry, not a "
+                    + kind.wireName() + " entry");
+        }
         onlyOn(kind, Kind.SIGNAL, signal, "signal");
         onlyOn(kind, Kind.ATTEMPT_END, end, "end");
         onlyOn(kind, Kind.ATTEMPT_END, unmappedLines, "unmapped_lines");

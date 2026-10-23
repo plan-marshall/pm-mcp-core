@@ -158,6 +158,25 @@ class TaskProtocolReOfferTest {
     }
 
     @Test
+    @DisplayName("a second call of a held signal with another action is refused")
+    void signalActionConflict(@TempDir Path base) {
+        var harness = harness(base);
+        var call = acknowledged(harness);
+        harness.protocol().offTrack(call, new OffTrackSignal(SignalName.NO_PROGRESS, SignalAction.SHOW, 7, 5), 3,
+                TaskFixtures.AT.plusSeconds(2));
+
+        var refused = assertInstanceOf(CallResult.Refused.class,
+                harness.protocol().offTrack(call,
+                        new OffTrackSignal(SignalName.NO_PROGRESS, SignalAction.RESTART, 7, 5), 3,
+                        TaskFixtures.AT.plusSeconds(3)));
+
+        assertAll(
+                () -> assertEquals(TaskRefusal.INVALID_LINK_ARGS, refused.refusal()),
+                () -> assertEquals(SignalAction.SHOW, refused.task().signals().getFirst().action()),
+                () -> assertEquals(QueueTaskRecord.Status.EXECUTING, refused.task().status()));
+    }
+
+    @Test
     @DisplayName("a signal holds at most once per attempt")
     void signalOnce(@TempDir Path base) {
         var harness = harness(base);

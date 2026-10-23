@@ -466,9 +466,12 @@ public final class TaskProtocol {
                 return guarded;
             }
             var attempt = task.currentAttempt().orElseThrow();
-            var alreadyHeld = task.signals().stream().anyMatch(existing -> existing.signal() == signal.signal()
-                    && existing.attempt() == attempt.attempt());
-            if (alreadyHeld) {
+            var held = task.signals().stream().filter(existing -> existing.signal() == signal.signal()
+                    && existing.attempt() == attempt.attempt()).findFirst();
+            if (held.isPresent()) {
+                if (held.get().action() != signal.action()) {
+                    return new CallResult.Refused(TaskRefusal.INVALID_LINK_ARGS, task);
+                }
                 return new CallResult.Accepted(task);
             }
             var signals = new ArrayList<>(task.signals());

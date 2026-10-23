@@ -50,6 +50,7 @@ resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshal
 == Developer Documentation
 
 * link:doc/developer/core-role-corpus.adoc[Corpus Sources (`core.role.corpus`)]
+* link:doc/developer/core-queue.adoc[Task Queue (`core.queue`)]
 * link:doc/developer/core-service.adoc[Service Interfaces (`core.service`)]
 * link:doc/developer/core-store.adoc[Scope Stores and Engine Ports (`core.store`, `core.spi`)], with the job records
 
@@ -57,7 +58,7 @@ resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshal
 
 * link:doc/adr/core-analysis/[`doc/adr/core-analysis/`]: the code-analysis contract.
 * link:doc/adr/core-findings/[`doc/adr/core-findings/`]: the findings contract.
-* link:doc/adr/core-queue/[`doc/adr/core-queue/`]: the ADRs of the record this package removed; ADR 002 stands, ADRs 001 and 003 are superseded.
+* link:doc/adr/core-queue/[`doc/adr/core-queue/`]: the task queue; ADRs 001 and 003 are superseded, ADR 002 stands, ADRs 004 to 006 record the generation fence, the record's combinations at the write boundary and the journal's sibling lock.
 * link:doc/adr/core-role-corpus/[`doc/adr/core-role-corpus/`]: the corpus formats, the row readers, the verdict of an import, the corpus validator and the Python meaning of its patterns.
 * link:doc/adr/core-service/[`doc/adr/core-service/`]: the service interfaces:
   link:doc/adr/core-service/001-job-runner-service-interface-beside-the-engine-port.adoc[ADR 001] the job runner beside
