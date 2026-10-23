@@ -11,7 +11,9 @@ package de.planmarshall.core.queue;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.time.Instant;
@@ -137,6 +139,34 @@ class QueueTaskRecordCodecTest {
             assertThrows(IllegalArgumentException.class, () -> new QueueTaskRecord.Attempt(1,
                     QueueFixtures.GENERATION, QueueFixtures.GENERATION, QueueFixtures.DIGEST, QueueFixtures.AT,
                     null, QueueFixtures.AT, AttemptEnd.RESTART, true));
+        }
+
+        @Test
+        @DisplayName("a withdrawal and an expired vote spend no re-offer")
+        void closingEndsSpendNothing() {
+            assertAll(
+                    () -> assertFalse(AttemptEnd.WITHDRAWN.counts()),
+                    () -> assertFalse(AttemptEnd.DEADLINE_EXPIRED.counts()),
+                    () -> assertTrue(AttemptEnd.WORKER_LOST.counts()));
+        }
+
+        @Test
+        @DisplayName("a non-finite measurement is refused")
+        void nonFiniteMeasurement() {
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> new Signal(SignalName.REPEATING, 1, SignalAction.SHOW, Double.NaN, 1,
+                                    QueueFixtures.AT)),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> new Signal(SignalName.REPEATING, 1, SignalAction.SHOW, 1,
+                                    Double.POSITIVE_INFINITY, QueueFixtures.AT)));
+        }
+
+        @Test
+        @DisplayName("a generation in upper case is refused")
+        void upperCaseGeneration() {
+            assertThrows(IllegalArgumentException.class,
+                    () -> new FencedGenerations.Fence("l-0123456789ABCDEF", QueueFixtures.AT));
         }
     }
 }

@@ -18,12 +18,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import de.planmarshall.core.queue.ActivityEntry;
-import de.planmarshall.core.queue.ActivityJournal;
 import de.planmarshall.core.queue.FencedGenerations;
 import de.planmarshall.core.queue.QueueStore;
 import de.planmarshall.core.queue.QueueTaskRecord;
@@ -44,9 +43,12 @@ import de.planmarshall.core.service.LockManager;
  * The task protocol (Model Work § Task Protocol): the offers, the acknowledgement, the lease, the fence, the task
  * outcomes, the re-offers, the off-track signals and the skill delivery of one task queue.
  * <p>
- * Every transition decides and writes inside one {@link QueueStore#updateAll} transaction on the queue lock. The fence
- * document is read lock-free inside that transaction: the only writer of the fence needs the queue lock, so the read
- * cannot change under the decision, and a generation fenced before the transaction is refused before any other check.
+ * Every transition decides and writes inside one {@link QueueStore#updateAll} transaction on the queue lock; the
+ * generation fence is written in that same transaction. The audit record and the activity journal are separate stores
+ * and follow the transaction. The fence document is read lock-free inside the transaction: the only writer of the
+ * fence needs the queue lock, so the read cannot change under the decision, and a generation fenced before the
+ * transaction is refused before the lease and every link check (after the job's own end, which the specification orders
+ * first).
  * <p>
  * The order of the checks of a call is the one of {@link TaskRefusal}: the job's end, the fence, the lease, the link,
  * the arguments and the delivered skills. The first valid submit closes the attempt in the transaction that validated it
@@ -67,7 +69,7 @@ public final class TaskProtocol {
     private final JobState jobState;
     private final SkillDelivery skills;
     private final SecurityAudit audit;
-    private final ActivityJournal journal;
+    private final JournalProvider journal;
 
     private TaskProtocol(Builder builder) {
         this.queue = builder.queue;
@@ -103,7 +105,7 @@ public final class TaskProtocol {
         private JobState jobState = JobState.NEVER;
         private SkillDelivery skills = new SkillDelivery();
         private SecurityAudit audit = SecurityAudit.NONE;
-        private ActivityJournal journal;
+        private JournalProvider journal;
 
         private Builder(QueueStore queue, LockManager locks) {
             this.queue = queue;
@@ -156,10 +158,10 @@ public final class TaskProtocol {
         }
 
         /**
-         * @param value the journal of a task, or {@code null} for none
+         * @param value where the journal of a task's scope is found, or {@code null} for none
          * @return this builder
          */
-        public Builder journal(ActivityJournal value) {
+        public Builder journal(JournalProvider value) {
             this.journal = value;
             return this;
         }
@@ -219,6 +221,10 @@ public final class TaskProtocol {
 
     private List<QueueTaskRecord> answerHeld(List<QueueTaskRecord> records, QueueTaskRecord held, WaitRequest request,
             Instant at, AtomicReference<WaitAnswer> answer) {
+        if (isPaused(held)) {
+            answer.set(new WaitAnswer.WaitAgain("paused"));
+            return records;
+        }
         switch (held.status()) {
             case OFFERED -> answer.set(new WaitAnswer.Offered(held));
             case CONSULTING -> answer.set(new WaitAnswer.WaitAgain("consulting"));
@@ -331,6 +337,8 @@ public final class TaskProtocol {
      * @param at   the instant of the submit
      * @return the closed task, or the refusal
      * @see #submit(TaskCall, List, Instant)
+     * @implNote this form is for a task that requires no skill; a task whose role requires skills uses
+     *           {@link #submit(TaskCall, List, Instant)}
      */
     public CallResult submit(TaskCall call, Instant at) {
         return submit(call, List.of(), at);
@@ -417,28 +425,8 @@ public final class TaskProtocol {
     public CallResult offTrack(TaskCall call, OffTrackSignal signal, int budget, Instant at) {
         Objects.requireNonNull(signal, "signal");
         Objects.requireNonNull(at, "at");
-        var newlyRecorded = new AtomicBoolean();
-        var recorded = onLeasedTask(call, task -> {
-            var attempt = task.currentAttempt().orElseThrow();
-            var alreadyHeld = task.signals().stream().anyMatch(existing -> existing.signal() == signal.signal()
-                    && existing.attempt() == attempt.attempt());
-            if (alreadyHeld) {
-                return new CallResult.Accepted(task);
-            }
-            var signals = new ArrayList<>(task.signals());
-            signals.add(new Signal(signal.signal(), attempt.attempt(), signal.action(), signal.measurement(),
-                    signal.threshold(), at));
-            newlyRecorded.set(true);
-            var recordedTask = task.withSignals(signals);
-            if (signal.action() != SignalAction.RESTART && signal.action() != SignalAction.YIELD) {
-                return new CallResult.Accepted(recordedTask);
-            }
-            return new CallResult.Accepted(endAttempt(recordedTask, AttemptEnd.OFF_TRACK, budget, at));
+        return signal(call, signal, budget, at, task -> new CallResult.Accepted(task), task -> {
         });
-        if (newlyRecorded.get() && recorded instanceof CallResult.Accepted accepted && journal != null) {
-            appendSignalEntry(accepted.task(), signal, at);
-        }
-        return recorded;
     }
 
     /**
@@ -453,20 +441,42 @@ public final class TaskProtocol {
      */
     public CallResult agentStarted(TaskCall call, SecurityAudit.Event event, int budget) {
         Objects.requireNonNull(event, "event");
-        var result = onLeasedTask(call, task -> {
+        return signal(call, OffTrackSignal.agentStarted(event.executable()), budget, event.at(), task -> {
             if (!event.generationId().equals(call.generationId()) || !event.queueTaskId().equals(call.queueTaskId())) {
                 throw new IllegalArgumentException("The detection names another worker or task than the call: " + event);
             }
             return new CallResult.Accepted(task);
+        }, task -> audit.agentStarted(event));
+    }
+
+    private CallResult signal(TaskCall call, OffTrackSignal signal, int budget, Instant at,
+            Function<QueueTaskRecord, CallResult> guard,
+            Consumer<QueueTaskRecord> acceptedAction) {
+        var recorded = onLeasedTask(call, task -> {
+            var guarded = guard.apply(task);
+            if (guarded instanceof CallResult.Refused) {
+                return guarded;
+            }
+            var attempt = task.currentAttempt().orElseThrow();
+            var alreadyHeld = task.signals().stream().anyMatch(existing -> existing.signal() == signal.signal()
+                    && existing.attempt() == attempt.attempt());
+            if (alreadyHeld) {
+                return new CallResult.Accepted(task);
+            }
+            var signals = new ArrayList<>(task.signals());
+            signals.add(new Signal(signal.signal(), attempt.attempt(), signal.action(), signal.measurement(),
+                    signal.threshold(), at));
+            var recordedTask = task.withSignals(signals);
+            if (signal.action() != SignalAction.RESTART && signal.action() != SignalAction.YIELD) {
+                return new CallResult.Accepted(recordedTask);
+            }
+            return new CallResult.Accepted(endAttempt(recordedTask, AttemptEnd.OFF_TRACK, budget, at));
         });
-        if (result instanceof CallResult.Refused) {
-            return result;
+        if (recorded instanceof CallResult.Accepted accepted) {
+            appendMissingSignalEntry(accepted.task(), signal, at);
+            acceptedAction.accept(accepted.task());
         }
-        var detected = offTrack(call, OffTrackSignal.agentStarted(event.executable()), budget, event.at());
-        if (detected instanceof CallResult.Accepted) {
-            audit.agentStarted(event);
-        }
-        return detected;
+        return recorded;
     }
 
     /**
@@ -513,7 +523,6 @@ public final class TaskProtocol {
     public List<String> fence(String generationId, Instant at) {
         Objects.requireNonNull(generationId, "generationId");
         Objects.requireNonNull(at, "at");
-        fences.fence(generationId, at);
         var freed = new AtomicReference<List<String>>(List.of());
         queue.updateAll(records -> {
             var ids = new ArrayList<String>();
@@ -530,7 +539,7 @@ public final class TaskProtocol {
             }
             freed.set(List.copyOf(ids));
             return after;
-        });
+        }, transaction -> fences.fence(transaction, generationId, at));
         skills.forget(generationId);
         return freed.get();
     }
@@ -573,7 +582,9 @@ public final class TaskProtocol {
             }
             var task = target.get();
             if (task.isClosed()) {
-                result.set(new CallResult.Refused(TaskRefusal.STALE_ENTITY, task));
+                var holder = task.currentAttempt().map(Attempt::generationId).orElse(null);
+                result.set(new CallResult.Refused(call.generationId().equals(holder)
+                        ? TaskRefusal.STALE_ENTITY : TaskRefusal.JOB_SCOPE_MISMATCH, task));
                 return records;
             }
             if (task.lease() == null || !task.lease().generationId().equals(call.generationId())) {
@@ -615,7 +626,7 @@ public final class TaskProtocol {
 
     private static QueueTaskRecord endAttempt(QueueTaskRecord task, AttemptEnd end, int budget, Instant at) {
         var endedTask = task.withAttempts(ended(task.attempts(), end, at)).withLease(null);
-        if (end.counts() && endedTask.spentReOffers() >= budget) {
+        if (end.counts() && endedTask.spentReOffers() > budget) {
             return settle(endedTask, Outcome.LOST, LostReason.ATTEMPTS_SPENT, at);
         }
         return requeue(endedTask);
@@ -646,17 +657,31 @@ public final class TaskProtocol {
         return after;
     }
 
-    private void appendSignalEntry(QueueTaskRecord task, OffTrackSignal signal, Instant at) {
-        var entries = journal.entries(task.queueTaskId());
-        var last = entries.isEmpty() ? 0 : entries.getLast().seq();
-        var entry = ActivityEntry.builder()
-                .seq(last + 1)
-                .attempt(task.currentAttempt().map(Attempt::attempt).orElse(1))
+    private void appendMissingSignalEntry(QueueTaskRecord task, OffTrackSignal signal, Instant at) {
+        if (journal == null) {
+            return;
+        }
+        var target = journal.journalFor(task.scope());
+        if (target == null) {
+            return;
+        }
+        var attempt = task.currentAttempt().map(Attempt::attempt).orElse(1);
+        var present = target.entries(task.queueTaskId()).stream().anyMatch(entry ->
+                entry.kind() == ActivityEntry.Kind.SIGNAL
+                        && entry.attempt() == attempt
+                        && entry.signal() != null
+                        && entry.signal().signal() == signal.signal()
+                        && entry.signal().action() == signal.action());
+        if (present) {
+            return;
+        }
+        target.appendNext(task.queueTaskId(), seq -> ActivityEntry.builder()
+                .seq(seq)
+                .attempt(attempt)
                 .source(ActivityEntry.Source.SERVER)
                 .kind(ActivityEntry.Kind.SIGNAL)
                 .signal(new ActivityEntry.Signal(signal.signal(), signal.action()))
                 .at(at)
-                .build();
-        journal.append(task.queueTaskId(), entry);
+                .build());
     }
 }

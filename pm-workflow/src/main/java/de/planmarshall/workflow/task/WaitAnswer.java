@@ -52,7 +52,8 @@ public sealed interface WaitAnswer permits WaitAnswer.Offered, WaitAnswer.WaitAg
     /**
      * The caller is to end.
      *
-     * @param reason why the worker ends: {@code fenced}, {@code recycled}, {@code drained} or {@code stopped}
+     * @param reason why the worker ends: {@code job_ended}, {@code fenced}, {@code recycled}, {@code drained} or
+     *               {@code stopped}
      * @since 0.1
      */
     record End(String reason) implements WaitAnswer {

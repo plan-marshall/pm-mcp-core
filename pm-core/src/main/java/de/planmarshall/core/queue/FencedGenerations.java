@@ -52,8 +52,9 @@ import de.planmarshall.core.store.StrictJson;
  * <p>
  * A generation is fenced when the supervisor ends its worker and, for every generation of a dead runtime instance, in
  * the project's recovery. The fence is persisted beside the queue so that a late call of a fenced generation is
- * refused after a restart, before any other check, and so that the fence and the release of the generation's lease are
- * written in the one transaction on the queue lock.
+ * refused after a restart, before the lease and every link check, and so that the fence and the release of the
+ * generation's lease are written in the one transaction on the queue lock: the task protocol passes its transaction to
+ * {@link #fence(LockTransaction, String, Instant)}.
  *
  * @since 0.1
  */
@@ -137,6 +138,23 @@ public final class FencedGenerations {
             transaction.acquire(lockKey);
             write(transaction, add(read(transaction), generationId, at));
         }
+    }
+
+    /**
+     * Fences a generation inside the caller's transaction, which holds the queue lock: the transaction that releases
+     * the generation's lease writes the fence in the same step.
+     *
+     * @param transaction  the caller's transaction
+     * @param generationId the generation
+     * @param at           the instant the generation was fenced
+     * @throws de.planmarshall.core.service.InternalFaultException if the transaction does not hold the queue lock
+     * @throws UncheckedIOException if the document cannot be read or written
+     */
+    public void fence(LockTransaction transaction, String generationId, Instant at) {
+        Objects.requireNonNull(transaction, "transaction");
+        Objects.requireNonNull(generationId, "generationId");
+        Objects.requireNonNull(at, "at");
+        write(transaction, add(read(transaction), generationId, at));
     }
 
     private List<Fence> read(LockTransaction transaction) {

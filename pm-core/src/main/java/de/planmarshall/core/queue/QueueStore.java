@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import de.planmarshall.core.service.InternalFaultException;
@@ -152,7 +153,27 @@ public final class QueueStore {
      * @throws InternalFaultException if the lock must not be acquired after the locks the transaction holds
      */
     public List<QueueTaskRecord> updateAll(Function<List<QueueTaskRecord>, List<QueueTaskRecord>> revision) {
+        return updateAll(revision, transaction -> {
+        });
+    }
+
+    /**
+     * Revises every record of the store in one transaction, under the queue lock, and lets a side effect share that
+     * transaction: the side effect runs while the lock is held, after the revision decided and before the first record
+     * is written, so a document of the same lock (the generation fence) is written in the transaction that changes the
+     * records.
+     *
+     * @param revision   what becomes of the records
+     * @param sideEffect a write of another document guarded by the same queue lock
+     * @return the records after the revision, in id order
+     * @throws StoreRefusal         if a record is in another format version or unreadable
+     * @throws UncheckedIOException if the queue or a record cannot be read or written
+     * @throws InternalFaultException if the lock must not be acquired after the locks the transaction holds
+     */
+    public List<QueueTaskRecord> updateAll(Function<List<QueueTaskRecord>, List<QueueTaskRecord>> revision,
+            Consumer<LockTransaction> sideEffect) {
         Objects.requireNonNull(revision, "revision");
+        Objects.requireNonNull(sideEffect, "sideEffect");
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(lockKey);
             var before = readAll();
@@ -170,6 +191,7 @@ public final class QueueStore {
                 }
             }
             after.forEach(QueueTaskRecord::validate);
+            sideEffect.accept(transaction);
             for (var index = 0; index < after.size(); index++) {
                 if (!after.get(index).equals(before.get(index))) {
                     write(transaction, after.get(index));

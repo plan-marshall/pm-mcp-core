@@ -34,8 +34,9 @@ double measurement, double threshold) {
     public OffTrackSignal {
         Objects.requireNonNull(signal, "signal");
         Objects.requireNonNull(action, "action");
-        if (measurement < 0 || threshold < 0) {
-            throw new IllegalArgumentException("A signal's measurement and threshold are not negative");
+        if (measurement < 0 || threshold < 0 || !Double.isFinite(measurement) || !Double.isFinite(threshold)) {
+            throw new IllegalArgumentException(
+                    "A signal's measurement and threshold are finite and not negative");
         }
         if (signal == QueueTaskRecord.SignalName.AGENT_STARTED
                 && action != QueueTaskRecord.SignalAction.RESTART) {

@@ -45,6 +45,17 @@ class ActivityJournalTest {
                 .build();
     }
 
+    private static ActivityEntry text(int seq) {
+        return ActivityEntry.builder()
+                .seq(seq)
+                .attempt(1)
+                .source(ActivityEntry.Source.HARNESS)
+                .kind(ActivityEntry.Kind.TEXT)
+                .text("line " + seq)
+                .at(QueueFixtures.AT)
+                .build();
+    }
+
     @Test
     @DisplayName("a plan's journal is plans/<plan_id>/tasks/activity/<queue_task_id>.jsonl")
     void planPath(@TempDir Path base) {
@@ -94,6 +105,33 @@ class ActivityJournalTest {
         journal.append(TASK, signal(1));
 
         assertThrows(IllegalArgumentException.class, () -> journal.append(TASK, signal(3)));
+    }
+
+    @Test
+    @DisplayName("an append beyond the bound rewrites the journal without its oldest text entries")
+    void compaction(@TempDir Path base) {
+        var journal = new ActivityJournal(base.resolve("journal"), new TestLocks(), 3);
+        journal.append(TASK, text(1));
+        journal.append(TASK, signal(2));
+        journal.append(TASK, text(3));
+
+        journal.append(TASK, text(4));
+
+        var entries = journal.entries(TASK);
+        assertAll(
+                () -> assertEquals(3, entries.size()),
+                () -> assertEquals(List.of(2, 3, 4), entries.stream().map(ActivityEntry::seq).toList()),
+                () -> assertEquals(ActivityEntry.Kind.SIGNAL, entries.getFirst().kind()));
+    }
+
+    @Test
+    @DisplayName("appendNext assigns the next sequence under the journal's lock")
+    void appendNext(@TempDir Path base) {
+        var journal = new ActivityJournal(base.resolve("journal"), new TestLocks(), 3);
+        journal.appendNext(TASK, seq -> text(seq));
+        journal.appendNext(TASK, seq -> text(seq));
+
+        assertEquals(List.of(1, 2), journal.entries(TASK).stream().map(ActivityEntry::seq).toList());
     }
 
     @Test

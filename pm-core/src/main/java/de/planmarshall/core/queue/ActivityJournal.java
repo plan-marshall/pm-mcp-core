@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.IntFunction;
 import java.util.regex.Pattern;
 
 import de.planmarshall.core.service.LockManager;
@@ -54,14 +55,28 @@ public final class ActivityJournal {
 
     private final Path directory;
     private final LockManager lockManager;
+    private final int maxEntries;
 
     /**
      * @param directory   the {@code tasks/activity/} directory of the scope
      * @param lockManager the lock manager of the runtime
      */
     public ActivityJournal(Path directory, LockManager lockManager) {
+        this(directory, lockManager, MAX_ENTRIES);
+    }
+
+    /**
+     * @param directory   the {@code tasks/activity/} directory of the scope
+     * @param lockManager the lock manager of the runtime
+     * @param maxEntries  the compiled bound of the journal's entries
+     */
+    ActivityJournal(Path directory, LockManager lockManager, int maxEntries) {
         this.directory = Objects.requireNonNull(directory, "directory").toAbsolutePath().normalize();
         this.lockManager = Objects.requireNonNull(lockManager, "lockManager");
+        if (maxEntries < 1) {
+            throw new IllegalArgumentException("The bound of a journal counts from 1: " + maxEntries);
+        }
+        this.maxEntries = maxEntries;
     }
 
     /**
@@ -128,6 +143,25 @@ public final class ActivityJournal {
      * @throws java.io.UncheckedIOException if the journal cannot be read or written
      */
     public void append(String queueTaskId, ActivityEntry entry) {
+        Objects.requireNonNull(entry, "entry");
+        appendNext(queueTaskId, expected -> {
+            if (entry.seq() != expected) {
+                throw new IllegalArgumentException(
+                        "The next entry of the journal has the seq %d, not %d".formatted(expected, entry.seq()));
+            }
+            return entry;
+        });
+    }
+
+    /**
+     * Appends one entry whose sequence the journal assigns under its leaf lock: the entry builder receives the sequence
+     * one above the last entry ever written, so two concurrent appends cannot compute the same sequence.
+     *
+     * @param queueTaskId the task whose journal receives the entry
+     * @param entry       builds the entry from its assigned sequence
+     * @throws java.io.UncheckedIOException if the journal cannot be read or written
+     */
+    public void appendNext(String queueTaskId, IntFunction<ActivityEntry> entry) {
         var file = journalPath(queueTaskId);
         Objects.requireNonNull(entry, "entry");
         var key = new LockKey(LockLevel.LEAF, file, queueTaskId);
@@ -135,18 +169,19 @@ public final class ActivityJournal {
             transaction.acquire(key);
             var current = Files.exists(file) ? read(file) : List.<ActivityEntry>of();
             var expected = current.isEmpty() ? 1 : current.getLast().seq() + 1;
-            if (entry.seq() != expected) {
+            var built = Objects.requireNonNull(entry.apply(expected), "entry");
+            if (built.seq() != expected) {
                 throw new IllegalArgumentException(
-                        "The next entry of the journal has the seq %d, not %d".formatted(expected, entry.seq()));
+                        "The next entry of the journal has the seq %d, not %d".formatted(expected, built.seq()));
             }
             Files.createDirectories(file.getParent());
             truncateTornTail(file);
             var entries = new ArrayList<>(current);
-            entries.add(entry);
-            if (entries.size() > MAX_ENTRIES) {
+            entries.add(built);
+            if (entries.size() > maxEntries) {
                 rewrite(file, compact(entries));
             } else {
-                appendLine(file, ActivityEntryCodec.write(entry));
+                appendLine(file, ActivityEntryCodec.write(built));
             }
         } catch (IOException e) {
             throw new UncheckedIOException("Activity journal cannot be written: " + file, e);
@@ -182,8 +217,8 @@ public final class ActivityJournal {
         return entries;
     }
 
-    private static List<ActivityEntry> compact(List<ActivityEntry> entries) {
-        var excess = entries.size() - MAX_ENTRIES;
+    private List<ActivityEntry> compact(List<ActivityEntry> entries) {
+        var excess = entries.size() - maxEntries;
         var kept = new ArrayList<ActivityEntry>();
         for (var entry : entries) {
             if (excess > 0 && entry.kind() == ActivityEntry.Kind.TEXT) {

@@ -15,13 +15,16 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
-
+import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.planmarshall.core.queue.ActivityEntry;
+import de.planmarshall.core.queue.ActivityJournal;
 import de.planmarshall.core.queue.QueueStore;
 import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.queue.QueueTaskRecord.AttemptEnd;
@@ -210,13 +213,65 @@ class TaskProtocolReOfferTest {
     }
 
     @Test
+    @DisplayName("a pause clears the continuation of a held task")
+    void pauseClearsContinuation(@TempDir Path base) {
+        var locks = new TestLocks();
+        var queue = QueueStore.ofProject(base, "project-a", locks);
+        queue.create(TaskFixtures.queued("qt-0000000000000001", TaskFixtures.ROLE).build());
+        var protocol = TaskProtocol.builder(queue, locks).build();
+        var offered = TaskFixtures.task(protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION),
+                TaskFixtures.AT));
+        protocol.acknowledge(TaskFixtures.call(offered), TaskFixtures.AT.plusSeconds(1));
+        protocol.suspend(TaskFixtures.call(offered), TaskFixtures.continuation(), TaskFixtures.AT.plusSeconds(2));
+        var suspended = queue.read("qt-0000000000000001").orElseThrow()
+                .withStatus(QueueTaskRecord.Status.AWAITING_ANSWER)
+                .withLease(new QueueTaskRecord.Lease(TaskFixtures.GENERATION, TaskFixtures.GENERATION,
+                        TaskFixtures.AT.plusSeconds(1), TaskFixtures.AT.plusSeconds(1)));
+        queue.updateAll(records -> List.of(suspended));
+
+        protocol.pausePlan(TaskFixtures.PLAN, TaskFixtures.AT.plusSeconds(3));
+
+        var after = queue.read("qt-0000000000000001").orElseThrow();
+        assertAll(
+                () -> assertEquals(QueueTaskRecord.Status.QUEUED, after.status()),
+                () -> assertNull(after.continuation()));
+    }
+
+    @Test
+    @DisplayName("a signal is journalled in the journal of the task's scope")
+    void signalJournalPerScope(@TempDir Path base) {
+        var locks = new TestLocks();
+        var queue = QueueStore.ofProject(base, "project-a", locks);
+        queue.create(TaskFixtures.queued("qt-0000000000000001", TaskFixtures.ROLE).build());
+        var protocol = TaskProtocol.builder(queue, locks)
+                .journal(scope -> ActivityJournal.ofScope(base, "project-a", scope, locks))
+                .build();
+        var offered = TaskFixtures.task(protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION),
+                TaskFixtures.AT));
+        protocol.acknowledge(TaskFixtures.call(offered), TaskFixtures.AT.plusSeconds(1));
+
+        protocol.offTrack(TaskFixtures.call(offered),
+                new OffTrackSignal(QueueTaskRecord.SignalName.NO_PROGRESS, SignalAction.SHOW, 7, 5), 3,
+                TaskFixtures.AT.plusSeconds(2));
+
+        var journal = ActivityJournal.ofScope(base, "project-a",
+                TaskFixtures.planScope(), locks);
+        var entries = journal.entries("qt-0000000000000001");
+        assertAll(
+                () -> assertEquals(1, entries.size()),
+                () -> assertEquals(ActivityEntry.Kind.SIGNAL, entries.getFirst().kind()),
+                () -> assertTrue(Files.exists(base.resolve(
+                        "projects/project-a/plans/plan-a/tasks/activity/qt-0000000000000001.jsonl"))));
+    }
+
+    @Test
     @DisplayName("a task whose next attempt exhausts the budget closes lost attempts_spent")
     void budgetSpent(@TempDir Path base) {
         var harness = harness(base);
         var call = acknowledged(harness);
 
         var reported = assertInstanceOf(CallResult.Accepted.class,
-                harness.protocol().report(call, AttemptEnd.WORKER_LOST, 1, TaskFixtures.AT.plusSeconds(2)));
+                harness.protocol().report(call, AttemptEnd.WORKER_LOST, 0, TaskFixtures.AT.plusSeconds(2)));
 
         assertAll(
                 () -> assertEquals(Status.CLOSED, reported.task().status()),

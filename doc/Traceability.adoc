@@ -1545,9 +1545,10 @@ link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-2[PM-WORK-2
 
 Implementation (the queue task record, the queue of a project below `projects/<project_id>/queue/` and of the machine
 below `machine/queue/`, the persisted generation fence, the activity journal of a task, and the protocol that offers,
-acknowledges, leases, fences, settles (`submitted`, `infeasible`, `lost`, `asked`), re-offers, records the off-track
-signals with their `security` audit record and delivers skills; the runtime that serves a task to a harness worker, the
-worker launch, the `worker-task` unit of the assembly and the MCP tools are not wired here): link:../pm-core/src/main/java/de/planmarshall/core/queue/QueueTaskRecord.java[QueueTaskRecord],
+acknowledges, leases, fences, settles `submitted` and `infeasible`, closes `lost`, re-offers, records the off-track
+signals with their `security` audit record and delivers skills; the outcome `asked`, the `awaiting_answer` and
+`suspended` behaviour and the continuation are `question-continuation`'s, and the runtime that serves a task to a
+harness worker, the worker launch, the `worker-task` unit of the assembly and the MCP tools are not wired here): link:../pm-core/src/main/java/de/planmarshall/core/queue/QueueTaskRecord.java[QueueTaskRecord],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/QueueTaskRecordCodec.java[QueueTaskRecordCodec],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/QueueStore.java[QueueStore],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/FencedGenerations.java[FencedGenerations],

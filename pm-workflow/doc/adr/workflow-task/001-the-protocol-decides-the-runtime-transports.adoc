@@ -37,7 +37,8 @@ as a new attempt.
 
 == Consequences
 
-* The protocol is testable without a clock or a thread, and every transition is one transaction.
+* The protocol is testable without a clock or a thread, and every transition is one transaction (the fence document
+  shares it; the audit record and the activity journal follow it, as other stores).
 * The transport must answer a superseded wait `wait_again` at once; the lease rule ("a generation holds at most one
   lease") is what keeps a leased task from a second wait of the same generation.
 * A worker that waits again while it holds an acknowledged task gets the task again as a new attempt; the attempt it

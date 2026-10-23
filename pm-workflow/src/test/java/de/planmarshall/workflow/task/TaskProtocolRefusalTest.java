@@ -61,6 +61,33 @@ class TaskProtocolRefusalTest {
     }
 
     @Test
+    @DisplayName("a wait of a generation whose job ended is answered end")
+    void waitJobEnded(@TempDir Path base) {
+        var harness = harness(base, builder -> builder.jobState(
+                generation -> TaskFixtures.GENERATION.equals(generation)));
+
+        var answer = harness.protocol().wait(TaskFixtures.waitFor(TaskFixtures.GENERATION), TaskFixtures.AT);
+
+        assertEquals(new WaitAnswer.End("job_ended"), answer);
+    }
+
+    @Test
+    @DisplayName("a held task of a paused plan is re-offered to no worker")
+    void heldTaskOfPausedPlan(@TempDir Path base) {
+        var paused = new TaskFixtures.Paused();
+        var harness = harness(base, builder -> builder.pause(paused));
+        var call = acknowledged(harness);
+
+        paused.pause(TaskFixtures.PLAN);
+        var answer = harness.protocol().wait(TaskFixtures.waitFor(TaskFixtures.GENERATION),
+                TaskFixtures.AT.plusSeconds(2));
+
+        assertAll(
+                () -> assertEquals(new WaitAnswer.WaitAgain("paused"), answer),
+                () -> assertEquals(1, harness.queue().read(call.queueTaskId()).orElseThrow().attempts().size()));
+    }
+
+    @Test
     @DisplayName("a call after the worker's job ended is refused job_ended, before the lease")
     void jobEnded(@TempDir Path base) {
         var harness = harness(base, builder -> builder.jobState(

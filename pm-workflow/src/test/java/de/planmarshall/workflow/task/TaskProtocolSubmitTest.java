@@ -211,11 +211,11 @@ class TaskProtocolSubmitTest {
         var protocol = protocol(queue, locks);
         var call = TaskFixtures.call(TaskFixtures.task(
                 protocol.wait(new WaitRequest(TaskFixtures.GENERATION, TaskFixtures.ROLE, TaskFixtures.DIGEST,
-                        TaskFixtures.DIGEST, 1), TaskFixtures.AT)));
+                        TaskFixtures.DIGEST, 0), TaskFixtures.AT)));
         protocol.acknowledge(call, TaskFixtures.AT.plusSeconds(1));
 
         var reported = assertInstanceOf(CallResult.Accepted.class,
-                protocol.report(call, AttemptEnd.WORKER_LOST, 1, TaskFixtures.AT.plusSeconds(2)));
+                protocol.report(call, AttemptEnd.WORKER_LOST, 0, TaskFixtures.AT.plusSeconds(2)));
 
         assertAll(
                 () -> assertEquals(Status.CLOSED, reported.task().status()),

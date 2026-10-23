@@ -133,6 +133,24 @@ class QueueStoreTest {
         }
 
         @Test
+        @DisplayName("updateAll refuses an invalid revision before it writes anything")
+        void updateAllRefusesInvalidRecord(@TempDir Path base) {
+            var store = QueueStore.ofProject(base, "project-a", new TestLocks());
+            var first = QueueFixtures.queued("qt-0000000000000001").build();
+            var second = QueueFixtures.queued("qt-0000000000000002").build();
+            store.create(first);
+            store.create(second);
+
+            assertThrows(IllegalArgumentException.class, () -> store.updateAll(records -> List.of(
+                    records.getFirst().withStatus(QueueTaskRecord.Status.CLOSED),
+                    records.getLast().withRole("reviewer"))));
+            assertAll(
+                    () -> assertEquals(QueueTaskRecord.Status.QUEUED,
+                            store.read(first.queueTaskId()).orElseThrow().status()),
+                    () -> assertEquals("writer", store.read(second.queueTaskId()).orElseThrow().role()));
+        }
+
+        @Test
         @DisplayName("updateAll refuses a revision that drops or renames a record")
         void updateAllRefusesAnotherSet(@TempDir Path base) {
             var store = QueueStore.ofProject(base, "project-a", new TestLocks());

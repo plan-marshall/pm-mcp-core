@@ -16,10 +16,10 @@ link:../../../doc/specification/store-schemas/16-task-queue.adoc[Store Schemas Â
 
 `TaskProtocol`::
 The protocol of one queue. Every transition decides and writes inside one `QueueStore.updateAll` transaction on the
-queue lock; the fence document is read inside that transaction, and the audit and the activity journal are written
-around it, because they are other stores. Its collaborators are ports with a default: the fence store, `PlanPause`
+queue lock, and the generation fence is written in that same transaction; the audit record and the activity journal are
+separate stores and follow it. Its collaborators are ports with a default: the fence store, `PlanPause`
 (whether a plan is paused, read as a lock-free snapshot), `JobState` (whether a generation's job ended), `SkillDelivery`
-(what each generation received), `SecurityAudit` (the `agent_started` audit) and an optional `ActivityJournal`.
+(what each generation received), `SecurityAudit` (the `agent_started` audit) and an optional `JournalProvider`.
 It decides; the runtime transports (link:../adr/workflow-task/001-the-protocol-decides-the-runtime-transports.adoc[ADR
 001]).
 
