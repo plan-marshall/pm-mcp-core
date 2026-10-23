@@ -179,6 +179,11 @@ public final class JGitOperations implements GitOperations {
         if (resolved.refusal() != null) {
             return resolved.refusal();
         }
+        if (branchRef.isPresent() && !input.createBranch() && GitIdentity.isFullCommitId(input.startPoint())
+                && !resolved.id().name().equals(input.startPoint())) {
+            return GitResult.of(GitOutcome.GIT_IDENTITY_MISMATCH,
+                    input.branch().orElseThrow() + " is at " + resolved.id().name() + ", not " + input.startPoint());
+        }
         ObjectId start = resolved.id();
         Files.createDirectories(target);
         Path admin = LinkedWorktrees.create(commonDir, target, branchRef.orElse(start.name()));
@@ -222,9 +227,20 @@ public final class JGitOperations implements GitOperations {
 
     private static StartPoint newStart(Repository main, WorktreeAddInput input, Optional<String> branchRef)
             throws IOException {
+        var resolution = GitIdentity.resolution(main, input.startPoint());
+        if (GitIdentity.isAmbiguous(resolution)) {
+            return StartPoint.refused(GitOutcome.GIT_IDENTITY_AMBIGUOUS, input.startPoint());
+        }
+        if (resolution == GitIdentity.Resolution.ABBREVIATED_COMMIT_ID) {
+            return StartPoint.refused(GitOutcome.UNKNOWN_REVISION, "abbreviated commit id: " + input.startPoint());
+        }
         ObjectId start = main.resolve(input.startPoint() + "^{commit}");
         if (start == null) {
             return StartPoint.refused(GitOutcome.UNKNOWN_REVISION, input.startPoint());
+        }
+        if (resolution == GitIdentity.Resolution.FULL_COMMIT_ID && !start.name().equals(input.startPoint())) {
+            return StartPoint.refused(GitOutcome.GIT_IDENTITY_MISMATCH,
+                    "the pin " + input.startPoint() + " reached " + start.name());
         }
         if (branchRef.isPresent()) {
             if (main.exactRef(branchRef.get()) != null) {
@@ -340,6 +356,13 @@ public final class JGitOperations implements GitOperations {
     @Override
     public GitResult<List<CommitInfo>> log(Path root, String revision, int maxCount) {
         try (Repository repository = openRepository(root); RevWalk walk = new RevWalk(repository)) {
+            var resolution = GitIdentity.resolution(repository, revision);
+            if (GitIdentity.isAmbiguous(resolution)) {
+                return GitResult.of(GitOutcome.GIT_IDENTITY_AMBIGUOUS, revision);
+            }
+            if (resolution == GitIdentity.Resolution.ABBREVIATED_COMMIT_ID) {
+                return GitResult.of(GitOutcome.UNKNOWN_REVISION, "abbreviated commit id: " + revision);
+            }
             ObjectId start = repository.resolve(revision + "^{commit}");
             if (start == null) {
                 return GitResult.of(GitOutcome.UNKNOWN_REVISION, revision);

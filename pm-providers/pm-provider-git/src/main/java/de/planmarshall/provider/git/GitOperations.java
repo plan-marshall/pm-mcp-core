@@ -47,7 +47,8 @@ public interface GitOperations {
      *
      * @param input the input
      * @return {@code OK}, {@code ALREADY_EXISTS}, {@code BRANCH_CHECKED_OUT}, {@code UNKNOWN_REVISION},
-     *         {@code PATH_REFUSED}, {@code CAPABILITY_MISSING}, {@code NOT_A_REPOSITORY} or {@code FAILED}
+     *         {@code GIT_IDENTITY_AMBIGUOUS}, {@code GIT_IDENTITY_MISMATCH}, {@code PATH_REFUSED},
+     *         {@code CAPABILITY_MISSING}, {@code NOT_A_REPOSITORY} or {@code FAILED}
      */
     GitResult<Worktree> worktreeAdd(WorktreeAddInput input);
 
@@ -85,7 +86,8 @@ public interface GitOperations {
      * @param root     the worktree root
      * @param revision the start revision, e.g. {@code HEAD}
      * @param maxCount the maximum number of commits, at least 1
-     * @return {@code OK}, {@code UNKNOWN_REVISION}, {@code NOT_A_REPOSITORY} or {@code FAILED}
+     * @return {@code OK}, {@code UNKNOWN_REVISION}, {@code GIT_IDENTITY_AMBIGUOUS}, {@code NOT_A_REPOSITORY} or
+     *         {@code FAILED}
      */
     GitResult<List<CommitInfo>> log(Path root, String revision, int maxCount);
 

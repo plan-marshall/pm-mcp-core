@@ -45,6 +45,10 @@ public enum GitOutcome {
     WORKTREE_DIRTY,
     /** {@code worktree-remove}: the worktree is locked. */
     WORKTREE_LOCKED,
+    /** {@code worktree-add} / {@code log}: a revision names both a ref and an object id, or two refs. */
+    GIT_IDENTITY_AMBIGUOUS,
+    /** The commit an operation reached differs from the pinned commit it was meant to reach. */
+    GIT_IDENTITY_MISMATCH,
     /** A derived path lies outside the permitted root or is the main worktree. */
     PATH_REFUSED,
     /**
