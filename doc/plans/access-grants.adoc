@@ -4,7 +4,7 @@
 link:README.adoc[Work packages of `pm-mcp-core`] » `access-grants`
 
 [horizontal]
-Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 9 (the items _Implement cross-project access through the operator grant `pm-operator grant-access`_ and _Implement the organisation and foreign-repository reads of the CI provider contract … each gated by the operator's cross-project grant_); a grant for the issue or pull request of another repository named as a source of a start
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 9 (the items _Implement cross-project access through the operator grant `pm-operator grant-access`_ and _Implement the organisation and foreign-repository reads of the CI provider contract … each gated by the operator's cross-project grant_)
 Where:: pm-core package `core.store` (the `AccessGrantRecord` codec and the scope and project `grants.jsonl` stores with their digest sidecar); pm-runtime package `runtime.workspace` (the grant check in front of an access outside the project); pm-workflow package `workflow.engine` (the `precondition_unmet` condition `grant_missing` and its hold)
 Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
