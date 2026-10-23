@@ -37,10 +37,10 @@ session id, and the caller neither starts nor resumes a worker.
 The required class travels with the **use**, not with the entity-kind record: `RoleUse` holds the state, the role and the
 set of classes its use admits, with compiled factories for a model state (`RoleUse.forModelJob`) and a consultation
 (`RoleUse.forConsultation`). The compiled table names the shipped kinds — `screen` and the judge's `zero_tool` are
-`zero_tool`; `envelope`, `task`, `remediation-fix`, `commit-fix`, `simplify-apply` and `conflict` are `writer`; `vote` is
-`read_only` or `zero_tool`; every other kind requires `read_only`. The vote kind's `zero_tool` admission is the kind's;
-whether the endpoint's protocol (`system_one`) permits it belongs to the judgment-vote package, which owns the endpoint
-profiles. `RoleComposition` resolves each use and refuses with `CompositionRefusal`. The same class set is applied at task
+`zero_tool`; `envelope`, `task`, `remediation-fix`, `commit-fix`, `simplify-apply` and `conflict` are `writer`; `vote`
+and the kind registry's `decision` are `read_only` or `zero_tool`; every other kind requires `read_only`. The vote kind's
+`zero_tool` admission is the kind's; whether the endpoint's protocol (`system_one`) permits it belongs to the judgment-vote
+package, which owns the endpoint profiles. `RoleComposition` resolves each use and refuses with `CompositionRefusal`. The same class set is applied at task
 creation (`ModelJob.accepts`), so an artifact edit that changes a role's class closes the task with `class_mismatch`.
 
 == Alternatives Considered

@@ -20,11 +20,12 @@ import de.planmarshall.core.role.RoleClass;
  * A model state names a role for an entity kind; the kind decides the class the role's tasks require. The compiled table
  * of {@link #classesOf} names the shipped kinds: the screener's `screen` and the judge's grading kind `zero_tool` are
  * {@code zero_tool}; `envelope`, `remediation-fix`, `commit-fix`, `simplify-apply`, `conflict` and the pre-existing
- * `task` kind are {@code writer}; the vote kind admits {@code read_only}, or {@code zero_tool} for a judgment role on a
- * {@code system_one} endpoint of the protocol — the endpoint's protocol is checked by the judgment-vote package, which
- * owns the endpoint profiles; every other kind requires {@code read_only}, the class of the planning, review and triage
- * kinds. A consultation clause admits every class but {@code zero_tool}. A unit that registers a writer kind of its own
- * passes its class set to {@link #RoleUse} directly; the compiled table covers the shipped kinds only.
+ * `task` kind are {@code writer}; the vote kind — `vote`, and the kind registry's `decision` — admits {@code read_only},
+ * or {@code zero_tool} for a judgment role on a {@code system_one} endpoint of the protocol — the endpoint's protocol is
+ * checked by the judgment-vote package, which owns the endpoint profiles; every other kind requires {@code read_only},
+ * the class of the planning, review and triage kinds. A consultation clause admits every class but {@code zero_tool}. A
+ * unit that registers a writer kind of its own passes its class set to {@link #RoleUse} directly; the compiled table
+ * covers the shipped kinds only.
  *
  * @param stateId         the state that names the role
  * @param role            the role name
@@ -69,7 +70,7 @@ public record RoleUse(String stateId, String role, Set<RoleClass> acceptedClasse
             case "screen", "zero_tool" -> Set.of(RoleClass.ZERO_TOOL);
             case "envelope", "task", "remediation-fix", "commit-fix", "simplify-apply", "conflict" ->
                     Set.of(RoleClass.WRITER);
-            case "vote" -> Set.of(RoleClass.READ_ONLY, RoleClass.ZERO_TOOL);
+            case "vote", "decision" -> Set.of(RoleClass.READ_ONLY, RoleClass.ZERO_TOOL);
             default -> Set.of(RoleClass.READ_ONLY);
         };
     }

@@ -33,9 +33,9 @@ link:https://github.com/plan-marshall/pm-mcp-core/blob/main/pm-core/doc/develope
   absent or invalid role closes the task with `role_undefined`, naming the validation reason where there is one.
 . *Class fit*: the entity kind decides the class the task requires. `RoleUse.classesOf` maps the screener's `screen` and
   the judge's grading kind `zero_tool` to `zero_tool`; `envelope`, `task`, `remediation-fix`, `commit-fix`,
-  `simplify-apply` and `conflict` to `writer`; `vote` to `read_only` or `zero_tool`; and every other kind to
-  `read_only`, the class of the planning, review and triage kinds. A consultation admits every class but `zero_tool`. A
-  mismatch, or a consulted `zero_tool` role, closes the task with `class_mismatch`.
+  `simplify-apply` and `conflict` to `writer`; `vote` and the registry's `decision` to `read_only` or `zero_tool`; and
+  every other kind to `read_only`, the class of the planning, review and triage kinds. A consultation admits every class
+  but `zero_tool`. A mismatch, or a consulted `zero_tool` role, closes the task with `class_mismatch`.
 . *Qualify*: a lookup by the role's qualification digest. Without a record the task closes with `role_unqualified`; a
   warm artifact that only qualifies fresh runs fresh and the result carries `formDowngraded`. The `judge` and the
   `steward` skip this step.

@@ -36,10 +36,10 @@ Specification (the sections this package was built against): `model-work/01-role
 `client-profiles/01-profile-schema.adoc#role-classes`,
 `store-schemas/12-machine-stores.adoc#model-catalogue` and `#role-assignments-store`,
 `workflow-dsl/09-plan-instance.adoc#plan-overrides`. The package's pull request does not delete those specification
-sections or their watch items: other specification parts link about sixty anchors into them, and `model-work/01` still
-carries the escalation assignment, the shipped role content and the qualification text that this package does not
-implement, so the deletion belongs to the packages that complete the document. The package's own file and its index row
-are removed.
+sections or their watch items: other specification parts link to them from more than a hundred places, and
+`model-work/01` still carries the escalation assignment, the shipped role content and the qualification text that this
+package does not implement, so the deletion belongs to the packages that complete the document. The package's own file
+and its index row are removed.
 
 == The Three Sets
 
@@ -181,9 +181,11 @@ value broke a rule, and a detail. `RoleCatalog` turns a refusal into `RoleResolu
 == Tests
 
 `RoleArtifactValidatorTest` (the closed schema, every `schema_invalid` case), `RoleSetLoaderTest` (whole-artifact
-precedence, the invalid higher artifact, the name check), `RoleValidationTableTest` (the table row by row, the reason set
-and the steward control), `RoleEffectiveConfigurationTest` (the levels, the fresh read, the steward, the catalogue
-precedence), `RoleDigestTest` (the digest table), `ShippedRolesTest` (the classpath reader and the reserved file).
+precedence, the invalid higher artifact, the name check, the superseded refusal), `RoleValidationTableTest` (the table row
+by row, the reason set and the steward control), `RoleEffectiveConfigurationTest` (the levels, the fresh read, the
+steward, the catalogue precedence), `RoleDigestTest` (the digest table), `EffectiveRoleFactsTest` (the resumability cut,
+the context-budget and idle fallbacks, the off-track defaults), `ShippedRolesTest` (the classpath reader and the reserved
+file).
 
 == Related
 

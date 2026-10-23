@@ -58,6 +58,20 @@ class EffectiveRoleFactsTest {
     }
 
     @Test
+    @DisplayName("an artifact bound below the harness maximum keeps its own value")
+    void questionsBelowHarnessMax() {
+        var artifact = RoleFixtures.valid()
+                .set("/questions", map("hold_seconds", 120, "resume_within_seconds", 60)).artifact();
+        var profile = profile(new HarnessProfile.Resumability(true, 300, true, 600), 400_000, 3);
+
+        var role = role(artifact, profile);
+
+        assertAll(
+                () -> assertEquals(120, role.questions().holdSeconds(), "the artifact's hold wins"),
+                () -> assertEquals(60, role.questions().resumeWithinSeconds(), "the artifact's resume wins"));
+    }
+
+    @Test
     @DisplayName("the context budget falls back to the harness and then to the compiled value")
     void contextBudgetFallsBack() {
         var artifact = RoleFixtures.valid().artifact();

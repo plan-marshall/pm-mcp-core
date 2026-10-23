@@ -65,6 +65,14 @@ class RoleCompositionTest {
     }
 
     @Test
+    @DisplayName("a zero_tool role composes on the decision kind as a judgment role")
+    void zeroToolOnDecisionComposes() {
+        var composition = composition(Map.of("judge", role(RoleClass.ZERO_TOOL, RoleForm.FRESH)));
+
+        assertDoesNotThrow(() -> composition.check(List.of(RoleUse.forModelJob(STATE, "decision", "judge"))));
+    }
+
+    @Test
     @DisplayName("a writer role on the decision kind is class_mismatch")
     void writerOnDecisionMismatches() {
         var composition = composition(Map.of("implement", role(RoleClass.WRITER, RoleForm.FRESH)));
@@ -74,7 +82,7 @@ class RoleCompositionTest {
 
         assertAll(
                 () -> assertEquals(CompositionRefusal.Reason.CLASS_MISMATCH, refusal.reason()),
-                () -> assertEquals(Set.of(RoleClass.READ_ONLY), refusal.requiredClasses()));
+                () -> assertEquals(Set.of(RoleClass.READ_ONLY, RoleClass.ZERO_TOOL), refusal.requiredClasses()));
     }
 
     @Test
