@@ -11,13 +11,14 @@ package de.planmarshall.core.role;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -211,7 +212,7 @@ class RoleEffectiveConfigurationTest {
                 .resolve("review-code", RoleAssignment.none());
 
         assertAll(
-                () -> assertTrue(resolution instanceof RoleResolution.Undefined),
+                () -> assertInstanceOf(RoleResolution.Undefined.class, resolution),
                 () -> assertEquals(Optional.empty(), ((RoleResolution.Undefined) resolution).reason()));
     }
 
@@ -289,7 +290,7 @@ class RoleEffectiveConfigurationTest {
                 .set("/description", "The machine's advisor.")
                 .set("/harness", "other-harness")
                 .set("/model", "other-model")
-                .set("/skills", java.util.List.of("skill://pm/role/steward/SKILL.md"))
+                .set("/skills", List.of("skill://pm/role/steward/SKILL.md"))
                 .bytes();
     }
 
@@ -303,12 +304,12 @@ class RoleEffectiveConfigurationTest {
     }
 
     private static EffectiveRole defined(RoleResolution resolution) {
-        assertTrue(resolution instanceof RoleResolution.Defined, resolution::toString);
+        assertInstanceOf(RoleResolution.Defined.class, resolution, resolution::toString);
         return ((RoleResolution.Defined) resolution).role();
     }
 
     private static RoleValidationReason definedRisky(RoleResolution resolution) {
-        assertTrue(resolution instanceof RoleResolution.Undefined, resolution::toString);
+        assertInstanceOf(RoleResolution.Undefined.class, resolution, resolution::toString);
         return ((RoleResolution.Undefined) resolution).reason().orElseThrow();
     }
 

@@ -93,7 +93,7 @@ public final class CompositionRefusal extends RuntimeException {
         var required = requiredClasses.stream().map(RoleClass::wireName).sorted().toList();
         return new CompositionRefusal(Reason.CLASS_MISMATCH, role, stateId, roleClass, Set.copyOf(requiredClasses),
                 Optional.empty(), "the role is %s, the use requires %s"
-                        .formatted(roleClass == null ? "of no class" : roleClass.wireName(), required));
+                .formatted(roleClass == null ? "of no class" : roleClass.wireName(), required));
     }
 
     /** @return why the composition was refused */
