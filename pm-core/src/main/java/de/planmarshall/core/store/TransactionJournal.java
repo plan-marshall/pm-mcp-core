@@ -45,14 +45,15 @@ import de.planmarshall.core.service.AuditEvent;
  * The transaction journal of a scope (PM-IMPL-7, PM-IMPL-2): the document that a transaction writes and syncs before
  * it touches a store, and from which a recovery rolls an interrupted transaction forward.
  * <p>
- * The document is {@code {"format_version": 3, "transaction_id", "scope_type", "scope_id", "created_at",
+ * The document is {@code {"format_version": 1, "transaction_id", "scope_type", "scope_id", "created_at",
  * "targets": [<target>], "owed_events": [<owed event>]}}. A {@code replace} or {@code append} target is
  * {@code {"path", "mode", "staged_path", "size_before", "new_size", "new_sha256"}}; a {@code delete} target is
  * {@code {"path", "mode"}} alone, since it stages no file and leaves no store to record a digest for. An owed event is
  * the audit record the transaction hands over once its targets are applied ({@link OwedAuditEvents}). The journal is
  * the durable intent of these records: it is deleted only after the sink accepted them, and a recovery hands them over
- * again otherwise. Version 1 had no owed events and version 2 no delete target; both are refused as outdated. The
- * paths are relative to the path base of the scope ({@link JournalScope}). A journal lists at least one target, and an
+ * again otherwise. The journal has one shape, format version 1, which carries an owed event and a delete target as
+ * described here; a journal of another version is refused as outdated or newer. The paths are relative to the path
+ * base of the scope ({@link JournalScope}). A journal lists at least one target, and an
  * {@code append} target always carries the size of its store before the append: it is the point a recovery cuts the
  * store back to before it appends the staged block again, so a torn append is never applied twice.
  * <p>
@@ -74,7 +75,7 @@ public record TransactionJournal(TransactionId transactionId, JournalScopeType s
 Instant createdAt, List<Target> targets, List<AuditEvent> owedEvents) {
 
     /** The format version of a transaction journal that is read and written. */
-    public static final int FORMAT_VERSION = 3;
+    public static final int FORMAT_VERSION = 1;
 
     private static final String FIELD_TRANSACTION_ID = "transaction_id";
     private static final String FIELD_SCOPE_TYPE = "scope_type";
