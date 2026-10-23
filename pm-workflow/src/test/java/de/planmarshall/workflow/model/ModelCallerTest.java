@@ -12,10 +12,13 @@ package de.planmarshall.workflow.model;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 import java.util.Optional;
+
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -157,7 +160,7 @@ class ModelCallerTest {
         var result = fixtures.caller.call(job("decision", "architecture", true));
 
         assertAll(
-                () -> assertTrue(result instanceof ModelCallResult.Queued),
+                () -> assertInstanceOf(ModelCallResult.Queued.class, result),
                 () -> assertTrue(fixtures.queue.enqueued().getFirst().consultation()));
     }
 
@@ -189,7 +192,7 @@ class ModelCallerTest {
             var result = fixtures.caller.call(job("zero_tool", JUDGE, false));
 
             assertAll(
-                    () -> assertTrue(result instanceof ModelCallResult.Queued),
+                    () -> assertInstanceOf(ModelCallResult.Queued.class, result),
                     () -> assertTrue(fixtures.qualifications.looked().isEmpty(), "Qualify must be skipped"));
         }
 
@@ -205,7 +208,7 @@ class ModelCallerTest {
             var result = fixtures.caller.call(job("decision", STEWARD, false));
 
             assertAll(
-                    () -> assertTrue(result instanceof ModelCallResult.Queued),
+                    () -> assertInstanceOf(ModelCallResult.Queued.class, result),
                     () -> assertTrue(fixtures.qualifications.looked().isEmpty(), "Qualify must be skipped"),
                     () -> assertEquals("machine-harness", fixtures.queue.enqueued().getFirst().harness()),
                     () -> assertEquals("machine-standard", fixtures.queue.enqueued().getFirst().model()));

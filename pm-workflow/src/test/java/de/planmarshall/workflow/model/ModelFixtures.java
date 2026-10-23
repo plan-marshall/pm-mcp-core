@@ -11,6 +11,7 @@ package de.planmarshall.workflow.model;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -134,7 +135,7 @@ final class ModelFixtures {
     /** The availability guard of the tests. */
     static final class Guard implements AvailabilityGuard {
 
-        private final Set<String> held = new java.util.HashSet<>();
+        private final Set<String> held = new HashSet<>();
 
         Guard holds(String role) {
             held.add(role);

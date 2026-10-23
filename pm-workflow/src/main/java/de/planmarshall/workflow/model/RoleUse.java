@@ -76,7 +76,7 @@ public record RoleUse(String stateId, String role, Set<RoleClass> acceptedClasse
         return switch (entityKind) {
             case "screen", "zero_tool" -> Set.of(RoleClass.ZERO_TOOL);
             case "envelope", "task", "remediation-fix", "commit-fix", "simplify-apply", "conflict" ->
-                    Set.of(RoleClass.WRITER);
+                Set.of(RoleClass.WRITER);
             case "vote", "decision" -> Set.of(RoleClass.READ_ONLY, RoleClass.ZERO_TOOL);
             default -> Set.of(RoleClass.READ_ONLY);
         };
