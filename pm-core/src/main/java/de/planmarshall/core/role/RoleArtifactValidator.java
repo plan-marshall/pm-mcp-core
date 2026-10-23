@@ -178,7 +178,7 @@ public final class RoleArtifactValidator {
             if (!node.isString()) {
                 throw invalid("/effort", "an effort is a string or null");
             }
-            return new EffortValue(string(node, "/effort", "effort", 64));
+            return new EffortValue(text(node, "/effort", "effort", Integer.MAX_VALUE));
         }
 
         private RoleForm form(JsonNode node) {

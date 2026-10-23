@@ -63,6 +63,7 @@ class RoleValidationTableTest {
 
     static Stream<Arguments> refusals() {
         var environment = RoleFixtures.environment();
+        environment.unresolvedSkill("skill://pm/role/missing/SKILL.md");
         return Stream.of(
                 Arguments.of(RoleFixtures.valid().artifact(), Optional.empty(), Optional.of(RoleFixtures.enrolled()),
                         Optional.of(RoleFixtures.catalogue()), environment, false,
@@ -128,7 +129,12 @@ class RoleValidationTableTest {
                 Arguments.of(RoleFixtures.valid().set("/skills", List.of("skill://pm/compiled/x/SKILL.md")).artifact(),
                         Optional.of(RoleFixtures.harness()), Optional.of(RoleFixtures.enrolled()),
                         Optional.of(RoleFixtures.catalogue()), environment, false,
-                        RoleValidationReason.SKILL_UNRESOLVED, "the skill does not resolve"));
+                        RoleValidationReason.SKILL_UNRESOLVED, "the skill does not resolve in the project"),
+                Arguments.of(RoleFixtures.valid()
+                                .set("/skills", List.of("skill://pm/role/missing/SKILL.md")).artifact(),
+                        Optional.of(RoleFixtures.harness()), Optional.of(RoleFixtures.enrolled()),
+                        Optional.of(RoleFixtures.catalogue()), environment, false,
+                        RoleValidationReason.SKILL_UNRESOLVED, "the role skill is refused by the project"));
     }
 
     @ParameterizedTest(name = "{6}: {7}")

@@ -32,12 +32,14 @@ link:https://github.com/plan-marshall/pm-mcp-core/blob/main/pm-core/src/main/jav
 Writing them is `machine-onboarding-unit`'s, `project-onboarding-unit`'s and `plan-and-epic-control`'s; the runtime never
 reads a role, a harness or a model from git-tracked configuration.
 
-Specification (the sections this package was built against; the package's pull request deletes the sections of the other
-specification parts it alone implements, while `model-work/01-roles-and-configuration.adoc` keeps everything that
-qualification, the shipped content and the escalation assignment still need): `model-work/01-roles-and-configuration.adoc`,
+Specification (the sections this package was built against): `model-work/01-roles-and-configuration.adoc`,
 `client-profiles/01-profile-schema.adoc#role-classes`,
 `store-schemas/12-machine-stores.adoc#model-catalogue` and `#role-assignments-store`,
-`workflow-dsl/09-plan-instance.adoc#plan-overrides`.
+`workflow-dsl/09-plan-instance.adoc#plan-overrides`. The package's pull request does not delete those specification
+sections or their watch items: other specification parts link about sixty anchors into them, and `model-work/01` still
+carries the escalation assignment, the shipped role content and the qualification text that this package does not
+implement, so the deletion belongs to the packages that complete the document. The package's own file and its index row
+are removed.
 
 == The Three Sets
 

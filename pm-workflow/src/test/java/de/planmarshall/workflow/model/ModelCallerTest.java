@@ -148,6 +148,20 @@ class ModelCallerTest {
     }
 
     @Test
+    @DisplayName("a consultation is queued with its flag")
+    void consultationIsQueued() {
+        var fixtures = new Fixtures(Map.of("architecture",
+                ModelFixtures.role("architecture", RoleClass.READ_ONLY, RoleForm.FRESH)));
+        fixtures.qualifications.qualifies("architecture", RoleForm.FRESH);
+
+        var result = fixtures.caller.call(job("decision", "architecture", true));
+
+        assertAll(
+                () -> assertTrue(result instanceof ModelCallResult.Queued),
+                () -> assertTrue(fixtures.queue.enqueued().getFirst().consultation()));
+    }
+
+    @Test
     @DisplayName("a role whose start-failure guard holds closes role_unavailable")
     void unavailableRoleCloses() {
         var fixtures = new Fixtures(Map.of(IMPLEMENT,

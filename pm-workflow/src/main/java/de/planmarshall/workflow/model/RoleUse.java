@@ -22,11 +22,9 @@ import de.planmarshall.core.role.RoleClass;
  * {@code zero_tool}; `envelope`, `remediation-fix`, `commit-fix`, `simplify-apply`, `conflict` and the pre-existing
  * `task` kind are {@code writer}; the vote kind admits {@code read_only}, or {@code zero_tool} for a judgment role on a
  * {@code system_one} endpoint of the protocol — the endpoint's protocol is checked by the judgment-vote package, which
- * owns the endpoint profiles; and every other kind admits {@code writer} or {@code read_only} as its work needs. A
- * consultation clause admits every class but {@code zero_tool}.
- * <p>
- * A unit that registers a kind with another class set passes it to {@link #RoleUse} directly; the compiled table covers
- * the shipped kinds only.
+ * owns the endpoint profiles; every other kind requires {@code read_only}, the class of the planning, review and triage
+ * kinds. A consultation clause admits every class but {@code zero_tool}. A unit that registers a writer kind of its own
+ * passes its class set to {@link #RoleUse} directly; the compiled table covers the shipped kinds only.
  *
  * @param stateId         the state that names the role
  * @param role            the role name
@@ -72,7 +70,7 @@ public record RoleUse(String stateId, String role, Set<RoleClass> acceptedClasse
             case "envelope", "task", "remediation-fix", "commit-fix", "simplify-apply", "conflict" ->
                     Set.of(RoleClass.WRITER);
             case "vote" -> Set.of(RoleClass.READ_ONLY, RoleClass.ZERO_TOOL);
-            default -> Set.of(RoleClass.WRITER, RoleClass.READ_ONLY);
+            default -> Set.of(RoleClass.READ_ONLY);
         };
     }
 }

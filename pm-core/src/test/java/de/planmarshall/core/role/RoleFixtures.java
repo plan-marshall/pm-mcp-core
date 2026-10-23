@@ -28,8 +28,9 @@ import de.planmarshall.core.profile.JsonNode;
  * which a test mutates at one JSON Pointer; one harness profile; one enrolled harness; and a store-backed
  * {@link RoleEnvironment} whose values a test changes between two reads.
  * <p>
- * The fixtures name a generic harness and a generic role only, so no test fixture of production code names a client or a
- * shipped role.
+ * The fixtures name a generic harness and a generic role in the base document. A test that needs a role the specification
+ * fixes by name (the judge, the steward) or a shipped fixture document names it explicitly; no fixture names a client
+ * beyond the generic one.
  */
 final class RoleFixtures {
 
@@ -294,6 +295,7 @@ final class RoleFixtures {
         private final Map<String, HarnessProfile> profiles = new LinkedHashMap<>();
         private final Map<String, EnrolledHarness> enrolled = new LinkedHashMap<>();
         private final Map<String, String> skills = new LinkedHashMap<>();
+        private final Set<String> unresolved = new LinkedHashSet<>();
         private final Map<String, String> weights = new LinkedHashMap<>();
         private ModelCatalogue machineCatalogue;
         private ModelCatalogue projectCatalogue;
@@ -322,6 +324,11 @@ final class RoleFixtures {
 
         TestEnvironment skill(String uri, String digest) {
             skills.put(uri, digest);
+            return this;
+        }
+
+        TestEnvironment unresolvedSkill(String uri) {
+            unresolved.add(uri);
             return this;
         }
 
@@ -402,6 +409,9 @@ final class RoleFixtures {
 
         @Override
         public Optional<RoleSkill> resolveSkill(String uri) {
+            if (unresolved.contains(uri)) {
+                return Optional.empty();
+            }
             var digest = skills.get(uri);
             if (digest != null) {
                 return Optional.of(new RoleSkill(uri, digest));

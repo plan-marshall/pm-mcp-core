@@ -32,8 +32,8 @@ import de.planmarshall.core.role.RoleSkill;
  * The fixtures of the model-caller tests (test helper): an effective role of any class and form, a resolver over a map of
  * roles, a recorder of the qualification lookup, the availability guard and the task queue.
  * <p>
- * The fixtures name a generic harness and generic roles only, so no test fixture of production code names a client or a
- * shipped role.
+ * The fixtures name a generic harness and generic roles; a test that needs a role the specification fixes by name (the
+ * judge, the steward) names it explicitly.
  */
 final class ModelFixtures {
 

@@ -65,6 +65,19 @@ class RoleCompositionTest {
     }
 
     @Test
+    @DisplayName("a writer role on the decision kind is class_mismatch")
+    void writerOnDecisionMismatches() {
+        var composition = composition(Map.of("implement", role(RoleClass.WRITER, RoleForm.FRESH)));
+
+        var refusal = assertThrows(CompositionRefusal.class,
+                () -> composition.check(List.of(RoleUse.forModelJob(STATE, "decision", "implement"))));
+
+        assertAll(
+                () -> assertEquals(CompositionRefusal.Reason.CLASS_MISMATCH, refusal.reason()),
+                () -> assertEquals(Set.of(RoleClass.READ_ONLY), refusal.requiredClasses()));
+    }
+
+    @Test
     @DisplayName("a read_only role on the envelope kind is class_mismatch")
     void readOnlyOnEnvelopeMismatches() {
         var composition = composition(Map.of("review-code", role(RoleClass.READ_ONLY, RoleForm.FRESH)));

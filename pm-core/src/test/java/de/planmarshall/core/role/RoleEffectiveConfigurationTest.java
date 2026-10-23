@@ -121,6 +121,23 @@ class RoleEffectiveConfigurationTest {
     }
 
     @Test
+    @DisplayName("a project assignment follows the project artifact")
+    void projectAssignmentFollowsProjectArtifact() throws Exception {
+        var environment = accepted();
+        environment.machineAssignments(assignments(RoleFixtures.ROLE,
+                assignment(null, FRONTIER, new EffortValue("medium"))));
+        environment.projectAssignments(assignments(RoleFixtures.ROLE, assignment(null, null, new EffortValue("high"))));
+        Files.write(project.resolve(RoleFixtures.ROLE + ".json"),
+                RoleFixtures.valid().set("/model", RoleFixtures.MODEL).bytes());
+
+        var role = resolved(RoleFixtures.shippedValid().withProject(project), environment, RoleAssignment.none());
+
+        assertAll(
+                () -> assertEquals(RoleFixtures.MODEL, role.model(), "the project artifact replaces the assignment"),
+                () -> assertEquals("high", role.effort().value(), "the project assignment names the effort"));
+    }
+
+    @Test
     @DisplayName("the plan's resolver applies the plan's overrides and changes both digests")
     void planResolverAppliesOverrides() {
         var overrides = new RoleAssignments(Map.of(RoleFixtures.ROLE,
