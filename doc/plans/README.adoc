@@ -300,7 +300,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:finalize-pipeline-and-merge.adoc[`finalize-pipeline-and-merge`]
 |The finalize pipeline from re-entry to merge: verdict currency and the step records of a firing, the merge path's states, the Pre-Merge Review Barrier and its waivable gates, the composite wait, and the pre-merge Dependency Delta Check
 |`open`
-|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:domain-extensions-and-architecture.adoc[`domain-extensions-and-architecture`]
+|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:domain-extensions-and-architecture.adoc[`domain-extensions-and-architecture`]; link:re-planning.adoc[`re-planning`] (the `finalize.replan` call and the triggers it consumes)
 |Milestone 10
 |===
 
