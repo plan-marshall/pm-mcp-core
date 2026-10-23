@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -145,41 +146,54 @@ class ModelWaitTest {
 
     @Test
     void shouldRefuseAConnectionOutsideTheProfileBounds() {
+        var tooShort = Duration.ofSeconds(14);
+        var tooLong = Duration.ofSeconds(3601);
+        var marginTooSmall = BOUNDED.plusSeconds(29);
+        var marginExact = BOUNDED.plusSeconds(30);
+        var shortest = Duration.ofSeconds(15);
+        var longest = Duration.ofSeconds(3600);
+        assertThrows(IllegalArgumentException.class, () -> new ConnectionSettings(tooShort, IDLE, true));
+        assertThrows(IllegalArgumentException.class, () -> new ConnectionSettings(tooLong, IDLE, true));
         assertThrows(IllegalArgumentException.class,
-                () -> new ConnectionSettings(Duration.ofSeconds(14), IDLE, true));
-        assertThrows(IllegalArgumentException.class,
-                () -> new ConnectionSettings(Duration.ofSeconds(3601), IDLE, true));
-        assertThrows(IllegalArgumentException.class,
-                () -> new ConnectionSettings(BOUNDED, BOUNDED.plusSeconds(29), false));
+                () -> new ConnectionSettings(BOUNDED, marginTooSmall, false));
         assertEquals(BOUNDED, assertInstanceOf(ModelWait.Bounded.class,
-                WaitSelection.select(new ConnectionSettings(BOUNDED, BOUNDED.plusSeconds(30), false), Optional.empty(),
+                WaitSelection.select(new ConnectionSettings(BOUNDED, marginExact, false), Optional.empty(),
                         ModelCall.PM_WAIT, WaitSettings.defaults(), clock)).window());
-        assertDoesNotThrow(() -> new ConnectionSettings(Duration.ofSeconds(15), IDLE, true));
-        assertDoesNotThrow(() -> new ConnectionSettings(Duration.ofSeconds(3600), IDLE, true));
+        assertDoesNotThrow(() -> new ConnectionSettings(shortest, IDLE, true));
+        assertDoesNotThrow(() -> new ConnectionSettings(longest, IDLE, true));
     }
 
     @Test
     void shouldRefuseProgressSettingsOutsideTheMachineBounds() {
-        assertThrows(IllegalArgumentException.class,
-                () -> new WaitSettings(Duration.ofSeconds(59), Duration.ofSeconds(5)));
-        assertThrows(IllegalArgumentException.class,
-                () -> new WaitSettings(Duration.ofSeconds(7201), Duration.ofSeconds(5)));
-        assertThrows(IllegalArgumentException.class,
-                () -> new WaitSettings(Duration.ofSeconds(1800), Duration.ofNanos(999_999_999)));
-        assertThrows(IllegalArgumentException.class,
-                () -> new WaitSettings(Duration.ofSeconds(1800), Duration.ofSeconds(61)));
-        assertDoesNotThrow(() -> new WaitSettings(Duration.ofSeconds(60), Duration.ofSeconds(1)));
-        assertDoesNotThrow(() -> new WaitSettings(Duration.ofSeconds(7200), Duration.ofSeconds(60)));
+        var tooSmall = Duration.ofSeconds(59);
+        var tooLarge = Duration.ofSeconds(7201);
+        var standard = Duration.ofSeconds(1800);
+        var interval = Duration.ofSeconds(5);
+        var subSecond = Duration.ofNanos(999_999_999);
+        var tooLongInterval = Duration.ofSeconds(61);
+        var smallest = Duration.ofSeconds(60);
+        var shortestInterval = Duration.ofSeconds(1);
+        var largest = Duration.ofSeconds(7200);
+        var longestInterval = Duration.ofSeconds(60);
+        assertThrows(IllegalArgumentException.class, () -> new WaitSettings(tooSmall, interval));
+        assertThrows(IllegalArgumentException.class, () -> new WaitSettings(tooLarge, interval));
+        assertThrows(IllegalArgumentException.class, () -> new WaitSettings(standard, subSecond));
+        assertThrows(IllegalArgumentException.class, () -> new WaitSettings(standard, tooLongInterval));
+        assertDoesNotThrow(() -> new WaitSettings(smallest, shortestInterval));
+        assertDoesNotThrow(() -> new WaitSettings(largest, longestInterval));
     }
 
     @Test
     void shouldRefuseAProgressWaitWhoseIntervalItsWindowCannotCarry() {
+        var window = Duration.ofSeconds(60);
+        var subSecond = Duration.ofNanos(1);
+        var equal = Duration.ofSeconds(60);
+        var shorter = Duration.ofSeconds(59);
         assertThrows(IllegalArgumentException.class,
-                () -> new ModelWait.Progress(ModelCall.PM_BUILD, T0, Duration.ofSeconds(60), Duration.ofNanos(1)));
+                () -> new ModelWait.Progress(ModelCall.PM_BUILD, T0, window, subSecond));
         assertThrows(IllegalArgumentException.class,
-                () -> new ModelWait.Progress(ModelCall.PM_BUILD, T0, Duration.ofSeconds(60), Duration.ofSeconds(60)));
-        assertDoesNotThrow(
-                () -> new ModelWait.Progress(ModelCall.PM_BUILD, T0, Duration.ofSeconds(60), Duration.ofSeconds(59)));
+                () -> new ModelWait.Progress(ModelCall.PM_BUILD, T0, window, equal));
+        assertDoesNotThrow(() -> new ModelWait.Progress(ModelCall.PM_BUILD, T0, window, shorter));
     }
 
     private static ConnectionSettings connection(boolean progressResetsTimeout) {
