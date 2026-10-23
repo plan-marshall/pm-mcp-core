@@ -18,9 +18,10 @@ client that talks to an external provider over `cui-http`, the endpoint the bear
 the closed outcomes of a request and of an operation, the pages of a paginated read, the token seam
 and the JSON tree of a provider body.
 
-The module is the transport and nothing else. It names no forge and no analysis service: the CI
-contract, the git contract, the findings and code-analysis contracts live in other modules, and a
-provider adapter builds its contract on this base. The neutral type names are the decision of
+The module is the transport and nothing else. It names no forge and no analysis service: the CI contract
+(which has no module of this repository yet; the package that builds it creates its module), the git
+contract, the findings and code-analysis contracts live in other modules, and a provider adapter builds
+its contract on this base. The neutral type names are the decision of
 link:../adr/provider-http/001-neutral-class-names.adoc[ADR 001].
 
 == Types
