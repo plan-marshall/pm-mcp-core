@@ -28,11 +28,11 @@ import mockwebserver3.MockResponse;
 import mockwebserver3.MockWebServer;
 import mockwebserver3.RecordedRequest;
 
+import de.planmarshall.provider.github.GitHubClient.ReviewThread;
 import de.planmarshall.provider.http.Endpoint;
 import de.planmarshall.provider.http.HttpClient;
 import de.planmarshall.provider.http.Json;
 import de.planmarshall.provider.http.Result;
-import de.planmarshall.provider.github.GitHubClient.ReviewThread;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
