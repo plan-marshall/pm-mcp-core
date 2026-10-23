@@ -7,7 +7,7 @@
  * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
  * the root of this repository.
  */
-package de.planmarshall.provider.ci;
+package de.planmarshall.provider.http;
 
 import java.net.URI;
 import java.util.Locale;
@@ -23,7 +23,7 @@ import java.util.Set;
  *                       sent there
  * @since 0.1
  */
-public record CiEndpoint(URI baseUri, Set<String> redirectHosts) {
+public record Endpoint(URI baseUri, Set<String> redirectHosts) {
 
     private static final Set<String> LOOPBACK = Set.of("127.0.0.1", "localhost", "[::1]", "::1");
 
@@ -31,7 +31,7 @@ public record CiEndpoint(URI baseUri, Set<String> redirectHosts) {
      * @param baseUri       the base URI
      * @param redirectHosts the redirect hosts
      */
-    public CiEndpoint {
+    public Endpoint {
         Objects.requireNonNull(baseUri, "baseUri");
         redirectHosts = Set.copyOf(redirectHosts);
         if (!baseUri.getPath().endsWith("/")) {
@@ -48,8 +48,8 @@ public record CiEndpoint(URI baseUri, Set<String> redirectHosts) {
      * @param baseUri the https API base
      * @return an endpoint without redirect hosts
      */
-    public static CiEndpoint of(URI baseUri) {
-        return new CiEndpoint(baseUri, Set.of());
+    public static Endpoint of(URI baseUri) {
+        return new Endpoint(baseUri, Set.of());
     }
 
     /**

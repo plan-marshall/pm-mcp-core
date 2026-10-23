@@ -7,7 +7,7 @@
  * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
  * the root of this repository.
  */
-package de.planmarshall.provider.ci;
+package de.planmarshall.provider.http;
 
 import de.cuioss.http.client.handler.HttpHandler;
 import de.cuioss.http.client.handler.RedirectNotAllowedException;
@@ -29,7 +29,7 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import de.planmarshall.provider.ci.CiResponse.Outcome;
+import de.planmarshall.provider.http.Response.Outcome;
 
 /**
  * The shared HTTP base of the native provider clients, over {@code cui-http}'s {@link HttpHandler}.
@@ -53,7 +53,7 @@ import de.planmarshall.provider.ci.CiResponse.Outcome;
  *
  * @since 0.1
  */
-public final class CiHttpClient implements AutoCloseable {
+public final class HttpClient implements AutoCloseable {
 
     /** Connect timeout of every request, in seconds. */
     public static final int CONNECT_TIMEOUT_SECONDS = 10;
@@ -65,7 +65,7 @@ public final class CiHttpClient implements AutoCloseable {
     private static final Pattern LINK_NEXT = Pattern.compile("<([^>]+)>\\s*;[^,]*rel=\"?next\"?");
     private static final String AUTHORIZATION = "Authorization";
 
-    private final CiEndpoint endpoint;
+    private final Endpoint endpoint;
     private final TokenSource tokens;
     private final Map<String, String> defaultHeaders;
     private final Clock clock;
@@ -76,11 +76,11 @@ public final class CiHttpClient implements AutoCloseable {
      * @param tokens         the token source, resolved per request
      * @param defaultHeaders headers sent with every request (e.g. {@code Accept})
      */
-    public CiHttpClient(CiEndpoint endpoint, TokenSource tokens, Map<String, String> defaultHeaders) {
+    public HttpClient(Endpoint endpoint, TokenSource tokens, Map<String, String> defaultHeaders) {
         this(endpoint, tokens, defaultHeaders, Clock.systemUTC());
     }
 
-    CiHttpClient(CiEndpoint endpoint, TokenSource tokens, Map<String, String> defaultHeaders, Clock clock) {
+    HttpClient(Endpoint endpoint, TokenSource tokens, Map<String, String> defaultHeaders, Clock clock) {
         this.endpoint = Objects.requireNonNull(endpoint, "endpoint");
         this.tokens = Objects.requireNonNull(tokens, "tokens");
         this.defaultHeaders = Map.copyOf(defaultHeaders);
@@ -97,7 +97,7 @@ public final class CiHttpClient implements AutoCloseable {
     /**
      * @return the endpoint
      */
-    public CiEndpoint endpoint() {
+    public Endpoint endpoint() {
         return endpoint;
     }
 
@@ -105,7 +105,7 @@ public final class CiHttpClient implements AutoCloseable {
      * @param pathOrUri a path relative to the base, or an absolute URI on the origin
      * @return the response
      */
-    public CiResponse get(String pathOrUri) {
+    public Response get(String pathOrUri) {
         return send("GET", pathOrUri, Optional.empty(), Optional.empty());
     }
 
@@ -116,7 +116,7 @@ public final class CiHttpClient implements AutoCloseable {
      * @param etag      the {@code ETag} of the cached representation
      * @return the response; {@link Outcome#NOT_MODIFIED} when the representation is unchanged
      */
-    public CiResponse get(String pathOrUri, String etag) {
+    public Response get(String pathOrUri, String etag) {
         return send("GET", pathOrUri, Optional.empty(), Optional.of(etag));
     }
 
@@ -129,10 +129,10 @@ public final class CiHttpClient implements AutoCloseable {
      * @param etag      the {@code ETag} for {@code If-None-Match}
      * @return the response
      */
-    public CiResponse send(String method, String pathOrUri, Optional<String> jsonBody, Optional<String> etag) {
+    public Response send(String method, String pathOrUri, Optional<String> jsonBody, Optional<String> etag) {
         URI uri = endpoint.resolve(pathOrUri);
         if (!endpoint.sameOrigin(uri)) {
-            return CiResponse.failure(Outcome.REFUSED, "outside the origin of " + endpoint.baseUri());
+            return Response.failure(Outcome.REFUSED, "outside the origin of " + endpoint.baseUri());
         }
         HttpRequest.Builder builder = handler.requestBuilder().uri(uri)
                 .method(method, jsonBody.map(BodyPublishers::ofString).orElse(BodyPublishers.noBody()));
@@ -143,12 +143,12 @@ public final class CiHttpClient implements AutoCloseable {
         try {
             return toResponse(handler.send(builder.build(), BodyHandlers.ofString()));
         } catch (RedirectNotAllowedException e) {
-            return CiResponse.failure(Outcome.REFUSED, "redirect refused: " + e.getReason());
+            return Response.failure(Outcome.REFUSED, "redirect refused: " + e.getReason());
         } catch (IOException e) {
-            return CiResponse.failure(Outcome.TRANSPORT_FAILED, e.getClass().getSimpleName());
+            return Response.failure(Outcome.TRANSPORT_FAILED, e.getClass().getSimpleName());
         } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
-            return CiResponse.failure(Outcome.TRANSPORT_FAILED, "interrupted");
+            return Response.failure(Outcome.TRANSPORT_FAILED, "interrupted");
         }
     }
 
@@ -161,7 +161,7 @@ public final class CiHttpClient implements AutoCloseable {
      */
     public PagedResult getAll(String path, int maxPages) {
         var pages = new ArrayList<String>();
-        CiResponse response = get(path);
+        Response response = get(path);
         while (response.isOk()) {
             pages.add(response.body());
             Optional<URI> next = response.next();
@@ -176,23 +176,23 @@ public final class CiHttpClient implements AutoCloseable {
         return new PagedResult(pages, false, response);
     }
 
-    private CiResponse toResponse(HttpResponse<String> response) {
+    private Response toResponse(HttpResponse<String> response) {
         int status = response.statusCode();
         HttpHeaders headers = response.headers();
         Optional<String> etag = headers.firstValue("ETag");
-        Optional<URI> next = headers.allValues("Link").stream().map(CiHttpClient::nextLink).flatMap(Optional::stream)
+        Optional<URI> next = headers.allValues("Link").stream().map(HttpClient::nextLink).flatMap(Optional::stream)
                 .findFirst();
         if (status == 304) {
-            return new CiResponse(Outcome.NOT_MODIFIED, status, "", etag, Optional.empty(), Optional.empty(), "");
+            return new Response(Outcome.NOT_MODIFIED, status, "", etag, Optional.empty(), Optional.empty(), "");
         }
         if (status >= 200 && status < 300) {
-            return new CiResponse(Outcome.OK, status, response.body(), etag, next, Optional.empty(), "");
+            return new Response(Outcome.OK, status, response.body(), etag, next, Optional.empty(), "");
         }
         if (isRateLimited(status, headers)) {
-            return new CiResponse(Outcome.RATE_LIMITED, status, response.body(), etag, Optional.empty(),
+            return new Response(Outcome.RATE_LIMITED, status, response.body(), etag, Optional.empty(),
                     Optional.of(resetAt(headers)), "rate limited");
         }
-        return new CiResponse(Outcome.HTTP_ERROR, status, response.body(), etag, Optional.empty(), Optional.empty(),
+        return new Response(Outcome.HTTP_ERROR, status, response.body(), etag, Optional.empty(), Optional.empty(),
                 "HTTP " + status);
     }
 
@@ -206,12 +206,12 @@ public final class CiHttpClient implements AutoCloseable {
 
     private Instant resetAt(HttpHeaders headers) {
         Instant now = clock.instant();
-        Optional<Long> retryAfter = headers.firstValue("Retry-After").flatMap(CiHttpClient::seconds);
+        Optional<Long> retryAfter = headers.firstValue("Retry-After").flatMap(HttpClient::seconds);
         if (retryAfter.isPresent()) {
             return now.plusSeconds(retryAfter.get());
         }
         return headers.firstValue("x-ratelimit-reset").or(() -> headers.firstValue("ratelimit-reset"))
-                .flatMap(CiHttpClient::seconds).map(Instant::ofEpochSecond)
+                .flatMap(HttpClient::seconds).map(Instant::ofEpochSecond)
                 .orElse(now.plus(DEFAULT_RATE_LIMIT_WAIT));
     }
 

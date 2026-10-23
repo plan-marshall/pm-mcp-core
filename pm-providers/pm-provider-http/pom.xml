@@ -7,14 +7,14 @@
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>pm-provider-ci</artifactId>
+    <artifactId>pm-provider-http</artifactId>
     <packaging>jar</packaging>
-    <name>pm-provider-ci</name>
-    <description>CI contract and the shared HTTP base over cui-http.</description>
+    <name>pm-provider-http</name>
+    <description>The shared HTTP base of the provider modules over cui-http. It names no forge and no analysis service.</description>
     <properties>
         <!-- Switches on the rule of the root POM for a provider contract module -->
         <pm.guard.provider-contract.skip>false</pm.guard.provider-contract.skip>
-        <maven.jar.plugin.automatic.module.name>de.planmarshall.provider.ci</maven.jar.plugin.automatic.module.name>
+        <maven.jar.plugin.automatic.module.name>de.planmarshall.provider.http</maven.jar.plugin.automatic.module.name>
     </properties>
     <dependencies>
         <dependency>
@@ -28,16 +28,7 @@
         </dependency>
         <dependency>
             <groupId>de.cuioss</groupId>
-            <artifactId>cui-java-tools</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>de.cuioss</groupId>
             <artifactId>cui-http</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>de.cuioss.test</groupId>
-            <artifactId>cui-test-juli-logger</artifactId>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>de.cuioss.test</groupId>

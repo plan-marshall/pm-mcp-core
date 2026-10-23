@@ -7,7 +7,7 @@
  * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
  * the root of this repository.
  */
-package de.planmarshall.provider.ci;
+package de.planmarshall.provider.http;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -22,13 +22,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-@DisplayName("CiEndpoint")
-class CiEndpointTest {
+@DisplayName("Endpoint")
+class EndpointTest {
 
     @Test
     @DisplayName("normalizes the base path and resolves relative and absolute targets")
     void resolves() {
-        var endpoint = CiEndpoint.of(URI.create("https://gitlab.example.com/api/v4"));
+        var endpoint = Endpoint.of(URI.create("https://gitlab.example.com/api/v4"));
 
         assertEquals(URI.create("https://gitlab.example.com/api/v4/"), endpoint.baseUri());
         assertEquals(URI.create("https://gitlab.example.com/api/v4/projects/1"), endpoint.resolve("/projects/1"));
@@ -47,7 +47,7 @@ class CiEndpointTest {
     })
     @DisplayName("compares scheme, host and effective port")
     void sameOrigin(String uri, boolean same) {
-        assertEquals(same, CiEndpoint.of(URI.create("https://api.github.com")).sameOrigin(URI.create(uri)));
+        assertEquals(same, Endpoint.of(URI.create("https://api.github.com")).sameOrigin(URI.create(uri)));
     }
 
     @ParameterizedTest
@@ -56,13 +56,13 @@ class CiEndpointTest {
     void httpsOnly(String uri) {
         var base = URI.create(uri);
 
-        assertThrows(IllegalArgumentException.class, () -> CiEndpoint.of(base));
+        assertThrows(IllegalArgumentException.class, () -> Endpoint.of(base));
     }
 
     @Test
     @DisplayName("admits cleartext on loopback for local fakes")
     void loopback() {
-        assertTrue(CiEndpoint.of(URI.create("http://127.0.0.1:9999/")).cleartextLoopback());
-        assertTrue(CiEndpoint.of(URI.create("http://localhost/")).sameOrigin(URI.create("http://localhost:80/a")));
+        assertTrue(Endpoint.of(URI.create("http://127.0.0.1:9999/")).cleartextLoopback());
+        assertTrue(Endpoint.of(URI.create("http://localhost/")).sameOrigin(URI.create("http://localhost:80/a")));
     }
 }

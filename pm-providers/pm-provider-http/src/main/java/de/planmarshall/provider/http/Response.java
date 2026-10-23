@@ -7,7 +7,7 @@
  * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
  * the root of this repository.
  */
-package de.planmarshall.provider.ci;
+package de.planmarshall.provider.http;
 
 import java.net.URI;
 import java.time.Instant;
@@ -26,7 +26,7 @@ import java.util.Optional;
  * @param detail  the failure detail (never a secret)
  * @since 0.1
  */
-public record CiResponse(Outcome outcome, int status, String body, Optional<String> etag, Optional<URI> next,
+public record Response(Outcome outcome, int status, String body, Optional<String> etag, Optional<URI> next,
                          Optional<Instant> resetAt, String detail) {
 
     /** The closed outcome of a request. */
@@ -54,14 +54,14 @@ public record CiResponse(Outcome outcome, int status, String body, Optional<Stri
      * @param resetAt the reset instant
      * @param detail  the detail
      */
-    public CiResponse {
+    public Response {
         Objects.requireNonNull(outcome, "outcome");
         body = body == null ? "" : body;
         detail = detail == null ? "" : detail;
     }
 
-    static CiResponse failure(Outcome outcome, String detail) {
-        return new CiResponse(outcome, 0, "", Optional.empty(), Optional.empty(), Optional.empty(), detail);
+    static Response failure(Outcome outcome, String detail) {
+        return new Response(outcome, 0, "", Optional.empty(), Optional.empty(), Optional.empty(), detail);
     }
 
     /**

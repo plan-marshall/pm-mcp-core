@@ -7,7 +7,7 @@
  * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
  * the root of this repository.
  */
-package de.planmarshall.provider.ci;
+package de.planmarshall.provider.http;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -72,23 +72,23 @@ class JsonTest {
     @Test
     @DisplayName("maps failed responses to contract outcomes")
     void mapsOutcomes() {
-        assertEquals(CiResult.Outcome.AUTH_FAILED, failed(401, "").outcome());
-        assertEquals(CiResult.Outcome.PERMISSION_DENIED, failed(403, "").outcome());
-        assertEquals(CiResult.Outcome.NOT_FOUND, failed(404, "").outcome());
-        assertEquals(CiResult.Outcome.REJECTED, failed(409, "{\"message\":\"SHA does not match\"}").outcome());
+        assertEquals(Result.Outcome.AUTH_FAILED, failed(401, "").outcome());
+        assertEquals(Result.Outcome.PERMISSION_DENIED, failed(403, "").outcome());
+        assertEquals(Result.Outcome.NOT_FOUND, failed(404, "").outcome());
+        assertEquals(Result.Outcome.REJECTED, failed(409, "{\"message\":\"SHA does not match\"}").outcome());
         assertEquals("HTTP 409: SHA does not match", failed(409, "{\"message\":\"SHA does not match\"}").detail());
-        assertEquals(CiResult.Outcome.FAILED, failed(500, "oops").outcome());
-        assertEquals(CiResult.Outcome.FAILED, failed(500, "{\"message\":\"500 Internal Server Error\"}").outcome());
-        assertEquals(CiResult.Outcome.FAILED,
-                CiResult.failed(CiResponse.failure(CiResponse.Outcome.REFUSED, "outside the origin")).outcome());
-        assertEquals(CiResult.Outcome.FAILED,
-                CiResult.failed(CiResponse.failure(CiResponse.Outcome.TRANSPORT_FAILED, "IOException")).outcome());
-        var limited = CiResult.failed(new CiResponse(CiResponse.Outcome.RATE_LIMITED, 429, "", Optional.empty(),
+        assertEquals(Result.Outcome.FAILED, failed(500, "oops").outcome());
+        assertEquals(Result.Outcome.FAILED, failed(500, "{\"message\":\"500 Internal Server Error\"}").outcome());
+        assertEquals(Result.Outcome.FAILED,
+                Result.failed(Response.failure(Response.Outcome.REFUSED, "outside the origin")).outcome());
+        assertEquals(Result.Outcome.FAILED,
+                Result.failed(Response.failure(Response.Outcome.TRANSPORT_FAILED, "IOException")).outcome());
+        var limited = Result.failed(new Response(Response.Outcome.RATE_LIMITED, 429, "", Optional.empty(),
                 Optional.empty(), Optional.of(Instant.EPOCH), "rate limited"));
-        assertEquals(CiResult.Outcome.RATE_LIMITED, limited.outcome());
+        assertEquals(Result.Outcome.RATE_LIMITED, limited.outcome());
         assertEquals(Optional.of(Instant.EPOCH), limited.resetAt());
         assertFalse(limited.isOk());
-        assertTrue(CiResult.ok("v", false).isOk());
+        assertTrue(Result.ok("v", false).isOk());
     }
 
     @ParameterizedTest(name = "{0} {1}")
@@ -111,7 +111,7 @@ class JsonTest {
             "302|{\"message\":\"moved\"}|FAILED|HTTP 302: moved"
     })
     @DisplayName("keeps a provider refusal (REJECTED) apart from a credential refusal and from a failure")
-    void separatesRefusals(int status, String body, CiResult.Outcome outcome, String detail) {
+    void separatesRefusals(int status, String body, Result.Outcome outcome, String detail) {
         var result = failed(status, body);
 
         assertEquals(outcome, result.outcome());
@@ -119,8 +119,8 @@ class JsonTest {
         assertTrue(result.value().isEmpty());
     }
 
-    private static CiResult<Object> failed(int status, String body) {
-        return CiResult.failed(new CiResponse(CiResponse.Outcome.HTTP_ERROR, status, body, Optional.empty(),
+    private static Result<Object> failed(int status, String body) {
+        return Result.failed(new Response(Response.Outcome.HTTP_ERROR, status, body, Optional.empty(),
                 Optional.empty(), Optional.empty(), "HTTP " + status));
     }
 }

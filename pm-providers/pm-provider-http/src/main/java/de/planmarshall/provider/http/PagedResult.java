@@ -7,7 +7,7 @@
  * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
  * the root of this repository.
  */
-package de.planmarshall.provider.ci;
+package de.planmarshall.provider.http;
 
 import java.util.List;
 
@@ -21,7 +21,7 @@ import java.util.List;
  * @param last     the response of the last request made
  * @since 0.1
  */
-public record PagedResult(List<String> pages, boolean complete, CiResponse last) {
+public record PagedResult(List<String> pages, boolean complete, Response last) {
 
     /**
      * @param pages    the pages

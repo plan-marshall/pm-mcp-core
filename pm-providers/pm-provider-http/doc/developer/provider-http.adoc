@@ -1,0 +1,128 @@
+= The Shared HTTP Base (`provider.http`) Developer Guide
+:docs: ../../../../../plan-marshall-documentation/doc
+:toc:
+:toclevels: 3
+:nofooter:
+
+:req: ../../../../../plan-marshall-documentation/doc
+:spec: ../../../../doc/specification
+:src: ../../src/main/java/de/planmarshall/provider/http
+:test: ../../src/test/java/de/planmarshall/provider/http
+
+== Purpose
+
+_Requirements:_ link:{req}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1], link:{req}/requirements/09-technology.adoc#PM-TECH-2[PM-TECH-2]
+
+Package `de.planmarshall.provider.http` holds the shared HTTP base of the provider adapters: the one
+client that talks to an external provider over `cui-http`, the endpoint the bearer token is pinned to,
+the closed outcomes of a request and of an operation, the pages of a paginated read, the token seam
+and the JSON tree of a provider body.
+
+The module is the transport and nothing else. It names no forge and no analysis service: the CI
+contract, the git contract, the findings and code-analysis contracts live in other modules, and a
+provider adapter builds its contract on this base. The neutral type names are the decision of
+link:../adr/provider-http/001-neutral-class-names.adoc[ADR 001].
+
+== Types
+
+[cols="2,3",options="header"]
+|===
+|Type |Responsibility
+
+|link:{src}/Endpoint.java[`Endpoint`]
+|The API base URI and the origin the token is pinned to; refuses anything but `https` (cleartext only on
+loopback) and compares scheme, host and effective port.
+
+|link:{src}/HttpClient.java[`HttpClient`]
+|The one client: sends a request to the endpoint origin with `Authorization: Bearer <token>`, follows
+`Link: <…>; rel="next"` pagination with a completeness flag, sends conditional requests, and turns a
+rate limit into an outcome with its reset instant.
+
+|link:{src}/Response.java[`Response`]
+|The outcome of one request (`OK`, `NOT_MODIFIED`, `RATE_LIMITED`, `HTTP_ERROR`, `REFUSED`,
+`TRANSPORT_FAILED`) with status, body, `ETag`, next link, reset instant and a secret-free detail.
+
+|link:{src}/Result.java[`Result`]
+|The outcome of a provider operation, generic in its value; `failed(Response)` maps a response to it,
+keeping a credential refusal (`AUTH_FAILED`, `PERMISSION_DENIED`) apart from a provider refusal
+(`REJECTED`) and from a failure (`FAILED`).
+
+|link:{src}/PagedResult.java[`PagedResult`]
+|The bodies of a paginated read and the completeness flag.
+
+|link:{src}/TokenSource.java[`TokenSource`]
+|Resolves the bearer token per request; `TokenSource.NONE` sends no token.
+
+|link:{src}/Json.java[`Json`]
+|Minimal reflection-free JSON tree over `jackson-core`: objects are insertion-ordered maps, arrays
+lists, numbers `BigDecimal`s.
+|===
+
+== Using the Base
+
+1. Build the `Endpoint` of the provider from its API base (`Endpoint.of(baseUri)`, or the constructor
+   with the redirect hosts the provider may send a log download to).
+2. Build the `HttpClient` with the endpoint, a `TokenSource` that reads the credential per request, and
+   the default headers of the provider (for example `Accept`). One client per endpoint; it is
+   `AutoCloseable`.
+3. Send with `get(path)`, the conditional `get(path, etag)`, or `send(method, path, jsonBody, etag)`;
+   a body is always in memory, never a file.
+4. Read the `Response` outcome rather than the HTTP status alone; `Result.failed(response)` carries it
+   into the operation result of the adapter.
+
+A new provider adapter depends on this module and `pm-core` alone among the modules of the product
+(the enforcer execution `provider` of the root POM), and the module itself depends on `pm-core` alone
+(`provider-contract`).
+
+== Invariants and Failure Modes
+
+* *Token pinned to the origin*: a target outside the endpoint origin is `REFUSED` before anything is
+  sent; `cui-http` strips `Authorization` on a cross-origin redirect and refuses an `https` to `http`
+  downgrade. The token is resolved per request and never cached by the client.
+* *A rate limit is an outcome, not a failure*: `429`, and `403` with an exhausted `x-ratelimit-remaining`
+  or a `Retry-After`, are `RATE_LIMITED` with the instant from `Retry-After`, `x-ratelimit-reset` or
+  `ratelimit-reset`; a limit that names no instant uses `HttpClient.DEFAULT_RATE_LIMIT_WAIT`.
+* *An incomplete read is never the full set*: `PagedResult.complete()` is `true` only when the last
+  page carried no `rel="next"`; a page cap, a failed page or a next link outside the origin leaves it
+  `false`.
+* *No secret in a detail*: the detail of a non-OK outcome carries a provider message or a failing step,
+  never a token or a body.
+* *Timeouts*: every request carries the connect timeout (10 s) and the read timeout (60 s) of
+  `HttpClient`.
+
+== Testing
+
+HTTP tests run against `cui-test-mockwebserver-junit5` (link:../../../../doc/adr/002-cui-http-and-the-mock-web-server-for-http.adoc[repository ADR 002]);
+no hand-made fake server. The tests need no network.
+
+[horizontal]
+link:{test}/HttpClientTest.java[`HttpClientTest`]:: Sends the bearer token and the default headers to
+the origin, posts a JSON body from memory, sends no `Authorization` without a token, refuses a target
+outside the origin without sending anything, reports an error status and a transport failure, drops the
+token on a cross-origin redirect, refuses a redirect to a host that is not allowlisted, follows
+pagination with completeness, sends `If-None-Match`, reports rate limits with their reset instant, and
+pins the rule that every HTTP call goes through `cui-http` (`sendsThroughCuiHttp`, a redirect loop
+refused with the reason `cui-http` names).
+link:{test}/EndpointTest.java[`EndpointTest`]:: Normalizes the base path, compares scheme, host and
+effective port, refuses cleartext except on loopback.
+link:{test}/JsonTest.java[`JsonTest`]:: Round-trips and navigates a tree, rejects text that is not JSON,
+and maps failed responses to the operation outcomes.
+
+== Pitfalls
+
+1. *Do not send to an absolute URI of another origin*: `send` refuses it; a provider operation never
+   needs it, and a redirect the provider issues is where `cui-http` applies its policy.
+2. *Do not treat `RATE_LIMITED` as `FAILED`*: the adapter re-issues at `resetAt`; the base never waits.
+3. *Do not cache the token*: a `TokenSource` reads the credential store per request, so a rotation is
+   picked up.
+4. *Do not add a provider-specific type here*: the module holds no forge and no analysis service; the
+   adapter's own records belong to the adapter.
+
+== Specification Tracing
+
+_Requirements:_ link:{req}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1], link:{req}/requirements/09-technology.adoc#PM-TECH-2[PM-TECH-2]
+
+* Specification: link:{docs}/specification/module-structure.adoc#module-pm-provider-http[Module Structure § `pm-provider-http`],
+  link:{spec}/credentials-and-enrolment/01-provider-credentials.adoc#agent-credentials[Credentials & Enrolment § Agent Credentials of the Native Variant],
+  link:{spec}/credentials-and-enrolment/03-audit-and-outbound-https.adoc[Credentials & Enrolment § Outbound HTTPS]
+* Decisions: link:../adr/provider-http/001-neutral-class-names.adoc[ADR 001], link:../../../../doc/adr/002-cui-http-and-the-mock-web-server-for-http.adoc[repository ADR 002]

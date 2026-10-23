@@ -7,7 +7,7 @@
  * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
  * the root of this repository.
  */
-package de.planmarshall.provider.ci;
+package de.planmarshall.provider.http;
 
 import java.time.Instant;
 import java.util.Map;
@@ -15,7 +15,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * The result of a CI contract operation with its closed outcome.
+ * The result of a provider operation with its closed outcome.
  *
  * @param outcome  the outcome
  * @param value    the value, present for {@link Outcome#OK}
@@ -25,18 +25,18 @@ import java.util.Optional;
  * @param <V>      the value type
  * @since 0.1
  */
-public record CiResult<V>(Outcome outcome, Optional<V> value, boolean complete, Optional<Instant> resetAt,
-                          String detail) {
+public record Result<V>(Outcome outcome, Optional<V> value, boolean complete, Optional<Instant> resetAt,
+                        String detail) {
 
-    /** The closed outcome of a CI contract operation. */
+    /** The closed outcome of a provider operation. */
     public enum Outcome {
         /** The operation succeeded. */
         OK,
         /** The addressed entity does not exist or is not visible to the credential. */
         NOT_FOUND,
         /**
-         * The provider answered and refused the operation itself for a stated reason (e.g. not mergeable, head
-         * moved, validation failure, a feature that is not enabled); a credential refusal is
+         * The provider answered and refused the operation itself for a stated reason (e.g. a validation
+         * failure, a moved head, a feature that is not enabled); a credential refusal is
          * {@link #AUTH_FAILED} or {@link #PERMISSION_DENIED}.
          */
         REJECTED,
@@ -60,7 +60,7 @@ public record CiResult<V>(Outcome outcome, Optional<V> value, boolean complete, 
      * @param resetAt  the reset instant
      * @param detail   the detail
      */
-    public CiResult {
+    public Result {
         Objects.requireNonNull(outcome, "outcome");
         Objects.requireNonNull(value, "value");
         Objects.requireNonNull(resetAt, "resetAt");
@@ -72,8 +72,8 @@ public record CiResult<V>(Outcome outcome, Optional<V> value, boolean complete, 
      * @param <V>   the value type
      * @return a complete OK result
      */
-    public static <V> CiResult<V> ok(V value) {
-        return new CiResult<>(Outcome.OK, Optional.of(value), true, Optional.empty(), "");
+    public static <V> Result<V> ok(V value) {
+        return new Result<>(Outcome.OK, Optional.of(value), true, Optional.empty(), "");
     }
 
     /**
@@ -82,8 +82,8 @@ public record CiResult<V>(Outcome outcome, Optional<V> value, boolean complete, 
      * @param <V>      the value type
      * @return an OK result of a collection read
      */
-    public static <V> CiResult<V> ok(V value, boolean complete) {
-        return new CiResult<>(Outcome.OK, Optional.of(value), complete, Optional.empty(), "");
+    public static <V> Result<V> ok(V value, boolean complete) {
+        return new Result<>(Outcome.OK, Optional.of(value), complete, Optional.empty(), "");
     }
 
     /**
@@ -92,12 +92,12 @@ public record CiResult<V>(Outcome outcome, Optional<V> value, boolean complete, 
      * @param <V>     the value type
      * @return a result without value
      */
-    public static <V> CiResult<V> of(Outcome outcome, String detail) {
-        return new CiResult<>(outcome, Optional.empty(), true, Optional.empty(), detail);
+    public static <V> Result<V> of(Outcome outcome, String detail) {
+        return new Result<>(outcome, Optional.empty(), true, Optional.empty(), detail);
     }
 
     /**
-     * Maps a response that is not {@link CiResponse.Outcome#OK} to the contract outcome.
+     * Maps a response that is not {@link Response.Outcome#OK} to the contract outcome.
      * <p>
      * An HTTP error maps by its status: {@code 401} to {@link Outcome#AUTH_FAILED} and {@code 403} to
      * {@link Outcome#PERMISSION_DENIED} (the credential is refused, never the operation), {@code 404} to
@@ -112,10 +112,10 @@ public record CiResult<V>(Outcome outcome, Optional<V> value, boolean complete, 
      * @param <V>      the value type
      * @return the result
      */
-    public static <V> CiResult<V> failed(CiResponse response) {
+    public static <V> Result<V> failed(Response response) {
         String detail = response.detail().isEmpty() ? "HTTP " + response.status() : response.detail();
         return switch (response.outcome()) {
-            case RATE_LIMITED -> new CiResult<>(Outcome.RATE_LIMITED, Optional.empty(), true, response.resetAt(), detail);
+            case RATE_LIMITED -> new Result<>(Outcome.RATE_LIMITED, Optional.empty(), true, response.resetAt(), detail);
             case HTTP_ERROR -> {
                 Optional<String> reason = reasonOf(response.body());
                 yield of(byStatus(response.status(), reason.isPresent()), detail + reason.map(r -> ": " + r).orElse(""));
@@ -149,8 +149,8 @@ public record CiResult<V>(Outcome outcome, Optional<V> value, boolean complete, 
      * @param <W> the other value type
      * @return the result without value
      */
-    public <W> CiResult<W> asFailure() {
-        return new CiResult<>(outcome, Optional.empty(), complete, resetAt, detail);
+    public <W> Result<W> asFailure() {
+        return new Result<>(outcome, Optional.empty(), complete, resetAt, detail);
     }
 
     /**

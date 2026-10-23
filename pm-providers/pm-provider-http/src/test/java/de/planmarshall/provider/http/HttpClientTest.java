@@ -7,7 +7,7 @@
  * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
  * the root of this repository.
  */
-package de.planmarshall.provider.ci;
+package de.planmarshall.provider.http;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -38,7 +38,7 @@ import mockwebserver3.MockResponse;
 import mockwebserver3.MockWebServer;
 import mockwebserver3.RecordedRequest;
 
-import de.planmarshall.provider.ci.CiResponse.Outcome;
+import de.planmarshall.provider.http.Response.Outcome;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,8 +47,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 @EnableMockWebServer
-@DisplayName("CiHttpClient")
-class CiHttpClientTest {
+@DisplayName("HttpClient")
+class HttpClientTest {
 
     private static final Instant NOW = Instant.parse("2026-10-05T10:00:00Z");
     private static final TokenSource TOKEN = () -> Optional.of("s3cret");
@@ -62,7 +62,7 @@ class CiHttpClientTest {
      */
     private final Map<String, Deque<MockResponse>> responses = new ConcurrentHashMap<>();
     private MockWebServer server;
-    private CiHttpClient client;
+    private HttpClient client;
 
     @BeforeEach
     void start(MockWebServer mockWebServer) {
@@ -75,7 +75,7 @@ class CiHttpClientTest {
                 return next == null ? NOT_FOUND : next;
             }
         });
-        client = new CiHttpClient(new CiEndpoint(base(), Set.of()), TOKEN,
+        client = new HttpClient(new Endpoint(base(), Set.of()), TOKEN,
                 Map.of("Accept", "application/vnd.github+json"), Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
@@ -141,7 +141,7 @@ class CiHttpClientTest {
         void bearer() throws Exception {
             on("GET", "/repos/o/r", response(200, "{\"id\":1}", Map.of("ETag", "\"v1\"")));
 
-            CiResponse response = client.get("repos/o/r");
+            Response response = client.get("repos/o/r");
 
             assertEquals(Outcome.OK, response.outcome());
             assertEquals("{\"id\":1}", response.body());
@@ -156,7 +156,7 @@ class CiHttpClientTest {
         void postsJson() throws Exception {
             on("POST", "/x", json(201, "{}"));
 
-            CiResponse response = client.send("POST", "/x", Optional.of("{\"body\":\"line1\\nline2\"}"), Optional.empty());
+            Response response = client.send("POST", "/x", Optional.of("{\"body\":\"line1\\nline2\"}"), Optional.empty());
 
             assertTrue(response.isOk());
             var request = nextRequest();
@@ -168,7 +168,7 @@ class CiHttpClientTest {
         @Test
         @DisplayName("sends no Authorization header without a token")
         void noToken() throws Exception {
-            try (var anonymous = new CiHttpClient(CiEndpoint.of(base()), TokenSource.NONE, Map.of())) {
+            try (var anonymous = new HttpClient(Endpoint.of(base()), TokenSource.NONE, Map.of())) {
                 on("GET", "/open", json(200, "[]"));
 
                 assertTrue(anonymous.get("/open").isOk());
@@ -180,7 +180,7 @@ class CiHttpClientTest {
         @Test
         @DisplayName("refuses a target outside the origin without sending anything")
         void refusesOtherOrigin() {
-            CiResponse response = client.get(base("localhost") + "steal");
+            Response response = client.get(base("localhost") + "steal");
 
             assertEquals(Outcome.REFUSED, response.outcome());
             assertEquals(0, server.getRequestCount());
@@ -189,9 +189,9 @@ class CiHttpClientTest {
         @Test
         @DisplayName("reports an error status and a transport failure")
         void failures() throws Exception {
-            CiResponse notFound = client.get("/missing");
-            CiResponse unreachable;
-            try (var closed = new CiHttpClient(CiEndpoint.of(closedOrigin()), TOKEN, Map.of())) {
+            Response notFound = client.get("/missing");
+            Response unreachable;
+            try (var closed = new HttpClient(Endpoint.of(closedOrigin()), TOKEN, Map.of())) {
                 unreachable = closed.get("/any");
             }
 
@@ -218,11 +218,11 @@ class CiHttpClientTest {
         @Test
         @DisplayName("drops the token on a redirect to another origin")
         void dropsTokenCrossOrigin() throws Exception {
-            try (var redirecting = new CiHttpClient(new CiEndpoint(base(), Set.of("localhost")), TOKEN, Map.of())) {
+            try (var redirecting = new HttpClient(new Endpoint(base(), Set.of("localhost")), TOKEN, Map.of())) {
                 on("GET", "/log", json(200, "log text"));
                 on("GET", "/jobs/1/logs", response(302, "", Map.of("Location", base("localhost") + "log")));
 
-                CiResponse response = redirecting.get("/jobs/1/logs");
+                Response response = redirecting.get("/jobs/1/logs");
 
                 assertEquals(Outcome.OK, response.outcome());
                 assertEquals("log text", response.body());
@@ -241,7 +241,7 @@ class CiHttpClientTest {
         void refusesRedirect() {
             on("GET", "/jobs/2/logs", response(302, "", Map.of("Location", base("localhost") + "log")));
 
-            CiResponse response = client.get("/jobs/2/logs");
+            Response response = client.get("/jobs/2/logs");
 
             assertEquals(Outcome.REFUSED, response.outcome());
             assertTrue(response.detail().contains("CROSS_ORIGIN"));
@@ -257,7 +257,7 @@ class CiHttpClientTest {
                 on("GET", "/loop", response(302, "", Map.of("Location", base() + "loop")));
             }
 
-            CiResponse response = client.get("/loop");
+            Response response = client.get("/loop");
 
             assertEquals(Outcome.REFUSED, response.outcome());
             assertEquals("redirect refused: " + RedirectRefusal.TOO_MANY_HOPS, response.detail());
@@ -324,8 +324,8 @@ class CiHttpClientTest {
         @DisplayName("parses only the next relation")
         void parsesLink() {
             assertEquals(Optional.of(URI.create("https://h/p2")),
-                    CiHttpClient.nextLink("<https://h/p0>; rel=\"prev\", <https://h/p2>; rel=\"next\""));
-            assertEquals(Optional.empty(), CiHttpClient.nextLink("<https://h/p0>; rel=\"prev\""));
+                    HttpClient.nextLink("<https://h/p0>; rel=\"prev\", <https://h/p2>; rel=\"next\""));
+            assertEquals(Optional.empty(), HttpClient.nextLink("<https://h/p0>; rel=\"prev\""));
         }
     }
 
@@ -338,7 +338,7 @@ class CiHttpClientTest {
         void notModified() throws Exception {
             on("GET", "/c", response(304, "", Map.of("ETag", "\"v1\"")));
 
-            CiResponse response = client.get("/c", "\"v1\"");
+            Response response = client.get("/c", "\"v1\"");
 
             assertEquals(Outcome.NOT_MODIFIED, response.outcome());
             assertEquals("\"v1\"", header(nextRequest(), "If-None-Match"));
@@ -349,7 +349,7 @@ class CiHttpClientTest {
         void retryAfter() {
             on("GET", "/r1", response(429, "slow down", Map.of("Retry-After", "30")));
 
-            CiResponse response = client.get("/r1");
+            Response response = client.get("/r1");
 
             assertEquals(Outcome.RATE_LIMITED, response.outcome());
             assertEquals(Optional.of(NOW.plusSeconds(30)), response.resetAt());
@@ -365,7 +365,7 @@ class CiHttpClientTest {
 
             assertEquals(Optional.of(Instant.ofEpochSecond(1791194400L)), client.get("/r2").resetAt());
             assertEquals(Optional.of(Instant.ofEpochSecond(1791194500L)), client.get("/r3").resetAt());
-            assertEquals(Optional.of(NOW.plus(CiHttpClient.DEFAULT_RATE_LIMIT_WAIT)), client.get("/r4").resetAt());
+            assertEquals(Optional.of(NOW.plus(HttpClient.DEFAULT_RATE_LIMIT_WAIT)), client.get("/r4").resetAt());
         }
 
         @Test
