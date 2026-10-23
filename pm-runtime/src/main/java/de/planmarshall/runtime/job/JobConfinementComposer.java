@@ -1,0 +1,224 @@
+/*
+ * Copyright © 2026-present Oliver Wolff
+ *
+ * SPDX-License-Identifier: LicenseRef-Proprietary
+ *
+ * All rights reserved. This file is part of plan-marshall-mcp, which is proprietary software.
+ * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
+ * the root of this repository.
+ */
+package de.planmarshall.runtime.job;
+
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.SortedMap;
+
+import de.planmarshall.core.store.JobId;
+import de.planmarshall.core.store.ProjectEnrolment;
+
+/**
+ * Composes the filesystem confinement of a job from the project's enrolment at job start (PM-SEC-5).
+ * <p>
+ * The write set is the project root, the enrolment's {@code write_paths}, the system temporary directory and the device
+ * nodes; a {@code build} or {@code project_script} job and a {@code git} job that runs repository hooks add the
+ * project's daemon store; a {@code ci} job adds the configuration directory of its CLI; a worker adds the sub-paths its
+ * client profile declares writable and its own data directory; a probe adds what its kind may write. The write set never
+ * contains the runtime base directory, apart from the project's daemon store and a worker's own data directory, and
+ * never {@code ~/.plan-marshall/}.
+ * <p>
+ * The read set is the whole filesystem except the runtime base directory, the session bus socket and, without the
+ * container-engine opt-in, the container engine's sockets. The job-private directory of a worker or a probe and the
+ * runtime socket of a worker are named as explicit read paths, because they lie inside the denied base directory.
+ * <p>
+ * The composer builds the values; the launcher {@code pm-exec} applies them. A platform without a ruleset records
+ * {@code confinement: unavailable}, which this type neither claims nor suppresses.
+ * <p>
+ * Specification: {@code doc/specification/job-runtime/02-confinement-and-environment.adoc} (Linux Filesystem
+ * Confinement, Build Daemons, Container Engine, Session Bus, Probe Jobs, Worker Egress Proxy).
+ *
+ * @param base             the runtime base directory {@code <PM_MCP_BASE>}
+ * @param systemTemp       the system temporary directory inside the write set
+ * @param deviceRoot       the device nodes directory
+ * @param sessionBusSocket the user's session bus socket; empty when the platform has none
+ * @since 0.1
+ */
+public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot, Optional<Path> sessionBusSocket) {
+
+    /** The directory of the job-private directories below the base. */
+    public static final String RUN_JOBS = "run/jobs";
+
+    /** The subdirectory of a job-private directory a harness may write. */
+    public static final String DATA = "data";
+
+    /** The runtime socket, a read path of every worker and of no other job. */
+    public static final String RUNTIME_SOCKET = "run/runtime.sock";
+
+    /** The container engine's socket paths that stay out of the read set without the opt-in. */
+    private static final List<String> CONTAINER_SOCKETS =
+            List.of("/var/run/docker.sock", "/run/docker.sock", "/run/docker/docker.sock");
+
+    /**
+     * @throws NullPointerException     if a component is {@code null}
+     * @throws IllegalArgumentException if a path is not absolute
+     */
+    public JobConfinementComposer {
+        base = absolute(base, "base");
+        systemTemp = absolute(systemTemp, "systemTemp");
+        deviceRoot = absolute(deviceRoot, "deviceRoot");
+        Objects.requireNonNull(sessionBusSocket, "sessionBusSocket");
+        sessionBusSocket = sessionBusSocket.map(path -> absolute(path, "sessionBusSocket"));
+    }
+
+    /**
+     * The composer of a Linux or macOS runtime: {@code /tmp}, {@code /dev} and the caller's session bus socket.
+     *
+     * @param base             the runtime base directory
+     * @param sessionBusSocket the session bus socket, {@code /run/user/<uid>/bus} on Linux
+     * @return the composer
+     */
+    public static JobConfinementComposer standard(Path base, Optional<Path> sessionBusSocket) {
+        return new JobConfinementComposer(base, Path.of("/tmp"), Path.of("/dev"), sessionBusSocket);
+    }
+
+    /**
+     * Composes the confinement of a job.
+     *
+     * @param enrolment           the verified enrolment of the job's project
+     * @param jobId               the id of the job
+     * @param harnessWritablePaths the sub-paths a worker's client profile declares writable; empty for other kinds
+     * @param runRepositoryHooks  whether a {@code git} job runs repository hooks
+     * @return the confinement
+     */
+    public JobConfinement forJob(ProjectEnrolment enrolment, JobId jobId, List<Path> harnessWritablePaths,
+            boolean runRepositoryHooks) {
+        Objects.requireNonNull(enrolment, "enrolment");
+        Objects.requireNonNull(jobId, "jobId");
+        var write = new ArrayList<Path>();
+        write.add(Path.of(enrolment.projectRoot()));
+        for (var path : enrolment.writePaths()) {
+            write.add(Path.of(path));
+        }
+        write.add(systemTemp);
+        write.add(deviceRoot);
+        var read = new ArrayList<Path>();
+        var jobPrivate = jobPrivate(jobId);
+        switch (jobId.kind()) {
+            case BUILD, PROJECT_SCRIPT -> write.add(BuildDaemonStore.path(base, enrolment.projectId(), write));
+            case GIT -> {
+                if (runRepositoryHooks) {
+                    write.add(BuildDaemonStore.path(base, enrolment.projectId(), write));
+                }
+            }
+            case CI -> write.addAll(cliConfigDirectories(enrolment.buildEnvironment()));
+            case LLM -> {
+                write.addAll(harnessWritablePaths);
+                write.add(jobPrivate.resolve(DATA));
+                read.add(jobPrivate);
+                read.add(base.resolve(RUNTIME_SOCKET));
+            }
+            case PROBE -> {
+                write.addAll(harnessWritablePaths);
+                read.add(jobPrivate);
+            }
+        }
+        return new JobConfinement(write, read, denied(enrolment));
+    }
+
+    /**
+     * Composes the confinement of a probe, which is verified against a candidate record and not against an enrolment.
+     *
+     * @param jobId                the id of the probe job
+     * @param checkoutRoot         the checkout root of a checkout's script; empty for a probe of the machine
+     * @param toolchainCaches      the build write set of a checkout's script; empty otherwise
+     * @param harnessProbe         whether the probe is a harness probe
+     * @param harnessWritablePaths the sub-paths the harness's client profile declares writable
+     * @return the confinement
+     */
+    public JobConfinement forProbe(JobId jobId, Optional<Path> checkoutRoot, List<Path> toolchainCaches,
+            boolean harnessProbe, List<Path> harnessWritablePaths) {
+        Objects.requireNonNull(jobId, "jobId");
+        var write = new ArrayList<Path>();
+        write.add(systemTemp);
+        write.add(deviceRoot);
+        checkoutRoot.ifPresent(root -> {
+            write.add(root);
+            write.addAll(toolchainCaches);
+        });
+        if (harnessProbe) {
+            write.addAll(harnessWritablePaths);
+        }
+        var jobPrivate = jobPrivate(jobId);
+        return new JobConfinement(write, List.of(jobPrivate), denied(null));
+    }
+
+    /** @return the job-private directory of a job */
+    public Path jobPrivate(JobId jobId) {
+        return base.resolve(RUN_JOBS).resolve(jobId.value());
+    }
+
+    /**
+     * The paths excluded from the read set: the base directory, the session bus socket and, without the opt-in, the
+     * container engine's sockets.
+     */
+    private List<Path> denied(ProjectEnrolment enrolment) {
+        var denied = new ArrayList<Path>();
+        denied.add(base);
+        sessionBusSocket.ifPresent(denied::add);
+        if (enrolment == null || enrolment.containerEngine() == null) {
+            for (var socket : CONTAINER_SOCKETS) {
+                denied.add(Path.of(socket));
+            }
+            if (enrolment != null) {
+                unixDockerHost(enrolment.buildEnvironment()).ifPresent(denied::add);
+            }
+        }
+        return denied;
+    }
+
+    private static Optional<Path> unixDockerHost(SortedMap<String, String> environment) {
+        var value = environment.get("DOCKER_HOST");
+        if (value == null || !value.startsWith("unix://")) {
+            return Optional.empty();
+        }
+        var path = value.substring("unix://".length());
+        return path.isEmpty() ? Optional.empty() : JobConfinementComposer.optionalAbsolute(path);
+    }
+
+    private List<Path> cliConfigDirectories(SortedMap<String, String> environment) {
+        var directories = new ArrayList<Path>();
+        addIfAbsolute(directories, environment.get("GH_CONFIG_DIR"));
+        addIfAbsolute(directories, environment.get("GLAB_CONFIG_DIR"));
+        var xdg = environment.get("XDG_CONFIG_HOME");
+        if (xdg != null && !xdg.isEmpty()) {
+            directories.add(Path.of(xdg));
+            directories.add(Path.of(xdg, "gh"));
+            directories.add(Path.of(xdg, "glab"));
+        }
+        return directories;
+    }
+
+    private static void addIfAbsolute(List<Path> directories, String value) {
+        if (value != null && !value.isEmpty()) {
+            var path = Path.of(value);
+            if (path.isAbsolute()) {
+                directories.add(path);
+            }
+        }
+    }
+
+    private static Optional<Path> optionalAbsolute(String value) {
+        var path = Path.of(value);
+        return path.isAbsolute() ? Optional.of(path) : Optional.empty();
+    }
+
+    private static Path absolute(Path path, String name) {
+        Objects.requireNonNull(path, name);
+        if (!path.isAbsolute()) {
+            throw new IllegalArgumentException(name + " must be absolute: " + path);
+        }
+        return path;
+    }
+}

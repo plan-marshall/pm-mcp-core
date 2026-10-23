@@ -96,10 +96,25 @@ public final class PmExecLauncher {
      *                         runtime's own environment is added
      * @param stdin            the in-memory input of the job, written as UTF-8; empty for {@code /dev/null}
      * @param log              the job log, which receives {@code stdout} and {@code stderr}
+     * @param confinement      the write set, the extra read paths and the read-denied paths of the job
      * @since 0.1
      */
     public record Launch(Path workingDirectory, List<String> argv, Map<String, String> environment,
-    Optional<String> stdin, Path log) {
+    Optional<String> stdin, Path log, JobConfinement confinement) {
+
+        /**
+         * A launch without a composed confinement, for a caller that passes none.
+         *
+         * @param workingDirectory the verified working directory
+         * @param argv             the verified argument vector
+         * @param environment      the complete environment of the job
+         * @param stdin            the in-memory input of the job
+         * @param log              the job log
+         */
+        public Launch(Path workingDirectory, List<String> argv, Map<String, String> environment,
+                Optional<String> stdin, Path log) {
+            this(workingDirectory, argv, environment, stdin, log, JobConfinement.none());
+        }
 
         /**
          * @throws NullPointerException     if a component or an element is {@code null}
@@ -117,6 +132,7 @@ public final class PmExecLauncher {
             environment = Map.copyOf(Objects.requireNonNull(environment, "environment"));
             Objects.requireNonNull(stdin, "stdin");
             Objects.requireNonNull(log, "log");
+            Objects.requireNonNull(confinement, "confinement");
         }
 
         /**
@@ -124,11 +140,24 @@ public final class PmExecLauncher {
          * @param environment the complete environment of the job
          * @param stdin       the in-memory input of the job; empty for {@code /dev/null}
          * @param log         the job log
+         * @param confinement the confinement of the job
          * @return the launch of the verified job
          */
-        public static Launch of(VerifiedJob job, Map<String, String> environment, Optional<String> stdin, Path log) {
+        public static Launch of(VerifiedJob job, Map<String, String> environment, Optional<String> stdin, Path log,
+                JobConfinement confinement) {
             Objects.requireNonNull(job, "job");
-            return new Launch(job.workingDirectory(), job.argv(), environment, stdin, log);
+            return new Launch(job.workingDirectory(), job.argv(), environment, stdin, log, confinement);
+        }
+
+        /**
+         * @param job         the verified job
+         * @param environment the complete environment of the job
+         * @param stdin       the in-memory input of the job; empty for {@code /dev/null}
+         * @param log         the job log
+         * @return the launch of the verified job, without a composed confinement
+         */
+        public static Launch of(VerifiedJob job, Map<String, String> environment, Optional<String> stdin, Path log) {
+            return of(job, environment, stdin, log, JobConfinement.none());
         }
     }
 
@@ -173,7 +202,7 @@ public final class PmExecLauncher {
      * @throws IllegalArgumentException if the operating system refuses a name or a value of the environment
      */
     ProcessBuilder processBuilder(Launch launch) {
-        var builder = new ProcessBuilder(command(launch.argv()));
+        var builder = new ProcessBuilder(command(launch));
         builder.directory(launch.workingDirectory().toFile());
         var environment = builder.environment();
         environment.clear();
@@ -187,8 +216,25 @@ public final class PmExecLauncher {
 
     /** @return the command line of the launcher: its absolute path, the separator and the verified vector */
     List<String> command(List<String> argv) {
-        var command = new ArrayList<String>(argv.size() + 2);
+        return command(argv, JobConfinement.none());
+    }
+
+    /**
+     * The command line of the launcher: its absolute path, the confinement options, the separator and the verified
+     * vector.
+     *
+     * @param launch what to launch
+     * @return the command line
+     */
+    List<String> command(Launch launch) {
+        return command(launch.argv(), launch.confinement());
+    }
+
+    private List<String> command(List<String> argv, JobConfinement confinement) {
+        var arguments = confinement.launcherArguments();
+        var command = new ArrayList<String>(argv.size() + arguments.size() + 2);
         command.add(launcherPath.toString());
+        command.addAll(arguments);
         command.add(SEPARATOR);
         command.addAll(argv);
         return command;

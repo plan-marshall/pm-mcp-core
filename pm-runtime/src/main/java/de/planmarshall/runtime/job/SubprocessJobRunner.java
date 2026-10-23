@@ -284,6 +284,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private final VerifyNotResolvePipeline pipeline;
     private final PmExecLauncher launcher;
     private final TerminationProtocol termination;
+    private final JobConfinementComposer confinementComposer;
     private final Environment environment;
     private final ProbeEnvironment probeEnvironment;
     private final OutputParser parser;
@@ -328,6 +329,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * @param pipeline    the verify-not-resolve pipeline
      * @param launcher    the launcher {@code pm-exec}
      * @param termination the termination protocol
+     * @param confinementComposer the composer of the confinement of a job; {@code null} for the standard composer
      * @param environment      the environment of a verified job
      * @param probeEnvironment the environment of a verified probe
      * @param parser           the parser of the job log of an ended job that is no probe
@@ -342,14 +344,16 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      */
     @Builder
     private SubprocessJobRunner(Path base, LockManager lockManager, VerifyNotResolvePipeline pipeline,
-            PmExecLauncher launcher, TerminationProtocol termination, Environment environment,
-            ProbeEnvironment probeEnvironment, OutputParser parser, PrimitiveJobs primitives, InstantSource clock,
-            Supervision supervision, AuditSink audit, Integer settledRecordsKept) {
+            PmExecLauncher launcher, TerminationProtocol termination, JobConfinementComposer confinementComposer,
+            Environment environment, ProbeEnvironment probeEnvironment, OutputParser parser, PrimitiveJobs primitives,
+            InstantSource clock, Supervision supervision, AuditSink audit, Integer settledRecordsKept) {
         this.base = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
         this.lockManager = Objects.requireNonNull(lockManager, "lockManager");
         this.pipeline = Objects.requireNonNull(pipeline, "pipeline");
         this.launcher = Objects.requireNonNull(launcher, "launcher");
         this.termination = Objects.requireNonNull(termination, "termination");
+        this.confinementComposer = confinementComposer != null ? confinementComposer
+                : JobConfinementComposer.standard(this.base, Optional.empty());
         this.environment = Objects.requireNonNull(environment, "environment");
         this.probeEnvironment = Objects.requireNonNull(probeEnvironment, "probeEnvironment");
         this.parser = Objects.requireNonNull(parser, "parser");
@@ -564,8 +568,13 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             return new JobRunner.StartResult.Started(first.jobId());
         }
         var verified = (ProbeVerification.Verified) verification;
+        var checkoutRoot = candidate.workingDirectory() instanceof ProbeCandidate.CheckoutRoot root
+                ? Optional.of(root.root())
+                : Optional.<Path>empty();
+        var confinement = confinementComposer.forProbe(first.jobId(), checkoutRoot, List.of(),
+                candidate.kind() != ProbeCandidate.Kind.SCRIPT, List.of());
         return run(job, log -> new Launch(verified.workingDirectory(), verified.argv(), probeEnvironment.of(candidate),
-                Optional.empty(), log));
+                Optional.empty(), log, confinement));
     }
 
     /**
@@ -811,7 +820,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         if (job == null) {
             return new JobRunner.StartResult.Started(first.jobId());
         }
-        return run(job, log -> Launch.of(verified, environment.of(verified), request.stdin(), log));
+        return run(job, log -> Launch.of(verified, environment.of(verified), request.stdin(), log,
+                confinementComposer.forJob(verified.enrolment(), job.latest.jobId(), List.of(), false)));
     }
 
     /**
