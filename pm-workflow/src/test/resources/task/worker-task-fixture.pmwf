@@ -52,6 +52,21 @@ state task.consulting
         released        -> task.queued
         cancelled       -> task.lost
 
+state task.awaiting_answer
+    phase inherit
+    composite_job task.await-answer
+        answered        -> task.executing
+        suspended       -> task.suspended
+        released        -> task.queued
+        cancelled       -> task.asked
+
+state task.suspended
+    phase inherit
+    composite_job task.await-resume
+        offered         -> task.offered
+        released        -> task.asked
+        cancelled       -> task.asked
+
 state task.submitted terminal submitted success
     phase inherit
 

@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.regex.Pattern;
 
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.service.LockTransaction;
@@ -238,8 +239,7 @@ public final class FencedGenerations {
         public Fence {
             Objects.requireNonNull(generationId, "generationId");
             Objects.requireNonNull(fencedAt, "fencedAt");
-            if (generationId.length() != 18 || !generationId.startsWith("l-")
-                    || !generationId.substring(2).chars().allMatch(c -> Character.digit(c, 16) >= 0)) {
+            if (!Pattern.matches("l-[0-9a-f]{16}", generationId)) {
                 throw new IllegalArgumentException("Not a generation (l- and 16 hex digits): " + generationId);
             }
         }

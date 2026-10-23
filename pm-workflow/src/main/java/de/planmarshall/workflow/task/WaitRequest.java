@@ -10,6 +10,7 @@
 package de.planmarshall.workflow.task;
 
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 import de.planmarshall.core.queue.QueueTaskRecord;
 
@@ -37,8 +38,7 @@ int reOfferBudget) {
      */
     public WaitRequest {
         Objects.requireNonNull(generationId, "generationId");
-        if (generationId.length() != 18 || !generationId.startsWith("l-")
-                || !generationId.substring(2).chars().allMatch(character -> Character.digit(character, 16) >= 0)) {
+        if (!Pattern.matches("l-[0-9a-f]{16}", generationId)) {
             throw new IllegalArgumentException("Not a generation (l- and 16 hex digits): " + generationId);
         }
         Objects.requireNonNull(role, "role");

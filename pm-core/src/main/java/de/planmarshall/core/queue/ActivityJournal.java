@@ -14,11 +14,13 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 import de.planmarshall.core.service.LockManager;
@@ -34,7 +36,8 @@ import de.planmarshall.core.store.LockLevel;
  * taken on the file, outside the scope's transaction journal and digest sidecar, like a job log. A torn last line is
  * ignored by a reader and repaired by the next writer. {@code seq} is never reused, so a client's cursor stays valid.
  * A journal holds at most the compiled bound of 5000 entries; an append beyond it rewrites the journal without its
- * oldest {@code text} entries, never a server entry, under the same lock.
+ * oldest {@code text} entries, never a server entry, under the same lock. A journal of more than the bound in server
+ * entries alone keeps them: the bound bounds what is cut, and a server entry is never cut.
  *
  * @since 0.1
  */
@@ -78,7 +81,7 @@ public final class ActivityJournal {
         return switch (scope.type()) {
             case PLAN -> project(canonical, projectId, "plans", scope.id(), lockManager);
             case EPIC -> project(canonical, projectId, "epics", scope.id(), lockManager);
-            case WORKSPACE -> project(canonical, projectId, null, null, lockManager);
+            case WORKSPACE -> project(canonical, projectId, "workspace", null, lockManager);
             case MACHINE -> new ActivityJournal(canonical.resolve("machine").resolve(DIRECTORY), lockManager);
         };
     }
@@ -90,10 +93,13 @@ public final class ActivityJournal {
         }
         var root = LockKey.projectStore(base, projectId);
         if (home != null) {
-            if (id == null || !SCOPE_ID.matcher(id).matches()) {
-                throw new IllegalArgumentException("Not a valid scope id: " + id);
+            root = root.resolve(home);
+            if (id != null) {
+                if (!SCOPE_ID.matcher(id).matches()) {
+                    throw new IllegalArgumentException("Not a valid scope id: " + id);
+                }
+                root = root.resolve(id);
             }
-            root = root.resolve(home).resolve(id);
         }
         return new ActivityJournal(root.resolve(DIRECTORY), lockManager);
     }
@@ -134,6 +140,7 @@ public final class ActivityJournal {
                         "The next entry of the journal has the seq %d, not %d".formatted(expected, entry.seq()));
             }
             Files.createDirectories(file.getParent());
+            truncateTornTail(file);
             var entries = new ArrayList<>(current);
             entries.add(entry);
             if (entries.size() > MAX_ENTRIES) {
@@ -188,16 +195,49 @@ public final class ActivityJournal {
         return kept;
     }
 
+    /**
+     * Cuts a torn last line, so the next append starts at a line boundary. The reader ignores such a tail already; this
+     * is the repair the specification gives the next writer.
+     */
+    private static void truncateTornTail(Path file) throws IOException {
+        if (!Files.exists(file)) {
+            return;
+        }
+        var bytes = Files.readAllBytes(file);
+        for (var index = bytes.length - 1; index >= 0; index--) {
+            if (bytes[index] == NEWLINE) {
+                if (index + 1 < bytes.length) {
+                    Files.write(file, Arrays.copyOf(bytes, index + 1),
+                            StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                }
+                return;
+            }
+        }
+        if (bytes.length > 0) {
+            Files.write(file, new byte[0], StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        }
+    }
+
     private static void appendLine(Path file, byte[] entry) throws IOException {
         Files.write(file, block(entry), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
     }
 
+    /**
+     * Replaces the journal by an atomic write-and-rename beside it, so a reader sees the old journal or the new one and
+     * a stop mid-write loses neither.
+     */
     private static void rewrite(Path file, List<ActivityEntry> entries) throws IOException {
         var out = new ByteArrayOutputStream();
         for (var entry : entries) {
             out.writeBytes(block(ActivityEntryCodec.write(entry)));
         }
-        Files.write(file, out.toByteArray(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        var temporary = file.resolveSibling(file.getFileName() + ".tmp." + UUID.randomUUID());
+        try {
+            Files.write(temporary, out.toByteArray(), StandardOpenOption.CREATE_NEW);
+            Files.move(temporary, file, StandardCopyOption.ATOMIC_MOVE);
+        } finally {
+            Files.deleteIfExists(temporary);
+        }
     }
 
     private static byte[] block(byte[] entry) {

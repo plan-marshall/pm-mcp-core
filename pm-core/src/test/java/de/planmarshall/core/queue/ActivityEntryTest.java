@@ -15,7 +15,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.nio.file.Path;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.queue.QueueTaskRecord.SignalAction;
 import de.planmarshall.core.queue.QueueTaskRecord.SignalName;
@@ -29,7 +28,7 @@ class ActivityEntryTest {
 
     @Test
     @DisplayName("an agent_started signal entry round-trips")
-    void agentStarted(@TempDir Path ignored) {
+    void agentStarted() {
         var entry = ActivityEntry.builder()
                 .seq(4)
                 .attempt(2)

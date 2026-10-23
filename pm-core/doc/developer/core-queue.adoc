@@ -59,9 +59,11 @@ One line of `tasks/activity/<queue_task_id>.jsonl`: what a worker did (the harne
 `attempt_end`). The `usage` object belongs to another package and is kept as the raw JSON text it was read with.
 
 `ActivityJournal`::
-The journal of a scope: `plans/<plan_id>/tasks/activity/`, `epics/<epic_id>/tasks/activity/`, `workspace/tasks/activity/`
-or `machine/tasks/activity/`. It appends one entry per line under its own leaf lock on the file, ignores a torn last
-line and keeps at most 5,000 entries, dropping the oldest `text` entries first and never a server entry.
+The journal of a scope: `plans/<plan_id>/tasks/activity/`, `epics/<epic_id>/tasks/activity/`,
+`workspace/tasks/activity/` or `machine/tasks/activity/`. It appends one entry per line under its own leaf lock on the
+file, cuts a torn last line before the next append, and keeps the compiled bound of 5,000 entries by dropping the oldest
+`text` entries first and never a server entry; a journal whose excess lies in server entries alone keeps them, because a
+server entry is never cut.
 
 == How to use and extend it
 
@@ -86,4 +88,4 @@ The runtime writes the `agent_started` detection through `workflow.task`'s proto
 * A fenced generation's call is refused before any other check; the fence outlives the runtime that wrote it.
 * A queue that does not exist is empty, never an error; a record that exists and does not parse is a `StoreRefusal`
   naming the file, never an empty record.
-* A torn last line of a journal is ignored by the reader and repaired by the next append; `seq` is never reused.
+* A torn last line of a journal is cut by the next append; `seq` is never reused.

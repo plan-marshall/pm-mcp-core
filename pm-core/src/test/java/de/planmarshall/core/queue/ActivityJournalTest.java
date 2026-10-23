@@ -13,7 +13,10 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -52,6 +55,16 @@ class ActivityJournalTest {
     }
 
     @Test
+    @DisplayName("a workspace journal is workspace/tasks/activity/<queue_task_id>.jsonl")
+    void workspacePath(@TempDir Path base) {
+        var journal = ActivityJournal.ofScope(base, "project-a",
+                new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.WORKSPACE, null), new TestLocks());
+
+        assertEquals(base.resolve("projects/project-a/workspace/tasks/activity/" + TASK + ".jsonl")
+                .toAbsolutePath().normalize(), journal.journalPath(TASK));
+    }
+
+    @Test
     @DisplayName("the machine's journal is machine/tasks/activity/<queue_task_id>.jsonl")
     void machinePath(@TempDir Path base) {
         var journal = ActivityJournal.ofScope(base, null,
@@ -81,5 +94,28 @@ class ActivityJournalTest {
         journal.append(TASK, signal(1));
 
         assertThrows(IllegalArgumentException.class, () -> journal.append(TASK, signal(3)));
+    }
+
+    @Test
+    @DisplayName("the next append repairs a torn last line")
+    void tornTail(@TempDir Path base) throws Exception {
+        var journal = ActivityJournal.ofScope(base, "project-a", QueueFixtures.planScope(), new TestLocks());
+        var file = journal.journalPath(TASK);
+        Files.createDirectories(file.getParent());
+        var complete = ActivityEntryCodec.write(signal(1));
+        var torn = Arrays.copyOf(complete, complete.length + 1);
+        torn[complete.length] = '\n';
+        var bytes = Arrays.copyOf(torn, torn.length + 12);
+        System.arraycopy("{\"format_ver".getBytes(StandardCharsets.UTF_8), 0, bytes, torn.length,
+                12);
+        Files.write(file, bytes);
+
+        journal.append(TASK, signal(2));
+
+        var entries = journal.entries(TASK);
+        assertAll(
+                () -> assertEquals(2, entries.size()),
+                () -> assertEquals(1, entries.getFirst().seq()),
+                () -> assertEquals(2, entries.getLast().seq()));
     }
 }

@@ -15,10 +15,11 @@ link:../../../doc/specification/store-schemas/16-task-queue.adoc[Store Schemas Â
 == The types and how they work together
 
 `TaskProtocol`::
-The protocol of one queue. Every method is one transaction of the `QueueStore` under the queue lock: it reads the
-records, decides and writes the records it changes, so no second writer comes between the decision and the write. Its
-collaborators are ports with a default: the fence store, `PlanPause` (whether a plan is paused), `SkillDelivery` (what
-each generation received), `SecurityAudit` (the `agent_started` audit) and an optional `ActivityJournal`.
+The protocol of one queue. Every transition decides and writes inside one `QueueStore.updateAll` transaction on the
+queue lock; the fence document is read inside that transaction, and the audit and the activity journal are written
+around it, because they are other stores. Its collaborators are ports with a default: the fence store, `PlanPause`
+(whether a plan is paused, read as a lock-free snapshot), `JobState` (whether a generation's job ended), `SkillDelivery`
+(what each generation received), `SecurityAudit` (the `agent_started` audit) and an optional `ActivityJournal`.
 It decides; the runtime transports (link:../adr/workflow-task/001-the-protocol-decides-the-runtime-transports.adoc[ADR
 001]).
 
@@ -30,12 +31,17 @@ role's current one).
 
 `TaskCall` and `CallResult`::
 A call names the task and the caller's generation. The result is `Accepted` (the record after the call) or `Refused`
-with a `TaskRefusal`: `job_ended`, `generation_fenced`, `stale_entity`, `job_scope_mismatch`, `link_not_available`,
-`invalid_link_args`, `skills_not_loaded`, in that order.
+with a `TaskRefusal`: `job_ended` (the `JobState` port says the generation's job ended), `generation_fenced`,
+`stale_entity`, `job_scope_mismatch`, `link_not_available`, `skills_not_loaded`, in that order.
+`invalid_link_args` is the entity link's own check: the arguments of a link are validated against its closed schema by
+the entity representation, not by this package, which carries no link argument.
 
 `SkillDelivery`::
-The skills each generation has received, by URI and digest. A new generation starts empty; an unchanged digest is not
-delivered again; a changed digest is.
+The skills each generation has received, by URI and digest, for the lifetime of the runtime. A new generation starts
+empty; an unchanged digest is not delivered again; a changed digest is; a submit is refused `skills_not_loaded` while a
+required skill is missing. The persistent record beside the worker's job record is `worker-launch`'s; this package keeps
+the in-memory projection the protocol decides on
+(link:../adr/workflow-task/004-the-delivery-record-is-a-runtime-projection.adoc[ADR 004]).
 
 `SecurityAudit` and `AuditLogSecurityAudit`::
 The `agent_started` detection is one `security` record of the machine's audit log naming the executable, the
@@ -50,17 +56,19 @@ generation, the task and the attempt; `AuditLogSecurityAudit` writes it under th
   first, then work tasks in creation order; a task of a paused plan, a second writer task of a plan whose writer is
   leased, and every task of an outdated generation are skipped.
 * `acknowledge`: `offered` â†’ `executing`, with the instant on the lease and the attempt.
-* `submit`: closes the task `submitted` in the transaction that validated the submit and releases the lease. Every later
-  call of that generation is `stale_entity`; the task is done exactly once.
+* `submit`: checks that every skill the task requires was delivered to the generation (else `skills_not_loaded`, and
+  the task stays executing), then closes the task `submitted` in the transaction that validated the submit and releases
+  the lease. Every later call of that generation is `stale_entity`; the task is done exactly once.
+* `infeasible`: closes the task `infeasible` through the entity's link, as `submit` closes it `submitted`.
 * `report`: ends the attempt without a result, releases the lease and re-queues the task. An end that counts spends a
   re-offer; when the budget is spent the task closes `lost` with `attempts_spent`
   (link:../adr/workflow-task/002-the-re-offer-budget-is-spent-by-counted-attempt-ends.adoc[ADR 002]). `withdrawn` and
   `deadline_expired` close the task `lost` with that reason.
 * `suspend`: `end: suspended` and no lease; the task waits for the answer to its question with its `continuation`
   stored.
-* `offTrack`: records the signal at most once per attempt, then applies the action. `restart` (and `yield`, which acts as
-  a restart for every task but an envelope) ends the attempt `off_track` and re-offers; `show` and `nudge` change no
-  status.
+* `offTrack`: records the signal at most once per attempt, then applies the action. `restart` ends the attempt
+  `off_track` and re-offers; `show` and `nudge` change no status; `yield` acts as a restart here, because the envelope
+  task's own yield (`yield:envelope-M`) belongs to the envelope execution and not to this package.
 * `agentStarted`: the `agent_started` signal, always `restart`, plus its `security` audit record.
 * `pausePlan`: ends every open attempt of the plan with `end: paused` without spending a re-offer and queues the task
   again.

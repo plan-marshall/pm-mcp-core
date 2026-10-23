@@ -314,7 +314,7 @@ public class ActivityEntryCodec {
                 default -> throw undeclared(field);
             }
         }
-        requireFields(seen, FIELD_SIGNAL, FIELD_SIGNAL, FIELD_ACTION);
+        requireFields(seen, "signal entry", FIELD_SIGNAL, FIELD_ACTION);
         try {
             return new Signal(signal, action);
         } catch (IllegalArgumentException e) {

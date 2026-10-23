@@ -12,10 +12,13 @@ package de.planmarshall.workflow.task;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
@@ -41,20 +44,18 @@ import de.planmarshall.core.service.LockManager;
  * The task protocol (Model Work § Task Protocol): the offers, the acknowledgement, the lease, the fence, the task
  * outcomes, the re-offers, the off-track signals and the skill delivery of one task queue.
  * <p>
- * Every method is one transaction of the {@link QueueStore}, under the queue lock: it reads the records, decides, and
- * writes the records it changes, so no second writer comes between the decision and the write. The fence is persisted
- * by {@link FencedGenerations} beside the queue, so a late call of a replaced generation is refused after a restart,
- * before any other check.
+ * Every transition decides and writes inside one {@link QueueStore#updateAll} transaction on the queue lock. The fence
+ * document is read lock-free inside that transaction: the only writer of the fence needs the queue lock, so the read
+ * cannot change under the decision, and a generation fenced before the transaction is refused before any other check.
  * <p>
- * The order of the checks of a call is the one of {@link TaskRefusal}: the fence, the lease, the link, the arguments
- * and the delivered skills. The first valid submit closes the attempt in the transaction that validated it and
- * releases the lease; every later call of that generation is refused {@code stale_entity}, so a task is done exactly
+ * The order of the checks of a call is the one of {@link TaskRefusal}: the job's end, the fence, the lease, the link,
+ * the arguments and the delivered skills. The first valid submit closes the attempt in the transaction that validated it
+ * and releases the lease; every later call of that generation is refused {@code stale_entity}, so a task is done exactly
  * once.
  * <p>
  * The protocol decides, the runtime transports: a pending {@code pm_wait} belongs to the transport, and this type
  * answers with an offer, an empty window or the end of the worker. A generation that holds a lease is offered no other
- * task, and a generation whose configuration digest is not the role's current one ends instead of being offered a
- * task.
+ * task, and a generation whose configuration digest is not the role's current one ends instead of being offered a task.
  *
  * @since 0.1
  */
@@ -63,6 +64,7 @@ public final class TaskProtocol {
     private final QueueStore queue;
     private final FencedGenerations fences;
     private final PlanPause pause;
+    private final JobState jobState;
     private final SkillDelivery skills;
     private final SecurityAudit audit;
     private final ActivityJournal journal;
@@ -71,6 +73,7 @@ public final class TaskProtocol {
         this.queue = builder.queue;
         this.fences = builder.fences;
         this.pause = builder.pause;
+        this.jobState = builder.jobState;
         this.skills = builder.skills;
         this.audit = builder.audit;
         this.journal = builder.journal;
@@ -79,14 +82,15 @@ public final class TaskProtocol {
     /**
      * @param queue the queue the protocol serves
      * @param locks the lock manager of the runtime
-     * @return a builder with the queue's own fence store, no pause, an empty skill record, no audit and no journal
+     * @return a builder with the queue's own fence store, no pause, no job state, an empty skill record, no audit and
+     *         no journal
      */
     public static Builder builder(QueueStore queue, LockManager locks) {
         return new Builder(Objects.requireNonNull(queue, "queue"), Objects.requireNonNull(locks, "locks"));
     }
 
     /**
-     * Builds a protocol. Every collaborator has a default; a builder without a queue or a lock manager creates none.
+     * Builds a protocol. Every collaborator has a default.
      *
      * @since 0.1
      */
@@ -96,6 +100,7 @@ public final class TaskProtocol {
         private final LockManager locks;
         private FencedGenerations fences;
         private PlanPause pause = PlanPause.NEVER;
+        private JobState jobState = JobState.NEVER;
         private SkillDelivery skills = new SkillDelivery();
         private SecurityAudit audit = SecurityAudit.NONE;
         private ActivityJournal journal;
@@ -120,6 +125,15 @@ public final class TaskProtocol {
          */
         public Builder pause(PlanPause value) {
             this.pause = Objects.requireNonNull(value, "pause");
+            return this;
+        }
+
+        /**
+         * @param value whether a generation's job ended
+         * @return this builder
+         */
+        public Builder jobState(JobState value) {
+            this.jobState = Objects.requireNonNull(value, "jobState");
             return this;
         }
 
@@ -169,14 +183,20 @@ public final class TaskProtocol {
     public WaitAnswer wait(WaitRequest request, Instant at) {
         Objects.requireNonNull(request, "request");
         Objects.requireNonNull(at, "at");
-        if (fences.isFenced(request.generationId())) {
-            return new WaitAnswer.End("fenced");
-        }
-        if (!request.generationDigest().equals(request.roleDigest())) {
-            return new WaitAnswer.End("recycled");
-        }
         var answer = new AtomicReference<WaitAnswer>();
         queue.updateAll(records -> {
+            if (jobState.hasEnded(request.generationId())) {
+                answer.set(new WaitAnswer.End("job_ended"));
+                return records;
+            }
+            if (fenced().contains(request.generationId())) {
+                answer.set(new WaitAnswer.End("fenced"));
+                return records;
+            }
+            if (!request.generationDigest().equals(request.roleDigest())) {
+                answer.set(new WaitAnswer.End("recycled"));
+                return records;
+            }
             var held = heldBy(records, request.generationId());
             if (held.isPresent()) {
                 return answerHeld(records, held.get(), request, at, answer);
@@ -191,6 +211,10 @@ public final class TaskProtocol {
             return replace(records, offered);
         });
         return answer.get();
+    }
+
+    private Set<String> fenced() {
+        return fences.fenced();
     }
 
     private List<QueueTaskRecord> answerHeld(List<QueueTaskRecord> records, QueueTaskRecord held, WaitRequest request,
@@ -280,16 +304,49 @@ public final class TaskProtocol {
     }
 
     /**
-     * Closes the task with the outcome {@code submitted} in the transaction that validates the submit.
+     * Closes the task with the outcome {@code submitted} in the transaction that validates the submit, after checking
+     * that every skill the task requires was delivered to the generation (Model Work § Loaded before Submit).
      *
+     * @param call     the call
+     * @param required the skills the task requires
+     * @param at       the instant of the submit
+     * @return the closed task, or the refusal
+     */
+    public CallResult submit(TaskCall call, List<RoleSkill> required, Instant at) {
+        Objects.requireNonNull(required, "required");
+        Objects.requireNonNull(at, "at");
+        return onLeasedTask(call, task -> {
+            if (task.status() != Status.EXECUTING) {
+                return new CallResult.Refused(TaskRefusal.LINK_NOT_AVAILABLE, task);
+            }
+            if (!skills.missing(call.generationId(), required).isEmpty()) {
+                return new CallResult.Refused(TaskRefusal.SKILLS_NOT_LOADED, task);
+            }
+            return new CallResult.Accepted(close(task, Outcome.SUBMITTED, null, AttemptEnd.CLOSED, at));
+        });
+    }
+
+    /**
      * @param call the call
      * @param at   the instant of the submit
      * @return the closed task, or the refusal
+     * @see #submit(TaskCall, List, Instant)
      */
     public CallResult submit(TaskCall call, Instant at) {
+        return submit(call, List.of(), at);
+    }
+
+    /**
+     * Closes the task with the outcome {@code infeasible}, through the entity's {@code infeasible} link.
+     *
+     * @param call the call
+     * @param at   the instant of the report
+     * @return the closed task, or the refusal
+     */
+    public CallResult infeasible(TaskCall call, Instant at) {
         Objects.requireNonNull(at, "at");
         return onLeasedTask(call, task -> task.status() == Status.EXECUTING
-                ? new CallResult.Accepted(close(task, Outcome.SUBMITTED, null, AttemptEnd.CLOSED, at))
+                ? new CallResult.Accepted(close(task, Outcome.INFEASIBLE, null, AttemptEnd.CLOSED, at))
                 : new CallResult.Refused(TaskRefusal.LINK_NOT_AVAILABLE, task));
     }
 
@@ -297,7 +354,9 @@ public final class TaskProtocol {
      * Ends the attempt of a task without a result and re-offers the task within the budget of its state.
      *
      * @param call   the call
-     * @param end    how the attempt ended; never {@code closed} and never {@code suspended}
+     * @param end    how the attempt ended; one of {@code worker_lost}, {@code exited_without_submit},
+     *               {@code waited_again}, {@code budget}, {@code start_failure}, {@code restart}, {@code drain},
+     *               {@code withdrawn} or {@code deadline_expired}
      * @param budget the re-offer budget of the state
      * @param at     the instant the attempt ended
      * @return the task as it stands after the call, or the refusal
@@ -308,8 +367,8 @@ public final class TaskProtocol {
         if (budget < 0) {
             throw new IllegalArgumentException("A re-offer budget is not negative: " + budget);
         }
-        if (end == AttemptEnd.CLOSED || end == AttemptEnd.SUSPENDED) {
-            return new CallResult.Refused(TaskRefusal.INVALID_LINK_ARGS, taskOf(call));
+        if (!REPORTABLE.contains(end)) {
+            return onLeasedTask(call, task -> new CallResult.Refused(TaskRefusal.LINK_NOT_AVAILABLE, task));
         }
         return onLeasedTask(call, task -> {
             if (end == AttemptEnd.WITHDRAWN) {
@@ -321,6 +380,10 @@ public final class TaskProtocol {
             return new CallResult.Accepted(endAttempt(task, end, budget, at));
         });
     }
+
+    private static final Set<AttemptEnd> REPORTABLE = EnumSet.of(AttemptEnd.WORKER_LOST,
+            AttemptEnd.EXITED_WITHOUT_SUBMIT, AttemptEnd.WAITED_AGAIN, AttemptEnd.BUDGET, AttemptEnd.START_FAILURE,
+            AttemptEnd.RESTART, AttemptEnd.DRAIN, AttemptEnd.WITHDRAWN, AttemptEnd.DEADLINE_EXPIRED);
 
     /**
      * Suspends the task: the attempting worker ended with its session stored and the task waits for its answer.
@@ -354,6 +417,7 @@ public final class TaskProtocol {
     public CallResult offTrack(TaskCall call, OffTrackSignal signal, int budget, Instant at) {
         Objects.requireNonNull(signal, "signal");
         Objects.requireNonNull(at, "at");
+        var newlyRecorded = new AtomicBoolean();
         var recorded = onLeasedTask(call, task -> {
             var attempt = task.currentAttempt().orElseThrow();
             var alreadyHeld = task.signals().stream().anyMatch(existing -> existing.signal() == signal.signal()
@@ -364,13 +428,14 @@ public final class TaskProtocol {
             var signals = new ArrayList<>(task.signals());
             signals.add(new Signal(signal.signal(), attempt.attempt(), signal.action(), signal.measurement(),
                     signal.threshold(), at));
+            newlyRecorded.set(true);
             var recordedTask = task.withSignals(signals);
             if (signal.action() != SignalAction.RESTART && signal.action() != SignalAction.YIELD) {
                 return new CallResult.Accepted(recordedTask);
             }
             return new CallResult.Accepted(endAttempt(recordedTask, AttemptEnd.OFF_TRACK, budget, at));
         });
-        if (recorded instanceof CallResult.Accepted accepted && journal != null) {
+        if (newlyRecorded.get() && recorded instanceof CallResult.Accepted accepted && journal != null) {
             appendSignalEntry(accepted.task(), signal, at);
         }
         return recorded;
@@ -388,19 +453,25 @@ public final class TaskProtocol {
      */
     public CallResult agentStarted(TaskCall call, SecurityAudit.Event event, int budget) {
         Objects.requireNonNull(event, "event");
-        if (!event.generationId().equals(call.generationId()) || !event.queueTaskId().equals(call.queueTaskId())) {
-            throw new IllegalArgumentException("The detection names another worker or task than the call: " + event);
+        var result = onLeasedTask(call, task -> {
+            if (!event.generationId().equals(call.generationId()) || !event.queueTaskId().equals(call.queueTaskId())) {
+                throw new IllegalArgumentException("The detection names another worker or task than the call: " + event);
+            }
+            return new CallResult.Accepted(task);
+        });
+        if (result instanceof CallResult.Refused) {
+            return result;
         }
-        var result = offTrack(call, OffTrackSignal.agentStarted(event.executable()), budget, event.at());
-        if (result instanceof CallResult.Accepted) {
+        var detected = offTrack(call, OffTrackSignal.agentStarted(event.executable()), budget, event.at());
+        if (detected instanceof CallResult.Accepted) {
             audit.agentStarted(event);
         }
-        return result;
+        return detected;
     }
 
     /**
-     * Pauses a plan now: every open attempt of its tasks ends with {@code end: paused} without spending a re-offer,
-     * its lease is released, and the task is queued again.
+     * Pauses a plan now: every open attempt of its tasks ends with {@code end: paused} without spending a re-offer, its
+     * lease is released, and the task is queued again without its stale continuation.
      *
      * @param planId the plan
      * @param at     the instant of the pause
@@ -418,6 +489,7 @@ public final class TaskProtocol {
                         && planId.equals(task.scope().id())) {
                     after.add(task.withAttempts(ended(task.attempts(), AttemptEnd.PAUSED, at))
                             .withLease(null)
+                            .withContinuation(null)
                             .withStatus(Status.QUEUED));
                     count++;
                 } else {
@@ -484,11 +556,16 @@ public final class TaskProtocol {
 
     private CallResult onLeasedTask(TaskCall call, Function<QueueTaskRecord, CallResult> action) {
         Objects.requireNonNull(call, "call");
-        if (fences.isFenced(call.generationId())) {
-            return new CallResult.Refused(TaskRefusal.GENERATION_FENCED, taskOf(call));
-        }
         var result = new AtomicReference<CallResult>();
         queue.updateAll(records -> {
+            if (jobState.hasEnded(call.generationId())) {
+                result.set(new CallResult.Refused(TaskRefusal.JOB_ENDED, taskOf(records, call)));
+                return records;
+            }
+            if (fenced().contains(call.generationId())) {
+                result.set(new CallResult.Refused(TaskRefusal.GENERATION_FENCED, taskOf(records, call)));
+                return records;
+            }
             var target = records.stream().filter(task -> task.queueTaskId().equals(call.queueTaskId())).findFirst();
             if (target.isEmpty()) {
                 result.set(new CallResult.Refused(TaskRefusal.JOB_SCOPE_MISMATCH, null));
@@ -510,8 +587,8 @@ public final class TaskProtocol {
         return result.get();
     }
 
-    private QueueTaskRecord taskOf(TaskCall call) {
-        return queue.read(call.queueTaskId()).orElse(null);
+    private static QueueTaskRecord taskOf(List<QueueTaskRecord> records, TaskCall call) {
+        return records.stream().filter(task -> task.queueTaskId().equals(call.queueTaskId())).findFirst().orElse(null);
     }
 
     private static List<Attempt> acknowledged(List<Attempt> attempts, Instant at) {
@@ -534,10 +611,6 @@ public final class TaskProtocol {
         updated.set(updated.size() - 1, new Attempt(last.attempt(), last.generationId(), last.jobId(),
                 last.configurationDigest(), last.offeredAt(), last.acknowledgedAt(), at, end, end.counts()));
         return updated;
-    }
-
-    private static QueueTaskRecord endAttempt(QueueTaskRecord task, AttemptEnd end, Instant at) {
-        return requeue(task.withAttempts(ended(task.attempts(), end, at)).withLease(null));
     }
 
     private static QueueTaskRecord endAttempt(QueueTaskRecord task, AttemptEnd end, int budget, Instant at) {
@@ -575,8 +648,9 @@ public final class TaskProtocol {
 
     private void appendSignalEntry(QueueTaskRecord task, OffTrackSignal signal, Instant at) {
         var entries = journal.entries(task.queueTaskId());
+        var last = entries.isEmpty() ? 0 : entries.getLast().seq();
         var entry = ActivityEntry.builder()
-                .seq(entries.size() + 1)
+                .seq(last + 1)
                 .attempt(task.currentAttempt().map(Attempt::attempt).orElse(1))
                 .source(ActivityEntry.Source.SERVER)
                 .kind(ActivityEntry.Kind.SIGNAL)

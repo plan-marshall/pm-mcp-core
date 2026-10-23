@@ -53,6 +53,18 @@ public final class SkillDelivery {
 
     /**
      * @param generation the generation
+     * @param required   the skills the task requires
+     * @return the skills the generation has not received, or whose digest changed; it records nothing
+     */
+    public synchronized List<RoleSkill> missing(String generation, List<RoleSkill> required) {
+        Objects.requireNonNull(generation, "generation");
+        Objects.requireNonNull(required, "required");
+        var record = delivered.getOrDefault(generation, Map.of());
+        return required.stream().filter(skill -> !skill.digest().equals(record.get(skill.uri()))).toList();
+    }
+
+    /**
+     * @param generation the generation
      * @return the skills the generation has received, by URI and digest; empty for a new generation
      */
     public synchronized Map<String, String> recordOf(String generation) {

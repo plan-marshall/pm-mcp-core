@@ -38,8 +38,10 @@ detection to the port; the port's default `NONE` records nothing.
 
 * A production wiring must pass `AuditLogSecurityAudit`; with the default no security record is written. The protocol's
   tests use a recording port and `AuditLogSecurityAuditTest` proves the adapter's record.
-* A failed audit append propagates to the supervisor after the queue has already been updated; a repeated detection is
-  deduplicated by the signal's once-per-attempt rule, so the audit may be attempted again without a second signal.
+* A failed audit append propagates to the supervisor after the queue has already been updated. The detection is not
+  repeatable through the same lease: the attempt ended, so a second call is refused `job_scope_mismatch`. A caller that
+  must not lose the record appends it before the queue update, or retries the record from its own outbox; the port keeps
+  that choice with the runtime.
 * The record names the executable, the generation, the task and the attempt; it is one `security`/`agent_started`
   line of the hash-chained log.
 

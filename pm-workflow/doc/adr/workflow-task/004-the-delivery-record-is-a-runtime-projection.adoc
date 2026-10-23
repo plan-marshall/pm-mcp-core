@@ -1,0 +1,52 @@
+= ADR 004: The Delivery Record Is a Runtime Projection
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-23
+
+== Context
+
+Model Work § Skill Delivery Record &amp; Re-Delivery requires the skills delivered to a generation to be recorded per
+generation, and a new generation to start with an empty record so its first offer carries every required skill
+in-band. Model Work § Loaded before Submit requires a submit while a required skill is missing to be refused
+`skills_not_loaded` with the missing `skill://` URIs, the task staying executing.
+
+The persistent record lives beside the worker's job record, which the worker launch writes when it delivers the skills
+in the launch prompt and the offer. The task protocol needs the answer at offer time and at submit time; it does not
+own the job record.
+
+== Decision
+
+`SkillDelivery` is the protocol's in-memory projection of the record: a map per generation of the URI and digest it
+received. `TaskProtocol.deliverSkills` records what travels in-band at the offer, and
+`TaskProtocol.submit(TaskCall, List<RoleSkill>, Instant)` compares the task's required skills with the projection and
+refuses `skills_not_loaded` while one is missing. The persistent record and its instant are `worker-launch`'s, fed from
+the same delivery.
+
+== Alternatives Considered
+
+1. *Read the job record on every offer and submit*.
+   _Rejected_: it puts the job store in the queue transaction's path and duplicates `worker-launch`'s write.
+2. *Persist the record in the queue package*.
+   _Rejected_: the record belongs to the worker's job, is written at launch, and is deleted with the job; a second copy in
+   the queue would have to be reconciled with it.
+
+== Consequences
+
+* A restart of the runtime empties the projection, so a generation is treated as if it had received nothing: the next
+  offer re-delivers its skills in-band and a submit does not refuse for a missing record. That is the safe direction —
+  the delivery is repeated, never skipped.
+* A production wiring that knows the persistent record may supply its own `SkillDelivery`; the protocol's check is the
+  same.
+* The persistent record and its `delivered_at` instant remain a duty of `worker-launch` (out of this package).
+
+== Source
+
+Work package `task-queue-and-protocol`; link:../../../../doc/specification/model-work/02-task-protocol.adoc#execute-submit[Model
+Work § Execute &amp; Submit, item 5], `doc/specification/model-work/04-worker-launch.adoc` § Skill Delivery Record &amp;
+Re-Delivery and § Loaded before Submit.

@@ -23,7 +23,8 @@ a job-store decision in front of every queue call.
 == Decision
 
 The fence is a document of the queue, `queue/fences.json`, written under the queue lock by `FencedGenerations` with the
-generation and the instant of the first fence. `TaskProtocol` asks it before every other check and writes it in
+generation and the instant of the first fence. `TaskProtocol` reads it inside the queue transaction that decides, after
+the job's own end (which the specification orders first) and before the lease and every link check, and writes it in
 `fence` before it releases the lease and re-queues the task with `end: restart`.
 
 == Alternatives Considered

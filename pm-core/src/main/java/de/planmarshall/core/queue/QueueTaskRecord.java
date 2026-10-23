@@ -26,7 +26,9 @@ import lombok.With;
  * record a transition changes. The scope store is authoritative for which tasks a model state owns and how they
  * ended; this record is authoritative for the delivery.
  * <p>
- * The record refuses at construction every combination its schema rules out:
+ * The record checks each member's own form in its constructor and the combinations the schema rules out in
+ * {@link #validate()}, which the store runs before every write and the codec after every read, so no invalid combination
+ * is ever persisted or read (see {@code ADR core-queue/005}):
  * <ul>
  * <li>a closed task has an outcome and its closing instant and holds no lease; an open task has neither outcome nor
  * reason nor closing instant;</li>
@@ -76,6 +78,7 @@ Outcome outcome, LostReason reason, String questionId, Instant createdAt, Instan
     private static final Pattern QUESTION_ID = Pattern.compile("Q-[0-9]{3,6}");
     private static final Pattern DIGEST = Pattern.compile("[0-9a-f]{64}");
     private static final Pattern HEAD = Pattern.compile("[0-9a-f]{40}");
+    private static final Pattern GENERATION = Pattern.compile("l-[0-9a-f]{16}");
 
     /**
      * Whether a task is model work or a consultation.
@@ -380,9 +383,8 @@ Outcome outcome, LostReason reason, String questionId, Instant createdAt, Instan
         /** @return whether the attempt spends a re-offer of the state's budget */
         public boolean counts() {
             return switch (this) {
-                case CLOSED, START_FAILURE, RESTART, DRAIN, PAUSED, SUSPENDED -> false;
-                case WORKER_LOST, EXITED_WITHOUT_SUBMIT, WAITED_AGAIN, BUDGET, OFF_TRACK, WITHDRAWN,
-                    DEADLINE_EXPIRED -> true;
+                case CLOSED, START_FAILURE, RESTART, DRAIN, PAUSED, SUSPENDED, WITHDRAWN, DEADLINE_EXPIRED -> false;
+                case WORKER_LOST, EXITED_WITHOUT_SUBMIT, WAITED_AGAIN, BUDGET, OFF_TRACK -> true;
             };
         }
 
@@ -736,8 +738,9 @@ Outcome outcome, LostReason reason, String questionId, Instant createdAt, Instan
             if (attempt < 1) {
                 throw new IllegalArgumentException("A signal names its attempt from 1: " + attempt);
             }
-            if (measurement < 0 || threshold < 0) {
-                throw new IllegalArgumentException("A signal's measurement and threshold are not negative");
+            if (measurement < 0 || threshold < 0 || !Double.isFinite(measurement) || !Double.isFinite(threshold)) {
+                throw new IllegalArgumentException(
+                        "A signal's measurement and threshold are finite and not negative");
             }
             if (signal == SignalName.AGENT_STARTED && action != SignalAction.RESTART) {
                 throw new IllegalArgumentException(
@@ -851,10 +854,12 @@ Outcome outcome, LostReason reason, String questionId, Instant createdAt, Instan
             throw new IllegalArgumentException("A closed task holds no lease");
         }
         if (!closed && lease == null && status.holdsLease()) {
-            throw new IllegalArgumentException("A task in the status '%s' holds a lease".formatted(status.wireName()));
+            throw new IllegalArgumentException("A task in the status '%s' holds no lease"
+                    .formatted(status.wireName()));
         }
         if (!closed && lease != null && !status.holdsLease()) {
-            throw new IllegalArgumentException("A task in the status '%s' holds no lease".formatted(status.wireName()));
+            throw new IllegalArgumentException("A task in the status '%s' holds a lease"
+                    .formatted(status.wireName()));
         }
         var lost = outcome == Outcome.LOST;
         if (lost != (reason != null)) {
@@ -907,11 +912,7 @@ Outcome outcome, LostReason reason, String questionId, Instant createdAt, Instan
     }
 
     private static void requireGeneration(String generation, String name) {
-        if (generation == null || generation.length() != 18 || !generation.startsWith("l-")) {
-            throw new IllegalArgumentException("'%s' is not a generation (l- and 16 hex digits): %s".formatted(name,
-                    generation));
-        }
-        if (!generation.substring(2).chars().allMatch(character -> Character.digit(character, 16) >= 0)) {
+        if (generation == null || !GENERATION.matcher(generation).matches()) {
             throw new IllegalArgumentException("'%s' is not a generation (l- and 16 hex digits): %s".formatted(name,
                     generation));
         }

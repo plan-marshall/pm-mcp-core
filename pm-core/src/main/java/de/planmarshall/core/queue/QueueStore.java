@@ -168,6 +168,9 @@ public final class QueueStore {
                             "A revision keeps the id of every record: '%s' became '%s'"
                                     .formatted(before.get(index).queueTaskId(), after.get(index).queueTaskId()));
                 }
+            }
+            after.forEach(QueueTaskRecord::validate);
+            for (var index = 0; index < after.size(); index++) {
                 if (!after.get(index).equals(before.get(index))) {
                     write(transaction, after.get(index));
                 }
