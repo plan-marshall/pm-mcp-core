@@ -35,9 +35,11 @@ VerificationRecord verificationRecord) {
 
     @Override
     public boolean equals(Object other) {
-        return other instanceof LoadedProfile that && Objects.equals(clientId, that.clientId) && kind == that.kind
-                && Objects.equals(document, that.document) && Arrays.equals(bytes, that.bytes) && state == that.state
-                && Objects.equals(verificationRecord, that.verificationRecord);
+        return other instanceof LoadedProfile(String otherClientId, ProfileSetKind otherKind, JsonNode otherDocument,
+                byte[] otherBytes, State otherState, VerificationRecord otherRecord)
+                && Objects.equals(clientId, otherClientId) && kind == otherKind
+                && Objects.equals(document, otherDocument) && Arrays.equals(bytes, otherBytes) && state == otherState
+                && Objects.equals(verificationRecord, otherRecord);
     }
 
     @Override

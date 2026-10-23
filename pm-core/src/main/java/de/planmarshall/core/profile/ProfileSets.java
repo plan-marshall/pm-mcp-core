@@ -53,7 +53,7 @@ public record ProfileSets(Map<String, ShippedProfile> shipped, Path machineDirec
 
         @Override
         public boolean equals(Object other) {
-            return other instanceof ShippedProfile that && Arrays.equals(document, that.document);
+            return other instanceof ShippedProfile(byte[] otherDocument) && Arrays.equals(document, otherDocument);
         }
 
         @Override
