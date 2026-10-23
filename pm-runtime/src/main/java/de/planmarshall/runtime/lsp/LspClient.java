@@ -212,7 +212,7 @@ public final class LspClient implements AutoCloseable {
     }
 
     /**
-     * Waits for the next diagnostics the server publishes for a document.
+     * Returns the cached diagnostics of a document, waiting for its first publication when none is cached.
      *
      * @param file    the document
      * @param timeout the longest wait

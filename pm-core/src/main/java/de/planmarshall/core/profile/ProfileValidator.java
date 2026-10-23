@@ -10,7 +10,9 @@
 package de.planmarshall.core.profile;
 
 import java.text.Normalizer;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -174,8 +176,18 @@ public final class ProfileValidator {
     private static final Set<String> SLOTS = Set.of("prompt_file", "model", "effort", NAME_MCP_CONFIG, NAME_RESULT_SCHEMA,
             NAME_TOOLS, "cwd", "agent");
 
-    private static final Set<String> SESSION_SLOTS = Set.of("prompt_file", "model", "effort", NAME_MCP_CONFIG,
-            NAME_RESULT_SCHEMA, NAME_TOOLS, "cwd", "agent", NAME_SESSION_ID);
+    /** The launch slots plus the session slot a resume names; derived, so a new slot reaches a resume as well. */
+    private static final Set<String> SESSION_SLOTS = sessionSlots();
+
+    /** The tool declarations a profile must carry; {@code idioms} is the block's one optional member. */
+    private static final Set<String> TOOL_NAMES = Set.of(NAME_READ_FILE, NAME_WRITE_FILE, NAME_EDIT_FILE,
+            NAME_SEARCH_CODE, NAME_FIND_FILES, NAME_RUN_SHELL, NAME_ASK_USER);
+
+    private static Set<String> sessionSlots() {
+        var slots = new LinkedHashSet<>(SLOTS);
+        slots.add(NAME_SESSION_ID);
+        return Collections.unmodifiableSet(slots);
+    }
 
     private static final Set<String> JOB_ENVIRONMENT = Set.of("PATH", "HOME", "NODE_OPTIONS", "JAVA_TOOL_OPTIONS");
 
@@ -305,13 +317,10 @@ public final class ProfileValidator {
         }
 
         private void tools(JsonNode tools, String pointer) {
-            var members = Set.of(NAME_READ_FILE, NAME_WRITE_FILE, NAME_EDIT_FILE, NAME_SEARCH_CODE, NAME_FIND_FILES, NAME_RUN_SHELL,
-                    NAME_ASK_USER);
-            var allowed = Set.of(NAME_READ_FILE, NAME_WRITE_FILE, NAME_EDIT_FILE, NAME_SEARCH_CODE, NAME_FIND_FILES, NAME_RUN_SHELL,
-                    NAME_ASK_USER, NAME_IDIOMS);
-            object(tools, pointer, NAME_TOOLS, members, allowed);
-            for (var name : List.of(NAME_READ_FILE, NAME_WRITE_FILE, NAME_EDIT_FILE, NAME_SEARCH_CODE, NAME_FIND_FILES, NAME_RUN_SHELL,
-                    NAME_ASK_USER)) {
+            var allowed = new LinkedHashSet<>(TOOL_NAMES);
+            allowed.add(NAME_IDIOMS);
+            object(tools, pointer, NAME_TOOLS, TOOL_NAMES, allowed);
+            for (var name : TOOL_NAMES) {
                 var value = text(required(tools, pointer, name), pointer + "/" + name, name, 256);
                 toolName(value, pointer + "/" + name);
             }

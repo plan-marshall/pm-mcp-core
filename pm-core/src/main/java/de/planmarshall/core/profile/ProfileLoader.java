@@ -106,9 +106,9 @@ public final class ProfileLoader {
         for (var entry : sets.shipped().entrySet()) {
             var clientId = entry.getKey();
             try {
-                var profile = ProfileValidator.validate(entry.getValue().document(),
-                        PROFILE_NAME.formatted(PROFILES, clientId, SUFFIX), rules);
-                requireClientId(profile, clientId);
+                var name = PROFILE_NAME.formatted(PROFILES, clientId, SUFFIX);
+                var profile = ProfileValidator.validate(entry.getValue().document(), name, rules);
+                requireClientId(profile, clientId, name);
                 place(new LoadedProfile(clientId, ProfileSetKind.SHIPPED, profile, entry.getValue().document(),
                         LoadedProfile.State.VERIFIED, null), effective, refused);
             } catch (ProfileRefusal refusal) {
@@ -152,7 +152,7 @@ public final class ProfileLoader {
         var document = read(directory.resolve(clientId + SUFFIX));
         var name = PROFILE_NAME.formatted(kind.wireName(), clientId, SUFFIX);
         var profile = ProfileValidator.validate(document, name, rules);
-        requireClientId(profile, clientId);
+        requireClientId(profile, clientId, name);
         var verification = verificationRecord(directory, clientId, name);
         if (!clientId.equals(verification.clientId())) {
             throw ProfileRefusal.unverified(name, "the record names the client '%s'".formatted(verification.clientId()));
@@ -233,10 +233,10 @@ public final class ProfileLoader {
         }
     }
 
-    private void requireClientId(JsonNode profile, String clientId) {
+    private void requireClientId(JsonNode profile, String clientId, String name) {
         var declared = ProfileValidator.clientId(profile);
         if (!declared.equals(clientId)) {
-            throw ProfileRefusal.invalid(PROFILE_NAME.formatted(PROFILES, clientId, SUFFIX), "/client_id",
+            throw ProfileRefusal.invalid(name, "/client_id",
                     "the document declares '%s', its file name is '%s'".formatted(declared, clientId));
         }
     }

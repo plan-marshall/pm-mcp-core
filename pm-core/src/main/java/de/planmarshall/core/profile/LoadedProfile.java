@@ -53,6 +53,12 @@ VerificationRecord verificationRecord) {
                 + bytes.length + " bytes], state=" + state + ", verificationRecord=" + verificationRecord + "]";
     }
 
+    /** @return a copy of the document bytes, so the digest and hash of the value cannot change from outside */
+    @Override
+    public byte[] bytes() {
+        return bytes.clone();
+    }
+
     /** The state a verification record gives a profile. The set is closed. */
     public enum State {
         /** The record and its sidecar match the document and the enrolled harness build. */

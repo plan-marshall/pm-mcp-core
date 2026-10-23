@@ -27,8 +27,8 @@ encoding, sends the requests a caller asks for, caches the diagnostics the serve
 process if it does not end in time.
 
 |`PoolLanguageClient` |The client side of the protocol (LSP4J dispatches to it reflectively): it caches the published
-diagnostics per document, acknowledges messages and telemetry without user interaction, and lets a caller wait for the
-next publication of a document.
+diagnostics per document, acknowledges messages and telemetry without user interaction, and lets a caller obtain the
+cached diagnostics of a document, waiting for its first publication when none is cached.
 
 |`LspException` |The one checked exception of the package, carrying a `Kind` (`REQUEST_FAILED`, `TIMEOUT`, …).
 
