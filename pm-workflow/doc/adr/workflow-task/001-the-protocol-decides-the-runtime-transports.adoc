@@ -1,0 +1,49 @@
+= ADR 001: The Protocol Decides, the Runtime Transports
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-23
+
+== Context
+
+`pm_wait` is a bounded long-poll: the server holds the call for at most the host's bounded wait, answers a superseded
+call `wait_again` at once, and answers the newer one with the offer. The wait loop, the host settings, the progress
+frames and the cancellation belong to the transport. The task protocol is a library of the workflow module; it has no
+host settings, no clock of its own and no blocking primitive.
+
+A protocol that blocked inside a store transaction would hold the queue lock for the whole window and would need a
+second source of truth for the pending waits.
+
+== Decision
+
+`TaskProtocol.wait` is synchronous and transactional: it answers `Offered`, `WaitAgain` or `End` at once, and writes
+only the records its decision changes. The pending wait, its bounded window and its supersession belong to the runtime.
+A generation that holds an unacknowledged offer is answered the same offer again, which is the answer the specification
+gives a wait whose offer did not reach the worker; a generation that holds an acknowledged task is re-offered that task
+as a new attempt.
+
+== Alternatives Considered
+
+1. *A blocking `wait` in the protocol*.
+   _Rejected_: it needs the host's bounded wait, its progress frames and cancellation, all of which are the transport's,
+   and it would hold the queue lock for the window.
+2. *A callback or future registry in the protocol*.
+   _Rejected_: it is a second source of truth for the pending waits, which the transport already owns.
+
+== Consequences
+
+* The protocol is testable without a clock or a thread, and every transition is one transaction.
+* The transport must answer a superseded wait `wait_again` at once; the lease rule ("a generation holds at most one
+  lease") is what keeps a leased task from a second wait of the same generation.
+* A worker that waits again while it holds an acknowledged task gets the task again as a new attempt; the attempt it
+  did not submit ends `waited_again` and spends a re-offer.
+
+== Source
+
+Work package `task-queue-and-protocol`; link:../../../../doc/specification/model-work/02-task-protocol.adoc#pm-wait[Model
+Work § `pm_wait`], link:../../../../doc/specification/model-work/02-task-protocol.adoc#offer[§ Offer].

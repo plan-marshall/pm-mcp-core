@@ -1,0 +1,45 @@
+= ADR 002: The Re-Offer Budget Is Spent by Counted Attempt Ends
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-23
+
+== Context
+
+A task is re-offered when an attempt ends without a result. Not every end costs the state a re-offer: a runtime restart,
+a drain, the operator's pause of the plan, the start failure of a fresh worker and a suspension spend none, while a lost
+worker, a fresh worker that exited without the required submission, a worker that waited again, a budget overrun, an
+off-track restart, a withdrawal and an expired vote do. The record's `AttemptEnd` names the end and `Attempt.counts`
+records whether the attempt spent one; the schema requires the two to agree.
+
+== Decision
+
+`AttemptEnd.counts()` is the one definition of which end spends a re-offer. A transition that ends an attempt sets
+`counts` from it, then compares the number of counting attempts of the task with the budget the caller names for its
+state: when the count reaches the budget, the task closes `lost` with `attempts_spent`; otherwise it is queued again.
+
+== Alternatives Considered
+
+1. *Counting offers instead of failed attempts*.
+   _Rejected_: a pause or a restart would spend a budget the specification says it does not.
+2. *A budget stored on the queue task record*.
+   _Rejected_: the budget is the state's `job_incomplete` budget, which belongs to the scope, not to the delivery.
+
+== Consequences
+
+* A budget of 0 closes the task on its first counted failure; a budget of `n` re-queues the task after the first
+  `n - 1` counting ends and closes it on the `n`-th.
+* The caller supplies the budget per wait and per report; a budget read from the wrong state changes when a task is
+  given up.
+* The pause path ends the attempt with `end: paused` and `counts: false`, so it can never exhaust a budget.
+
+== Source
+
+Work package `task-queue-and-protocol`; link:../../../../doc/specification/model-work/02-task-protocol.adoc#re-offer[Model
+Work § Re-Offer within the Self-Remedy Budget], link:../../../../doc/specification/store-schemas/16-task-queue.adoc#queue-task-record[Store
+Schemas § Queue Task Record, `attempts[]`].

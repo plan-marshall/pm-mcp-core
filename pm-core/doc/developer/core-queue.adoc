@@ -1,0 +1,89 @@
+= Task Queue Developer Guide (`core.queue`)
+:nofooter:
+
+`de.planmarshall.core.queue` owns the persisted side of the task protocol: the queue task record of one unit of model
+work, the queue of a project and of the machine scope, the generation fence and the activity journal of a task. The
+protocol that moves a task — offer, acknowledgement, lease, fence, outcome, re-offer and skill delivery — is
+`de.planmarshall.workflow.task` and is documented in
+link:../../../pm-workflow/doc/developer/workflow-task.adoc[`workflow.task`].
+
+== What the package is for
+
+A plan task (`TASK-NNN`) is a step of a plan. A *queue task* is one unit of model work: a `job llm` state creates one
+per entity, a `consult role` link creates one for the consulted role. The scope store is authoritative for which tasks a
+model state owns and how they ended (`active_tasks` of `mcp/status.json`); the queue task record is
+authoritative for the delivery — its lease, its attempts, the off-track signals of its workers and its consultations.
+
+Specification: link:../../../doc/specification/store-schemas/16-task-queue.adoc[Store Schemas § Task Queue, § Queue Task
+Record and § Activity Journal], link:../../../doc/specification/model-work/02-task-protocol.adoc[Model Work § Task
+Protocol], link:../../../doc/specification/model-work/03-supervision-and-recycling.adoc[§ A Worker Off Track].
+
+== The types and how they work together
+
+`QueueTaskId`::
+`qt-` and 16 random lower-case hexadecimal digits. The id is the name of the record file and, for a consultation, the
+`consultation_id`.
+
+`QueueTaskRecord`::
+One record per task, with the closed schema of `queue/<queue_task_id>.json`: the kind (`work` or `consultation`), the
+role and its class, the scope (`plan`, `epic`, `workspace` or `machine`), the entity, the creating state, the status,
+the continuation after a question, the current lease, the attempts, the signals, the consultations and the closed
+outcome with its reason. Its nested types are the closed vocabularies of the schema (`Status`, `Outcome`, `LostReason`,
+`AttemptEnd`, `SignalName`, `SignalAction`, `ContinuationForm`, `FallbackReason`, `ConsultationStatus`, `DeliveredTo`).
+`validate()` holds the combinations the schema rules out; it runs when a record is written and when one is read, never
+on an intermediate value, so a record can be built member by member through its `with` methods
+(link:../adr/core-queue/005-record-combinations-checked-at-the-write-boundary.adoc[ADR 005]).
+
+`QueueTaskRecordCodec`::
+The one reader and writer of a record. It accepts exactly one shape through `core.store`'s `StrictJson`, and writes
+every field in the order of the schema, so a record read back is written back byte for byte.
+`TaskQueueSchemaParityTest` keeps the fields, the required members and every enum equal to the schema block of the
+specification and validates every written record against it.
+
+`QueueStore`::
+The records of one queue. `ofProject(base, projectId, locks)` is `projects/<project_id>/queue/` under
+`locks/queue.lock`; `ofMachine(base, locks)` is `machine/queue/` under `machine/locks/queue.lock`. `create` writes the
+first record of a task; `updateAll` revises all records in one transaction on the queue lock and writes only those that
+changed; `read`, `records` and `queueTaskIds` read without a lock. A file that is not `<queue_task_id>.json` is no
+record.
+
+`FencedGenerations`::
+`queue/fences.json`, the generations the supervisor fenced, with the instant of each. The fence is persisted beside the
+queue under the queue lock, so a late call of a replaced generation is refused after a restart
+(link:../adr/core-queue/004-generation-fence-beside-the-queue.adoc[ADR 004]). The fence document is not a queue task
+record and the listing skips it.
+
+`ActivityEntry` and `ActivityEntryCodec`::
+One line of `tasks/activity/<queue_task_id>.jsonl`: what a worker did (the harness kinds `text`, `tool_call`,
+`tool_result`, `file_changed`, `turn`) or what the server recorded (`link`, `question`, `answer_ack`, `signal`,
+`attempt_end`). The `usage` object belongs to another package and is kept as the raw JSON text it was read with.
+
+`ActivityJournal`::
+The journal of a scope: `plans/<plan_id>/tasks/activity/`, `epics/<epic_id>/tasks/activity/`, `workspace/tasks/activity/`
+or `machine/tasks/activity/`. It appends one entry per line under its own leaf lock on the file, ignores a torn last
+line and keeps at most 5,000 entries, dropping the oldest `text` entries first and never a server entry.
+
+== How to use and extend it
+
+Create the record through the builder and hand it to `QueueStore.create`; change it through the protocol, which asks the
+store to revise all records in one transaction. A new closed value is a new constant of the matching enum plus the same
+constant in the schema block and in `TaskQueueSchemaParityTest`; the parity test then fails until both agree. A new field
+is a new component of `QueueTaskRecord`, a field in the codec in schema order, and a line in the schema block; the
+parity test compares all three.
+
+The runtime writes the `agent_started` detection through `workflow.task`'s protocol, which asks the audit log for one
+`security` record naming the executable; the record here carries the matching `signals[]` entry with the action
+`restart`.
+
+== Invariants and failure modes
+
+* A record is written only under its queue lock, as an atomic write-and-rename; a reader sees the record before or after
+  a write, never a part of one.
+* `validate()` runs before every write and after every read: a record that breaks a combination of the schema is
+  refused, not repaired.
+* An `agent_started` signal always takes the action `restart`; the record, the activity entry and the codec all refuse
+  any other action.
+* A fenced generation's call is refused before any other check; the fence outlives the runtime that wrote it.
+* A queue that does not exist is empty, never an error; a record that exists and does not parse is a `StoreRefusal`
+  naming the file, never an empty record.
+* A torn last line of a journal is ignored by the reader and repaired by the next append; `seq` is never reused.

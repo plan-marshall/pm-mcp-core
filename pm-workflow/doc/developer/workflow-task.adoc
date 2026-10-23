@@ -1,0 +1,87 @@
+= Task Protocol Developer Guide (`workflow.task`)
+:nofooter:
+
+`de.planmarshall.workflow.task` is the protocol that moves a task: it offers it to a worker generation, acknowledges
+it, leases it, fences the generation, settles the outcome, re-offers it, records the off-track signals and delivers the
+skills the task requires. The persisted side — the queue task record, the queue of a project and of the machine scope,
+the generation fence and the activity journal — is `de.planmarshall.core.queue` and is documented in
+link:../../../pm-core/doc/developer/core-queue.adoc[`core.queue`].
+
+Specification: link:../../../doc/specification/model-work/02-task-protocol.adoc[Model Work § Task Protocol], § Leases,
+Generations & Fencing, § Closed Task Outcomes, § Re-Offer and § The `worker-task` Sub-Workflow;
+link:../../../doc/specification/model-work/03-supervision-and-recycling.adoc[§ A Worker Off Track];
+link:../../../doc/specification/store-schemas/16-task-queue.adoc[Store Schemas § Queue Task Record].
+
+== The types and how they work together
+
+`TaskProtocol`::
+The protocol of one queue. Every method is one transaction of the `QueueStore` under the queue lock: it reads the
+records, decides and writes the records it changes, so no second writer comes between the decision and the write. Its
+collaborators are ports with a default: the fence store, `PlanPause` (whether a plan is paused), `SkillDelivery` (what
+each generation received), `SecurityAudit` (the `agent_started` audit) and an optional `ActivityJournal`.
+It decides; the runtime transports (link:../adr/workflow-task/001-the-protocol-decides-the-runtime-transports.adoc[ADR
+001]).
+
+`WaitRequest` and `WaitAnswer`::
+A wait names the caller's generation, the role, the generation's configuration digest, the role's current digest and
+the re-offer budget of the state. The answer is `Offered` (a task leased to the generation), `WaitAgain` (the window
+ended without a task) or `End` (`fenced` for a fenced generation, `recycled` when the generation's digest is not the
+role's current one).
+
+`TaskCall` and `CallResult`::
+A call names the task and the caller's generation. The result is `Accepted` (the record after the call) or `Refused`
+with a `TaskRefusal`: `job_ended`, `generation_fenced`, `stale_entity`, `job_scope_mismatch`, `link_not_available`,
+`invalid_link_args`, `skills_not_loaded`, in that order.
+
+`SkillDelivery`::
+The skills each generation has received, by URI and digest. A new generation starts empty; an unchanged digest is not
+delivered again; a changed digest is.
+
+`SecurityAudit` and `AuditLogSecurityAudit`::
+The `agent_started` detection is one `security` record of the machine's audit log naming the executable, the
+generation, the task and the attempt; `AuditLogSecurityAudit` writes it under the audit lock
+(link:../adr/workflow-task/003-the-agent-started-detection-is-audited-through-a-port.adoc[ADR 003]).
+
+== The transitions
+
+* `wait`: a generation that holds an unacknowledged offer receives the same offer; one that holds an acknowledged task
+  it did not submit ends that attempt `waited_again` and receives the task again as a new attempt; a generation with
+  another lease is offered no second task. Otherwise the first queued task of the role is offered: consultation tasks
+  first, then work tasks in creation order; a task of a paused plan, a second writer task of a plan whose writer is
+  leased, and every task of an outdated generation are skipped.
+* `acknowledge`: `offered` → `executing`, with the instant on the lease and the attempt.
+* `submit`: closes the task `submitted` in the transaction that validated the submit and releases the lease. Every later
+  call of that generation is `stale_entity`; the task is done exactly once.
+* `report`: ends the attempt without a result, releases the lease and re-queues the task. An end that counts spends a
+  re-offer; when the budget is spent the task closes `lost` with `attempts_spent`
+  (link:../adr/workflow-task/002-the-re-offer-budget-is-spent-by-counted-attempt-ends.adoc[ADR 002]). `withdrawn` and
+  `deadline_expired` close the task `lost` with that reason.
+* `suspend`: `end: suspended` and no lease; the task waits for the answer to its question with its `continuation`
+  stored.
+* `offTrack`: records the signal at most once per attempt, then applies the action. `restart` (and `yield`, which acts as
+  a restart for every task but an envelope) ends the attempt `off_track` and re-offers; `show` and `nudge` change no
+  status.
+* `agentStarted`: the `agent_started` signal, always `restart`, plus its `security` audit record.
+* `pausePlan`: ends every open attempt of the plan with `end: paused` without spending a re-offer and queues the task
+  again.
+* `fence`: persists the fence, releases the generation's lease, queues its task again with `end: restart` and forgets
+  the generation's skill record.
+* `deliverSkills`: records what the generation received and answers what must travel in-band.
+
+== How to use and extend it
+
+Build the protocol over the queue with `TaskProtocol.builder(queue, locks)` and the ports the caller has. A new
+transition is a new method that decides inside one `QueueStore.updateAll` call and returns a `CallResult`; a new
+collaborator is a small port with a default so the existing callers keep compiling. A new resolution the protocol needs
+(the role's current digest, the pause state, the re-offer budget) belongs to the caller and is passed in, never read
+from a store the protocol does not own.
+
+== Invariants and failure modes
+
+* A generation holds at most one lease; a leased task is never offered to a second wait of the same generation.
+* The fence is checked before every other check and is persisted, so a replaced generation is refused after a restart.
+* A call on a task whose lease another generation holds is `job_scope_mismatch`; a call on a task that closed is
+  `stale_entity`; a submit before the acknowledgement is `link_not_available`.
+* The first valid submit closes the task; a second submit never closes it again.
+* A pause spends no re-offer and is queued at once; the offer waits only for the plan to be started.
+* An `agent_started` signal never takes an action other than `restart`.

@@ -33,12 +33,6 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:../../../pm-mcp-clients/doc/plans/exec-read-denied-paths.adoc[`pm-mcp-clients` / `exec-read-denied-paths`]
 |Milestone 4
 
-|link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]
-|Task queue and task protocol
-|`open`
-|nothing
-|Milestone 4
-
 |link:worker-launch.adoc[`worker-launch`]
 |Worker launch and harness enrolment
 |`open`
@@ -48,13 +42,13 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:supervisor.adoc[`supervisor`]
 |Worker supervisor
 |`open`
-|link:worker-launch.adoc[`worker-launch`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]
+|link:worker-launch.adoc[`worker-launch`]
 |Milestone 4
 
 |link:worker-activity.adoc[`worker-activity`]
 |What a worker does: the activity of a task mapped per harness, the activity journal, the off-track signals and their actions
 |`open`
-|link:supervisor.adoc[`supervisor`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]
+|link:supervisor.adoc[`supervisor`]
 |Milestone 4
 
 |link:slots-usage-and-budgets.adoc[`slots-usage-and-budgets`]
@@ -66,13 +60,13 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:consultation.adoc[`consultation`]
 |Consultation through the server
 |`open`
-|link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]
+|nothing
 |Milestone 4
 
 |link:question-continuation.adoc[`question-continuation`]
 |Continuation after a question: hold, suspend and resume, the answer acknowledgement, the answer in the next task, the question bound, the stage `resumability` of the profile verification
 |`open`
-|link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:supervisor.adoc[`supervisor`]; link:worker-launch.adoc[`worker-launch`]; link:../../../plan-marshall-mcp/doc/plans/question-loop-verification.adoc[`plan-marshall-mcp` / `question-loop-verification`]
+|link:supervisor.adoc[`supervisor`]; link:worker-launch.adoc[`worker-launch`]; link:../../../plan-marshall-mcp/doc/plans/question-loop-verification.adoc[`plan-marshall-mcp` / `question-loop-verification`]
 |Milestone 4
 
 |link:role-qualification.adoc[`role-qualification`]
@@ -150,7 +144,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:chat.adoc[`chat`]
 |Chatting with the planning role: one sub-workflow for a plan, an epic, a decision, a start, and ended work, routed to its role, every change through read-back
 |`open`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:role-qualification.adoc[`role-qualification`]; link:decision-engine.adoc[`decision-engine`]; link:start-from-clients.adoc[`start-from-clients`] (chat while starting); link:start-source-intake.adoc[`start-source-intake`] (the entry's `chat/` and its move); link:process-and-overview.adoc[`process-and-overview`] (ended work)
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:role-qualification.adoc[`role-qualification`]; link:decision-engine.adoc[`decision-engine`]; link:start-from-clients.adoc[`start-from-clients`] (chat while starting); link:start-source-intake.adoc[`start-source-intake`] (the entry's `chat/` and its move); link:process-and-overview.adoc[`process-and-overview`] (ended work)
 |Milestone 8; the client work of `pm-mcp-clients`
 
 |link:chat-plan-revision.adoc[`chat-plan-revision`]
@@ -162,7 +156,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:plan-and-epic-control.adoc[`plan-and-epic-control`]
 |Controlling plans: a plan's acts (pause, start, cancel, abandon), a plan's settings, the epic told, holds and their acts
 |`open`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]; link:project-onboarding-unit.adoc[`project-onboarding-unit`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:supervisor.adoc[`supervisor`]
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]; link:project-onboarding-unit.adoc[`project-onboarding-unit`]; link:supervisor.adoc[`supervisor`]
 |Milestones 10 and 12; the client work of `pm-mcp-clients`
 
 |link:epic-resource-and-release.adoc[`epic-resource-and-release`]
@@ -204,13 +198,13 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:runtime-control.adoc[`runtime-control`]
 |Controlling the runtime from the clients: stop now or after a drain, the withdrawable drain, restart, the update check, the upgrade
 |`blocked`
-|link:supervisor.adoc[`supervisor`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the consent store); the operator's answer to the open question of the registry credential, for the update check and the fetch (no work package)
+|link:supervisor.adoc[`supervisor`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the consent store); the operator's answer to the open question of the registry credential, for the update check and the fetch (no work package)
 |Milestone 2; the client work of `pm-mcp-clients`
 
 |link:runtime-metrics.adoc[`runtime-metrics`]
 |What the runtime is doing: the metrics registry maintained where things happen, the closed catalogue, the snapshot endpoints and the stream
 |`open`
-|link:supervisor.adoc[`supervisor`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:slots-usage-and-budgets.adoc[`slots-usage-and-budgets`]; link:token-usage.adoc[`token-usage`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (held and paused)
+|link:supervisor.adoc[`supervisor`]; link:slots-usage-and-budgets.adoc[`slots-usage-and-budgets`]; link:token-usage.adoc[`token-usage`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (held and paused)
 |Milestone 2; the client work of `pm-mcp-clients`
 
 |link:process-designer.adoc[`process-designer`]

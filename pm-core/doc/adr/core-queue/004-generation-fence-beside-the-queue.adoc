@@ -1,0 +1,54 @@
+= ADR 004: The Generation Fence Is Persisted Beside the Queue
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-23
+
+== Context
+
+Model Work § Fencing requires a generation's fence to be persisted in the transaction that releases its lease, so no
+call of the fenced generation is accepted after its task is free, and every later call is refused `generation_fenced`
+before any other check. The fence also has to be known after a restart, before the protocol reads any job record: the
+recovery of a dead runtime fences every generation of the dead instance in the project's store.
+
+The queue task record is closed and names only the generation of the current lease; it has no member for a set of
+fenced generations. The job record carries the fate of a worker, but it is the runtime's store and reading it would put
+a job-store decision in front of every queue call.
+
+== Decision
+
+The fence is a document of the queue, `queue/fences.json`, written under the queue lock by `FencedGenerations` with the
+generation and the instant of the first fence. `TaskProtocol` asks it before every other check and writes it in
+`fence` before it releases the lease and re-queues the task with `end: restart`.
+
+== Alternatives Considered
+
+1. *A member of the queue task record*.
+   _Rejected_: the schema is closed, and a fence is not a property of one task; a generation can outlive the task it was
+   fenced on.
+2. *The job record's fate as the only authority*.
+   _Rejected_: it puts the job store in the path of every queue call and cannot answer the fence before the recovery
+   has written the fate.
+3. *An in-memory set in the protocol*.
+   _Rejected_: it is lost on restart, and the specification requires the fence to survive.
+
+== Consequences
+
+* A queue carries one small document beside its records; the listing of `queue/` ignores it because its name is not a
+  queue task id.
+* The fence and the release of the lease are written under one queue lock, but not in one atomic step: a stop between
+  the two leaves a fence without a released lease, which the recovery releases on the next start. That is the safe
+  direction — the generation is refused before the task is free.
+* A later sweep has to bound the document; this package does not remove a fence, because a generation id is never
+  reused.
+
+== Source
+
+Work package `task-queue-and-protocol`; link:../../../../doc/specification/model-work/02-task-protocol.adoc#fencing[Model
+Work § Fencing], link:../../../../doc/specification/model-work/02-task-protocol.adoc#leases-fencing[§ Leases, Generations
+& Fencing].

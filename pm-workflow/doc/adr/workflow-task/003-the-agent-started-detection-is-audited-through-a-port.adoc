@@ -1,0 +1,50 @@
+= ADR 003: The `agent_started` Detection Is Audited Through a Port
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-23
+
+== Context
+
+Model Work § A Worker Off Track makes `agent_started` a signal whose action is always `restart`: a process of the
+worker's process tree runs an enrolled harness executable or the operator binary `pm-operator`, so a second agent would
+run outside every task, tool set and usage record. The runtime records the supervisor's detection with the attempt, the
+measurement and the instant, ends the attempt `off_track`, re-offers the task and stores a `security` audit record
+naming the executable.
+
+The audit log needs the base directory, its anchor, a clock and the audit lock, which the workflow module does not own;
+the protocol itself has to stay testable without them and must not lose the detection when the audit is unavailable.
+
+== Decision
+
+`SecurityAudit` is the port; `AuditLogSecurityAudit` is the adapter that writes the record into the machine's audit log
+under the audit lock. `TaskProtocol.agentStarted` records the signal and the off-track end first and then hands the
+detection to the port; the port's default `NONE` records nothing.
+
+== Alternatives Considered
+
+1. *Depend on `AuditLog` directly*.
+   _Rejected_: the protocol would need the runtime's base directory, anchor and clock, and every test would need an audit
+   log.
+2. *Return the audit record for the caller to append*.
+   _Rejected_: a caller that forgets it loses the security record, which the specification requires with the detection.
+
+== Consequences
+
+* A production wiring must pass `AuditLogSecurityAudit`; with the default no security record is written. The protocol's
+  tests use a recording port and `AuditLogSecurityAuditTest` proves the adapter's record.
+* A failed audit append propagates to the supervisor after the queue has already been updated; a repeated detection is
+  deduplicated by the signal's once-per-attempt rule, so the audit may be attempted again without a second signal.
+* The record names the executable, the generation, the task and the attempt; it is one `security`/`agent_started`
+  line of the hash-chained log.
+
+== Source
+
+Work package `task-queue-and-protocol`; link:../../../../doc/specification/model-work/03-supervision-and-recycling.adoc#worker-off-track[Model
+Work § A Worker Off Track], link:../../../../doc/specification/store-schemas/16-task-queue.adoc#queue-task-record[Store
+Schemas § Queue Task Record, `signals[]`].
