@@ -35,8 +35,8 @@ The constants are private to their class. There is no package-wide holder class.
 == Alternatives Considered
 
 * *One package-wide holder class (`ProfileSchemaTerms`) for every literal.* Rejected: `ProfileValidator` would need
-  either 111 static imports or a 25-character qualifier at every use, and no literal except `.json` is used by more
-  than one class, so the holder would buy nothing and cost readability.
+  either a static import for every constant or a 25-character qualifier at every use, and no literal except `.json` is
+  used by more than one class, so the holder would buy nothing and cost readability.
 * *Leave the literals and suppress `java:S1192` for the package.* Rejected: the duplicates are the defect the rule
   names, and a typo in one of them is not visible to the compiler.
 

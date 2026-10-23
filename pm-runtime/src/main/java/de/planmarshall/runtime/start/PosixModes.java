@@ -25,15 +25,9 @@ import lombok.experimental.UtilityClass;
 public final class PosixModes {
 
     /** {@code rwx------}. */
-    // java:S2386: the mode sets are the public permission vocabulary of the module; making them non-public would
-    // change the public type of this class (R16, standing rule 4).
-    @SuppressWarnings("java:S2386")
     public static final Set<PosixFilePermission> DIRECTORY = Set.copyOf(PosixFilePermissions.fromString("rwx------"));
 
     /** {@code rw-------}. */
-    // java:S2386: the mode sets are the public permission vocabulary of the module; making them non-public would
-    // change the public type of this class (R16, standing rule 4).
-    @SuppressWarnings("java:S2386")
     public static final Set<PosixFilePermission> FILE = Set.copyOf(PosixFilePermissions.fromString("rw-------"));
 
     /**

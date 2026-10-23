@@ -39,6 +39,12 @@ class DbusConnectionTest {
         return new FakeBus(temp.resolve("bus"), UID, handler);
     }
 
+    @Test
+    @DisplayName("the bus object path is the bus name as a path")
+    void busPathIsTheBusNameAsAPath() {
+        assertEquals("/org/freedesktop/DBus", DbusConnection.BUS_PATH);
+    }
+
     @Nested
     @DisplayName("open")
     class Open {

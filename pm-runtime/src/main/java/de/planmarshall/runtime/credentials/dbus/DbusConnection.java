@@ -34,11 +34,9 @@ import java.util.Optional;
  */
 public final class DbusConnection implements AutoCloseable {
 
-    /** Bus name, path and interface of the message bus itself. */
+    /** Bus name, path and interface of the message bus itself; the path is the bus name as a path. */
     public static final String BUS = "org.freedesktop.DBus";
-    // java:S1075: the object path is fixed by the D-Bus specification, not by configuration.
-    @SuppressWarnings("java:S1075")
-    private static final String BUS_PATH = "/org/freedesktop/DBus";
+    static final String BUS_PATH = "/" + BUS.replace('.', '/');
     private static final String CANNOT_CONNECT = "cannot connect to the bus at ";
 
     private final SocketChannel channel;

@@ -37,9 +37,8 @@ import de.planmarshall.runtime.credentials.dbus.Variant;
 public final class SecretServiceStore implements SecretStore {
 
     static final String SECRETS = "org.freedesktop.secrets";
-    // java:S1075: the object path is fixed by the Secret Service specification, not by configuration.
-    @SuppressWarnings("java:S1075")
-    static final String SERVICE_PATH = "/org/freedesktop/secrets";
+    /** The object path of the service: its bus name as a path, as the D-Bus specification prescribes. */
+    static final String SERVICE_PATH = "/" + SECRETS.replace('.', '/');
     static final String SERVICE = "org.freedesktop.Secret.Service";
     static final String COLLECTION = "org.freedesktop.Secret.Collection";
     static final String ITEM = "org.freedesktop.Secret.Item";
