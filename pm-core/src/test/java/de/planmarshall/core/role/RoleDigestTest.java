@@ -122,6 +122,21 @@ class RoleDigestTest {
                 () -> assertNotEquals(base.qualificationDigest(), edited.qualificationDigest()));
     }
 
+    @Test
+    @DisplayName("a recycling edit alone changes only the configuration digest")
+    void recyclingChangesConfigurationOnly() {
+        var before = role(RoleFixtures.valid().set("/form", "warm").set("/recycling",
+                map("idle_wakeups", 2, "token_budget", 50_000, "tasks_per_generation", 10)).artifact(),
+                RoleFixtures.HARNESS, RoleFixtures.MODEL, new EffortValue(null), skills(), "1.4", Optional.empty());
+        var after = role(RoleFixtures.valid().set("/form", "warm").set("/recycling",
+                map("idle_wakeups", 3, "token_budget", 60_000, "tasks_per_generation", 20)).artifact(),
+                RoleFixtures.HARNESS, RoleFixtures.MODEL, new EffortValue(null), skills(), "1.4", Optional.empty());
+
+        assertAll(
+                () -> assertNotEquals(before.configurationDigest(), after.configurationDigest()),
+                () -> assertEquals(before.qualificationDigest(), after.qualificationDigest()));
+    }
+
     private static void assertDigest(String name, String before, String after, boolean changed) {
         if (changed) {
             assertNotEquals(before, after, name);

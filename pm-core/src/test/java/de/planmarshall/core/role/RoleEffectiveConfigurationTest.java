@@ -15,12 +15,15 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The effective configuration of a role (PM-WORK-1, Role Assignment): the harness, model and effort taken from the shipped
@@ -33,6 +36,25 @@ class RoleEffectiveConfigurationTest {
 
     private static final String FRONTIER = "acme-frontier";
     private static final String FAST = "acme-fast";
+
+    @TempDir
+    Path project;
+
+    @Test
+    @DisplayName("the project artifact's values come after the machine assignment")
+    void projectArtifactOverridesMachineAssignment() throws Exception {
+        var environment = accepted();
+        environment.machineAssignments(assignments(RoleFixtures.ROLE,
+                assignment(null, FRONTIER, new EffortValue("medium"))));
+        Files.write(project.resolve(RoleFixtures.ROLE + ".json"),
+                RoleFixtures.valid().set("/model", RoleFixtures.MODEL).bytes());
+
+        var role = resolved(RoleFixtures.shippedValid().withProject(project), environment, RoleAssignment.none());
+
+        assertAll(
+                () -> assertEquals(RoleFixtures.MODEL, role.model(), "the project artifact replaces the assignment"),
+                () -> assertNull(role.effort().value(), "the project artifact names no effort"));
+    }
 
     @Test
     @DisplayName("the artifact's own values apply without an assignment")
@@ -99,15 +121,19 @@ class RoleEffectiveConfigurationTest {
     }
 
     @Test
-    @DisplayName("the plan's resolver applies the plan's overrides")
+    @DisplayName("the plan's resolver applies the plan's overrides and changes both digests")
     void planResolverAppliesOverrides() {
         var overrides = new RoleAssignments(Map.of(RoleFixtures.ROLE,
                 assignment(null, FAST, new EffortValue(null))));
+        var catalog = new RoleCatalog(RoleFixtures.shippedValid(), accepted());
 
-        var role = defined(new RoleCatalog(RoleFixtures.shippedValid(), accepted()).forPlan(overrides)
-                .resolve(RoleFixtures.ROLE));
+        var before = defined(catalog.resolve(RoleFixtures.ROLE, RoleAssignment.none()));
+        var after = defined(catalog.forPlan(overrides).resolve(RoleFixtures.ROLE));
 
-        assertEquals(FAST, role.model());
+        assertAll(
+                () -> assertEquals(FAST, after.model()),
+                () -> assertNotEquals(before.configurationDigest(), after.configurationDigest()),
+                () -> assertNotEquals(before.qualificationDigest(), after.qualificationDigest()));
     }
 
     @Test
@@ -187,6 +213,19 @@ class RoleEffectiveConfigurationTest {
             var role = defined(new RoleCatalog(sets, environment).resolveSteward());
 
             assertEquals(RoleFixtures.MODEL, role.model());
+        }
+
+        @Test
+        @DisplayName("every resolution of the steward uses the machine configuration")
+        void stewardResolvesThroughTheCatalog() {
+            var sets = RoleFixtures.shipped(Map.of(RoleCatalog.STEWARD, stewardArtifact()));
+
+            var role = defined(new RoleCatalog(sets, RoleFixtures.environment())
+                    .resolve(RoleCatalog.STEWARD, RoleAssignment.none()));
+
+            assertAll(
+                    () -> assertEquals(RoleFixtures.HARNESS, role.harness()),
+                    () -> assertEquals(RoleFixtures.MODEL, role.model()));
         }
 
         @Test

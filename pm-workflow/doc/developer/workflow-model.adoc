@@ -31,10 +31,11 @@ link:https://github.com/plan-marshall/pm-mcp-core/blob/main/pm-core/doc/develope
 . *Resolve*: the resolver of the plan's effective role set (`RoleCatalog.forPlan`) — or, for the `steward`, the resolver
   of its machine-derived configuration (`RoleCatalog.resolveSteward`) — returns the role's effective configuration. An
   absent or invalid role closes the task with `role_undefined`, naming the validation reason where there is one.
-. *Class fit*: the entity kind decides the class the task requires. `RoleUse.classesOf` maps `screen` to `zero_tool`,
-  `task` to `writer`, `vote` to `read_only` or `zero_tool`, and every other kind to `writer` or `read_only`; a
-  consultation admits every class but `zero_tool`. A mismatch, or a consulted `zero_tool` role, closes the task with
-  `class_mismatch`.
+. *Class fit*: the entity kind decides the class the task requires. `RoleUse.classesOf` maps the screener's `screen` and
+  the judge's grading kind `zero_tool` to `zero_tool`; `envelope`, `task`, `remediation-fix`, `commit-fix`,
+  `simplify-apply` and `conflict` to `writer`; `vote` to `read_only` or `zero_tool`; and every other kind to `writer` or
+  `read_only`. A consultation admits every class but `zero_tool`. A mismatch, or a consulted `zero_tool` role, closes the
+  task with `class_mismatch`.
 . *Qualify*: a lookup by the role's qualification digest. Without a record the task closes with `role_unqualified`; a
   warm artifact that only qualifies fresh runs fresh and the result carries `formDowngraded`. The `judge` and the
   `steward` skip this step.
@@ -56,18 +57,20 @@ the required classes:
 * `class_mismatch` — the role's class is not one the use admits.
 
 The same check runs at task creation: a role whose class an edit changed so that it no longer fits closes its task with
-`class_mismatch` instead of running (`ModelCaller`, step 2). This is the guard of `PM-WATCH-DISP-49`, now carried here:
-a `read_only` role cannot take the task envelope, a `writer` role cannot screen untrusted text, and a `zero_tool` role
-cannot be consulted.
+`class_mismatch` instead of running (`ModelCaller`, step 2). This is the guard of `PM-WATCH-DISP-49`: a `read_only` role
+cannot take a writer kind (the envelope and the other writer kinds), a `writer` role cannot screen untrusted text or grade
+as the judge, and a `zero_tool` role cannot be consulted.
 
 == Why the Class Travels with the Use
 
 The specification says every entity kind declares, with its registration, the class its tasks require. This package keeps
 that declaration with the *use* (`RoleUse`) rather than adding a member to `verify.EntityKind`, because one kind admits
 two classes: the vote kind is `read_only`, or `zero_tool` as a judgment role on a `system_one` endpoint of the protocol.
-A single class member on the kind could not express that without a second registration; a set on the use can, and a unit
-that registers a new kind passes its own set. The compiled mapping in `RoleUse.classesOf` is the table for the shipped
-kinds. See link:../adr/workflow-model/001-model-caller-and-classes-at-use.adoc[ADR workflow-model/001].
+The class set admits both; whether a `zero_tool` vote is permitted on the endpoint's protocol is checked by the
+judgment-vote package, which owns the endpoint profiles. A single class member on the kind could not express the two
+classes without a second registration; a set on the use can, and a unit that registers a new kind passes its own set. The
+compiled mapping in `RoleUse.classesOf` is the table for the shipped kinds. See
+link:../adr/workflow-model/001-model-caller-and-classes-at-use.adoc[ADR workflow-model/001].
 
 == Invariants and Failure Modes
 

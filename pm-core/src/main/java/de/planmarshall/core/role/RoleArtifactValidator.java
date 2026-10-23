@@ -155,7 +155,7 @@ public final class RoleArtifactValidator {
         }
 
         private List<String> tools(JsonNode node) {
-            var elements = list(node, "/tools", "tools", 0, 64);
+            var elements = list(node, "/tools", "tools", 0, Integer.MAX_VALUE);
             var seen = new HashSet<String>();
             var tools = new ArrayList<String>();
             for (var index = 0; index < elements.size(); index++) {
@@ -192,7 +192,7 @@ public final class RoleArtifactValidator {
         }
 
         private List<String> skills(JsonNode node) {
-            var elements = list(node, "/skills", "skills", 1, 64);
+            var elements = list(node, "/skills", "skills", 1, Integer.MAX_VALUE);
             var seen = new HashSet<String>();
             var skills = new ArrayList<String>();
             for (var index = 0; index < elements.size(); index++) {

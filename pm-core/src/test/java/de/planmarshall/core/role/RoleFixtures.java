@@ -300,15 +300,14 @@ final class RoleFixtures {
         private RoleAssignments machineAssignments;
         private RoleAssignments projectAssignments;
         private MachineConfiguration machineConfiguration;
-        private DefaultAssignment defaultAssignment;
+        private final Map<String, EffortValue> defaultEfforts = new LinkedHashMap<>();
 
         private TestEnvironment() {
             profiles.put(HARNESS, harness());
             enrolled.put(HARNESS, RoleFixtures.enrolled());
             machineCatalogue = RoleFixtures.catalogue();
             machineConfiguration = new MachineConfiguration(Optional.of(HARNESS));
-            defaultAssignment = new DefaultAssignment(Map.of(
-                    "steward", new DefaultAssignment.DefaultRole("standard", "medium", HARNESS, "advises")));
+            defaultEfforts.put("steward", new EffortValue("medium"));
         }
 
         TestEnvironment profile(String clientId, HarnessProfile profile) {
@@ -356,8 +355,8 @@ final class RoleFixtures {
             return this;
         }
 
-        TestEnvironment defaultAssignment(DefaultAssignment assignment) {
-            this.defaultAssignment = assignment;
+        TestEnvironment defaultEffort(String role, String effort) {
+            defaultEfforts.put(role, new EffortValue(effort));
             return this;
         }
 
@@ -397,8 +396,8 @@ final class RoleFixtures {
         }
 
         @Override
-        public Optional<DefaultAssignment> defaultAssignment() {
-            return Optional.ofNullable(defaultAssignment);
+        public Optional<EffortValue> defaultEffort(String role) {
+            return Optional.ofNullable(defaultEfforts.get(role));
         }
 
         @Override

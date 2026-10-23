@@ -28,8 +28,16 @@ from the effective set, so the role is undefined rather than falling back.
 
 `RoleCatalog` also creates the effective set per resolution and reads the assignment stores, the catalogues and the
 skills through `RoleEnvironment` on every call. Nothing is cached between calls. A caller that needs a configuration for
-a whole unit creates one resolver (`RoleCatalog.forPlan`) and resolves every name through it, so the unit sees one
-consistent read without the package holding a cache.
+a whole unit creates one resolver (`RoleCatalog.forPlan`) and resolves every name through it; each name is still read
+afresh, so two names of one unit can see two instants of the stores — the specification's "read at every read" wins over
+a unit-wide snapshot.
+
+The harness, model and effort of a role are placed at the specification's order: the artifact of the set that defines the
+role supplies its three members at that set's level (shipped, machine, project), the machine assignment follows the
+machine artifact, the project assignment follows the project artifact, and the plan's override comes last. A project
+artifact therefore replaces the machine artifact and the machine assignment it landed on, its three members included;
+only where no project artifact exists does the machine assignment apply. `RoleSetLoader` reports the defining set so the
+catalog can place the artifact's members, instead of applying them all at level 1.
 
 Every external fact arrives through `RoleEnvironment`; the package reads no store file and no classpath for the
 assignment stores, the plan overrides, the model catalogues, the profiles, the enrolment or the skills.

@@ -17,11 +17,16 @@ import de.planmarshall.core.role.RoleClass;
 /**
  * One role a composed unit names, with the classes its use admits (PM-WORK-1, Composition Check).
  * <p>
- * A model state names a role for an entity kind; the kind decides the class the role's tasks require: the task envelope
- * requires {@code writer}, the screener's kind {@code screen} and the judge's grading kind require {@code zero_tool}, the
- * vote kind admits {@code read_only} or, as a judgment role on a {@code system_one} endpoint of the protocol,
- * {@code zero_tool}, and every other kind admits {@code writer} or {@code read_only} as its work needs. A consultation
- * clause admits every class but {@code zero_tool}.
+ * A model state names a role for an entity kind; the kind decides the class the role's tasks require. The compiled table
+ * of {@link #classesOf} names the shipped kinds: the screener's `screen` and the judge's grading kind `zero_tool` are
+ * {@code zero_tool}; `envelope`, `remediation-fix`, `commit-fix`, `simplify-apply`, `conflict` and the pre-existing
+ * `task` kind are {@code writer}; the vote kind admits {@code read_only}, or {@code zero_tool} for a judgment role on a
+ * {@code system_one} endpoint of the protocol — the endpoint's protocol is checked by the judgment-vote package, which
+ * owns the endpoint profiles; and every other kind admits {@code writer} or {@code read_only} as its work needs. A
+ * consultation clause admits every class but {@code zero_tool}.
+ * <p>
+ * A unit that registers a kind with another class set passes it to {@link #RoleUse} directly; the compiled table covers
+ * the shipped kinds only.
  *
  * @param stateId         the state that names the role
  * @param role            the role name
@@ -63,8 +68,9 @@ public record RoleUse(String stateId, String role, Set<RoleClass> acceptedClasse
      */
     public static Set<RoleClass> classesOf(String entityKind) {
         return switch (entityKind) {
-            case "screen" -> Set.of(RoleClass.ZERO_TOOL);
-            case "task" -> Set.of(RoleClass.WRITER);
+            case "screen", "zero_tool" -> Set.of(RoleClass.ZERO_TOOL);
+            case "envelope", "task", "remediation-fix", "commit-fix", "simplify-apply", "conflict" ->
+                    Set.of(RoleClass.WRITER);
             case "vote" -> Set.of(RoleClass.READ_ONLY, RoleClass.ZERO_TOOL);
             default -> Set.of(RoleClass.WRITER, RoleClass.READ_ONLY);
         };

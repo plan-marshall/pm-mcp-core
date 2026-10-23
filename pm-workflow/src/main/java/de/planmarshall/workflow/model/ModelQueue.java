@@ -48,10 +48,11 @@ public interface ModelQueue {
      * @param harness             the effective harness
      * @param model               the effective model
      * @param effort              the effective effort
+     * @param consultation        whether the task serves a {@code consult role} clause
      * @since 0.1
      */
     record Enqueue(Optional<String> scopeId, String stateId, String entityKey, String role, RoleForm form,
-            String configurationDigest, String harness, String model, EffortValue effort) {
+            String configurationDigest, String harness, String model, EffortValue effort, boolean consultation) {
 
         /** Rejects {@code null} components. */
         public Enqueue {

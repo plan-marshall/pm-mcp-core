@@ -11,8 +11,10 @@ _Requirements: link:{docs}/Requirements.adoc#PM-WORK-1[PM-WORK-1], link:{docs}/R
 
 Package `de.planmarshall.core.role` of `pm-core` owns the *role*: one JSON artifact per role, the shipped, machine and
 project sets it lives in, the effective configuration the role runs on, and the two digests that bind a worker generation
-and a qualification record to it. No class of this package names a harness or a shipped role: a harness is its client
-profile (link:core-profile.adoc[`core.profile`]), and a role is the document an operator or the release supplies.
+and a qualification record to it. No class of this package names a harness: a harness is its client profile
+(link:core-profile.adoc[`core.profile`]), and a role is the document an operator or the release supplies. The two roles
+the specification fixes by name — the judge and the steward — appear only as the model caller's and the catalog's
+named exemptions.
 
 The package owns five things:
 
@@ -30,8 +32,10 @@ link:https://github.com/plan-marshall/pm-mcp-core/blob/main/pm-core/src/main/jav
 Writing them is `machine-onboarding-unit`'s, `project-onboarding-unit`'s and `plan-and-epic-control`'s; the runtime never
 reads a role, a harness or a model from git-tracked configuration.
 
-Specification (the implemented sections are deleted with their carrier; these are the anchors the package was built
-against): `model-work/01-roles-and-configuration.adoc`, `client-profiles/01-profile-schema.adoc#role-classes`,
+Specification (the sections this package was built against; the package's pull request deletes the sections of the other
+specification parts it alone implements, while `model-work/01-roles-and-configuration.adoc` keeps everything that
+qualification, the shipped content and the escalation assignment still need): `model-work/01-roles-and-configuration.adoc`,
+`client-profiles/01-profile-schema.adoc#role-classes`,
 `store-schemas/12-machine-stores.adoc#model-catalogue` and `#role-assignments-store`,
 `workflow-dsl/09-plan-instance.adoc#plan-overrides`.
 
@@ -72,11 +76,18 @@ overriding only what it names:
 |===
 |Level |Source
 
-|1 |The effective artifact's own `harness`, `model`, `effort` (the shipped, machine or project document)
-|2 |The machine's `role-assignments.json`
-|3 |The project's `role-assignments.json`
-|4 |The plan's `overrides.json` (`roles.<name>`)
+|1 |The shipped artifact's own `harness`, `model`, `effort`, where it defines the role
+|2 |The machine artifact's three members, where it defines the role (it replaces the shipped artifact as a whole)
+|3 |The machine's `role-assignments.json`
+|4 |The project artifact's three members, where it defines the role (it replaces the artifact of the lower sets as a whole, so its members come after the machine assignment)
+|5 |The project's `role-assignments.json`
+|6 |The plan's `overrides.json` (`roles.<name>`)
 |===
+
+`RoleSetLoader` reports the set the effective artifact came from, so the catalog inserts the artifact's own members at
+their level. Where a project artifact exists, the machine assignment of level 3 has no effect: the project artifact
+replaces the artifact it landed on, its three members included. Where no project artifact exists, the machine assignment
+lands on the machine or shipped artifact and applies.
 
 `RoleAssignment` carries three optional members. An `Optional` that is empty means "this level names nothing"; an
 `EffortValue` whose `value` is `null` means "this level names no effort flag", which clears the effort of the levels
@@ -84,7 +95,8 @@ below. The distinction is load-bearing and is the reason `EffortValue` exists as
 
 The steward is the exception: `resolveSteward()` takes its harness from `harnesses.default` of `machine-config.json`, its
 model from the tier `standard` of that harness's profile, and the effort of its default assignment. Its artifact's
-`harness` and `model` are not read, and `model_not_allowed` never applies to it.
+`harness` and `model` are not read, and `model_not_allowed` never applies to it. Every resolution of the steward routes
+there, also when a composed unit names it, so no caller reads its artifact's values.
 
 `EffectiveRole` carries the values a worker generation needs: the effective artifact, the three effective values, the
 resolved skills with their digests, the harness major.minor, the weights identity where the harness reports one, the

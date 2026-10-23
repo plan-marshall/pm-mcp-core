@@ -45,8 +45,8 @@ class ModelCallerTest {
     @Test
     @DisplayName("a qualified fresh role is queued with its effective configuration")
     void qualifiedRoleIsQueued() {
-        var fixtures = new Fixtures(Map.of(IMPLEMENT,
-                ModelFixtures.role(IMPLEMENT, RoleClass.WRITER, RoleForm.FRESH)));
+        var role = ModelFixtures.role(IMPLEMENT, RoleClass.WRITER, RoleForm.FRESH);
+        var fixtures = new Fixtures(Map.of(IMPLEMENT, role));
         fixtures.qualifications.qualifies(IMPLEMENT, RoleForm.FRESH);
 
         var result = fixtures.caller.call(job("task", IMPLEMENT, false));
@@ -58,10 +58,12 @@ class ModelCallerTest {
                 () -> assertEquals(IMPLEMENT, queued.role()),
                 () -> assertEquals(RoleForm.FRESH, queued.form()),
                 () -> assertFalse(queued.formDowngraded()),
-                () -> assertTrue(request.configurationDigest().matches("[0-9a-f]{64}")),
+                () -> assertEquals(role.configurationDigest(), request.configurationDigest()),
+                () -> assertEquals(role.qualificationDigest(), fixtures.qualifications.digests().getFirst()),
                 () -> assertEquals(ModelFixtures.HARNESS, request.harness()),
                 () -> assertEquals(ModelFixtures.MODEL, request.model()),
                 () -> assertEquals(STATE, request.stateId()),
+                () -> assertFalse(request.consultation()),
                 () -> assertEquals(IMPLEMENT, fixtures.qualifications.looked().getFirst()));
     }
 
@@ -112,7 +114,7 @@ class ModelCallerTest {
     void invalidRoleClosesWithReason() {
         RoleResolver refusing = name -> new RoleResolution.Undefined(name,
                 Optional.of(RoleValidationReason.MODEL_NOT_ALLOWED), "the catalogue does not allow the model");
-        var fixtures = new Fixtures(refusing, ModelFixtures.resolver(Map.of()), Map.of());
+        var fixtures = new Fixtures(refusing, ModelFixtures.resolver(Map.of()));
 
         var result = (ModelCallResult.Closed) fixtures.caller.call(job("task", IMPLEMENT, false));
 
@@ -170,7 +172,7 @@ class ModelCallerTest {
             var fixtures = new Fixtures(Map.of(JUDGE,
                     ModelFixtures.role(JUDGE, RoleClass.ZERO_TOOL, RoleForm.FRESH)));
 
-            var result = fixtures.caller.call(job("screen", JUDGE, false));
+            var result = fixtures.caller.call(job("zero_tool", JUDGE, false));
 
             assertAll(
                     () -> assertTrue(result instanceof ModelCallResult.Queued),
@@ -178,18 +180,21 @@ class ModelCallerTest {
         }
 
         @Test
-        @DisplayName("a steward task is queued without a qualification record")
+        @DisplayName("a steward task is queued from its machine configuration, not from the role resolver")
         void stewardIsQueued() {
-            var steward = ModelFixtures.role(STEWARD, RoleClass.READ_ONLY, RoleForm.FRESH);
-            var fixtures = new Fixtures(ModelFixtures.resolver(Map.of(STEWARD, steward)),
-                    ModelFixtures.resolver(Map.of(STEWARD, steward)), Map.of(STEWARD, steward));
+            var steward = ModelFixtures.roleIn(STEWARD, RoleClass.READ_ONLY, RoleForm.FRESH, "machine-harness",
+                    "machine-standard");
+            var artifactSteward = ModelFixtures.role(STEWARD, RoleClass.READ_ONLY, RoleForm.FRESH);
+            var fixtures = new Fixtures(ModelFixtures.resolver(Map.of(STEWARD, artifactSteward)),
+                    ModelFixtures.resolver(Map.of(STEWARD, steward)));
 
             var result = fixtures.caller.call(job("decision", STEWARD, false));
 
             assertAll(
                     () -> assertTrue(result instanceof ModelCallResult.Queued),
                     () -> assertTrue(fixtures.qualifications.looked().isEmpty(), "Qualify must be skipped"),
-                    () -> assertEquals(ModelFixtures.HARNESS, fixtures.queue.enqueued().getFirst().harness()));
+                    () -> assertEquals("machine-harness", fixtures.queue.enqueued().getFirst().harness()),
+                    () -> assertEquals("machine-standard", fixtures.queue.enqueued().getFirst().model()));
         }
     }
 
@@ -206,10 +211,10 @@ class ModelCallerTest {
         private final ModelCaller caller;
 
         private Fixtures(Map<String, EffectiveRole> roles) {
-            this(ModelFixtures.resolver(roles), ModelFixtures.resolver(Map.of()), roles);
+            this(ModelFixtures.resolver(roles), ModelFixtures.resolver(Map.of()));
         }
 
-        private Fixtures(RoleResolver roles, RoleResolver steward, Map<String, EffectiveRole> defined) {
+        private Fixtures(RoleResolver roles, RoleResolver steward) {
             this.caller = new ModelCaller(roles, steward, qualifications, guard, queue);
         }
     }

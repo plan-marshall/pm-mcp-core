@@ -34,7 +34,7 @@ import java.util.Optional;
  * @param tools               the exact tool set of the role
  * @param harness             the client id of the role's own harness, before the assignment
  * @param model               the role's own model, before the assignment
- * @param effort              the role's own effort, before the assignment; a {@code null} value means no effort flag
+ * @param effort              the role's own effort, before the assignment; its value is {@code null} for no effort flag
  * @param form                the worker form of the role
  * @param count               the workers of the role that run at once per project
  * @param skills              the role's skills in delivery order; the first is the role skill

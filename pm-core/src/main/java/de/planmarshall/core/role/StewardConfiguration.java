@@ -47,10 +47,7 @@ public record StewardConfiguration(String harness, String model, EffortValue eff
         if (model.isEmpty()) {
             return Optional.empty();
         }
-        var effort = environment.defaultAssignment()
-                .flatMap(assignment -> assignment.forRole(RoleCatalog.STEWARD))
-                .map(DefaultAssignment.DefaultRole::effort)
-                .orElse(null);
+        var effort = environment.defaultEffort(RoleCatalog.STEWARD).map(EffortValue::value).orElse(null);
         return Optional.of(new StewardConfiguration(harness.get(), model.get(), new EffortValue(effort)));
     }
 }

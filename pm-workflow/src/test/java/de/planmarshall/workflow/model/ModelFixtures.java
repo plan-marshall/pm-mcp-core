@@ -46,9 +46,21 @@ final class ModelFixtures {
     private ModelFixtures() {
     }
 
-    /** @return an effective role of the class and form */
+    /** @return an effective role of the class and form on the fixture harness */
     static EffectiveRole role(String name, RoleClass roleClass, RoleForm form) {
-        return EffectiveRole.of(artifact(name, roleClass, form), HARNESS, MODEL, new EffortValue(null),
+        return roleIn(name, roleClass, form, HARNESS, MODEL);
+    }
+
+    /**
+     * @param name    the role name
+     * @param roleClass the class
+     * @param form    the form
+     * @param harness the effective harness
+     * @param model   the effective model
+     * @return an effective role with those values
+     */
+    static EffectiveRole roleIn(String name, RoleClass roleClass, RoleForm form, String harness, String model) {
+        return EffectiveRole.of(artifact(name, roleClass, form), harness, model, new EffortValue(null),
                 List.of(new RoleSkill("skill://pm/role/" + name + "/SKILL.md", DIGEST)), VERSION, Optional.empty(),
                 profile());
     }
@@ -94,6 +106,7 @@ final class ModelFixtures {
     static final class Qualifications implements QualificationLookup {
 
         private final List<String> looked = new ArrayList<>();
+        private final List<String> digests = new ArrayList<>();
         private final Map<String, RoleForm> forms = new LinkedHashMap<>();
 
         Qualifications qualifies(String role, RoleForm form) {
@@ -105,10 +118,15 @@ final class ModelFixtures {
             return looked;
         }
 
+        List<String> digests() {
+            return digests;
+        }
+
         @Override
         public Optional<RoleForm> qualifiedForm(String roleName, String qualificationDigest,
                 RoleForm artifactForm) {
             looked.add(roleName);
+            digests.add(qualificationDigest);
             return Optional.ofNullable(forms.get(roleName));
         }
     }

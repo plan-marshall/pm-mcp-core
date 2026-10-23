@@ -18,9 +18,13 @@ import java.util.regex.Pattern;
  * the sets afresh and reads the assignments, the catalogues and the skills again, so an edited artifact, a changed
  * assignment or a new plan override applies to the next composition, task creation and offer.
  * <p>
+ * The harness, model and effort are taken in the specification's order: the artifact of the set that defines the role
+ * supplies its three members at its level, the machine assignment follows the machine artifact, the project assignment
+ * follows the project artifact, and the plan's override comes last. Each level changes only the members it names.
+ * <p>
  * A role whose artifact is absent or invalid, or whose effective values fail validation, resolves to
  * {@link RoleResolution.Undefined} with the reason of the table where one exists. The steward is resolved from the
- * machine configuration and the default assignment instead of its artifact ({@link #resolveSteward()}).
+ * machine configuration and the default assignment instead of its artifact, whichever method a caller uses.
  *
  * @since 0.1
  */
@@ -60,23 +64,30 @@ public final class RoleCatalog {
      * @return the effective configuration, or why the role is undefined
      */
     public RoleResolution resolve(String roleName, RoleAssignment planOverride) {
+        if (STEWARD.equals(roleName)) {
+            return resolveSteward();
+        }
         var set = RoleSetLoader.load(sets);
         var artifact = set.effective(roleName);
         if (artifact.isEmpty()) {
             return absent(roleName, set);
         }
-        var effective = planOverride.over(assigned(roleName).over(base(artifact.get())));
-        var harness = effective.harness().orElseThrow();
-        var model = effective.model().orElseThrow();
-        var effort = effective.effort().orElse(artifact.get().effort());
-        return effective(artifact.get(), harness, model, effort, false);
+        var kind = set.kind(roleName).orElseThrow();
+        var values = base(artifact.get());
+        if (kind != RoleSetKind.PROJECT) {
+            values = assignment(environment.machineAssignments(), roleName).over(values);
+        }
+        values = assignment(environment.projectAssignments(), roleName).over(values);
+        var effective = planOverride.over(values);
+        return effective(artifact.get(), effective.harness().orElseThrow(), effective.model().orElseThrow(),
+                effective.effort().orElseThrow(), false);
     }
 
     /**
      * Resolves the machine's advisor (PM-WORK-1, Steward Role): its harness from {@code harnesses.default} of
      * {@code machine-config.json}, its model from the tier {@code standard} of that harness's profile, and the effort of
-     * its default assignment; its artifact's {@code harness} and {@code model} are not read, and
-     * {@code model_not_allowed} never applies.
+     * its default assignment; its artifact's {@code harness} and {@code model} are not read, no assignment or override
+     * names it, and {@code model_not_allowed} never applies.
      *
      * @return the steward's effective configuration, or why it is undefined
      */
@@ -113,11 +124,8 @@ public final class RoleCatalog {
         }
     }
 
-    private RoleAssignment assigned(String roleName) {
-        return environment.projectAssignments().flatMap(assignments -> assignments.forRole(roleName))
-                .orElse(RoleAssignment.none())
-                .over(environment.machineAssignments().flatMap(assignments -> assignments.forRole(roleName))
-                        .orElse(RoleAssignment.none()));
+    private static RoleAssignment assignment(Optional<RoleAssignments> assignments, String roleName) {
+        return assignments.flatMap(value -> value.forRole(roleName)).orElse(RoleAssignment.none());
     }
 
     private static RoleAssignment base(RoleArtifact artifact) {

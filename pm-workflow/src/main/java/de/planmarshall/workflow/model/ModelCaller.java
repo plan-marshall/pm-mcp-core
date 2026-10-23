@@ -92,7 +92,7 @@ public final class ModelCaller {
                     "the start-failure guard of the role on '%s' holds".formatted(role.harness()));
         }
         var queued = queue.enqueue(new ModelQueue.Enqueue(job.scopeId(), job.stateId(), job.entityKey(), job.role(),
-                form, role.configurationDigest(), role.harness(), role.model(), role.effort()));
+                form, role.configurationDigest(), role.harness(), role.model(), role.effort(), job.consultation()));
         return new ModelCallResult.Queued(queued.queueTaskId(), job.role(), form, role.configurationDigest(),
                 downgraded);
     }

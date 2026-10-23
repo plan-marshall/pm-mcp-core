@@ -32,7 +32,8 @@ import de.planmarshall.core.role.RoleValidationReason;
  * The composition check of {@code model-work/01-roles-and-configuration.adoc#role-composition}: a named role that is
  * absent or invalid refuses with {@code role_undefined} naming the role, the state and the validation reason; a role
  * whose class does not fit its use, and a consulted {@code zero_tool} role, refuse with {@code class_mismatch} naming the
- * role, its class, the state and the required class. The control composes every kind of the shipped units with its role.
+ * role, its class, the state and the required class. The controls compose the writer's envelope kind, the screener's
+ * screen kind and the judge's {@code zero_tool} kind with their roles.
  */
 @DisplayName("Role composition")
 class RoleCompositionTest {
@@ -45,6 +46,35 @@ class RoleCompositionTest {
         var composition = composition(Map.of("implement", role(RoleClass.WRITER, RoleForm.FRESH)));
 
         assertDoesNotThrow(() -> composition.check(List.of(RoleUse.forModelJob(STATE, "task", "implement"))));
+    }
+
+    @Test
+    @DisplayName("a writer role composes on the envelope kind")
+    void writerOnEnvelopeComposes() {
+        var composition = composition(Map.of("implement", role(RoleClass.WRITER, RoleForm.FRESH)));
+
+        assertDoesNotThrow(() -> composition.check(List.of(RoleUse.forModelJob(STATE, "envelope", "implement"))));
+    }
+
+    @Test
+    @DisplayName("a zero_tool role composes on the judge's zero_tool kind")
+    void zeroToolOnJudgeKindComposes() {
+        var composition = composition(Map.of("judge", role(RoleClass.ZERO_TOOL, RoleForm.FRESH)));
+
+        assertDoesNotThrow(() -> composition.check(List.of(RoleUse.forModelJob(STATE, "zero_tool", "judge"))));
+    }
+
+    @Test
+    @DisplayName("a read_only role on the envelope kind is class_mismatch")
+    void readOnlyOnEnvelopeMismatches() {
+        var composition = composition(Map.of("review-code", role(RoleClass.READ_ONLY, RoleForm.FRESH)));
+
+        var refusal = assertThrows(CompositionRefusal.class,
+                () -> composition.check(List.of(RoleUse.forModelJob(STATE, "envelope", "review-code"))));
+
+        assertAll(
+                () -> assertEquals(CompositionRefusal.Reason.CLASS_MISMATCH, refusal.reason()),
+                () -> assertEquals(Set.of(RoleClass.WRITER), refusal.requiredClasses()));
     }
 
     @Test

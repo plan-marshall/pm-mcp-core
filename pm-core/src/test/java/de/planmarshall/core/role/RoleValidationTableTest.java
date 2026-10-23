@@ -73,6 +73,13 @@ class RoleValidationTableTest {
                 Arguments.of(RoleFixtures.valid().artifact(), Optional.of(withoutReadOnly()),
                         Optional.of(RoleFixtures.enrolled()), Optional.of(RoleFixtures.catalogue()), environment, false,
                         RoleValidationReason.HARNESS_CLASS_NOT_RUNNABLE, "the profile cannot run read_only"),
+                Arguments.of(zeroTool(List.of()).artifact(), Optional.of(withoutZeroTool()),
+                        Optional.of(RoleFixtures.enrolled()), Optional.of(RoleFixtures.catalogue()), environment, false,
+                        RoleValidationReason.HARNESS_CLASS_NOT_RUNNABLE, "the profile cannot run zero_tool"),
+                Arguments.of(RoleFixtures.valid().set("/class", "writer").artifact(),
+                        Optional.of(withoutClass(RoleClass.WRITER)), Optional.of(RoleFixtures.enrolled()),
+                        Optional.of(RoleFixtures.catalogue()), environment, false,
+                        RoleValidationReason.HARNESS_CLASS_NOT_RUNNABLE, "the profile cannot run writer"),
                 Arguments.of(RoleFixtures.valid().artifact(), Optional.of(RoleFixtures.harness()), Optional.empty(),
                         Optional.of(RoleFixtures.catalogue()), environment, false,
                         RoleValidationReason.HARNESS_UNKNOWN, "the harness is not enrolled"),
@@ -163,8 +170,16 @@ class RoleValidationTableTest {
     }
 
     private static HarnessProfile withoutReadOnly() {
+        return withoutClass(RoleClass.READ_ONLY);
+    }
+
+    private static HarnessProfile withoutZeroTool() {
+        return withoutClass(RoleClass.ZERO_TOOL);
+    }
+
+    private static HarnessProfile withoutClass(RoleClass roleClass) {
         var classes = new LinkedHashMap<>(RoleFixtures.harness().classes());
-        classes.remove(RoleClass.READ_ONLY);
+        classes.remove(roleClass);
         return profile(true, classes, Set.of("*"), RoleFixtures.harness().modelEfforts());
     }
 

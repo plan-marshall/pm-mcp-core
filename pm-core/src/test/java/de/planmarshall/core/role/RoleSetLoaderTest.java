@@ -40,7 +40,8 @@ class RoleSetLoaderTest {
     @Test
     @DisplayName("the project artifact replaces the machine and shipped artifact as a whole")
     void projectReplacesWhole() throws Exception {
-        write(machine, RoleFixtures.ROLE, RoleFixtures.valid().set("/count", 4).bytes());
+        write(machine, RoleFixtures.ROLE, RoleFixtures.valid().set("/count", 4)
+                .set("/context_budget_tokens", 120_000).bytes());
         write(project, RoleFixtures.ROLE, RoleFixtures.valid().set("/count", 8)
                 .set("/description", "The project's artifact").bytes());
 
@@ -49,7 +50,10 @@ class RoleSetLoaderTest {
         assertAll(
                 () -> assertEquals(8, set.effective(RoleFixtures.ROLE).orElseThrow().count()),
                 () -> assertEquals("The project's artifact",
-                        set.effective(RoleFixtures.ROLE).orElseThrow().description()));
+                        set.effective(RoleFixtures.ROLE).orElseThrow().description()),
+                () -> assertTrue(set.effective(RoleFixtures.ROLE).orElseThrow().declaredContextBudget().isEmpty(),
+                        "the project artifact omits the machine artifact's context budget"),
+                () -> assertEquals(RoleSetKind.PROJECT, set.kind(RoleFixtures.ROLE).orElseThrow()));
     }
 
     @Test
@@ -99,6 +103,20 @@ class RoleSetLoaderTest {
                 () -> assertTrue(set.effective("review-code").isEmpty()),
                 () -> assertEquals(RoleValidationReason.SCHEMA_INVALID,
                         set.refused().getFirst().refusal().reason()));
+    }
+
+    @Test
+    @DisplayName("a refusal of a lower set is gone when a higher set defines the role")
+    void refusalIsSuperseded() throws Exception {
+        write(machine, RoleFixtures.ROLE, RoleFixtures.valid().set("/bogus", 1).bytes());
+        write(project, RoleFixtures.ROLE, RoleFixtures.validBytes());
+
+        var set = RoleSetLoader.load(RoleFixtures.shippedValid().withMachine(machine).withProject(project));
+
+        assertAll(
+                () -> assertTrue(set.effective(RoleFixtures.ROLE).isPresent()),
+                () -> assertTrue(set.refused().isEmpty(), () -> set.refused().toString()),
+                () -> assertEquals(RoleSetKind.PROJECT, set.kind(RoleFixtures.ROLE).orElseThrow()));
     }
 
     @Nested

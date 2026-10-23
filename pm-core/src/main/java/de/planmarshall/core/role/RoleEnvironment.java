@@ -70,6 +70,10 @@ public interface RoleEnvironment {
     /** @return the machine configuration, {@code <PM_MCP_BASE>/machine-config.json} */
     Optional<MachineConfiguration> machineConfiguration();
 
-    /** @return the shipped default assignment, {@code classpath:/roles/default-assignment.json} */
-    Optional<DefaultAssignment> defaultAssignment();
+    /**
+     * @param role a role name
+     * @return the effort of the role's default assignment, {@code classpath:/roles/default-assignment.json}; empty when
+     *         the release does not name the role
+     */
+    Optional<EffortValue> defaultEffort(String role);
 }

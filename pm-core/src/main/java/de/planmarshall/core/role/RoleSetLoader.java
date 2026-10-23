@@ -14,6 +14,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -27,7 +28,8 @@ import java.util.TreeMap;
  * role never falls back.
  * <p>
  * The loader reads the sets afresh at every call, so an edited artifact applies to the next read, as the specification
- * requires at every composition, task creation and offer.
+ * requires at every composition, task creation and offer. It also reports the set the effective artifact came from, which
+ * the effective configuration needs to place the artifact's own harness, model and effort at their level.
  *
  * @since 0.1
  */
@@ -44,28 +46,33 @@ public final class RoleSetLoader {
      */
     public static RoleSet load(RoleSets sets) {
         var effective = new TreeMap<String, RoleArtifact>();
+        var kinds = new LinkedHashMap<String, RoleSetKind>();
         var refused = new ArrayList<RoleSet.RefusedRole>();
         for (var entry : sets.shipped().entrySet()) {
-            read(entry.getKey(), entry.getValue().document(), RoleSetKind.SHIPPED, effective, refused);
+            read(entry.getKey(), entry.getValue().document(), RoleSetKind.SHIPPED, effective, kinds, refused);
         }
-        readDirectory(sets.machineDirectory(), RoleSetKind.MACHINE, effective, refused);
-        readDirectory(sets.projectDirectory(), RoleSetKind.PROJECT, effective, refused);
-        return new RoleSet(effective, refused);
+        readDirectory(sets.machineDirectory(), RoleSetKind.MACHINE, effective, kinds, refused);
+        readDirectory(sets.projectDirectory(), RoleSetKind.PROJECT, effective, kinds, refused);
+        return new RoleSet(effective, kinds, refused);
     }
 
     private static void readDirectory(Path directory, RoleSetKind kind, Map<String, RoleArtifact> effective,
-            List<RoleSet.RefusedRole> refused) {
+            Map<String, RoleSetKind> kinds, List<RoleSet.RefusedRole> refused) {
         for (var name : names(directory)) {
-            read(name, bytes(directory.resolve(name + SUFFIX)), kind, effective, refused);
+            read(name, bytes(directory.resolve(name + SUFFIX)), kind, effective, kinds, refused);
         }
     }
 
     private static void read(String name, byte[] document, RoleSetKind kind, Map<String, RoleArtifact> effective,
-            List<RoleSet.RefusedRole> refused) {
+            Map<String, RoleSetKind> kinds, List<RoleSet.RefusedRole> refused) {
         try {
             effective.put(name, RoleArtifactValidator.validate(document, name));
+            kinds.put(name, kind);
+            refused.removeIf(refusedRole -> refusedRole.name().equals(name));
         } catch (RoleRefusal refusal) {
             effective.remove(name);
+            kinds.remove(name);
+            refused.removeIf(refusedRole -> refusedRole.name().equals(name));
             refused.add(new RoleSet.RefusedRole(name, kind, refusal));
         }
     }
