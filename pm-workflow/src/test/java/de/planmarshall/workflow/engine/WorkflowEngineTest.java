@@ -153,6 +153,7 @@ class WorkflowEngineTest {
                     name: epic
                     description: A unit written for the tests of pm-workflow.
                     type: workflow
+                    icon: workflow.default
                     modification_date: 2026-01-15
                     version: 0.1.0
                     author: plan-marshall
@@ -258,6 +259,7 @@ class WorkflowEngineTest {
                     name: ent.inherited
                     description: A unit written for the tests of pm-workflow.
                     type: system
+                    icon: workflow.default
                     modification_date: 2026-01-15
                     version: 0.1.0
                     author: plan-marshall
@@ -353,6 +355,7 @@ class WorkflowEngineTest {
                 name: sub.retry
                 description: A unit written for the tests of pm-workflow.
                 type: subworkflow
+                icon: workflow.default
                 entry: main
                 exit: done
                 modification_date: 2026-01-15

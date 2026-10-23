@@ -71,6 +71,7 @@ class SubWorkflowExecutionTest {
             name: sub.args
             description: A unit written for the tests of pm-workflow.
             type: subworkflow
+            icon: workflow.default
             entry: main
             exit: done
             modification_date: 2026-01-15
@@ -103,6 +104,7 @@ class SubWorkflowExecutionTest {
             name: sub.inner
             description: A unit written for the tests of pm-workflow.
             type: subworkflow
+            icon: workflow.default
             entry: main
             exit: done
             modification_date: 2026-01-15
@@ -139,6 +141,7 @@ class SubWorkflowExecutionTest {
             name: sub.outer
             description: A unit written for the tests of pm-workflow.
             type: subworkflow
+            icon: workflow.default
             entry: main
             exit: done
             modification_date: 2026-01-15
@@ -175,6 +178,7 @@ class SubWorkflowExecutionTest {
             name: ent.top
             description: A unit written for the tests of pm-workflow.
             type: system
+            icon: workflow.default
             modification_date: 2026-01-15
             version: 0.1.0
             author: plan-marshall
@@ -218,6 +222,7 @@ class SubWorkflowExecutionTest {
             name: sub.two
             description: A sub-workflow with two entries written for the engine tests.
             type: subworkflow
+            icon: workflow.default
             entry: review
             entry_description: The change is ready for its review.
             entry: repair
@@ -318,6 +323,7 @@ class SubWorkflowExecutionTest {
                 name: sub.d%1$d
                 description: A unit written for the tests of pm-workflow.
                 type: subworkflow
+                icon: workflow.default
                 entry: main
                 exit: done
                 modification_date: 2026-01-15
@@ -542,6 +548,7 @@ class SubWorkflowExecutionTest {
                             name: sub.mid
                             description: A unit written for the tests of pm-workflow.
                             type: subworkflow
+                            icon: workflow.default
                             entry: main
                             exit: done
                             modification_date: 2026-01-15

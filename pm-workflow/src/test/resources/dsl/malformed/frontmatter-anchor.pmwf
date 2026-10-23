@@ -2,6 +2,7 @@
 name: &unit Malformed unit
 description: A malformed unit written for the parser tests.
 type: workflow
+icon: workflow.default
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall

@@ -63,10 +63,11 @@ is refused.
 == The Unit Frontmatter
 _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
 
-The frontmatter is the first part of every `.pmwf` file: what the unit is for a person, its type, its interface (the
-entries through which control arrives and the exits through which it leaves), and where it comes from. It is read
-without the body, so a list of units, a catalogue of building blocks or a process view shows a unit's name,
-description, type and interface from it alone, and a `call` is checked against the interface of its callee.
+The frontmatter is the first part of every `.pmwf` file: what the unit is for a person, its type, the stable icon that
+stands for it, its interface (the entries through which control arrives and the exits through which it leaves), and
+where it comes from. It is read without the body, so a list of units, a catalogue of building blocks or a process view
+shows a unit's name, description, type, icon and interface from it alone, and a `call` is checked against the interface
+of its callee.
 
 [source,yaml]
 ----
@@ -74,6 +75,7 @@ description, type and interface from it alone, and a `call` is checked against t
 name: Commit and Push
 description: Commits the changes of the plan's worktree and pushes its branch as the push mode says.
 type: subworkflow
+icon: git.commit
 entry: commit
 entry_description: The worktree holds the changes to commit, or is clean.
 exit: done
@@ -113,9 +115,10 @@ anchor, alias or merge key is ever resolved
   YAML indicator character (`-?:,[]{}#&*!|>'"%@` and the backquote), and contains neither `": "` nor `" #"`. A
   double-quoted value is one line between `"` and `"` with the escapes `\"` and `\\` only. A value a plain scalar
   cannot carry is written double-quoted.
-* *Closed keys*: the keys are `name`, `description`, `type`, `entry`, `entry_description`, `exit`, `exit_description`,
-  `modification_date`, `version`, `author` and `signature`; any other key is refused. `name`, `description`, `type`,
-  `modification_date`, `version` and `author` occur exactly once, `signature` at most once.
+* *Closed keys*: the keys are `name`, `description`, `type`, `icon`, `entry`, `entry_description`, `exit`,
+  `exit_description`, `modification_date`, `version`, `author` and `signature`; any other key is refused. `name`,
+  `description`, `type`, `icon`, `modification_date`, `version` and `author` occur exactly once, `signature` at most
+  once.
 * *Repeated `entry` and `exit`*: a unit declares zero or more entries and zero or more exits, one name per line, the key
   repeated per name, kept in order and never collapsed. This is the one point where the frontmatter is not a YAML
   mapping.
@@ -143,6 +146,13 @@ anchor, alias or merge key is ever resolved
 |1
 |One of the wire names of `UnitType`: `workflow`, `recipe`, `subworkflow`, `system`, `task`, `instance`
 (link:workflow-ast.adoc#unit-types[Workflow AST § Unit Types]).
+
+|`icon`
+|1
+|The stable icon id that stands for the unit in the visual language, `[a-z][a-z0-9._-]{0,63}` without a `..` segment.
+The grammar admits no slash, backslash, blank or colon, so the value is an id and never a file path. The id is stable:
+a change of the art keeps the id, and a rename needs an alias or a migration note in the client that delivers the icon
+(link:../adr/workflow-dsl/008-required-icon-field.adoc[ADR 008]). The key is required within format 1.
 
 |`entry`
 |0..n
@@ -220,8 +230,9 @@ content after the closing quote, an unclosed double-quoted value
 |A frontmatter of more than 200 lines, the two delimiters included
 |the first line past the cap, column 1
 
-|A field outside its bounds: a length, an unknown type, an entry or exit that is no identifier or is declared twice, the
-exit `stepped_out`, an invalid or future date, a version outside the release version grammar
+|A field outside its bounds: a length, an unknown type, an icon outside the icon-id grammar, an entry or exit that is
+no identifier or is declared twice, the exit `stepped_out`, an invalid or future date, a version outside the release
+version grammar
 |the line, the column of the value
 
 |A missing single key
@@ -269,9 +280,9 @@ The printer writes the empty list back as `[]`, so it survives the round trip.
 _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
 
 `WorkflowPrinter` writes the frontmatter first, between its two `---` lines, in the order of the field table: `name`,
-`description`, `type`, each `entry` followed by its `entry_description`, each `exit` followed by its `exit_description`,
-`modification_date`, `version`, `author` and `signature`. A value is written plain when a plain scalar can carry it and
-double-quoted otherwise (the rule is `UnitFrontmatterReader.isPlain`, the reader's own, so printer and reader cannot
+`description`, `type`, `icon`, each `entry` followed by its `entry_description`, each `exit` followed by its
+`exit_description`, `modification_date`, `version`, `author` and `signature`. A value is written plain when a plain
+scalar can carry it and double-quoted otherwise (the rule is `UnitFrontmatterReader.isPlain`, the reader's own, so printer and reader cannot
 drift apart), with `\` written as `\\` and `"` as `\"`. Then come the unit header and the declarations, the
 `start` line or the entry bindings in source order, the migrations and the states; a `call` names the entry it names in
 the tree.

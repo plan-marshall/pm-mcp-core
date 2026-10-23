@@ -1,0 +1,69 @@
+= ADR 008: The Unit Frontmatter Carries a Required Icon Field
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-23
+
+== Context
+
+The workflow DSL has no carrier for the visual identity of a unit. A web client that shows a phase, a sub-workflow, a
+remediation policy or a recipe can distinguish them only by their names, and a client-side mapping from the unit name
+to an icon would be a second registry that drifts from the frontmatter as soon as a unit is renamed or a new unit is
+added.
+
+The frontmatter is a closed, versioned schema owned by `pm-workflow`; a client must not invent a wire field. The DSL is
+still in development and no release carries format 1 yet, so a required field can be introduced now without a
+compatibility layer. The format version is bumped only after a release, not for a pre-release field addition.
+
+== Decision
+
+* Every unit frontmatter carries the required key `icon` after `type`. A frontmatter without it is refused with the
+  rule `FRONTMATTER` at its closing line.
+* The value is an icon id of the grammar `[a-z][a-z0-9._-]{0,63}` without a `..` segment. The grammar admits no slash,
+  no backslash, no blank and no colon, so the value is never a file path. The reader checks the grammar and the bound.
+* `UnitFrontmatterReader` reads the key once: it is in `KEYS`, in `SINGLE_KEYS` and in `REQUIRED_KEYS`, and a repeated
+  key is refused.
+* `WorkflowPrinter` always prints `icon` after `type`, in the order of the field table, so a valid unit round-trips.
+* `UnitFrontmatter` carries a non-optional `String icon`. The plan-unit merger and the plan-instance composer keep the
+  icon of the part or template they merge or compose.
+* Every existing `.pmwf` fixture and every inline unit of the `pm-workflow` tests is migrated in the same change. No test
+  is waived for the new required field. Refused fixtures keep their intended first refusal; two dedicated fixtures,
+  `frontmatter-icon-missing.pmwf` and `frontmatter-icon-invalid.pmwf`, cover the new rule.
+* The DSL format stays `1`: `ProjectUnitLoader.COMPILED_FORMAT_VERSION` and the `format` of every unit header are
+  unchanged. The format version changes only after a release.
+* An icon id the client does not know is a client concern: the client falls back to a default icon. An empty value is a
+  schema refusal, never a valid unit.
+
+== Alternatives Considered
+
+* *An optional `icon` with a client-side default.* Not taken: an optional field invites units without an icon, and the
+  client would need a second registry keyed by unit name to fill the gap.
+* *A client-side map from the unit name to an icon.* Not taken: it duplicates the unit catalogue and drifts silently
+  when a unit is renamed or added.
+* *The icon as a file path or a URL.* Not taken: the frontmatter would bind the schema to a delivery layout of one
+  client, admit path traversal and remote references, and lose the stable identity an id gives.
+* *Bump the DSL format.* Not taken: no release carries format 1, and the format version changes only after a release.
+* *A separate icon manifest.* Not taken: the icon belongs to the unit and travels with it through the API; a manifest
+  would be another source of truth.
+
+== Consequences
+
+* A unit without an icon, an invalid icon id and a repeated icon are refused when the unit is read.
+* Every consumer of `UnitFrontmatter` receives the icon with the unit, so no consumer maps a unit name to an icon.
+* The client delivers one asset per id and keeps a fallback for an id it does not know; the visual language and the
+  catalogue of ids live with the web client.
+* Adding a unit now means choosing an icon id as well; the update is four steps: the asset, the client registry entry,
+  the catalogue row and the `icon:` line.
+* Reverting the field is a clean cut: the format stays 1 throughout, there is no released compatibility obligation, and
+  a partial client rollback still falls back to the default icon for an unknown id.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#unit-frontmatter[Workflow DSL § Unit Frontmatter]
+* link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/agy/workflow-visual-language-and-icons-plan.md[Plan: workflow-visual-language-and-icons]
+* link:../../../../pm-workflow/doc/developer/workflow-dsl.adoc#unit-frontmatter[Workflow DSL Developer Guide § The Unit Frontmatter]

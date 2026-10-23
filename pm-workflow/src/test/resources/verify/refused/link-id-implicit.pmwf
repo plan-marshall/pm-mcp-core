@@ -2,11 +2,12 @@
 name: verify.link-id-implicit
 description: A unit written for the verifier tests.
 type: system
+icon: workflow.default
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: LINK_ID_UNIQUE state verify.entry line 16
+# expect: LINK_ID_UNIQUE state verify.entry line 17
 workflow verify.link-id-implicit version 1 format 1
 scope workspace
 start verify.entry

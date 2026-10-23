@@ -192,6 +192,7 @@ final class VerifyFixtures {
                 name: Inline unit
                 description: A unit written for the verifier tests.
                 type: %s
+                icon: workflow.default
                 modification_date: 2026-01-15
                 version: 0.1.0
                 author: plan-marshall
@@ -233,6 +234,7 @@ final class VerifyFixtures {
                 name: Inline unit
                 description: A unit written for the verifier tests.
                 type: subworkflow
+                icon: workflow.default
                 entry: main
                 %smodification_date: 2026-01-15
                 version: 0.1.0

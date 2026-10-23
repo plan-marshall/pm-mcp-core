@@ -241,6 +241,7 @@ final class TestPrimitives {
                 name: git.commit_and_push
                 description: A unit written for the tests of pm-workflow.
                 type: subworkflow
+                icon: workflow.default
                 entry: main
                 exit: done
                 modification_date: 2026-01-15
@@ -272,6 +273,7 @@ final class TestPrimitives {
                 name: test.depth5
                 description: A unit written for the tests of pm-workflow.
                 type: subworkflow
+                icon: workflow.default
                 entry: main
                 exit: done
                 modification_date: 2026-01-15
@@ -294,6 +296,7 @@ final class TestPrimitives {
                 name: verify.call-cycle
                 description: A unit written for the tests of pm-workflow.
                 type: subworkflow
+                icon: workflow.default
                 entry: main
                 exit: done
                 modification_date: 2026-01-15
@@ -321,6 +324,7 @@ final class TestPrimitives {
                 name: entity
                 description: A unit written for the tests of pm-workflow.
                 type: task
+                icon: workflow.default
                 exit: submitted
                 modification_date: 2026-01-15
                 version: 0.1.0
@@ -338,6 +342,7 @@ final class TestPrimitives {
                 name: test.links-inner
                 description: A unit written for the tests of pm-workflow.
                 type: subworkflow
+                icon: workflow.default
                 entry: main
                 exit: done
                 modification_date: 2026-01-15
@@ -363,6 +368,7 @@ final class TestPrimitives {
                 name: test.links-outer
                 description: A unit written for the tests of pm-workflow.
                 type: subworkflow
+                icon: workflow.default
                 entry: main
                 exit: done
                 modification_date: 2026-01-15
@@ -390,6 +396,7 @@ final class TestPrimitives {
                 name: remediation.test-waiver
                 description: A unit written for the tests of pm-workflow.
                 type: subworkflow
+                icon: workflow.default
                 entry: main
                 exit: done
                 exit: waived
@@ -418,6 +425,7 @@ final class TestPrimitives {
                 name: test.workspace-unit
                 description: A unit written for the tests of pm-workflow.
                 type: system
+                icon: workflow.default
                 modification_date: 2026-01-15
                 version: 0.1.0
                 author: plan-marshall
@@ -441,6 +449,7 @@ final class TestPrimitives {
                 name: test.two-entries
                 description: A unit written for the tests of pm-workflow.
                 type: subworkflow
+                icon: workflow.default
                 entry: review
                 entry: repair
                 exit: done
@@ -483,6 +492,7 @@ final class TestPrimitives {
                 name: test.task-unit
                 description: A unit written for the tests of pm-workflow.
                 type: task
+                icon: workflow.default
                 exit: done
                 modification_date: 2026-01-15
                 version: 0.1.0
@@ -504,6 +514,7 @@ final class TestPrimitives {
                 name: test.plan-caller
                 description: A unit written for the tests of pm-workflow.
                 type: workflow
+                icon: workflow.default
                 modification_date: 2026-01-15
                 version: 0.1.0
                 author: plan-marshall
@@ -539,6 +550,7 @@ final class TestPrimitives {
                 name: test.epic-caller
                 description: A unit written for the tests of pm-workflow.
                 type: workflow
+                icon: workflow.default
                 modification_date: 2026-01-15
                 version: 0.1.0
                 author: plan-marshall
@@ -572,6 +584,7 @@ final class TestPrimitives {
                 name: test.plan-only-outer
                 description: A unit written for the tests of pm-workflow.
                 type: subworkflow
+                icon: workflow.default
                 entry: main
                 exit: done
                 modification_date: 2026-01-15
@@ -603,6 +616,7 @@ final class TestPrimitives {
                 name: test.plan-only-inner
                 description: A unit written for the tests of pm-workflow.
                 type: subworkflow
+                icon: workflow.default
                 entry: main
                 exit: done
                 modification_date: 2026-01-15
@@ -630,6 +644,7 @@ final class TestPrimitives {
                 name: test.depth%1$d
                 description: A unit written for the tests of pm-workflow.
                 type: subworkflow
+                icon: workflow.default
                 entry: main
                 exit: done
                 modification_date: 2026-01-15

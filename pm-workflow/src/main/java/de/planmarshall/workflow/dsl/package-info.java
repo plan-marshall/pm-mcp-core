@@ -13,7 +13,7 @@
  * <ul>
  * <li><b>Frontmatter reader</b>: {@link de.planmarshall.workflow.dsl.UnitFrontmatterReader} reads the frontmatter a
  * unit opens with, the closed, line-oriented subset of YAML between two {@code ---} lines, with a parser of its own and
- * never a general YAML loader (PM-IMPL-5). It needs no body, so a unit's name, description, type and interface
+ * never a general YAML loader (PM-IMPL-5). It needs no body, so a unit's name, description, type, icon and interface
  * can be read alone; a frontmatter outside its format or field rules is refused with the rule
  * {@link de.planmarshall.workflow.dsl.RefusalRule#FRONTMATTER}.</li>
  * <li><b>Lexer</b>: a package-private tokenizer cuts the text into lines of tokens with their line and column,
