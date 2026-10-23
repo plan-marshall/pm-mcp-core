@@ -2,7 +2,7 @@
   "id": "PLAN-103",
   "slug": "spec-coverage-pass",
   "workstream": "WS-10",
-  "status": "staged",
+  "status": "running",
   "lane": "runbook",
   "plan_marshall_plan_id": "",
   "pr": "",

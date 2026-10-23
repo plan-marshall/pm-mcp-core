@@ -88,6 +88,7 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Dependencies and Sequencing
 
+- After #150 (`ac34703`, 2026-10-23): `icon` is a required key of every unit's frontmatter, kept by `PlanInstanceComposer` and `PlanUnitMerger`; 18 test files of `pm-workflow` (`EngineFixtures`, `EngineResumeTest`, `GuardEvaluatorTest`, `WorkflowEngineTest`, `InstancePrunerTest`, `PlanFixtures` and the verify tests among them) were migrated and are the fixtures this plan builds on: read them at the head of `main`. The stored unit text `mcp/units/<digest>.pmwf` is a unit like any other and carries its `icon:` line; a stored text from before #150 does not load (no compatibility path, format 1, pre-1.0).
 - Depends on: PLAN-26 (`role-sets-and-model-caller`)
 - Overlaps with: computed by `corpus cross-check` at emit time; every plan through `doc/plans/README.adoc` and `doc/Traceability.adoc`; the plans of the same module through its log holder, which is not a declared surface
 - Adjacent to: the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` and the client contract `pm-api` in `pm-mcp-clients`, which stay untouched — a change there is a pull request in that repository; and `plan-marshall-documentation`, where only a requirement correction or a change of `cross-cutting.adoc` or of a specification that lives there goes, in a pull request there
