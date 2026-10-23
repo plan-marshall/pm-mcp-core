@@ -70,13 +70,14 @@ None beyond the standing rules named in the First Instruction above.
 
 - Depends on: PLAN-96 (`spec-ahead-work-packages`), which writes the three package files and the rows whose notes Deliverable 3 replaces
 - Blocks: the unparking of PLAN-99, PLAN-100 and PLAN-101, and the implementation plans of the new packages
+- Runs beside PLAN-26 (`role-sets-and-model-caller`, running; the operator accepted the overlap on 2026-10-23): PLAN-26 deletes its own package file `doc/plans/role-sets-and-model-caller.adoc` and its index row when it is done, and the `Depends on` cells that name it (for example those of `task-queue-and-protocol` and `endpoint-harness`) change with it. Do not edit that file or its row; re-read the index at the head of `main` and merge the base branch (the lane's step 7) before the merge gate, and if PLAN-26 has merged by then, drop its name from any dependency cell you write, as PLAN-96 did for `profile-loader`. PLAN-25 (`waits`) merged as #145 and removed its own row and package file: the index you read at the head of `main` already reflects it.
 - Overlaps with: `doc/plans/README.adoc` through PLAN-96 and every plan
 - Adjacent to: the roadmap of `plan-marshall-documentation`, which stays as it is
 
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-103-spec-coverage-pass.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-103-spec-coverage-pass.md
 ```
 
 ## Write-Boundary
