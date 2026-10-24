@@ -132,6 +132,9 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
      * @param runRepositoryHooks  whether a {@code git} job runs repository hooks
      * @return the confinement
      */
+    // java:S6916 does not apply: the switch is a statement switch over the enum JobId.Kind, where a `when` guard on a
+    // constant label is not expressible; the branch condition is the caller's hook flag.
+    @SuppressWarnings("java:S6916")
     public JobConfinement forJob(ProjectEnrolment enrolment, JobId jobId, List<Path> harnessWritablePaths,
             boolean runRepositoryHooks) {
         Objects.requireNonNull(enrolment, "enrolment");
