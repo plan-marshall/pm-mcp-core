@@ -94,6 +94,46 @@ public final class LaunchComposer {
                 model, effort.value(), effort.narrowedFrom(), workerBlock);
     }
 
+    /**
+     * The {@code worker} block a refused launch is recorded with: the values the runtime knows before the refusal, an
+     * empty prompt digest and no connection. The job record requires the block for the kind {@code llm} on every fate.
+     *
+     * @param role         the effective role of the refused launch
+     * @param generationId the generation the launch would have had
+     * @param now          the instant of the refusal
+     * @return the worker block
+     */
+    public static JsonNode refusalBlock(EffectiveRole role, String generationId, Instant now) {
+        var members = new LinkedHashMap<String, JsonNode>();
+        members.put("role", JsonNode.string(role.artifact().name()));
+        members.put("configuration_digest", JsonNode.string(role.configurationDigest()));
+        members.put("class", JsonNode.string(role.roleClass().wireName()));
+        members.put("form", JsonNode.string(role.form().wireName()));
+        members.put("harness", JsonNode.string(role.harness()));
+        members.put("harness_version", JsonNode.string("-"));
+        members.put("model", JsonNode.string(role.model()));
+        members.put("effort", JsonNode.nullValue());
+        members.put("effort_narrowed_from", JsonNode.nullValue());
+        members.put("generation_id", JsonNode.string(generationId));
+        members.put("workdir", JsonNode.object(Map.of("kind", JsonNode.string("project_checkout"), "plan_id",
+                JsonNode.nullValue())));
+        members.put("prompt_digest", JsonNode.string("0".repeat(64)));
+        members.put("job_token_sha256", JsonNode.nullValue());
+        members.put("connected_at", JsonNode.nullValue());
+        members.put("state", JsonNode.string("lost"));
+        members.put("state_at", JsonNode.string(now.toString()));
+        members.put("task", JsonNode.nullValue());
+        members.put("served_tasks", JsonNode.array(List.of()));
+        members.put("worktree_mark", JsonNode.nullValue());
+        members.put("idle_wakeups", JsonNode.integer(0));
+        members.put("context_tokens", JsonNode.string("unmeasured"));
+        members.put("delivered_skills", JsonNode.array(List.of()));
+        members.put("end_reason", JsonNode.nullValue());
+        members.put("start_failure", JsonNode.bool(true));
+        members.put("harness_error", JsonNode.nullValue());
+        return JsonNode.object(members);
+    }
+
     private static void requireClass(HeadlessBlock block, RoleClass roleClass) {
         if (!block.runs(roleClass)) {
             throw new CompositionException("the harness '%s' runs no %s worker".formatted(block.executable(),

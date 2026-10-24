@@ -113,6 +113,13 @@ public final class JobEnvironmentComposer implements SubprocessJobRunner.Environ
                 Optional.empty(), Optional.empty(), Optional.empty(), false);
     }
 
+    @Override
+    public Map<String, String> ofWorker(ProjectEnrolment enrolment, JobId jobId, Map<String, String> harnessSwitches,
+            Optional<String> jobToken, Optional<String> workerDataVariable, Optional<String> egressProxy) {
+        return forJob(enrolment, jobId, harnessSwitches, jobToken, workerDataVariable, egressProxy, Optional.empty(),
+                Optional.empty(), Optional.empty(), false);
+    }
+
     /**
      * {@inheritDoc}
      *

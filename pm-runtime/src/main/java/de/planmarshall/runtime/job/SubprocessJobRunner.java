@@ -44,6 +44,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import lombok.Builder;
 
+import de.planmarshall.core.profile.CanonicalJson;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.JobRunner;
@@ -57,6 +58,7 @@ import de.planmarshall.core.store.JobRecord.Execution;
 import de.planmarshall.core.store.JobRecord.Fate;
 import de.planmarshall.core.store.JobRecord.Status;
 import de.planmarshall.core.store.JobRecordStore;
+import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.runtime.job.JobEvidence.Exited;
 import de.planmarshall.runtime.job.JobEvidence.LogState;
@@ -71,6 +73,7 @@ import de.planmarshall.runtime.job.PmExecLauncher.Launched;
 import de.planmarshall.runtime.job.SettlementStep.Outcome;
 import de.planmarshall.runtime.job.SettlementStep.Settled;
 import de.planmarshall.runtime.job.TerminationProtocol.Ending;
+import de.planmarshall.runtime.launch.JobTokenStore;
 import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
@@ -292,6 +295,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private final InstantSource clock;
     private final Supervision supervision;
     private final AuditSink audit;
+    private final JobTokenStore jobTokens;
 
     /**
      * The store of every job this runner started and whose settlement has not recorded its fate yet. A job whose fate
@@ -349,7 +353,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private SubprocessJobRunner(Path base, LockManager lockManager, VerifyNotResolvePipeline pipeline,
             PmExecLauncher launcher, TerminationProtocol termination, JobConfinementComposer confinementComposer,
             Environment environment, ProbeEnvironment probeEnvironment, OutputParser parser, PrimitiveJobs primitives,
-            InstantSource clock, Supervision supervision, AuditSink audit, Integer settledRecordsKept) {
+            InstantSource clock, Supervision supervision, AuditSink audit, JobTokenStore jobTokens,
+            Integer settledRecordsKept) {
         this.base = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
         this.lockManager = Objects.requireNonNull(lockManager, "lockManager");
         this.pipeline = Objects.requireNonNull(pipeline, "pipeline");
@@ -366,6 +371,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         this.clock = clock == null ? InstantSource.system() : clock;
         this.supervision = supervision == null ? Supervision.VIRTUAL_THREADS : supervision;
         this.audit = audit == null ? NO_AUDIT : audit;
+        this.jobTokens = jobTokens;
         this.settledRecordsKept = settledRecordsKept == null ? SETTLED_RECORD_CACHE : settledRecordsKept;
         if (this.settledRecordsKept < 1) {
             throw new IllegalArgumentException("The settled-record cache keeps at least one record: "
@@ -388,6 +394,23 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
          * @return the complete environment of the job
          */
         Map<String, String> of(VerifiedJob job, JobId jobId);
+
+        /**
+         * The environment of a worker, whose rows the launch composes rather than a verified job.
+         *
+         * @param enrolment          the verified enrolment of the project
+         * @param jobId              the id of the worker
+         * @param harnessSwitches    the switches of the harness's profile
+         * @param jobToken           the minted job token
+         * @param workerDataVariable the data-home variable of the harness; empty when it shares one store
+         * @param egressProxy        the loopback URL of the worker's egress proxy; empty when none
+         * @return the complete environment of the worker
+         */
+        default Map<String, String> ofWorker(ProjectEnrolment enrolment, JobId jobId,
+                Map<String, String> harnessSwitches, Optional<String> jobToken, Optional<String> workerDataVariable,
+                Optional<String> egressProxy) {
+            throw new UnsupportedOperationException("This environment composes no worker launch");
+        }
     }
 
     /**
@@ -500,6 +523,84 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             case JobVerification.Refused(var refusal) -> refuse(request, budget, store, refusal.reason().code());
             case JobVerification.Verified(var job) -> launch(request, budget, store, job);
         };
+    }
+
+    /**
+     * Starts a worker whose launch the supervisor composed (PM-WORK-3, Job Record). The generation id of the launch is
+     * the job id; the record carries the {@code worker} block, the argument vector is digested like every job's, and the
+     * job token is registered with its digest and revoked in the settlement.
+     * <p>
+     * A worker whose id is already taken, or is no worker id, is refused before anything is written.
+     *
+     * @param request the composed launch and its budget
+     * @return the started job, or the queued id while the runtime drains
+     * @throws IllegalArgumentException if the generation id is not a free worker id
+     * @throws UncheckedIOException     if a record or the job-private directory cannot be written
+     * @throws StoreRefusal             if a record of the job's store cannot be read
+     */
+    public JobRunner.StartResult startWorker(WorkerStart request) {
+        Objects.requireNonNull(request, "request");
+        var launch = request.launch();
+        var budget = new JobBudget(request.budgetKey(), request.budgetSeconds(), request.budgetDerivation());
+        var store = JobRecordStore.ofProject(base, request.enrolment().projectId());
+        store.lockKey(request.scope());
+        var jobId = workerId(launch.generationId());
+        JobRecord first;
+        RunningJob job;
+        admission.lock();
+        try {
+            try (var transaction = lockManager.openTransaction()) {
+                first = admit(transaction, store, newRecord(jobId, request.scope(), budget, argvDigest(launch.argv()),
+                        clock.instant()).worker(CanonicalJson.write(launch.workerBlock())));
+            }
+            job = register(first, store, budget, Set.of());
+        } finally {
+            admission.unlock();
+        }
+        if (job == null) {
+            return new JobRunner.StartResult.Started(first.jobId());
+        }
+        if (jobTokens != null) {
+            jobTokens.register(jobId.value(), launch.jobTokenSha256());
+        }
+        var confinement = confinementComposer.forJob(request.enrolment(), jobId, request.writablePaths(), false);
+        return run(job, log -> new Launch(launch.workingDirectory(), launch.argv(), environment.ofWorker(request
+                .enrolment(), jobId, launch.env(), Optional.of(launch.jobToken()), Optional.empty(), request
+                .egressProxy()), Optional.empty(), log, confinement));
+    }
+
+    /**
+     * Records a worker launch the runtime refused before its spawn: the fate {@code refused}, the refusal reason and the
+     * {@code worker} block, in the one write of the record. Nothing is spawned and no token is minted.
+     *
+     * @param refusal what the refused launch would have been and why it was refused
+     * @return the id of the refused job
+     * @throws IllegalArgumentException if the generation id is no worker id
+     * @throws UncheckedIOException     if the record cannot be written
+     */
+    public JobId refuseWorker(WorkerStart.Refusal refusal) {
+        Objects.requireNonNull(refusal, "refusal");
+        var budget = new JobBudget(refusal.budgetKey(), refusal.budgetSeconds(), refusal.budgetDerivation());
+        var store = JobRecordStore.ofProject(base, refusal.enrolment().projectId());
+        store.lockKey(refusal.scope());
+        var jobId = workerId(refusal.generationId());
+        var outcome = OutcomeDerivation.derive(new RefusedBeforeSpawn(refusal.reason().code()));
+        var now = clock.instant();
+        JobRecord settled;
+        try (var transaction = lockManager.openTransaction()) {
+            settled = newRecord(jobId, refusal.scope(), budget, null, now).status(Status.REFUSED)
+                    .fate(outcome.fate()).outcomeRow(outcome.row()).refusalReason(refusal.reason().code())
+                    .endedAt(now).worker(refusal.workerBlock()).build();
+            store.writeFate(transaction, settled);
+        }
+        remember(settled);
+        LOGGER.info(INFO.JOB_SETTLED, settled.jobId(), settled.fate().wireName(), settled.outcomeRow());
+        return jobId;
+    }
+
+    private static JobId workerId(String generationId) {
+        return JobId.parse(generationId).filter(id -> id.kind() == JobId.Kind.LLM)
+                .orElseThrow(() -> new IllegalArgumentException("Not a worker generation id: " + generationId));
     }
 
     /**
@@ -1409,6 +1510,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         job.pendingSettled = settled;
         if (settleRecord(job.store, settled)) {
             job.latest = settled;
+            if (jobTokens != null && settled.kind() == JobId.Kind.LLM) {
+                jobTokens.revoke(settled.jobId().value());
+            }
         }
     }
 

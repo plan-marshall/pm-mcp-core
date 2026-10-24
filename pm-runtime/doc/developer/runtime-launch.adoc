@@ -58,6 +58,12 @@ and is audited `harness_updated`; every other case returns a `HarnessVerificatio
 Resolves a presented token's SHA-256 to the generation it was minted for, and revokes the token with the job's fate. The
 token itself is never stored.
 
+`WorkerStart` (in `runtime.job`)::
+The supervisor's start of a composed launch: the launch, the verified enrolment, the scope, the budget and the
+writable sub-paths. `SubprocessJobRunner.startWorker` writes the record with the `worker` block, starts the composed
+argument vector and revokes the token in the settlement. `refuseWorker` records a launch the runtime refused with the
+fate `refused`, the reason and the block, in one write and without a process.
+
 == How the parts work together
 
 [source,text]
