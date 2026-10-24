@@ -39,8 +39,8 @@ _Requirements: link:{docs}/Requirements.adoc#PM-SEC-2[PM-SEC-2]_
 |`ConfinementOutcome` of `core.store`
 |`Confined(canonicalPath)` or `Rejected(reason)`; `Rejected.code()` is `path_traversal_rejected` for every reason.
 
-|`LinkedWorktreeConfinement` of `core.store`
-|Which linked worktrees count as roots of the workspace.
+|`LinkedWorktreeConfinementTest` of `core.store`
+|The test that proves which linked worktrees count as roots of the workspace; the decision itself is `PathConfinement`'s.
 |===
 
 == Using the Confinement

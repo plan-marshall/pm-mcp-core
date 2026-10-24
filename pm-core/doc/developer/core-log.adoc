@@ -71,8 +71,8 @@ message is a record of the holder, never a literal at the call site.
    description.
 4. Log it from the class of the module that owns the event. When two modules log one event, the record goes to the lower
    module's holder (`pm-core`), and the other module logs through it.
-5. Run the holder's test: `CoreLogMessagesTest` refuses an identifier used twice or outside its level's range, and a
-   template whose placeholders and argument count disagree.
+5. Run `CoreLogMessagesTest`: it refuses an identifier used twice or outside its level's range and pins the prefix and the
+   records.
 
 Do not add a message for an event an existing record already states: extend the record's description instead, so the
 log's vocabulary stays closed.
@@ -90,9 +90,9 @@ log's vocabulary stays closed.
 
 == Testing
 
-link:{test}/CoreLogMessagesTest.java[`CoreLogMessagesTest`]:: every identifier is unique and inside its level's range,
-the prefix is `PM_CORE`, every template's placeholders and the arguments the module passes agree, and the messages the
-assembly logs are known by their component. The test is the build's guard for <<_adding_a_record,adding a record>>.
+link:{test}/CoreLogMessagesTest.java[`CoreLogMessagesTest`]:: every identifier is unique and inside its level's range, the
+prefix is `PM_CORE`, and the records are pinned with their identifiers and templates. The test is the build's guard for
+<<_adding_a_record,adding a record>>.
 
 == Specification Tracing
 

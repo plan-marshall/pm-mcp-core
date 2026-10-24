@@ -394,8 +394,9 @@ got quiet, what was terminated, the failures). `isDraining()` is `true` from the
 called in that order on every participant.
 
 |`DrainTimeout`
-|Reads `drain_timeout_seconds` of `<PM_MCP_BASE>/machine-config.json`: `600` when the file or the key is absent, `0` and
-up as given, and `600` with `PM_RUNTIME-110` for a negative or non-integer value or an unreadable file.
+|Reads `drain_timeout_seconds` of `<PM_MCP_BASE>/machine-config.json`: `600` when the file or the key is absent, `0` up to
+`MAX_SECONDS` (3,153,600,000) as given, and `600` with `PM_RUNTIME-110` for a negative, non-integer or above-maximum
+value or an unreadable file.
 
 |`ProjectRecovery`
 |The per-project recovery: `startBackgroundPass()` after the bind, `awaitRecovered(projectId)` for the first call

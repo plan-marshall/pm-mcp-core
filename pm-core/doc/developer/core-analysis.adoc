@@ -12,9 +12,10 @@
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1], link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
 
 Package `de.planmarshall.core.analysis` of `pm-core` holds the provider-neutral contract of a code analysis: what a
-provider is asked, what one observation of it is, and how that observation is written and read. The provider modules
-make the calls (Sonar today); this package makes none. `core.analysis` depends on `core.findings` for the scope of an
-observation and for the issues it reports, and never the other way round.
+provider is asked, what one observation of it is, and how that observation is written and read. The provider modules are
+where the calls belong; no implementation of this contract exists in this repository yet, and this package makes none.
+`core.analysis` depends on `core.findings` for the scope of an observation and for the issues it reports, and never the
+other way round.
 
 The contract is a declaration, a serialization and a set of checks. No class here performs an HTTP call, writes a
 file or reads a store; the boundary is enforced by `AnalysisBoundaryArchTest` against control fixtures.
@@ -114,7 +115,8 @@ not those of `core.store`, on which the package must not depend.
   cannot reach the result.
 * *Nothing in `pm-core` names a provider.* No class, package or member name of the package contains a provider name;
   the provider identity travels in configuration and in the provider module.
-* *The store is written elsewhere.* This package produces the line; the store and the workflow write `analysis.jsonl`.
+* *The store is written elsewhere.* This package produces the line; writing `analysis.jsonl` belongs to the store and
+  the workflow, neither of which does it yet.
 
 == Adding a Provider Operation
 

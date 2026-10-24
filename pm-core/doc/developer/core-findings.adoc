@@ -13,8 +13,8 @@ _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]_
 
 Package `de.planmarshall.core.findings` of `pm-core` holds the normalized finding and the contracts every producer of
 findings implements: what a finding is, what a scope is asked about, under which key a producer is registered and how a
-finding is answered on its provider. The provider modules make the calls; the store and the workflow record what is
-observed.
+finding is answered on its provider. The provider modules are where the calls belong; no implementation of these
+contracts exists in this repository yet, and the store and the workflow own recording what is observed.
 
 The package holds declarations, validation and lookup only: it makes no HTTP call, writes no file or store and depends
 on no store class. Why the contract lives in the foundation and not in a provider module is stated in

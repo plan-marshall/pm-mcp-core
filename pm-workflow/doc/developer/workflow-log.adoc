@@ -66,8 +66,8 @@ message is a record of a holder, never a literal at the call site.
    description.
 4. Log it from the class of this module that owns the event. When the event belongs to the foundation, it goes to
    `CoreLogMessages` instead, and this module logs through it.
-5. Run `WorkflowLogMessagesTest`: it refuses an identifier used twice or outside its level's range, and a template whose
-   placeholders and argument count disagree.
+5. Run `WorkflowLogMessagesTest`: it refuses an identifier used twice or outside its level's range and derives the expected
+   record set from the holder.
 
 Do not add a message for an event an existing record already states: extend the record's description instead, so the
 log's vocabulary stays closed.
@@ -86,8 +86,7 @@ log's vocabulary stays closed.
 == Testing
 
 link:{test}/WorkflowLogMessagesTest.java[`WorkflowLogMessagesTest`]:: every identifier is unique and inside its level's
-range, the prefix is `PM_WORKFLOW`, the placeholders of every template and the arguments the module passes agree, and the
-expected set of records is derived from the holder at run time.
+range, the prefix is `PM_WORKFLOW`, and the expected set of records is derived from the holder at run time.
 
 == Specification Tracing
 

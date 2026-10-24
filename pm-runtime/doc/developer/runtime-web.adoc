@@ -88,10 +88,11 @@ reports the new state; this package does not mutate a running listener.
 
 == Testing
 
-link:{test}/WebTlsTest.java[`WebTlsTest`]:: the generated pair parses, the certificate is ECDSA P-256, the expected
-subject alternative names are present, the validity is 825 days, the fingerprint is the upper-case colon-separated
-SHA-256 of the DER certificate, a second `loadOrCreate` reuses the bytes and the fingerprint, the files and the
-directory have the restricted modes, and a malformed or incomplete pair is a failure rather than a silent replacement.
+link:{test}/WebTlsTest.java[`WebTlsTest`]:: the generated pair verifies with its own public key and is currently valid,
+the signature algorithm is `SHA256withECDSA`, the subject is `CN=pm-mcpd`, the extended key usage is server
+authentication, the expected subject alternative names are present, the fingerprint is 95 characters of upper-case hex
+pairs, the private key parses as an EC key, a second `loadOrCreate` reuses the fingerprint, and the directory is `0700`
+with the key file `0600`.
 
 == Specification Tracing
 

@@ -91,7 +91,7 @@ The tests run against `cui-test-mockwebserver-junit5`, with no network and no re
 
 [horizontal]
 link:{test}/GitHubClientTest.java[`GitHubClientTest`]:: each GraphQL operation with its fixed document and its typed
-result, the REST comment, the page cap, an error status and a transport failure mapped to their outcomes.
+result, the REST comment, and an error status mapped to its outcome.
 link:{test}/InstallationTokensTest.java[`InstallationTokensTest`]:: a mint with a fresh JWT, reuse until the margin, a
 fresh mint after it, the key read per mint, the redaction registration, and a failed mint.
 link:{test}/GitHubAppJwtTest.java[`GitHubAppJwtTest`]:: the JWT header and claims, the RS256 signature verified with the

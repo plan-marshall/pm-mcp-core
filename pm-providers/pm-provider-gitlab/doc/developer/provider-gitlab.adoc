@@ -45,11 +45,12 @@ the bearer token the base resolves per request. Every merge call carries the exp
 is refused by GitLab when the head moved, rather than merging a head the caller did not review.
 
 `discussions(iid)` reads the notes of every discussion and follows pagination with a page cap. `Discussion.resolved()`
-is true when every note of the discussion is resolved; a discussion with a note that cannot be resolved is never
-reported as resolved.
+is true when every note that can be resolved is resolved; a note that cannot be resolved is filtered out and does not
+count either way.
 
-`tokenIdentity()` answers through `GET personal_access_tokens/self`; a token of another type is refused by GitLab with
-`400`, which the client maps to an outcome, not to a failure.
+`tokenIdentity()` answers through `GET personal_access_tokens/self`; when GitLab refuses that with `400` because the token
+is of another type, the client reads `GET /user` instead and still answers a `TokenIdentity`. Only a failed read is an
+outcome, not a `TokenIdentity` with missing scopes.
 
 == The `glab` Variant
 
@@ -58,8 +59,9 @@ it:
 
 * *A body is standard input, never an argument and never a file.* `reply`, `createMergeRequest` and every other call with
   a body pass `--input -` and return the JSON as `Invocation.stdin`.
-* *Every identifier that enters the vector is validated.* The host, the project path, a discussion id, a branch and a job
-  id each match a pattern first, so no value can start with `-` and be read as a flag.
+* *Every identifier that enters the vector is validated.* The host, a discussion id and a branch each match a pattern
+  first, the project path is URL-encoded, and a job id is range-checked, so no value can start with `-` and be read as a
+  flag.
 * *The operation set is closed.* Each method answers one fixed `glab api` call; a caller cannot compose an arbitrary
   argument vector through this type.
 
@@ -100,7 +102,8 @@ operation set.
 
 * *Do not pass a description or a note as an argument.* It is a body, and the `glab` variant passes it on standard input.
 * *Do not omit the expected head.* A merge without it merges whatever the head is at the moment of the call.
-* *Do not merge `null` and `false` into one answer.* A discussion with an unresolvable note is not resolved.
+* *Do not read an unresolvable note as a verdict.* The resolved rule ignores notes that cannot be resolved; a caller that
+  needs to know whether any note is unresolved reads the notes, not only `resolved()`.
 * *Do not build a vector by string concatenation.* Compose the list as `GlabCommands` does, with each value validated on
   its own.
 

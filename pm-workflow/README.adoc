@@ -55,9 +55,7 @@ The commands for the whole repository are in `CLAUDE.md`.
 * link:doc/developer/workflow-engine.adoc[Workflow Engine (`workflow.engine`)]
 * link:doc/developer/workflow-finalize.adoc[Finalize Steps (`workflow.finalize`)]
 * link:doc/developer/workflow-log.adoc[Log Messages (`workflow.log`)]
-* link:doc/developer/workflow-model.adoc[The One Model Caller (`workflow.model`)]
 * link:doc/developer/workflow-scenario.adoc[Scenario Replay Harness (`workflow.scenario`)]
-* link:doc/developer/workflow-task.adoc[Task Protocol (`workflow.task`)]
 * link:doc/developer/workflow-unit.adoc[Workflow Unit Loaders (`workflow.unit`)]
 * link:doc/developer/workflow-verify.adoc[Workflow Verification (`workflow.verify`)]
 

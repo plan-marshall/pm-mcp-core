@@ -1248,6 +1248,46 @@ the caller there as a killed process). The hooks are package-private, so a crash
 * *An audit append after the mutation can be lost.* Owe the record in a durable intent before the mutation, remove the
   intent only after `AuditSink.append` returned, and let the next recovery or repair replay it.
 
+=== The Lease Store
+
+A lease store document is `{"format_version": 1, "leases": [{"key", "owner", "acquired_at", "lease_expires_at"}]}`;
+`LeaseCodec` accepts exactly that shape and refuses every other with a `StoreRefusal` naming the store file (a lower
+version is `FORMAT_OUTDATED`, a higher one `FORMAT_NEWER`, a missing or non-integer one `UNREADABLE`). An instant is
+written in exactly the shape of `Instant.toString()`, so a lease round-trips byte-identical.
+
+`LeaseRecord` is one lease, `LeaseOwner` names the runtime that holds it, and `HolderInstance` is the process id and start
+instant a liveness check compares. `ScopeType` is the kind of scope a lease can cover. `LeaseStore` runs each write as one
+short transaction on the store's lock key: `claim(lease)` is granted when the key is free and otherwise names the holder;
+`release(key, expectedOwner)` removes the lease only while its owner equals the expected one in every field; `adopt(key,
+newHolder)` sets the serving runtime and clears `orphaned_at`; `orphan(key, at)` marks the lease; `reviseAll(revision)`
+reads, revises and writes every lease in one transaction. A lease is a record, never an OS lock
+(link:../adr/core-store/013-leases-are-records-never-os-locks.adoc[ADR 013]); the sweep over stale leases is
+`runtime.lock`'s (link:../../../pm-runtime/doc/developer/runtime-lock.adoc#_the_stale_lease_sweep[`runtime.lock` § The
+Stale Lease Sweep]).
+
+=== The Decisions Behind the Substrate
+
+* link:../adr/core-store/010-path-confinement-on-the-canonical-path.adoc[ADR 010]: path confinement on the canonical path.
+* link:../adr/core-store/012-atomic-rename-guarded-by-a-sibling-lock-file.adoc[ADR 012]: an atomic rename is guarded by a
+  sibling lock file.
+* link:../adr/core-store/013-leases-are-records-never-os-locks.adoc[ADR 013]: leases are records, never OS locks.
+* link:../adr/core-store/014-per-scope-journal-with-roll-forward.adoc[ADR 014]: a per-scope journal with roll-forward.
+* link:../adr/core-store/015-digests-verified-only-under-the-store-lock.adoc[ADR 015]: digests are verified only under the
+  store lock.
+* link:../adr/core-store/016-one-shared-store-refusal.adoc[ADR 016]: one shared store refusal.
+* link:../adr/core-store/017-ordered-write-authoritative-store-first.adoc[ADR 017]: ordered write, authoritative store
+  first.
+* link:../adr/core-store/018-jsonl-tail-repair-of-the-last-line-only.adoc[ADR 018]: JSONL tail repair of the last line only.
+* link:../adr/core-store/019-enrolment-schema-closed-at-every-level.adoc[ADR 019]: the enrolment schema is closed at every
+  level.
+* link:../adr/core-store/020-compiled-lifecycle-gate.adoc[ADR 020]: the compiled lifecycle gate.
+* link:../adr/core-store/021-enrolment-sidecar-as-closed-versioned-record.adoc[ADR 021]: the enrolment sidecar is a closed
+  versioned record.
+* link:../adr/core-store/022-audit-record-owed-before-the-mutation.adoc[ADR 022]: an audit record is owed before the
+  mutation.
+* link:../adr/core-store/023-enrolment-file-and-sidecar-published-as-a-pair.adoc[ADR 023]: the enrolment file and its
+  sidecar are published as a pair.
+
 == The Enrolment Store
 
 _Requirements: link:{docs}/Requirements.adoc#PM-EXEC-2[PM-EXEC-2], link:{docs}/Requirements.adoc#PM-SEC-4[PM-SEC-4], link:{docs}/Requirements.adoc#PM-MIG-1[PM-MIG-1], link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]_
@@ -1334,8 +1374,9 @@ repository root and the live linked worktrees of it. `PathConfinement.confine(ro
   reason.
 
 A refusal is a return value, not an exception: no checked exception type exists or is added. `WorkspaceRoots` holds the
-enrolled root and the worktrees that count as live; `LinkedWorktreeConfinement` decides which worktree roots qualify.
-The runtime's adapter `WorkspaceConfinement` logs a refusal at WARN with the code and the reason, never with the path
+enrolled root and the worktrees that count as live; `PathConfinement` resolves the path against them and decides whether
+it lies inside the enrolled root or a live linked worktree. The runtime's adapter `WorkspaceConfinement` logs a refusal at
+WARN with the code and the reason, never with the path
 (link:../../../pm-runtime/doc/developer/runtime-workspace.adoc[`runtime.workspace`]).
 
 The confinement is a library: a package that performs a file or repository operation for a project adopts the check

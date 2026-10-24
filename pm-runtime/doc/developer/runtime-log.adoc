@@ -31,16 +31,20 @@ _Requirements: link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
 |`PM_RUNTIME`, the prefix of every record of the module.
 
 |`RuntimeLogMessages.INFO`
-|The INFO records, identifiers 001-099: the start and stop of the runtime and its listeners, the credential store, the
-language servers, the stale lease sweep, the recovery and the periodic sweep.
+|The INFO records, identifiers 001-099: the start and stop of the runtime and its listeners, the credential store and its
+move, the language servers, the stale lease sweep, the enrolment writes and their audit replay, the project recovery,
+the periodic sweep, the job lifecycle and the audit-log rotation.
 
 |`RuntimeLogMessages.WARN`
-|The WARN records, identifiers 100-199: a deferred audit record, a torn or discarded enrolment pair, a refused project
-path, an orphaned lease, a refused corpus source and the failures the recovery and the sweep can name.
+|The WARN records, identifiers 100-199: a refused project path, an orphaned lease, a broken audit chain (recorded and not
+recorded), a drain timeout, a failed drain participant, a failed recovery or sweep step, the enrolment refusals
+(`ENROLMENT_TAMPERED`, `ENROLMENT_INSECURE`, `ENROLMENT_INVALID`), an unenrol refused for live work, an unconfirmed
+enrolment write, a failed audit replay, a refused job, and a failed credential-store, service-unit or corpus step.
 
 |`RuntimeLogMessages.ERROR`
-|The ERROR records, identifiers 200-299: an integrity key that cannot be used, a lock order violation, a broken audit
-chain and the failures of a step that must not continue silently.
+|The ERROR records, identifiers 200-299: a credential store that cannot be used, an integrity key that is unavailable, a
+lock-order violation, a socket that cannot be secured, and the failures of a service manager, the project recovery, the
+periodic sweep, a job settlement or its supervision.
 |===
 
 Every record is a `LogRecord` built by `LogRecordModel.builder()` with the prefix, the identifier and the template. A
@@ -70,8 +74,8 @@ message is a record of a holder, never a literal at the call site.
    description.
 4. Log it from the class that owns the event. When the event belongs to the foundation, it goes to `CoreLogMessages`
    instead, and this module logs through it. A provider module with a first record of its own creates its own holder.
-5. Run `RuntimeLogMessagesTest`: it refuses an identifier used twice or outside its level's range, and a template whose
-   placeholders and argument count disagree.
+5. Run `RuntimeLogMessagesTest`: it refuses an identifier used twice or outside its level's range and derives the expected
+   record set from the holder.
 
 Do not add a message for an event an existing record already states: extend the record's description instead, so the
 log's vocabulary stays closed.
@@ -92,8 +96,7 @@ log's vocabulary stays closed.
 == Testing
 
 link:{test}/RuntimeLogMessagesTest.java[`RuntimeLogMessagesTest`]:: every identifier is unique and inside its level's
-range, the prefix is `PM_RUNTIME`, the placeholders of every template and the arguments the module passes agree, and the
-expected set of records is derived from the holder at run time.
+range, the prefix is `PM_RUNTIME`, and the expected set of records is derived from the holder at run time.
 
 == Specification Tracing
 

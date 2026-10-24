@@ -71,8 +71,7 @@ no-break space included) or a control character.
 == Testing
 
 [horizontal]
-link:{test}/SonarProviderTest.java[`SonarProviderTest`]:: the id is `sonar`, it matches the provider-id pattern, and the
-package names no other provider id.
+link:{test}/SonarProviderTest.java[`SonarProviderTest`]:: the id is `sonar` and it matches the provider-id pattern.
 link:{test}/SonarIssueKeyTest.java[`SonarIssueKeyTest`]:: an ordinary Sonar key is accepted; an empty key, a key with a
 space, a no-break space, a tab and a control character are refused; and no key is ever transformed.
 

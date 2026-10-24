@@ -40,4 +40,4 @@ and every sibling write, and commits once. The engine likewise returns the new s
 == Source
 
 * `doc/plans/workflow-engine.adoc`, deliverable 3
-* link:../../../../../plan-marshall-documentation/doc/developer/store-substrate.adoc[Developer Guide § Store Substrate]
+* link:../../../../../pm-core/doc/developer/core-store.adoc#_the_store_substrate[Developer Guide § Store Substrate]

@@ -146,8 +146,8 @@ and push with their outcomes, the linked worktrees created, listed and removed n
 refusals, and `RefusingFS` proving that a hook or a filter driver is `capability_missing`.
 link:{test}/RefusingFSTest.java[`RefusingFSTest`]:: every process entry point refused with `capability_missing`, an
 absent hook reported as absent, and the `git` executable discovery answering none.
-link:{test}/WorktreeShaDigestTest.java[`WorktreeShaDigestTest`]:: the digest and its version as a pair, a content change
-and a rule change told apart.
+link:{test}/WorktreeShaDigestTest.java[`WorktreeShaDigestTest`]:: the framing of the digest input — file, link and deleted
+entries with their tags and payloads — and the empty set, against an independently computed SHA-256.
 link:{test}/ported/WorktreeShaPortedTest.java[`WorktreeShaPortedTest`]:: the ported scenarios of `git.worktree-sha` over
 plain file fixtures, with `DigestRelations` and `PortedFixtures`.
 
