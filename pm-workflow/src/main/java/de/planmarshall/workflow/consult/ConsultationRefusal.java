@@ -11,8 +11,9 @@ package de.planmarshall.workflow.consult;
 
 /**
  * Why following a consultation link, or validating a submit that refers to a consultation, was refused. The names are
- * the ones the server reports (MCP Tools § Errors); the first five are the task protocol's own names, because a
- * consultation is a task of the consulted role and shares its call contract.
+ * the ones the server reports (MCP Tools § Errors); the first four are the task protocol's own names, and
+ * {@code class_mismatch} is the composition check's, because a consultation is a task of the consulted role and shares
+ * their call contract.
  *
  * @since 0.1
  */

@@ -10,46 +10,40 @@
 package de.planmarshall.workflow.consult;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
 import de.planmarshall.core.queue.QueueTaskId;
-import de.planmarshall.core.role.EffortValue;
 import de.planmarshall.core.role.RoleClass;
-import de.planmarshall.core.role.RoleForm;
 
 /**
  * The ask of one task follows its {@code consult:<role>} link (Model Work § The {@code consult:<role>} Link): the asking
- * task and generation, the consulted role with the effective configuration its worker is started with, and the question.
+ * task and generation, the consulted role and its class, the roles the state declares, and the question.
  * <p>
- * The harness, model and effort are the consulted role's own effective values, resolved by the caller before the
- * consultation opens; they are never the asker's. The consultation task itself names only the role, because the task
- * protocol offers it to a generation of that role, which the supervisor starts from these values.
+ * The consulted role's harness, model and effort are resolved by the caller — the worker of that role is started from
+ * the role's own effective configuration — and are not a member here; the consultation task names the role, and the task
+ * protocol offers it to a generation of that role. The question travels with the ask; its durable home in the asking
+ * task's facts is the entity representation's, not this record's.
  *
- * @param askingTaskId        the asking queue task
- * @param generationId        the generation that follows the link
- * @param role                the consulted role
- * @param roleClass           the class of the consulted role
- * @param form                the form the consulted role's worker runs
- * @param configurationDigest the consulted role's configuration digest
- * @param harness             the consulted role's effective harness
- * @param model               the consulted role's effective model
- * @param effort              the consulted role's effective effort
- * @param question            the question, 1 to 4000 characters
- * @param at                  the instant of the ask
+ * @param askingTaskId  the asking queue task
+ * @param generationId  the generation that follows the link
+ * @param role          the consulted role
+ * @param roleClass     the class of the consulted role
+ * @param declaredRoles the roles the state declares with {@code consult role}
+ * @param question      the question, 1 to 4000 characters
+ * @param at            the instant of the ask
  * @since 0.1
  */
 public record ConsultationRequest(String askingTaskId, String generationId, String role, RoleClass roleClass,
-RoleForm form, String configurationDigest, String harness, String model, EffortValue effort, String question,
-Instant at) {
+List<String> declaredRoles, String question, Instant at) {
 
     private static final Pattern ROLE = Pattern.compile("[a-z][a-z0-9-]{1,31}");
     private static final Pattern GENERATION = Pattern.compile("l-[0-9a-f]{16}");
-    private static final Pattern DIGEST = Pattern.compile("[0-9a-f]{64}");
 
     /**
      * @throws NullPointerException     if a required component is {@code null}
-     * @throws IllegalArgumentException if an id, the role or a digest breaks its form
+     * @throws IllegalArgumentException if an id, the role or the generation breaks its form, or a declared role does
      */
     public ConsultationRequest {
         if (QueueTaskId.parse(askingTaskId).isEmpty()) {
@@ -62,13 +56,12 @@ Instant at) {
             throw new IllegalArgumentException("Not a role name: " + role);
         }
         Objects.requireNonNull(roleClass, "roleClass");
-        Objects.requireNonNull(form, "form");
-        if (configurationDigest == null || !DIGEST.matcher(configurationDigest).matches()) {
-            throw new IllegalArgumentException("Not a SHA-256 configuration digest: " + configurationDigest);
+        declaredRoles = List.copyOf(Objects.requireNonNull(declaredRoles, "declaredRoles"));
+        for (var declared : declaredRoles) {
+            if (!ROLE.matcher(declared).matches()) {
+                throw new IllegalArgumentException("Not a role name: " + declared);
+            }
         }
-        Objects.requireNonNull(harness, "harness");
-        Objects.requireNonNull(model, "model");
-        Objects.requireNonNull(effort, "effort");
         Objects.requireNonNull(question, "question");
         Objects.requireNonNull(at, "at");
     }

@@ -20,9 +20,7 @@ import de.planmarshall.core.queue.QueueTaskRecord.Scope;
 import de.planmarshall.core.queue.QueueTaskRecord.ScopeType;
 import de.planmarshall.core.queue.QueueTaskRecord.Status;
 import de.planmarshall.core.queue.QueueTaskRecord.TaskClass;
-import de.planmarshall.core.role.EffortValue;
 import de.planmarshall.core.role.RoleClass;
-import de.planmarshall.core.role.RoleForm;
 
 /**
  * The records and requests the tests of the consultation service use. They are written for the tests, never taken from
@@ -34,9 +32,9 @@ final class ConsultationFixtures {
     static final String ASKER_ROLE = "writer";
     static final String REVIEWER = "reviewer";
     static final String SECOND_REVIEWER = "second-reviewer";
+    static final String THIRD_REVIEWER = "third-reviewer";
     static final String ASKING_GENERATION = "l-0000000000000001";
     static final String CONSULTED_GENERATION = "l-0000000000000002";
-    static final String THIRD_GENERATION = "l-0000000000000003";
     static final String SUCCESSOR_GENERATION = "l-0000000000000004";
     static final String DIGEST = "a".repeat(64);
     static final String QUESTION = "Which of the two readings is the one the specification means?";
@@ -76,13 +74,42 @@ final class ConsultationFixtures {
                 .build();
     }
 
+    static QueueTaskRecord consultationTask(String consultationId, String askingTask, String role) {
+        return QueueTaskRecord.builder()
+                .queueTaskId(consultationId)
+                .kind(Kind.CONSULTATION)
+                .role(role)
+                .taskClass(TaskClass.READ_ONLY)
+                .scope(planScope())
+                .entity(consultationId)
+                .stateId("outline.review")
+                .formDowngraded(false)
+                .status(Status.QUEUED)
+                .continuation(null)
+                .lease(null)
+                .attempts(List.of())
+                .signals(List.of())
+                .consultations(List.of())
+                .consultationOf(askingTask)
+                .outcome(null)
+                .reason(null)
+                .questionId(null)
+                .createdAt(AT)
+                .closedAt(null)
+                .build();
+    }
+
     static ConsultationRequest request(String askingTaskId, String generation, String role) {
-        return new ConsultationRequest(askingTaskId, generation, role, RoleClass.READ_ONLY, RoleForm.FRESH, DIGEST,
-                "opencode", "deepseek-v4.1-flash", new EffortValue("high"), QUESTION, AT);
+        return new ConsultationRequest(askingTaskId, generation, role, RoleClass.READ_ONLY, List.of(role), QUESTION,
+                AT);
     }
 
     static ConsultationRequest request(String role, RoleClass roleClass) {
-        return new ConsultationRequest(ASKER, ASKING_GENERATION, role, roleClass, RoleForm.FRESH, DIGEST, "opencode",
-                "deepseek-v4.1-flash", new EffortValue("high"), QUESTION, AT);
+        return new ConsultationRequest(ASKER, ASKING_GENERATION, role, roleClass, List.of(role), QUESTION, AT);
+    }
+
+    static ConsultationRequest request(String role, List<String> declaredRoles) {
+        return new ConsultationRequest(ASKER, ASKING_GENERATION, role, RoleClass.READ_ONLY, declaredRoles, QUESTION,
+                AT);
     }
 }

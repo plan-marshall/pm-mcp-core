@@ -1626,13 +1626,14 @@ link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-4[PM-WORK-4
 
 Implementation (as far as the library module `pm-workflow` carries it: the `consult:<role>` link and its rules — one
 open consultation per task, the compiled bound of three consultation links over all of the task's attempts, and depth
-one — derived from the asking task's queue task record; the consultation task of the consulted role, created with that
-role's own effective harness, model and effort and served by the task protocol with its own wait; the answer through
-the asking task's next wait, or after a fence through the successor's offer in the task's facts, with the successor
-offered no `consult` link for it; the `unavailable` delivery of a consultation that closed `lost`; and the
-`consultation_ids` of a submit validated against the consultations delivered to the task. Not implemented here, and not
-claimed by this package: the server that serves the wait, the supervisor that starts the consulted role's worker, the
-usage accounting of a consultation, and the clients): link:../pm-workflow/src/main/java/de/planmarshall/workflow/consult/ConsultationService.java[ConsultationService],
+one — derived from the asking task's queue task record; the consultation task of the consulted role, served by the task
+protocol with its own wait while that role runs on its own effective harness and model; the answer through the asking
+task's next wait, or after a fence through the successor's offer in the task's facts, with the successor offered no
+`consult` link for it; the `unavailable` delivery of a consultation that closed `lost`, and the repair of one closed
+outside the service; and the `consultation_ids` of a submit validated against the consultations delivered to the task.
+Not implemented here, and not claimed by this package: the server that serves the wait, the supervisor that starts the
+consulted role's worker, the durable home of the question in the asking entity's facts, the usage accounting of a
+consultation, and the clients): link:../pm-workflow/src/main/java/de/planmarshall/workflow/consult/ConsultationService.java[ConsultationService],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/consult/ConsultationLink.java[ConsultationLink],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/consult/ConsultationRequest.java[ConsultationRequest],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/consult/ConsultationOutcome.java[ConsultationOutcome],
@@ -1645,7 +1646,7 @@ Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/consult/
 Documentation: link:../pm-workflow/doc/developer/workflow-consult.adoc[Consultation Developer Guide],
 link:../pm-workflow/doc/adr/workflow-consult/001-delivery-is-decided-from-the-askers-lease.adoc[ADR workflow-consult/001],
 link:../pm-workflow/doc/adr/workflow-consult/002-the-consultation-link-rules-are-derived-from-the-record.adoc[ADR workflow-consult/002],
-link:../pm-workflow/doc/adr/workflow-consult/003-the-consultation-task-is-created-before-the-asking-task-records-it.adoc[ADR workflow-consult/003]
+link:../pm-workflow/doc/adr/workflow-consult/003-the-asking-task-records-the-consultation-before-the-task-is-created.adoc[ADR workflow-consult/003]
 
 [#PM-WORK-6]
 === PM-WORK-6: Role Qualification

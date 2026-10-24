@@ -17,22 +17,22 @@ Record].
 
 `ConsultationService`::
 The service of one queue. It derives the links from the asking task's own record, opens a consultation, records the
-answer or the loss, and validates the `consultation_ids` of a submit. Every decision runs inside one
-`QueueStore.updateAll` transaction on the queue lock, so the consultation entry and the asking task change together. It
-is constructed over the project's `QueueStore` and holds no state of its own.
+answer or the loss, repairs a consultation that closed outside it, and validates the `consultation_ids` of a submit.
+The consultation entry and the asking task change in one `QueueStore.updateAll` transaction on the queue lock; the
+consultation task of the consulted role is created in its own write after that entry (ADR 003). The service is
+constructed over the project's `QueueStore` and holds no state of its own.
 
 `ConsultationRequest`::
-The ask: the asking task and generation, the consulted role with the class, form and configuration digest, the
-resolved harness, model and effort, the question, and the instant. The harness, model and effort are the consulted
-role's own effective values; the caller resolves them before the consultation opens, and the consultation task names
-the role, so the task protocol offers it to a generation of that role. The walkthrough of following the link is
-link:../adr/workflow-consult/001-delivery-is-decided-from-the-askers-lease.adoc[ADR 001] and
-link:../adr/workflow-consult/003-the-consultation-task-is-created-before-the-asking-task-records-it.adoc[ADR 003].
+The ask: the asking task and generation, the consulted role and its class, the roles the state declares, the question,
+and the instant. The consulted role's harness, model and effort are resolved by the caller — the role's own worker is
+started from its effective configuration, and the task protocol offers the consultation to a generation of that role.
+The question travels with the ask; its durable home in the asking task's entity facts is the entity representation's.
 
 `ConsultationLink`::
 The `consult:<role>` link: the relation `consult`, the form `submit`, the identifier `consult:<role>`, and the
 parameter `question: text[1..4000]`. A consultation entity offers exactly one link instead, `submit:answer`, and no
-`consult`, `ask` or infeasible link.
+`consult`, `ask` or infeasible link; `TaskProtocol.submit` and `infeasible` refuse a consultation task
+`link_not_available`.
 
 `ConsultationOutcome`::
 What a call did: `Opened` (the consultation id and the asking task in `consulting`), `Answered` (the asking task and
@@ -50,12 +50,13 @@ missing or the unknown reference.
 * *One at a time*: a task has at most one open consultation. While one is open, `links` offers none and `open`
   refuses `consultation_open`.
 * *Bound*: a task follows at most the compiled `ConsultationService.MAX_CONSULT_LINKS` (`3`) consultation links over
-  all its attempts. After that, `links` offers none and `open` refuses `consultation_bound_spent`.
-* *Depth one*: a consultation task (kind `consultation`) offers only `submit:answer`; `links` returns none for it and
-  `open` refuses `consultation_depth` (link:../adr/workflow-consult/002-the-consultation-link-rules-are-derived-from-the-record.adoc[ADR
-  002]).
-* *Distance one*: an own consultation is open only while the task is `consulting`; opening one moves the task there
-  from `executing`, and the answer (or the loss) moves it back.
+  all its attempts, whether the consultation was answered or lost. After that, `links` offers none and `open` refuses
+  `consultation_bound_spent`.
+* *Depth one*: a consultation task (kind `consultation`) offers only `submit:answer`; `links` returns none for it,
+  `open` refuses `consultation_depth`, and the task protocol refuses a generic `submit` or `infeasible` on it
+  (link:../adr/workflow-consult/002-the-consultation-link-rules-are-derived-from-the-record.adoc[ADR 002]).
+* *Declared*: a role is consulted only when the state declares it; an undeclared role is refused
+  `link_not_available`.
 
 == The answer through the next wait
 
@@ -68,28 +69,42 @@ tasks of its role, acknowledged, executed and answered. Its answer closes it `su
 * once the generation was fenced, the entry is delivered to `facts` and the successor's offer carries it; the successor
   is offered no `consult` link for that role.
 
-The answer is delivered exactly once and only to the asking generation; a second answer is `stale_entity`. A
-consultation that closed `lost` is delivered the same way with the status `unavailable` and no answer, and the asker
+A delivery recorded to `wait` whose generation no longer holds the task — a fence that landed after the answer and
+before the next wait — is treated as a delivery to the successor when the task is represented: the answer is in the
+record's facts, and `links` suppresses that role. Only an answered consultation suppresses the role; an `unavailable`
+one leaves the successor free to consult again.
+
+A consultation that closed `lost` is delivered the same way with the status `unavailable` and no answer, and the asker
 continues on its own judgment (link:../adr/workflow-consult/001-delivery-is-decided-from-the-askers-lease.adoc[ADR
 001]).
+
+== A consultation closed outside the service
+
+The service is the normal closer: the server routes `submit:answer` to `answer` and the model caller routes a role it
+cannot serve to `lost`. A consultation the task protocol closes for another reason — for example its re-offers spent,
+so it closes `lost` `attempts_spent` — leaves the asking task's entry `open`. `reconcile(at)` repairs every such entry
+to `unavailable`, with the consultation's closing instant, and is idempotent; the server calls it on its queue
+reconciliation tick.
 
 == The submit refers to the consultation
 
 `validateSubmit` compares the `consultation_ids` of a submit with the consultations delivered to the task: every
 delivered id must be listed, and no other. A mismatch is refused `invalid_link_args` with a reason that names the
-missing or unknown reference; the worker may submit again.
+missing or unknown reference; the worker may submit again. The server calls it in its submit path before it accepts the
+submission.
 
 == How to use and extend it
 
-Build the service over the project's queue: `new ConsultationService(queue)`. A caller resolves the consulted role's
-effective harness, model, effort and class, then calls `open`; the consulted role's supervisor serves the consultation
-task with its own wait. The server calls `answer` when a consultation entity follows `submit:answer`, `lost` when the
-model caller cannot serve the role, `facts` for the asking entity's representation, `links` for the consultation links
-of an executing task, and `validateSubmit` before it accepts a submit.
+Build the service over the project's queue: `new ConsultationService(queue)`. A caller resolves the consulted role (the
+state's declaration, the role's class, and its own effective harness and model), then calls `open`; the consulted
+role's supervisor serves the consultation task with its own wait. The server calls `answer` when a consultation entity
+follows `submit:answer`, `lost` when the model caller cannot serve the role, `facts` for the asking entity's
+representation, `links` for the consultation links of an executing task, `validateSubmit` before it accepts a submit,
+and `reconcile` on its queue reconciliation tick.
 
 A new rule of the link is a new check in `ConsultationService.links` and in the matching `openRefusal`, derived from
-the task record; a new delivery place is a new `DeliveredTo` value of the record schema and a branch of
-`settleAsker`. No rule is kept in a second store, and the service reads no clock: every call takes its instant.
+the task record; a new delivery place is a new `DeliveredTo` value of the record schema and a branch of `settleAsker`.
+No rule is kept in a second store, and the service reads no clock: every call takes its instant.
 
 == Invariants and failure modes
 
@@ -99,7 +114,9 @@ the task record; a new delivery place is a new `DeliveredTo` value of the record
 * The consultation count is the length of `consultations[]` and only grows; an answered, unavailable or open
   consultation counts the same toward the bound.
 * An answer or a loss is recorded once. The second answer is `stale_entity`, not a second result.
-* The answer is delivered exactly once: to `wait` while the asking generation holds the lease, else to `facts`.
-* A consultation task created for a transition that was then refused is closed `lost` with `withdrawn`, so no orphan
-  is offered (link:../adr/workflow-consult/003-the-consultation-task-is-created-before-the-asking-task-records-it.adoc[ADR
-  003]).
+* The asking task records the consultation before the consultation task exists. If the task cannot be created, the
+  entry is removed and the task put back as it was; a crash between the two writes leaves a `consulting` task with no
+  consultation task, which `reconcile` does not repair (it repairs only a closed consultation task) and the server's
+  queue reconciliation reports.
+* A delivery is effective once: to the asking generation's wait, else to the successor's facts
+  (link:../adr/workflow-consult/001-delivery-is-decided-from-the-askers-lease.adoc[ADR 001]).

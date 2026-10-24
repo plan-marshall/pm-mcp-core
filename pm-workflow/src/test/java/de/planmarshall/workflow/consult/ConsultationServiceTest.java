@@ -26,17 +26,17 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.queue.QueueStore;
+import de.planmarshall.core.queue.QueueTaskRecord.AttemptEnd;
 import de.planmarshall.core.queue.QueueTaskRecord.ConsultationStatus;
 import de.planmarshall.core.queue.QueueTaskRecord.DeliveredTo;
 import de.planmarshall.core.queue.QueueTaskRecord.LostReason;
 import de.planmarshall.core.queue.QueueTaskRecord.Outcome;
 import de.planmarshall.core.queue.QueueTaskRecord.Status;
-import de.planmarshall.core.role.EffortValue;
 import de.planmarshall.core.role.RoleClass;
-import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.workflow.task.CallResult;
 import de.planmarshall.workflow.task.TaskCall;
 import de.planmarshall.workflow.task.TaskProtocol;
+import de.planmarshall.workflow.task.TaskRefusal;
 import de.planmarshall.workflow.task.WaitAnswer;
 import de.planmarshall.workflow.task.WaitRequest;
 
@@ -238,28 +238,25 @@ class ConsultationServiceTest {
         var links = service.links(consultation, List.of(ConsultationFixtures.SECOND_REVIEWER));
         var nested = assertInstanceOf(ConsultationOutcome.Refused.class,
                 service.open(new ConsultationRequest(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION,
-                        ConsultationFixtures.SECOND_REVIEWER, RoleClass.READ_ONLY, RoleForm.FRESH,
-                        ConsultationFixtures.DIGEST, "opencode", "deepseek-v4.1-flash", new EffortValue("high"),
-                        ConsultationFixtures.QUESTION, ConsultationFixtures.AT)));
+                        ConsultationFixtures.SECOND_REVIEWER, RoleClass.READ_ONLY,
+                        List.of(ConsultationFixtures.SECOND_REVIEWER), ConsultationFixtures.QUESTION,
+                        ConsultationFixtures.AT)));
 
         assertAll(
                 () -> assertEquals(Status.EXECUTING, consultation.status()),
                 () -> assertTrue(links.isEmpty()),
-                () -> assertEquals(ConsultationRefusal.CONSULTATION_DEPTH, nested.refusal()),
-                () -> assertEquals("submit", ConsultationLink.FORM),
-                () -> assertEquals("answer", ConsultationLink.ANSWER_ID));
+                () -> assertEquals(ConsultationRefusal.CONSULTATION_DEPTH, nested.refusal()));
     }
 
     @Test
     @DisplayName("a question and an answer have 1 to 4000 characters, and a zero_tool role is refused")
     void textBoundsAndRoleClass() {
         var emptyQuestion = new ConsultationRequest(ConsultationFixtures.ASKER, ConsultationFixtures.ASKING_GENERATION,
-                ConsultationFixtures.REVIEWER, RoleClass.READ_ONLY, RoleForm.FRESH, ConsultationFixtures.DIGEST,
-                "opencode", "deepseek-v4.1-flash", new EffortValue("high"), "", ConsultationFixtures.AT);
+                ConsultationFixtures.REVIEWER, RoleClass.READ_ONLY, List.of(ConsultationFixtures.REVIEWER), "",
+                ConsultationFixtures.AT);
         var longQuestion = new ConsultationRequest(ConsultationFixtures.ASKER,
                 ConsultationFixtures.ASKING_GENERATION, ConsultationFixtures.REVIEWER, RoleClass.READ_ONLY,
-                RoleForm.FRESH, ConsultationFixtures.DIGEST, "opencode", "deepseek-v4.1-flash",
-                new EffortValue("high"), "x".repeat(4_001), ConsultationFixtures.AT);
+                List.of(ConsultationFixtures.REVIEWER), "x".repeat(4_001), ConsultationFixtures.AT);
         var zeroTool = ConsultationFixtures.request(ConsultationFixtures.REVIEWER, RoleClass.ZERO_TOOL);
 
         var empty = assertInstanceOf(ConsultationOutcome.Refused.class, service.open(emptyQuestion));
@@ -278,6 +275,122 @@ class ConsultationServiceTest {
                 () -> assertEquals(ConsultationRefusal.CLASS_MISMATCH, noProtocol.refusal()),
                 () -> assertEquals(ConsultationRefusal.INVALID_LINK_ARGS, emptyAnswer.refusal()),
                 () -> assertEquals(2, queue.records().size()));
+    }
+
+    @Test
+    @DisplayName("an answer is refused while the asking task does not carry the consultation")
+    void answerRefusedWhenAskerDoesNotCarryTheConsultation() {
+        queue.create(ConsultationFixtures.consultationTask("qt-00000000000000aa", ConsultationFixtures.ASKER,
+                ConsultationFixtures.REVIEWER));
+        serve("qt-00000000000000aa", ConsultationFixtures.CONSULTED_GENERATION, ConsultationFixtures.REVIEWER);
+
+        var refused = assertInstanceOf(ConsultationOutcome.Refused.class,
+                service.answer("qt-00000000000000aa", ConsultationFixtures.CONSULTED_GENERATION,
+                        ConsultationFixtures.ANSWER, ConsultationFixtures.AT));
+
+        assertAll(
+                () -> assertEquals(ConsultationRefusal.JOB_SCOPE_MISMATCH, refused.refusal()),
+                () -> assertEquals(Status.EXECUTING,
+                        queue.read("qt-00000000000000aa").orElseThrow().status()),
+                () -> assertTrue(service.facts(ConsultationFixtures.ASKER).isEmpty()));
+    }
+
+    @Test
+    @DisplayName("an answer recorded for a wait the asking generation lost reaches the successor once")
+    void answerThenFenceDeliversToTheSuccessorOnce() {
+        var opened = opened(ConsultationFixtures.REVIEWER);
+        serve(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION, ConsultationFixtures.REVIEWER);
+        assertInstanceOf(ConsultationOutcome.Answered.class,
+                service.answer(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION,
+                        ConsultationFixtures.ANSWER, ConsultationFixtures.AT));
+        protocol.fence(ConsultationFixtures.ASKING_GENERATION, ConsultationFixtures.AT.plusSeconds(1));
+
+        var successor = assertInstanceOf(WaitAnswer.Offered.class, protocol.wait(
+                new WaitRequest(ConsultationFixtures.SUCCESSOR_GENERATION, ConsultationFixtures.ASKER_ROLE,
+                        ConsultationFixtures.DIGEST, ConsultationFixtures.DIGEST, 3),
+                ConsultationFixtures.AT.plusSeconds(2)));
+        var acknowledged = assertInstanceOf(CallResult.Accepted.class, protocol.acknowledge(
+                new TaskCall(ConsultationFixtures.ASKER, ConsultationFixtures.SUCCESSOR_GENERATION),
+                ConsultationFixtures.AT.plusSeconds(3)));
+        var links = service.links(acknowledged.task(),
+                List.of(ConsultationFixtures.REVIEWER, ConsultationFixtures.SECOND_REVIEWER));
+
+        assertAll(
+                () -> assertEquals(1, successor.task().consultations().size()),
+                () -> assertEquals(ConsultationFixtures.ANSWER,
+                        successor.task().consultations().getFirst().answer()),
+                () -> assertEquals(List.of(ConsultationFixtures.SECOND_REVIEWER),
+                        links.stream().map(ConsultationLink::role).toList()));
+    }
+
+    @Test
+    @DisplayName("an unavailable delivery to a successor leaves the role open to a fresh consultation")
+    void unavailableDeliveredToSuccessorAllowsReconsult() {
+        var opened = opened(ConsultationFixtures.REVIEWER);
+        serve(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION, ConsultationFixtures.REVIEWER);
+        protocol.fence(ConsultationFixtures.ASKING_GENERATION, ConsultationFixtures.AT);
+        assertInstanceOf(ConsultationOutcome.Answered.class,
+                service.lost(opened.consultationId(), LostReason.ROLE_UNAVAILABLE, ConsultationFixtures.AT));
+
+        var successor = assertInstanceOf(WaitAnswer.Offered.class, protocol.wait(
+                new WaitRequest(ConsultationFixtures.SUCCESSOR_GENERATION, ConsultationFixtures.ASKER_ROLE,
+                        ConsultationFixtures.DIGEST, ConsultationFixtures.DIGEST, 3),
+                ConsultationFixtures.AT.plusSeconds(1)));
+        var acknowledged = assertInstanceOf(CallResult.Accepted.class, protocol.acknowledge(
+                new TaskCall(ConsultationFixtures.ASKER, ConsultationFixtures.SUCCESSOR_GENERATION),
+                ConsultationFixtures.AT.plusSeconds(2)));
+        var links = service.links(acknowledged.task(), List.of(ConsultationFixtures.REVIEWER));
+
+        assertAll(
+                () -> assertEquals(ConsultationStatus.UNAVAILABLE,
+                        successor.task().consultations().getFirst().status()),
+                () -> assertEquals(List.of(ConsultationFixtures.REVIEWER),
+                        links.stream().map(ConsultationLink::role).toList()));
+    }
+
+    @Test
+    @DisplayName("a consultation task refuses submit and infeasible: it offers only submit:answer")
+    void consultationOffersOnlyItsAnswer() {
+        var opened = opened(ConsultationFixtures.REVIEWER);
+        serve(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION, ConsultationFixtures.REVIEWER);
+        var call = new TaskCall(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION);
+
+        var submit = assertInstanceOf(CallResult.Refused.class, protocol.submit(call, ConsultationFixtures.AT));
+        var infeasible = assertInstanceOf(CallResult.Refused.class, protocol.infeasible(call, ConsultationFixtures.AT));
+
+        assertAll(
+                () -> assertEquals(TaskRefusal.LINK_NOT_AVAILABLE, submit.refusal()),
+                () -> assertEquals(TaskRefusal.LINK_NOT_AVAILABLE, infeasible.refusal()));
+    }
+
+    @Test
+    @DisplayName("a role the state does not declare is refused")
+    void undeclaredRoleRefused() {
+        var refused = assertInstanceOf(ConsultationOutcome.Refused.class,
+                service.open(ConsultationFixtures.request(ConsultationFixtures.REVIEWER,
+                        List.of(ConsultationFixtures.SECOND_REVIEWER))));
+
+        assertAll(
+                () -> assertEquals(ConsultationRefusal.LINK_NOT_AVAILABLE, refused.refusal()),
+                () -> assertEquals(1, queue.records().size()));
+    }
+
+    @Test
+    @DisplayName("a consultation closed without the service is repaired to unavailable")
+    void reconcileSettlesAConsultationClosedWithoutTheService() {
+        var opened = opened(ConsultationFixtures.REVIEWER);
+        serve(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION, ConsultationFixtures.REVIEWER);
+        assertInstanceOf(CallResult.Accepted.class, protocol.report(
+                new TaskCall(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION),
+                AttemptEnd.WITHDRAWN, 3, ConsultationFixtures.AT));
+
+        var repaired = service.reconcile(ConsultationFixtures.AT.plusSeconds(1));
+        var fact = service.facts(ConsultationFixtures.ASKER).getFirst();
+
+        assertAll(
+                () -> assertEquals(1, repaired),
+                () -> assertEquals(ConsultationStatus.UNAVAILABLE, fact.status()),
+                () -> assertEquals(0, service.reconcile(ConsultationFixtures.AT.plusSeconds(2))));
     }
 
     private ConsultationOutcome.Opened opened(String role) {

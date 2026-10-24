@@ -1,4 +1,4 @@
-= ADR 003: The Consultation Task Is Created Before the Asking Task Records It
+= ADR 003: The Asking Task Records the Consultation Before the Consultation Task Is Created
 :nofooter:
 
 == Status
@@ -22,21 +22,21 @@ first, record the entry second; or widen `QueueStore.updateAll` to add records.
 
 == Decision
 
-`ConsultationService.open` validates the ask, draws the consultation id, creates the consultation task with
-`QueueStore.create`, then records the entry on the asking task and moves it to `consulting` in one `QueueStore.updateAll`
-transaction. If the asking task's transition is refused in that transaction (the task was fenced or closed in between),
-the created task is closed `lost` with `withdrawn` so it is never offered. A crash between the two writes leaves a
-queued consultation task whose asking task does not list it; the queue is authoritative for the delivery, and the
-server's queue reconciliation closes such an orphan.
+`ConsultationService.open` validates the ask, draws the consultation id, records the entry on the asking task and moves
+it to `consulting` in one `QueueStore.updateAll` transaction, then creates the consultation task with
+`QueueStore.create`. When the task cannot be created, the entry is removed and the asking task is put back as it was, so
+no consultation is left open without a task. A consultation task therefore never exists before its asking task lists
+it, and a worker can never be offered a consultation the asker does not know.
 
 `QueueStore.updateAll` is not widened: the queue store is `core.queue`'s, its write discipline is specified in
 `store-schemas/16-task-queue.adoc`, and this package owns no part of it.
 
 == Alternatives Considered
 
-1. *Record the entry first, then create the task.*
-   _Rejected_: a successor's offer would carry a consultation whose task does not exist, and a crash between the writes
-   would leave a `consulting` asking task with no one to consult.
+1. *Create the task first, then record the entry.*
+   _Rejected_: a worker of the consulted role can be offered the task in the window, answers it, and finds an asking
+   task that does not carry the consultation. Its answer is then refused, and closing the created task on a refused
+   transition would revoke a lease a live worker holds.
 2. *Widen `QueueStore.updateAll` to add records.*
    _Rejected_: it changes the shared queue store's write contract for one caller and moves the id-allocation decision
    into the revision callback.
@@ -45,13 +45,13 @@ server's queue reconciliation closes such an orphan.
 
 == Consequences
 
-* A consultation task exists before any worker can be told about it; a refused transition is cleaned up in a second
-  transaction, and the cleanup itself is idempotent.
-* The consultation task may be offered in the short window before the asking task lists it. The consulted worker's
-  answer then finds the asking task without the entry and the call is refused `job_scope_mismatch`; the worker is
-  re-offered the task and answers again.
-* Recovery from a crash between the writes is the queue's: a consultation task whose `consultation_of` names a task
-  that does not list it is closed `lost` with `withdrawn`, never answered.
+* A worker is only ever offered a consultation its asking task lists.
+* A crash between the two writes leaves an asking task in `consulting` with an open consultation whose task does not
+  exist. `ConsultationService.reconcile` repairs only a closed consultation task, so this state is reported by the
+  server's queue reconciliation, which closes it `lost` `withdrawn`; the asking task then continues on its own
+  judgment.
+* A create failure is rolled back in a second transaction; the rollback is idempotent and restores the asking task's
+  status from its lease.
 
 == Source
 

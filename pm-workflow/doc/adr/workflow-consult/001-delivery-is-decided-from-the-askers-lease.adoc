@@ -27,8 +27,13 @@ own.
 consultation task: `wait` when the asking task's lease still names the generation that asked (`asked_by`), `facts`
 otherwise. On `wait` the asking task returns to `executing`, so the task protocol's next wait ends the `consulting`
 attempt as `waited_again` and re-offers the task with the answer in its facts; on `facts` the asking task stays
-`queued` and the successor's offer carries the answer. The entry's `delivered_at` and `delivered_to` are written once,
-and a second answer is refused `stale_entity`.
+`queued`, or keeps the successor's `executing` status when the successor already holds it, and the successor's offer
+carries the answer. The entry's `delivered_at` and `delivered_to` are written once, and a second answer is refused
+`stale_entity`.
+<p>
+A fence can land after the answer was recorded `wait` and before the asking generation's next wait. That delivery is
+treated as a delivery to the successor when the task is represented: `ConsultationService.links` suppresses the role
+when the recorded delivery is `facts`, or is `wait` and the current lease no longer names the asking generation.
 
 == Alternatives Considered
 

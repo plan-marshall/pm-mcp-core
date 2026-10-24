@@ -10,7 +10,9 @@
 package de.planmarshall.workflow.consult;
 
 import java.util.Objects;
+import java.util.regex.Pattern;
 
+import de.planmarshall.core.queue.QueueTaskId;
 import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.queue.QueueTaskRecord.ConsultationStatus;
 
@@ -27,13 +29,19 @@ import de.planmarshall.core.queue.QueueTaskRecord.ConsultationStatus;
  */
 public record ConsultationFact(String consultationId, String role, ConsultationStatus status, String answer) {
 
+    private static final Pattern ROLE = Pattern.compile("[a-z][a-z0-9-]{1,31}");
+
     /**
      * @throws NullPointerException     if a required component is {@code null}
      * @throws IllegalArgumentException if the id or the role breaks its form, or the answer is too long
      */
     public ConsultationFact {
-        Objects.requireNonNull(consultationId, "consultationId");
-        Objects.requireNonNull(role, "role");
+        if (QueueTaskId.parse(consultationId).isEmpty()) {
+            throw new IllegalArgumentException("Not a queue task id: " + consultationId);
+        }
+        if (role == null || !ROLE.matcher(role).matches()) {
+            throw new IllegalArgumentException("Not a role name: " + role);
+        }
         Objects.requireNonNull(status, "status");
         if (answer != null && answer.codePointCount(0, answer.length()) > ConsultationService.MAX_TEXT_LENGTH) {
             throw new IllegalArgumentException("An answer has at most %d characters"
