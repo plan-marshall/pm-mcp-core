@@ -30,7 +30,10 @@ This guide covers the stores of a scope that `pm-core` adds on top of the store 
   `runtime.start` of `pm-runtime`;
 * the work package `operator-and-question-stores` added the waiver and waiver consumption logs of a plan, the typed
   waiver requests of its status, the question log of every asking scope, the per-project machine store with its
-  identity record, and the Project Resolution Rule (<<_operator_and_question_stores>>).
+  identity record, and the Project Resolution Rule (<<_operator_and_question_stores>>);
+* the work package `slots-usage-and-budgets` added the store of the machine model slots, the rows of a `metrics.json`
+  with their three-valued usage figures, the learned budgets of a project, the change ledger and the writer of the
+  operator's qualification settings (<<_slots_metrics_budgets_ledger>>).
 
 The store substrate these types build on (transaction journal, `ScopeTransaction`, `StoreSnapshot`, `StrictJson`,
 digests, recovery) is described in link:{docs}/developer/store-substrate.adoc[Developer Guide § Store Substrate] and is
@@ -958,6 +961,102 @@ repository), and the eight classes of the resolution (`ProjectResolverMainChecko
 `ProjectResolverContractTest` — every row of the table above, beside its resolving counterpart),
 `LinkedWorktreeConfinementTest` and `PathConfinementTest`.
 
+[#_slots_metrics_budgets_ledger]
+== The Model-Slot, Metrics, Learned-Budget and Ledger Stores
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-14[PM-WF-14], link:{docs}/Requirements.adoc#PM-WORK-3[PM-WORK-3], link:{docs}/Requirements.adoc#PM-EXEC-3[PM-EXEC-3], link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2], link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]_
+
+The work package `slots-usage-and-budgets` added the stores of the machine model slots, of the metrics rows, of the
+learned budgets and the change ledger, and the writer of the operator's qualification settings. Each is read and
+written strictly in `format_version` 1 over `StrictJson`, refuses what it cannot read as a `StoreRefusal` naming the
+file, and is written in one short transaction on the lock of its store. The schemas are in
+link:{spec}/store-schemas/13-leases-integrity-testing.adoc#machine-lease-stores[Store Schemas § Machine Lease Stores],
+link:{spec}/store-schemas/05-metrics-and-quality-report.adoc#metrics-store[Store Schemas § Metrics & Quality Report],
+link:{spec}/store-schemas/09-derived-facts-and-build-timings.adoc#build-timings-store[Store Schemas § Build Timings
+Store], link:{spec}/store-schemas/04-epic-and-change-ledger.adoc#_change_ledger_record_change_ledger_jsonl[Store Schemas
+§ Change Ledger Record] and link:{spec}/store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas §
+Operator Local Configuration].
+
+[horizontal]
+`ModelSlotStore`, `ModelSlotCodec`:: The machine model slots `state/model-slots.json`: one lease per running worker,
+warm or fresh, and the FIFO of the workers waiting for one. `update` runs one read, change and write under the lock
+`LockKey.modelSlots`; the store decides nothing itself. Admission — the cap, the FIFO, the one-writer rule and the
+reaping of dead runtimes — is `ModelSlotScheduler` of `runtime.launch`
+(link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch]).
+`Measurement`, `HarnessUsage`, `UsagePointers`:: The usage of a harness output. A figure is measured, `unmeasured` or
+`not_applicable`; a profile's `headless.usage` pointers are read onto one parsed turn, and `total_tokens` is derived
+from the five token components, never parsed
+(link:../adr/core-store/042-metrics-row-three-valued-figures-and-verbatim-foreign-rows.adoc[ADR 042]).
+`MetricsRow`, `WorkerIdleRow`, `MetricsCodec`, `MetricsStore`:: The task row and the worker-idle row of a
+`metrics.json`, their codec and the store. The codec keeps a row of another kind (`wait`, `phase_close`, `served_read`)
+as the raw JSON text it was read with and writes it back unchanged; the store refuses a second row for the same task and
+attempt, or a second idle row for the same worker.
+`BuildTimings`, `BuildTimingsCodec`, `BuildTimingsStore`:: The learned budgets `build-timings.json` of a project: per
+budget key the clean, poisoned and cold baselines, the one-shot escalation and the instant of the last observation.
+`observe` feeds the max-biased blend `floor(0.8 * max(L, d) + 0.2 * min(L, d))` into the baseline of the run's kind and
+clears the escalation; `escalate` sets `E = max(t, min(2 * t, C))` for a timed-out run, which never feeds a baseline.
+`WorkerBudget`:: The allocation of one worker's budget over the key `llm:<role>`: escalation, else operator, else the
+learned value scaled by `1.25`, else the role floor — never below the role's `budget_floor_seconds`, whose compiled
+minimum is `60`. The fixed probe budgets are unchanged (`runtime.job.ProbeBudget`).
+`ChangeLedgerRecord`, `ChangeLedgerCodec`, `ChangeLedger`:: One line of a `change-ledger.jsonl`: a
+`worktree_sha`-stamped build, change, job, task-diff or baseline-red row. The ledger appends through `JsonlStoreFile`
+under the lock of its scope and never rewrites a line; a digest of `unavailable` carries how the git invocation failed
+and never satisfies a freshness gate.
+`QualificationSettings`, `QualificationSettingsCodec`, `QualificationSettingsStore`:: The operator's
+`settings.qualification` of `local-config.json` — the agreement level, the allowed warm-fresh gap and the two skip flags
+— with the compiled defaults. A write replaces that one member, copies every other member through, increments the
+document's revision and refuses an absent document
+(link:../adr/core-store/043-qualification-settings-replaced-in-place.adoc[ADR 043]).
+
+=== Invariants
+
+* *One transaction per decision*: an admission, an append to a ledger, a metrics row and an observation each read and
+  write their store in one transaction on its lock, so no second writer comes between the check and the write.
+* *Unmeasured is never zero*: a usage figure the harness did not report is `unmeasured` with its reason, and the derived
+  total of a row with an unmeasured applicable component is `unmeasured`.
+* *Append-only ledgers*: the change ledger only grows; a torn tail is repaired by the JSONL store before the next
+  append and the repair is handed to the audit sink.
+* *A foreign member stays*: the metrics codec keeps a row kind it does not own, and the qualification codec keeps every
+  member of the operator's document it does not own.
+* *The learned blend is named*: a budget derived from a learned value carries the observation count it rests on, and a
+  timed-out run never feeds a baseline.
+
+=== Failure Modes
+
+[cols="2,3"]
+|===
+|Failure |Behaviour
+
+|A store is of another format version or unreadable
+|`StoreRefusal` naming the file; the file is not touched.
+
+|A second row for the same task and attempt, or a second idle row for a worker
+|`MetricsStore` throws `IllegalArgumentException`; nothing is written.
+
+|A stored `total_tokens` disagrees with its components
+|`MetricsCodec` refuses the document as unreadable; nothing is rewritten.
+
+|A baseline has observations but no value, or a value but no observation
+|`BuildTimings` refuses it at construction, and the codec refuses the document naming the file.
+
+|A worker's role floor is below `60`
+|`WorkerBudget` throws `IllegalArgumentException`; no budget is allocated.
+
+|The qualification settings are written while `local-config.json` is absent
+|`StoreRefusal.absent` naming the file; the store creates nothing.
+
+|An unavailable digest without its failure, or a `baseline` on another kind
+|`ChangeLedgerRecord` throws `IllegalArgumentException`; the line is not appended.
+|===
+
+Tested by `UsagePointersTest` (each column of a recorded output, a missing figure with its reason, a not-applicable
+component counting zero, an unparsed output), `MetricsStoreTest` (the round trip, a second row of the task refused, the
+end of the attempt for every value of the enum, a refused task's row, the foreign row kept, the inconsistent total
+refused), `BuildTimingsStoreTest` (the first observation, the blend, the escalation and its clearing, a timeout feeding
+no baseline), `WorkerBudgetTest` (the first match of the four sources and the floor), `ChangeLedgerTest` (the round trip,
+the unavailable digest, the task-diff and baseline rules, a refused line reported with its number) and
+`QualificationSettingsStoreTest` (the defaults, the block replaced alone, the revision incremented, the absent document
+refused).
+
 == Reading Helpers Shared with the Stores of Other Packages
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
 
@@ -1007,7 +1106,12 @@ parity check the specification has run ahead of is `@Disabled` with the work pac
   Head], link:{spec}/store-schemas/12-machine-stores.adoc#audit-index[§ Audit Index],
   link:{spec}/store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas § Job Record],
   link:{spec}/store-schemas/14-plan-instance-waivers-questions.adoc[Store Schemas § Plan Instance, Waivers and
-  Questions], link:{spec}/filesystem-layout/03-project-store.adoc[Filesystem Layout § Project Store]
+  Questions], link:{spec}/filesystem-layout/03-project-store.adoc[Filesystem Layout § Project Store],
+  link:{spec}/store-schemas/13-leases-integrity-testing.adoc#machine-lease-stores[Store Schemas § Machine Lease
+  Stores], link:{spec}/store-schemas/05-metrics-and-quality-report.adoc#metrics-store[Store Schemas § Metrics &
+  Quality Report], link:{spec}/store-schemas/09-derived-facts-and-build-timings.adoc#build-timings-store[Store Schemas
+  § Build Timings Store], link:{spec}/store-schemas/04-epic-and-change-ledger.adoc#_change_ledger_record_change_ledger_jsonl[Store
+  Schemas § Change Ledger Record]
 * Concepts: link:{docs}/concepts/store-integrity.adoc[Concepts § Store Integrity]
 
 == Decisions
@@ -1067,3 +1171,7 @@ parity check the specification has run ahead of is `@Disabled` with the work pac
   a set the log holds is a fault of the caller, and a revision never adds a part.
 * link:../adr/core-store/041-a-waiver-request-is-held-once-and-one-is-pending.adoc[ADR 041]: a waiver request id occurs
   once in `waiver_requests[]`, and at most one request is pending.
+* link:../adr/core-store/042-metrics-row-three-valued-figures-and-verbatim-foreign-rows.adoc[ADR 042]: a metrics row
+  keeps three-valued usage figures and derives its total; a row of another kind is kept verbatim.
+* link:../adr/core-store/043-qualification-settings-replaced-in-place.adoc[ADR 043]: the qualification settings are
+  replaced in place in the operator's `local-config.json`, which keeps every other member and the incremented revision.
