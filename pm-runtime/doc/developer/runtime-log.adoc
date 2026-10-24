@@ -1,0 +1,105 @@
+= The Log Message Holder (`runtime.log`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+:src: ../../src/main/java/de/planmarshall/runtime/log
+:test: ../../src/test/java/de/planmarshall/runtime/log
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
+
+Package `de.planmarshall.runtime.log` of `pm-runtime` holds `RuntimeLogMessages`, the one holder of the module's INFO,
+WARN and ERROR records, with the prefix `PM_RUNTIME`. The module logs through this holder and, where the event belongs to
+the foundation, through `CoreLogMessages` of `pm-core`.
+
+The holder also carries the messages the assembly `pm-mcp-server` logs and no module of `pm-mcp-core` logs, until the
+assembly takes them over; their component names a class of the assembly. The complete roster with each record's
+component, template and description is in link:../../../doc/LogMessages.adoc[`doc/LogMessages.adoc`]; this guide states
+how the holder is built and extended.
+
+== Main Types
+_Requirements: link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
+
+[cols="1,3",options="header"]
+|===
+|Member |What it holds
+
+|`RuntimeLogMessages.PREFIX`
+|`PM_RUNTIME`, the prefix of every record of the module.
+
+|`RuntimeLogMessages.INFO`
+|The INFO records, identifiers 001-099: the start and stop of the runtime and its listeners, the credential store, the
+language servers, the stale lease sweep, the recovery and the periodic sweep.
+
+|`RuntimeLogMessages.WARN`
+|The WARN records, identifiers 100-199: a deferred audit record, a torn or discarded enrolment pair, a refused project
+path, an orphaned lease, a refused corpus source and the failures the recovery and the sweep can name.
+
+|`RuntimeLogMessages.ERROR`
+|The ERROR records, identifiers 200-299: an integrity key that cannot be used, a lock order violation, a broken audit
+chain and the failures of a step that must not continue silently.
+|===
+
+Every record is a `LogRecord` built by `LogRecordModel.builder()` with the prefix, the identifier and the template. A
+`LogRecord` is a constant; a caller logs it with the `CuiLogger` of its class and passes the arguments in the order of the
+template's `%s` placeholders. The roster in `doc/LogMessages.adoc` is the reference; do not copy it into a second place.
+
+== Using the Holder
+
+[source,java]
+----
+private static final CuiLogger LOGGER = new CuiLogger(WorkspaceConfinement.class);
+
+LOGGER.warn(RuntimeLogMessages.WARN.PROJECT_PATH_REFUSED, rejected.code(), rejected.reason());
+----
+
+The placeholders are `%s`; an exception is passed first, before the template arguments. slf4j, log4j and
+`System.out`/`System.err` are not used. The logger is `private static final` in its class, and every INFO, WARN and ERROR
+message is a record of a holder, never a literal at the call site.
+
+== Adding a Record
+
+. Find the next free identifier of the level in `doc/LogMessages.adoc` and in the holder: INFO 001-099, WARN 100-199,
+   ERROR 200-299. There are no workstream blocks and nothing is renumbered.
+. Add the constant to the holder's inner class, with a Javadoc sentence that states when it is logged, the component, the
+   template with its placeholders, and what each placeholder names.
+3. Add the row to the holder's table in `doc/LogMessages.adoc` with the same identifier, component, template and
+   description.
+4. Log it from the class that owns the event. When the event belongs to the foundation, it goes to `CoreLogMessages`
+   instead, and this module logs through it. A provider module with a first record of its own creates its own holder.
+5. Run `RuntimeLogMessagesTest`: it refuses an identifier used twice or outside its level's range, and a template whose
+   placeholders and argument count disagree.
+
+Do not add a message for an event an existing record already states: extend the record's description instead, so the
+log's vocabulary stays closed.
+
+== Invariants and Failure Modes
+
+* *One holder per module.* `pm-runtime` has this holder and no second `log` package; a record of `pm-core` stays in
+  `CoreLogMessages`.
+* *The ranges are fixed.* INFO 001-099, WARN 100-199, ERROR 200-299 in every holder. The test refuses a duplicate and an
+  out-of-range identifier.
+* *A record carries no secret.* No template or argument names a token, a key, a credential value or a path a confinement
+  refused. An exception's message is passed only where it is known to be free of them.
+* *The assembly's messages move out with it.* A record whose component names the assembly leaves this holder when the
+  assembly takes it over; until then it is here so the message is not lost.
+* *The roster has one source.* `doc/LogMessages.adoc` states the current records; the holder is the code side of the same
+  list. A change to one without the other is a documentation defect.
+
+== Testing
+
+link:{test}/RuntimeLogMessagesTest.java[`RuntimeLogMessagesTest`]:: every identifier is unique and inside its level's
+range, the prefix is `PM_RUNTIME`, the placeholders of every template and the arguments the module passes agree, and the
+expected set of records is derived from the holder at run time.
+
+== Specification Tracing
+
+* The roster and the per-record descriptions:
+  link:../../../doc/LogMessages.adoc[`doc/LogMessages.adoc`]
+* Decision: link:../../../doc/adr/005-one-log-message-holder-per-module.adoc[repository ADR 005] one log-message holder
+  per module
+* The other holders: link:../../../pm-core/doc/developer/core-log.adoc[`core.log`],
+  link:../../../pm-workflow/doc/developer/workflow-log.adoc[`workflow.log`]

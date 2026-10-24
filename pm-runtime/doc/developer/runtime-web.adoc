@@ -1,0 +1,101 @@
+= Web Access and the TLS Certificate (`runtime.web`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+:src: ../../src/main/java/de/planmarshall/runtime/web
+:test: ../../src/test/java/de/planmarshall/runtime/web
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-SEC-6[PM-SEC-6]_
+
+Package `de.planmarshall.runtime.web` of `pm-runtime` holds the state of web access and the material the web listener
+serves when it is exposed on a LAN address: the self-signed certificate and its private key, written as PEM without a
+cryptography library, and the conflict a listener that cannot open reports. The package holds no listener: opening,
+closing and binding belong to the assembly `pm-mcp-server`.
+
+== Main Types
+_Requirements: link:{docs}/Requirements.adoc#PM-SEC-6[PM-SEC-6]_
+
+[cols="1,3",options="header"]
+|===
+|Type |What it is
+
+|link:{src}/WebState.java[`WebState`]
+|The web access setting and the live state of its listener, the `web` object of the runtime status: `enabled`, `lan`,
+`port` and `open`. `WebState.disabled()` is web access off at the compiled default port `7420`.
+
+|link:{src}/WebTls.java[`WebTls`]
+|The TLS material of the listener in LAN mode: `certificatePem`, `privateKeyPem` and the parsed `X509Certificate`.
+`loadOrCreate(dir)` reuses the pair where it exists and creates it otherwise; `fingerprint()` is the SHA-256 of the DER
+certificate in upper-case hex pairs separated by `:`; `names()` lists the subject alternative names.
+
+|link:{src}/Der.java[`Der`]
+|The minimal DER encoder the certificate needs: the JDK has no public X.509 builder, its internal `sun.security.x509` is
+not exported and `keytool` code is not in a native image.
+
+|link:{src}/WebListenerConflictException.java[`WebListenerConflictException`]
+|The listener cannot open: its port is occupied, or web access is enabled with the other exposure. The API error code is
+`web_listener_conflict`.
+|===
+
+== The Certificate
+
+The certificate is self-signed with an ECDSA P-256 key. Its subject alternative names are the host name,
+`<hostname>.local`, the interface addresses at generation and the loopback addresses. It is valid for 825 days
+(`WebTls.VALIDITY`). Key and certificate are kept as PEM in `<PM_MCP_BASE>/web/tls/` (`cert.pem`, `key.pem`), the
+directory `0700` and the files `0600`, and they are reused, so a paired device keeps a stable fingerprint. The
+certificate is assembled with JDK APIs and the `Der` encoder only.
+
+A new address on the machine is not in an existing certificate's name set: the certificate is generated once and reused.
+Regenerating it changes the fingerprint, and every paired device has to pair again; that is an operator action, not a
+side effect of a start.
+
+== The State
+
+`WebState` is what the runtime status reports and what the listener observes:
+
+* `enabled`: whether web access is on;
+* `lan`: whether the listener serves all interfaces over TLS instead of loopback over plain HTTP;
+* `port`: the port it binds, `7420` by default;
+* `open`: whether it is open now.
+
+The state is a value. A caller that changes the setting asks the assembly, which closes or opens the listener and
+reports the new state; this package does not mutate a running listener.
+
+== Invariants and Failure Modes
+
+* *The private key never leaves the base directory.* It is written only under `<PM_MCP_BASE>/web/tls/`, with the
+  directory `0700` and the file `0600`, and it is never logged, audited or returned by an API.
+* *A reused pair is a stable identity.* A restart does not regenerate the certificate while the files exist and parse;
+  a device that trusted the fingerprint stays paired.
+* *LAN means TLS.* A listener on a LAN address serves TLS; plain HTTP is the loopback-only exposure. Enabling web access
+  with the other exposure than the running listener is a `WebListenerConflictException` (`web_listener_conflict`), as is a
+  port that is occupied.
+* *A failure to build the material is a start failure.* An unreadable or malformed key or certificate is not replaced
+  silently: the caller fails and the operator sees the file that is wrong.
+
+== Extending the Package
+
+* A new subject alternative name: add it to the name set of the certificate and to the test that reads `names()`; a
+  regenerated certificate is what makes it take effect.
+* A new listener setting: add it to `WebState`, the runtime status schema and the assembly's open/close path, in one
+  change; `WebState.disabled()` and the default port stay the compiled defaults.
+* A new TLS shape (another key type, a CA-issued certificate): replace `WebTls`'s generation path, not the record; the
+  record is what the listener consumes.
+
+== Testing
+
+link:{test}/WebTlsTest.java[`WebTlsTest`]:: the generated pair parses, the certificate is ECDSA P-256, the expected
+subject alternative names are present, the validity is 825 days, the fingerprint is the upper-case colon-separated
+SHA-256 of the DER certificate, a second `loadOrCreate` reuses the bytes and the fingerprint, the files and the
+directory have the restricted modes, and a malformed or incomplete pair is a failure rather than a silent replacement.
+
+== Specification Tracing
+
+* Specification: link:{spec}/credentials-and-enrolment/03-audit-and-outbound-https.adoc[Credentials & Enrolment § Audit
+  and Outbound HTTPS], link:{spec}/timeouts/02-runtime-leases-operator-web.adoc[Timeouts § Runtime, Leases, Operator and
+  Web] (the listener exposure and the default port)
+* Requirement: link:{docs}/Requirements.adoc#PM-SEC-6[PM-SEC-6]
