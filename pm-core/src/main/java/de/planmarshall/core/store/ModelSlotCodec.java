@@ -64,6 +64,7 @@ import de.planmarshall.core.store.ModelSlotStore.WorkerClass;
 public class ModelSlotCodec {
 
     private static final String FIELD_SLOTS = "slots";
+    private static final String PARAMETER_DOCUMENT = "document";
     private static final String FIELD_WAITING = "waiting";
     private static final String FIELD_OWNER = "owner";
     private static final String FIELD_JOB_ID = "job_id";
@@ -88,7 +89,7 @@ public class ModelSlotCodec {
      * @throws IllegalArgumentException if a job holds a slot or waits twice, or a plan holds or awaits two writers
      */
     public static byte[] write(Document document) {
-        Objects.requireNonNull(document, "document");
+        Objects.requireNonNull(document, PARAMETER_DOCUMENT);
         requireNoDuplicateWorker(document);
         var out = new ByteArrayOutputStream();
         try (var generator = StrictJson.factory().createGenerator(out, JsonEncoding.UTF8)) {
@@ -119,7 +120,7 @@ public class ModelSlotCodec {
      */
     public static Document read(Path file, byte[] document) {
         Objects.requireNonNull(file, "file");
-        Objects.requireNonNull(document, "document");
+        Objects.requireNonNull(document, PARAMETER_DOCUMENT);
         return StrictJson.read(file, document, ModelSlotStore.FORMAT_VERSION, ModelSlotCodec::readDocument);
     }
 
@@ -182,7 +183,7 @@ public class ModelSlotCodec {
                 default -> throw undeclared(field);
             }
         }
-        requireFields(seen, "document", FIELD_SLOTS, FIELD_WAITING);
+        requireFields(seen, PARAMETER_DOCUMENT, FIELD_SLOTS, FIELD_WAITING);
         try {
             return new Document(slots, waiting);
         } catch (IllegalArgumentException e) {

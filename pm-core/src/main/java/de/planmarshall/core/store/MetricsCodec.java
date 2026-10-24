@@ -61,6 +61,7 @@ import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
 public class MetricsCodec {
 
     private static final String FIELD_ROWS = "rows";
+    private static final String PARAMETER_DOCUMENT = "document";
     private static final String FIELD_KIND = "kind";
     private static final String FIELD_QUEUE_TASK_ID = "queue_task_id";
     private static final String FIELD_ATTEMPT = "attempt";
@@ -162,7 +163,7 @@ public class MetricsCodec {
      */
     public static Document read(Path file, byte[] document) {
         Objects.requireNonNull(file, "file");
-        Objects.requireNonNull(document, "document");
+        Objects.requireNonNull(document, PARAMETER_DOCUMENT);
         return StrictJson.read(file, document, MetricsStore.FORMAT_VERSION, MetricsCodec::readDocument);
     }
 
@@ -299,7 +300,7 @@ public class MetricsCodec {
                 default -> throw undeclared(field);
             }
         }
-        requireFields(seen, "document", FIELD_ROWS);
+        requireFields(seen, PARAMETER_DOCUMENT, FIELD_ROWS);
         var tasks = new ArrayList<MetricsRow>();
         var idle = new ArrayList<WorkerIdleRow>();
         var foreign = new ArrayList<String>();
@@ -537,6 +538,65 @@ public class MetricsCodec {
             }
         }
 
+        private static OptionalLong readTotal(JsonParser parser, String field) throws IOException {
+            if (parser.currentToken() == JsonToken.VALUE_STRING) {
+                if (!UNMEASURED.equals(string(parser, field))) {
+                    throw unreadable("'%s' is an integer or 'unmeasured'".formatted(field));
+                }
+                return OptionalLong.empty();
+            }
+            var value = integer(parser, field);
+            if (value < 1) {
+                throw unreadable("'%s' is at least 1 when measured".formatted(field));
+            }
+            return OptionalLong.of(value);
+        }
+
+        private static Measurement measurement(JsonParser parser, String field) throws IOException {
+            if (parser.currentToken() == JsonToken.VALUE_STRING) {
+                var text = string(parser, field);
+                if (UNMEASURED.equals(text)) {
+                    return Measurement.unmeasured();
+                }
+                if (UsagePointers.NOT_APPLICABLE.equals(text)) {
+                    return Measurement.notApplicable();
+                }
+                throw unreadable("'%s' is an integer, 'unmeasured' or 'not_applicable'".formatted(field));
+            }
+            var value = integer(parser, field);
+            if (value < 0) {
+                throw unreadable("'%s' must not be negative".formatted(field));
+            }
+            return Measurement.measured(value);
+        }
+
+        /** A figure of the schema's `measure`: an integer or {@code unmeasured}, never {@code not_applicable}. */
+        private static Measurement measurements(JsonParser parser, String field) throws IOException {
+            var measurement = measurement(parser, field);
+            if (measurement.isNotApplicable()) {
+                throw unreadable("'%s' is an integer or 'unmeasured', never 'not_applicable'".formatted(field));
+            }
+            return measurement;
+        }
+
+        private static Optional<BigDecimal> cost(JsonParser parser, String field) throws IOException {
+            if (parser.currentToken() == JsonToken.VALUE_STRING) {
+                if (!UNMEASURED.equals(string(parser, field))) {
+                    throw unreadable("'%s' is a number or 'unmeasured'".formatted(field));
+                }
+                return Optional.empty();
+            }
+            if (parser.currentToken() != JsonToken.VALUE_NUMBER_INT
+                    && parser.currentToken() != JsonToken.VALUE_NUMBER_FLOAT) {
+                throw unreadable("'%s' is a number or 'unmeasured'".formatted(field));
+            }
+            var value = parser.getDecimalValue();
+            if (value.signum() < 0) {
+                throw unreadable("'%s' must not be negative".formatted(field));
+            }
+            return Optional.of(value);
+        }
+
         HarnessUsage build() {
             if (inputTokens == null || outputTokens == null || cacheReadInputTokens == null
                     || cacheCreationInputTokens == null || reasoningTokens == null || toolUses == null) {
@@ -570,65 +630,6 @@ public class MetricsCodec {
         if (usage == null) {
             throw unreadable("the usage columns of a row are incomplete");
         }
-    }
-
-    private static OptionalLong readTotal(JsonParser parser, String field) throws IOException {
-        if (parser.currentToken() == JsonToken.VALUE_STRING) {
-            if (!UNMEASURED.equals(string(parser, field))) {
-                throw unreadable("'%s' is an integer or 'unmeasured'".formatted(field));
-            }
-            return OptionalLong.empty();
-        }
-        var value = integer(parser, field);
-        if (value < 1) {
-            throw unreadable("'%s' is at least 1 when measured".formatted(field));
-        }
-        return OptionalLong.of(value);
-    }
-
-    private static Measurement measurement(JsonParser parser, String field) throws IOException {
-        if (parser.currentToken() == JsonToken.VALUE_STRING) {
-            var text = string(parser, field);
-            if (UNMEASURED.equals(text)) {
-                return Measurement.unmeasured();
-            }
-            if (UsagePointers.NOT_APPLICABLE.equals(text)) {
-                return Measurement.notApplicable();
-            }
-            throw unreadable("'%s' is an integer, 'unmeasured' or 'not_applicable'".formatted(field));
-        }
-        var value = integer(parser, field);
-        if (value < 0) {
-            throw unreadable("'%s' must not be negative".formatted(field));
-        }
-        return Measurement.measured(value);
-    }
-
-    /** A figure of the schema's `measure`: an integer or {@code unmeasured}, never {@code not_applicable}. */
-    private static Measurement measurements(JsonParser parser, String field) throws IOException {
-        var measurement = measurement(parser, field);
-        if (measurement.isNotApplicable()) {
-            throw unreadable("'%s' is an integer or 'unmeasured', never 'not_applicable'".formatted(field));
-        }
-        return measurement;
-    }
-
-    private static Optional<BigDecimal> cost(JsonParser parser, String field) throws IOException {
-        if (parser.currentToken() == JsonToken.VALUE_STRING) {
-            if (!UNMEASURED.equals(string(parser, field))) {
-                throw unreadable("'%s' is a number or 'unmeasured'".formatted(field));
-            }
-            return Optional.empty();
-        }
-        if (parser.currentToken() != JsonToken.VALUE_NUMBER_INT
-                && parser.currentToken() != JsonToken.VALUE_NUMBER_FLOAT) {
-            throw unreadable("'%s' is a number or 'unmeasured'".formatted(field));
-        }
-        var value = parser.getDecimalValue();
-        if (value.signum() < 0) {
-            throw unreadable("'%s' must not be negative".formatted(field));
-        }
-        return Optional.of(value);
     }
 
     private static MetricsRow.PredictedCost nullablePredictedCost(JsonParser parser, String field) throws IOException {

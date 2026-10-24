@@ -156,7 +156,7 @@ class ModelSlotSchedulerTest {
         void oneWriterPerPlan() {
             var scheduler = scheduler(2);
 
-            var first = assertInstanceOf(Granted.class, scheduler.request(writer(PLAN, 1)));
+            assertInstanceOf(Granted.class, scheduler.request(writer(PLAN, 1)));
             var second = assertInstanceOf(Deferred.class, scheduler.request(writer(PLAN, 2)));
             var reader = assertInstanceOf(Granted.class,
                     scheduler.request(request(PLAN, 3, WorkerClass.READ_ONLY, Form.WARM)));
@@ -251,14 +251,16 @@ class ModelSlotSchedulerTest {
         @DisplayName("lies between 1 and 16, as machine-config.json bounds it")
         void bounds() {
             var liveness = ModelSlotScheduler.Liveness.processes();
+            var clock = InstantSource.fixed(NOW);
+            var capped = new ModelSlotScheduler(store, 16, liveness, clock);
+
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new ModelSlotScheduler(store, 0, liveness, InstantSource.fixed(NOW))),
+                            () -> new ModelSlotScheduler(store, 0, liveness, clock)),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new ModelSlotScheduler(store, 17, liveness, InstantSource.fixed(NOW))),
-                    () -> assertEquals(ModelSlotScheduler.DEFAULT_SLOTS, 2),
-                    () -> assertEquals(16, new ModelSlotScheduler(store, 16, liveness, InstantSource.fixed(NOW))
-                            .slotCount()));
+                            () -> new ModelSlotScheduler(store, 17, liveness, clock)),
+                    () -> assertEquals(2, ModelSlotScheduler.DEFAULT_SLOTS),
+                    () -> assertEquals(16, capped.slotCount()));
         }
     }
 }

@@ -47,9 +47,9 @@ HarnessUsage usage, int idleWakeups, Instant recordedAt) {
     /** The population of every row of this kind. */
     public static final String POPULATION = "worker_idle";
 
-    private static final Pattern JOB_ID = Pattern.compile("l-[0-9a-f]{16}");
-    private static final Pattern ROLE = Pattern.compile("[a-z][a-z0-9-]{1,31}");
-    private static final Pattern HARNESS = Pattern.compile("[a-z][a-z0-9-]{1,31}");
+    private static final Pattern JOB_ID_PATTERN = Pattern.compile("l-[0-9a-f]{16}");
+    private static final Pattern ROLE_PATTERN = Pattern.compile("[a-z][a-z0-9-]{1,31}");
+    private static final Pattern HARNESS_PATTERN = Pattern.compile("[a-z][a-z0-9-]{1,31}");
     private static final int MAX_HARNESS_VERSION = 64;
     private static final int MAX_MODEL = 128;
 
@@ -59,9 +59,9 @@ HarnessUsage usage, int idleWakeups, Instant recordedAt) {
      *                                  negative
      */
     public WorkerIdleRow {
-        requirePattern(jobId, JOB_ID, "job_id");
-        requirePattern(role, ROLE, "role");
-        requirePattern(harness, HARNESS, "harness");
+        requirePattern(jobId, JOB_ID_PATTERN, "job_id");
+        requirePattern(role, ROLE_PATTERN, "role");
+        requirePattern(harness, HARNESS_PATTERN, "harness");
         Objects.requireNonNull(harnessVersion, "harness_version");
         Objects.requireNonNull(model, "model");
         Objects.requireNonNull(usage, "usage");

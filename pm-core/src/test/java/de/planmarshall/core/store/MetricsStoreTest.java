@@ -127,9 +127,9 @@ class MetricsStoreTest {
         @DisplayName("a second row for the same task and attempt is refused")
         void duplicate() {
             store.append(row("qt-0123456789abcdef", usage()));
+            var second = row("qt-0123456789abcdef", usage());
 
-            assertThrows(IllegalArgumentException.class,
-                    () -> store.append(row("qt-0123456789abcdef", usage())));
+            assertThrows(IllegalArgumentException.class, () -> store.append(second));
         }
     }
 
@@ -261,8 +261,10 @@ class MetricsStoreTest {
         @Test
         @DisplayName("a lock that is not the lock of a scope is refused")
         void otherLockLevel() {
-            assertThrows(IllegalArgumentException.class, () -> new MetricsStore(
-                    new AtomicStoreFile(file, LockKey.buildSlots(base)), new RecordingLockManager()));
+            var storeFile = new AtomicStoreFile(file, LockKey.buildSlots(base));
+            var locks = new RecordingLockManager();
+
+            assertThrows(IllegalArgumentException.class, () -> new MetricsStore(storeFile, locks));
         }
     }
 }

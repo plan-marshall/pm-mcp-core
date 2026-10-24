@@ -213,14 +213,15 @@ class UsagePointersTest {
         @Test
         @DisplayName("tool uses are never not_applicable")
         void toolUsesRefused() {
+            var unmeasured = Measurement.unmeasured();
+            var notApplicable = Measurement.notApplicable();
+
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new UsagePointers("/a", "/b", null, null,
                             null, null, UsagePointers.NOT_APPLICABLE)),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> new HarnessUsage(Measurement.measured(1), Measurement.measured(1),
-                                    Measurement.notApplicable(), Measurement.notApplicable(),
-                                    Measurement.notApplicable(), Measurement.notApplicable(), Optional.empty(),
-                                    Optional.empty())));
+                    () -> assertThrows(IllegalArgumentException.class, () -> new HarnessUsage(unmeasured, unmeasured,
+                            notApplicable, notApplicable, notApplicable, notApplicable, Optional.empty(),
+                            Optional.empty())));
         }
     }
 
@@ -251,13 +252,15 @@ class UsagePointersTest {
         @Test
         @DisplayName("refuses not_applicable for input and output tokens, and a missing member")
         void refusals() {
+            var notApplicable = UsagePointers.NOT_APPLICABLE;
+            var withoutMember = JsonDocument.parse("{\"input_tokens\":\"/a\"}".getBytes(UTF_8), "usage");
+
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new UsagePointers(UsagePointers.NOT_APPLICABLE, "/b", null, null, null, null, null)),
+                            () -> new UsagePointers(notApplicable, "/b", null, null, null, null, null)),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new UsagePointers("/a", UsagePointers.NOT_APPLICABLE, null, null, null, null, null)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> UsagePointers.of(JsonDocument.parse(
-                            "{\"input_tokens\":\"/a\"}".getBytes(UTF_8), "usage"))));
+                            () -> new UsagePointers("/a", notApplicable, null, null, null, null, null)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> UsagePointers.of(withoutMember)));
         }
     }
 }

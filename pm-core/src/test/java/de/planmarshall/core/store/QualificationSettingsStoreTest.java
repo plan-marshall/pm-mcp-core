@@ -95,22 +95,26 @@ class QualificationSettingsStoreTest {
     @Test
     @DisplayName("a document that does not exist is not created by a write")
     void absentDocument() {
+        var defaults = QualificationSettings.defaults();
+
         assertAll(
-                () -> assertThrows(StoreRefusal.class,
-                        () -> store.write(QualificationSettings.defaults())),
+                () -> assertThrows(StoreRefusal.class, () -> store.write(defaults)),
                 () -> assertFalse(Files.exists(file)));
     }
 
     @Test
     @DisplayName("a level outside 0 to 100 is refused")
     void bounds() {
+        var noRoles = List.<String>of();
+        var badRole = List.of("Not A Role");
+
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new QualificationSettings(101, 0, List.of(), false)),
+                        () -> new QualificationSettings(101, 0, noRoles, false)),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new QualificationSettings(0, 101, List.of(), false)),
+                        () -> new QualificationSettings(0, 101, noRoles, false)),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new QualificationSettings(80, 5, List.of("Not A Role"), false)));
+                        () -> new QualificationSettings(80, 5, badRole, false)));
     }
 
     @Test

@@ -85,7 +85,7 @@ public class QualificationSettingsCodec {
     public static byte[] write(Path file, byte[] document, QualificationSettings settings) {
         Objects.requireNonNull(file, "file");
         Objects.requireNonNull(document, "document");
-        Objects.requireNonNull(settings, "settings");
+        Objects.requireNonNull(settings, FIELD_SETTINGS);
         var reader = new DocumentReader(file);
         try {
             reader.read(document, settings);
@@ -118,40 +118,8 @@ public class QualificationSettingsCodec {
                 var out = new ByteArrayOutputStream();
                 try (var generator = StrictJson.factory().createGenerator(out, JsonEncoding.UTF8)) {
                     generator.writeStartObject();
-                    var settingsSeen = false;
-                    Long revision = null;
-                    while (parser.nextToken() == JsonToken.FIELD_NAME) {
-                        var field = nextField(parser, seen);
-                        switch (field) {
-                            case FIELD_FORMAT_VERSION -> {
-                                if (parser.currentToken() != JsonToken.VALUE_NUMBER_INT
-                                        || parser.getIntValue() != 1) {
-                                    throw unreadable("'format_version' is not 1");
-                                }
-                                generator.writeNumberField(FIELD_FORMAT_VERSION, 1);
-                            }
-                            case FIELD_REVISION -> {
-                                revision = integer(parser, field);
-                                generator.writeNumberField(FIELD_REVISION,
-                                        replacement == null ? revision : Math.addExact(revision, 1));
-                            }
-                            case FIELD_SETTINGS -> {
-                                settingsSeen = true;
-                                generator.writeFieldName(FIELD_SETTINGS);
-                                readSettings(parser, generator, replacement);
-                            }
-                            default -> {
-                                generator.writeFieldName(field);
-                                generator.copyCurrentStructure(parser);
-                            }
-                        }
-                    }
-                    if (!seen.contains(FIELD_FORMAT_VERSION)) {
-                        throw unreadable("'format_version' is missing");
-                    }
-                    if (!seen.contains(FIELD_REVISION)) {
-                        throw unreadable("'revision' is missing");
-                    }
+                    var settingsSeen = copyTopLevel(parser, generator, replacement, seen);
+                    requireVersionAndRevision(seen);
                     if (replacement != null && !settingsSeen) {
                         generator.writeObjectFieldStart(FIELD_SETTINGS);
                         writeQualification(generator, replacement);
@@ -165,6 +133,59 @@ public class QualificationSettingsCodec {
                 rewritten = out.toByteArray();
             } catch (IOException e) {
                 throw StoreRefusal.unreadable(file, 1, String.valueOf(e.getMessage()), e);
+            }
+        }
+
+        /** Copies the top-level members, replacing the revision and the settings; answers whether settings were seen. */
+        private boolean copyTopLevel(JsonParser parser, JsonGenerator generator, QualificationSettings replacement,
+                HashSet<String> seen) throws IOException {
+            var settingsSeen = false;
+            while (parser.nextToken() == JsonToken.FIELD_NAME) {
+                var field = nextField(parser, seen);
+                switch (field) {
+                    case FIELD_FORMAT_VERSION -> copyFormatVersion(parser, generator);
+                    case FIELD_REVISION -> copyRevision(parser, generator, replacement);
+                    case FIELD_SETTINGS -> {
+                        settingsSeen = true;
+                        copySettings(parser, generator, replacement);
+                    }
+                    default -> copyMember(parser, generator, field);
+                }
+            }
+            return settingsSeen;
+        }
+
+        private static void copyFormatVersion(JsonParser parser, JsonGenerator generator) throws IOException {
+            if (parser.currentToken() != JsonToken.VALUE_NUMBER_INT || parser.getIntValue() != 1) {
+                throw unreadable("'format_version' is not 1");
+            }
+            generator.writeNumberField(FIELD_FORMAT_VERSION, 1);
+        }
+
+        private static void copyRevision(JsonParser parser, JsonGenerator generator,
+                QualificationSettings replacement) throws IOException {
+            var revision = integer(parser, FIELD_REVISION);
+            generator.writeNumberField(FIELD_REVISION,
+                    replacement == null ? revision : Math.addExact(revision, 1));
+        }
+
+        private void copySettings(JsonParser parser, JsonGenerator generator, QualificationSettings replacement)
+                throws IOException {
+            generator.writeFieldName(FIELD_SETTINGS);
+            readSettings(parser, generator, replacement);
+        }
+
+        private static void copyMember(JsonParser parser, JsonGenerator generator, String field) throws IOException {
+            generator.writeFieldName(field);
+            generator.copyCurrentStructure(parser);
+        }
+
+        private static void requireVersionAndRevision(HashSet<String> seen) {
+            if (!seen.contains(FIELD_FORMAT_VERSION)) {
+                throw unreadable("'format_version' is missing");
+            }
+            if (!seen.contains(FIELD_REVISION)) {
+                throw unreadable("'revision' is missing");
             }
         }
 

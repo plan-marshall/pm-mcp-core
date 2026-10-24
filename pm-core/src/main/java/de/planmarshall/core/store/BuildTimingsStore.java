@@ -98,7 +98,7 @@ public final class BuildTimingsStore {
         if (budgetSeconds < 1 || capSeconds < 1) {
             throw new IllegalArgumentException("The budget and its cap are at least one second");
         }
-        var escalation = Math.max(budgetSeconds, Math.min(2 * budgetSeconds, capSeconds));
+        var escalation = Math.clamp(2 * budgetSeconds, budgetSeconds, capSeconds);
         return update(key, timings -> new KeyTimings(timings.clean(), timings.poisoned(), timings.cold(), escalation,
                 timings.lastObservedAt()));
     }

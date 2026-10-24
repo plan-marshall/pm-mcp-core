@@ -86,39 +86,39 @@ public class ChangeLedgerCodec {
     private static final String FIELD_FINGERPRINTS = "fingerprints";
 
     /**
-     * @param record the record
+     * @param row the record
      * @return the record as one JSON object, UTF-8 encoded, without a newline
      */
-    public static byte[] write(ChangeLedgerRecord record) {
-        Objects.requireNonNull(record, "record");
+    public static byte[] write(ChangeLedgerRecord row) {
+        Objects.requireNonNull(row, "row");
         var out = new ByteArrayOutputStream();
         try (var generator = StrictJson.factory().createGenerator(out, JsonEncoding.UTF8)) {
             generator.writeStartObject();
             generator.writeNumberField(FIELD_FORMAT_VERSION, ChangeLedgerRecord.FORMAT_VERSION);
-            generator.writeStringField(FIELD_KIND, record.kind().wireName());
-            generator.writeStringField(FIELD_WORKTREE_SHA, record.worktreeSha());
-            generator.writeNumberField(FIELD_WORKTREE_SHA_VERSION, record.worktreeShaVersion());
-            writeWorktreeShaFailure(generator, record.worktreeShaFailure());
-            writeNullableString(generator, FIELD_GATE_KIND, record.gateKind());
-            writeNullableString(generator, FIELD_OUTCOME, record.outcome() == null ? null
-                    : record.outcome().wireName());
-            writeNullableLong(generator, FIELD_DURATION_MS, record.durationMs());
-            writeNullableString(generator, FIELD_JOB_ID, record.jobId());
-            writeNullableString(generator, FIELD_COMMIT_SHA, record.commitSha());
+            generator.writeStringField(FIELD_KIND, row.kind().wireName());
+            generator.writeStringField(FIELD_WORKTREE_SHA, row.worktreeSha());
+            generator.writeNumberField(FIELD_WORKTREE_SHA_VERSION, row.worktreeShaVersion());
+            writeWorktreeShaFailure(generator, row.worktreeShaFailure());
+            writeNullableString(generator, FIELD_GATE_KIND, row.gateKind());
+            writeNullableString(generator, FIELD_OUTCOME, row.outcome() == null ? null
+                    : row.outcome().wireName());
+            writeNullableLong(generator, FIELD_DURATION_MS, row.durationMs());
+            writeNullableString(generator, FIELD_JOB_ID, row.jobId());
+            writeNullableString(generator, FIELD_COMMIT_SHA, row.commitSha());
             generator.writeArrayFieldStart(FIELD_CHANGED_PATHS);
-            for (var path : record.changedPaths()) {
+            for (var path : row.changedPaths()) {
                 generator.writeString(path);
             }
             generator.writeEndArray();
-            writeNullableString(generator, FIELD_CHANGE_ORIGIN, record.changeOrigin() == null ? null
-                    : record.changeOrigin().wireName());
-            writeNullableString(generator, FIELD_EXPECT, record.expect() == null ? null : record.expect().wireName());
+            writeNullableString(generator, FIELD_CHANGE_ORIGIN, row.changeOrigin() == null ? null
+                    : row.changeOrigin().wireName());
+            writeNullableString(generator, FIELD_EXPECT, row.expect() == null ? null : row.expect().wireName());
             writeNullableString(generator, FIELD_EXPECT_RESULT,
-                    record.expectResult() == null ? null : record.expectResult().wireName());
-            writeBaseline(generator, record.baseline());
-            writeNullableString(generator, FIELD_DELIVERABLE_ID, record.deliverableId());
-            writeNullableString(generator, FIELD_TASK_ID, record.taskId());
-            writeInstant(generator, FIELD_RECORDED_AT, record.recordedAt());
+                    row.expectResult() == null ? null : row.expectResult().wireName());
+            writeBaseline(generator, row.baseline());
+            writeNullableString(generator, FIELD_DELIVERABLE_ID, row.deliverableId());
+            writeNullableString(generator, FIELD_TASK_ID, row.taskId());
+            writeInstant(generator, FIELD_RECORDED_AT, row.recordedAt());
             generator.writeEndObject();
         } catch (IOException e) {
             throw new UncheckedIOException("Change-ledger record cannot be written", e);

@@ -93,12 +93,12 @@ class WorkerBudgetTest {
     @Test
     @DisplayName("a role floor below the compiled minimum is refused")
     void floorMinimum() {
+        var derivation = new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null);
+
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> WorkerBudget.allocate(59, null, null, null)),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> new WorkerBudget(59, new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null),
-                                59)));
+                () -> assertThrows(IllegalArgumentException.class, () -> new WorkerBudget(59, derivation, 59)));
     }
 
     @Test

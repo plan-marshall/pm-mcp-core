@@ -49,6 +49,7 @@ public final class ModelSlotStore {
 
     private static final Pattern JOB_ID = Pattern.compile("l-[0-9a-f]{16}");
     private static final Pattern ROLE = Pattern.compile("[a-z][a-z0-9-]{1,31}");
+    private static final String FIELD_PLAN_ID = "plan_id";
 
     private final AtomicStoreFile storeFile;
     private final LockManager lockManager;
@@ -148,10 +149,8 @@ public final class ModelSlotStore {
             Objects.requireNonNull(workerClass, "worker_class");
             Objects.requireNonNull(form, "form");
             Objects.requireNonNull(acquiredAt, "acquired_at");
-            if (workerClass == WorkerClass.WRITER) {
-                requireIdentifier(planId, null, "plan_id");
-            } else if (planId != null) {
-                requireIdentifier(planId, null, "plan_id");
+            if (workerClass == WorkerClass.WRITER || planId != null) {
+                requireIdentifier(planId, null, FIELD_PLAN_ID);
             }
             if (leaseExpiresAt != null) {
                 throw new IllegalArgumentException("A model slot has no time bound: lease_expires_at must be null");
@@ -187,10 +186,8 @@ public final class ModelSlotStore {
             Objects.requireNonNull(workerClass, "worker_class");
             Objects.requireNonNull(form, "form");
             Objects.requireNonNull(enqueuedAt, "enqueued_at");
-            if (workerClass == WorkerClass.WRITER) {
-                requireIdentifier(planId, null, "plan_id");
-            } else if (planId != null) {
-                requireIdentifier(planId, null, "plan_id");
+            if (workerClass == WorkerClass.WRITER || planId != null) {
+                requireIdentifier(planId, null, FIELD_PLAN_ID);
             }
         }
     }

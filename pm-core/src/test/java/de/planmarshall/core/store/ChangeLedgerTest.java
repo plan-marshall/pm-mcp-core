@@ -120,21 +120,22 @@ class ChangeLedgerTest {
         @Test
         @DisplayName("ties an unavailable digest to its failure and a baseline to the baseline_red kind")
         void refusals() {
+            var unavailableWithoutFailure = ChangeLedgerRecord.builder().kind(Kind.JOB)
+                    .worktreeSha("unavailable").worktreeShaVersion(1).recordedAt(RECORDED_AT);
+            var failureWithDigest = ChangeLedgerRecord.builder().kind(Kind.JOB).worktreeSha(DIGEST)
+                    .worktreeShaVersion(1).worktreeShaFailure(new WorktreeShaFailure(List.of("git", "status"),
+                    WorktreeShaFailure.FailureKind.SIGNAL, null, 9))
+                    .recordedAt(RECORDED_AT);
+            var taskDiffWithoutTask = ChangeLedgerRecord.builder().kind(Kind.TASK_DIFF).worktreeSha(DIGEST)
+                    .worktreeShaVersion(1).recordedAt(RECORDED_AT);
+            var taskOnAnotherKind = ChangeLedgerRecord.builder().kind(Kind.JOB).worktreeSha(DIGEST)
+                    .worktreeShaVersion(1).taskId("TASK-1").recordedAt(RECORDED_AT);
+
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> ChangeLedgerRecord.builder().kind(Kind.JOB).worktreeSha("unavailable")
-                                    .worktreeShaVersion(1).recordedAt(RECORDED_AT).build()),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> ChangeLedgerRecord.builder().kind(Kind.JOB).worktreeSha(DIGEST)
-                                    .worktreeShaVersion(1).worktreeShaFailure(new WorktreeShaFailure(
-                                    List.of("git", "status"), WorktreeShaFailure.FailureKind.SIGNAL, null, 9))
-                                    .recordedAt(RECORDED_AT).build()),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> ChangeLedgerRecord.builder().kind(Kind.TASK_DIFF).worktreeSha(DIGEST)
-                                    .worktreeShaVersion(1).recordedAt(RECORDED_AT).build()),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> ChangeLedgerRecord.builder().kind(Kind.JOB).worktreeSha(DIGEST)
-                                    .worktreeShaVersion(1).taskId("TASK-1").recordedAt(RECORDED_AT).build()));
+                    () -> assertThrows(IllegalArgumentException.class, unavailableWithoutFailure::build),
+                    () -> assertThrows(IllegalArgumentException.class, failureWithDigest::build),
+                    () -> assertThrows(IllegalArgumentException.class, taskDiffWithoutTask::build),
+                    () -> assertThrows(IllegalArgumentException.class, taskOnAnotherKind::build));
         }
 
         @Test
@@ -159,9 +160,11 @@ class ChangeLedgerTest {
         @Test
         @DisplayName("a lock that is not the lock of a scope is refused")
         void otherLockLevel() {
-            assertThrows(IllegalArgumentException.class, () -> new ChangeLedger(
-                    new JsonlStoreFile(file, LockKey.modelSlots(base)), new RecordingLockManager(), _ -> {
-                    }));
+            var storeFile = new JsonlStoreFile(file, LockKey.modelSlots(base));
+            var locks = new RecordingLockManager();
+
+            assertThrows(IllegalArgumentException.class, () -> new ChangeLedger(storeFile, locks, _ -> {
+            }));
         }
     }
 }

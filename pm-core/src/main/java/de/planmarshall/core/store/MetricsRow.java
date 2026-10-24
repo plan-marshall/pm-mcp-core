@@ -75,11 +75,11 @@ DurationBasis durationBasis, Long queuedMs, String consultationOf, Instant recor
     /** The kind of every row this record writes. */
     public static final String KIND = "task";
 
-    private static final Pattern QUEUE_TASK_ID = Pattern.compile("qt-[0-9a-f]{16}");
-    private static final Pattern JOB_ID = Pattern.compile("l-[0-9a-f]{16}");
-    private static final Pattern ROLE = Pattern.compile("[a-z][a-z0-9-]{1,31}");
-    private static final Pattern HARNESS = Pattern.compile("[a-z][a-z0-9-]{1,31}");
-    private static final Pattern ENVELOPE_ID = Pattern.compile("envelope-[0-9]+");
+    private static final Pattern QUEUE_TASK_ID_PATTERN = Pattern.compile("qt-[0-9a-f]{16}");
+    private static final Pattern JOB_ID_PATTERN = Pattern.compile("l-[0-9a-f]{16}");
+    private static final Pattern ROLE_PATTERN = Pattern.compile("[a-z][a-z0-9-]{1,31}");
+    private static final Pattern HARNESS_PATTERN = Pattern.compile("[a-z][a-z0-9-]{1,31}");
+    private static final Pattern ENVELOPE_ID_PATTERN = Pattern.compile("envelope-\\d+");
     private static final int MAX_HARNESS_VERSION = 64;
     private static final int MAX_MODEL = 128;
 
@@ -380,8 +380,8 @@ DurationBasis durationBasis, Long queuedMs, String consultationOf, Instant recor
      * @throws IllegalArgumentException if a value breaks its form or the combination breaks a rule of the schema
      */
     public MetricsRow {
-        requirePattern(queueTaskId, QUEUE_TASK_ID, "queue_task_id");
-        requirePattern(role, ROLE, "role");
+        requirePattern(queueTaskId, QUEUE_TASK_ID_PATTERN, "queue_task_id");
+        requirePattern(role, ROLE_PATTERN, "role");
         Objects.requireNonNull(outcome, "outcome");
         Objects.requireNonNull(causeClass, "cause_class");
         Objects.requireNonNull(spendClass, "spend_class");
@@ -390,12 +390,12 @@ DurationBasis durationBasis, Long queuedMs, String consultationOf, Instant recor
         Objects.requireNonNull(recordedAt, "recorded_at");
         requireAttempt(attempt, attemptEnd, causeClass);
         requireRefusedColumns(causeClass, jobId, generationId, harness, harnessVersion, model, form, durationBasis);
-        requireOptionalPattern(jobId, JOB_ID, "job_id");
-        requireOptionalPattern(generationId, JOB_ID, "generation_id");
-        requireOptionalPattern(harness, HARNESS, "harness");
+        requireOptionalPattern(jobId, JOB_ID_PATTERN, "job_id");
+        requireOptionalPattern(generationId, JOB_ID_PATTERN, "generation_id");
+        requireOptionalPattern(harness, HARNESS_PATTERN, "harness");
         requireOptionalPattern(stepId, null, "step_id");
-        requireOptionalPattern(envelopeId, ENVELOPE_ID, "envelope_id");
-        requireOptionalPattern(consultationOf, QUEUE_TASK_ID, "consultation_of");
+        requireOptionalPattern(envelopeId, ENVELOPE_ID_PATTERN, "envelope_id");
+        requireOptionalPattern(consultationOf, QUEUE_TASK_ID_PATTERN, "consultation_of");
         requireLength(harnessVersion, MAX_HARNESS_VERSION, "harness_version");
         requireLength(model, MAX_MODEL, "model");
         requireNonNegative(durationMs, "duration_ms");

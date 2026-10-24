@@ -61,14 +61,14 @@ public final class ChangeLedger {
     /**
      * Appends one record in one transaction on the lock of the ledger.
      *
-     * @param record the record
+     * @param row the record
      * @throws StoreRefusal           if a torn tail cannot be repaired
      * @throws UncheckedIOException   if the ledger cannot be appended to
      * @throws InternalFaultException if the lock of the ledger must not be acquired by the transaction
      */
-    public void append(ChangeLedgerRecord record) {
-        Objects.requireNonNull(record, "record");
-        var line = new String(ChangeLedgerCodec.write(record), StandardCharsets.UTF_8) + "\n";
+    public void append(ChangeLedgerRecord row) {
+        Objects.requireNonNull(row, "row");
+        var line = new String(ChangeLedgerCodec.write(row), StandardCharsets.UTF_8) + "\n";
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(storeFile.lockKey());
             storeFile.append(transaction, line.getBytes(StandardCharsets.UTF_8), auditSink);
