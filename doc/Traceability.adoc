@@ -541,6 +541,55 @@ link:../pm-workflow/doc/developer/workflow-verify.adoc#_declaration_bounds[Workf
 link:../pm-workflow/doc/adr/workflow-plan/015-axis-levels-and-overrides-carried-in-plan-facts.adoc[ADR workflow-plan/015],
 link:../pm-workflow/doc/adr/workflow-verify/028-axis-variant-declarations-as-enum-values.adoc[ADR workflow-verify/028]
 
+== link:../../plan-marshall-documentation/doc/requirements/03-skills.adoc[Skills]
+
+[#PM-SKILL-4]
+=== PM-SKILL-4: Skill Delivery to a Worker
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-SKILL-4[PM-SKILL-4]
+
+Implementation (the record of the skills delivered to each worker generation — the protocol's projection of the record
+beside the job, which `worker-launch` keeps — and the answer which of a task's skills must travel in-band: every skill of
+a new generation, a skill whose digest changed, and none of the skills whose digest is unchanged; a submit is refused
+`skills_not_loaded` while a required skill is missing; the rendering of the skills in the offer, the launch prompt and
+the resource URIs is `worker-launch`'s and is not implemented here): link:../pm-workflow/src/main/java/de/planmarshall/workflow/task/SkillDelivery.java[SkillDelivery],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/task/TaskProtocol.java[TaskProtocol]
+
+Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/SkillDeliveryTest.java[SkillDeliveryTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolRefusalTest.java[TaskProtocolRefusalTest]
+
+Documentation: link:../pm-workflow/doc/developer/workflow-task.adoc[Task Protocol Developer Guide],
+link:../pm-workflow/doc/adr/workflow-task/004-the-delivery-record-is-a-runtime-projection.adoc[ADR workflow-task/004]
+
+== link:../../plan-marshall-documentation/doc/requirements/04-tools.adoc[Tools]
+
+[#PM-TOOL-1]
+=== PM-TOOL-1: Core Workflow Verb Set (`pm_state`, `pm_do`)
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-TOOL-1[PM-TOOL-1]
+
+Implementation (the task-protocol side of the verbs, as far as the library modules carry it and not yet bound to the MCP
+tool surface: every call of a task entity is checked, in the order of the specification, against the caller's job end,
+its fenced generation, the lease and the link the call stands for, and a submit also checks the delivered skills; an
+off-track signal already held for the attempt with another action is refused `invalid_link_args`; the first valid
+submit or infeasible link closes the task exactly once; the arguments of an entity link against its closed schema are
+the entity representation's and are not validated here, and `pm_wait`, the tool schemas, the resource URIs and the
+transport are not implemented here): link:../pm-workflow/src/main/java/de/planmarshall/workflow/task/TaskProtocol.java[TaskProtocol],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/task/TaskCall.java[TaskCall],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/task/CallResult.java[CallResult],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/task/TaskRefusal.java[TaskRefusal],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/task/JobState.java[JobState],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/task/WaitRequest.java[WaitRequest],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/task/WaitAnswer.java[WaitAnswer]
+
+Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolOfferTest.java[TaskProtocolOfferTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolSubmitTest.java[TaskProtocolSubmitTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolRefusalTest.java[TaskProtocolRefusalTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolInterleavingTest.java[TaskProtocolInterleavingTest]
+
+Documentation: link:../pm-workflow/doc/developer/workflow-task.adoc[Task Protocol Developer Guide],
+link:../pm-workflow/doc/adr/workflow-task/001-the-protocol-decides-the-runtime-transports.adoc[ADR workflow-task/001]
+
 == link:../../plan-marshall-documentation/doc/requirements/06-execution.adoc[Execution]
 
 [#PM-EXEC-1]
@@ -1510,6 +1559,48 @@ link:../pm-workflow/doc/developer/workflow-model.adoc[The One Model Caller Devel
 link:../pm-core/doc/adr/core-role/001-role-sets-and-the-effective-configuration.adoc[ADR core-role/001],
 link:../pm-core/doc/adr/core-role/002-two-digests-over-the-effective-values.adoc[ADR core-role/002],
 link:../pm-workflow/doc/adr/workflow-model/001-model-caller-and-classes-at-use.adoc[ADR workflow-model/001]
+
+[#PM-WORK-2]
+=== PM-WORK-2: Task Protocol
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-2[PM-WORK-2]
+
+Implementation (the queue task record, the queue of a project below `projects/<project_id>/queue/` and of the machine
+below `machine/queue/`, the persisted generation fence, the activity journal of a task, and the protocol that offers,
+acknowledges, leases, fences, settles `submitted` and `infeasible`, closes `lost`, re-offers, records the off-track
+signals with their `security` audit record and delivers skills; the outcome `asked`, the `awaiting_answer` and
+`suspended` behaviour and the continuation are `question-continuation`'s, and the runtime that serves a task to a
+harness worker, the worker launch, the `worker-task` unit of the assembly and the MCP tools are not wired here): link:../pm-core/src/main/java/de/planmarshall/core/queue/QueueTaskRecord.java[QueueTaskRecord],
+link:../pm-core/src/main/java/de/planmarshall/core/queue/QueueTaskRecordCodec.java[QueueTaskRecordCodec],
+link:../pm-core/src/main/java/de/planmarshall/core/queue/QueueStore.java[QueueStore],
+link:../pm-core/src/main/java/de/planmarshall/core/queue/FencedGenerations.java[FencedGenerations],
+link:../pm-core/src/main/java/de/planmarshall/core/queue/ActivityEntry.java[ActivityEntry],
+link:../pm-core/src/main/java/de/planmarshall/core/queue/ActivityJournal.java[ActivityJournal],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/task/TaskProtocol.java[TaskProtocol],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/task/AuditLogSecurityAudit.java[AuditLogSecurityAudit]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/queue/QueueTaskRecordCodecTest.java[QueueTaskRecordCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/queue/TaskQueueSchemaParityTest.java[TaskQueueSchemaParityTest],
+link:../pm-core/src/test/java/de/planmarshall/core/queue/QueueStoreTest.java[QueueStoreTest],
+link:../pm-core/src/test/java/de/planmarshall/core/queue/FencedGenerationsTest.java[FencedGenerationsTest],
+link:../pm-core/src/test/java/de/planmarshall/core/queue/ActivityEntryTest.java[ActivityEntryTest],
+link:../pm-core/src/test/java/de/planmarshall/core/queue/ActivityJournalTest.java[ActivityJournalTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolOfferTest.java[TaskProtocolOfferTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolSubmitTest.java[TaskProtocolSubmitTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolReOfferTest.java[TaskProtocolReOfferTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolRefusalTest.java[TaskProtocolRefusalTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolInterleavingTest.java[TaskProtocolInterleavingTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/WorkerTaskUnitFixtureTest.java[WorkerTaskUnitFixtureTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/AuditLogSecurityAuditTest.java[AuditLogSecurityAuditTest]
+
+Documentation: link:../pm-core/doc/developer/core-queue.adoc[Task Queue Developer Guide],
+link:../pm-workflow/doc/developer/workflow-task.adoc[Task Protocol Developer Guide],
+link:../pm-core/doc/adr/core-queue/004-generation-fence-beside-the-queue.adoc[ADR core-queue/004],
+link:../pm-core/doc/adr/core-queue/005-record-combinations-checked-at-the-write-boundary.adoc[ADR core-queue/005],
+link:../pm-workflow/doc/adr/workflow-task/001-the-protocol-decides-the-runtime-transports.adoc[ADR workflow-task/001],
+link:../pm-workflow/doc/adr/workflow-task/002-the-re-offer-budget-is-spent-by-counted-attempt-ends.adoc[ADR workflow-task/002],
+link:../pm-workflow/doc/adr/workflow-task/003-the-agent-started-detection-is-audited-through-a-port.adoc[ADR workflow-task/003],
+link:../pm-workflow/doc/adr/workflow-task/004-the-delivery-record-is-a-runtime-projection.adoc[ADR workflow-task/004]
 
 [#PM-WORK-6]
 === PM-WORK-6: Role Qualification

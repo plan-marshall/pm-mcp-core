@@ -1,0 +1,51 @@
+= ADR 006: The Journal Lock Is a Sibling File
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-23
+
+== Context
+
+Store Schemas § Activity Journal gives the journal its own leaf lock, taken on the file, and requires a journal beyond
+the compiled bound to be rewritten by an atomic write-and-rename under the same lock. The two requirements contradict
+each other for a bounded journal: a rename replaces the inode, and the transaction of the substrate
+(`AtomicStoreFile`) documents that a lock on a replaced inode excludes nobody. Between the rename and the close, another
+appender would acquire the “same” leaf key on the new inode and write concurrently — a duplicate `seq` and a lost entry.
+
+The journal is append-only between compactions; the queue record store, the mailbox and the job log keep their locks on
+a sibling file or on an append-only file for the same reason.
+
+== Decision
+
+The leaf lock of a journal is the sibling file `<queue_task_id>.jsonl.lock`, not the journal itself
+(`ActivityJournal.lockFile`). The journal's directory is created before the lock is acquired, because the lock manager
+creates a missing lock file but never its directory. The append, the torn-tail cut and the bounded rewrite run in one
+transaction on that lock; the rewrite writes a temporary sibling and moves it over the journal atomically.
+
+== Alternatives Considered
+
+1. *Keep the lock on the journal and compact in place*.
+   _Rejected_: a truncate-and-write has no crash-safe intermediate state, and the specification asks for the rename.
+2. *Keep the lock on the journal and never compact*.
+   _Rejected_: the bound and its removal of the oldest text entries are specified.
+3. *Correct the specification to a sibling lock*.
+   _Chosen in effect_: this ADR is the recorded correction of the one sentence “taken on the file” for a journal that is
+   replaced; a later edit of the specification may carry the same sentence into it.
+
+== Consequences
+
+* A journal directory holds `<queue_task_id>.jsonl` and `<queue_task_id>.jsonl.lock`; the listing of a scope's journal
+  directory names both.
+* A crash before the rename leaves a temporary sibling that no reader sees; the next append rewrites the journal from the
+  entries it read.
+* The lock survives the rename, so no second appender enters the window the substrate's rule warns of.
+
+== Source
+
+Work package `task-queue-and-protocol`; link:../../../../doc/specification/store-schemas/16-task-queue.adoc#activity-journal[Store
+Schemas § Activity Journal], `AtomicStoreFile` of `core.store`, `LockKey` (`LockLevel.LEAF`).

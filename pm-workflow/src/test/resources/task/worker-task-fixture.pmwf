@@ -1,0 +1,80 @@
+---
+name: Task Protocol
+description: "The protocol of one task: offered to a worker of its role, leased, worked, and settled."
+type: task
+icon: task.protocol
+exit: submitted
+exit: asked
+exit: infeasible
+exit: lost
+modification_date: 2026-10-14
+version: 1.0.0
+author: plan-marshall
+---
+workflow worker-task version 1 format 1
+scope subworkflow
+start task.queued
+
+state task.queued
+    phase inherit
+    auto task.call-model
+        queued          -> task.waiting
+        closed          -> task.lost
+
+state task.waiting
+    phase inherit
+    composite_job task.await-offer
+        offered         -> task.offered
+        released        -> task.queued
+        cancelled       -> task.lost
+
+state task.offered
+    phase inherit
+    composite_job task.await-ack
+        acknowledged    -> task.executing
+        released        -> task.queued
+        cancelled       -> task.lost
+
+state task.executing
+    phase inherit
+    composite_job task.await-entity
+        submitted       -> task.submitted
+        asked           -> task.asked
+        infeasible      -> task.infeasible
+        consulting      -> task.consulting
+        released        -> task.queued
+        cancelled       -> task.lost
+
+state task.consulting
+    phase inherit
+    composite_job task.await-consultation
+        answered        -> task.executing
+        released        -> task.queued
+        cancelled       -> task.lost
+
+state task.awaiting_answer
+    phase inherit
+    composite_job task.await-answer
+        answered        -> task.executing
+        suspended       -> task.suspended
+        released        -> task.queued
+        cancelled       -> task.asked
+
+state task.suspended
+    phase inherit
+    composite_job task.await-resume
+        offered         -> task.offered
+        released        -> task.asked
+        cancelled       -> task.asked
+
+state task.submitted terminal submitted success
+    phase inherit
+
+state task.asked terminal asked unsettled
+    phase inherit
+
+state task.infeasible terminal infeasible failure
+    phase inherit
+
+state task.lost terminal lost indeterminate
+    phase inherit

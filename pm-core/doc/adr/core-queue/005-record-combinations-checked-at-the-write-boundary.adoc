@@ -1,0 +1,49 @@
+= ADR 005: The Record's Combinations Are Checked at the Write Boundary
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-23
+
+== Context
+
+A queue task record is immutable and changes through its `with` methods: a lease sets the status, the lease and the
+attempt in three steps; a settlement clears the lease, sets the outcome, the reason and the closing instant. At every
+intermediate value the record breaks a combination of the schema — a closed task without an outcome, an `offered` task
+without a lease.
+
+A constructor that enforced the combinations refused every intermediate value, so no transition could be built. A
+transaction that re-reads after every step would need several writes under the queue lock and would leave a crashed
+write in a half-transitioned state, which the atomic write-and-rename discipline rules out.
+
+== Decision
+
+The record checks its members' own forms in its constructor: identifiers, role, entity, question id, lengths and the
+ordering inside one member. The combinations of several members are checked by `QueueTaskRecord.validate()`, which runs
+at the two boundaries a record crosses: `QueueStore.write` before writing, and `QueueTaskRecordCodec.read` after
+building from a document. A record that breaks a combination is never persisted and never read.
+
+== Alternatives Considered
+
+1. *A builder per transition, which builds once*.
+   _Rejected_: every transition would have to repeat all components, and a new component would touch every transition.
+2. *A mutable record assembled under the lock*.
+   _Rejected_: the record is the public value of the store and is shared with the protocol and the tests; mutation would
+   move the schema's guarantees into every caller.
+
+== Consequences
+
+* An intermediate value can exist in memory; it cannot be written and cannot be read.
+* A new cross-field rule is a new check in `validate()`; a new member's own form belongs to the constructor or to the
+  nested record's.
+* The store, not the record's constructor, is the place a caller sees the refusal of a combination, and the codec
+  reports it as a `StoreRefusal` naming the file.
+
+== Source
+
+Work package `task-queue-and-protocol`; link:../../../../doc/specification/store-schemas/16-task-queue.adoc#queue-task-record[Store
+Schemas § Queue Task Record].
