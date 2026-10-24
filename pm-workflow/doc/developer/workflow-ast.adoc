@@ -213,6 +213,13 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
   entry or exit at the frontmatter's location, and a binding of an undeclared entry or of a missing state at the
   binding's.
 * *No empty start state*: a unit with entries has an empty `startState`; no reader passes or expects an empty string.
+* *Closed hierarchies*: every sealed interface lists its variants as nested records, so a `switch` over them needs no
+  `default`, and adding a variant breaks every such `switch` at compile time. A new construct is a new variant, never an
+  open base class.
+* *No validation*: a record takes what it is given. Bounds, reachability, the interface rules and every other rule of the
+  specification belong to the static verification of `workflow.verify`, never to the tree; a tree that exists is
+  well-formed, not necessarily valid. Structural comparison happens after the source locations are stripped
+  (`AstWithoutLocations`).
 
 == Testing
 _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
