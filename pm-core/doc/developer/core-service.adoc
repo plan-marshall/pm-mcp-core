@@ -109,6 +109,54 @@ of each cause to its row and fate, the causes covering exactly rows 2 to 4, the 
 control). The runner of the runtime is described in
 link:../../../pm-runtime/doc/developer/runtime-job.adoc[Job Runtime (`runtime.job`)].
 
+== The Lock Manager Interface and the Lock Order
+
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]_
+
+`LockManager.openTransaction()` returns a `LockTransaction`, and every lock acquisition of the runtime goes through it.
+The interface is the engine's view: a transaction names no file and no level, it acquires keys. The key of a lock is a
+`LockKey` of `core.store`, the order they may be taken in is `LockOrder`'s, and the eleven levels are `LockLevel`'s
+(link:core-store.adoc[Scope Stores]); the interface, the order and the keys are one contract, and a second way to take a
+lock would bypass the order.
+
+[horizontal]
+`acquire(key)`:: Asserts the total lock order and takes the lock in one call. A key the order refuses is logged, its
+audit record is handed to the `AuditSink`, nothing is acquired and no lock file is created, and the call throws
+`InternalFaultException` (the failure class `internal_fault`). Mapping the exception to a wire error is the assembly's
+job; `pm-core` names none.
+`holds(key)`:: Answers whether this transaction holds the key. A store operation refuses a transaction that does not
+hold its store's key with `InternalFaultException` (reason `store_lock_not_held`), before it touches the file.
+`close()`:: Releases every held key, the last acquired first. A transaction is closed before the next one is opened; a
+second transaction of the same thread is not checked against the first.
+
+The implementation in `pm-runtime` keeps one in-process lock per key and at most one open channel and OS lock per lock
+file, counted by its holders (link:../../../pm-runtime/doc/developer/runtime-lock.adoc[`runtime.lock`]). The runtime has
+exactly one instance: a second manager in the same process meets the first one's OS lock, fails, and on closing the
+channel it opened releases the first one's lock.
+
+`LiveWork` is the runtime's answer to "does this project have live work?" — its non-terminal plans and epics and its
+running jobs. `unenrol` asks it while it holds the project's enrolment lock, and refuses with `scope_active` naming the
+items; the live-work set and that refusal are
+link:../../../pm-runtime/doc/adr/runtime-enrolment/004-unenrol-refused-while-live-work.adoc[ADR runtime-enrolment/004].
+
+== The Audit Sink
+
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]_
+
+`AuditSink.append(event)` takes an `AuditEvent`: one record with an event name, a category, an outcome and its detail
+keys. The factories of `AuditEvent` are the one source of an event's name and detail keys; an enrolment write, a lock
+order violation, a store mutation and a roll-forward each have their factory, and a caller never builds a record by
+hand.
+
+Delivery of a store mutation's record is at least once, deduplicated by the record's `transaction_id`: the mutation owes
+the record in a durable intent before it changes the store, and the next recovery or repair hands it over again if the
+sink refused it. `AuditLogSink` of `core.store` is the production sink over the audit log
+(link:core-store.adoc#_audit_log[Scope Stores § The Audit Log]); the audit store that implements the deduplication is not
+part of `pm-core`. A sink that refuses a record does not fail the data operation: the record stays owed and is logged.
+
+The records of a lock-order violation and of a tampered or insecure enrolment are appended directly, not owed: they
+changed nothing and recur with the next attempt.
+
 == Specification Tracing
 
 * Module structure: link:{docs}/specification/module-structure.adoc[Module Structure Specification] (`pm-core`, the

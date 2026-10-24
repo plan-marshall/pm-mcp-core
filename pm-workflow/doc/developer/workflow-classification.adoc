@@ -1,0 +1,93 @@
+= The Change Classification (`workflow.classification`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+:src: ../../src/main/java/de/planmarshall/workflow/classification
+:test: ../../src/test/java/de/planmarshall/workflow/classification
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-11[PM-WF-11]_
+
+Package `de.planmarshall.workflow.classification` of `pm-workflow` holds the classification of a plan and of its
+deliverables by the intent of the change: the closed set `ChangeType`. The classification is orthogonal to the domain
+and the client profile: the same intent means the same thing in a Java module and in a documentation repository, and a
+domain extension does not add a type.
+
+Whether a change breaks compatibility is not a change type. That is a separate property of a versioned artifact, and a
+type carries no verdict about it.
+
+== Main Types
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-11[PM-WF-11]_
+
+[cols="1,3",options="header"]
+|===
+|Constant |What it classifies
+
+|`ANALYSIS`
+|An analysis without a change.
+
+|`FEATURE`
+|A new capability.
+
+|`ENHANCEMENT`
+|An extension of an existing capability.
+
+|`BUG_FIX`
+|The correction of a defect.
+
+|`TECH_DEBT`
+|A change that pays down technical debt.
+
+|`VERIFICATION`
+|A verification of what exists.
+|===
+
+Each constant carries two values:
+
+* `wireName()`: the value of `change_type` on the wire and in the store (`analysis`, `feature`, `enhancement`,
+  `bug_fix`, `tech_debt`, `verification`);
+* `priorityOrder()`: the position of the type in the priority order, from one. When several types apply to one plan or
+  deliverable, the lower position is the more specific intent and is the one recorded.
+
+The order is part of the contract, not a presentation detail: a plan whose deliverables name several types takes the
+most specific one, and a change of the order changes that decision. `ChangeTypeTest` pins both values of every constant
+and derives the expected set from the enum at run time, so a new constant fails the test until it is described.
+
+== Using the Classification
+
+The type is written as `change_type` in the plan and the deliverable records and is read back by its wire name. Build a
+value with `ChangeType.valueOf(name)` only where the name is already known to be valid; a value read from a document is
+mapped by its wire name, and an unknown wire name is a refusal of the reader, never of this enum. A caller compares
+constants, never strings.
+
+Nothing in this package decides a type from content: the classification is an input of the plan, and a derivation of it
+(a guess from the diff, the labels of a pull request or the words of a request) belongs to the package that owns that
+input.
+
+== Invariants and Failure Modes
+
+* *Six values, no more.* A domain extension cannot add a change type; a new intent is a new constant here, with its wire
+  name and its priority position.
+* *The wire names are stable.* They are stored in the plan and deliverable records; a renamed constant keeps its wire
+  name, or the stored documents no longer read back.
+* *Priority is total and gap-free.* Every constant has a distinct position starting at one; the order is a decision, not
+  an enumeration accident.
+* *Compatibility is not here.* No member of the enum states whether a change breaks compatibility; a caller that needs
+  that asks the artifact's own version or format rule.
+
+== Testing
+
+link:{test}/ChangeTypeTest.java[`ChangeTypeTest`]:: every constant with its wire name and its priority position, the
+priorities from one without a gap or duplicate, the wire names unique, and the expected set derived from the enum at run
+time so a new constant is described before the test passes.
+
+== Specification Tracing
+
+* Specification: link:{spec}/phase-workflows/03-q-gate-and-execute.adoc[Phase Workflows § Q-Gate Validation,
+  Change-Type & Unplanned-Change Contracts],
+  link:{spec}/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store] (the closed `change_type`
+  enumeration), link:{docs}/specification/module-structure.adoc[Module Structure Specification]
+* Requirement: link:{docs}/Requirements.adoc#PM-WF-11[PM-WF-11]

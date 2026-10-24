@@ -22,7 +22,7 @@ The commands for the whole repository are in `CLAUDE.md`.
 
 == Developer Documentation
 
-* link:doc/developer/provider-git.adoc[Cache Repository Operations (`provider.git`)]
+* link:doc/developer/provider-git.adoc[The Git Contract, the Project Operations and the Cache Repository Operations (`provider.git`)]
 * link:doc/developer/provider-git-ported.adoc[Ported-Primitive Tests (`provider.git.ported`)]
 
 == ADRs

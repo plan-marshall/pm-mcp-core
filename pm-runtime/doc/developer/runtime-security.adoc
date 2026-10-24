@@ -1,54 +1,114 @@
-= Worker Credential Boundary (`runtime.security`)
-:toc: left
-:toclevels: 2
+= Authentication Seams (`runtime.security`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
 :nofooter:
 
-link:../../README.adoc[`pm-runtime`] » Worker Credential Boundary
+:docs: ../../../../plan-marshall-documentation/doc
+:src: ../../src/main/java/de/planmarshall/runtime/security
+:test: ../../src/test/java/de/planmarshall/runtime/security
 
-== What the package is for
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-SEC-4[PM-SEC-4]_
 
-`de.planmarshall.runtime.security` resolves what a presented credential authenticates: the credential kinds, the
-registries of job tokens and paired devices, and the constant-time comparison and digest of secrets. A worker never
-receives the runtime token; it connects back through a job token of its own, and the daemon resolves the job from the
-token's digest on every request.
+Package `de.planmarshall.runtime.security` of `pm-runtime` holds what the authentication of the daemon resolves a
+presented credential through: the kinds of token it accepts, the registries that resolve a token's hash to the job or
+the paired device it was minted for, the minting and digest of a worker's job token, and the constant-time comparison
+and digest of secrets. The package holds no listener and no request path; the assembly `pm-mcp-server` authenticates a
+request and asks these seams.
 
-== Main types
+== Main Types
+_Requirements: link:{docs}/Requirements.adoc#PM-SEC-4[PM-SEC-4]_
 
-`CredentialKind`::
-The closed set of credentials the daemon accepts.
+[cols="1,3",options="header"]
+|===
+|Type |What it is
 
-`JobTokenRegistry`::
-The port that resolves a presented token's SHA-256 to the job it was minted for. A revoked token still resolves, so its
-calls are answered by the tool handler rather than by a transport refusal.
+|link:{src}/CredentialKind.java[`CredentialKind`]
+|The closed kinds of token the runtime accepts. The constants are its source, and the listener each kind counts on is
+stated in its Javadoc and in the assembly's authenticator; this guide does not repeat the list.
 
-`JobTokens`::
-Mints the 256-bit job token at a spawn and digests it. `sha256Hex` is the value the job record stores; the token is
-never written, logged or put into a message.
+|link:{src}/JobTokenRegistry.java[`JobTokenRegistry`]
+|`resolve(tokenSha256)` → the `JobBinding(jobId)` the token was minted for, or empty for an unknown token. Only the hash is
+stored (in the job record); a revoked token still resolves, so its calls are answered by the tool handler, never `401`.
 
-`DeviceRegistry`::
-The paired devices of the daemon.
+|link:{src}/JobTokens.java[`JobTokens`]
+|`mint()` draws a random 256-bit token, base64url without padding; `sha256Hex(token)` is the value the job record stores;
+`hex(digest)` spells a raw digest. The token itself is never written, logged or put into a message.
 
-`Secrets`::
-SHA-256 of a presented secret and the constant-time comparison of two secrets.
+|link:{src}/DeviceRegistry.java[`DeviceRegistry`]
+|`resolve(secretSha256)` → the device id, or empty for an unknown, revoked or expired secret. The secret has the prefix
+`pmw_`; the registry is checked on every request without a cache (the web device store).
 
-== How a worker credential is made and retired
+|link:{src}/Secrets.java[`Secrets`]
+|`sha256(secret)` over the UTF-8 bytes, and `constantTimeEquals(expected, presented)` through `MessageDigest.isEqual`.
+|===
 
-1. `LaunchComposer` mints the token with `JobTokens.mint()` while it composes the launch.
-2. Only `JobTokens.sha256Hex(token)` enters the `worker` block (`job_token_sha256`); the token itself travels in the
-   relay's `PM_MCP_JOB_TOKEN` environment in the per-call MCP configuration.
-3. `JobTokenStore.register` records the digest for the generation, and `resolve` answers the job on every request.
-4. `JobTokenStore.revoke` removes the generation's token with the job's fate.
+== Worker Job Token
 
-A `zero_tool` worker has no connection and therefore no token.
+A worker never receives the runtime token. At the spawn, `LaunchComposer` mints a token with `JobTokens.mint()`, and only
+`JobTokens.sha256Hex(token)` enters the worker block of the job record (`job_token_sha256`). The token itself travels in
+the relay's `PM_MCP_JOB_TOKEN` environment in the per-call MCP configuration; the relay sends it and the daemon resolves
+the job from its digest on every request.
 
-== Invariants
+`JobTokenStore` (in `runtime.launch`) is the registry over the job records: `register(generationId, tokenSha256)` at the
+start, `resolve` on every request, and `revoke(generationId)` in the job's settlement, so a token is valid only while its
+job runs. A `zero_tool` worker has no connection and therefore no token.
 
-* No store, log, audit record or error message contains a job token; only its SHA-256 is recorded.
-* The digest is compared in time independent of where the inputs differ (`MessageDigest.isEqual`).
-* A token is valid only while its job runs; a revoked token never resolves.
+== Which Kind Counts Where
 
-== Specification
+The listener a request arrived on fixes which kinds count:
 
-* `doc/specification/model-work/04-worker-launch.adoc` (Job Token, Generation & Connection Binding)
-* `doc/specification/store-schemas/10-job-and-lesson-records.adoc` (Job Record)
-* `doc/specification/job-runtime/02-confinement-and-environment.adoc` (Job Environment)
+* the runtime token everywhere on the Unix socket;
+* the job token on `/mcp` of the Unix socket only;
+* the device secret on the web listener only.
+
+A credential of the wrong kind for the listener is not resolved at all. The three kinds are a closed set: a new kind is
+a new constant here and a new branch in the assembly's authenticator, never an open string.
+
+Only a hash of a secret is persisted. The job token's SHA-256 is in the job record, and the device secret's SHA-256 is in
+the web device store; neither store holds the secret itself. A presented secret is hashed with `Secrets.sha256` and
+compared with `Secrets.constantTimeEquals`, so the time a comparison takes does not say where two values differ.
+
+== Invariants and Failure Modes
+
+* *Resolution answers empty, not an exception.* An unknown token is an empty `Optional`; the caller answers `401` and
+  nothing is logged with the presented value.
+* *A revoked job token resolves.* The job record keeps the hash after a revocation so a call still reaches the tool
+  handler, which answers that the job is no longer active. Treating a revoked token as unknown would turn that answer
+  into a transport error.
+* *The device registry is uncached.* Each request asks the store, so a revocation or an expiry takes effect on the next
+  request.
+* *No secret reaches a log, an exception or an audit detail.* Neither registry, nor `Secrets` or `JobTokens`, logs its
+  input. A message names the kind and the outcome, never the value or its hash.
+* *Comparison is constant-time.* Never use `String.equals` or `Arrays.equals` on a secret or a digest of one.
+
+== Extending the Package
+
+* A new credential kind: add the constant to `CredentialKind`, add the resolution path to the assembly's authenticator,
+  and state on which listener the kind counts.
+* A new resolution source: implement `JobTokenRegistry` or `DeviceRegistry` behind the seam and wire it in the assembly.
+  The interface stays two methods; the store behind it is not this package's.
+* A new digest: use `Secrets`, not a local `MessageDigest`, so one spelling of the algorithm and one comparison rule
+  exist.
+
+== Testing
+
+The package has no unit test of its own in this module's test tree yet: `CredentialKind`, the two registries and
+`Secrets` are exercised through the assembly's authentication path, which implements the registries. `JobTokens` is
+exercised by the launch tests of `runtime.launch`, which assert that only the digest enters the job record. A test added
+here should cover:
+
+* the three constants and the listener each one counts on;
+* a resolved and an unknown token for both registries, and a revoked job token that still resolves;
+* the UTF-8 digest of `Secrets.sha256` and the equal and unequal cases of `constantTimeEquals`, with an equal prefix and
+  equal length;
+* a minted job token of 256 bits and its digest, and that two mints differ.
+
+== Specification Tracing
+
+* Specification: link:{spec}/credentials-and-enrolment/03-audit-and-outbound-https.adoc[Credentials & Enrolment § Audit
+  and Outbound HTTPS], link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc[Runtime Lifecycle § Startup,
+  Recovery & Drain] (the runtime token), link:{spec}/model-work/04-worker-launch.adoc[Model Work § Worker Launch] (the
+  job token)
+* Requirement: link:{docs}/Requirements.adoc#PM-SEC-4[PM-SEC-4]

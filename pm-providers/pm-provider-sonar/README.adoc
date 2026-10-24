@@ -22,6 +22,5 @@ The commands for the whole repository are in `CLAUDE.md`.
 
 == Developer Documentation and ADRs
 
-The module has no developer documentation and no ADRs yet. A later plan writes them to
-`doc/developer/provider-sonar.adoc` and `doc/adr/provider-sonar/` of this module. The index of all ADRs of the
-repository is link:../../doc/adr/README.adoc[`doc/adr/README.adoc`].
+The developer guide is link:doc/developer/provider-sonar.adoc[`provider-sonar.adoc`]. The module has no ADRs of its own
+yet. The index of all ADRs of the repository is link:../../doc/adr/README.adoc[`doc/adr/README.adoc`].

@@ -1,0 +1,118 @@
+= GitLab: Native Client and `glab` Variant (`provider.gitlab`) Developer Guide
+:docs: ../../../../../plan-marshall-documentation/doc
+:toc:
+:toclevels: 3
+:nofooter:
+
+:spec: ../../../../doc/specification
+:src: ../../src/main/java/de/planmarshall/provider/gitlab
+:test: ../../src/test/java/de/planmarshall/provider/gitlab
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1], link:{docs}/requirements/09-technology.adoc#PM-TECH-2[PM-TECH-2]_
+
+Package `de.planmarshall.provider.gitlab` connects the engine to GitLab in two variants: the native REST client over the
+shared HTTP base `pm-provider-http` (link:../../../pm-provider-http/doc/developer/provider-http.adoc[`provider.http`]), and
+the argument vectors of the `glab` CLI variant. Both cover the same merge path and review operations; the engine picks
+one by the enrolment's provider configuration.
+
+The package is a client, not a CI workflow: it returns typed results and closed outcomes, and the engine's `ci` contract
+is built on top of them elsewhere.
+
+== Main Types
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]_
+
+[cols="1,3",options="header"]
+|===
+|Type |What it does
+
+|link:{src}/GitLabClient.java[`GitLabClient`]
+|The native REST client (`/api/v4`): `merge(iid, sha)` and `mergeTrainAdd(iid, sha)` bound to the expected head,
+`discussions(iid)` with `Discussion` and `Note`, `reply(iid, discussionId, body)`, `resolve(iid, discussionId)`,
+`jobTrace(jobId)` and `tokenIdentity()` (`TokenIdentity`). Paginated reads follow the base's `Link` pagination with a
+page cap of 50.
+
+|link:{src}/GlabCommands.java[`GlabCommands`]
+|The argument vectors of the `glab` variant, composed server-side from the same closed set of operations, each an
+`Invocation(argv, stdin)`: merge, merge-train add, discussions, reply, resolve, job trace, token identity and the creation
+of a merge request. Every operation goes through `glab api`, which answers with the REST JSON.
+|===
+
+== The Native Client
+
+The client is constructed with an `HttpClient` already pinned to the GitLab origin and with the project path. It sends
+the bearer token the base resolves per request. Every merge call carries the expected head `sha`: a merge or a train add
+is refused by GitLab when the head moved, rather than merging a head the caller did not review.
+
+`discussions(iid)` reads the notes of every discussion and follows pagination with a page cap. `Discussion.resolved()`
+is true when every note that can be resolved is resolved; a note that cannot be resolved is filtered out and does not
+count either way.
+
+`tokenIdentity()` answers through `GET personal_access_tokens/self`; when GitLab refuses that with `400` because the token
+is of another type, the client reads `GET /user` instead and still answers a `TokenIdentity`. Only a failed read is an
+outcome, not a `TokenIdentity` with missing scopes.
+
+== The `glab` Variant
+
+`GlabCommands` composes the argument vector and the payload of one invocation, and the caller runs it. Three rules shape
+it:
+
+* *A body is standard input, never an argument and never a file.* `reply`, `createMergeRequest` and every other call with
+  a body pass `--input -` and return the JSON as `Invocation.stdin`.
+* *Every identifier that enters the vector is validated.* The host, a discussion id and a branch each match a pattern
+  first, the project path is URL-encoded, and a job id is range-checked, so no value can start with `-` and be read as a
+  flag.
+* *The operation set is closed.* Each method answers one fixed `glab api` call; a caller cannot compose an arbitrary
+  argument vector through this type.
+
+== Invariants and Failure Modes
+
+* *The head is part of the merge.* Both variants send the expected head; a moved head is an outcome of the call, never a
+  silent merge of another commit.
+* *A body is never an argument.* A body on a command line is visible in the process table and may be logged; the `glab`
+  variant streams it on standard input, and the native variant sends it in memory.
+* *A paginated read is complete or marked incomplete.* The page cap is a safety bound; a caller that needs the whole set
+  checks the completeness the base reports, not the length of the list.
+* *A credential refusal is not a failure.* `AUTH_FAILED` and `PERMISSION_DENIED` are told apart from `REJECTED` and
+  `FAILED`, and the caller reports the first two as a configuration problem.
+* *The token is not in a vector or a result.* The `glab` CLI resolves its own credential; the native client's token comes
+  from the base and is never put into an argument or a detail.
+
+== Extending the Package
+
+. Add the operation to `GitLabClient` with `Result<T>` and to `GlabCommands` with an `Invocation`, or to one variant only
+   where the other cannot express it; the engine's contract names which variants it supports.
+2. Validate every identifier the vector takes, and pass every body on standard input.
+3. Add a canned route response to `GitLabClientTest` and the expected vector and stdin to `GlabCommandsTest`.
+4. Document in the method's Javadoc which outcome a moved head, a refused permission and a missing job trace answer.
+
+== Testing
+
+Both tests run without a network.
+
+[horizontal]
+link:{test}/GitLabClientTest.java[`GitLabClientTest`]:: every operation against the mock web server, the head-bound
+merge and train add, the discussion and note reading with its resolved rule, the page cap, a reply and a resolve, the job
+trace, the token identity with its `400` case, and the outcome mapping of an error status and a transport failure.
+link:{test}/GlabCommandsTest.java[`GlabCommandsTest`]:: the vector of every operation, the body on standard input and
+never in the vector, the validated identifiers, the refusal of a value that would read as a flag, and the closed
+operation set.
+
+== Pitfalls
+
+* *Do not pass a description or a note as an argument.* It is a body, and the `glab` variant passes it on standard input.
+* *Do not omit the expected head.* A merge without it merges whatever the head is at the moment of the call.
+* *Do not read an unresolvable note as a verdict.* The resolved rule ignores notes that cannot be resolved; a caller that
+  needs to know whether any note is unresolved reads the notes, not only `resolved()`.
+* *Do not build a vector by string concatenation.* Compose the list as `GlabCommands` does, with each value validated on
+  its own.
+
+== Specification Tracing
+
+* Specification: link:{docs}/specification/module-structure.adoc#module-pm-provider-gitlab[Module Structure §
+  `pm-provider-gitlab`], link:{spec}/credentials-and-enrolment/01-provider-credentials.adoc#agent-credentials[Credentials
+  & Enrolment § Agent Credentials of the Native Variant],
+  link:{spec}/phase-workflows/06-finalize-re-entry-and-merge.adoc[Phase Workflows § Finalize Re-Entry and Merge]
+* The shared base: link:../../../pm-provider-http/doc/developer/provider-http.adoc[`provider.http`]
+* Decisions: link:../../../pm-provider-http/doc/adr/provider-http/001-neutral-class-names.adoc[`provider.http` ADR 001],
+  link:../../../../doc/adr/002-cui-http-and-the-mock-web-server-for-http.adoc[repository ADR 002]
