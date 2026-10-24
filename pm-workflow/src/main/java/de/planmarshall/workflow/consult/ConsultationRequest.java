@@ -23,27 +23,29 @@ import de.planmarshall.core.role.RoleClass;
  * <p>
  * The consulted role's harness, model and effort are resolved by the caller — the worker of that role is started from
  * the role's own effective configuration — and are not a member here; the consultation task names the role, and the task
- * protocol offers it to a generation of that role. The question travels with the ask; its durable home in the asking
- * task's facts is the entity representation's, not this record's.
+ * protocol offers it to a generation of that role. The question travels with the ask; the server composes it into the
+ * consultation entity's representation, and this package does not persist it.
  *
- * @param askingTaskId  the asking queue task
- * @param generationId  the generation that follows the link
- * @param role          the consulted role
- * @param roleClass     the class of the consulted role
- * @param declaredRoles the roles the state declares with {@code consult role}
- * @param question      the question, 1 to 4000 characters
- * @param at            the instant of the ask
+ * @param askingTaskId    the asking queue task
+ * @param generationId    the generation that follows the link
+ * @param role            the consulted role
+ * @param roleClass       the class of the consulted role
+ * @param formDowngraded  whether the consulted role's warm artifact runs fresh because only the fresh form qualifies
+ * @param declaredRoles   the roles the state declares with {@code consult role}
+ * @param question        the question, 1 to 4000 characters
+ * @param at              the instant of the ask
  * @since 0.1
  */
 public record ConsultationRequest(String askingTaskId, String generationId, String role, RoleClass roleClass,
-List<String> declaredRoles, String question, Instant at) {
+boolean formDowngraded, List<String> declaredRoles, String question, Instant at) {
 
     private static final Pattern ROLE = Pattern.compile("[a-z][a-z0-9-]{1,31}");
     private static final Pattern GENERATION = Pattern.compile("l-[0-9a-f]{16}");
 
     /**
      * @throws NullPointerException     if a required component is {@code null}
-     * @throws IllegalArgumentException if an id, the role or the generation breaks its form, or a declared role does
+     * @throws IllegalArgumentException if an id, the role or the generation breaks its form, or a declared role is not
+     *                                  a role name
      */
     public ConsultationRequest {
         if (QueueTaskId.parse(askingTaskId).isEmpty()) {

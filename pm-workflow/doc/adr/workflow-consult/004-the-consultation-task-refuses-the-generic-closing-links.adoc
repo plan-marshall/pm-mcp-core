@@ -1,0 +1,51 @@
+= ADR 004: The Consultation Task Refuses the Generic Submit and Infeasible Links
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-24
+
+== Context
+
+A consultation entity offers exactly one link, `submit:answer`, and no `consult`, `ask` or infeasible link
+(`model-work/05-consultation.adoc#consult-serving`, Depth one). The task protocol is the generic closer of every queue
+task: `TaskProtocol.submit` closes a task `submitted` and `TaskProtocol.infeasible` closes it `infeasible`, from the
+task record alone. A consultation task is a queue task of the consulted role, so without a check either call would
+close it, and the asking task's consultation entry would stay `open` with no answer and no `lost` delivery.
+
+The check could live in the server's routing (send a consultation task's `submit` to `ConsultationService.answer`), in
+the task protocol, or in both.
+
+== Decision
+
+`TaskProtocol.submit` and `TaskProtocol.infeasible` refuse a task of kind `consultation` with `link_not_available`; the
+consultation is closed only by `ConsultationService.answer` (`submitted`, with the answer) or
+`ConsultationService.lost` (`lost`, with its reason). A consultation task the protocol closes through another path —
+`report` ending its attempts — is repaired by `ConsultationService.reconcile`.
+
+== Alternatives Considered
+
+1. *Rely on the server's routing alone.*
+   _Rejected_: the protocol is a library any caller may use, and the record alone cannot tell a caller to route
+   differently. A missing route would leave the consultation `open` forever.
+2. *Make `submit` carry the answer as a generic result.*
+   _Rejected_: the queue task record has no result member, and the answer's specified home is the asking task's
+   consultation entry, which the consultation service writes with the delivery in one transaction.
+
+== Consequences
+
+* A generic submit on a consultation task can never silently orphan its answer.
+* The task protocol's developer guide names the exception; the server still routes `submit:answer` to
+  `ConsultationService.answer`, because that link is the one the consultation entity offers.
+* `report` remains available to the supervisor; a consultation it closes without an answer is settled by the
+  consultation service's reconciliation.
+
+== Source
+
+Work package `consultation`; link:../../../../doc/specification/model-work/05-consultation.adoc#consult-serving[Model Work
+§ Serving the Consultation], link:../../../../doc/specification/model-work/02-task-protocol.adoc#execute-submit[Model Work
+§ Execute & Submit].

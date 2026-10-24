@@ -99,17 +99,24 @@ final class ConsultationFixtures {
                 .build();
     }
 
+    static QueueTaskRecord askingWithOrphan(String consultationId) {
+        var entry = new QueueTaskRecord.Consultation(consultationId, REVIEWER, ASKING_GENERATION, AT,
+                QueueTaskRecord.ConsultationStatus.OPEN, null, null, null, null);
+        return executing(ASKER, ASKER_ROLE, ASKING_GENERATION).withStatus(Status.CONSULTING)
+                .withConsultations(List.of(entry));
+    }
+
     static ConsultationRequest request(String askingTaskId, String generation, String role) {
-        return new ConsultationRequest(askingTaskId, generation, role, RoleClass.READ_ONLY, List.of(role), QUESTION,
-                AT);
+        return new ConsultationRequest(askingTaskId, generation, role, RoleClass.READ_ONLY, false, List.of(role),
+                QUESTION, AT);
     }
 
     static ConsultationRequest request(String role, RoleClass roleClass) {
-        return new ConsultationRequest(ASKER, ASKING_GENERATION, role, roleClass, List.of(role), QUESTION, AT);
+        return new ConsultationRequest(ASKER, ASKING_GENERATION, role, roleClass, false, List.of(role), QUESTION, AT);
     }
 
     static ConsultationRequest request(String role, List<String> declaredRoles) {
-        return new ConsultationRequest(ASKER, ASKING_GENERATION, role, RoleClass.READ_ONLY, declaredRoles, QUESTION,
-                AT);
+        return new ConsultationRequest(ASKER, ASKING_GENERATION, role, RoleClass.READ_ONLY, false, declaredRoles,
+                QUESTION, AT);
     }
 }

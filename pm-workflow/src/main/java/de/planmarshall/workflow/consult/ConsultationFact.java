@@ -32,8 +32,8 @@ public record ConsultationFact(String consultationId, String role, ConsultationS
     private static final Pattern ROLE = Pattern.compile("[a-z][a-z0-9-]{1,31}");
 
     /**
-     * @throws NullPointerException     if a required component is {@code null}
-     * @throws IllegalArgumentException if the id or the role breaks its form, or the answer is too long
+     * @throws NullPointerException     if the status is {@code null}
+     * @throws IllegalArgumentException if the id or the role is absent or breaks its form, or the answer is too long
      */
     public ConsultationFact {
         if (QueueTaskId.parse(consultationId).isEmpty()) {

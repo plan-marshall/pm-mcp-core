@@ -81,6 +81,9 @@ public final class ConsultationService {
     /** The compiled length of a question and of an answer, in characters. */
     public static final int MAX_TEXT_LENGTH = 4_000;
 
+    /** How long an open consultation entry may wait for its consultation task before it is treated as orphaned. */
+    private static final long ORPHAN_GRACE_SECONDS = 60;
+
     private static final String NO_TASK = "the queue holds no task";
 
     private final QueueStore queue;
@@ -119,8 +122,8 @@ public final class ConsultationService {
 
     /**
      * Opens a consultation: records the consultation on the asking task and moves it to {@code consulting}, then
-     * creates the queue task of the consulted role. When the task cannot be created the asking task is put back as it
-     * was, so no consultation is left open without a task.
+     * creates the queue task of the consulted role. If the task cannot be created, the failure propagates and
+     * {@link #reconcile(Instant)} settles the open entry {@code unavailable} after the creation grace.
      *
      * @param request the ask
      * @return the opened consultation, or the refusal
@@ -172,15 +175,7 @@ public final class ConsultationService {
         if (outcome.get() instanceof ConsultationOutcome.Refused) {
             return outcome.get();
         }
-        try {
-            queue.create(consultationTask(recorded.get(), request, consultationId));
-        }
-        /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
-        catch (RuntimeException failure) {
-            rollback(recorded.get(), consultationId);
-            return refused(ConsultationRefusal.JOB_SCOPE_MISMATCH,
-                    "the consultation task '%s' could not be created".formatted(consultationId));
-        }
+        queue.create(consultationTask(recorded.get(), request, consultationId));
         return outcome.get();
     }
 
@@ -221,18 +216,21 @@ public final class ConsultationService {
     }
 
     /**
-     * Repairs every consultation that closed outside {@link #answer} or {@link #lost} — a consultation task the task
-     * protocol closed without an answer, for example with its attempts spent — and whose asking task still lists it
-     * {@code open}: the entry is settled {@code unavailable}, with the consultation's own closing instant. A
-     * consultation that is still open is never touched.
+     * Repairs the consultations whose delivery left the record behind: an entry still {@code open} whose consultation
+     * task closed outside {@link #answer} or {@link #lost} — for example with its attempts spent — is settled
+     * {@code unavailable}; an entry still {@code open} whose consultation task was never created is settled
+     * {@code unavailable} once it is older than the grace for a creation in flight; and an answered entry recorded to
+     * {@code wait} whose asking generation no longer holds the task is recorded to {@code facts}. A consultation whose
+     * task is still open is never touched.
      *
-     * @param at the instant of the repair, used for a consultation task that closed without a closing instant
-     * @return the number of asking tasks repaired
+     * @param at the instant of the repair
+     * @return the number of consultation entries repaired
      */
     public int reconcile(Instant at) {
         Objects.requireNonNull(at, "at");
         var repaired = new AtomicInteger();
         queue.updateAll(records -> {
+            var existing = records.stream().map(QueueTaskRecord::queueTaskId).collect(Collectors.toSet());
             var askers = new LinkedHashMap<String, QueueTaskRecord>();
             for (var task : records) {
                 if (task.kind() == Kind.WORK) {
@@ -251,6 +249,28 @@ public final class ConsultationService {
                 askers.put(asker.queueTaskId(), settleAsker(asker, task.queueTaskId(),
                         ConsultationStatus.UNAVAILABLE, null, closedAt));
                 repaired.incrementAndGet();
+            }
+            for (var asker : List.copyOf(askers.values())) {
+                var updated = asker;
+                for (var consultation : asker.consultations()) {
+                    if (consultation.status() == ConsultationStatus.OPEN
+                            && !existing.contains(consultation.consultationId())
+                            && consultation.askedAt().plusSeconds(ORPHAN_GRACE_SECONDS).isBefore(at)) {
+                        updated = settleAsker(updated, consultation.consultationId(),
+                                ConsultationStatus.UNAVAILABLE, null, at);
+                        repaired.incrementAndGet();
+                    }
+                }
+                if (updated != asker) {
+                    askers.put(updated.queueTaskId(), updated);
+                }
+            }
+            for (var asker : List.copyOf(askers.values())) {
+                var repairedAsker = repairDeliveryPlace(asker);
+                if (repairedAsker != asker) {
+                    askers.put(repairedAsker.queueTaskId(), repairedAsker);
+                    repaired.incrementAndGet();
+                }
             }
             var after = new ArrayList<QueueTaskRecord>(records.size());
             for (var task : records) {
@@ -383,23 +403,6 @@ public final class ConsultationService {
                 .withOutcome(reason == null ? Outcome.SUBMITTED : Outcome.LOST).withReason(reason).withClosedAt(at);
     }
 
-    private void rollback(QueueTaskRecord recorded, String consultationId) {
-        queue.updateAll(records -> {
-            var current = find(records, recorded.queueTaskId());
-            if (current == null) {
-                return records;
-            }
-            var consultations = current.consultations().stream()
-                    .filter(consultation -> !consultation.consultationId().equals(consultationId))
-                    .toList();
-            var updated = current.withConsultations(consultations);
-            if (current.status() == Status.CONSULTING) {
-                updated = updated.withStatus(current.lease() == null ? Status.QUEUED : Status.EXECUTING);
-            }
-            return replace(records, updated);
-        });
-    }
-
     private ConsultationOutcome openRefusal(QueueTaskRecord asker, ConsultationRequest request) {
         if (asker.kind() != Kind.WORK) {
             return refused(ConsultationRefusal.CONSULTATION_DEPTH,
@@ -436,7 +439,7 @@ public final class ConsultationService {
                 .scope(asker.scope())
                 .entity(consultationId)
                 .stateId(asker.stateId())
-                .formDowngraded(false)
+                .formDowngraded(request.formDowngraded())
                 .status(Status.QUEUED)
                 .continuation(null)
                 .lease(null)
@@ -459,6 +462,31 @@ public final class ConsultationService {
                 return candidate;
             }
         }
+    }
+
+    /**
+     * Rewrites an answered entry recorded to {@code wait} whose asking generation no longer holds the task, so the
+     * durable delivery place is {@code facts}.
+     */
+    private static QueueTaskRecord repairDeliveryPlace(QueueTaskRecord asker) {
+        var generation = asker.lease() == null ? null : asker.lease().generationId();
+        var consultations = new ArrayList<Consultation>();
+        var changed = false;
+        for (var consultation : asker.consultations()) {
+            if (consultation.status() == ConsultationStatus.ANSWERED
+                    && consultation.deliveredTo() == DeliveredTo.WAIT
+                    && consultation.deliveredAt() != null
+                    && !consultation.askedBy().equals(generation)) {
+                consultations.add(new Consultation(consultation.consultationId(), consultation.role(),
+                        consultation.askedBy(), consultation.askedAt(), consultation.status(),
+                        consultation.answer(), consultation.closedAt(), consultation.deliveredAt(),
+                        DeliveredTo.FACTS));
+                changed = true;
+            } else {
+                consultations.add(consultation);
+            }
+        }
+        return changed ? asker.withConsultations(consultations) : asker;
     }
 
     /**

@@ -71,8 +71,8 @@ tasks of its role, acknowledged, executed and answered. Its answer closes it `su
 
 A delivery recorded to `wait` whose generation no longer holds the task — a fence that landed after the answer and
 before the next wait — is treated as a delivery to the successor when the task is represented: the answer is in the
-record's facts, and `links` suppresses that role. Only an answered consultation suppresses the role; an `unavailable`
-one leaves the successor free to consult again.
+record's facts, and `links` suppresses that role. `reconcile` rewrites the durable `delivered_to` to `facts`. Only an
+answered consultation suppresses the role; an `unavailable` one leaves the successor free to consult again.
 
 A consultation that closed `lost` is delivered the same way with the status `unavailable` and no answer, and the asker
 continues on its own judgment (link:../adr/workflow-consult/001-delivery-is-decided-from-the-askers-lease.adoc[ADR
@@ -83,8 +83,9 @@ continues on its own judgment (link:../adr/workflow-consult/001-delivery-is-deci
 The service is the normal closer: the server routes `submit:answer` to `answer` and the model caller routes a role it
 cannot serve to `lost`. A consultation the task protocol closes for another reason — for example its re-offers spent,
 so it closes `lost` `attempts_spent` — leaves the asking task's entry `open`. `reconcile(at)` repairs every such entry
-to `unavailable`, with the consultation's closing instant, and is idempotent; the server calls it on its queue
-reconciliation tick.
+to `unavailable`, with the consultation's closing instant; it also settles an entry whose consultation task was never
+created once the entry is older than the creation grace, and it rewrites a `wait` delivery whose generation no longer
+holds the task to `facts`. It is idempotent, and the server calls it on its queue reconciliation tick.
 
 == The submit refers to the consultation
 
@@ -115,8 +116,7 @@ No rule is kept in a second store, and the service reads no clock: every call ta
   consultation counts the same toward the bound.
 * An answer or a loss is recorded once. The second answer is `stale_entity`, not a second result.
 * The asking task records the consultation before the consultation task exists. If the task cannot be created, the
-  entry is removed and the task put back as it was; a crash between the two writes leaves a `consulting` task with no
-  consultation task, which `reconcile` does not repair (it repairs only a closed consultation task) and the server's
-  queue reconciliation reports.
+  failure propagates and `reconcile` settles the open entry `unavailable` after the creation grace; a crash between
+  the two writes leaves the same state, repaired the same way.
 * A delivery is effective once: to the asking generation's wait, else to the successor's facts
   (link:../adr/workflow-consult/001-delivery-is-decided-from-the-askers-lease.adoc[ADR 001]).
