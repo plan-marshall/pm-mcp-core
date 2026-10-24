@@ -180,7 +180,7 @@ public final class JGitOperations implements GitOperations {
             return resolved.refusal();
         }
         if (branchRef.isPresent() && !input.createBranch() && GitIdentity.isFullCommitId(input.startPoint())
-                && !resolved.id().name().equals(input.startPoint())) {
+                && !resolved.id().name().equalsIgnoreCase(input.startPoint())) {
             return GitResult.of(GitOutcome.GIT_IDENTITY_MISMATCH,
                     input.branch().orElseThrow() + " is at " + resolved.id().name() + ", not " + input.startPoint());
         }
@@ -238,7 +238,7 @@ public final class JGitOperations implements GitOperations {
         if (start == null) {
             return StartPoint.refused(GitOutcome.UNKNOWN_REVISION, input.startPoint());
         }
-        if (resolution == GitIdentity.Resolution.FULL_COMMIT_ID && !start.name().equals(input.startPoint())) {
+        if (resolution == GitIdentity.Resolution.FULL_COMMIT_ID && !start.name().equalsIgnoreCase(input.startPoint())) {
             return StartPoint.refused(GitOutcome.GIT_IDENTITY_MISMATCH,
                     "the pin " + input.startPoint() + " reached " + start.name());
         }

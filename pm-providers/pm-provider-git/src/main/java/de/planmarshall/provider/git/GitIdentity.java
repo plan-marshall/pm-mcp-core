@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import org.eclipse.jgit.errors.AmbiguousObjectException;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.Repository;
 
@@ -32,11 +33,12 @@ import org.eclipse.jgit.lib.Repository;
  */
 public final class GitIdentity {
 
-    /** A full commit id: 40 lower-case hexadecimal digits. */
-    private static final Pattern FULL_COMMIT_ID = Pattern.compile("[0-9a-f]{40}");
+    /** A full commit id: 40 hexadecimal digits, in either case. */
+    private static final Pattern FULL_COMMIT_ID = Pattern.compile("[0-9a-f]{40}", Pattern.CASE_INSENSITIVE);
 
-    /** A prefix that may abbreviate a commit id: 4 to 39 lower-case hexadecimal digits. */
-    private static final Pattern ABBREVIATED_COMMIT_ID = Pattern.compile("[0-9a-f]{4,39}");
+    /** A prefix that may abbreviate a commit id: 4 to 39 hexadecimal digits, in either case. */
+    private static final Pattern ABBREVIATED_COMMIT_ID =
+            Pattern.compile("[0-9a-f]{4,39}", Pattern.CASE_INSENSITIVE);
 
     private GitIdentity() {
     }
@@ -136,10 +138,21 @@ public final class GitIdentity {
         if (fullCommitId) {
             return Resolution.FULL_COMMIT_ID;
         }
-        if (isAbbreviatedCommitId(name) && repository.resolve(name) != null) {
+        if (isAbbreviatedCommitId(name) && resolvesAbbreviated(repository, name)) {
             return Resolution.ABBREVIATED_COMMIT_ID;
         }
         return Resolution.UNKNOWN;
+    }
+
+    /**
+     * Whether the repository resolves the prefix. An ambiguous prefix is an abbreviated id too, not an I/O failure.
+     */
+    private static boolean resolvesAbbreviated(Repository repository, String name) throws IOException {
+        try {
+            return repository.resolve(name) != null;
+        } catch (AmbiguousObjectException _) {
+            return true;
+        }
     }
 
     /**

@@ -67,6 +67,13 @@ class BuildDaemonStoreTest {
     }
 
     @Test
+    @DisplayName("a duplicate path does not change the digest")
+    void duplicatePath() {
+        assertEquals(BuildDaemonStore.digest(List.of(Path.of("/tmp"))),
+                BuildDaemonStore.digest(List.of(Path.of("/tmp"), Path.of("/tmp"))));
+    }
+
+    @Test
     @DisplayName("a relative base is refused")
     void relativeBase() {
         var paths = writeSet();

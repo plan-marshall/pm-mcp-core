@@ -10,8 +10,10 @@
 package de.planmarshall.runtime.job;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -140,9 +142,15 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
         Objects.requireNonNull(enrolment, "enrolment");
         Objects.requireNonNull(jobId, "jobId");
         var write = new ArrayList<Path>();
-        write.add(Path.of(enrolment.projectRoot()));
+        var planMarshall = Path.of(System.getProperty("user.home"), ".plan-marshall").toAbsolutePath().normalize();
+        var projectRoot = Path.of(enrolment.projectRoot()).toAbsolutePath().normalize();
+        requireOutside(projectRoot, planMarshall, "project_root");
+        write.add(projectRoot);
         for (var path : enrolment.writePaths()) {
-            write.add(Path.of(path));
+            var candidate = Path.of(path).toAbsolutePath().normalize();
+            requireOutside(candidate, base, "write_paths");
+            requireOutside(candidate, planMarshall, "write_paths");
+            write.add(candidate);
         }
         write.add(systemTemp);
         write.add(deviceRoot);
@@ -175,9 +183,43 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
      * the store is added, so the path is not self-referential.
      */
     private void addDaemonStore(List<Path> write, ProjectEnrolment enrolment) {
-        var store = BuildDaemonStore.path(base, enrolment.projectId(), write);
+        var store = daemonStore(base, systemTemp, deviceRoot, enrolment);
         BuildDaemonStore.ensure(store);
         write.add(store);
+    }
+
+    /**
+     * The project's daemon store over the write set the confinement composes, before the store itself is added. The
+     * environment and the write set name one directory through this one computation.
+     *
+     * @param base       the runtime base directory
+     * @param systemTemp the system temporary directory
+     * @param deviceRoot the device nodes directory
+     * @param enrolment  the verified enrolment
+     * @return the daemon store of the project and write set
+     */
+    public static Path daemonStore(Path base, Path systemTemp, Path deviceRoot, ProjectEnrolment enrolment) {
+        var write = new ArrayList<Path>();
+        write.add(Path.of(enrolment.projectRoot()));
+        for (var path : enrolment.writePaths()) {
+            write.add(Path.of(path));
+        }
+        write.add(systemTemp);
+        write.add(deviceRoot);
+        return BuildDaemonStore.path(base, enrolment.projectId(), write);
+    }
+
+    /**
+     * @param path  a write path
+     * @param root  a protected runtime tree
+     * @param name  the name of the entry in the message
+     * @throws IllegalArgumentException if the path and the tree contain one another
+     */
+    private static void requireOutside(Path path, Path root, String name) {
+        if (path.startsWith(root) || root.startsWith(path)) {
+            throw new IllegalArgumentException(
+                    "A " + name + " entry overlaps a protected runtime tree: " + path);
+        }
     }
 
     /**
@@ -203,9 +245,21 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
         });
         if (harnessProbe) {
             write.addAll(harnessWritablePaths);
-            write.add(jobPrivate.resolve(DATA));
+            var data = jobPrivate.resolve(DATA);
+            ensureOwnerDirectory(data);
+            write.add(data);
         }
         return new JobConfinement(write, List.of(jobPrivate), denied(null));
+    }
+
+    /** Creates a directory only its owner may enter, as the job-private directories are created. */
+    private static void ensureOwnerDirectory(Path directory) {
+        try {
+            Files.createDirectories(directory);
+            Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwx------"));
+        } catch (IOException e) {
+            throw new UncheckedIOException("Cannot create the job-private directory " + directory, e);
+        }
     }
 
     /** @return the job-private directory of a job */

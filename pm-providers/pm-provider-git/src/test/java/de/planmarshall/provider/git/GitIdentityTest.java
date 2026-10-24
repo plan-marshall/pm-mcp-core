@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Optional;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.lib.ObjectId;
@@ -132,8 +133,11 @@ class GitIdentityTest {
                 () -> assertEquals("refs/pm-mcp/head-at-completion", GitIdentity.runtimeRef("head-at-completion")),
                 () -> assertEquals("refs/remotes/origin/main", GitIdentity.remoteBranchRef("origin", "main")),
                 () -> assertTrue(GitIdentity.isFullCommitId(initial.id())),
+                () -> assertTrue(GitIdentity.isFullCommitId(initial.id().toUpperCase(Locale.ROOT))),
                 () -> assertFalse(GitIdentity.isFullCommitId(initial.id().substring(0, 8))),
-                () -> assertTrue(GitIdentity.isAbbreviatedCommitId(initial.id().substring(0, 8))));
+                () -> assertTrue(GitIdentity.isAbbreviatedCommitId(initial.id().substring(0, 8))),
+                () -> assertTrue(GitIdentity.isAbbreviatedCommitId(
+                        initial.id().substring(0, 8).toUpperCase(Locale.ROOT))));
     }
 
     @Test

@@ -255,6 +255,7 @@ class SubprocessJobRunnerTest {
     }
 
     @Test
+    @EnabledOnOs(OS.LINUX)
     @DisplayName("the launch carries the composed confinement to the launcher")
     void confinementIsPassedToTheLauncher() throws Exception {
         FakePmExec.install(home, FakePmExec.Mode.REPORT_ARGV);

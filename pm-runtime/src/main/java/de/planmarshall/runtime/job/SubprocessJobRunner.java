@@ -357,10 +357,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         this.termination = Objects.requireNonNull(termination, "termination");
         this.confinementComposer = confinementComposer != null ? confinementComposer
                 : JobConfinementComposer.standard(this.base);
-        this.environment = environment != null ? environment
-                : new JobEnvironmentComposer(this.base, Path.of("/tmp"), Path.of("/dev"));
-        this.probeEnvironment = probeEnvironment != null ? probeEnvironment
-                : new JobEnvironmentComposer(this.base, Path.of("/tmp"), Path.of("/dev"));
+        var defaultEnvironment = new JobEnvironmentComposer(this.confinementComposer.base(),
+                this.confinementComposer.systemTemp(), this.confinementComposer.deviceRoot());
+        this.environment = environment != null ? environment : defaultEnvironment;
+        this.probeEnvironment = probeEnvironment != null ? probeEnvironment : defaultEnvironment;
         this.parser = Objects.requireNonNull(parser, "parser");
         this.primitives = Objects.requireNonNull(primitives, "primitives");
         this.clock = clock == null ? InstantSource.system() : clock;

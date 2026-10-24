@@ -56,8 +56,8 @@ Enforcement is not claimed here: on a platform whose launcher applies no ruleset
 
 == Consequences
 
-* Every job the runner launches now carries the confinement options; a launcher that does not understand them refuses
-  the invocation, which is a visible deployment mismatch rather than a silent unconfined job.
+* Every job the runner launches now carries the confinement options. The runtime does not verify launcher support;
+  unsupported-launcher handling and enforcement remain `pm-exec` work in `pm-mcp-clients`.
 * A daemon store's digest changes when the write set changes, so a new enrolment gets a new store and its own daemons.
 * The environment composer's `PATH` is built from the enrolled host tools; a project whose tool is not enrolled has no
   directory for it and the job fails with the tool's own error.

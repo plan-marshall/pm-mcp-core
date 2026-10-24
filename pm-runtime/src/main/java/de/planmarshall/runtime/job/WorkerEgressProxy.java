@@ -54,6 +54,9 @@ public final class WorkerEgressProxy implements AutoCloseable {
     /** How long a tunnel to an admitted destination may take to open. */
     private static final int CONNECT_TIMEOUT_MILLIS = 10_000;
 
+    /** How long a client may take to send the request head. */
+    private static final int REQUEST_HEAD_TIMEOUT_MILLIS = 10_000;
+
     private final String generationId;
     private final Set<String> endpoints;
     private final Consumer<String> activity;
@@ -141,6 +144,7 @@ public final class WorkerEgressProxy implements AutoCloseable {
     private void handle(Socket client) {
         try (client) {
             var input = client.getInputStream();
+            client.setSoTimeout(REQUEST_HEAD_TIMEOUT_MILLIS);
             var requestLine = readLine(input);
             if (requestLine == null) {
                 return;
@@ -156,6 +160,7 @@ public final class WorkerEgressProxy implements AutoCloseable {
                 return;
             }
             drainHeaders(input);
+            client.setSoTimeout(0);
             tunnel(client, destination);
         } catch (IOException _) {
             // A broken client or destination ends its tunnel only; the proxy stays up

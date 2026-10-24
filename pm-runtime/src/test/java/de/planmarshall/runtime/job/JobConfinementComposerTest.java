@@ -12,8 +12,10 @@ package de.planmarshall.runtime.job;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -112,6 +114,19 @@ class JobConfinementComposerTest {
                     () -> assertTrue(confinement.writePaths().contains(Path.of("/home/operator/.m2"))),
                     () -> assertEquals(List.of(base.resolve("run/jobs").resolve(job.value())), confinement.readPaths()));
         }
+
+        @Test
+        @DisplayName("a harness probe gets a data directory that exists and is writable")
+        void harnessProbeData() {
+            var job = JobId.random(JobId.Kind.PROBE);
+
+            var confinement = composer().forProbe(job, Optional.empty(), List.of(), true, List.of());
+
+            var data = base.resolve("run/jobs").resolve(job.value()).resolve("data");
+            assertAll(
+                    () -> assertTrue(Files.isDirectory(data)),
+                    () -> assertTrue(confinement.writePaths().contains(data)));
+        }
     }
 
     @Nested
@@ -195,6 +210,31 @@ class JobConfinementComposerTest {
                     () -> assertFalse(confinement.deniedPaths().contains(Path.of("/run/docker.sock"))),
                     () -> assertFalse(confinement.deniedPaths().contains(Path.of("/run/user/1000/docker.sock")),
                             "the rootless socket stays in the read set under the opt-in"));
+        }
+    }
+
+    @Nested
+    @DisplayName("the protected runtime trees")
+    class ProtectedRoots {
+
+        @Test
+        @DisplayName("a write path under the runtime base is refused")
+        void writePathUnderBase() {
+            var job = JobId.random(JobId.Kind.BUILD);
+            var enrolment = ConfinementFixture.enrolment(project, null,
+                    List.of(base.resolve("cache").toString()), Map.of(), List.of());
+
+            assertThrows(IllegalArgumentException.class, () -> composer().forJob(enrolment, job, List.of(), false));
+        }
+
+        @Test
+        @DisplayName("a write path under ~/.plan-marshall is refused")
+        void writePathUnderPlanMarshall() {
+            var job = JobId.random(JobId.Kind.BUILD);
+            var protectedPath = Path.of(System.getProperty("user.home"), ".plan-marshall", "cache").toString();
+            var enrolment = ConfinementFixture.enrolment(project, null, List.of(protectedPath), Map.of(), List.of());
+
+            assertThrows(IllegalArgumentException.class, () -> composer().forJob(enrolment, job, List.of(), false));
         }
     }
 }

@@ -221,14 +221,7 @@ public final class JobEnvironmentComposer implements SubprocessJobRunner.Environ
      * environment and the write set name one directory.
      */
     private Path daemonStore(ProjectEnrolment enrolment) {
-        var write = new ArrayList<Path>();
-        write.add(Path.of(enrolment.projectRoot()));
-        for (var path : enrolment.writePaths()) {
-            write.add(Path.of(path));
-        }
-        write.add(systemTemp);
-        write.add(deviceRoot);
-        return BuildDaemonStore.path(base, enrolment.projectId(), write);
+        return JobConfinementComposer.daemonStore(base, systemTemp, deviceRoot, enrolment);
     }
 
     private void git(Map<String, String> environment, Optional<String> sshAuthSock, Optional<String> committerName,
