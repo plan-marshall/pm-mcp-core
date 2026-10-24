@@ -112,4 +112,13 @@ class QualificationSettingsStoreTest {
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new QualificationSettings(80, 5, List.of("Not A Role"), false)));
     }
+
+    @Test
+    @DisplayName("a document that is not readable is refused as a StoreRefusal naming it")
+    void unreadableDocument() throws Exception {
+        Files.writeString(file, "{\"format_version\":1,\"revision\":1,\"settings\":42}", UTF_8);
+
+        var refusal = assertThrows(StoreRefusal.class, store::read);
+        assertEquals(file, refusal.file());
+    }
 }

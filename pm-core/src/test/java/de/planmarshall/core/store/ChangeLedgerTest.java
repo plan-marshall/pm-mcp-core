@@ -151,4 +151,17 @@ class ChangeLedgerTest {
                     () -> assertInstanceOf(JsonlStoreFile.Accepted.class, entries.getLast()));
         }
     }
+
+    @Nested
+    @DisplayName("construction")
+    class Construction {
+
+        @Test
+        @DisplayName("a lock that is not the lock of a scope is refused")
+        void otherLockLevel() {
+            assertThrows(IllegalArgumentException.class, () -> new ChangeLedger(
+                    new JsonlStoreFile(file, LockKey.modelSlots(base)), new RecordingLockManager(), _ -> {
+                    }));
+        }
+    }
 }

@@ -51,7 +51,7 @@ import de.planmarshall.core.store.ModelSlotStore.WorkerClass;
  * <p>
  * A slot is its {@code owner}, {@code job_id}, {@code role}, {@code class}, {@code form}, {@code plan_id},
  * {@code acquired_at} and {@code lease_expires_at}; a waiting worker is its {@code owner}, {@code job_id},
- * {@code role}, {@code class}, {@code plan_id} and {@code enqueued_at}. The reader accepts exactly one shape and never
+ * {@code role}, {@code class}, {@code form}, {@code plan_id} and {@code enqueued_at}. The reader accepts exactly one shape and never
  * tolerates another: exactly the current {@code format_version}, only the declared fields, each at most once, and every
  * required field. Anything else that does not parse is unreadable, never an empty store, and every refusal is a
  * {@link StoreRefusal} that names the store file.

@@ -47,7 +47,7 @@ import de.planmarshall.core.store.ModelSlotStore.WorkerClass;
  * bounds {@value #MIN_SLOTS} to {@value #MAX_SLOTS} (Timeouts &amp; Budgets Specification, Model slot lease).
  * <p>
  * The probe that decides whether the runtime of a slot is alive is a seam, so a test decides it without starting a
- * process; {@link #processes()} is the probe of the runtime.
+ * process; {@link Liveness#processes()} is the probe of the runtime.
  *
  * @since 0.1
  */
@@ -113,8 +113,8 @@ public final class ModelSlotScheduler {
      * @param role        the role the worker runs
      * @param workerClass the class of the worker
      * @param form        the form of the worker
-     * @param planId      the plan the worker serves, for every class; {@code null} only for a worker of the machine
-     *                    scope, which belongs to no plan
+     * @param planId      the plan the worker serves, for every class; {@code null} for a worker that serves no plan,
+     *                    the project's workspace scope
      * @since 0.1
      */
     public record Request(LeaseOwner owner, String jobId, String role, WorkerClass workerClass, Form form,

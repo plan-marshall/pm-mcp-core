@@ -37,8 +37,9 @@ request that enqueued it.
   the entry into the lease in a later transaction, when the original request is no longer at hand. Without it the
   lease's form would have to be guessed from the worker class.
 * Every slot and waiting entry of a plan carries its `plan_id`, whatever the worker's class: the pause releases every
-  worker of a plan by that value, so a `read_only` or `zero_tool` worker admitted with `null` would survive a pause. Only
-  a machine-scope worker, which belongs to no plan, carries none. store-schemas/13 was corrected to state both.
+  worker of a plan by that value, so a `read_only` or `zero_tool` worker admitted with `null` would survive a pause. A
+  worker that serves no plan — a task of the project's workspace scope — carries none. store-schemas/13 was corrected
+  to state both.
 * A paused plan releases all of its slots and drops its waiting workers in one transaction, and the workers the freed
   slots make room for are admitted in the same transaction.
 

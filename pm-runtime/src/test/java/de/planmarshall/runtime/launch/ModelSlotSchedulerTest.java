@@ -227,9 +227,26 @@ class ModelSlotSchedulerTest {
     }
 
     @Nested
+    @DisplayName("the request")
+    class TheRequest {
+
+        @Test
+        @DisplayName("refuses a writer without a plan and a missing component")
+        void refusals() {
+            var owner = owner(PLAN);
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class, () -> new Request(owner,
+                            "l-0000000000000001", "writer", WorkerClass.WRITER, Form.FRESH, null)),
+                    () -> assertThrows(NullPointerException.class, () -> new Request(null,
+                            "l-0000000000000001", "writer", WorkerClass.READ_ONLY, Form.FRESH, PLAN)),
+                    () -> assertThrows(NullPointerException.class, () -> new Request(owner,
+                            null, "writer", WorkerClass.READ_ONLY, Form.FRESH, PLAN)));
+        }
+    }
+
+    @Nested
     @DisplayName("the cap")
     class Cap {
-
         @Test
         @DisplayName("lies between 1 and 16, as machine-config.json bounds it")
         void bounds() {

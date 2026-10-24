@@ -232,5 +232,37 @@ class MetricsStoreTest {
 
             assertThrows(StoreRefusal.class, () -> store.snapshot());
         }
+
+        @Test
+        @DisplayName("a tool-uses figure declared not_applicable is refused")
+        void toolUsesNotApplicable() throws Exception {
+            var notApplicable = """
+                    {"format_version":1,"rows":[{"kind":"task","queue_task_id":"qt-0123456789abcdef","attempt":1,
+                     "role":"writer","job_id":"l-0123456789abcdef","generation_id":"l-0123456789abcdef",
+                     "harness":"opencode","harness_version":"1.2.3","model":"m","effort":null,"form":"fresh",
+                     "phase":"phase-5-execute","step_id":null,"envelope_id":null,"predicted_cost":null,
+                     "yield_reason":null,"outcome":"submitted","attempt_end":"closed","cause_class":"benign",
+                     "spend_class":"submitted","population":"model_job","total_tokens":2,
+                     "input_tokens":1,"output_tokens":1,"cache_read_input_tokens":"not_applicable",
+                     "cache_creation_input_tokens":"not_applicable","reasoning_tokens":"not_applicable",
+                     "tool_uses":"not_applicable","cost_usd":"unmeasured","unmeasured_reason":null,
+                     "duration_ms":null,"duration_basis":"process","queued_ms":null,"consultation_of":null,
+                     "recorded_at":"2026-10-22T10:00:00Z"}]}""";
+            Files.writeString(file, notApplicable, UTF_8);
+
+            assertThrows(StoreRefusal.class, () -> store.snapshot());
+        }
+    }
+
+    @Nested
+    @DisplayName("construction")
+    class Construction {
+
+        @Test
+        @DisplayName("a lock that is not the lock of a scope is refused")
+        void otherLockLevel() {
+            assertThrows(IllegalArgumentException.class, () -> new MetricsStore(
+                    new AtomicStoreFile(file, LockKey.buildSlots(base)), new RecordingLockManager()));
+        }
     }
 }

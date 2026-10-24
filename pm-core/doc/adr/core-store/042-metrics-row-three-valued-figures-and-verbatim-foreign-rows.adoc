@@ -1,4 +1,4 @@
-= ADR 042: A Metrics Row Keeps Three-Valued Figures, and the Rows of Other Kinds Stay Verbatim
+= ADR 042: A Metrics Row Keeps Three-Valued Figures, and a Row of Another Kind Keeps Its Content
 :nofooter:
 
 == Status

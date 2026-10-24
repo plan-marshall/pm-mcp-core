@@ -127,7 +127,8 @@ public final class ModelSlotStore {
      * @param role           the role the worker runs
      * @param workerClass    the class of the worker
      * @param form           the form of the worker
-     * @param planId         the plan the worker serves, for every class; {@code null} only for a machine-scope worker
+     * @param planId         the plan the worker serves, for every class; {@code null} for a worker that serves no plan,
+     *                       the project's workspace scope
      * @param acquiredAt     the instant the slot was acquired
      * @param leaseExpiresAt always {@code null}: a model slot has no time bound
      * @since 0.1
@@ -136,9 +137,9 @@ public final class ModelSlotStore {
     Instant acquiredAt, Instant leaseExpiresAt) {
 
         /**
-         * @throws NullPointerException     if a required component is {@code null}
-         * @throws IllegalArgumentException if an identifier or a role breaks its grammar, the instant is null, a
-         *                                  writer has no plan, another class names one, or the lease names an expiry
+         * @throws NullPointerException     if a required component is {@code null}, a writer names no plan, or a plan
+         *                                  id is malformed
+         * @throws IllegalArgumentException if the job id or the role breaks its grammar, or the lease names an expiry
          */
         public Lease {
             Objects.requireNonNull(owner, "owner");
@@ -166,7 +167,8 @@ public final class ModelSlotStore {
      * @param role        the role the worker runs
      * @param workerClass the class of the worker
      * @param form        the form of the worker, which the admission carries into the slot it grants
-     * @param planId      the plan the worker serves; {@code null} only for a machine-scope worker
+     * @param planId      the plan the worker serves; {@code null} for a worker that serves no plan, the project's
+     *                    workspace scope
      * @param enqueuedAt  the instant the worker was enqueued
      * @since 0.1
      */
@@ -174,8 +176,9 @@ public final class ModelSlotStore {
     String planId, Instant enqueuedAt) {
 
         /**
-         * @throws NullPointerException     if a required component is {@code null}
-         * @throws IllegalArgumentException if an identifier or a role breaks its grammar, or a writer has no plan
+         * @throws NullPointerException     if a required component is {@code null}, a writer names no plan, or a plan
+         *                                  id is malformed
+         * @throws IllegalArgumentException if the job id or the role breaks its grammar
          */
         public Waiting {
             Objects.requireNonNull(owner, "owner");
