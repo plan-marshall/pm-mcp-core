@@ -56,9 +56,11 @@ generation, the task and the attempt; `AuditLogSecurityAudit` writes it under th
   first, then work tasks in creation order; a task of a paused plan, a second writer task of a plan whose writer is
   leased, and every task of an outdated generation are skipped.
 * `acknowledge`: `offered` → `executing`, with the instant on the lease and the attempt.
-* `submit`: checks that every skill the task requires was delivered to the generation (else `skills_not_loaded` with
-  the missing `skill://` URIs, and the task stays executing), then closes the task `submitted` in the transaction that
-  validated the submit and releases the lease. Every later call of that generation is `stale_entity`; the task is done
+* `submit`: callers pass the complete required-skill list through `submit(TaskCall, List<RoleSkill>, Instant)`; the
+  form without the list is for a task that requires no skill. The protocol checks that every supplied skill was
+  delivered to the generation (else `skills_not_loaded` with the missing `skill://` URIs, and the task stays
+  executing), then closes the task `submitted` in the transaction that validated the submit and releases the lease. A
+  later call of that generation is `stale_entity` unless the job-end or fence check refuses it first; the task is done
   exactly once.
 * `infeasible`: closes the task `infeasible` through the entity's link, as `submit` closes it `submitted`.
 * `report`: ends the attempt without a result, releases the lease and re-queues the task. An end that counts spends a
