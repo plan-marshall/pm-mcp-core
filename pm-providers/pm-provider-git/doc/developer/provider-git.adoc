@@ -14,12 +14,58 @@
 _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/06-execution.adoc#PM-EXEC-6[PM-EXEC-6], link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
 
 Package `de.planmarshall.provider.git` holds the git contract of PM-MCP, `GitOperations`, and its native variant on JGit, `JGitOperations`.
-This guide covers the part of the contract the corpus sources use: the three cache repository operations and `JGitSourceRepository`, the git part of the fetch that `pm-core` declares as `SourceRepository` (see link:../../../../pm-core/doc/developer/core-role-corpus.adoc[`core-role-corpus.adoc`]).
-The operations on a project repository (open, status, commit, push, linked worktrees) are not described here.
+This guide covers the contract and its variants, the cache repository operations the corpus sources use, and the git part
+of the fetch that `pm-core` declares as `SourceRepository` (see link:../../../../pm-core/doc/developer/core-role-corpus.adoc[`core-role-corpus.adoc`]).
 
 The operations are on the shared contract, with typed inputs and closed outcomes, rather than in a separate fetch client (link:../adr/provider-git/001-cache-repository-operations-on-the-shared-git-contract.adoc[ADR 001]).
 Like every operation of `JGitOperations`, they run in process: the repository is opened with `RefusingFS`, so no hook, filter driver or other process ever starts.
 
+[#_the_git_contract]
+== The Git Contract
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5]
+
+link:{src}/GitOperations.java[`GitOperations`] is the contract: typed inputs and one closed outcome enumeration,
+`GitResult<T>` with a `GitOutcome` and its value or detail. The operations fall into four groups:
+
+* *Repository*: `open(root)` (`RepositoryInfo`: worktree root, git directory, common directory, head, branch), and
+  `worktreeSha(root)` (`WorktreeSha`: the digest and its version).
+* *Linked worktrees*: `worktreeAdd(WorktreeAddInput)`, `worktreeList(root)`, `worktreeRemove(root, worktree)`. The input
+  names the root, the path, an optional branch, whether to create it, and the start point.
+* *History and transport*: `commit(CommitInput)` with an `Identity` for author and committer, `log(root, revision,
+  maxCount)`, `fetch(RemoteInput)` and `push(PushInput)`. A push carries an optional expected remote head, so a
+  non-fast-forward and a lost lease are two outcomes, not one failure.
+* *Cache*: `initCache`, `fetchCommit`, `readFile` (<<cache-repository-operations>>).
+
+`GitOutcome` is closed; its constants are the source of the outcome set, grouped here by what they answer: the repository
+and worktree outcomes, the identity and revision outcomes, the transport and remote-policy outcomes, and `FAILED` for a
+failure none of them names. A caller switches on the outcome; the detail is for the operator and never decides a branch of
+the caller's logic.
+
+`GitCredential` carries a username and a `char[]` secret, and its `toString`, `equals` and `hashCode` never write the
+secret; it is passed only where a remote needs it. `RemotePolicy` decides which remote URLs an operation may contact, and
+it is checked before the transport opens. `GitIdentity` classifies a revision string as `FULL_COMMIT_ID`, `REF`,
+`ABBREVIATED_COMMIT_ID`, `REF_AND_COMMIT_ID`, `TWO_REFS` or `UNKNOWN`; a pinned commit is passed and compared as its full
+40-character object id, never abbreviated and never as a ref name
+(link:../adr/provider-git/002-pinned-commits-are-identities.adoc[ADR 002]).
+
+== The Native Variant
+
+link:{src}/JGitOperations.java[`JGitOperations`] serves the contract in process and never starts a process: every
+repository is opened with link:{src}/RefusingFS.java[`RefusingFS`], which refuses JGit's process entry points — repository
+hooks that are present, shell commands, filter drivers and process execution in general — with
+`CapabilityRefusedException` (`capability_missing`). An absent hook is reported as not present, as JGit does, so a
+repository without hooks runs unchanged.
+
+Linked worktrees are created, listed and removed natively on JGit primitives, because JGit has no `git worktree` command.
+An ambiguous start point is `GIT_IDENTITY_AMBIGUOUS`, an abbreviated one `UNKNOWN_REVISION`, and an existing branch that
+is not at the pin `GIT_IDENTITY_MISMATCH` with both ids; `log` refuses the ambiguous and the abbreviated form too.
+
+`WorktreeShaDigest` is the digest the `worktreeSha` operation answers: the content digest and the version of the rule that
+produced it. It is compared as a pair, so a change of the rule is visible instead of looking like a changed worktree.
+`LinkedWorktrees` holds the linked-worktree facts the operations report.
+
+[#cache-repository-operations]
 == Cache Repository Operations
 
 _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/06-execution.adoc#PM-EXEC-6[PM-EXEC-6]
@@ -94,6 +140,15 @@ link:{test}/JGitCacheRepositoryTest.java[`JGitCacheRepositoryTest`]:: `initCache
 link:{test}/JGitSourceRepositoryTest.java[`JGitSourceRepositoryTest`]:: `CorpusImport` of `pm-core` end to end with this adapter over two fixture repositories and an in-test `LfsObjectSource`: the pinned sources are fetched, verified and generated into items that `CorpusValidator` accepts; a changed file fails its hash and the run; a removed fixture repository is missed by name while the other source's items remain; a pinned commit the repository does not serve and a path that is no file at the pin are `pin_missing`; the default constructor fetches through `Remote.of`, whose policy admits the manifest's https origin with its port and nothing else.
 link:{test}/UnservedWantTest.java[`UnservedWantTest`]:: Each recognised refusal wording is `UNKNOWN_REVISION`; a connection, status or timeout failure, and a message that only resembles one, are not.
 link:{test}/GitIdentityTest.java[`GitIdentityTest`]:: A branch named like the pinned commit and a name that resolves as two refs are `GIT_IDENTITY_AMBIGUOUS`; an abbreviated commit id is `UNKNOWN_REVISION` naming it; a branch that is not at its pin is `GIT_IDENTITY_MISMATCH` with both ids; `log` refuses an ambiguous revision; the ref spellings.
+link:{test}/JGitOperationsTest.java[`JGitOperationsTest`]:: the project operations through JGit: open, commit, log, fetch
+and push with their outcomes, the linked worktrees created, listed and removed natively, the dirty and locked worktree
+refusals, and `RefusingFS` proving that a hook or a filter driver is `capability_missing`.
+link:{test}/RefusingFSTest.java[`RefusingFSTest`]:: every process entry point refused with `capability_missing`, an
+absent hook reported as absent, and the `git` executable discovery answering none.
+link:{test}/WorktreeShaDigestTest.java[`WorktreeShaDigestTest`]:: the framing of the digest input — file, link and deleted
+entries with their tags and payloads — and the empty set, against an independently computed SHA-256.
+link:{test}/ported/WorktreeShaPortedTest.java[`WorktreeShaPortedTest`]:: the ported scenarios of `git.worktree-sha` over
+plain file fixtures, with `DigestRelations` and `PortedFixtures`.
 
 == Pitfalls
 

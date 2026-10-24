@@ -1654,18 +1654,21 @@ old output before the refactor).
 
 Anchor:: link:../specification/phase-workflows/04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Phase Workflows § Normative Step Catalogue] (`pre-submission-self-review`),
 link:../specification/phase-workflows/01-planning-phases-1-2.adoc#builder-check[Phase Workflows § Builder Check]
-Hazard:: A constraint rules out what no criterion states, so a plan can meet every criterion and break a constraint.
-A self-review that judges criteria alone passes it; a result `respected` without evidence is as good as no result; a
-submission that lists the criteria and leaves out the constraints is accepted when the omission check covers
-criteria only. The builder check misses the same case when it compares only criteria with each other.
+Hazard:: A constraint rules out what no criterion states, so a plan can meet every criterion and break a constraint. A
+self-review that judges criteria alone passes it; a result `respected` without evidence is as good as no result; a
+submission that lists the criteria and leaves out the constraints is accepted when the omission check covers criteria
+only. The builder check misses the same case when it compares only criteria with each other. A decision `DC-<n>` is the
+same case: code that works against it without an own call naming it passes when the review judges own calls only.
 Guard:: Tests submit the self-review with a constraint or a non-goal omitted (refused with the item named), with
-`respected` and no evidence (refused), with `violated` (a finding, the round not clean), with `not_verified` (a
-non-blocking finding, `clean_unverified`), and for a record without constraints (unaffected). The facts of
-`refine.builder-check` are composed from a record whose accepted default permits what a constraint rules out; the
-question reaches the operator naming both items. Corpus fixture: the article's first-run case (spec and all tests
-accept a fallback that hides items, the constraint is "never lose an item silently").
+`respected` and no evidence (refused), with `violated` (a finding, the round not clean), with a decision omitted
+(refused) and `departed` (a finding, the round not clean), with `not_verified` (a non-blocking finding,
+`clean_unverified`), and for a record without constraints (unaffected). The facts of `refine.builder-check` are composed
+from a record whose accepted default permits what a constraint rules out; the question reaches the operator naming both
+items. Corpus fixture: the article's first-run case (spec and all tests accept a fallback that hides items, the
+constraint is "never lose an item silently").
 Source:: Article analysis `ai-native-sdlc-four-files` of plan-marshall-documentation (the review against the intent's
-constraint was the only step that caught the spec-approved default).
+constraint was the only step that caught the spec-approved default). Article analysis `spec-driven-tools-heise`
+(OpenSpec's coherence check: decisions reflected in the code).
 
 [#PM-WATCH-PHASE-112]
 === PM-WATCH-PHASE-112: Behaviour nobody asked for is listed, not passed

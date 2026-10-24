@@ -1,0 +1,165 @@
+= The Lock Manager and the Stale Lease Sweep (`runtime.lock`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+:src: ../../src/main/java/de/planmarshall/runtime/lock
+:test: ../../src/test/java/de/planmarshall/runtime/lock
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]_
+
+Package `de.planmarshall.runtime.lock` of `pm-runtime` holds the one implementation of `LockManager` and the stale lease
+sweep: `pm-core` declares the order and the keys, `pm-runtime` opens the files and takes the locks. The interfaces the
+engine sees are in `core.service` (link:../../../pm-core/doc/developer/core-service.adoc#_the_lock_manager_interface_and_the_lock_order[Service
+Interfaces § The Lock Manager Interface and the Lock Order]); the levels, the keys and the order assertion are in
+`core.store` (link:../../../pm-core/doc/developer/core-store.adoc[Scope Stores]).
+
+The package also sweeps a lease store at runtime start: a lease whose holder is no longer alive is removed or marked
+orphaned, by evidence the caller supplies, never on a guess.
+
+== Main Types
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]_
+
+[cols="1,3",options="header"]
+|===
+|Type |What it does
+
+|link:{src}/FileLockManager.java[`FileLockManager`]
+|The one `LockManager`: opens a `LockTransaction`, asserts the order at every acquisition, and keeps one in-process lock
+per key and one open channel and OS lock per lock file.
+
+|link:{src}/HolderLiveness.java[`HolderLiveness`]
+|`isAlive(pid, startInstant)`: whether the runtime that serves a lease is alive, by the process id and its start instant
+together.
+
+|link:{src}/StaleLeaseSweep.java[`StaleLeaseSweep`]
+|The sweep of one lease store, and of one project's leases in it: keep, remove or mark orphaned, each with the rule that
+decided it.
+|===
+
+== The Lock Manager
+
+A lock of the operating system (`FileChannel.lock()`) excludes other processes but not the threads of its own process: a
+second lock on the same file from the same process fails with `OverlappingFileLockException`, and closing any channel on
+a file releases every lock the process holds on it. `FileLockManager` therefore keeps two things per lock:
+
+* one `ReentrantLock` per `LockKey`, on which the threads of the runtime wait, so the operating system is asked by one
+  thread only;
+* at most one open channel and one OS lock per lock file, counted by its holders: the first holder opens the channel and
+  takes the lock, the last one closes it.
+
+Both exist only while a thread uses them: the in-process lock from the first thread that asks for the key until the last
+thread that holds or waits for it has given it back, and the channel from the first holder until the last one has closed
+it (link:../adr/runtime-lock/001-one-os-lock-per-lock-file-with-entry-eviction.adoc[ADR 001]). A thread enters a key
+before it waits, so a lock is never replaced under a waiting thread.
+
+`LockTransaction.acquire(key)` asserts the order and acquires in one call. A key that `LockOrder` refuses is logged
+(`PM_RUNTIME-202`), its audit record (`lock_order_violation`, category `store`, outcome `refused`, details `held` and
+`requested`) is handed to the `AuditSink`, nothing is acquired and no lock file is created, and the call throws
+`InternalFaultException`. `pm-core` names no wire error; mapping the exception to `internal_fault` is the assembly's job.
+
+A lock file below `locks/` is created with mode `0600`, its directories with mode `0700`. A leaf key names the
+append-only file itself (`logs/audit.jsonl`, a plan's `mcp/mailbox.jsonl`); the manager creates that file where it is
+absent, but never its directory, which belongs to the store. Opening an existing lock file changes neither its content
+nor its modification time.
+
+The process locks of the runtime, its singleton lock `locks/runtime.lock` and the start lock `locks/runtime-start.lock`,
+are held for a process, not a transaction. They have no `LockKey` and do not go through the lock manager.
+
+=== Using It
+
+[source,java]
+----
+try (var transaction = lockManager.openTransaction()) {
+    transaction.acquire(LockKey.plan(base, projectId, planId));
+    transaction.acquire(LockKey.queue(base, projectId));
+    // read, decide, write
+}
+----
+
+Acquire the keys in the order of the levels; within a level, by id. The transaction releases them in the reverse order
+when it closes.
+
+=== Pitfalls
+
+* *One instance per runtime.* A second `FileLockManager` in the same process does not just fail: its acquisition meets
+  the lock of the first one, throws `IllegalStateException` (cause `OverlappingFileLockException`), and closes the channel
+  it has just opened, which on POSIX releases the OS lock of the first instance. The assembly must wire exactly one
+  instance (link:../adr/runtime-lock/002-one-lock-manager-per-runtime.adoc[ADR 002]).
+* *Never open a lock file past the manager.* A test or a tool that opens a channel on a lock file the manager holds and
+  closes it drops the manager's OS lock. The probes in `FileLockManagerTest` keep their channel open until `@AfterEach`,
+  after the last release.
+* *The order is asserted per transaction.* A thread that opens a second transaction while the first holds a key can
+  acquire the same key again, and the order is not checked across the two. Do not nest transactions.
+* *The lock object of a key is not stable.* The manager drops the in-process lock of a key when nobody uses it, so a
+  later acquisition gets a new object. Never keep a reference to it.
+* *Never lock a store that is replaced by rename.* The rename replaces the inode, and a lock on the old file excludes
+  nobody. Such a store has a sibling lock file; only the append-only leaf files are locked directly.
+* *Holding a lease is not holding a lock.* A lease can be held across any lock acquisition; a lock is held for one
+  transaction only.
+
+=== Adding a Lock
+
+* A new lock of an existing level: add a factory to `LockKey` of `core.store` with its fixed path below
+  `projects/<project_id>/locks/` or `locks/`, and a case to `LockKeyTest`.
+* A new level: add the constant to `LockLevel` at its place in the order, then the factory, and extend `LockOrderTest` by
+  the two new level boundaries.
+
+== The Stale Lease Sweep
+
+`StaleLeaseSweep.sweep(store, abandoned, now)` judges every lease of one store in one `reviseAll` transaction:
+
+. the holder is alive: kept (rule `holder_alive`);
+. the holder is not alive and `abandoned` says the lease was abandoned: removed (rule `abandoned`);
+. the holder is not alive and there is no such evidence: kept and marked orphaned, unless it was marked before (rule
+  `skipped_no_evidence`).
+
+`HolderLiveness.isAlive` compares the process id and the start instant of the holder together, because process ids are
+reused. A running process whose start instant the OS does not report counts as alive: a lease is never treated as
+abandoned on a guess.
+
+The evidence is the caller's: the owning scope is terminal, archived or no longer resolvable, the lease expired without
+adoption, or the job of a slot was recorded `killed`. The predicate runs while the store's lock is held, so it must read
+without a lock and take none.
+
+The result names the rule of every lease. A sweep that removed nothing says why: `root_absent`, `root_unreadable` (the
+store is in another format version or unreadable; the result carries the `StoreRefusal.Outcome`), `nothing_listed`, or
+`all_kept`. Each lease newly marked orphaned is logged as `PM_RUNTIME-107`, and the finished sweep of a store that was
+read as `PM_RUNTIME-11`; a store that is absent or refused is not logged at INFO. The sweep writes no audit record.
+
+`StaleLeaseSweep.sweep(store, projectId, abandoned, now)` is the sweep of one project, the one the per-project recovery
+runs. It judges only the leases whose `LeaseOwner.projectId()` equals the given id, by the same rules and in the same
+`reviseAll` transaction; the leases of other projects pass through the transaction unchanged and appear neither in the
+decisions nor in the counts, so `nothing_listed` means that the store holds no lease of the project.
+`LeaseRecoveryStep` of `runtime.start` calls the project overload for every machine lease store it is given
+(link:runtime-start.adoc[`runtime.start`]).
+
+The decision that a dead holder does not by itself free a lease is
+link:../adr/runtime-lock/003-stale-lease-sweep-by-holder-liveness.adoc[ADR 003].
+
+== Testing
+
+[horizontal]
+link:{test}/FileLockManagerTest.java[`FileLockManagerTest`]:: acquisition and release, the refusal with nothing
+acquired, the modes of the lock files, the entries kept only while in use, and re-entry.
+link:{test}/FileLockManagerTwoProcessIT.java[`FileLockManagerTwoProcessIT`]:: the lock excludes a second JVM in both
+directions, through `LockHolderProcess` (`-Pintegration-tests`).
+link:{test}/StaleLeaseSweepTest.java[`StaleLeaseSweepTest`]:: every rule, the reasons of a sweep that removed nothing,
+the audit-free result, and the project overload: two projects with dead holders, only the selected one orphaned and the
+other byte-identical.
+link:{test}/HolderLivenessTest.java[`HolderLivenessTest`]:: the pair of process id and start instant, a reused id, and
+the unknown start instant counted as alive.
+`LeaseRecoveryStepTest` of `runtime.start`:: the step over each machine lease store, with the caller's evidence.
+
+== Specification Tracing
+
+* Specification: link:{spec}/store-schemas/13-leases-integrity-testing.adoc[Store Schemas § Leases, Integrity & Testing],
+  link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc[Runtime Lifecycle § Startup, Recovery & Drain]
+* Decisions: link:../adr/runtime-lock/001-one-os-lock-per-lock-file-with-entry-eviction.adoc[ADR 001],
+  link:../adr/runtime-lock/002-one-lock-manager-per-runtime.adoc[ADR 002],
+  link:../adr/runtime-lock/003-stale-lease-sweep-by-holder-liveness.adoc[ADR 003]
+* The interface and the order: link:../../../pm-core/doc/developer/core-service.adoc[`core.service`],
+  link:../../../pm-core/doc/developer/core-store.adoc[`core.store`]

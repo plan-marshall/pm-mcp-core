@@ -49,10 +49,15 @@ resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshal
 
 == Developer Documentation
 
-* link:doc/developer/core-role-corpus.adoc[Corpus Sources (`core.role.corpus`)]
+* link:doc/developer/core-analysis.adoc[Code Analysis (`core.analysis`)]
+* link:doc/developer/core-findings.adoc[Findings (`core.findings`)]
+* link:doc/developer/core-log.adoc[Log Messages (`core.log`)]
 * link:doc/developer/core-queue.adoc[Task Queue (`core.queue`)]
+* link:doc/developer/core-role-corpus.adoc[Corpus Sources (`core.role.corpus`)]
 * link:doc/developer/core-service.adoc[Service Interfaces (`core.service`)]
+* link:doc/developer/core-spi.adoc[Primitive SPI and Content Validators (`core.spi`, `core.spi.validation`)]
 * link:doc/developer/core-store.adoc[Scope Stores and Engine Ports (`core.store`, `core.spi`)], with the job records
+* link:doc/developer/core-toon.adoc[TOON Encoder (`core.toon`)]
 
 == ADRs
 

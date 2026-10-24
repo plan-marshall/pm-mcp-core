@@ -133,7 +133,7 @@ link:../../Specification.adoc[Specification] » link:../timeouts.adoc[Timeouts &
 |—
 |runtime
 |The wait continues; the lock manager appends one `lock_wait_exceeded` audit record (lock, holder, waited time), which counts as a `PM-MIG-5` integrity trigger event.
-|link:../../../../plan-marshall-documentation/doc/developer/locks-and-leases.adoc#lock-manager[Developer Guide § The Lock Manager]
+|link:../../../pm-runtime/doc/developer/runtime-lock.adoc#_the_lock_manager[Developer Guide § The Lock Manager]
 |===
 
 [#leases]

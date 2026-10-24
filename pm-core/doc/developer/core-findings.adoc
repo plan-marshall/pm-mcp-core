@@ -1,0 +1,157 @@
+= The Findings Contract (`core.findings`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+:src: ../../src/main/java/de/planmarshall/core/findings
+:test: ../../src/test/java/de/planmarshall/core/findings
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]_
+
+Package `de.planmarshall.core.findings` of `pm-core` holds the normalized finding and the contracts every producer of
+findings implements: what a finding is, what a scope is asked about, under which key a producer is registered and how a
+finding is answered on its provider. The provider modules are where the calls belong; no implementation of these
+contracts exists in this repository yet, and the store and the workflow own recording what is observed.
+
+The package holds declarations, validation and lookup only: it makes no HTTP call, writes no file or store and depends
+on no store class. Why the contract lives in the foundation and not in a provider module is stated in
+link:{docs}/specification/module-structure.adoc#findings-analysis-contracts[Module Structure § Findings &
+Code-Analysis Contracts].
+
+== Main Types
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]_
+
+[cols="1,3",options="header"]
+|===
+|Type |What it does
+
+|link:{src}/Finding.java[`Finding`]
+|One finding as the findings ledger records it: a record with exactly the members of the ledger record, in schema
+order, with nested records for the object-valued members. Its constructor refuses every rule the schema states. It has
+no codec; writing the ledger is not part of this package.
+
+|`FindingSourceKind`, `Severity`, `FindingStatus`, `Resolution`, `ScopeClass`, `TransmitOutcome`, `TransmitReason`,
+`ResolveState`, `FindingPhase`
+|The closed enumerations of the ledger record. Each constant carries its name on the wire (`wireName()`,
+`fromWireName(String)`); the values are those of the code and of the schema and are not repeated here.
+
+|link:{src}/Disposition.java[`Disposition`]
+|The closed dispositions of triage: what a reviewer decided about a finding.
+
+|link:{src}/FindingScope.java[`FindingScope`]
+|A commit, or a pull request at a commit: the scope of a fetch and the target of an analysis (<<scope-and-key>>).
+
+|link:{src}/FindingSourceKey.java[`FindingSourceKey`]
+|The key a finding source and a finding responder are registered under (<<scope-and-key>>).
+
+|link:{src}/FindingSource.java[`FindingSource`], link:{src}/FindingResponder.java[`FindingResponder`]
+|The two contracts a provider module implements: fetch the findings of a scope, and answer a finding on its provider
+with a disposition and a reason.
+
+|link:{src}/FindingRegistry.java[`FindingRegistry`]
+|The sources and responders of one runtime by key.
+|===
+
+[#scope-and-key]
+== Scope and Registry Key
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]_
+
+`FindingScope(kind, commitSha, prNumber)` is built through `FindingScope.commit(sha)` or
+`FindingScope.pullRequest(sha, number)`. The commit is 40 or 64 lower-case hexadecimal digits; the number is set for a
+pull request only and is at least 1. The same type is the scope of `FindingSource.fetch` and the target of
+`CodeAnalysisProvider.status` and `issues`, so one value describes what is asked about across both packages.
+
+`FindingSourceKey(kind, provider)` is built through `FindingSourceKey.of(kind)` or
+`FindingSourceKey.analysis(providerId)`. `kind` is a `FindingSourceKind`, the closed `source` vocabulary of the findings
+store; `provider` is set for `analysis` only and matches the provider-id pattern, which
+`FindingSourceKey.isProviderId(value)` checks and which the analysis result, the finding and the analysis registry
+share. The key mirrors the store's invariant (`provider` iff `source` is `analysis`): a finding is fetched and answered
+under the key it is stored under, and two code analysis providers are two keys.
+
+== Implementing a Provider
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]_
+
+* *A source of findings* implements `FindingSource`: `key()` returns its `FindingSourceKey`, and `fetch(scope)` returns
+  the normalized findings of the scope in the provider's order. Every finding it returns carries the key's `source`
+  and, for `analysis`, the key's `provider`.
+* *An answer to findings* implements `FindingResponder` under the same key as the source whose findings it answers:
+  `respond(finding, disposition, reason)`.
+* *A code analysis provider* implements `CodeAnalysisProvider` of `core.analysis` and, where it files its issues in the
+  ledger, a `FindingSource` under `FindingSourceKey.analysis(id)` as well
+  (link:core-analysis.adoc[`core.analysis`]).
+
+The registries take their members in the constructor: `new FindingRegistry(sources, responders)`. Nothing is
+discovered on the classpath; the assembly produces the registry from the provider modules it wires. Both registries are
+immutable. A second member under the same key (sources and responders each) and a provider id outside the pattern are
+refused with `IllegalArgumentException`. `source(key)` and `responder(key)` answer `Optional`; an unregistered key is
+empty, which is not an outcome of an operation.
+
+== Invariants and Failure Modes
+
+* *Register under the store's key, not under a provider name.* A source is found by the `source` value the store
+  records and, for `analysis`, by the provider id. A key of its own (a provider name, a review-bot name) would fetch
+  findings under one key and store them under another.
+* *Nothing in `pm-core` names a provider.* No class of `pm-core` depends on a provider package, and no class, package or
+  member name contains a forge or analysis-service name, ignoring case. The single exemption is the constants
+  `GITHUB_PR` and `GITLAB_MR` of `FindingSourceKind`, whose names are fixed by the store's closed `source` vocabulary.
+* *The package stays declarations, serialization and validation.* No class here depends on an HTTP client, a
+  `java.nio.file.Files` writing method, `FileOutputStream`, `FileWriter`, `RandomAccessFile` or `FileChannel`, or on a
+  `core.store` class.
+* *The wire vocabulary has one source.* A caller tells a value apart by its constant, never by a string it wrote
+  itself; the schema parity test proves that the enums equal the schema's `enum` members.
+
+Both boundary rules are ArchUnit rules over the main classes of `pm-core`, and each is applied to control fixtures on
+which it must fail, so a rule that matches nothing is noticed.
+
+== Adding a Source or an Answer
+
+. Implement `FindingSource`, `FindingResponder` or both in the provider module, and return the provider's key from
+  `key()`.
+. Make every returned finding carry the key's `source` and, for `analysis`, the key's `provider`.
+. Register the instance in the registry the assembly builds, together with the provider's other contracts.
+. Add a fixture implementation and its registration case to the registry test; a duplicate key is refused, an
+  unregistered key is empty and another provider's key is empty.
+
+== Testing
+
+[horizontal]
+link:{test}/FindingTest.java[`FindingTest`]:: one refusing case per rule of the record, and the accepted fixtures.
+link:{test}/FindingScopeTest.java[`FindingScopeTest`]:: the commit and pull-request forms, the length and spelling of
+the commit, the number of a pull request, and the refusals of both.
+link:{test}/FindingSourceKeyTest.java[`FindingSourceKeyTest`]:: the key forms, the provider-id pattern and the invariant
+that a provider is set iff the source is `analysis`.
+link:{test}/FindingsContractTest.java[`FindingsContractTest`], link:{test}/FindingRegistryTest.java[`FindingRegistryTest`]::
+the contracts through fixture implementations, registration by key, a duplicate key refused, and an unregistered or
+other-provider key empty.
+link:{test}/FindingSchemaParityTest.java[`FindingSchemaParityTest`]:: the record components of `Finding` and its nested
+records are the members of the ledger schema in schema order, and every enumeration equals the `enum` of its member.
+link:../../src/test/java/de/planmarshall/core/guard/ProviderNeutralityArchTest.java[`ProviderNeutralityArchTest`]:: the
+neutrality rule on the main classes, the exemption as one constant of the test, the proof that without it the rule fails
+on exactly the two exempt constants, and the controls.
+link:../../src/test/java/de/planmarshall/core/guard/AnalysisBoundaryArchTest.java[`AnalysisBoundaryArchTest`]:: the
+boundary rule on `core.findings` and `core.analysis`, with control fixtures for an HTTP call, a file write and a store
+dependency.
+
+== Pitfalls
+
+* *A copied enumeration is wrong after the next schema change.* Link the enum constant; only the schema parity test
+  compares the two, and it does so over the whole record.
+* *A finding without its provider is unanswerable.* The store's invariant is `provider` iff `source` is `analysis`;
+  a finding of an analysis without a provider cannot be routed back to the provider that reported it.
+* *An empty lookup is not a refusal.* `source(key)` returning empty means the runtime has no such provider; it is not a
+  failed fetch and must not be reported as one.
+
+== Specification Tracing
+
+* Specification: link:{docs}/specification/module-structure.adoc#findings-analysis-contracts[Module Structure §
+  Findings & Code-Analysis Contracts],
+  link:{spec}/store-schemas/03-findings-and-review-records.adoc[Store Schemas § Findings and Review Records], link:{spec}/phase-workflows/05-finalize-review-metrics-descriptor.adoc[Phase Workflows § Finalize Review
+  Metrics Descriptor]
+* Decisions: link:../adr/core-findings/001-registry-keyed-by-the-store-source-vocabulary.adoc[ADR 001] the registry is
+  keyed by the store's source vocabulary,
+  link:../adr/core-findings/002-provider-neutrality-guard-with-one-exemption.adoc[ADR 002] the provider-neutrality
+  guard and its one exemption
+* The analysis contract: link:core-analysis.adoc[`core.analysis`]

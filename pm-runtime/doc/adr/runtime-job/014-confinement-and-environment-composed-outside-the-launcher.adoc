@@ -68,5 +68,5 @@ Enforcement is not claimed here: on a platform whose launcher applies no ruleset
 
 * Work package: PLAN-27 `job-confinement-and-environment`
 * link:../../../../doc/specification/job-runtime/02-confinement-and-environment.adoc[Job Runtime § Linux Filesystem Confinement, Build Daemons, Container Engine, Session Bus, Probe Jobs, Worker Egress Proxy, Job Environment]
-* link:../developer/runtime-job.adoc#_confinement_and_environment[Job Runtime Developer Guide § Confinement and Job Environment]
+* link:../../developer/runtime-job.adoc#_confinement_and_environment[Job Runtime Developer Guide § Confinement and Job Environment]
 * `pm-runtime/src/main/java/de/planmarshall/runtime/job/JobConfinement.java`, `JobConfinementComposer.java`, `BuildDaemonStore.java`, `JobEnvironmentComposer.java`, `WorkerEgressProxy.java`, `PmExecLauncher.java`, `SubprocessJobRunner.java`
