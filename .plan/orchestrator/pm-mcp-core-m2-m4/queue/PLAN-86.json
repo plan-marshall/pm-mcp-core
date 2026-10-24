@@ -2,10 +2,10 @@
   "id": "PLAN-86",
   "slug": "provider-http-module",
   "workstream": "WS-08",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-86-provider-http-module",
+  "pr": "#156",
+  "landing": "landings/PLAN-86.md",
   "seq": 86
 }
