@@ -223,8 +223,10 @@ class JobConfinementComposerTest {
             var job = JobId.random(JobId.Kind.BUILD);
             var enrolment = ConfinementFixture.enrolment(project, null,
                     List.of(base.resolve("cache").toString()), Map.of(), List.of());
+            var confinementComposer = composer();
 
-            assertThrows(IllegalArgumentException.class, () -> composer().forJob(enrolment, job, List.of(), false));
+            assertThrows(IllegalArgumentException.class,
+                    () -> confinementComposer.forJob(enrolment, job, List.of(), false));
         }
 
         @Test
@@ -233,8 +235,10 @@ class JobConfinementComposerTest {
             var job = JobId.random(JobId.Kind.BUILD);
             var protectedPath = Path.of(System.getProperty("user.home"), ".plan-marshall", "cache").toString();
             var enrolment = ConfinementFixture.enrolment(project, null, List.of(protectedPath), Map.of(), List.of());
+            var confinementComposer = composer();
 
-            assertThrows(IllegalArgumentException.class, () -> composer().forJob(enrolment, job, List.of(), false));
+            assertThrows(IllegalArgumentException.class,
+                    () -> confinementComposer.forJob(enrolment, job, List.of(), false));
         }
     }
 }
