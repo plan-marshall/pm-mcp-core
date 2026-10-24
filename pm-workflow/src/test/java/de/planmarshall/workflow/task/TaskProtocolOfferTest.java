@@ -32,7 +32,8 @@ import de.planmarshall.core.queue.QueueTaskRecord.Status;
  * The offer rule of the task protocol (Model Work § Offer): the role, the role's current configuration digest, the one
  * writer of a plan, the pause of a plan, the machine's own queue and the order of the queue.
  */
-@SuppressWarnings("java:S5778") // the refusal cases call one throwing method per case, by design
+@SuppressWarnings("java:S5778")
+// the refusal cases call one throwing method per case, by design
 @DisplayName("Task protocol offers")
 class TaskProtocolOfferTest {
 

@@ -32,7 +32,8 @@ import de.planmarshall.core.queue.QueueTaskRecord.SignalName;
  * {@code suspended} attempt end and {@code signals[]} entries survives a write and a read, and an
  * {@code agent_started} signal with any action but {@code restart} is refused.
  */
-@SuppressWarnings("java:S5778") // the assertion table names one throwing builder call per case, by design
+@SuppressWarnings("java:S5778")
+// the assertion table names one throwing builder call per case, by design
 @DisplayName("Queue task record codec")
 class QueueTaskRecordCodecTest {
 

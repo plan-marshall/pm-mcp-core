@@ -40,7 +40,8 @@ import de.planmarshall.workflow.dsl.WorkflowParser;
  * and terminals, and the protocol's own transitions end at the terminal the fixture names (Model Work § The
  * {@code worker-task} Sub-Workflow).
  */
-@SuppressWarnings("java:S5778") // the fixture test calls one failing parse per case, by design
+@SuppressWarnings("java:S5778")
+// the fixture test calls one failing parse per case, by design
 @DisplayName("Worker-task fixture unit")
 class WorkerTaskUnitFixtureTest {
 

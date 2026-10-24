@@ -39,7 +39,8 @@ import de.planmarshall.core.queue.QueueTaskRecord.Status;
  * attempt, the pause of a plan, an off-track restart, the {@code agent_started} detection, and the suspension that
  * spends no re-offer.
  */
-@SuppressWarnings("java:S5778") // the refusal cases call one throwing method per case, by design
+@SuppressWarnings("java:S5778")
+// the refusal cases call one throwing method per case, by design
 @DisplayName("Task protocol re-offers")
 class TaskProtocolReOfferTest {
 

@@ -36,7 +36,8 @@ import de.planmarshall.core.queue.QueueTaskRecord.Outcome;
  * the loop-back and the diagrams): whatever order the calls take, the task closes at most once with the outcome of its
  * own transition, and at least one run reaches the submission.
  */
-@SuppressWarnings("java:S5778") // the seeded runs are one scenario per case, by design
+@SuppressWarnings("java:S5778")
+// the seeded runs are one scenario per case, by design
 @DisplayName("Task protocol interleavings")
 class TaskProtocolInterleavingTest {
 

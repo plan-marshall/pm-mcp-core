@@ -33,7 +33,8 @@ import de.planmarshall.core.store.JsonlStoreFile;
  * The {@code agent_started} detection is written into the machine's audit log as one {@code security} record naming
  * the executable (Model Work § A Worker Off Track).
  */
-@SuppressWarnings("java:S5778") // the audit case builds the event in its assertion, by design
+@SuppressWarnings("java:S5778")
+// the audit case builds the event in its assertion, by design
 @DisplayName("Agent-started security audit")
 class AuditLogSecurityAuditTest {
 

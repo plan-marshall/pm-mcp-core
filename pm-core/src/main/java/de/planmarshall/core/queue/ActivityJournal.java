@@ -12,6 +12,7 @@ package de.planmarshall.core.queue;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -269,7 +270,7 @@ public final class ActivityJournal {
     }
 
     private static void truncateTo(Path file, long size) throws IOException {
-        try (var channel = java.nio.channels.FileChannel.open(file, StandardOpenOption.WRITE)) {
+        try (var channel = FileChannel.open(file, StandardOpenOption.WRITE)) {
             channel.truncate(size);
         }
     }

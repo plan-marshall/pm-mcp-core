@@ -25,7 +25,8 @@ import de.planmarshall.core.queue.QueueTaskRecord.SignalName;
  * Each activity entry has the members of its own kind and no others, its bounds are enforced, and every kind
  * round-trips through the codec.
  */
-@SuppressWarnings("java:S5778") // the assertion table names one throwing builder call per case, by design
+@SuppressWarnings("java:S5778")
+// the assertion table names one throwing builder call per case, by design
 @DisplayName("Activity entry validation")
 class ActivityEntryValidationTest {
 

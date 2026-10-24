@@ -23,7 +23,8 @@ import de.planmarshall.core.store.StoreRefusal;
  * field, a repeated field, a wrong type, an unknown enum value and a record that breaks a combination are refused with a
  * {@link StoreRefusal} naming the file.
  */
-@SuppressWarnings("java:S5778") // the assertion table names one throwing builder call per case, by design
+@SuppressWarnings("java:S5778")
+// the assertion table names one throwing builder call per case, by design
 @DisplayName("Queue task record codec refusals")
 class QueueTaskRecordCodecRefusalTest {
 

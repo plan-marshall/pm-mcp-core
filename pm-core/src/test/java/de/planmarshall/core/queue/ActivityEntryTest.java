@@ -23,7 +23,8 @@ import de.planmarshall.core.queue.QueueTaskRecord.SignalName;
  * An activity {@code signal} entry round-trips, and an {@code agent_started} entry with any action but {@code restart}
  * is refused (Store Schemas § Activity Journal).
  */
-@SuppressWarnings("java:S5778") // the assertion table names one throwing builder call per case, by design
+@SuppressWarnings("java:S5778")
+// the assertion table names one throwing builder call per case, by design
 @DisplayName("Activity entry")
 class ActivityEntryTest {
 
