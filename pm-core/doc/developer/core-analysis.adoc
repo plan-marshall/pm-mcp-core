@@ -1,0 +1,171 @@
+= The Code-Analysis Contract (`core.analysis`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+:src: ../../src/main/java/de/planmarshall/core/analysis
+:test: ../../src/test/java/de/planmarshall/core/analysis
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1], link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
+
+Package `de.planmarshall.core.analysis` of `pm-core` holds the provider-neutral contract of a code analysis: what a
+provider is asked, what one observation of it is, and how that observation is written and read. The provider modules
+make the calls (Sonar today); this package makes none. `core.analysis` depends on `core.findings` for the scope of an
+observation and for the issues it reports, and never the other way round.
+
+The contract is a declaration, a serialization and a set of checks. No class here performs an HTTP call, writes a
+file or reads a store; the boundary is enforced by `AnalysisBoundaryArchTest` against control fixtures.
+
+== Main Types
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1], link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
+
+[cols="1,3",options="header"]
+|===
+|Type |What it does
+
+|link:{src}/CodeAnalysisProvider.java[`CodeAnalysisProvider`]
+|The contract of a provider: `id()`, `status(target)` and `issues(target)`. The target is a `FindingScope` of
+`core.findings`.
+
+|link:{src}/AnalysisCallResult.java[`AnalysisCallResult`]
+|The result of one call: an `AnalysisOutcome`, the value when it is `OK`, and for `issues` the `Completeness` of the
+read.
+
+|link:{src}/AnalysisOutcome.java[`AnalysisOutcome`]
+|The closed outcome of a call: `OK` or one of the transport outcomes shared with the other provider contracts
+(link:{spec}/job-runtime/01-pipeline-and-subprocesses.adoc#outcome-derivation[Job Runtime § Outcome Derivation]).
+
+|link:{src}/Completeness.java[`Completeness`]
+|Whether a read of the issues returned the whole set. An incomplete read makes the observation's `count_status`
+`indeterminate`.
+
+|link:{src}/AnalysisResult.java[`AnalysisResult`]
+|One line of `analysis.jsonl`: the observation of one provider for one target, its quality gate and its conditions.
+
+|link:{src}/AnalysisResultCodec.java[`AnalysisResultCodec`]
+|The strict writer and reader of that line, over the streaming API of `jackson-core`.
+
+|link:{src}/AnalysisStatus.java[`AnalysisStatus`]
+|The closed status of the wait dimension `analysis_status` an observation maps to.
+
+|link:{src}/CodeAnalysisProviderRegistry.java[`CodeAnalysisProviderRegistry`]
+|The providers of one runtime by id, passed to the constructor.
+|===
+
+== Implementing a Provider
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]_
+
+A provider module implements `CodeAnalysisProvider` and the assembly registers it:
+
+* `id()` returns the provider id, which matches the provider-id pattern. It is also the `provider` of every finding of
+  the source `analysis` the provider reports, and the provider named by the gate `analysis_gate:<id>`.
+* `status(target)` answers `analysis.status` with an `AnalysisCallResult<AnalysisResult>`, built through
+  `AnalysisCallResult.status(outcome, value)`.
+* `issues(target)` answers `analysis.issues` with an `AnalysisCallResult<List<Finding>>`, built through
+  `AnalysisCallResult.issues(outcome, value, completeness)`. The findings carry the source `analysis`, the provider id,
+  and the provider's own key of the issue as `provider_ref.issue_key`.
+
+A provider that also files its issues in the findings ledger implements a `FindingSource` under
+`FindingSourceKey.analysis(id)` beside it (link:core-findings.adoc[`core.findings`]).
+
+Nothing is discovered on the classpath: the registry is built from the constructor arguments, and a test builds it
+with fixtures. A second provider under one id, and an id outside the pattern, are refused with
+`IllegalArgumentException`. `find(id)` answers an empty `Optional` for an unregistered id, which is not a call
+outcome.
+
+== The Analysis Result and Its Codec
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
+
+`AnalysisResult` has exactly the members of the
+link:{spec}/store-schemas/03-findings-and-review-records.adoc#analysis-result[analysis result record], in schema order.
+The new issues of an observation are not part of the record; they are findings with the source `analysis` and the same
+provider. The quality gate (`Gate`, at most 256 conditions), its conditions (`Condition`) and the closed `CountStatus`,
+`GateResult` and `Comparator` are nested in the record.
+
+The compact constructor names the broken rule in an `IllegalArgumentException` and a missing member in a
+`NullPointerException`. Beside the structural rules (`format_version` 1, the provider-id pattern, length bounds, counts
+at least 0, `new_code_issue_count` null iff `count_status` is `indeterminate`) it checks the consistency of status, gate
+and count:
+
+* `passed` requires a measured count of 0 and a gate that is null or passed;
+* `gate_failed` requires a failed gate;
+* `findings` requires a count above 0 and no failed gate;
+* an `indeterminate` count requires the status `undecidable`, unless the status is `running` or `not_run`.
+
+`AnalysisResultCodec.write(result)` produces exactly one shape: one JSON object, UTF-8, no trailing line break, every
+member present and in schema order, an absent value as `null`, `observed_at` as `Instant.toString()` writes it.
+`read(line)` accepts exactly that shape: declared members only, each once, all present, each with its one JSON type,
+`format_version` exactly 1, nothing after the object. A line that was read is written again byte for byte.
+
+The codec uses the streaming API of `jackson-core` without `jackson-databind` and with its own strict-reading helpers,
+not those of `core.store`, on which the package must not depend.
+
+== Invariants and Failure Modes
+
+* *A refusal is never an outcome.* An unknown target, a refusal and a rate limit have no `AnalysisOutcome` of their own;
+  a transport failure is one of the shared outcomes, and a transport outcome carries neither a value nor a
+  completeness.
+* *A status result has no completeness.* Only `analysis.issues` carries one; `AnalysisCallResult` refuses the other
+  combination at construction.
+* *The list is copied.* `AnalysisCallResult.issues` copies the list it is given, so a later change by the provider
+  cannot reach the result.
+* *Nothing in `pm-core` names a provider.* No class, package or member name of the package contains a provider name;
+  the provider identity travels in configuration and in the provider module.
+* *The store is written elsewhere.* This package produces the line; the store and the workflow write `analysis.jsonl`.
+
+== Adding a Provider Operation
+
+A new operation of the contract follows the shape of the two existing ones:
+
+. Add the method to `CodeAnalysisProvider` and a typed result to `AnalysisCallResult` when the operation reads a value.
+. State in the Javadoc which outcome the operation reports and whether it carries a completeness.
+. Add the operation to the registered provider in its module and to the in-test provider of the registry tests.
+. Extend `AnalysisCallResultTest` with the accepted and the refused combinations.
+
+== Testing
+
+The tests need neither network nor a store.
+
+[horizontal]
+link:{test}/AnalysisResultTest.java[`AnalysisResultTest`]:: every structural and consistency rule of the record, the
+builder and `toBuilder()`, and the accepted fixtures.
+link:{test}/AnalysisResultCodecTest.java[`AnalysisResultCodecTest`]:: the byte-identical round trip of every fixture,
+each refusal of the reader (duplicate, undeclared and missing member, wrong JSON type, another `format_version`,
+trailing content) and the strict instant spelling.
+link:{test}/AnalysisCallResultTest.java[`AnalysisCallResultTest`]:: the accepted and refused combinations of outcome,
+value and completeness.
+link:{test}/CodeAnalysisProviderTest.java[`CodeAnalysisProviderTest`]:: the contract through fixture implementations.
+link:{test}/CodeAnalysisProviderRegistryTest.java[`CodeAnalysisProviderRegistryTest`]:: registration by id, the
+duplicate and the malformed id, and the empty lookup.
+link:{test}/AnalysisResultSchemaTest.java[`AnalysisResultSchemaTest`]:: every written fixture line validated against the
+JSON schema of the analysis result record.
+
+The schema test reads the specification of this repository through `SpecificationDocument`; the checkout is named by
+the system property `pm.specification.root`, and a missing document or schema block is a failure. When the checkout is
+absent, the test is aborted through a JUnit assumption and shows as skipped, never as passed.
+
+== Pitfalls
+
+* *Give the observation the provider's id, not its display name.* The id is the key of the registry, the `provider` of
+  the findings and the gate's suffix; a second spelling separates the observation from its issues.
+* *Do not synthesise an outcome for a provider that cannot answer.* A refused, timed-out or rate-limited provider is a
+  transport outcome, and the wait treats it as `undecidable`; a made-up `OK` would report a clean analysis.
+* *Do not read the line with `jackson-databind`.* The codec's guarantees are the point: declared members only, each
+  once, one JSON type, no trailing content. A databind reader accepts exactly what must be refused.
+* *Keep schema order when the record changes.* The codec writes the members in the order of the schema; a new member
+  goes into the record and the codec at its schema position, and the round trip proves it.
+
+== Specification Tracing
+
+* Specification: link:{docs}/specification/module-structure.adoc#findings-analysis-contracts[Module Structure §
+  Findings & Code-Analysis Contracts],
+  link:{spec}/store-schemas/03-findings-and-review-records.adoc#analysis-result[Store Schemas § Analysis Result
+  Record], link:{spec}/job-runtime/01-pipeline-and-subprocesses.adoc#outcome-derivation[Job Runtime § Outcome
+  Derivation]
+* Decisions: link:../adr/core-analysis/001-analysis-result-record-with-strict-canonical-codec.adoc[ADR 001] the result
+  as a record with a strict canonical codec, link:../adr/core-analysis/002-no-http-and-no-file-write-in-the-contracts.adoc[ADR
+  002] no HTTP and no file write in the contracts
+* The findings contract: link:core-findings.adoc[`core.findings`]
