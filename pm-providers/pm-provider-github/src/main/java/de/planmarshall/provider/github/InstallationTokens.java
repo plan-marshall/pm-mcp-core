@@ -23,12 +23,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-import de.planmarshall.provider.ci.CiEndpoint;
-import de.planmarshall.provider.ci.CiHttpClient;
-import de.planmarshall.provider.ci.CiResponse;
-import de.planmarshall.provider.ci.CiResult;
-import de.planmarshall.provider.ci.Json;
-import de.planmarshall.provider.ci.TokenSource;
+import de.planmarshall.provider.http.Endpoint;
+import de.planmarshall.provider.http.HttpClient;
+import de.planmarshall.provider.http.Json;
+import de.planmarshall.provider.http.Response;
+import de.planmarshall.provider.http.Result;
+import de.planmarshall.provider.http.TokenSource;
 
 /**
  * Mints GitHub App installation tokens through {@code POST /app/installations/{id}/access_tokens},
@@ -50,7 +50,7 @@ public final class InstallationTokens implements AutoCloseable {
     static final Map<String, String> HEADERS = Map.of("Accept", "application/vnd.github+json",
             "X-GitHub-Api-Version", "2022-11-28");
 
-    private final CiHttpClient http;
+    private final HttpClient http;
     private final Clock clock;
     private final Consumer<String> redaction;
     private final Map<Key, InstallationToken> cache = new ConcurrentHashMap<>();
@@ -79,12 +79,12 @@ public final class InstallationTokens implements AutoCloseable {
      * @param redaction     the redaction registry receiving every minted token
      * @param clock         the clock
      */
-    public InstallationTokens(CiEndpoint apiEndpoint, String clientId, Supplier<String> privateKeyPem,
+    public InstallationTokens(Endpoint apiEndpoint, String clientId, Supplier<String> privateKeyPem,
             Consumer<String> redaction, Clock clock) {
         this.clock = Objects.requireNonNull(clock, "clock");
         this.redaction = Objects.requireNonNull(redaction, "redaction");
         TokenSource jwt = () -> Optional.of(GitHubAppJwt.sign(clientId, privateKeyPem.get(), clock.instant()));
-        this.http = new CiHttpClient(apiEndpoint, jwt, HEADERS);
+        this.http = new HttpClient(apiEndpoint, jwt, HEADERS);
     }
 
     /**
@@ -95,13 +95,13 @@ public final class InstallationTokens implements AutoCloseable {
      * @param permissions    the permission set, e.g. {@code pull_requests -> write}
      * @return the token, or the outcome of the failed mint
      */
-    public CiResult<InstallationToken> token(long installationId, String repository, Map<String, String> permissions) {
+    public Result<InstallationToken> token(long installationId, String repository, Map<String, String> permissions) {
         var key = new Key(installationId, repository, new TreeMap<>(permissions));
         InstallationToken cached = cache.get(key);
         if (cached != null && clock.instant().isBefore(cached.expiresAt().minusSeconds(REUSE_MARGIN_SECONDS))) {
-            return CiResult.ok(cached);
+            return Result.ok(cached);
         }
-        CiResult<InstallationToken> minted = mint(key);
+        Result<InstallationToken> minted = mint(key);
         minted.value().ifPresent(t -> cache.put(key, t));
         return minted;
     }
@@ -114,7 +114,7 @@ public final class InstallationTokens implements AutoCloseable {
      * @param operation      the operation class
      * @return the token, or the outcome of the failed mint
      */
-    public CiResult<InstallationToken> token(long installationId, String repository, GitHubOperation operation) {
+    public Result<InstallationToken> token(long installationId, String repository, GitHubOperation operation) {
         return token(installationId, repository, operation.permissions());
     }
 
@@ -122,38 +122,38 @@ public final class InstallationTokens implements AutoCloseable {
      * @param installationId the installation
      * @param repository     the repository
      * @param permissions    the permission set
-     * @return a token source for {@link CiHttpClient} that mints or reuses per request
+     * @return a token source for {@link HttpClient} that mints or reuses per request
      */
     public TokenSource tokenSource(long installationId, String repository, Map<String, String> permissions) {
         return () -> token(installationId, repository, permissions).value().map(InstallationToken::token);
     }
 
-    private CiResult<InstallationToken> mint(Key key) {
+    private Result<InstallationToken> mint(Key key) {
         var body = new LinkedHashMap<String, Object>();
         body.put("repositories", List.of(key.repository()));
         body.put("permissions", new LinkedHashMap<>(key.permissions()));
-        CiResponse response;
+        Response response;
         try {
             response = http.send("POST", "app/installations/" + key.installationId() + "/access_tokens",
                     Optional.of(Json.write(body)), Optional.empty());
         } catch (GitHubAppJwt.JwtSigningException e) {
-            return CiResult.of(CiResult.Outcome.AUTH_FAILED, e.getMessage());
+            return Result.of(Result.Outcome.AUTH_FAILED, e.getMessage());
         }
         if (!response.isOk()) {
-            return CiResult.failed(response);
+            return Result.failed(response);
         }
         Object json = Json.parseOrNull(response.body());
         Optional<String> token = Json.string(json, "token");
         Optional<String> expiresAt = Json.string(json, "expires_at");
         if (token.isEmpty() || expiresAt.isEmpty()) {
-            return CiResult.of(CiResult.Outcome.FAILED, "mint response without token or expires_at");
+            return Result.of(Result.Outcome.FAILED, "mint response without token or expires_at");
         }
         try {
             var minted = new InstallationToken(token.get(), Instant.parse(expiresAt.get()));
             redaction.accept(minted.token());
-            return CiResult.ok(minted);
+            return Result.ok(minted);
         } catch (DateTimeParseException _) {
-            return CiResult.of(CiResult.Outcome.FAILED, "unreadable expires_at");
+            return Result.of(Result.Outcome.FAILED, "unreadable expires_at");
         }
     }
 

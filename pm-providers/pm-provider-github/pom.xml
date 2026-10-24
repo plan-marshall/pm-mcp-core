@@ -22,7 +22,7 @@
         </dependency>
         <dependency>
             <groupId>de.planmarshall</groupId>
-            <artifactId>pm-provider-ci</artifactId>
+            <artifactId>pm-provider-http</artifactId>
         </dependency>
         <dependency>
             <groupId>de.planmarshall</groupId>

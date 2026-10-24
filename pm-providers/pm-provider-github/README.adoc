@@ -2,14 +2,14 @@
 :nofooter:
 
 `pm-provider-github` is the native GitHub client of the engine. It authenticates as a GitHub App and sends its REST
-and GraphQL requests over the shared HTTP base of `pm-provider-ci`. What the module may depend on is stated in the
+and GraphQL requests over the shared HTTP base of `pm-provider-http`. What the module may depend on is stated in the
 https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/specification/module-structure.adoc[Module Structure Specification].
 
 == Package
 
 The line is the first sentence of the package's `package-info.java`.
 
-* `de.planmarshall.provider.github`: the native GitHub client of PM-MCP: GitHub App authentication, fixed GraphQL documents for review threads and the merge queue, and REST calls, all over the shared HTTP base of `pm-provider-ci`.
+* `de.planmarshall.provider.github`: the native GitHub client of PM-MCP: GitHub App authentication, fixed GraphQL documents for review threads and the merge queue, and REST calls, all over the shared HTTP base of `pm-provider-http`.
 
 == Build and Test
 

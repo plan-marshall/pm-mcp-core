@@ -891,6 +891,27 @@ Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.ado
 
 == link:../../plan-marshall-documentation/doc/requirements/09-technology.adoc[Technology]
 
+[#PM-TECH-2]
+=== PM-TECH-2: Outbound HTTPS Client, LSP Client & McpAssured Testing Libraries
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-TECH-2[PM-TECH-2]
+
+Implementation (the outbound HTTPS client of the provider adapters over `cui-http`: the origin-pinned client with pagination, conditional requests and rate-limit outcomes, its endpoint, the closed outcomes of one request and of an operation, its token seam and the JSON tree of a provider body; the LSP client and the McpAssured test libraries are traced with the other requirements, not here): module link:../pm-providers/pm-provider-http/pom.xml[pm-provider-http] with
+link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/HttpClient.java[HttpClient],
+link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/Endpoint.java[Endpoint],
+link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/Response.java[Response],
+link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/Result.java[Result],
+link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/PagedResult.java[PagedResult],
+link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/TokenSource.java[TokenSource],
+link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/Json.java[Json]
+
+Verified by: link:../pm-providers/pm-provider-http/src/test/java/de/planmarshall/provider/http/HttpClientTest.java[HttpClientTest],
+link:../pm-providers/pm-provider-http/src/test/java/de/planmarshall/provider/http/EndpointTest.java[EndpointTest],
+link:../pm-providers/pm-provider-http/src/test/java/de/planmarshall/provider/http/JsonTest.java[JsonTest],
+link:../pm-core/src/test/java/de/planmarshall/core/BuildGuardsIT.java[BuildGuardsIT]
+
+Documentation: link:../pm-providers/pm-provider-http/doc/developer/provider-http.adoc[Developer Guide § The Shared HTTP Base (`provider.http`)], link:../pm-providers/pm-provider-http/doc/adr/provider-http/001-neutral-class-names.adoc[ADR provider-http/001], link:../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-provider-http[Module Structure § `pm-provider-http`]
+
 [#PM-TECH-3]
 === PM-TECH-3: GraalVM Native Executable & Startup/Memory Bounds
 

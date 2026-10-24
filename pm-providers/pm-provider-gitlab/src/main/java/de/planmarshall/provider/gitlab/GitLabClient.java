@@ -17,11 +17,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import de.planmarshall.provider.ci.CiHttpClient;
-import de.planmarshall.provider.ci.CiResponse;
-import de.planmarshall.provider.ci.CiResult;
-import de.planmarshall.provider.ci.Json;
-import de.planmarshall.provider.ci.PagedResult;
+import de.planmarshall.provider.http.HttpClient;
+import de.planmarshall.provider.http.Json;
+import de.planmarshall.provider.http.PagedResult;
+import de.planmarshall.provider.http.Response;
+import de.planmarshall.provider.http.Result;
 
 /**
  * A thin GitLab REST client ({@code /api/v4}) for the merge path and the review operations of the
@@ -39,7 +39,7 @@ public final class GitLabClient {
     /** The status with which {@code personal_access_tokens/self} refuses a token of another type. */
     private static final int NOT_A_PERSONAL_ACCESS_TOKEN = 400;
 
-    private final CiHttpClient http;
+    private final HttpClient http;
     private final String project;
 
     /**
@@ -89,7 +89,7 @@ public final class GitLabClient {
      * @param http    the HTTP base on the {@code /api/v4/} endpoint
      * @param project the project id or full path ({@code group/project})
      */
-    public GitLabClient(CiHttpClient http, String project) {
+    public GitLabClient(HttpClient http, String project) {
         this.http = Objects.requireNonNull(http, "http");
         this.project = "projects/" + URLEncoder.encode(project, StandardCharsets.UTF_8);
     }
@@ -101,14 +101,14 @@ public final class GitLabClient {
      * @param sha the expected head
      * @return the merge commit sha; {@code REJECTED} when not mergeable or the head moved
      */
-    public CiResult<String> merge(long iid, String sha) {
-        CiResponse response = http.send("PUT", project + MERGE_REQUESTS + iid + "/merge",
+    public Result<String> merge(long iid, String sha) {
+        Response response = http.send("PUT", project + MERGE_REQUESTS + iid + "/merge",
                 Optional.of(Json.write(Map.of("sha", sha))), Optional.empty());
         if (!response.isOk()) {
-            return CiResult.failed(response);
+            return Result.failed(response);
         }
-        return Json.string(Json.parseOrNull(response.body()), "merge_commit_sha").map(CiResult::ok)
-                .orElseGet(() -> CiResult.of(CiResult.Outcome.FAILED, "merge response without merge_commit_sha"));
+        return Json.string(Json.parseOrNull(response.body()), "merge_commit_sha").map(Result::ok)
+                .orElseGet(() -> Result.of(Result.Outcome.FAILED, "merge response without merge_commit_sha"));
     }
 
     /**
@@ -118,10 +118,10 @@ public final class GitLabClient {
      * @param sha the expected head
      * @return the response body (the merge train cars)
      */
-    public CiResult<String> mergeTrainAdd(long iid, String sha) {
-        CiResponse response = http.send("POST", project + "/merge_trains/merge_requests/" + iid,
+    public Result<String> mergeTrainAdd(long iid, String sha) {
+        Response response = http.send("POST", project + "/merge_trains/merge_requests/" + iid,
                 Optional.of(Json.write(Map.of("sha", sha))), Optional.empty());
-        return response.isOk() ? CiResult.ok(response.body()) : CiResult.failed(response);
+        return response.isOk() ? Result.ok(response.body()) : Result.failed(response);
     }
 
     /**
@@ -130,10 +130,10 @@ public final class GitLabClient {
      * @param iid the merge request iid
      * @return the discussions; {@code complete} is {@code false} at the page cap
      */
-    public CiResult<List<Discussion>> discussions(long iid) {
+    public Result<List<Discussion>> discussions(long iid) {
         PagedResult pages = http.getAll(project + MERGE_REQUESTS + iid + "/discussions?per_page=100", MAX_PAGES);
         if (pages.pages().isEmpty()) {
-            return CiResult.failed(pages.last());
+            return Result.failed(pages.last());
         }
         var discussions = new ArrayList<Discussion>();
         for (String page : pages.pages()) {
@@ -141,7 +141,7 @@ public final class GitLabClient {
                 discussions.add(discussion(discussion));
             }
         }
-        return CiResult.ok(List.copyOf(discussions), pages.complete());
+        return Result.ok(List.copyOf(discussions), pages.complete());
     }
 
     /**
@@ -152,14 +152,14 @@ public final class GitLabClient {
      * @param body         the reply body
      * @return the note id
      */
-    public CiResult<String> reply(long iid, String discussionId, String body) {
-        CiResponse response = http.send("POST", discussionPath(iid, discussionId) + "/notes",
+    public Result<String> reply(long iid, String discussionId, String body) {
+        Response response = http.send("POST", discussionPath(iid, discussionId) + "/notes",
                 Optional.of(Json.write(Map.of("body", body))), Optional.empty());
         if (!response.isOk()) {
-            return CiResult.failed(response);
+            return Result.failed(response);
         }
-        return Json.string(Json.parseOrNull(response.body()), "id").map(CiResult::ok)
-                .orElseGet(() -> CiResult.of(CiResult.Outcome.FAILED, "note response without id"));
+        return Json.string(Json.parseOrNull(response.body()), "id").map(Result::ok)
+                .orElseGet(() -> Result.of(Result.Outcome.FAILED, "note response without id"));
     }
 
     /**
@@ -169,13 +169,13 @@ public final class GitLabClient {
      * @param discussionId the discussion id
      * @return whether the discussion is resolved afterwards
      */
-    public CiResult<Boolean> resolve(long iid, String discussionId) {
-        CiResponse response = http.send("PUT", discussionPath(iid, discussionId) + "?resolved=true", Optional.empty(),
+    public Result<Boolean> resolve(long iid, String discussionId) {
+        Response response = http.send("PUT", discussionPath(iid, discussionId) + "?resolved=true", Optional.empty(),
                 Optional.empty());
         if (!response.isOk()) {
-            return CiResult.failed(response);
+            return Result.failed(response);
         }
-        return CiResult.ok(discussion(Json.parseOrNull(response.body())).resolved());
+        return Result.ok(discussion(Json.parseOrNull(response.body())).resolved());
     }
 
     /**
@@ -184,9 +184,9 @@ public final class GitLabClient {
      * @param jobId the job id
      * @return the trace text
      */
-    public CiResult<String> jobTrace(long jobId) {
-        CiResponse response = http.get(project + "/jobs/" + jobId + "/trace");
-        return response.isOk() ? CiResult.ok(response.body()) : CiResult.failed(response);
+    public Result<String> jobTrace(long jobId) {
+        Response response = http.get(project + "/jobs/" + jobId + "/trace");
+        return response.isOk() ? Result.ok(response.body()) : Result.failed(response);
     }
 
     /**
@@ -196,32 +196,32 @@ public final class GitLabClient {
      *
      * @return the identity; {@code AUTH_FAILED} for an invalid token
      */
-    public CiResult<TokenIdentity> tokenIdentity() {
-        CiResponse response = http.get("personal_access_tokens/self");
-        if (response.outcome() == CiResponse.Outcome.HTTP_ERROR && response.status() == NOT_A_PERSONAL_ACCESS_TOKEN) {
+    public Result<TokenIdentity> tokenIdentity() {
+        Response response = http.get("personal_access_tokens/self");
+        if (response.outcome() == Response.Outcome.HTTP_ERROR && response.status() == NOT_A_PERSONAL_ACCESS_TOKEN) {
             return userIdentity();
         }
         if (!response.isOk()) {
-            return CiResult.failed(response);
+            return Result.failed(response);
         }
         Object json = Json.parseOrNull(response.body());
         var scopes = Json.list(json, "scopes").stream().map(String::valueOf).toList();
-        return CiResult.ok(new TokenIdentity(Json.string(json, "id").orElse(""), Json.string(json, "name").orElse(""),
+        return Result.ok(new TokenIdentity(Json.string(json, "id").orElse(""), Json.string(json, "name").orElse(""),
                 Json.string(json, "user_id").orElse(""), scopes, Json.bool(json, "active"),
                 Json.string(json, "expires_at")));
     }
 
     /** The identity of a token without a token record: the user it acts as ({@code GET /user}). */
-    private CiResult<TokenIdentity> userIdentity() {
-        CiResponse response = http.get("user");
+    private Result<TokenIdentity> userIdentity() {
+        Response response = http.get("user");
         if (!response.isOk()) {
-            return CiResult.failed(response);
+            return Result.failed(response);
         }
         Object json = Json.parseOrNull(response.body());
         return Json.string(json, "id")
-                .map(userId -> CiResult.ok(new TokenIdentity("", "", userId, List.of(),
+                .map(userId -> Result.ok(new TokenIdentity("", "", userId, List.of(),
                         "active".equals(Json.string(json, "state").orElse("")), Optional.empty())))
-                .orElseGet(() -> CiResult.of(CiResult.Outcome.FAILED, "user response without id"));
+                .orElseGet(() -> Result.of(Result.Outcome.FAILED, "user response without id"));
     }
 
     private String discussionPath(long iid, String discussionId) {

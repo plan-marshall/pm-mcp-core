@@ -98,7 +98,7 @@
             </dependency>
             <dependency>
                 <groupId>de.planmarshall</groupId>
-                <artifactId>pm-provider-ci</artifactId>
+                <artifactId>pm-provider-http</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -252,9 +252,9 @@
                             </rules>
                         </configuration>
                     </execution>
-                    <!-- Provider modules: pm-core and pm-provider-ci (its shared HTTP base) alone among the modules of the
-                         product; never the engine, pm-runtime or another provider implementation. Switched on in
-                         pm-providers. -->
+                    <!-- Provider modules: pm-core and pm-provider-http (the shared HTTP base) alone among the
+                         modules of the product; never the engine, pm-runtime or another provider implementation.
+                         Switched on in pm-providers. -->
                     <execution>
                         <id>provider</id>
                         <phase>validate</phase>
@@ -271,14 +271,14 @@
                                     <includes>
                                         <include>de.planmarshall:pm-core</include>
                                         <include>de.planmarshall:pm-api</include>
-                                        <include>de.planmarshall:pm-provider-ci</include>
+                                        <include>de.planmarshall:pm-provider-http</include>
                                     </includes>
-                                    <message>A provider module depends on pm-core and, for the shared HTTP base, on pm-provider-ci alone among the modules of the product.</message>
+                                    <message>A provider module depends on pm-core and, for the shared HTTP base, on pm-provider-http alone among the modules of the product.</message>
                                 </bannedDependencies>
                             </rules>
                         </configuration>
                     </execution>
-                    <!-- The contract modules pm-provider-git and pm-provider-ci: no other provider module. Switched on in
+                    <!-- The contract modules pm-provider-git and pm-provider-http: no other provider module. Switched on in
                          their POMs. -->
                     <execution>
                         <id>provider-contract</id>
@@ -293,7 +293,7 @@
                                     <excludes>
                                         <exclude>de.planmarshall:pm-provider-*</exclude>
                                     </excludes>
-                                    <message>pm-provider-git and pm-provider-ci depend on pm-core alone among the modules of the product.</message>
+                                    <message>pm-provider-git and pm-provider-http depend on pm-core alone among the modules of the product.</message>
                                 </bannedDependencies>
                             </rules>
                         </configuration>
