@@ -9,6 +9,7 @@
  */
 package de.planmarshall.workflow.task;
 
+import java.util.List;
 import java.util.Objects;
 
 import de.planmarshall.core.queue.QueueTaskRecord;
@@ -38,15 +39,28 @@ public sealed interface CallResult permits CallResult.Accepted, CallResult.Refus
      * The call was refused. The task is the entity's representation for a refusal that carries one
      * ({@code stale_entity}); it is {@code null} when no task of that id exists.
      *
-     * @param refusal why the call was refused
-     * @param task    the task, or {@code null} when the queue holds none of that id
+     * @param refusal       why the call was refused
+     * @param task          the task, or {@code null} when the queue holds none of that id
+     * @param missingSkills the {@code skill://} URIs a {@code skills_not_loaded} refusal names; empty for every other
+     *                      refusal
      * @since 0.1
      */
-    record Refused(TaskRefusal refusal, QueueTaskRecord task) implements CallResult {
+    record Refused(TaskRefusal refusal, QueueTaskRecord task, List<String> missingSkills) implements CallResult {
 
-        /** @throws NullPointerException if the refusal is {@code null} */
+        /** @throws NullPointerException if the refusal or the list of missing skills is {@code null} */
         public Refused {
             Objects.requireNonNull(refusal, "refusal");
+            missingSkills = List.copyOf(missingSkills);
+        }
+
+        /**
+         * A refusal that names no missing skill.
+         *
+         * @param refusal why the call was refused
+         * @param task    the task, or {@code null} when the queue holds none of that id
+         */
+        public Refused(TaskRefusal refusal, QueueTaskRecord task) {
+            this(refusal, task, List.of());
         }
     }
 }

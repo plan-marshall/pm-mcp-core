@@ -142,7 +142,8 @@ class TaskProtocolRefusalTest {
 
         assertAll(
                 () -> assertEquals(TaskRefusal.SKILLS_NOT_LOADED, refused.refusal()),
-                () -> assertEquals(Status.EXECUTING, refused.task().status()));
+                () -> assertEquals(Status.EXECUTING, refused.task().status()),
+                () -> assertEquals(List.of(second.uri()), refused.missingSkills()));
     }
 
     @Test

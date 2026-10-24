@@ -38,9 +38,9 @@ the arguments of a link against its closed schema are validated by the entity re
 
 `SkillDelivery`::
 The skills each generation has received, by URI and digest, for the lifetime of the runtime. A new generation starts
-empty; an unchanged digest is not delivered again; a changed digest is; a submit is refused `skills_not_loaded` while a
-required skill is missing. The persistent record beside the worker's job record is `worker-launch`'s; this package keeps
-the in-memory projection the protocol decides on
+empty; an unchanged digest is not delivered again; a changed digest is; a submit is refused `skills_not_loaded`, naming
+the missing `skill://` URIs, while a required skill is missing. The persistent record beside the worker's job record is
+`worker-launch`'s; this package keeps the in-memory projection the protocol decides on
 (link:../adr/workflow-task/004-the-delivery-record-is-a-runtime-projection.adoc[ADR 004]).
 
 `SecurityAudit` and `AuditLogSecurityAudit`::
@@ -56,9 +56,10 @@ generation, the task and the attempt; `AuditLogSecurityAudit` writes it under th
   first, then work tasks in creation order; a task of a paused plan, a second writer task of a plan whose writer is
   leased, and every task of an outdated generation are skipped.
 * `acknowledge`: `offered` → `executing`, with the instant on the lease and the attempt.
-* `submit`: checks that every skill the task requires was delivered to the generation (else `skills_not_loaded`, and
-  the task stays executing), then closes the task `submitted` in the transaction that validated the submit and releases
-  the lease. Every later call of that generation is `stale_entity`; the task is done exactly once.
+* `submit`: checks that every skill the task requires was delivered to the generation (else `skills_not_loaded` with
+  the missing `skill://` URIs, and the task stays executing), then closes the task `submitted` in the transaction that
+  validated the submit and releases the lease. Every later call of that generation is `stale_entity`; the task is done
+  exactly once.
 * `infeasible`: closes the task `infeasible` through the entity's link, as `submit` closes it `submitted`.
 * `report`: ends the attempt without a result, releases the lease and re-queues the task. An end that counts spends a
   re-offer; when the budget is spent the task closes `lost` with `attempts_spent`

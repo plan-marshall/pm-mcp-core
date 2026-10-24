@@ -325,8 +325,10 @@ public final class TaskProtocol {
             if (task.status() != Status.EXECUTING) {
                 return new CallResult.Refused(TaskRefusal.LINK_NOT_AVAILABLE, task);
             }
-            if (!skills.missing(call.generationId(), required).isEmpty()) {
-                return new CallResult.Refused(TaskRefusal.SKILLS_NOT_LOADED, task);
+            var missing = skills.missing(call.generationId(), required);
+            if (!missing.isEmpty()) {
+                return new CallResult.Refused(TaskRefusal.SKILLS_NOT_LOADED, task,
+                        missing.stream().map(RoleSkill::uri).toList());
             }
             return new CallResult.Accepted(close(task, Outcome.SUBMITTED, null, AttemptEnd.CLOSED, at));
         });
