@@ -144,6 +144,24 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     /** The name of the event that records an {@code unenrol} refused while the project has live work. */
     public static final String UNENROL_REFUSED = "unenrol_refused";
 
+    /** The name of the event that records an accepted self-update of an enrolled harness (PM-EXEC-1). */
+    public static final String HARNESS_UPDATED = "harness_updated";
+
+    /** The detail of a harness record that names the client id of the harness. */
+    public static final String DETAIL_CLIENT_ID = "client_id";
+
+    /** The detail of a harness self-update that holds the version the enrolment recorded before it. */
+    public static final String DETAIL_OLD_VERSION = "old_version";
+
+    /** The detail of a harness self-update that holds the digest the enrolment recorded before it. */
+    public static final String DETAIL_OLD_SHA256 = "old_sha256";
+
+    /** The detail of a harness self-update that holds the version the probe reported. */
+    public static final String DETAIL_NEW_VERSION = "new_version";
+
+    /** The detail of a harness self-update that holds the digest of the changed executable. */
+    public static final String DETAIL_NEW_SHA256 = "new_sha256";
+
     /** The category of the events of the integrity and per-use checks. */
     public static final String CATEGORY_SECURITY = "security";
 
@@ -401,6 +419,25 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
      */
     public static AuditEvent unenrolRefused(String projectId) {
         return refusal(UNENROL_REFUSED, CATEGORY_OPERATOR, projectId, REASON_SCOPE_ACTIVE);
+    }
+
+    /**
+     * @param clientId   the enrolled harness whose executable changed
+     * @param oldVersion the version the enrolment recorded before the change
+     * @param oldSha256  the digest the enrolment recorded before the change
+     * @param newVersion the version the accepted probe reported
+     * @param newSha256  the digest of the changed executable
+     * @return the record of an accepted self-update, naming both builds
+     * @throws NullPointerException if a value is {@code null}
+     */
+    public static AuditEvent harnessUpdated(String clientId, String oldVersion, String oldSha256, String newVersion,
+            String newSha256) {
+        return new AuditEvent(HARNESS_UPDATED, CATEGORY_OPERATOR, OUTCOME_SUCCEEDED,
+                Map.of(DETAIL_CLIENT_ID, Objects.requireNonNull(clientId, "clientId"), DETAIL_OLD_VERSION,
+                        Objects.requireNonNull(oldVersion, "oldVersion"), DETAIL_OLD_SHA256,
+                        Objects.requireNonNull(oldSha256, "oldSha256"), DETAIL_NEW_VERSION,
+                        Objects.requireNonNull(newVersion, "newVersion"), DETAIL_NEW_SHA256,
+                        Objects.requireNonNull(newSha256, "newSha256")));
     }
 
     /**
