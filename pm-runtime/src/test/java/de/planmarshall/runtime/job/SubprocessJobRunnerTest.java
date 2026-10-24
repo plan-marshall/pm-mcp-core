@@ -1772,6 +1772,18 @@ class SubprocessJobRunnerTest {
                     () -> assertEquals(0L, awaited.observedLength()),
                     () -> assertTrue(interruptStatus, "the interrupt is restored for the caller"));
         }
+
+        @Test
+        @DisplayName("records the descendants of a probe and of a worker, and of no other kind")
+        void tracksDescendantsOfProbesAndWorkers() {
+            assertAll(
+                    () -> assertTrue(SubprocessJobRunner.tracksDescendants(JobId.Kind.PROBE)),
+                    () -> assertTrue(SubprocessJobRunner.tracksDescendants(JobId.Kind.LLM)),
+                    () -> assertFalse(SubprocessJobRunner.tracksDescendants(JobId.Kind.BUILD)),
+                    () -> assertFalse(SubprocessJobRunner.tracksDescendants(JobId.Kind.CI)),
+                    () -> assertFalse(SubprocessJobRunner.tracksDescendants(JobId.Kind.GIT)),
+                    () -> assertFalse(SubprocessJobRunner.tracksDescendants(JobId.Kind.PROJECT_SCRIPT)));
+        }
     }
 
     /** A process whose exit and liveness the test controls. */

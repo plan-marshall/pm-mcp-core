@@ -136,9 +136,9 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * declares, decide its fate, and otherwise its exit code and output are left to the step that asked for it, which the
  * runner's output parser does not read. The runner never starts a probe again.
  * <p>
- * A probe's descendants that leave its process group are recorded while it runs and ended with it
- * ({@link ProcessTreeTracker}, termination step 3a); a worker's descendants are the supervisor's, which starts the
- * worker.
+ * A probe's or a worker's descendants that leave its process group are recorded while it runs and ended with it
+ * ({@link ProcessTreeTracker}, termination step 3a). The runner wires the tracker for the kind {@code llm} as well,
+ * because it starts every job it is given, a worker included; the supervisor never starts a process of its own.
  * <p>
  * A job leaves the running jobs only once its settlement has run, on every path the runner owns: an exception of the
  * {@link OutputParser}, of the derivation of the settled record or of the {@link TerminationProtocol}, also an
@@ -878,8 +878,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         JobRecord reported = null;
         try {
             job.launched(launched.process());
-            if (job.latest.kind() == JobId.Kind.PROBE) {
-                // step 3a: the descendants a probe may leave the group with, recorded while it runs
+            if (tracksDescendants(job.latest.kind())) {
+                // step 3a: the descendants a probe or a worker may leave the group with, recorded while it runs.
+                // A worker is wired here rather than by the supervisor because this runner starts every job it is
+                // given, a worker included (ADR runtime-job/013, decision of PLAN-29).
                 job.tracks(new ProcessTreeTracker(launched.pid(), termination.signals()));
                 job.refreshTree();
             }
@@ -900,6 +902,15 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             }
         }
         return new JobRunner.StartResult.Started(jobId);
+    }
+
+    /**
+     * @param kind the kind of a job the runner starts
+     * @return whether termination step 3a records its descendants: a probe and a worker, whose children may leave the
+     *         process group the launcher created
+     */
+    static boolean tracksDescendants(JobId.Kind kind) {
+        return kind == JobId.Kind.PROBE || kind == JobId.Kind.LLM;
     }
 
     /** The record that replaces the write-ahead record once the launch report is read. */
