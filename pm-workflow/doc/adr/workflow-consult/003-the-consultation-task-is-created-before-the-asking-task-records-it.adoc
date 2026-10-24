@@ -1,0 +1,60 @@
+= ADR 003: The Consultation Task Is Created Before the Asking Task Records It
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-24
+
+== Context
+
+Following a `consult:<role>` link creates a queue task of the consulted role and records the consultation on the asking
+task in the same transition (`model-work/05-consultation.adoc#consult-link`). The queue task record of the asking task
+carries the consultation entry, the consultation task names the asking task in `consultation_of`, and both live in one
+`QueueStore`. `QueueStore.updateAll` revises the records that exist and keeps their count and ids; it cannot add a
+record. Adding a record is `QueueStore.create`, which takes the queue lock in its own transaction.
+
+The two writes can be ordered in only these ways: record the entry first, create the task second; create the task
+first, record the entry second; or widen `QueueStore.updateAll` to add records.
+
+== Decision
+
+`ConsultationService.open` validates the ask, draws the consultation id, creates the consultation task with
+`QueueStore.create`, then records the entry on the asking task and moves it to `consulting` in one `QueueStore.updateAll`
+transaction. If the asking task's transition is refused in that transaction (the task was fenced or closed in between),
+the created task is closed `lost` with `withdrawn` so it is never offered. A crash between the two writes leaves a
+queued consultation task whose asking task does not list it; the queue is authoritative for the delivery, and the
+server's queue reconciliation closes such an orphan.
+
+`QueueStore.updateAll` is not widened: the queue store is `core.queue`'s, its write discipline is specified in
+`store-schemas/16-task-queue.adoc`, and this package owns no part of it.
+
+== Alternatives Considered
+
+1. *Record the entry first, then create the task.*
+   _Rejected_: a successor's offer would carry a consultation whose task does not exist, and a crash between the writes
+   would leave a `consulting` asking task with no one to consult.
+2. *Widen `QueueStore.updateAll` to add records.*
+   _Rejected_: it changes the shared queue store's write contract for one caller and moves the id-allocation decision
+   into the revision callback.
+3. *Create the task inside the same lock transaction by a second store.*
+   _Rejected_: it duplicates the queue lock and the record write.
+
+== Consequences
+
+* A consultation task exists before any worker can be told about it; a refused transition is cleaned up in a second
+  transaction, and the cleanup itself is idempotent.
+* The consultation task may be offered in the short window before the asking task lists it. The consulted worker's
+  answer then finds the asking task without the entry and the call is refused `job_scope_mismatch`; the worker is
+  re-offered the task and answers again.
+* Recovery from a crash between the writes is the queue's: a consultation task whose `consultation_of` names a task
+  that does not list it is closed `lost` with `withdrawn`, never answered.
+
+== Source
+
+Work package `consultation`; link:../../../../doc/specification/model-work/05-consultation.adoc#consult-link[Model Work §
+The `consult:<role>` Link], link:../../../../doc/specification/store-schemas/16-task-queue.adoc[Store Schemas § Queue
+Task Record].

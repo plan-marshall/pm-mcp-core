@@ -1,0 +1,105 @@
+= Consultation Developer Guide (`workflow.consult`)
+:nofooter:
+
+`de.planmarshall.workflow.consult` is the consultation of one role by another: the `consult:<role>` link a task's
+entity offers, the consultation task of the consulted role, the answer through the asking task's next wait, and the
+`consultation_ids` of a submit. The persisted side — the queue task record, its `consultations[]` and
+`consultation_of`, the lease and the attempts — is `de.planmarshall.core.queue` and is documented in
+link:../../../pm-core/doc/developer/core-queue.adoc[`core.queue`]; the serving of a task is
+link:workflow-task.adoc[`workflow.task`].
+
+Specification: link:../../../doc/specification/model-work/05-consultation.adoc[Model Work § Consultation];
+link:../../../doc/specification/timeouts/01-job-budgets-and-waits.adoc#consultation-bound[Timeouts & Budgets §
+Consultation Bound]; link:../../../doc/specification/store-schemas/16-task-queue.adoc[Store Schemas § Queue Task
+Record].
+
+== The types and how they work together
+
+`ConsultationService`::
+The service of one queue. It derives the links from the asking task's own record, opens a consultation, records the
+answer or the loss, and validates the `consultation_ids` of a submit. Every decision runs inside one
+`QueueStore.updateAll` transaction on the queue lock, so the consultation entry and the asking task change together. It
+is constructed over the project's `QueueStore` and holds no state of its own.
+
+`ConsultationRequest`::
+The ask: the asking task and generation, the consulted role with the class, form and configuration digest, the
+resolved harness, model and effort, the question, and the instant. The harness, model and effort are the consulted
+role's own effective values; the caller resolves them before the consultation opens, and the consultation task names
+the role, so the task protocol offers it to a generation of that role. The walkthrough of following the link is
+link:../adr/workflow-consult/001-delivery-is-decided-from-the-askers-lease.adoc[ADR 001] and
+link:../adr/workflow-consult/003-the-consultation-task-is-created-before-the-asking-task-records-it.adoc[ADR 003].
+
+`ConsultationLink`::
+The `consult:<role>` link: the relation `consult`, the form `submit`, the identifier `consult:<role>`, and the
+parameter `question: text[1..4000]`. A consultation entity offers exactly one link instead, `submit:answer`, and no
+`consult`, `ask` or infeasible link.
+
+`ConsultationOutcome`::
+What a call did: `Opened` (the consultation id and the asking task in `consulting`), `Answered` (the asking task and
+the consultations it carries) or `Refused` with a `ConsultationRefusal`. The refusal names are the server's:
+`job_scope_mismatch`, `link_not_available`, `stale_entity`, `invalid_link_args`, `class_mismatch`, and this package's
+own `consultation_open`, `consultation_bound_spent` and `consultation_depth`.
+
+`ConsultationFact` and `SubmitValidation`::
+The fact of one consultation as the asking task's `facts.consultations` carries it (`consultation_id`, role, status,
+answer), and the verdict of the `consultation_ids` check: `Accepted`, or `Refused` with a reason that names the
+missing or the unknown reference.
+
+== The rules of the link
+
+* *One at a time*: a task has at most one open consultation. While one is open, `links` offers none and `open`
+  refuses `consultation_open`.
+* *Bound*: a task follows at most the compiled `ConsultationService.MAX_CONSULT_LINKS` (`3`) consultation links over
+  all its attempts. After that, `links` offers none and `open` refuses `consultation_bound_spent`.
+* *Depth one*: a consultation task (kind `consultation`) offers only `submit:answer`; `links` returns none for it and
+  `open` refuses `consultation_depth` (link:../adr/workflow-consult/002-the-consultation-link-rules-are-derived-from-the-record.adoc[ADR
+  002]).
+* *Distance one*: an own consultation is open only while the task is `consulting`; opening one moves the task there
+  from `executing`, and the answer (or the loss) moves it back.
+
+== The answer through the next wait
+
+The consultation task is a task of the consulted role like any other (`workflow.task`): it is offered before the work
+tasks of its role, acknowledged, executed and answered. Its answer closes it `submitted`; a lost consultation closes it
+`lost` with its reason. The asking task's consultation entry is answered in the same transaction:
+
+* while the asking generation still holds the task's lease, the entry is delivered to `wait` and the asking task
+  returns to `executing`, so its next `pm_wait` re-offers it with the answer in its facts;
+* once the generation was fenced, the entry is delivered to `facts` and the successor's offer carries it; the successor
+  is offered no `consult` link for that role.
+
+The answer is delivered exactly once and only to the asking generation; a second answer is `stale_entity`. A
+consultation that closed `lost` is delivered the same way with the status `unavailable` and no answer, and the asker
+continues on its own judgment (link:../adr/workflow-consult/001-delivery-is-decided-from-the-askers-lease.adoc[ADR
+001]).
+
+== The submit refers to the consultation
+
+`validateSubmit` compares the `consultation_ids` of a submit with the consultations delivered to the task: every
+delivered id must be listed, and no other. A mismatch is refused `invalid_link_args` with a reason that names the
+missing or unknown reference; the worker may submit again.
+
+== How to use and extend it
+
+Build the service over the project's queue: `new ConsultationService(queue)`. A caller resolves the consulted role's
+effective harness, model, effort and class, then calls `open`; the consulted role's supervisor serves the consultation
+task with its own wait. The server calls `answer` when a consultation entity follows `submit:answer`, `lost` when the
+model caller cannot serve the role, `facts` for the asking entity's representation, `links` for the consultation links
+of an executing task, and `validateSubmit` before it accepts a submit.
+
+A new rule of the link is a new check in `ConsultationService.links` and in the matching `openRefusal`, derived from
+the task record; a new delivery place is a new `DeliveredTo` value of the record schema and a branch of
+`settleAsker`. No rule is kept in a second store, and the service reads no clock: every call takes its instant.
+
+== Invariants and failure modes
+
+* A consultation task names its asking task in `consultation_of` and its own id as its entity; a work task names no
+  asking task.
+* A consultation entity offers no consultation; a task with an open consultation offers none.
+* The consultation count is the length of `consultations[]` and only grows; an answered, unavailable or open
+  consultation counts the same toward the bound.
+* An answer or a loss is recorded once. The second answer is `stale_entity`, not a second result.
+* The answer is delivered exactly once: to `wait` while the asking generation holds the lease, else to `facts`.
+* A consultation task created for a transition that was then refused is closed `lost` with `withdrawn`, so no orphan
+  is offered (link:../adr/workflow-consult/003-the-consultation-task-is-created-before-the-asking-task-records-it.adoc[ADR
+  003]).
