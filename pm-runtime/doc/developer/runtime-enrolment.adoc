@@ -276,8 +276,9 @@ seam that does nothing, and the check then does not run.
   `Enrolments`.
 * *`unenrol` needs every producer to ask it.* It asks `LiveWork` under the project's enrolment lock; that prevents
   stranding only if every path that creates live work reads the enrolment under the same lock.
-* *Only the recovery runs the check.* The verify-not-resolve check of a project's jobs, the `enter` request and the
-  operator verbs must run `EnrolmentCheck.verify` too; each runs it when its path is built.
+* *Recovery and job verification run the check.* The verify-not-resolve pipeline of a project's jobs runs
+  `EnrolmentCheck.verify` as its first stage. The `enter` request and the operator verbs do not yet have runtime paths; each
+  must run it when its path is built.
 * *The project root is not checked for uniqueness.* `enrolment_root_conflict` and `project_store_root_mismatch` are
   refused nowhere yet; the operator verb and the recovery will own them.
 * *The policy is not complete.* The shell-metacharacter set of an argument vector, whether the forbidden free flags apply

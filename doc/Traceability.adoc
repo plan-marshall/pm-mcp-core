@@ -1084,7 +1084,7 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/TransitionFuzz
 Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/WorkflowValidatorTest.java[WorkflowValidatorTest] (a refusing fixture per check and the matched controls of its exemptions),
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/TransitionFuzzerTest.java[TransitionFuzzerTest] (a planted dead state and its matched control)
 
-Documentation: link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide], link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide], link:../../plan-marshall-documentation/doc/concepts/workflow-verification.adoc[Concepts § Workflow Verification]
+Documentation: link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide], link:../../plan-marshall-documentation/doc/concepts/workflow-verification.adoc[Concepts § Workflow Verification]
 
 [#PM-TEST-4]
 === PM-TEST-4: End-to-End Scenario & Worker Supervision Testing

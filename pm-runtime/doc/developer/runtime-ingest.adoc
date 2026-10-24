@@ -49,8 +49,10 @@ The text is parsed into a Markdown AST and visited once. Every visit appends to 
   pipelines: `link_rejected` (the detail names the failure type).
 
 The `cui-http` path pipeline validates the raw path and the parameter pipeline validates every query parameter's value,
-the same pipelines the provider adapters use for their outbound URLs. The schemes are compared case-insensitively; a
-relative link (no scheme) is admitted because it stays inside the document's own repository.
+the same pipelines the provider adapters use for their outbound URLs. The schemes are compared case-insensitively. A link
+with no scheme is admitted as a relative link; that includes a network-path reference such as `//host/path`, which this
+stage does not reject — a known limitation of the Markdown-AST stage, not a guarantee that the link stays in the document's
+repository.
 
 == Invariants and Failure Modes
 
@@ -60,8 +62,9 @@ relative link (no scheme) is admitted because it stays inside the document's own
   the order a reader meets them.
 * *Every finding kind has a name.* A kind is one of the string literals `html_block`, `html_inline`, `image`,
   `link_scheme`, `link_malformed` and `link_rejected`; a caller switches on it, never on the detail text.
-* *The detail is for the operator.* A `link_rejected` detail may quote the destination and the failure type; it never
-  contains a credential, because the validator dereferences nothing.
+* *The detail is for the operator.* A `link_rejected` detail may quote the destination and the failure type. For a link
+  with a user-info part it therefore contains that text, including a secret the author put there; a caller that emits or
+  persists a detail passes it through the runtime's redaction. The validator itself dereferences nothing.
 * *The counter is not shared with another validator.* Each instance builds its own `SecurityConfiguration.defaults()` and
   `SecurityEventCounter`; a validator is cheap and stateless towards its input.
 

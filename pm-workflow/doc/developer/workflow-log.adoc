@@ -29,13 +29,13 @@ _Requirements: link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
 |`PM_WORKFLOW`, the prefix of every record of the module.
 
 |`WorkflowLogMessages.INFO`
-|The INFO records, identifiers 001-099: `PROJECT_UNITS_VERIFIED` (001), `PLAN_INSTANCE_VERSION_RECORDED` (002).
+|The INFO records, identifiers 001-099.
 
 |`WorkflowLogMessages.WARN`
-|The WARN records, identifiers 100-199: `PROJECT_UNIT_REFUSED` (100), `PLAN_INSTANCE_COMPOSITION_REFUSED` (101).
+|The WARN records, identifiers 100-199.
 
 |`WorkflowLogMessages.ERROR`
-|The ERROR records, identifiers 200-299: `DEFAULT_UNIT_REFUSED` (200).
+|The ERROR records, identifiers 200-299.
 |===
 
 Every record is a `LogRecord` built by `LogRecordModel.builder()` with the prefix, the identifier and the template.

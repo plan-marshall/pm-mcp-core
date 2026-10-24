@@ -41,8 +41,8 @@ keyed by installation, repository and permission set, until `REUSE_MARGIN_SECOND
 |The RS256 JWT signed with the JDK for a mint request; the private key is read per mint and never cached.
 
 |link:{src}/GitHubOperation.java[`GitHubOperation`]
-|The operation classes, each with the narrowest repository permission set an installation token is minted with:
-`REVIEW_THREADS_READ`, `REVIEW_THREAD_RESOLVE`, `PULL_REQUEST_COMMENT`, `ISSUE_COMMENT`, `MERGE_QUEUE_ENQUEUE`.
+|The operation classes, each with the narrowest repository permission set an installation token is minted with. The
+constants and their permission sets are `GitHubOperation`'s source; this guide does not repeat them.
 |===
 
 == Authentication

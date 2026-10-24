@@ -1212,8 +1212,8 @@ factories of `AuditEvent`:
 Each record is delivered at least once. A durable intent holds it from before the mutation that makes its cause
 disappear until `AuditSink.append` returned: the transaction journal for a roll-forward and for the records a
 transaction owes, the intent file `<store>.audit-intent` for a tail repair. `OwedAuditEvents.deliver` hands the owed
-records over in their order and stops at the first one the sink refuses; the intent then keeps what was not handed over,
-the data outcome is reported as if nothing had happened, and `PM_CORE-100` names the record and the intent. The next
+records over in their order and stops at the first one the sink refuses; the intent then keeps what was not handed over, the data outcome is still the one the mutation produced (only its audit
+record remains owed), and `PM_CORE-100` names the record and the intent. The next
 recovery of the scope, or the next repair of the store, hands the records over again. A record handed over again carries
 the same `transaction_id`, by which the audit store drops the duplicate.
 
@@ -1251,6 +1251,8 @@ the caller there as a killed process). The hooks are package-private, so a crash
 === The Lease Store
 
 A lease store document is `{"format_version": 1, "leases": [{"key", "owner", "acquired_at", "lease_expires_at"}]}`;
+the nested `owner` object contains `project_id`, `scope_type`, `scope_id`, `holder_instance` and the nullable
+`orphaned_at`; `orphan(key, at)` sets it and `adopt(key, newHolder)` clears it.
 `LeaseCodec` accepts exactly that shape and refuses every other with a `StoreRefusal` naming the store file (a lower
 version is `FORMAT_OUTDATED`, a higher one `FORMAT_NEWER`, a missing or non-integer one `UNREADABLE`). An instant is
 written in exactly the shape of `Instant.toString()`, so a lease round-trips byte-identical.

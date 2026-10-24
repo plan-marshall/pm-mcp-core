@@ -32,8 +32,8 @@ provider of the gate `analysis_gate:sonar`. It matches the provider-id pattern t
 
 |link:{src}/SonarIssueKey.java[`SonarIssueKey`]
 |The key of an issue on Sonar, the address a finding of Sonar is answered on. The key is assigned by Sonar and opaque
-here: it is refused only where it could not be one — when it is empty or holds white space (a Unicode space such as the
-no-break space included) or a control character.
+here: it is refused only where it could not be one — when it is missing (`NullPointerException`), empty, or holds white
+space (a Unicode space such as the no-break space included) or a control character.
 |===
 
 == Using the Identity

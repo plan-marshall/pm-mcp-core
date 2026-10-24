@@ -417,14 +417,13 @@ seconds) and answers a `Summary` (swept, skipped, failed), and `stop()` cancels 
 the latest `Mismatch` (relay version, runtime version, `pm-operator drain`) for `pm-operator status` alone.
 |===
 
-The eleven recovery steps, in the order of `RecoveryStep.Name`, are `ENROLMENT_INTEGRITY` and `OWED_ENROLMENT_AUDIT`
-(the two enrolment steps, see link:runtime-enrolment.adoc#_the_enrolment_steps_of_the_recovery[`runtime.enrolment`]),
-`JOBS_AND_WORKERS`, `LEASES` (the stale lease sweep, link:runtime-lock.adoc[`runtime.lock`]),
-`JOURNAL_ROLL_FORWARD`, `CROSS_SCOPE_RECONCILIATION`, `WORKTREE_PRESENCE`, `ENGINE_DEADLINES`, `RESUME_DRIVE`,
-`PENDING_RECORD_SWEEP` and `BASELINE_WORKTREE_SWEEP`. `ProjectRecovery` takes one step per `Name`, refuses two steps with
-the same name, fills a missing name with `notImplemented` (the two enrolment names with their seam) and sorts the steps by
-`Name`, so the order they are passed in does not matter. A step reports a failure as `Failed`, never as an exception; one
-that throws anyway is recorded as the failed step of its project, so a broken step cannot leave callers waiting.
+The closed set and order of the eleven recovery steps are `RecoveryStep.Name`'s; this guide does not repeat them. The two
+enrolment steps come first (link:runtime-enrolment.adoc#_the_enrolment_steps_of_the_recovery[`runtime.enrolment`]) and
+`LEASES` is the stale lease sweep (link:runtime-lock.adoc[`runtime.lock`]). `ProjectRecovery` takes one step per `Name`,
+refuses two steps with the same name, fills a missing name with `notImplemented` (the two enrolment names with their seam)
+and sorts the steps by `Name`, so the order they are passed in does not matter. A step reports a failure as `Failed`, never
+as an exception; one that throws anyway is recorded as the failed step of its project, so a broken step cannot leave
+callers waiting.
 
 === The Seams
 

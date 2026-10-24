@@ -98,7 +98,7 @@ A new provider adapter depends on this module and `pm-core` alone among the modu
 HTTP tests run against `cui-test-mockwebserver-junit5` (link:../../../../doc/adr/002-cui-http-and-the-mock-web-server-for-http.adoc[repository ADR 002]);
 no hand-made fake server. The tests need no network.
 
-The shape is the same in every test of the module: the class carries `@EnableMockWebServer` and JUnit injects the
+The shape is the same in `HttpClientTest`: the class carries `@EnableMockWebServer` and JUnit injects the
 `MockWebServer`; the server's base URL is the only base URI, so the `Endpoint` is built from the mock-server URL and no
 address is hard-coded; and a dispatcher answers from single-use route responses keyed by `METHOD target`, each response
 consumed by one request. A key with no response left answers `404`, so a request the test did not expect fails the test

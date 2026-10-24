@@ -37,11 +37,10 @@ link:{src}/GitOperations.java[`GitOperations`] is the contract: typed inputs and
   non-fast-forward and a lost lease are two outcomes, not one failure.
 * *Cache*: `initCache`, `fetchCommit`, `readFile` (<<cache-repository-operations>>).
 
-`GitOutcome` is closed: `OK`, `NOT_A_REPOSITORY`, `UNKNOWN_REVISION`, `NOTHING_TO_COMMIT`, `REJECTED_NON_FAST_FORWARD`,
-`REJECTED_LEASE`, `REMOTE_ORIGIN_MISMATCH`, `CAPABILITY_MISSING`, `ALREADY_EXISTS`, `BRANCH_CHECKED_OUT`,
-`WORKTREE_NOT_FOUND`, `WORKTREE_DIRTY`, `WORKTREE_LOCKED`, `GIT_IDENTITY_AMBIGUOUS`, `GIT_IDENTITY_MISMATCH`,
-`PATH_REFUSED`, `PATH_NOT_FOUND`, `UNAVAILABLE` and `FAILED`. A caller switches on the outcome; the detail is for the
-operator and never decides a branch of the caller's logic.
+`GitOutcome` is closed; its constants are the source of the outcome set, grouped here by what they answer: the repository
+and worktree outcomes, the identity and revision outcomes, the transport and remote-policy outcomes, and `FAILED` for a
+failure none of them names. A caller switches on the outcome; the detail is for the operator and never decides a branch of
+the caller's logic.
 
 `GitCredential` carries a username and a `char[]` secret, and its `toString`, `equals` and `hashCode` never write the
 secret; it is passed only where a remote needs it. `RemotePolicy` decides which remote URLs an operation may contact, and

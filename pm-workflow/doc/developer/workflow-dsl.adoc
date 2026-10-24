@@ -76,9 +76,8 @@ clause with the `param` and `result` declarations of a sub-workflow, the `declar
 without a form takes `LinkRelation.defaultForm()`. Guards bind `not` before `and` before `or`; a guard nested deeper
 than 32 parentheses (`WorkflowParser.MAX_GUARD_DEPTH`) is refused, which bounds the recursion.
 
-The first refusal wins. Its `RefusalRule` is one of `FRONTMATTER`, `STRUCTURE` (the source does not follow the grammar),
-`RESERVED_KEYWORD`, `MISSING_SCOPE`, `DUPLICATE_ID` (a state, a `declare` name, a decision kind or a parameter declared
-twice in the file) and `INSTANCE_HEADER`. A reserved keyword is refused where the grammar names a name, not everywhere:
+The first refusal wins. Its `RefusalRule` is one of the members listed under <<_main_types>>; `STRUCTURE` covers a source
+that does not follow the grammar. A reserved keyword is refused where the grammar names a name, not everywhere:
 the positional vocabularies stay usable (`link retry retry [noop]` parses). What the parser leaves to later stages is
 the identifier length bounds, every verification rule, the merge of a multi-file unit and the refusal of an `instance`
 line in a project unit.

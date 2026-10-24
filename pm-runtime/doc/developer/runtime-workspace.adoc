@@ -54,9 +54,9 @@ switch (outcome) {
 }
 ----
 
-An operation always works on the canonical path of a `Confined` outcome, never on the text it was given: the canonical
-path has every symbolic link resolved, so the operation cannot leave the workspace through a link that was created after
-the check or that lies below a legitimate directory. A relative path is resolved against the enrolled root.
+An operation uses the canonical path of a `Confined` outcome, never the text it was given. Canonicalization resolves the
+symbolic links that exist during the check; it does not prevent a directory or a symbolic link from being replaced before
+the operation. A relative path is resolved against the enrolled root.
 
 `WorkspaceConfinement.confine` logs a refusal at WARN as `PM_RUNTIME-106` (`PROJECT_PATH_REFUSED`) with the outcome code
 and the reason, never with the path: the path may name a location the operator did not intend to disclose, and the
@@ -71,9 +71,10 @@ record's diagnostic is enough to tell the kinds of refusal apart.
 * *The roots are the enrolled root and the live worktrees.* A worktree that is not live is not a root; a linked worktree
   that was removed after the roots were read is refused by the following file operation, and the roots are read afresh for
   a new operation.
-* *The check is a library.* Not every path that reaches the runtime passes through it yet (epic standing rule R09); the
-  package that performs a file or repository operation for a project adopts the check itself. A new consumer passes the
-  canonical path on, never the text.
+* *The check is a library.* No file, git or build consumer calls it yet (epic standing rule R09, and
+  `doc/Traceability.adoc` records the same); each consumer calls `confine(rawPath)` before its project-path operation and
+  passes `Confined.path()` on, never the text. Until then a path that reaches the runtime through another entry point is
+  not confined there.
 * *No path in a message.* The WARN record names the outcome code and the reason. A caller that reports a refusal to an
   API caller gives the code and the reason, not the rejected path either.
 

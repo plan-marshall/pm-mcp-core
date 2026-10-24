@@ -24,9 +24,8 @@ _Requirements: link:{docs}/Requirements.adoc#PM-SEC-4[PM-SEC-4]_
 |Type |What it is
 
 |link:{src}/CredentialKind.java[`CredentialKind`]
-|The closed kinds of token the runtime accepts, each with its own identity provider: `RUNTIME` (the runtime token of
-`run/runtime.token`), `JOB` (a worker's job token, header `PM-MCP-Job-Token`) and `DEVICE` (a paired browser's device
-secret, `pmw_…`).
+|The closed kinds of token the runtime accepts. The constants are its source, and the listener each kind counts on is
+stated in its Javadoc and in the assembly's authenticator; this guide does not repeat the list.
 
 |link:{src}/JobTokenRegistry.java[`JobTokenRegistry`]
 |`resolve(tokenSha256)` → the `JobBinding(jobId)` the token was minted for, or empty for an unknown token. Only the hash is

@@ -44,9 +44,8 @@ Every record is a `LogRecord` built by `LogRecordModel.builder()` with the prefi
 the template's `%s` placeholders. The `LogRecord` names the identifier, the template and the description of the message;
 the logger names the class that logged it.
 
-The identifiers in use are exactly those of `doc/LogMessages.adoc`: INFO 001 (`ENROLMENT_PAIR_COMPLETED`), WARN 100 to
-102 (`AUDIT_RECORD_DEFERRED`, `ENROLMENT_PAIR_DISCARDED`, `CORPUS_SOURCE_MISSED`) and ERROR 200
-(`CORPUS_SOURCE_HASH_MISMATCH`). The roster there is the reference; do not copy it into a second place.
+The roster of the module is in `doc/LogMessages.adoc`, which is the one place that states the identifiers in use; this
+guide does not repeat it. The ranges are fixed per level, and a new record takes the next free identifier of its level.
 
 == Using the Holder
 

@@ -80,7 +80,9 @@ cannot take it for a byte-order mark.
 == Extending the Encoder
 
 . Add the variant to `ToonValue` and its `of(…)` factory where a convenience is wanted.
-. Add its arm to every switch of `ToonEncoder`; the sealed interface makes a missing arm a compile error.
+. Add its arm to every switch of `ToonEncoder`. The top-level `encode` switch has a primitive `default` arm, so a missing
+  arm there is a runtime mistake, not a compile error; the switches over the value's fields do not have one where the
+  sealed hierarchy is exhaustive.
 . Add a case to `ToonEncoderTest` and, where the specification defines a form for it, a conformance case.
 4. Prove the refusal case too: a value the form cannot represent is a `ToonEncodingException`, never a silently altered
    document.
