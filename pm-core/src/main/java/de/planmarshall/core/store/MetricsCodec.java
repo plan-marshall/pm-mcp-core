@@ -132,7 +132,7 @@ public class MetricsCodec {
      * @return the document, UTF-8 encoded
      */
     public static byte[] write(Document document) {
-        Objects.requireNonNull(document, "document");
+        Objects.requireNonNull(document, PARAMETER_DOCUMENT);
         var out = new ByteArrayOutputStream();
         try (var generator = StrictJson.factory().createGenerator(out, JsonEncoding.UTF8)) {
             generator.writeStartObject();
@@ -579,6 +579,11 @@ public class MetricsCodec {
             return measurement;
         }
 
+        private static <T> Optional<T> nullableEnum(JsonParser parser, String field,
+                Function<String, Optional<T>> of) throws IOException {
+            return Optional.ofNullable(enumValue(parser, field, of));
+        }
+
         private static Optional<BigDecimal> cost(JsonParser parser, String field) throws IOException {
             if (parser.currentToken() == JsonToken.VALUE_STRING) {
                 if (!UNMEASURED.equals(string(parser, field))) {
@@ -675,10 +680,5 @@ public class MetricsCodec {
         var name = string(parser, field);
         return of.apply(name)
                 .orElseThrow(() -> unreadable("'%s' has the undeclared value '%s'".formatted(field, name)));
-    }
-
-    private static <T> Optional<T> nullableEnum(JsonParser parser, String field,
-            Function<String, Optional<T>> of) throws IOException {
-        return Optional.ofNullable(enumValue(parser, field, of));
     }
 }

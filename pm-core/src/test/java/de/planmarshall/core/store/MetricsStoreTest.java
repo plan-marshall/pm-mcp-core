@@ -124,6 +124,19 @@ class MetricsStoreTest {
         }
 
         @Test
+        @DisplayName("round-trips the envelope's predicted cost and early end, and a row outside a plan")
+        void envelopeRow() {
+            var predicted = new MetricsRow.PredictedCost(1200L, MetricsRow.PredictedCost.Basis.CALIBRATED);
+            var row = row("qt-0123456789abcdef", usage()).withPredictedCost(predicted)
+                    .withYieldReason(MetricsRow.YieldReason.QUESTION).withPhase(null).withEnvelopeId("envelope-3")
+                    .withEffort(null).withConsultationOf("qt-0123456789abcdee");
+
+            store.append(row);
+
+            assertEquals(row, store.snapshot().taskRows().getFirst());
+        }
+
+        @Test
         @DisplayName("a second row for the same task and attempt is refused")
         void duplicate() {
             store.append(row("qt-0123456789abcdef", usage()));
@@ -251,6 +264,52 @@ class MetricsStoreTest {
             Files.writeString(file, notApplicable, UTF_8);
 
             assertThrows(StoreRefusal.class, () -> store.snapshot());
+        }
+    }
+
+    @Nested
+    @DisplayName("the row's rules")
+    class Validation {
+
+        @Test
+        @DisplayName("refuses an attempt without its end or its end without an attempt")
+        void attemptAndEnd() {
+            var withoutEnd = row("qt-0123456789abcdef", usage()).toBuilder().attemptEnd(null);
+            var withoutAttempt = row("qt-0123456789abcdef", usage()).toBuilder().attempt(null);
+
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class, withoutEnd::build),
+                    () -> assertThrows(IllegalArgumentException.class, withoutAttempt::build));
+        }
+
+        @Test
+        @DisplayName("refuses a refused row that carries a worker, and a broken identifier")
+        void refusedColumns() {
+            var refusedWithWorker = row("qt-0123456789abcdef", usage()).toBuilder().attempt(null).attemptEnd(null)
+                    .causeClass(CauseClass.REFUSED);
+            var badId = row("qt-0123456789abcdef", usage()).toBuilder().queueTaskId("qt-not-an-id");
+
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class, refusedWithWorker::build),
+                    () -> assertThrows(IllegalArgumentException.class, badId::build),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> new MetricsRow.PredictedCost(-1L, MetricsRow.PredictedCost.Basis.UNCALIBRATED)));
+        }
+
+        @Test
+        @DisplayName("refuses an idle row with a broken job, role or count")
+        void idleRefusals() {
+            var badJob = WorkerIdleRow.builder().jobId("not-a-job").role("writer").harness("opencode")
+                    .harnessVersion("1.2.3").model("m").usage(usage()).idleWakeups(0).recordedAt(RECORDED_AT);
+            var badWakeups = WorkerIdleRow.builder().jobId(JOB_ID).role("writer").harness("opencode")
+                    .harnessVersion("1.2.3").model("m").usage(usage()).idleWakeups(-1).recordedAt(RECORDED_AT);
+            var emptyModel = WorkerIdleRow.builder().jobId(JOB_ID).role("writer").harness("opencode")
+                    .harnessVersion("1.2.3").model("").usage(usage()).idleWakeups(0).recordedAt(RECORDED_AT);
+
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class, badJob::build),
+                    () -> assertThrows(IllegalArgumentException.class, badWakeups::build),
+                    () -> assertThrows(IllegalArgumentException.class, emptyModel::build));
         }
     }
 

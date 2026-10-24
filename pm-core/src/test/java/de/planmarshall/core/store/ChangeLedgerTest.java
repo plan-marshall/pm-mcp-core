@@ -111,6 +111,32 @@ class ChangeLedgerTest {
 
             assertEquals(row, value(ledger.read().getFirst()));
         }
+
+        @Test
+        @DisplayName("a baseline-red row carries its proof and its expectation")
+        void baselineRedRow() {
+            var baseline = new ChangeLedgerRecord.Baseline("verify", COMMIT, COMMIT,
+                    ChangeLedgerRecord.Baseline.ProofSource.CI_BASE_RESULT, DIGEST, List.of(DIGEST));
+            var row = ChangeLedgerRecord.builder().kind(Kind.BASELINE_RED).worktreeSha(DIGEST).worktreeShaVersion(1)
+                    .gateKind("verify").outcome(Outcome.FAILED).expect(ChangeLedgerRecord.Expect.RED)
+                    .expectResult(ChangeLedgerRecord.ExpectResult.EXPECTED_RED).baseline(baseline)
+                    .deliverableId("D1").durationMs(0L).recordedAt(RECORDED_AT).build();
+
+            ledger.append(row);
+
+            assertEquals(row, value(ledger.read().getFirst()));
+        }
+
+        @Test
+        @DisplayName("a task-diff row carries its task and its paths")
+        void taskDiffRow() {
+            var row = ChangeLedgerRecord.builder().kind(Kind.TASK_DIFF).worktreeSha(DIGEST).worktreeShaVersion(1)
+                    .taskId("TASK-1").changedPaths(List.of("a.txt", "b.txt")).recordedAt(RECORDED_AT).build();
+
+            ledger.append(row);
+
+            assertEquals(row, value(ledger.read().getFirst()));
+        }
     }
 
     @Nested
@@ -136,6 +162,36 @@ class ChangeLedgerTest {
                     () -> assertThrows(IllegalArgumentException.class, failureWithDigest::build),
                     () -> assertThrows(IllegalArgumentException.class, taskDiffWithoutTask::build),
                     () -> assertThrows(IllegalArgumentException.class, taskOnAnotherKind::build));
+        }
+
+        @Test
+        @DisplayName("refuses a broken digest, version, gate, job, commit, duration and baseline")
+        void moreRefusals() {
+            var badSha = ChangeLedgerRecord.builder().kind(Kind.CHANGE).worktreeSha("not-a-digest")
+                    .worktreeShaVersion(1).recordedAt(RECORDED_AT);
+            var badVersion = ChangeLedgerRecord.builder().kind(Kind.CHANGE).worktreeSha(DIGEST)
+                    .worktreeShaVersion(2).recordedAt(RECORDED_AT);
+            var badGate = ChangeLedgerRecord.builder().kind(Kind.BUILD).worktreeSha(DIGEST).worktreeShaVersion(1)
+                    .gateKind("clean").recordedAt(RECORDED_AT);
+            var badJob = ChangeLedgerRecord.builder().kind(Kind.JOB).worktreeSha(DIGEST).worktreeShaVersion(1)
+                    .jobId("x-0123456789abcdef").recordedAt(RECORDED_AT);
+            var badCommit = ChangeLedgerRecord.builder().kind(Kind.CHANGE).worktreeSha(DIGEST)
+                    .worktreeShaVersion(1).commitSha("abc").recordedAt(RECORDED_AT);
+            var badDuration = ChangeLedgerRecord.builder().kind(Kind.BUILD).worktreeSha(DIGEST)
+                    .worktreeShaVersion(1).durationMs(-1L).recordedAt(RECORDED_AT);
+            var baselineOnAnotherKind = ChangeLedgerRecord.builder().kind(Kind.JOB).worktreeSha(DIGEST)
+                    .worktreeShaVersion(1).recordedAt(RECORDED_AT)
+                    .baseline(new ChangeLedgerRecord.Baseline("verify", COMMIT, COMMIT,
+                            ChangeLedgerRecord.Baseline.ProofSource.LOCAL_MERGE_BASE_BUILD, DIGEST, List.of(DIGEST)));
+
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class, badSha::build),
+                    () -> assertThrows(IllegalArgumentException.class, badVersion::build),
+                    () -> assertThrows(IllegalArgumentException.class, badGate::build),
+                    () -> assertThrows(IllegalArgumentException.class, badJob::build),
+                    () -> assertThrows(IllegalArgumentException.class, badCommit::build),
+                    () -> assertThrows(IllegalArgumentException.class, badDuration::build),
+                    () -> assertThrows(IllegalArgumentException.class, baselineOnAnotherKind::build));
         }
 
         @Test
