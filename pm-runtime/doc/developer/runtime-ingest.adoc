@@ -56,8 +56,8 @@ relative link (no scheme) is admitted because it stays inside the document's own
 
 * *Refusing, never sanitising.* The validator returns findings; it does not rewrite the text. A caller that wants to
   accept a text after a change must make the change itself and validate the result again.
-* *The report is in document order.* A caller that shows the first finding to the operator shows a stable one, and a test
-  asserts the whole order.
+* *The report is in document order.* The visitor walks the tree in document order, so the findings of one text come in
+  the order a reader meets them.
 * *Every finding kind has a name.* A kind is one of the string literals `html_block`, `html_inline`, `image`,
   `link_scheme`, `link_malformed` and `link_rejected`; a caller switches on it, never on the detail text.
 * *The detail is for the operator.* A `link_rejected` detail may quote the destination and the failure type; it never

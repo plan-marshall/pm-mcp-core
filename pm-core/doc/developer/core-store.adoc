@@ -1146,8 +1146,8 @@ A transaction is committed once. A commit that fails throws and leaves its journ
 is not tried again. A commit while the journal of an earlier transaction is still open is refused with
 `IllegalStateException` before anything is written. `ScopeTransaction` creates no directory.
 
-[#_recovery]
-=== Recovery
+[#_recovery_of_a_stopped_transaction]
+=== Recovery of a Stopped Transaction
 
 `JournalRecovery.recover(transaction, scope, auditSink)` runs under the key of the scope and answers one of three
 outcomes:
@@ -1255,8 +1255,8 @@ A lease store document is `{"format_version": 1, "leases": [{"key", "owner", "ac
 version is `FORMAT_OUTDATED`, a higher one `FORMAT_NEWER`, a missing or non-integer one `UNREADABLE`). An instant is
 written in exactly the shape of `Instant.toString()`, so a lease round-trips byte-identical.
 
-`LeaseRecord` is one lease, `LeaseOwner` names the runtime that holds it, and `HolderInstance` is the process id and start
-instant a liveness check compares. `ScopeType` is the kind of scope a lease can cover. `LeaseStore` runs each write as one
+`LeaseRecord` is one lease, `LeaseOwner` names the scope that owns it, and `HolderInstance` is the runtime that serves
+it — the process id and start instant a liveness check compares. `ScopeType` is the kind of scope a lease can cover. `LeaseStore` runs each write as one
 short transaction on the store's lock key: `claim(lease)` is granted when the key is free and otherwise names the holder;
 `release(key, expectedOwner)` removes the lease only while its owner equals the expected one in every field; `adopt(key,
 newHolder)` sets the serving runtime and clears `orphaned_at`; `orphan(key, at)` marks the lease; `reviseAll(revision)`

@@ -90,9 +90,9 @@ reports the new state; this package does not mutate a running listener.
 
 link:{test}/WebTlsTest.java[`WebTlsTest`]:: the generated pair verifies with its own public key and is currently valid,
 the signature algorithm is `SHA256withECDSA`, the subject is `CN=pm-mcpd`, the extended key usage is server
-authentication, the expected subject alternative names are present, the fingerprint is 95 characters of upper-case hex
-pairs, the private key parses as an EC key, a second `loadOrCreate` reuses the fingerprint, and the directory is `0700`
-with the key file `0600`.
+authentication, the expected subject alternative names are present, the fingerprint has the 95-character length of 32
+`:`-separated hex pairs, the private key parses as an EC key, a second `loadOrCreate` reuses the fingerprint, and the
+directory is `0700` with the key file `0600`.
 
 == Specification Tracing
 

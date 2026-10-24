@@ -907,7 +907,7 @@ Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/EnrolmentCheckTest.java[EnrolmentCheckTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/StoreRefusalTest.java[StoreRefusalTest]
 
-Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#check[Concepts § Enrolment, The Check], link:../pm-runtime/doc/developer/runtime-enrolment.adoc#_the_enrolment_check[Developer Guide § Enrolment Store, The Enrolment Check]
+Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#check[Concepts § Enrolment, The Check], link:../pm-runtime/doc/developer/runtime-enrolment.adoc#_the_enrolment_check[Developer Guide § Enrolment Check and Operator Writes, The Enrolment Check]
 
 [#PM-SEC-5]
 === PM-SEC-5: Subprocess Environment Sanitization & Linux Filesystem Confinement
@@ -936,7 +936,7 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/EnrolmentsTes
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/HarnessesSidecarCheckTest.java[HarnessesSidecarCheckTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/EnrolmentSidecarsTest.java[EnrolmentSidecarsTest]
 
-Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#integrity[Concepts § Enrolment, Integrity], link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#residual-risk[Concepts § Enrolment, Residual Risk], link:../pm-runtime/doc/developer/runtime-enrolment.adoc#_the_integrity_key_before_and_after_the_choice[Developer Guide § Enrolment Store, The Integrity Key], link:../pm-runtime/doc/developer/runtime-enrolment.adoc[Developer Guide § Integrity Key and Sidecars (`runtime.enrolment`)], link:../pm-runtime/doc/developer/runtime-credentials.adoc#_the_first_recording_reconciles_the_key_of_both_stores[Developer Guide § The First Recording Reconciles the Key of Both Stores (`runtime.credentials`)], link:../pm-runtime/doc/adr/runtime-credentials/007-the-first-recording-reconciles-both-stores.adoc[ADR runtime-credentials/007]
+Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#integrity[Concepts § Enrolment, Integrity], link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#residual-risk[Concepts § Enrolment, Residual Risk], link:../pm-runtime/doc/developer/runtime-enrolment.adoc#_the_integrity_key_before_and_after_the_choice[Developer Guide § Enrolment Check and Operator Writes, The Integrity Key], link:../pm-runtime/doc/developer/runtime-enrolment.adoc[Developer Guide § Integrity Key and Sidecars (`runtime.enrolment`)], link:../pm-runtime/doc/developer/runtime-credentials.adoc#_the_first_recording_reconciles_the_key_of_both_stores[Developer Guide § The First Recording Reconciles the Key of Both Stores (`runtime.credentials`)], link:../pm-runtime/doc/adr/runtime-credentials/007-the-first-recording-reconciles-both-stores.adoc[ADR runtime-credentials/007]
 
 Implementation (the runtime side of the confinement and the job environment: the write set, the extra read paths and the read-denied paths composed from the verified enrolment and passed to `pm-exec` as `--write`/`--read`/`--deny-read`; the per-project daemon store keyed by the first 16 hex characters of the SHA-256 over the sorted write set; the container-engine opt-in withholding the container variables and denying the engine's sockets without it; the session bus socket denied and its variables never passed; the environment table built from scratch per job kind and the probe environment; and the worker egress proxy with its `headless.endpoints` allowlist and `egress_refused` audit record. The Landlock and Seatbelt enforcement, the network namespace and the egress tunnel enforcement are `pm-exec` work in `pm-mcp-clients` and are not implemented here; the `egress` field of the job record is not implemented here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobConfinement.java[JobConfinement],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobConfinementComposer.java[JobConfinementComposer],
@@ -1084,7 +1084,7 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/TransitionFuzz
 Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/WorkflowValidatorTest.java[WorkflowValidatorTest] (a refusing fixture per check and the matched controls of its exemptions),
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/TransitionFuzzerTest.java[TransitionFuzzerTest] (a planted dead state and its matched control)
 
-Documentation: link:../pm-workflow/doc/developer/workflow-verify.adoc[Developer Guide § Workflow Verification, Static Verification], link:../pm-workflow/doc/developer/workflow-verify.adoc[Developer Guide § Transition Fuzzer], link:../../plan-marshall-documentation/doc/concepts/workflow-verification.adoc[Concepts § Workflow Verification]
+Documentation: link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide], link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide], link:../../plan-marshall-documentation/doc/concepts/workflow-verification.adoc[Concepts § Workflow Verification]
 
 [#PM-TEST-4]
 === PM-TEST-4: End-to-End Scenario & Worker Supervision Testing
@@ -1430,12 +1430,12 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/unit/ProjectUnitLoade
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/SubWorkflowExecutionTest.java[SubWorkflowExecutionTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java[WorkflowStatusCodecTest]
 
-Documentation: link:../pm-workflow/doc/developer/workflow-dsl.adoc[Developer Guide § Workflow DSL], link:../pm-workflow/doc/developer/workflow-verify.adoc[Developer Guide § Workflow Verification, Static Verification],
+Documentation: link:../pm-workflow/doc/developer/workflow-dsl.adoc[Developer Guide § Workflow DSL], link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide],
 link:../pm-workflow/doc/developer/workflow-dsl.adoc#unit-frontmatter[Workflow DSL Developer Guide § The Unit Frontmatter],
 link:../pm-workflow/doc/developer/workflow-ast.adoc#unit-types[Workflow AST Developer Guide § Unit Types],
 link:../pm-workflow/doc/developer/workflow-verify.adoc#interface-rules[Workflow Verification Developer Guide § Interface Rules and Unit Types],
 link:../pm-workflow/doc/developer/workflow-verify.adoc#_inv_gen_1_over_type_and_interface[Workflow Verification Developer Guide § INV-GEN-1 over Type and Interface],
-link:../pm-workflow/doc/developer/workflow-unit.adoc#_the_author_of_a_unit[Workflow Units Developer Guide § The Author of a Unit], link:../pm-workflow/doc/developer/workflow-verify.adoc[Developer Guide § Transition Fuzzer], link:../../plan-marshall-documentation/doc/concepts/workflow-verification.adoc[Concepts § Workflow Verification],
+link:../pm-workflow/doc/developer/workflow-unit.adoc#_the_author_of_a_unit[Workflow Units Developer Guide § The Author of a Unit], link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide], link:../../plan-marshall-documentation/doc/concepts/workflow-verification.adoc[Concepts § Workflow Verification],
 link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer Guide],
 link:../pm-workflow/doc/developer/workflow-diagram.adoc[Workflow Diagrams Developer Guide],
 link:../pm-workflow/doc/developer/workflow-unit.adoc[Workflow Units Developer Guide],
