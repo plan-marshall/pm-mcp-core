@@ -58,7 +58,11 @@ request that enqueued it.
 * One transaction decides one admission; a release or a pause admits the waiting workers it makes room for and returns
   them, so the caller knows which workers to start.
 * The waiting entry is a superset of the fields the specification lists; a reader of the store needs the `form` member.
-* A worker whose runtime died no longer blocks a slot, without an operator act.
+* A worker whose runtime died no longer blocks a slot, without an operator act. The reaping is the model-slot rule of
+  store-schemas/13 and PM-WATCH-DISP-31 (a slot left by a killed daemon is reaped in the admission transaction); the
+  recovery of the runtime settles the instance's jobs before an admission runs, so the worker of a reaped slot has
+  ended. The orphan-and-adopt rule of the generic lease store is not applied here: a worker holds its slot for its whole
+  generation and the supervisor, not an adoption, ends it.
 
 == Source
 

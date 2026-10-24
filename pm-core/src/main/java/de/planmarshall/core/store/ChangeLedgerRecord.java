@@ -321,6 +321,9 @@ ExpectResult expectResult, Baseline baseline, String deliverableId, String taskI
          */
         public Baseline {
             Objects.requireNonNull(gateKind, "gateKind");
+            if (!GATE_KIND.matcher(gateKind).matches()) {
+                throw new IllegalArgumentException("'baseline.gate_kind' is not a gate: " + gateKind);
+            }
             requirePattern(mergeBase, SHA1, "baseline.merge_base");
             requirePattern(baseCommit, SHA1, "baseline.base_commit");
             Objects.requireNonNull(proofSource, "proofSource");

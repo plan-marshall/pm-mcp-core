@@ -165,8 +165,15 @@ public class QualificationSettingsCodec {
         private static void copyRevision(JsonParser parser, JsonGenerator generator,
                 QualificationSettings replacement) throws IOException {
             var revision = integer(parser, FIELD_REVISION);
-            generator.writeNumberField(FIELD_REVISION,
-                    replacement == null ? revision : Math.addExact(revision, 1));
+            if (replacement == null) {
+                generator.writeNumberField(FIELD_REVISION, revision);
+                return;
+            }
+            try {
+                generator.writeNumberField(FIELD_REVISION, Math.addExact(revision, 1));
+            } catch (ArithmeticException e) {
+                throw unreadable("'revision' cannot be incremented: " + revision, e);
+            }
         }
 
         private void copySettings(JsonParser parser, JsonGenerator generator, QualificationSettings replacement)
@@ -220,8 +227,8 @@ public class QualificationSettingsCodec {
             while (parser.nextToken() == JsonToken.FIELD_NAME) {
                 var field = nextField(parser, seen);
                 switch (field) {
-                    case FIELD_AGREEMENT_LEVEL -> agreement = Math.toIntExact(integer(parser, field));
-                    case FIELD_ALLOWED_GAP -> gap = Math.toIntExact(integer(parser, field));
+                    case FIELD_AGREEMENT_LEVEL -> agreement = percent(parser, field);
+                    case FIELD_ALLOWED_GAP -> gap = percent(parser, field);
                     case FIELD_SKIP_ROLES -> skipRoles = stringList(parser, field);
                     case FIELD_SKIP_DECISIONS -> skipDecisions = bool(parser, field);
                     default -> throw undeclared(field);
@@ -232,6 +239,15 @@ public class QualificationSettingsCodec {
             } catch (IllegalArgumentException e) {
                 throw unreadable(e.getMessage(), e);
             }
+        }
+
+        /** Reads a percentage, {@code 0} to {@code 100}; an out-of-range value never overflows an {@code int}. */
+        private static int percent(JsonParser parser, String field) throws IOException {
+            var value = integer(parser, field);
+            if (value < 0 || value > 100) {
+                throw unreadable("'%s' lies outside 0 to 100: %d".formatted(field, value));
+            }
+            return (int) value;
         }
 
         private static void writeQualification(JsonGenerator generator, QualificationSettings settings)

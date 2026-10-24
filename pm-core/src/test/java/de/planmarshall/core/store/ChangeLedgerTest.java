@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.store;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -205,6 +206,21 @@ class ChangeLedgerTest {
             assertAll(
                     () -> assertInstanceOf(JsonlStoreFile.Refused.class, entries.getFirst()),
                     () -> assertEquals(1L, entries.getFirst().line()),
+                    () -> assertInstanceOf(JsonlStoreFile.Accepted.class, entries.getLast()));
+        }
+
+        @Test
+        @DisplayName("a line whose version does not fit an int is refused, and the next line stays readable")
+        void outOfRangeVersion() throws Exception {
+            Files.writeString(file, "{\"format_version\":1,\"kind\":\"change\",\"worktree_sha\":\""
+                    + DIGEST + "\",\"worktree_sha_version\":4294967296,"
+                    + "\"recorded_at\":\"2026-10-22T10:00:00Z\"}\n"
+                    + new String(ChangeLedgerCodec.write(changeRow()), UTF_8) + "\n", UTF_8);
+
+            var entries = ledger.read();
+
+            assertAll(
+                    () -> assertInstanceOf(JsonlStoreFile.Refused.class, entries.getFirst()),
                     () -> assertInstanceOf(JsonlStoreFile.Accepted.class, entries.getLast()));
         }
     }

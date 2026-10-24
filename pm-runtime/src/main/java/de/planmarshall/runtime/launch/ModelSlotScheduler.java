@@ -39,7 +39,8 @@ import de.planmarshall.core.store.ModelSlotStore.WorkerClass;
  *   <li>at most one {@code writer} worker of a plan holds a slot or waits for one; the other classes run beside it
  *       within the machine cap;</li>
  *   <li>a slot whose runtime is no longer alive is reaped in the admission transaction, before the cap is applied, so
- *       a slot a killed daemon left never keeps a worker out;</li>
+ *       a slot a killed daemon left never keeps a worker out; the recovery of the runtime settles the jobs of that
+ *       instance before an admission runs, so a reaped slot's worker has ended;</li>
  *   <li>a paused plan holds no slot: {@link #releasePlan(String)} releases every slot of the plan and drops its
  *       waiting workers at once.</li>
  * </ul>

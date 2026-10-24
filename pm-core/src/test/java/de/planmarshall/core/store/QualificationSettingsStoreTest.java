@@ -118,6 +118,16 @@ class QualificationSettingsStoreTest {
     }
 
     @Test
+    @DisplayName("a document whose revision cannot be incremented is refused as a StoreRefusal")
+    void exhaustedRevision() throws Exception {
+        Files.writeString(file, "{\"format_version\":1,\"revision\":9223372036854775807}", UTF_8);
+        var defaults = QualificationSettings.defaults();
+
+        var refusal = assertThrows(StoreRefusal.class, () -> store.write(defaults));
+        assertEquals(file, refusal.file());
+    }
+
+    @Test
     @DisplayName("a document that is not readable is refused as a StoreRefusal naming it")
     void unreadableDocument() throws Exception {
         Files.writeString(file, "{\"format_version\":1,\"revision\":1,\"settings\":42}", UTF_8);

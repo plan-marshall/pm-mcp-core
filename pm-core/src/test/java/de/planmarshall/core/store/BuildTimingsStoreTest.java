@@ -165,5 +165,17 @@ class BuildTimingsStoreTest {
 
             assertThrows(StoreRefusal.class, () -> store.snapshot());
         }
+
+        @Test
+        @DisplayName("refuses a baseline with a negative count")
+        void negativeObservations() throws Exception {
+            Files.writeString(file, """
+                    {"format_version":1,"keys":{"llm:writer":{"clean":{"learned_seconds":5,"observations":-1},
+                     "poisoned":{"learned_seconds":null,"observations":0},
+                     "cold":{"learned_seconds":null,"observations":0},"escalation_seconds":null,
+                     "last_observed_at":null}}}""");
+
+            assertThrows(StoreRefusal.class, () -> store.snapshot());
+        }
     }
 }

@@ -205,7 +205,7 @@ public class BuildTimingsCodec {
         requireFields(seen, name, FIELD_LEARNED_SECONDS, FIELD_OBSERVATIONS);
         try {
             return new Baseline(learnedSeconds, Math.toIntExact(observations));
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | ArithmeticException e) {
             throw unreadable(e.getMessage(), e);
         }
     }

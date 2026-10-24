@@ -185,7 +185,9 @@ public class ModelSlotCodec {
         }
         requireFields(seen, PARAMETER_DOCUMENT, FIELD_SLOTS, FIELD_WAITING);
         try {
-            return new Document(slots, waiting);
+            var document = new Document(slots, waiting);
+            requireNoDuplicateWorker(document);
+            return document;
         } catch (IllegalArgumentException e) {
             throw unreadable(e.getMessage(), e);
         }

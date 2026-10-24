@@ -142,6 +142,22 @@ class ModelSlotStoreTest {
         }
 
         @Test
+        @DisplayName("that holds one worker twice is refused on read")
+        void duplicateWorkerInTheFile() throws Exception {
+            var owner = "{\"project_id\":\"pm-mcp-core\",\"scope_type\":\"plan\",\"scope_id\":\"some-plan\","
+                    + "\"holder_instance\":{\"runtime_pid\":4711,"
+                    + "\"runtime_started_at\":\"2026-10-22T10:00:00Z\"},\"orphaned_at\":null}";
+            var first = "{\"owner\":" + owner + ",\"job_id\":\"l-0000000000000001\",\"role\":\"writer\","
+                    + "\"class\":\"writer\",\"form\":\"warm\",\"plan_id\":\"some-plan\","
+                    + "\"acquired_at\":\"2026-10-22T10:00:00Z\",\"lease_expires_at\":null}";
+            var second = first.replace("some-plan", "other-plan");
+            Files.writeString(file, "{\"format_version\":1,\"slots\":[" + first + "," + second
+                    + "],\"waiting\":[]}", UTF_8);
+
+            assertThrows(StoreRefusal.class, () -> store.snapshot());
+        }
+
+        @Test
         @DisplayName("that is unreadable is never an empty store")
         void unreadable() throws Exception {
             var torn = "{\"format_version\":1,\"slots\":[".getBytes(UTF_8);
@@ -162,8 +178,9 @@ class ModelSlotStoreTest {
         @DisplayName("a lock that is not a machine store lock is refused")
         void otherLockLevel() {
             var storeFile = new AtomicStoreFile(file, LockKey.plan(base, "pm-mcp-core", PLAN));
+            var locks = new RecordingLockManager();
 
-            assertThrows(IllegalArgumentException.class, () -> new ModelSlotStore(storeFile, new RecordingLockManager()));
+            assertThrows(IllegalArgumentException.class, () -> new ModelSlotStore(storeFile, locks));
         }
 
         @Test

@@ -75,10 +75,12 @@ public record BuildTimings(Map<String, KeyTimings> keys) {
     public record Baseline(Long learnedSeconds, int observations) {
 
         /**
-         * @throws IllegalArgumentException if a baseline has a value but no observation, or observations but no value
+         * @throws IllegalArgumentException if the observations are negative, a baseline has a value but no observation,
+         *                                  or observations but no value
          */
         public Baseline {
-            if ((learnedSeconds == null) != (observations == 0) || learnedSeconds != null && learnedSeconds < 1) {
+            if (observations < 0 || (learnedSeconds == null) != (observations == 0)
+                    || learnedSeconds != null && learnedSeconds < 1) {
                 throw new IllegalArgumentException(
                         "A baseline carries a value of at least 1 exactly when it rests on an observation");
             }
@@ -104,7 +106,10 @@ public record BuildTimings(Map<String, KeyTimings> keys) {
                 return new Baseline(seconds, 1);
             }
             var old = previous.learnedSeconds();
-            var blended = (long) Math.floor(0.8 * Math.max(old, seconds) + 0.2 * Math.min(old, seconds));
+            var high = Math.max(old, seconds);
+            var low = Math.min(old, seconds);
+            // (4 * high + low) / 5, split so neither product overflows for the accepted long values
+            var blended = 4 * (high / 5) + low / 5 + (4 * (high % 5) + low % 5) / 5;
             return new Baseline(Math.max(1, blended), previous.observations() + 1);
         }
     }

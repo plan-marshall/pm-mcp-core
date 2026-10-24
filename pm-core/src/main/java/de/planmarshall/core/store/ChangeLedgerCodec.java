@@ -223,7 +223,7 @@ public class ChangeLedgerCodec {
                 case FIELD_FORMAT_VERSION -> parser.skipChildren();
                 case FIELD_KIND -> kind = enumValue(parser, field, Kind::fromWireName);
                 case FIELD_WORKTREE_SHA -> worktreeSha = string(parser, field);
-                case FIELD_WORKTREE_SHA_VERSION -> worktreeShaVersion = Math.toIntExact(integer(parser, field));
+                case FIELD_WORKTREE_SHA_VERSION -> worktreeShaVersion = intValue(parser, field);
                 case FIELD_WORKTREE_SHA_FAILURE -> failure = nullableWorktreeShaFailure(parser, field);
                 case FIELD_GATE_KIND -> gateKind = nullableString(parser, field);
                 case FIELD_OUTCOME -> outcome = nullableEnum(parser, field, Outcome::fromWireName);
@@ -309,7 +309,17 @@ public class ChangeLedgerCodec {
     }
 
     private static Integer nullableInteger(JsonParser parser, String field) throws IOException {
-        return parser.currentToken() == JsonToken.VALUE_NULL ? null : Math.toIntExact(integer(parser, field));
+        return parser.currentToken() == JsonToken.VALUE_NULL ? null : intValue(parser, field);
+    }
+
+    /** Reads an integer that must fit an {@code int}; an out-of-range value is a refusal, never an overflow. */
+    private static int intValue(JsonParser parser, String field) throws IOException {
+        var value = integer(parser, field);
+        try {
+            return Math.toIntExact(value);
+        } catch (ArithmeticException e) {
+            throw unreadable("'%s' lies outside the int range: %d".formatted(field, value), e);
+        }
     }
 
     private static Long nullableLong(JsonParser parser, String field) throws IOException {
