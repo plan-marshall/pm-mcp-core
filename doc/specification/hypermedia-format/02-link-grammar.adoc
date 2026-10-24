@@ -142,7 +142,7 @@ A parameter of type `schema[<schema_name>]` takes a JSON object as its value; th
 |`submit:vote` of a vote task (`answers:list<schema[vote-answer]>`, one item per question of the task's entity)
 
 |`triage-groups`
-|The triage of one gather firing: one entry per finding group `(domain, rule_id)` of the firing's batch with its disposition (`FIX`, `SUPPRESS`, `ACCEPT`), `confidence` (`0..100`, the group's decision confidence), `reply_text` (`1..4000` characters), optional `requirement_refs`, and `population` for `FIX`, plus per-finding exceptions (`finding_id` with its own disposition and reply); a finding withheld by the screener is never part of it; definition in link:../model-work/07-untrusted-text-screening.adoc#batched-triage[Model Work Specification, Batched Triage]
+|The triage of one gather firing: one entry per finding group `(domain, rule_id)` of the firing's batch with its disposition (`FIX`, `SUPPRESS`, `ACCEPT`), `confidence` (`0..100`, the group's decision confidence), `reply_text` (`1..4000` characters), optional `requirement_refs`, `population` for `FIX`, and `suppress_reason` for `SUPPRESS`, plus per-finding exceptions (`finding_id` with its own disposition, reply, and, for `SUPPRESS`, reason); a finding withheld by the screener is never part of it; definition in link:../model-work/07-untrusted-text-screening.adoc#batched-triage[Model Work Specification, Batched Triage]
 |`submit:triage-groups` of the triage task of a gather firing (`triage:schema[triage-groups]`)
 
 |`own-call`
