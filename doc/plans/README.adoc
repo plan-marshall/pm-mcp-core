@@ -51,12 +51,6 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:supervisor.adoc[`supervisor`]
 |Milestone 4
 
-|link:slots-usage-and-budgets.adoc[`slots-usage-and-budgets`]
-|Model slots, usage rows and learned budgets
-|`open`
-|link:worker-launch.adoc[`worker-launch`]
-|Milestone 4
-
 |link:consultation.adoc[`consultation`]
 |Consultation through the server
 |`open`
@@ -186,7 +180,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:token-usage.adoc[`token-usage`]
 |Tokens, not money: every reported figure recorded raw (the cost stored, never shown), the usage pointers with `reasoning` and the not-applicable declaration, the unified token figure with its split and coverage, what a harness reports recorded by the verification, parsing fixtures per harness and version
 |`open`
-|link:slots-usage-and-budgets.adoc[`slots-usage-and-budgets`]; link:role-qualification.adoc[`role-qualification`]
+|link:role-qualification.adoc[`role-qualification`]
 |Milestone 4; the client work of `pm-mcp-clients`
 
 |link:operator-reports.adoc[`operator-reports`]
@@ -204,7 +198,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:runtime-metrics.adoc[`runtime-metrics`]
 |What the runtime is doing: the metrics registry maintained where things happen, the closed catalogue, the snapshot endpoints and the stream
 |`open`
-|link:supervisor.adoc[`supervisor`]; link:slots-usage-and-budgets.adoc[`slots-usage-and-budgets`]; link:token-usage.adoc[`token-usage`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (held and paused)
+|link:supervisor.adoc[`supervisor`]; link:token-usage.adoc[`token-usage`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (held and paused)
 |Milestone 2; the client work of `pm-mcp-clients`
 
 |link:process-designer.adoc[`process-designer`]

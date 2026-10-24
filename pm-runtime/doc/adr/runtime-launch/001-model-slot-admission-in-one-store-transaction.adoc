@@ -1,0 +1,73 @@
+= ADR 001: Model-Slot Admission Decides in One Store Transaction and Carries the Form in the Waiting Entry
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-24
+
+== Context
+
+Every running worker, warm or fresh, holds one machine model slot; the store `state/model-slots.json` holds the slots
+and the FIFO of the workers waiting for one, and the cap `model_slots` of `machine-config.json` bounds them (Model Work
+§ Model Slots & One Writer per Plan; Store Schemas § Machine Lease Stores). Admission is FIFO, at most one `writer`
+worker of a plan holds a slot or waits for one, and a stale slot is reaped in the admission transaction as a build
+slot is. A paused plan holds no slot.
+
+The store document's waiting entry as the specification first listed it names the worker's owner, job id, role, class,
+plan id and enqueue instant, but not its form; and it gives `plan_id` only to a writer. Both statements were corrected in
+store-schemas/13 by this work package: the entry becomes the lease in a later transaction and needs its form, and a pause
+releases every worker of a plan by its plan id, whatever the class.
+
+The choices were where the admission decides, and where the form comes from when a waiting worker is admitted after the
+request that enqueued it.
+
+== Decision
+
+* `ModelSlotStore` persists the document and offers one transaction (`update`) that reads, changes and writes it under
+  the machine store's lock. `ModelSlotScheduler` performs the whole admission inside that transaction: cap, FIFO, the
+  one-writer rule and the reaping of dead runtimes are read and written together, so two concurrent claims never see the
+  same free slot.
+* Liveness is a seam (`Liveness.processes()` in production): a slot whose runtime's PID is gone, or whose start instant
+  differs beyond one second, is reaped before the cap is applied; a runtime the probe cannot decide is never reaped.
+* The waiting entry carries the worker's `form`, beside the fields the specification names, because admission turns
+  the entry into the lease in a later transaction, when the original request is no longer at hand. Without it the
+  lease's form would have to be guessed from the worker class.
+* Every slot and waiting entry of a plan carries its `plan_id`, whatever the worker's class: the pause releases every
+  worker of a plan by that value, so a `read_only` or `zero_tool` worker admitted with `null` would survive a pause. A
+  worker that serves no plan — a task of the project's workspace scope — carries none. store-schemas/13 was corrected
+  to state both.
+* A paused plan releases all of its slots and drops its waiting workers in one transaction, and the workers the freed
+  slots make room for are admitted in the same transaction.
+
+== Alternatives Considered
+
+1. *Admission outside the store transaction.* _Not taken_: two claims could read the same free count and both write a
+   slot, which is exactly the over-admission the cap forbids.
+2. *Persist no form and re-derive it on admission.* _Not taken_: the form is decided per request (the role artifact
+   narrowed by qualification and by plan override) and the store cannot read that configuration without becoming a role
+   resolver.
+3. *Let the supervisor poll for a free slot instead of keeping a FIFO in the store.* _Not taken_: the specification
+   records the waiting workers in the store, in request order, and a poll cannot prove the order.
+
+== Consequences
+
+* One transaction decides one admission; a release or a pause admits the waiting workers it makes room for and returns
+  them, so the caller knows which workers to start.
+* The waiting entry is a superset of the fields the specification lists; a reader of the store needs the `form` member.
+* A worker whose runtime died no longer blocks a slot, without an operator act.
+
+== Source
+
+* Plan PLAN-31, deliverable 1
+* link:../../../../doc/specification/model-work/04-worker-launch.adoc#model-slots[Model Work § Model Slots & One Writer
+  per Plan]
+* link:../../../../doc/specification/store-schemas/13-leases-integrity-testing.adoc#machine-lease-stores[Store Schemas
+  § Machine Lease Stores]
+* link:../../../../doc/specification/timeouts/02-runtime-leases-operator-web.adoc#model-slot-lease[Timeouts & Budgets §
+  Model slot lease]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/launch/ModelSlotScheduler.java`,
+  `pm-runtime/src/test/java/de/planmarshall/runtime/launch/ModelSlotSchedulerTest.java`

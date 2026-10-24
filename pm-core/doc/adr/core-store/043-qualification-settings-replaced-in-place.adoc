@@ -1,0 +1,60 @@
+= ADR 043: The Qualification Settings Are Replaced in Place in the Operator's Document
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-24
+
+== Context
+
+The operator's level for role qualification is the member `settings.qualification` of the project's
+`local-config.json` (Store Schemas § Operator Local Configuration). The document holds far more than these four values —
+the operator's commit identity, the integration variants, the language, the plan defaults — and it carries a
+`revision` that every write increments, with a change against an older revision refused.
+
+The choice was how a store that owns one member writes it without becoming a second owner of the whole document.
+
+== Decision
+
+* `QualificationSettings` is a record of the four values with the compiled defaults `80`, `5`, `[]` and `false`, and
+  the bounds of their schema.
+* `QualificationSettingsCodec` reads the document as a stream and rewrites it in one pass: the `settings` object is
+  rebuilt with the qualification member replaced, and every other member of the document is copied through untouched.
+  The `revision` is incremented by one in the same pass, and a document that is not `format_version` 1 is refused
+  before anything is read.
+* A write that finds no document is refused (`StoreRefusal.absent`); the store never creates the operator's file.
+* The store writes under the project's local-configuration lock, so a second writer cannot come between the read and
+  the replace.
+
+== Alternatives Considered
+
+1. *Model the whole `local-config.json` in this package.* _Not taken_: the document belongs to the operator and to the
+   packages that own its other members; a second model would either drop members it does not know or refuse a document
+   that is valid.
+2. *Write a separate qualification-settings file.* _Not taken_: the specification puts the levels in
+   `local-config.json`, and the validity check reads them there; a second file would be a second truth.
+3. *Create the document when it is absent.* _Not taken_: an absent operator document means the onboarding has not
+   written it; a store that invents one would record settings the operator never gave.
+
+== Consequences
+
+* A write of the settings changes one member and the document's revision, and nothing else; a member another package
+  adds later survives without a change here.
+* The store refuses an unreadable or absent document rather than resolving to the defaults for a write; the compiled
+  defaults are what a reader applies when the member is absent.
+* A later package that needs another operator member extends the document through its own codec, not this one.
+
+== Source
+
+* Plan PLAN-31, deliverable 4
+* link:../../../../doc/specification/store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas §
+  Operator Local Configuration]
+* link:../../../../doc/specification/model-work/01-roles-and-configuration.adoc#qualification-records[Model Work §
+  Qualification Records]
+* `pm-core/src/main/java/de/planmarshall/core/store/QualificationSettingsCodec.java`,
+  `pm-core/src/main/java/de/planmarshall/core/store/QualificationSettingsStore.java`,
+  `pm-core/src/test/java/de/planmarshall/core/store/QualificationSettingsStoreTest.java`

@@ -26,8 +26,9 @@ import de.planmarshall.core.store.StoreRefusal;
  * {@code doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc}, Outcome Derivation, Write order at job end.
  * {@link JobSettlement} runs the steps in the order of {@link Name}.
  * <p>
- * Two steps are implemented: the fate of the job record ({@link #fate}) and the release of the build or model slot
- * through the {@link LeaseStore} of its machine lease store ({@link #slotRelease()}). The steps whose stores do not
+ * Two steps are implemented: the fate of the job record ({@link #fate}) and the release of the build slot through the
+ * {@link LeaseStore} of its machine lease store ({@link #slotRelease()}). A worker's model slot is no lease-store slot
+ * and is released through {@code ModelSlotScheduler.release}. The steps whose stores do not
  * exist in this runtime yet are named seams ({@link #notImplemented}) that do nothing and report
  * {@value #NOT_IMPLEMENTED}, like the seams of the per-project recovery: the worker queue task record, the metrics row,
  * the change-ledger row, the timing observation and the removal of a worker's job-private directory. The fate step
@@ -59,7 +60,7 @@ public interface SettlementStep {
         CHANGE_LEDGER_ROW,
         /** The timing observation of the job's budget key. */
         TIMING_OBSERVATION,
-        /** The release of the build slot or the model slot the job held. */
+        /** The release of the build slot the job held. */
         SLOT_RELEASE,
         /** The removal of a worker's job-private directory, last. */
         JOB_PRIVATE_DIRECTORY
@@ -104,7 +105,8 @@ public interface SettlementStep {
     /**
      * The slot a job held: the key of its lease in a machine lease store and the owner the lease was claimed with.
      *
-     * @param store         the machine lease store of the slot, build slots or model slots
+     * @param store         the machine lease store of the slot, build slots today; a model slot is released through
+     *                      {@code ModelSlotScheduler.release}, not through a lease store
      * @param key           the key of the lease
      * @param expectedOwner the owner the lease was claimed with
      * @since 0.1
@@ -210,9 +212,10 @@ public interface SettlementStep {
     }
 
     /**
-     * The release of the slot the job held, through {@link LeaseStore#release(String, LeaseOwner)}: the lease is
+     * The release of the build slot the job held, through {@link LeaseStore#release(String, LeaseOwner)}: the lease is
      * removed only while it still has the owner the job claimed it with. A lease that has another owner by now was
-     * adopted or claimed anew and is left in place; a job without a slot releases nothing.
+     * adopted or claimed anew and is left in place; a job without a slot releases nothing. A worker's model slot is no
+     * {@link LeaseStore} lease: it is released through {@code ModelSlotScheduler.release}.
      *
      * @return the slot release step
      */

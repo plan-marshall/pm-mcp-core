@@ -36,7 +36,9 @@ import de.planmarshall.core.service.LockTransaction;
  * the lock order is not touched by it.
  * <p>
  * The store keeps the lease record all lease stores have in common. What a single store adds to it (a waiting list,
- * a slot limit) belongs to the type of that store.
+ * a slot limit) belongs to the type of that store: the build slots keep the common shape, while the model slots have
+ * the slot store of their own beside it ({@code ModelSlotStore}), because their document also holds the waiting FIFO and
+ * the worker's class, form and plan.
  * <p>
  * The directory of the store file exists before the first write; this type does not create it.
  *

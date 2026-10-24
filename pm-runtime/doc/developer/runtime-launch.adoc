@@ -1,0 +1,103 @@
+= Worker Launch: the Machine Model Slots (`runtime.launch`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-14[PM-WF-14], link:{docs}/Requirements.adoc#PM-WORK-3[PM-WORK-3]_
+
+The package `de.planmarshall.runtime.launch` holds the launch-side coordination of the runtime's workers. This guide
+covers its first part, the machine model slots: the admission that bounds how many workers run on the machine and which
+of them wait.
+
+The slots are the machine-wide half of the worker launch; the worker's own launch contract — the composed argument
+vector, the job token, the harness enrolment and the prompt — is the work package `worker-launch` (PLAN-29) and will be
+added here beside this admission. The store the slots live in is `de.planmarshall.core.store.ModelSlotStore`, described
+in link:../../../pm-core/doc/developer/core-store.adoc[`core.store` Developer Guide].
+
+== The Model Slots
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-14[PM-WF-14]_
+
+Every running worker, warm or fresh, holds one of the machine's `model_slots` slots from its spawn to its exit; a warm
+worker holds its slot for its whole generation, idle or not. The cap is `model_slots` of `machine-config.json`, its
+compiled default `2` and its bounds `1` to `16` (Timeouts & Budgets § Model slot lease).
+
+[horizontal]
+`ModelSlotScheduler`:: The admission. Its `request` answers `Granted` when the worker holds a slot, `Queued` when it
+waits in the FIFO, and `Deferred` when its plan already has a `writer` worker that holds a slot or waits for one. Its
+`release(jobId)` and `releasePlan(planId)` free what a settled worker or a paused plan held and return the leases the
+freed slots admitted, so the caller knows which workers to start.
+`ModelSlotScheduler.Liveness`:: The seam that decides whether the runtime a slot records still runs. `processes()` is
+the production probe: the PID must exist and its process start instant must lie within one second of the recorded one.
+A runtime the probe cannot decide is never reaped.
+`ModelSlotStore`:: The document `state/model-slots.json`. It decides nothing itself: `update` runs one read, change and
+write under the lock `LockKey.modelSlots`, which is what makes an admission atomic.
+
+[source]
+----
+caller ──► ModelSlotScheduler.request(request)
+              └─ ModelSlotStore.update(document -> …)         one transaction on locks/model-slots.lock
+                   1. reap: drop every slot and waiting worker whose runtime is not alive
+                   2. already granted or waiting? answer that place
+                   3. writer of a plan that holds or waits? Deferred("writer_holds_plan")
+                   4. append the waiting entry (with its form) and admit from the head while slots < cap
+                   5. return Granted, Queued or Deferred
+----
+
+=== Invariants
+
+* *The cap holds under concurrent claims*: every admission reads the slots and writes the one it adds in the same
+  transaction, so no two claims see the same free slot and the document never holds more than `model_slots` leases.
+* *FIFO*: a request is appended to `waiting` and admission takes from its head only; a release or a pause admits the
+  head first, and never a worker behind it.
+* *One writer per plan*: at most one `writer` worker of a plan holds a slot or waits for one. A second writer is
+  `Deferred` and its task stays `queued`; `read_only` and `zero_tool` workers of the plan run beside it within the cap.
+* *Warm holds the slot*: a slot is released by its worker's fate, not by an idle wait; `releasePlan` is the one act that
+  releases a live plan's slots early, and it drops the plan's waiting workers too.
+* *Stale slots are reaped first*: a slot or waiting entry whose runtime died is dropped in the admission transaction,
+  before the cap is applied, so a killed daemon never keeps a worker out.
+* *The budget starts at the spawn*: the time a worker waits for a slot is outside its budget and is recorded apart as
+  `queued_ms` of its metrics row.
+
+=== Failure Modes
+
+[cols="2,3"]
+|===
+|Failure |Behaviour
+
+|`model-slots.json` is of another format version or unreadable
+|`StoreRefusal` naming the file; nothing is admitted or released.
+
+|The machine's cap lies outside `1` to `16`
+|The scheduler's constructor throws `IllegalArgumentException`; no admission runs.
+
+|A writer request for a plan that already has a writer
+|`Deferred("writer_holds_plan")`; the task stays `queued`, nothing is written for it.
+
+|The runtime of a slot is dead
+|The slot is reaped in the next admission transaction and the freed slot is admitted to the head of the FIFO.
+
+|A pause
+|`releasePlan` frees every slot of the plan and drops its waiting workers in one transaction.
+|===
+
+Tested by `ModelSlotSchedulerTest`: the FIFO with a cap of one, eight concurrent claims against a cap of two (exactly
+the cap granted, never more in the store), the one-writer rule beside a `read_only` worker, a stale slot reaped, a
+paused plan releasing both of its held slots at once and a second test dropping the plan's waiting worker, and the
+bounds of the cap.
+
+== Specification Tracing
+
+* Specification: link:{spec}/model-work/04-worker-launch.adoc#model-slots[Model Work § Model Slots & One Writer per
+  Plan], link:{spec}/store-schemas/13-leases-integrity-testing.adoc#machine-lease-stores[Store Schemas § Machine Lease
+  Stores], link:{spec}/timeouts/02-runtime-leases-operator-web.adoc#model-slot-lease[Timeouts & Budgets § Model slot
+  lease], link:{spec}/timeouts/01-job-budgets-and-waits.adoc#model-slot-wait[Timeouts & Budgets § Model Slot Wait]
+* Concepts: link:{docs}/concepts/store-integrity.adoc[Concepts § Store Integrity]
+
+== Decisions
+
+* link:../adr/runtime-launch/001-model-slot-admission-in-one-store-transaction.adoc[ADR 001]: the admission decides in
+  one store transaction, and the waiting entry carries the worker's form.
