@@ -46,8 +46,8 @@ part of `pm-provider-git`; they are owed to the repository that runs the CLI var
 
 * A caller that passes an abbreviated commit id where a pin is required gets `UNKNOWN_REVISION`, not a silent
   resolution.
-* A fixture remote that advertises a branch named like a pinned commit produces `git_identity_ambiguous` instead of a
-  checkout of the wrong object.
+* A local branch or tag named like a pinned commit produces `git_identity_ambiguous` instead of a checkout of the
+  wrong object. A remote-tracking ref shortens to `<remote>/<id>` and is not mistaken for the pin.
 * The CLI variant still needs the same rules, with `--end-of-options` and `^{commit}`; that is a change in the
   repository that runs it.
 

@@ -88,9 +88,8 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
     }
 
     /**
-     * The composer of a runtime that knows no session bus socket: the whole per-user runtime directory
-     * {@code /run/user} is denied on Linux, which holds the session bus socket and the rootless container engine's
-     * socket, and nothing is denied on macOS.
+     * The composer of a runtime that derives the session bus socket from the current user: {@code /run/user/<uid>/bus}
+     * on Linux, the whole {@code /run/user} when the uid cannot be read, and none on macOS.
      *
      * @param base the runtime base directory
      * @return the composer
