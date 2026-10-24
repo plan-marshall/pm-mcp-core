@@ -127,6 +127,24 @@ class HarnessVerifierTest {
         assertNotEquals(event.details().get(AuditEvent.DETAIL_NEW_SHA256), "a".repeat(64));
     }
 
+    @Test
+    @DisplayName("a harness the operator added from a verified profile is enrolled and accepted like a shipped one")
+    void operatorAddedHarness() {
+        var executable = base.resolve("bin").resolve("acme-cli");
+        try {
+            Files.writeString(executable, "#!/bin/sh\necho 1.5.0\n", StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+        var digest = HarnessVerifier.digestExecutable(executable).orElseThrow();
+        store.enrol(new HarnessEnrolment("acme-cli", executable, digest, "1.5.0", NOW, NOW,
+                new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED, Map.of("input", "reported")),
+                Map.of("text", "reported"), Map.of()));
+        var verification = verifier().verify("acme-cli", HeadlessBlock.of(LaunchFixtures.profileForClient("acme-cli")));
+        assertTrue(verification instanceof HarnessVerification.Accepted);
+        assertEquals("acme-cli", ((HarnessVerification.Accepted) verification).enrolment().clientId());
+    }
+
     private HarnessVerifier verifier() {
         return verifier("claude 1.5.0");
     }

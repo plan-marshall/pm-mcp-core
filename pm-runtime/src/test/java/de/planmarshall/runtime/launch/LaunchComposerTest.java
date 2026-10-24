@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.launch;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -135,6 +136,23 @@ class LaunchComposerTest {
         var launch = new LaunchComposer().compose(request);
         assertEquals(root.resolve("run/jobs").resolve(GENERATION).resolve("cwd").toAbsolutePath().normalize(),
                 launch.workingDirectory());
+    }
+
+    @Test
+    @DisplayName("a writer launch carries only the profile's environment and the job relay as an MCP server")
+    void extensionIsolation() {
+        var launch = compose(LaunchFixtures.writer(skills), true, false);
+        var config = de.planmarshall.core.profile.JsonDocument.parse(launch.mcpConfig().orElseThrow().getBytes(
+                StandardCharsets.UTF_8), "mcp");
+        var servers = config.member("mcpServers").orElseThrow();
+        var relay = servers.member("pm-job").orElseThrow();
+        assertAll(
+                () -> assertEquals(Map.of("DISABLE_TOOL_SEARCH", "1"), launch.env()),
+                () -> assertEquals(java.util.Set.of("pm-job"), servers.members().keySet()),
+                () -> assertEquals(root.resolve("runtime/bin/pm-mcp").toAbsolutePath().normalize().toString(),
+                        relay.member("command").orElseThrow().text().orElseThrow()),
+                () -> assertTrue(relay.member("env").orElseThrow().members().keySet().contains("PM_MCP_JOB_TOKEN")),
+                () -> assertFalse(launch.argv().contains("--setting-sources")));
     }
 
     private WorkerLaunch compose(EffectiveRole role, boolean fresh, boolean freeText) {

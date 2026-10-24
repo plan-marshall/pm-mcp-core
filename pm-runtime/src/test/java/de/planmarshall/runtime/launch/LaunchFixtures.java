@@ -44,6 +44,10 @@ final class LaunchFixtures {
         return profile(document());
     }
 
+    static LoadedProfile profileForClient(String clientId) {
+        return profile(document().replace("\"client_id\": \"claude\"", "\"client_id\": \"" + clientId + "\""));
+    }
+
     static LoadedProfile profile(String document) {
         var bytes = document.getBytes(StandardCharsets.UTF_8);
         return new LoadedProfile("claude", ProfileSetKind.SHIPPED, JsonDocument.parse(bytes, "profile"), bytes,
