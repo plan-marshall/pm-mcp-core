@@ -1,0 +1,40 @@
+= ADR 003: Record a worker's descendants in the job runner
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-24
+
+== Context
+
+Termination step 3a records the descendants of a job that leave its process group, sweeps them at the job's end and
+audits a survivor as `job_descendant_survived` (ADR `runtime-job/013`). The tracker was wired for the probe kind only,
+and ADR 013 and the runner's Javadoc named the supervisor as the wiring point of a worker, because the supervisor starts
+it. The runner starts every job it is given, a worker included, and the supervisor has no process path of its own.
+
+== Decision
+
+The runner wires `ProcessTreeTracker` for the kinds `probe` and `llm` (`SubprocessJobRunner.tracksDescendants`). The
+wiring stays one condition in the runner; the supervisor (PLAN-30) does not start a process. The runner's class Javadoc
+records the decision beside the condition.
+
+== Alternatives Considered
+
+* Wiring the tracker in the supervisor's start path would duplicate the runner's launch and supervision path and split
+  the ownership ADR 013 already centralises; it was not taken.
+* Extending the tracker to every kind would record descendants a build or a CI CLI does not need and would change the
+  write sets of jobs this package does not own.
+
+== Consequences
+
+A worker's children that leave the process group are ended with it and a survivor is audited like a probe's. The
+supervisor needs no tracker code; it only decides when a worker exists.
+
+== Source
+
+Work package `worker-launch` § Carried From PLAN-84; Job Runtime Specification § Process Termination & Cancellation
+Protocol, step 3a; ADR `runtime-job/013-record-and-sweep-descendants.adoc`.

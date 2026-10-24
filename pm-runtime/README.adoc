@@ -54,8 +54,10 @@ The module builds a test JAR with the fixtures the tests of the assembly share: 
 * link:doc/developer/runtime-credentials.adoc[Credential Stores (`runtime.credentials`)]
 * link:doc/developer/runtime-enrolment.adoc[Integrity Key and Sidecars (`runtime.enrolment`)]
 * link:doc/developer/runtime-job.adoc[Job Verification and the Job Runner (`runtime.job`)]
+* link:doc/developer/runtime-launch.adoc[Worker Launch and Harness Enrolment (`runtime.launch`)]
 * link:doc/developer/runtime-lsp.adoc[Language Server Client (`runtime.lsp`)]
 * link:doc/developer/runtime-question.adoc[Question Record Reader (`runtime.question`)]
+* link:doc/developer/runtime-security.adoc[Worker Credential Boundary (`runtime.security`)]
 * link:doc/developer/runtime-start.adoc[Sweep Steps, the Audit Chain Seam, the Store Move Resume and Job Recovery (`runtime.start`)]
 
 == ADRs

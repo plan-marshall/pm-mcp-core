@@ -1,0 +1,54 @@
+= Worker Credential Boundary (`runtime.security`)
+:toc: left
+:toclevels: 2
+:nofooter:
+
+link:../../README.adoc[`pm-runtime`] » Worker Credential Boundary
+
+== What the package is for
+
+`de.planmarshall.runtime.security` resolves what a presented credential authenticates: the credential kinds, the
+registries of job tokens and paired devices, and the constant-time comparison and digest of secrets. A worker never
+receives the runtime token; it connects back through a job token of its own, and the daemon resolves the job from the
+token's digest on every request.
+
+== Main types
+
+`CredentialKind`::
+The closed set of credentials the daemon accepts.
+
+`JobTokenRegistry`::
+The port that resolves a presented token's SHA-256 to the job it was minted for. A revoked token still resolves, so its
+calls are answered by the tool handler rather than by a transport refusal.
+
+`JobTokens`::
+Mints the 256-bit job token at a spawn and digests it. `sha256Hex` is the value the job record stores; the token is
+never written, logged or put into a message.
+
+`DeviceRegistry`::
+The paired devices of the daemon.
+
+`Secrets`::
+SHA-256 of a presented secret and the constant-time comparison of two secrets.
+
+== How a worker credential is made and retired
+
+1. `LaunchComposer` mints the token with `JobTokens.mint()` while it composes the launch.
+2. Only `JobTokens.sha256Hex(token)` enters the `worker` block (`job_token_sha256`); the token itself travels in the
+   relay's `PM_MCP_JOB_TOKEN` environment in the per-call MCP configuration.
+3. `JobTokenStore.register` records the digest for the generation, and `resolve` answers the job on every request.
+4. `JobTokenStore.revoke` removes the generation's token with the job's fate.
+
+A `zero_tool` worker has no connection and therefore no token.
+
+== Invariants
+
+* No store, log, audit record or error message contains a job token; only its SHA-256 is recorded.
+* The digest is compared in time independent of where the inputs differ (`MessageDigest.isEqual`).
+* A token is valid only while its job runs; a revoked token never resolves.
+
+== Specification
+
+* `doc/specification/model-work/04-worker-launch.adoc` (Job Token, Generation & Connection Binding)
+* `doc/specification/store-schemas/10-job-and-lesson-records.adoc` (Job Record)
+* `doc/specification/job-runtime/02-confinement-and-environment.adoc` (Job Environment)
