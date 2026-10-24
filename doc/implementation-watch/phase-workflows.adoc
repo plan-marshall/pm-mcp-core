@@ -1741,3 +1741,31 @@ the landing records of `plan-marshall-telemetry`.
 Source:: Article analysis `pocock-skills-update` of plan-marshall-documentation (parallel implementers collide on a
 shared registry that no ticket names); plan-marshall's own fix is a landing check on duplicate numbers in `manage-adr`.
 
+[#PM-WATCH-PHASE-116]
+=== PM-WATCH-PHASE-116: A fix is counted by what it cleared and what it introduced
+
+Anchor:: link:../specification/store-schemas/03-findings-and-review-records.adoc#_findings_ledger_record_findings_jsonl[Store Schemas § Findings Ledger Record] (Fix Attribution)
+Hazard:: The fix attribution compares a finding with the fix's changed lines at the fix commit instead of mapping them
+forward to the finding's `raised_at_head`, so a later commit that shifts lines attributes the finding to the wrong fix or
+to none; or a round without a landed commit reports `0` introduced and is counted as a clean fix.
+Guard:: Scenario over a plan with two remediation rounds: a finding on a line round 1 changed and a later commit moved
+records `introduced_by` round 1; the landing's `fix_balance` lists both rounds with cleared and introduced, and a round
+with more introduced than cleared is `net_worse`; matched controls: a finding on an untouched line has
+`introduced_by: null`, and a round whose fix has no landed commit has no `fix_balance` row.
+Source:: Article analysis `agentic-graph-engineering` of plan-marshall-documentation (in 19 archived plans of plan-marshall a finding states that a fix introduced it; its records carry no
+attribution).
+
+[#PM-WATCH-PHASE-117]
+=== PM-WATCH-PHASE-117: Sweep localisation probes outside the plan's worktree and never decides
+
+Anchor:: link:../specification/phase-workflows/03-q-gate-and-execute.adoc#_whole_tree_verification_gates_triage_required_routing[Phase Workflows § Whole-Tree Verification Gates] (Culprit Localisation)
+Hazard:: The bisection checks out probe commits in the plan's own worktree and leaves it at an old commit, or a probe
+that ends without a verdict is read as green, so the culprit named is the wrong commit; or the localisation runs for a
+red the per-deliverable builds never covered and spends builds without information.
+Guard:: Scenario over three deliverable commits whose second breaks a cross-module test only together with the first:
+`sweep_culprit: found` names the second commit in at most three builds, the plan's worktree `HEAD` and status are
+unchanged, and every probe has a build row bound to its commit; matched controls: a probe that times out yields
+`indeterminate`, a red not reproduced at `HEAD` yields `not_reproduced`, and a plan with one commit or a relocation
+override skips with its reason.
+Source:: Article analysis `agentic-graph-engineering` of plan-marshall-documentation (17 of 105 archived plans of plan-marshall with Maven logs had three or more failed builds in a
+row; plan-marshall has no localisation).
