@@ -1,0 +1,278 @@
+= The Primitive SPI, the Engine Ports and the Content Validators (`core.spi`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+:src: ../../src/main/java/de/planmarshall/core/spi
+:test: ../../src/test/java/de/planmarshall/core/spi
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4], link:{docs}/Requirements.adoc#PM-WF-6[PM-WF-6]_
+
+Package `de.planmarshall.core.spi` of `pm-core` holds two things: the contract every deterministic server operation
+implements — the primitive SPI — and the interfaces through which the workflow engine causes and observes what lies
+outside the status store — the engine ports. Its sub-package `de.planmarshall.core.spi.validation` holds the content
+validators a primitive runs over submitted text.
+
+The package declares; it implements no primitive and no port. The plan-domain primitives of `pm-workflow` and the
+`git.*` and `ci.*` primitives of the provider modules implement the SPI; `pm-runtime` implements the ports.
+
+== The Contract of a Primitive
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
+
+A primitive is one deterministic operation of the server. It is stateless, so one instance serves every call.
+
+[cols="1,3",options="header"]
+|===
+|Type |What it is
+
+|link:{src}/Primitive.java[`Primitive<P, R>`]
+|The operation: its canonical name, the record class `P` of its parameters, the enum class `R` of its outcomes, the
+method `execute`, and the declarations of what it does beyond returning an outcome.
+
+|link:{src}/PrimitiveOutcome.java[`PrimitiveOutcome`]
+|One outcome. The outcomes of a primitive are the constants of one enum that implements this interface, so the set is
+closed. An outcome has a wire name, by which a workflow routes it, and an outcome class.
+
+|link:{src}/OutcomeClass.java[`OutcomeClass`]
+|The classes an outcome can have. The class of an outcome, never its wire name, decides how the outcome is recorded.
+
+|link:{src}/PrimitiveResult.java[`PrimitiveResult`]
+|What one execution returns: the outcome, the facts it changed, and the identifier of the job it started, if any.
+
+|link:{src}/WorkflowExecutionContext.java[`WorkflowExecutionContext`]
+|What a primitive is handed for one execution: the scope the call addresses.
+
+|link:{src}/AwaitedEvent.java[`AwaitedEvent`]
+|The external events a primitive can wait for before its outcome can change.
+
+|link:{src}/CycleMeasure.java[`CycleMeasure`]
+|The finite measures that can end a cycle through the state of a primitive.
+
+|link:{src}/FreeParam.java[`@FreeParam`]
+|Marks a component of a parameter record as a value the caller supplies and declares the length bounds of a text value.
+|===
+
+The constants of `OutcomeClass`, `AwaitedEvent` and `CycleMeasure` are stated in their sources and pinned by
+link:{test}/SpiVocabularyTest.java[`SpiVocabularyTest`]; this guide does not repeat them.
+
+=== What a Primitive Declares
+
+`id()`, `parameterType()`, `outcomeType()`, `execute(…)` and `awaitedEvent()` have no default, so no primitive compiles
+without them. A primitive whose outcome depends only on what it reads in the same call declares the awaited event
+`NONE`.
+
+The other declarations have a default that says "nothing":
+
+* `producedArtifacts()` and `requiredArtifacts()` name the artifacts the primitive produces as side effects and the ones
+  that must exist before it can pass;
+* `waivableGates()` names the gates the primitive may look a waiver up for; a primitive never writes a waiver;
+* `enqueuesJob()` is `true` for a primitive that starts a job. Such a primitive has at least one outcome whose
+  `startsJob()` is `true` and reports the job in `PrimitiveResult.spawnedJobId()`;
+* `cycleMeasure()` names the measure that strictly decreases on every pass of a chained cycle through the state of the
+  primitive. A primitive with the measure `ATTEMPT_CAP` also declares `exhaustionOutcome()`: the wire name of the
+  outcome it returns once its cap is spent. A primitive with any other measure declares none.
+
+=== The Result and the Scope
+
+`PrimitiveResult` refuses a `null` component, a fact without a name and a fact without a value with a
+`NullPointerException`. It keeps an unmodifiable copy of the facts in the order they were passed.
+
+`WorkflowExecutionContext.scopeId()` returns the identifier of the plan or epic the call addresses. For the workspace
+scope of a project, which has no identifier of its own, it returns an empty `Optional`. The reserved value a caller
+addresses the workspace scope with is never returned, so a primitive cannot take it for the identifier of a plan. The
+context reads and writes no store.
+
+== The Registry
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+link:{src}/PrimitiveRegistry.java[`PrimitiveRegistry`] holds the primitives of one assembly by id. It is filled through
+its constructor and by nothing else: the assembly passes its primitives, a test passes the ones it needs. The registry
+looks nothing up on the classpath. `find(id)` returns the primitive with an id, or an empty `Optional`; `ids()` returns
+the ids in the order the primitives were passed.
+
+The constructor checks every primitive before the registry exists. One malformed primitive leaves no registry at all;
+the constructor throws a link:{src}/PrimitiveRegistrationException.java[`PrimitiveRegistrationException`] for the first
+primitive it refuses, in the order of the argument. The exception carries the id of the primitive as it declared it (the
+text `null` when it declared none) and a `Reason`; tell refusals apart by the reason, never by the message.
+
+[cols="2,3",options="header"]
+|===
+|Reason |What is refused
+
+|`DUPLICATE_ID` |A primitive whose id another primitive passed to the registry already has.
+|`MALFORMED_ID` |An id that is missing or is not two identifiers joined by a dot. An identifier starts with a lower-case
+letter, followed by at most 31 lower-case letters, digits, `_` or `-`.
+|`PARAMETER_TYPE_NOT_A_RECORD` |A parameter type that is missing or is not a record class.
+|`MALFORMED_FREE_PARAMETER` |A component of the parameter record that carries `@FreeParam` and is not a `String`, or
+whose bounds cannot hold: a negative `minLength`, a negative `maxLength`, or a `minLength` above the `maxLength`. Equal
+bounds are accepted, and a component without the annotation is not looked at.
+|`OPEN_OUTCOME_SET` |An outcome type that is missing, is not an enum that implements `PrimitiveOutcome`, or has no
+constant.
+|`DUPLICATE_WIRE_NAME` |Two outcomes of one primitive with the same wire name.
+|`MALFORMED_WIRE_NAME` |An outcome whose wire name is missing or is not an identifier of the form above.
+|`RESERVED_WIRE_NAME` |An outcome with the wire name `stepped_out`, the control outcome that only the engine returns when
+a sub-workflow is left.
+|`MISSING_OUTCOME_CLASS` |An outcome whose `outcomeClass()` is `null`.
+|`UNDECLARED_JOB_SIDE_EFFECT` |A job side effect declared on one side only: a primitive that enqueues a job without a
+job-starting outcome, or one with a job-starting outcome that does not declare that it enqueues a job.
+|`MISSING_CYCLE_MEASURE` |A primitive whose `cycleMeasure()` is `null`.
+|`ATTEMPT_CAP_WITHOUT_FAILURE_EXHAUSTION` |A primitive with the measure `ATTEMPT_CAP` whose exhaustion outcome is `null`,
+is empty, names none of its outcomes, or names an outcome that is not of class `FAILURE`.
+|`EXHAUSTION_OUTCOME_WITHOUT_ATTEMPT_CAP` |A primitive with any other measure that names an exhaustion outcome.
+|`MISSING_AWAITED_EVENT` |A primitive whose `awaitedEvent()` is `null`.
+|===
+
+The table follows the enum, where each reason is documented at its constant.
+link:{test}/PrimitiveRegistryTest.java[`PrimitiveRegistryTest`] fails when a reason has no malformed primitive in
+link:{test}/TestPrimitives.java[`TestPrimitives`]; nothing compares this table with the enum, so a change of the enum is
+carried into it by hand.
+
+The exhaustion outcome is read tolerantly on one side only: a primitive without an attempt cap that returns `null`
+instead of an empty `Optional` declares none, and is accepted. With an attempt cap, `null` is refused like every other
+missing exhaustion outcome. A `null` collection or element is a `NullPointerException`, not a refusal.
+
+The constructor does not check what needs more than the primitive itself: whether a declared gate is on the list of
+waivable gates, whether a produced artifact is required by anyone, whether a name collides with a keyword of the
+workflow language, and whether an execution that returns a job-starting outcome carries a job identifier.
+
+== The Engine Ports
+
+The ports are declared here and implemented by `pm-runtime`. The status store keeps the persisted run state; the ports
+are the only way the engine causes or observes anything outside it, and every value a start or a creation returns is
+bound in the status store in the same transaction. The ports, their identifier grammars and their tri-state reads are
+described with the store that binds them (link:core-store.adoc#_engine_ports[Scope Stores § Engine Ports]); the
+identifier types live in `core.id` and `core.store` (`EntryId`).
+
+No class of `pm-core` implements a port. The tests of `pm-workflow` use recording doubles; `EnginePortsTest` guards the
+identifier grammars and the tri-state read.
+
+== The Content Validators
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-6[PM-WF-6]_
+
+A content validator checks a text that a model submitted against the rules of its kind. The contract and the three
+validators are the package link:{src}/validation/[`de.planmarshall.core.spi.validation`].
+
+link:{src}/validation/ContentValidator.java[`ContentValidator`] has one method, `validate(String)`. A validator is
+stateless and reads nothing but its argument. A text it rejects is an answer, not a failure: the violations are returned
+in the order of their lines, never thrown, and an accepted text returns an empty list. Only a `null` text is an
+exception.
+
+A link:{src}/validation/ContentViolation.java[`ContentViolation`] names the rule by a stable key, the line counted from
+1 (`0` when the violation concerns the whole text), and a message that quotes the offending content. A caller tells
+violations apart by the key, never by the message. The keys are the public `RULE_*` constants of each validator, each
+documented at its constant.
+
+Every validator rejects a blank text. Beyond that:
+
+[cols="1,3",options="header"]
+|===
+|Validator |What it rejects
+
+|link:{src}/validation/ConventionalCommitValidator.java[`ConventionalCommitValidator`]
+|A first line that is not of the form `type(scope)!: description` (the scope and the `!` are optional, the type consists
+of letters, and one space follows the colon), a header without a type or without a description, a body that does not
+start on the third line after exactly one blank line, and every `Co-Authored-By:` line, wherever it stands, in any
+spelling of upper and lower case and whatever it names.
+
+|link:{src}/validation/AsciiDocValidator.java[`AsciiDocValidator`]
+|A control character other than a tab, a delimited block that is never closed, a document title that is not the first
+non-blank line, a second document title, and a section more than one level below the section before it. A line inside a
+delimited block is content: it is neither a title nor a section, and inside a listing, literal, passthrough or comment
+block it opens no further block.
+
+|link:{src}/validation/OutlineValidator.java[`OutlineValidator`]
+|In a list below `+**Affected files:**+`: a line that is not a bullet starting with a back-quoted path, and a path
+without one of the intents `(read)`, `(write-new)`, `(write-replace)`, `(write-conditional)`, `(delete)` at the end of
+its line. In a list below `+**Added dependencies:**+`: a line that is not a bullet with exactly one back-quoted
+coordinate, an ecosystem other than `maven`, `npm` and `pypi`, a coordinate that is not of the form of its ecosystem,
+and a coordinate named a second time anywhere in the outline.
+|===
+
+Three properties of the validators are deliberate:
+
+* *A trailer in the submitted message is refused even when it equals the one the server would write.* The server appends
+  the trailer it resolved itself; accepting one from the text would let the text of a model decide whom a commit
+  credits.
+* *A line of a list that does not parse is a violation, never skipped.* `OutlineValidator` reads each of the two lists
+  from its marker line to the next line that starts with `+**+` or `+#+`. A bullet with a typing error therefore
+  surfaces with its line number instead of silently dropping an entry.
+* *A coordinate has the name form of its ecosystem.* A Maven coordinate is `maven:<groupId>:<artifactId>`; an npm
+  coordinate is `npm:<name>` in lower case, optionally scoped; a Python coordinate is `pypi:<name>`, and two Python
+  names are the same when they differ only in case or in their runs of `-`, `_` and `.`.
+
+`OutlineValidator` decides only what the text decides on its own. It does not check that the files exist, that the tasks
+of the outline can be derived, or that a deliverable declares what its files require.
+
+=== The Block Delimiters of `AsciiDocValidator`
+
+The validator runs no AsciiDoc processor. It compares each line, without its trailing white space, with three forms of a
+delimiter:
+
+* four or more times one of the characters `+-+`, `+.+`, `+=+`, `+*+`, `+_+`, `{plus}` and `+/+`, and nothing else: the
+  listing, literal, example, sidebar, quote, passthrough and comment block;
+* exactly `--`: the open block; a line of three hyphens is ordinary text;
+* one of the characters `+|+`, `+,+`, `+:+` and `+!+` followed by three or more `+=+`, and nothing else: a table.
+
+A block is closed by a line equal to the one that opened it. The content of a listing, literal, passthrough and comment
+block is taken verbatim. Every block still open at the end of the text is one violation of
+`AsciiDocValidator.RULE_UNCLOSED_BLOCK` on the line that opened it, the outer block first.
+
+== Adding a Primitive or a Validator
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/Requirements.adoc#PM-WF-6[PM-WF-6]_
+
+A new primitive:
+
+. Write the parameter record and the outcome enum. The enum implements `PrimitiveOutcome`; give every constant its wire
+  name and its class.
+. Implement `Primitive<P, R>` in the module the operation belongs to, and override a declaration only where the default
+  "nothing" is not true.
+. Pass the instance to the constructor of the `PrimitiveRegistry` of the assembly.
+. Test it without a framework: construct a `PrimitiveRegistry` with it, which proves that it is well formed, and call
+  `execute` with a `WorkflowExecutionContext` the test writes itself.
+
+A new validator, or a new rule of an existing one:
+
+. Add a public `RULE_*` constant with the key and a Javadoc sentence that states the rule.
+. Return a `ContentViolation` with the key, the line and a message that quotes the offending content.
+. Add an accepted text and, for the new key, a rejected text that breaks only that rule, to the test of the validator.
+
+== Testing
+
+[horizontal]
+link:{test}/PrimitiveContractTest.java[`PrimitiveContractTest`]:: the well-formed primitives of `TestPrimitives` through
+the contract.
+link:{test}/PrimitiveRegistryTest.java[`PrimitiveRegistryTest`]:: every malformed primitive refused with its reason, and
+the enumeration of the reasons covered by a fixture.
+link:{test}/SpiVocabularyTest.java[`SpiVocabularyTest`]:: the constants of the closed enums.
+link:{test}/validation/ConventionalCommitValidatorTest.java[`ConventionalCommitValidatorTest`],
+link:{test}/validation/AsciiDocValidatorTest.java[`AsciiDocValidatorTest`],
+link:{test}/validation/OutlineValidatorTest.java[`OutlineValidatorTest`]:: an accepted text and, per rule key, a text
+that breaks exactly that rule, with the key and the line.
+
+== Pitfalls
+
+* *Give an outcome the class of what happened, not of how it sounds.* An operation of several parts of which one failed
+  returns an outcome of class `FAILURE`. The class reaches the caller unchanged, and a caller reads the class, never the
+  wire name.
+* *Declare the awaited event that is true.* `NONE` is right only for a primitive whose outcome cannot change without a
+  new call.
+* *An attempt cap ends in a failure.* The exhaustion outcome of a primitive with `ATTEMPT_CAP` has the class `FAILURE`.
+* *Do not treat the workspace scope as a plan.* An empty `scopeId()` is the workspace scope; do not replace it by a
+  placeholder identifier.
+* *Do not copy a closed vocabulary.* The outcome classes, awaited events, cycle measures and rule keys each have one
+  Java source. Link the type; a copied list is wrong after the next change.
+* *A rule without a rejected case is not tested.* Every rule key of a validator has a test case with a text that breaks
+  exactly that rule and asserts the key and the line.
+
+== Specification Tracing
+
+* Specification: link:{docs}/specification/module-structure.adoc[Module Structure Specification] (the primitive SPI and
+  the engine ports), link:{spec}/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static
+  Verification Rules] (the content validators of a submitted text)
+* Decisions: link:../adr/core-spi/001-typed-primitive-spi-refused-at-registration.adoc[ADR 001] the typed primitive SPI
+  refused at registration, link:../adr/core-spi/002-content-validators-report-violations-as-values.adoc[ADR 002]
+  content validators report violations as values
+* The store that binds the ports: link:core-store.adoc[`core.store`]

@@ -1,0 +1,90 @@
+= The Ingestion Validator (`runtime.ingest`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+:src: ../../src/main/java/de/planmarshall/runtime/ingest
+:test: ../../src/test/java/de/planmarshall/runtime/ingest
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-SEC-3[PM-SEC-3]_
+
+Package `de.planmarshall.runtime.ingest` of `pm-runtime` holds the level-1 ingestion validator for external text: the
+stage that decides whether a Markdown text an untrusted party wrote may be handed on unchanged. The validator works in
+refusing mode: a text with any finding is refused, and nothing is changed silently.
+
+The package implements stage 2 of the validator, the Markdown AST stage. The other stages (Unicode fixpoint, bounds, the
+rule table and spotlighting) are not part of this slice and are not simulated here.
+
+== Main Types
+_Requirements: link:{docs}/Requirements.adoc#PM-SEC-3[PM-SEC-3]_
+
+[cols="1,3",options="header"]
+|===
+|Type |What it is
+
+|link:{src}/IngestionValidator.java[`IngestionValidator`]
+|The validator: `validate(markdown)` parses the text with `commonmark` and returns the `Report`. The no-argument
+constructor uses the default `cui-http` security configuration and its own `SecurityEventCounter`.
+
+|`IngestionValidator.Finding` 
+|One finding: its `kind` (`html_block`, `html_inline`, `image`, `link_scheme`, `link_malformed` or `link_rejected`) and the
+`detail` the operator sees.
+
+|`IngestionValidator.Report`
+|Every finding in document order, as a copied list, and `refused()`: `true` when the list is not empty.
+|===
+
+== What the Validator Refuses
+
+The text is parsed into a Markdown AST and visited once. Every visit appends to the report in document order:
+
+* an `html_block` or an `html_inline`: raw HTML is a finding, so a text cannot smuggle markup past the check;
+* an `image`: an image destination is a finding, because the validator does not dereference or proxy it;
+* a link whose destination is not an `https` URL or a relative link: `link_scheme`;
+* a link whose destination does not parse as a URI: `link_malformed`;
+* an `https` link with a user-info part or no host, or whose path or query parameter fails the `cui-http` URL security
+  pipelines: `link_rejected` (the detail names the failure type).
+
+The `cui-http` path pipeline validates the raw path and the parameter pipeline validates every query parameter's value,
+the same pipelines the provider adapters use for their outbound URLs. The schemes are compared case-insensitively. A link
+with no scheme is admitted as a relative link; that includes a network-path reference such as `//host/path`, which this
+stage does not reject — a known limitation of the Markdown-AST stage, not a guarantee that the link stays in the document's
+repository.
+
+== Invariants and Failure Modes
+
+* *Refusing, never sanitising.* The validator returns findings; it does not rewrite the text. A caller that wants to
+  accept a text after a change must make the change itself and validate the result again.
+* *The report is in document order.* The visitor walks the tree in document order, so the findings of one text come in
+  the order a reader meets them.
+* *Every finding kind has a name.* A kind is one of the string literals `html_block`, `html_inline`, `image`,
+  `link_scheme`, `link_malformed` and `link_rejected`; a caller switches on it, never on the detail text.
+* *The detail is for the operator.* A `link_rejected` detail may quote the destination and the failure type. For a link
+  with a user-info part it therefore contains that text, including a secret the author put there; a caller that emits or
+  persists a detail passes it through the runtime's redaction. The validator itself dereferences nothing.
+* *The counter is not shared with another validator.* Each instance builds its own `SecurityConfiguration.defaults()` and
+  `SecurityEventCounter`; a validator is cheap and stateless towards its input.
+
+== Extending the Validator
+
+. Extend the visitor, not the parser: a new node type is a new `visit` override that appends a `Finding`.
+2. Give the new kind a stable name and add it to the pitfall list above; a caller never matches the detail.
+3. Add a test with one text that trips exactly the new rule and one matched control that does not.
+4. Do not fold another stage into this class: the Unicode fixpoint, the bounds and the spotlighting belong to their own
+   stage and their own refusal, so the record of why a text was refused names one stage.
+
+== Testing
+
+link:{test}/IngestionValidatorTest.java[`IngestionValidatorTest`]:: a plain Markdown text with `https` and relative links
+passes; a raw HTML block (including a comment), inline HTML, an image, another scheme, a user-info destination, a
+traversal path, a control character in a query and a malformed destination are refused, each with its kind asserted on the
+first finding.
+
+== Specification Tracing
+
+* Specification: link:{spec}/job-runtime/03-parsers-and-gates.adoc#ingestion-validator[Job Runtime § Ingestion
+  Validator]
+* Requirement: link:{docs}/Requirements.adoc#PM-SEC-3[PM-SEC-3]

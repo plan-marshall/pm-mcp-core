@@ -1,0 +1,98 @@
+= The Log Message Holder (`workflow.log`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+:src: ../../src/main/java/de/planmarshall/workflow/log
+:test: ../../src/test/java/de/planmarshall/workflow/log
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
+
+Package `de.planmarshall.workflow.log` of `pm-workflow` holds `WorkflowLogMessages`, the one holder of the module's
+INFO, WARN and ERROR records. Its prefix is `PM_WORKFLOW`; the module logs through this holder and, where the event
+belongs to the foundation, through `CoreLogMessages` of `pm-core`, and through no other module's holder.
+
+The rules of the layout and the current roster with each record's component, template and description are in
+link:../../../doc/LogMessages.adoc[`doc/LogMessages.adoc`]; this guide states how the holder is built and extended.
+
+== Main Types
+_Requirements: link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
+
+[cols="1,3",options="header"]
+|===
+|Member |What it holds
+
+|`WorkflowLogMessages.PREFIX`
+|`PM_WORKFLOW`, the prefix of every record of the module.
+
+|`WorkflowLogMessages.INFO`
+|The INFO records, identifiers 001-099.
+
+|`WorkflowLogMessages.WARN`
+|The WARN records, identifiers 100-199.
+
+|`WorkflowLogMessages.ERROR`
+|The ERROR records, identifiers 200-299.
+|===
+
+Every record is a `LogRecord` built by `LogRecordModel.builder()` with the prefix, the identifier and the template.
+A `LogRecord` is a constant; a caller logs it with the `CuiLogger` of its class and passes the arguments in the order of
+the template's `%s` placeholders. The roster in `doc/LogMessages.adoc` is the reference; do not copy it into a second
+place.
+
+== Using the Holder
+
+[source,java]
+----
+private static final CuiLogger LOGGER = new CuiLogger(PlanInstanceComposer.class);
+
+LOGGER.warn(WorkflowLogMessages.WARN.PLAN_INSTANCE_COMPOSITION_REFUSED, planId, reason);
+----
+
+The placeholders are `%s`; an exception is passed first, before the template arguments. slf4j, log4j and
+`System.out`/`System.err` are not used. The logger is `private static final` in its class, and every INFO, WARN and ERROR
+message is a record of a holder, never a literal at the call site.
+
+== Adding a Record
+
+. Find the next free identifier of the level in `doc/LogMessages.adoc` and in the holder: INFO 001-099, WARN 100-199,
+   ERROR 200-299. There are no workstream blocks and nothing is renumbered.
+. Add the constant to the holder's inner class, with a Javadoc sentence that states when it is logged, the component, the
+   template with its placeholders, and what each placeholder names.
+3. Add the row to the holder's table in `doc/LogMessages.adoc` with the same identifier, component, template and
+   description.
+4. Log it from the class of this module that owns the event. When the event belongs to the foundation, it goes to
+   `CoreLogMessages` instead, and this module logs through it.
+5. Run `WorkflowLogMessagesTest`: it refuses an identifier used twice or outside its level's range and derives the expected
+   record set from the holder.
+
+Do not add a message for an event an existing record already states: extend the record's description instead, so the
+log's vocabulary stays closed.
+
+== Invariants and Failure Modes
+
+* *One holder per module.* `pm-workflow` has this holder and no second `log` package; a record of a module below it
+  (`pm-core`) stays in that module's holder.
+* *The ranges are fixed.* INFO 001-099, WARN 100-199, ERROR 200-299 in every holder. The test refuses a duplicate and an
+  out-of-range identifier.
+* *A record carries no secret and no model-facing content.* A template and its arguments never name a token, a key or a
+  credential value, and never paste the text of a workflow unit or a model answer into the message.
+* *The roster has one source.* `doc/LogMessages.adoc` states the current records; the holder is the code side of the
+  same list. A change to one without the other is a documentation defect.
+
+== Testing
+
+link:{test}/WorkflowLogMessagesTest.java[`WorkflowLogMessagesTest`]:: every identifier is unique and inside its level's
+range, the prefix is `PM_WORKFLOW`, and the expected set of records is derived from the holder at run time.
+
+== Specification Tracing
+
+* The roster and the per-record descriptions:
+  link:../../../doc/LogMessages.adoc[`doc/LogMessages.adoc`]
+* Decision: link:../../../doc/adr/005-one-log-message-holder-per-module.adoc[repository ADR 005] one log-message holder
+  per module
+* The other holders: link:../../../pm-core/doc/developer/core-log.adoc[`core.log`],
+  link:../../../pm-runtime/doc/developer/runtime-log.adoc[`runtime.log`]

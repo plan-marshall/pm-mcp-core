@@ -1,0 +1,121 @@
+= The Native GitHub Client (`provider.github`) Developer Guide
+:docs: ../../../../../plan-marshall-documentation/doc
+:toc:
+:toclevels: 3
+:nofooter:
+
+:spec: ../../../../doc/specification
+:src: ../../src/main/java/de/planmarshall/provider/github
+:test: ../../src/test/java/de/planmarshall/provider/github
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1], link:{docs}/requirements/09-technology.adoc#PM-TECH-2[PM-TECH-2]_
+
+Package `de.planmarshall.provider.github` holds the native GitHub client of PM-MCP: GitHub App authentication, the fixed
+GraphQL documents for review threads and the merge queue, and the REST calls of the review path. It builds on the shared
+HTTP base `pm-provider-http` (link:../../../pm-provider-http/doc/developer/provider-http.adoc[`provider.http`]) and names
+GitHub; the base names no forge.
+
+The module is a client, not a CI workflow: the engine's `ci` contract is implemented on top of these calls by the
+package that owns it, and this package returns typed results and closed outcomes.
+
+== Main Types
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]_
+
+[cols="1,3",options="header"]
+|===
+|Type |What it does
+
+|link:{src}/GitHubClient.java[`GitHubClient`]
+|The operations of the review and merge path: `reviewThreads(owner, name, number)` (with `ReviewComment`,
+`ReviewThread`), `resolveReviewThread(threadId)`, `enqueue(pullRequestId, expectedHeadOid)` (with `MergeQueueEntry`) and
+`postComment(owner, name, number, body)`. The first three use fixed GraphQL documents shipped as resources; the comment
+uses REST. Every body travels in memory.
+
+|link:{src}/InstallationTokens.java[`InstallationTokens`]
+|Mints GitHub App installation tokens through `POST /app/installations/{id}/access_tokens`, narrowed to one repository and
+a permission set, and holds them in memory only. A minted token is registered with the redaction registry and reused,
+keyed by installation, repository and permission set, until `REUSE_MARGIN_SECONDS` (300 s) before its `expires_at`.
+
+|link:{src}/GitHubAppJwt.java[`GitHubAppJwt`]
+|The RS256 JWT signed with the JDK for a mint request; the private key is read per mint and never cached.
+
+|link:{src}/GitHubOperation.java[`GitHubOperation`]
+|The operation classes, each with the narrowest repository permission set an installation token is minted with. The
+constants and their permission sets are `GitHubOperation`'s source; this guide does not repeat them.
+|===
+
+== Authentication
+
+A call follows one path:
+
+. The client asks `InstallationTokens` for a token for `(installation, repository, GitHubOperation)`.
+2. `InstallationTokens` returns a token it still holds, or signs a fresh `GitHubAppJwt` with the private key it reads at
+   that moment and mints a token over the shared HTTP base.
+3. The minted token is registered for redaction and kept in memory, keyed as above, until 300 seconds before its expiry.
+4. `HttpClient` sends it as `Authorization: Bearer …` to the endpoint origin only.
+
+A comment on a pull request travels through the issue-comment endpoint
+(`POST /repos/{owner}/{repo}/issues/{number}/comments`) and still needs `pull_requests: write`: GitHub answers a token
+narrowed to `issues: write` alone with `403` there. That is why `PULL_REQUEST_COMMENT` and `ISSUE_COMMENT` are two
+operations with different permission sets.
+
+== Invariants and Failure Modes
+
+* *The private key is read per mint and never cached.* A rotated key is used on the next mint, and the key never reaches a
+  log, an exception message or a result detail.
+* *A token lives in memory only.* It is never written to a store; the reuse map is dropped when the client closes. The
+  redaction registry covers a token that appears in a provider message.
+* *A token is narrowed.* Every operation names its permission set, so a client that only reads review threads cannot write
+  a comment or enqueue a merge.
+* *A rate limit is an outcome.* The base reports `RATE_LIMITED` with its reset instant; the client never waits inside a
+  call.
+* *An incomplete read is not the full set.* The review-thread read follows the GraphQL page info with a page cap
+  (`MAX_THREAD_PAGES`, 20); an incomplete read is an outcome the caller can see, never a silently short list.
+* *The merge queue is bound to the head.* `enqueue` sends the expected head oid, so a queue entry cannot be created for a
+  head the caller did not review.
+* *Remote text is untrusted.* A comment body and an author login are data; a caller that emits or persists them passes a
+  provider message through the runtime's redaction.
+
+== Extending the Client
+
+. Add the operation to `GitHubOperation` with the narrowest permission set it needs.
+2. Add a fixed GraphQL document as a resource where the operation reads; a REST call goes through `HttpClient.send`.
+3. Return `Result<T>` and map a failed `Response` with `Result.failed`, so a credential refusal (`AUTH_FAILED`,
+   `PERMISSION_DENIED`) is told apart from a provider refusal (`REJECTED`) and from a failure (`FAILED`).
+4. Add the call to `GitHubClientTest` with a canned route response and a matched control for each documented failure.
+
+== Testing
+
+The tests run against `cui-test-mockwebserver-junit5`, with no network and no real GitHub App.
+
+[horizontal]
+link:{test}/GitHubClientTest.java[`GitHubClientTest`]:: each GraphQL operation with its fixed document and its typed
+result, the REST comment, and an error status mapped to its outcome.
+link:{test}/InstallationTokensTest.java[`InstallationTokensTest`]:: a mint with a fresh JWT, reuse until the margin, a
+fresh mint after it, the key read per mint, the redaction registration, and a failed mint.
+link:{test}/GitHubAppJwtTest.java[`GitHubAppJwtTest`]:: the JWT header and claims, the RS256 signature verified with the
+public key of the test key, and the expiry window. `TestKeys` holds the test key pair; no key of a product is used.
+link:{test}/GitHubOperationTest.java[`GitHubOperationTest`]:: the permission set of every operation and the
+comment-endpoint rule.
+
+== Pitfalls
+
+* *Do not mint a token for the whole installation.* A token narrowed to the repository and the operation is the point;
+  a broad token widens what a bug in one call can reach.
+* *Do not hold a token past its margin.* A token used inside the last 300 seconds can expire during a request; the client
+  mints a new one instead.
+* *Do not put a body in a query string or a file.* The body is an in-memory request payload.
+* *Do not treat a permission error as a failure.* `PERMISSION_DENIED` is a configuration or consent problem, and the
+  caller reports it as such, not as a transport failure.
+
+== Specification Tracing
+
+* Specification: link:{docs}/specification/module-structure.adoc#module-pm-provider-github[Module Structure §
+  `pm-provider-github`], link:{spec}/credentials-and-enrolment/01-provider-credentials.adoc#agent-credentials[Credentials
+  & Enrolment § Agent Credentials of the Native Variant],
+  link:{spec}/credentials-and-enrolment/03-audit-and-outbound-https.adoc[Credentials & Enrolment § Outbound HTTPS],
+  link:{spec}/phase-workflows/06-finalize-re-entry-and-merge.adoc[Phase Workflows § Finalize Re-Entry and Merge]
+* The shared base: link:../../../pm-provider-http/doc/developer/provider-http.adoc[`provider.http`]
+* Decisions: link:../../../pm-provider-http/doc/adr/provider-http/001-neutral-class-names.adoc[`provider.http` ADR 001],
+  link:../../../../doc/adr/002-cui-http-and-the-mock-web-server-for-http.adoc[repository ADR 002]

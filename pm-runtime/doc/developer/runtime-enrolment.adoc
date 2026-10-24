@@ -13,15 +13,18 @@
 _Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5], link:{req}/07-credentials.adoc#PM-CRED-2[PM-CRED-2]
 
 Package `de.planmarshall.runtime.enrolment` of `pm-runtime` holds the runtime's side of the enrolment store of
-`pm-core`: the integrity key, the HMAC of the enrolment files, the per-use checks, the enrolment check and the
-enrolment operations. This guide covers the parts that serve the recorded credential store
-(link:runtime-credentials.adoc[`runtime.credentials`]):
+`pm-core`: the integrity key, the HMAC of the enrolment files, the per-use checks, the enrolment check, the policy, the
+operator writes and their audit records. The core half — the record, its codec, the sidecar record, the store and the
+lifecycle gate — is link:../../../pm-core/doc/developer/core-store.adoc#_the_enrolment_store[Scope Stores § The Enrolment
+Store]. This guide covers both what serves the recorded credential store and what the check and the operator writes do.
 
-* `EnrolmentKey` reads the integrity key from the store a supplier gives on every read, so after the first recording
-  of a store and after a move the key is read from the store now recorded and nothing is re-signed.
+* `EnrolmentKey` reads the integrity key from the store a supplier gives on every read, so after the first recording of a
+  store and after a move the key is read from the store now recorded and nothing is re-signed.
 * `HarnessesSidecarCheck` verifies `harnesses.json` against its sidecar under a given key.
 * `EnrolmentSidecars` verifies every HMAC sidecar of the machine under one key: what the first recording and the move
   verify under the carried key before they switch the store.
+* `EnrolmentCheck`, `EnrolmentPolicy` and `Enrolments` verify and write a project's enrolment; the two enrolment steps of
+  the project's recovery run them (<<_the_enrolment_steps_of_the_recovery>>).
 
 The earlier decisions of the package are its ADRs 001 to 004 in link:../adr/runtime-enrolment/[`doc/adr/runtime-enrolment/`].
 
@@ -111,6 +114,183 @@ with no seam for the assembly
 (link:../adr/runtime-credentials/005-the-move-verifies-every-sidecar-in-the-runtime.adoc[`runtime-credentials` ADR
 005]).
 
+== The Enrolment HMAC and the Per-Use Snapshot
+
+_Requirements: link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5]_
+
+`EnrolmentHmac` is the HMAC-SHA-256 over the canonical bytes of an enrolment file: `sign(key, bytes)` builds the sidecar
+record, `verify(key, bytes, sidecar)` compares in constant time, and the record is the `EnrolmentSidecar` of `core.store`
+(size, SHA-256, HMAC, 64 lower-case hexadecimal digits). The bytes are always those `EnrolmentCodec.write` produced;
+never sign bytes from anywhere else.
+
+The package-private `EnrolmentFileCheck.snapshot(file)` binds the per-use checks to the one read of a file, with JDK means
+only:
+
+. It reads the attributes with `Files.readAttributes(file, PosixFileAttributes.class, NOFOLLOW_LINKS)`. A file that does
+   not exist is an absent snapshot, not an exception.
+. It applies the per-use checks to those attributes — no symbolic link, the running user as owner, no permission bit
+   outside `0600` — and refuses a file that fails one without opening it, so the bytes of a link target or of an insecure
+   file are never read.
+3. It opens the file with `Files.newInputStream(file, NOFOLLOW_LINKS)` and reads every byte from that stream.
+4. It reads the attributes again and refuses the snapshot as `file replaced or changed while it was read` unless the file
+   key, the size (against the bytes read) and the last-modified time are those of the first read; then it applies the
+   per-use checks to the second attributes too.
+5. Otherwise the snapshot holds the bytes read.
+
+The JDK has no `fstat` on an open handle, so the identity of the opened file is inferred from the attributes read before
+the open and after the read. This narrows the window between check and read; it does not close it, and the mode of the
+operator-owned `enrolments/` directory stays the outer boundary. The path-based `EnrolmentFileCheck.violation(file)`
+remains the check of the integrity key file.
+
+== The Enrolment Check
+
+_Requirements: link:{req}/08-security.adoc#PM-SEC-4[PM-SEC-4], link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5]_
+
+`EnrolmentCheck.verify(transaction, projectId)` acquires the project's lock in the caller's transaction (it may hold it
+already) and returns the verified `ProjectEnrolment`. The project's recovery runs it as its first step before the project
+is first served.
+
+The order is the one of the specification: the no-follow snapshot of the file, then of the sidecar, with their per-use
+checks; the pair, the sidecar record, size and SHA-256, the HMAC, the enrolment. Every later step uses the bytes of the
+two snapshots; nothing reads the files again.
+
+`verify` throws:
+
+* `StoreRefusal` as `ENROLMENT_INSECURE`, naming the file or sidecar and the reason of its snapshot (a symbolic link, a
+  foreign owner with both user names, a mode broader than `0600` with both modes, `file replaced or changed while it was
+  read`);
+* `StoreRefusal` as `ENROLMENT_TAMPERED`, whose message names the reason and the command
+  `pm-operator accept-edit enrolment <project_id>`; the reasons are the constants of `EnrolmentCheck` (sidecar without its
+  file, file without its sidecar, size or SHA-256 differs, HMAC differs, the integrity key does not exist in the active
+  key source);
+* `StoreRefusal` as `absent` when neither file nor sidecar exists, and as `unreadable`, `format_outdated` or
+  `format_newer` for a refused read;
+* `SecretStoreException` when the key exists and cannot be read.
+
+The two integrity refusals are logged (`PM_RUNTIME-116`, `PM_RUNTIME-117`) and handed to the `AuditSink`; when the sink
+fails, its exception is added to the refusal as suppressed and the refusal is thrown all the same. A refused strict read
+is logged as `PM_RUNTIME-120` and audited as `enrolment_invalid`, and thrown with its own outcome and message unchanged.
+
+== The Enrolment Policy
+
+_Requirements: link:{req}/07-credentials.adoc#PM-CRED-2[PM-CRED-2]_
+
+`EnrolmentPolicy.violations(enrolment, base)` checks the rules the specification states in concrete terms, in a
+deterministic order, before a write is signed:
+
+* *Placeholders* of an argument vector (`build.canonical_templates`, `build.discovery_templates`,
+  `providers[].verify_argv`): a placeholder is a brace-delimited token `{...}`; a placeholder in a literal argument,
+  `{module}` included, and any placeholder other than `{module}` in the module-argument group is a violation naming the
+  vector and the token. A lone brace and `{}` are not placeholders.
+* *Write paths*: an absolute write path is not judged by its lexical form alone. The policy walks up to its longest
+  existing ancestor (with `NOFOLLOW_LINKS`, so a dangling symbolic link counts as existing), resolves that ancestor with
+  `toRealPath()` and appends the names below it that do not exist yet. The resolved path and the normalized path are each
+  judged against the base and its real path: one that is, lies below or contains the base directory is a violation. A
+  `..` below the last existing ancestor, and an ancestor that cannot be resolved, are refusals of their own (the policy
+  fails closed). A path that is not absolute is not judged.
+* *Build environment names*: a name ending `_TOKEN`, `_PASSWORD`, `_SECRET` or `_KEY` is a credential variable, and
+  `DBUS_SESSION_BUS_ADDRESS`, `XDG_RUNTIME_DIR` and `MVND_DAEMON_STORAGE` are refused by name. The match is
+  case-sensitive, as the schema admits upper-case names only.
+
+What the policy does not check — shell metacharacters, the full credential-variable list, the uniqueness of the project
+root — is a known limit below.
+
+== The Operator Writes
+
+_Requirements: link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2], link:{req}/12-migration.adoc#PM-MIG-1[PM-MIG-1]_
+
+`Enrolments` opens its own transaction per write and acquires the project's lock in it. `enrol` and the re-baseline
+acquire the credentials lock first and the project's lock second, because either may create the integrity key.
+`unenrol` and the replays take neither the key nor the credentials lock. Each write owes its audit record and runs in the
+order owe, mutate, confirm, hand over:
+
+* `enrol(enrolment, pilot)` checks the policy, chooses the key under both locks, owes `enrolment_written` unconfirmed,
+  writes the pair atomically, confirms the record and logs `PM_RUNTIME-19`. A key that exists but cannot be read is never
+  replaced; an absent key with an enrolled project is `ENROLMENT_TAMPERED`, never a second key.
+* `unenrol(projectId)` asks `LiveWork` while it holds the lock. Live work throws `Enrolments.ScopeActiveException` (code
+  `scope_active`) naming each item, after logging `PM_RUNTIME-118` and auditing `unenrol_refused`; nothing is removed.
+  Otherwise it owes `enrolment_removed`, removes the staged files first and then the file and the sidecar, confirms and
+  logs `PM_RUNTIME-20`. A first enrolment that was staged and stopped is cancelled this way and cannot be rolled forward
+  later.
+* `rebaseline(projectId)` settles a stopped pair, takes one no-follow snapshot, decodes it strictly, checks the policy,
+  owes `enrolment_rebaselined`, writes a new sidecar over the same bytes, confirms and logs `PM_RUNTIME-21`. The checks
+  and the signature cover one read of the file.
+* `replayOwedAudit(projectId)` hands over what one project owes and returns the count; `replayOwedAuditOfUnenrolledProjects()`
+  does it for projects without an enrolment file and then removes the orphan sidecar of an interrupted unenrol;
+  `replayOwedAudit()` sweeps every project, logging each record `PM_RUNTIME-22` and keeping a failing intent for the next
+  pass.
+
+A sink that refuses a record does not fail the write: the record stays owed in
+`enrolments/<project_id>.json.audit-intent` and is logged `PM_CORE-100`. The owed form is `AuditEvent.notConfirmed()`:
+the same event and transaction id, outcome `failed`, reason `not_confirmed`. The mutation and the confirmation are not
+atomic, so a stop before the confirmation leaves the unconfirmed record, which is true — its completion was not recorded.
+Delivery is at least once, and a record handed over again carries the same `transaction_id`, by which the audit store
+drops the duplicate.
+
+[cols="1,1,1,2",options="header"]
+|===
+|Event |Category |Outcome |Details
+
+|`enrolment_tampered` |`security` |`refused` |`project_id`, `reason`
+|`enrolment_insecure` |`security` |`refused` |`project_id`, `reason`
+|`enrolment_invalid` |`security` |`refused` |`project_id`, `reason`
+|`enrolment_written` |`operator` |`succeeded` |`project_id`, `transaction_id`
+|`enrolment_removed` |`operator` |`succeeded` |`project_id`, `transaction_id`
+|`enrolment_rebaselined` |`operator` |`succeeded` |`project_id`, `transaction_id`
+|`enrolment_written`, `enrolment_removed`, `enrolment_rebaselined` |`operator` |`failed` |`project_id`,
+`transaction_id`, `reason` (`not_confirmed`)
+|`unenrol_refused` |`operator` |`refused` |`project_id`, `reason` (`scope_active`)
+|===
+
+The names and keys are constants of `AuditEvent`; use the factories, never build an enrolment record by hand.
+
+== The Enrolment Steps of the Recovery
+
+_Requirements: link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5], link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]_
+
+The project's recovery has eleven steps, in the order of `RecoveryStep.Name`; the two enrolment steps come first:
+
+. `EnrolmentIntegrityStep` opens a transaction, acquires the project's enrolment lock, settles a stopped write of the pair
+  with `store.recoverPair` and then runs `check.verify` in the same transaction. A `StoreRefusal` is a `Failed` with its
+  message; a `SecretStoreException` is `Failed("integrity key unavailable: <reason code>")`, never with the key. The step
+  never signs anything and never creates a key.
+. `OwedEnrolmentAuditStep` calls `enrolments.replayOwedAudit(projectId)` and reports the count. `unenrolledPass()` is the
+  background task for the projects no longer enrolled: it hands over what every project without its enrolment file owes
+  and removes the orphan sidecar of an interrupted unenrol, logging a failure `PM_RUNTIME-121` and leaving that project's
+  files for the next pass.
+
+`EnrolledProjects.of(store)` is the population of the recovery and the periodic sweep: the ids `store.projectIds()` lists
+at each call, as a copy. `ProjectRecovery.withEnrolment(store, check, enrolments, lockManager, steps, executor)` builds the
+recovery with the two steps, that population and `unenrolledPass()` as the background task. A step list written before the
+enrolment store keeps working: every constructor fills a missing `ENROLMENT_INTEGRITY` or `OWED_ENROLMENT_AUDIT` with a
+seam that does nothing, and the check then does not run.
+
+== Known Limits
+
+* *The check-to-read window is narrowed, not closed.* The JDK has no `fstat` on an open handle, so `EnrolmentFileCheck`
+  infers the identity of the opened file from the attributes read before the open and after the read. A change between
+  the two reads that leaves the file key, size and last-modified time as they were is not seen. The mode of the
+  operator-owned `enrolments/` directory stays the outer boundary.
+* *The operator writes do not authorize their caller.* `enrol`, `unenrol` and `rebaseline` neither authenticate their
+  caller nor check that the caller owns the project. The package that wires the operator verbs does that before it calls
+  `Enrolments`.
+* *`unenrol` needs every producer to ask it.* It asks `LiveWork` under the project's enrolment lock; that prevents
+  stranding only if every path that creates live work reads the enrolment under the same lock.
+* *Recovery and job verification run the check.* The verify-not-resolve pipeline of a project's jobs runs
+  `EnrolmentCheck.verify` as its first stage. The `enter` request and the operator verbs do not yet have runtime paths; each
+  must run it when its path is built.
+* *The project root is not checked for uniqueness.* `enrolment_root_conflict` and `project_store_root_mismatch` are
+  refused nowhere yet; the operator verb and the recovery will own them.
+* *The policy is not complete.* The shell-metacharacter set of an argument vector, whether the forbidden free flags apply
+  to enrolled templates, the full credential-variable list and a non-absolute write path are open in the specification.
+* *The directories are not protected by the runtime.* `<PM_MCP_BASE>/enrolments/` and `<PM_MCP_BASE>/state/` must belong
+  to the operator and be closed to every other identity; the installer or assembly creates them, and the startup refuses
+  a wider mode or a foreign owner.
+* *The audit store must drop a replayed duplicate.* The `AuditSink` contract used here does not deduplicate; the audit
+  store drops a record whose `transaction_id` it already holds.
+* *The assembly does not construct the recovery yet.* Without `ProjectRecovery.withEnrolment` or the two steps, the
+  recovery fills them with seams and runs no check.
+
 == Testing
 
 _Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5]
@@ -128,6 +308,19 @@ with a wrong HMAC; mode `0644` and a symbolic link failing as insecure; an unrea
 `locks/harnesses.lock` acquired.
 link:{test}/EnrolmentSidecarsTest.java[`EnrolmentSidecarsTest`]:: All three kinds passing under the key they were signed
 with; a tampered enrolment file, `harnesses.json` and audit head each failing; no `lock_order_violation`.
+link:{test}/EnrolmentHmacTest.java[`EnrolmentHmacTest`]:: the signature of canonical bytes, a changed byte, a changed key
+and a malformed record, each refused.
+link:{test}/EnrolmentFileCheckTest.java[`EnrolmentFileCheckTest`]:: the per-use checks of a file and of a sidecar — owner,
+mode `0600`, no symbolic link — the absent file, the changed-while-read case and the one no-follow snapshot.
+link:{test}/EnrolmentCheckTest.java[`EnrolmentCheckTest`]:: every refusal of the check: an absent, tampered and insecure
+enrolment, a mismatched pair, a changed size or SHA-256, a wrong HMAC and an absent key, with the log and audit record of
+each.
+link:{test}/EnrolmentPolicyTest.java[`EnrolmentPolicyTest`]:: the placeholder, write-path and environment-name rules, each
+with its accepted control.
+link:{test}/EnrolmentsTest.java[`EnrolmentsTest`]:: `enrol`, `unenrol`, the re-baseline and the replays in order, the owed
+record confirmed or left unconfirmed, the `scope_active` refusal, the orphan sidecar and a sink that refuses a record.
+`EnrolmentIntegrityStepTest` and `OwedEnrolmentAuditStepTest` of `runtime.start`:: the two steps of the recovery, with a
+stopped pair, a refused enrolment and an owed record.
 
 `InMemoryKeyring` is the keyring of the tests of the package; it enumerates its entries like every store.
 
