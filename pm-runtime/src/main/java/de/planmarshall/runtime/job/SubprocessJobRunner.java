@@ -343,8 +343,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * @param audit            where a surviving descendant of a probe is written; {@code null} for no audit record
      * @param settledRecordsKept how many settled records the runner keeps after it pruned their store; {@code null} for
      *                         {@value #SETTLED_RECORD_CACHE}
-     * @throws NullPointerException if an argument other than the clock, the supervision, the audit sink and the
-     *                              settled-record window is {@code null}
+     * @throws NullPointerException if an argument other than the clock, the supervision, the audit sink, the job-token
+     *                              store and the settled-record window is {@code null}
      */
     @Builder
     // java:S5443 does not apply: /tmp is the system temporary directory the specification puts in every job's write
@@ -542,7 +542,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         Objects.requireNonNull(request, "request");
         var launch = request.launch();
         var budget = new JobBudget(request.budgetKey(), request.budgetSeconds(), request.budgetDerivation());
-        var store = JobRecordStore.ofProject(base, request.enrolment().projectId());
+        var store = workerStore(request.scope(), request.enrolment());
         store.lockKey(request.scope());
         var jobId = workerId(launch.generationId());
         JobRecord first;
@@ -560,13 +560,14 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         if (job == null) {
             return new JobRunner.StartResult.Started(first.jobId());
         }
-        if (jobTokens != null) {
+        if (jobTokens != null && !launch.jobTokenSha256().isEmpty()) {
             jobTokens.register(jobId.value(), launch.jobTokenSha256());
         }
         var confinement = confinementComposer.forJob(request.enrolment(), jobId, request.writablePaths(), false);
+        var token = launch.jobToken().isEmpty() ? Optional.<String>empty() : Optional.of(launch.jobToken());
         return run(job, log -> new Launch(launch.workingDirectory(), launch.argv(), environment.ofWorker(request
-                .enrolment(), jobId, launch.env(), Optional.of(launch.jobToken()), Optional.empty(), request
-                .egressProxy()), Optional.empty(), log, confinement));
+                .enrolment(), jobId, launch.env(), token, Optional.empty(), request.egressProxy()), Optional.empty(),
+                log, confinement));
     }
 
     /**
@@ -581,7 +582,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     public JobId refuseWorker(WorkerStart.Refusal refusal) {
         Objects.requireNonNull(refusal, "refusal");
         var budget = new JobBudget(refusal.budgetKey(), refusal.budgetSeconds(), refusal.budgetDerivation());
-        var store = JobRecordStore.ofProject(base, refusal.enrolment().projectId());
+        var store = workerStore(refusal.scope(), refusal.enrolment());
         store.lockKey(refusal.scope());
         var jobId = workerId(refusal.generationId());
         var outcome = OutcomeDerivation.derive(new RefusedBeforeSpawn(refusal.reason().code()));
@@ -601,6 +602,12 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private static JobId workerId(String generationId) {
         return JobId.parse(generationId).filter(id -> id.kind() == JobId.Kind.LLM)
                 .orElseThrow(() -> new IllegalArgumentException("Not a worker generation id: " + generationId));
+    }
+
+    /** @return the store of a worker: the machine's for a machine-scoped worker, its project's otherwise */
+    private JobRecordStore workerStore(JobRecord.Scope scope, ProjectEnrolment enrolment) {
+        return scope.type() == JobRecord.Scope.Type.MACHINE ? JobRecordStore.ofMachine(base)
+                : JobRecordStore.ofProject(base, enrolment.projectId());
     }
 
     /**

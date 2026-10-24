@@ -141,7 +141,7 @@ class HarnessVerifierTest {
                 new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED, Map.of("input", "reported")),
                 Map.of("text", "reported"), Map.of()));
         var verification = verifier().verify("acme-cli", HeadlessBlock.of(LaunchFixtures.profileForClient("acme-cli")));
-        assertTrue(verification instanceof HarnessVerification.Accepted);
+        assertInstanceOf(HarnessVerification.Accepted.class, verification);
         assertEquals("acme-cli", ((HarnessVerification.Accepted) verification).enrolment().clientId());
     }
 

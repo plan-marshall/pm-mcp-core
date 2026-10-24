@@ -126,7 +126,18 @@ public final class HarnessVerifier {
             return refused(clientId, LaunchRefusal.HARNESS_VERSION_UNSUPPORTED,
                     "the version '%s' lies outside the supported range of '%s'".formatted(probed.get(), clientId));
         }
-        var accepted = store.acceptSelfUpdate(clientId, probed.get(), current.get(), clock.instant());
+        var recheck = digest.sha256(enrolment.executablePath());
+        if (recheck.isEmpty() || !recheck.get().equals(current.get())) {
+            return refused(clientId, LaunchRefusal.HARNESS_UPDATE_UNVERIFIED,
+                    "the executable changed again while its update was verified");
+        }
+        Optional<HarnessEnrolment> accepted;
+        try {
+            accepted = store.acceptSelfUpdate(clientId, probed.get(), current.get(), clock.instant());
+        } catch (HarnessEnrolmentStore.StoreException failure) {
+            return refused(clientId, failure.refusal() == Refusal.UNREADABLE ? LaunchRefusal.HARNESS_STORE_UNREADABLE
+                    : LaunchRefusal.HARNESS_TAMPERED, failure.getMessage());
+        }
         if (accepted.isEmpty()) {
             return refused(clientId, LaunchRefusal.HARNESS_NOT_ENROLLED,
                     "the harness '%s' was removed while its self-update was accepted".formatted(clientId));

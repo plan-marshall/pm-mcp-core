@@ -20,6 +20,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +34,7 @@ import javax.crypto.SecretKey;
 import de.planmarshall.core.profile.CanonicalJson;
 import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.JsonNode;
+import de.planmarshall.core.profile.ProfileRefusal;
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.EnrolmentSidecar;
@@ -207,9 +209,7 @@ public final class HarnessEnrolmentStore {
         JsonNode root;
         try {
             root = JsonDocument.parse(document, HarnessesSidecarCheck.FILE_NAME);
-        }
-        /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
-        catch (RuntimeException malformed) {
+        } catch (ProfileRefusal | IllegalArgumentException malformed) {
             throw new StoreException(Refusal.UNREADABLE, "not a harness enrolment store: " + malformed.getMessage());
         }
         var version = root.member(FORMAT_VERSION_MEMBER).flatMap(node -> node.integerValue().isPresent()
@@ -222,9 +222,7 @@ public final class HarnessEnrolmentStore {
         for (var member : harnesses.members().entrySet()) {
             try {
                 entries.put(member.getKey(), entry(member.getKey(), member.getValue()));
-            }
-            /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
-            catch (RuntimeException malformed) {
+            } catch (ProfileRefusal | DateTimeParseException | IllegalArgumentException malformed) {
                 throw new StoreException(Refusal.UNREADABLE,
                         "the entry '%s' is malformed: %s".formatted(member.getKey(), malformed.getMessage()));
             }

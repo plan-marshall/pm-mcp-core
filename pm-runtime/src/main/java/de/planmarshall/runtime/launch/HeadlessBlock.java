@@ -149,7 +149,7 @@ String versionPattern, List<String> writablePaths) {
 
     /**
      * @param model a model identifier
-     * @return the effort values the harness accepts for the model, in ascending order
+     * @return the effort values the harness accepts for the model, in the profile's declared order
      */
     public List<String> efforts(String model) {
         var values = modelEfforts.get(model);

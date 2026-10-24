@@ -73,20 +73,22 @@ public final class LaunchComposer {
         var now = request.clock().instant();
         var jobPrivate = request.jobPrivateDirectory().toAbsolutePath().normalize();
         createDirectories(jobPrivate);
-        var workingDirectory = workingDirectory(request, jobPrivate);
+        var workdirKind = roleClass == RoleClass.ZERO_TOOL ? LaunchRequest.WorkdirKind.JOB_PRIVATE
+                : request.workdirKind();
+        var workingDirectory = workingDirectory(request, jobPrivate, workdirKind);
         var model = renderModel(role.model(), block);
         var effort = narrowEffort(role, model, block);
         var prompt = composePrompt(request, role, roleClass);
         var promptFile = writeFile(jobPrivate.resolve(PROMPT_FILE), prompt.text());
         var resultSchema = resultSchemaFile(request, roleClass, jobPrivate);
-        var token = JobTokens.mint();
-        var tokenSha256 = JobTokens.sha256Hex(token);
+        var token = roleClass == RoleClass.ZERO_TOOL ? "" : JobTokens.mint();
+        var tokenSha256 = token.isEmpty() ? "" : JobTokens.sha256Hex(token);
         var mcp = composeMcp(request, roleClass, workingDirectory, token);
         var tools = roleClass == RoleClass.ZERO_TOOL ? List.<String>of() : role.artifact().tools();
         var argv = composeArgv(request, block, roleClass, workingDirectory, model, effort.value(), promptFile,
                 resultSchema, tools, mcp);
         var env = composeEnvironment(request, jobPrivate);
-        var workerBlock = workerBlock(request, role, roleClass, model, effort, prompt, now, tokenSha256);
+        var workerBlock = workerBlock(request, role, roleClass, workdirKind, model, effort, prompt, now, tokenSha256);
         return new WorkerLaunch(request.generationId(), role.artifact().name(), roleClass,
                 request.fresh() ? RoleForm.FRESH : RoleForm.WARM,
                 argv, env, workingDirectory, jobPrivate, promptFile, prompt, Optional.ofNullable(mcp.file()),
@@ -148,8 +150,8 @@ public final class LaunchComposer {
         }
     }
 
-    private static Path workingDirectory(LaunchRequest request, Path jobPrivate) {
-        if (request.workdirKind() == LaunchRequest.WorkdirKind.JOB_PRIVATE) {
+    private static Path workingDirectory(LaunchRequest request, Path jobPrivate, LaunchRequest.WorkdirKind workdirKind) {
+        if (workdirKind == LaunchRequest.WorkdirKind.JOB_PRIVATE) {
             var cwd = jobPrivate.resolve(CWD);
             createDirectories(cwd);
             return cwd;
@@ -228,6 +230,10 @@ public final class LaunchComposer {
         var json = CanonicalJson.write(config);
         if (request.block().mcpConfig().delivery() == HeadlessBlock.McpDelivery.FILE) {
             var path = workingDirectory.resolve(request.block().mcpConfig().path()).normalize();
+            if (!path.startsWith(workingDirectory)) {
+                throw new CompositionException("the MCP configuration path escapes the working directory: "
+                        + request.block().mcpConfig().path());
+            }
             writeFile(path, json + "\n");
             return new McpComposition(path, null);
         }
@@ -289,8 +295,9 @@ public final class LaunchComposer {
         return env;
     }
 
-    private static JsonNode workerBlock(LaunchRequest request, EffectiveRole role, RoleClass roleClass, String model,
-            NarrowedEffort effort, LaunchPrompt prompt, Instant now, String tokenSha256) {
+    private static JsonNode workerBlock(LaunchRequest request, EffectiveRole role, RoleClass roleClass,
+            LaunchRequest.WorkdirKind workdirKind, String model, NarrowedEffort effort, LaunchPrompt prompt,
+            Instant now, String tokenSha256) {
         var members = new LinkedHashMap<String, JsonNode>();
         members.put("role", JsonNode.string(role.artifact().name()));
         members.put("configuration_digest", JsonNode.string(role.configurationDigest()));
@@ -303,11 +310,11 @@ public final class LaunchComposer {
         members.put("effort_narrowed_from", effort.narrowedFrom() == null ? JsonNode.nullValue()
                 : JsonNode.string(effort.narrowedFrom()));
         members.put("generation_id", JsonNode.string(request.generationId()));
-        members.put("workdir", JsonNode.object(Map.of("kind", JsonNode.string(request.workdirKind().wireName()),
+        members.put("workdir", JsonNode.object(Map.of("kind", JsonNode.string(workdirKind.wireName()),
                 "plan_id", request.planId() == null ? JsonNode.nullValue() : JsonNode.string(request.planId()))));
         members.put("prompt_digest", JsonNode.string(prompt.digest()));
-        members.put("job_token_sha256", roleClass == RoleClass.ZERO_TOOL ? JsonNode.nullValue() : JsonNode.string(
-                tokenSha256));
+        members.put("job_token_sha256", roleClass == RoleClass.ZERO_TOOL || tokenSha256.isEmpty() ? JsonNode.nullValue()
+                : JsonNode.string(tokenSha256));
         members.put("connected_at", JsonNode.nullValue());
         members.put("state", JsonNode.string("waiting"));
         members.put("state_at", JsonNode.string(now.toString()));
@@ -342,9 +349,16 @@ public final class LaunchComposer {
             if (!skipped) {
                 matcher.appendTail(rendered);
                 filled.add(rendered.toString());
+            } else if (!filled.isEmpty() && isFlag(filled.getLast())) {
+                filled.removeLast();
             }
         }
         return filled;
+    }
+
+    /** @return whether an argument is a flag whose value is the next element, for example {@code --model} */
+    private static boolean isFlag(String argument) {
+        return argument.startsWith("--") && argument.length() > 2 && !argument.contains("=");
     }
 
     private static Path writeFile(Path file, String content) {

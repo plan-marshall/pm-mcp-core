@@ -45,7 +45,8 @@ Implemented by `runtime.launch` (`HeadlessBlock`, `LaunchComposer`, `WorkerStart
 is read from a file the model can write (link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch
 Developer Guide]; link:../store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas Specification, Job
 Record]). A change of the role's effective configuration applies to the next worker generation; a running generation
-keeps the contract it was launched with.
+keeps the contract it was launched with. Remaining: the verify-not-resolve argument-schema validation of the composed
+vector, which the worker start path does not run yet.
 
 [#harness-selection]
 === Harness Eligibility & Launch Refusals

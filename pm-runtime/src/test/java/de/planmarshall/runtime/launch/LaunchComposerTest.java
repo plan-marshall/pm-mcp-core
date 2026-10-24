@@ -22,6 +22,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -102,6 +103,27 @@ class LaunchComposerTest {
         assertTrue(launch.argv().contains("--setting-sources"));
         assertTrue(launch.env().values().stream().noneMatch(value -> value.contains("PM_MCP_JOB_TOKEN")));
         assertTrue(launch.workerBlock().member("job_token_sha256").orElseThrow().isNull());
+        assertTrue(launch.jobToken().isEmpty());
+        assertTrue(launch.jobTokenSha256().isEmpty());
+    }
+
+    @Test
+    @DisplayName("a zero_tool launch runs in the job-private cwd even when the request names a worktree")
+    void zeroToolForcesJobPrivate() {
+        var role = LaunchFixtures.role(RoleClass.ZERO_TOOL, "fast", null, RoleForm.FRESH, skills, List.of(
+                LaunchFixtures.ROLE_SKILL));
+        var launch = new LaunchComposer().compose(request(role, true, LaunchRequest.WorkdirKind.PLAN_WORKTREE, false));
+        assertEquals(root.resolve("run/jobs").resolve(GENERATION).resolve("cwd").toAbsolutePath().normalize(),
+                launch.workingDirectory());
+        assertEquals("job_private", launch.workerBlock().member("workdir").orElseThrow().member("kind").orElseThrow()
+                .text().orElseThrow());
+    }
+
+    @Test
+    @DisplayName("a warm launch drops the flag of an absent result schema instead of leaving it dangling")
+    void absentSlotDropsItsFlag() {
+        var launch = compose(LaunchFixtures.writer(skills), false, false);
+        assertFalse(launch.argv().contains("--json-schema"));
     }
 
     @Test
@@ -142,13 +164,13 @@ class LaunchComposerTest {
     @DisplayName("a writer launch carries only the profile's environment and the job relay as an MCP server")
     void extensionIsolation() {
         var launch = compose(LaunchFixtures.writer(skills), true, false);
-        var config = de.planmarshall.core.profile.JsonDocument.parse(launch.mcpConfig().orElseThrow().getBytes(
+        var config = JsonDocument.parse(launch.mcpConfig().orElseThrow().getBytes(
                 StandardCharsets.UTF_8), "mcp");
         var servers = config.member("mcpServers").orElseThrow();
         var relay = servers.member("pm-job").orElseThrow();
         assertAll(
                 () -> assertEquals(Map.of("DISABLE_TOOL_SEARCH", "1"), launch.env()),
-                () -> assertEquals(java.util.Set.of("pm-job"), servers.members().keySet()),
+                () -> assertEquals(Set.of("pm-job"), servers.members().keySet()),
                 () -> assertEquals(root.resolve("runtime/bin/pm-mcp").toAbsolutePath().normalize().toString(),
                         relay.member("command").orElseThrow().text().orElseThrow()),
                 () -> assertTrue(relay.member("env").orElseThrow().members().keySet().contains("PM_MCP_JOB_TOKEN")),
