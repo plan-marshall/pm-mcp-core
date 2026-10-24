@@ -377,6 +377,10 @@ public final class JGitOperations implements GitOperations {
             if (start == null) {
                 return GitResult.of(GitOutcome.UNKNOWN_REVISION, revision);
             }
+            if (resolution == GitIdentity.Resolution.FULL_COMMIT_ID && !start.name().equalsIgnoreCase(revision)) {
+                return GitResult.of(GitOutcome.GIT_IDENTITY_MISMATCH,
+                        "the pin " + revision + " reached " + start.name());
+            }
             walk.markStart(walk.parseCommit(start));
             var commits = new ArrayList<CommitInfo>();
             for (RevCommit commit : walk) {

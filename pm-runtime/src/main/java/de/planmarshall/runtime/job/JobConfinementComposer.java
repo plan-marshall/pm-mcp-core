@@ -145,6 +145,10 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
         var planMarshall = Path.of(System.getProperty("user.home"), ".plan-marshall").toAbsolutePath().normalize();
         var projectRoot = Path.of(enrolment.projectRoot()).toAbsolutePath().normalize();
         requireOutside(projectRoot, planMarshall, "project_root");
+        if (base.toAbsolutePath().normalize().startsWith(projectRoot)) {
+            throw new IllegalArgumentException(
+                    "A project_root entry contains the protected runtime base directory: " + projectRoot);
+        }
         write.add(projectRoot);
         for (var path : enrolment.writePaths()) {
             var candidate = Path.of(path).toAbsolutePath().normalize();

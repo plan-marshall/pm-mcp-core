@@ -140,6 +140,24 @@ class GitIdentityTest {
     }
 
     @Test
+    @DisplayName("a log of an annotated tag's id is refused with both ids")
+    void logAnnotatedTagId() throws Exception {
+        String tagId;
+        try (var repository = Git.open(repo.toFile()); var walk = new RevWalk(repository.getRepository())) {
+            var commit = walk.parseCommit(ObjectId.fromString(initial.id()));
+            repository.tag().setName("annotated").setAnnotated(true).setMessage("tag").setObjectId(commit).call();
+            tagId = repository.getRepository().resolve("annotated").name();
+        }
+
+        var result = git.log(repo, tagId, 10);
+
+        assertAll(
+                () -> assertEquals(GitOutcome.GIT_IDENTITY_MISMATCH, result.outcome(), result.detail()),
+                () -> assertTrue(result.detail().contains(tagId), result.detail()),
+                () -> assertTrue(result.detail().contains(initial.id()), result.detail()));
+    }
+
+    @Test
     @DisplayName("the ref spellings are the full ones of the contract")
     void refSpellings() {
         assertAll(

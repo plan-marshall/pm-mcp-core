@@ -254,5 +254,17 @@ class JobConfinementComposerTest {
             assertThrows(IllegalArgumentException.class,
                     () -> confinementComposer.forJob(enrolment, job, List.of(), false));
         }
+
+        @Test
+        @DisplayName("a project_root that contains the runtime base is refused")
+        void projectRootContainingBase() {
+            var job = JobId.random(JobId.Kind.BUILD);
+            var containingRoot = base.getParent();
+            var enrolment = ConfinementFixture.enrolment(containingRoot, null, List.of(), Map.of(), List.of());
+            var confinementComposer = composer();
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> confinementComposer.forJob(enrolment, job, List.of(), false));
+        }
     }
 }
