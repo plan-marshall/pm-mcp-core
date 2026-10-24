@@ -25,8 +25,8 @@ first, record the entry second; or widen `QueueStore.updateAll` to add records.
 `ConsultationService.open` validates the ask, draws the consultation id, records the entry on the asking task and moves
 it to `consulting` in one `QueueStore.updateAll` transaction, then creates the consultation task with
 `QueueStore.create`. When the task cannot be created, the failure propagates; the open entry is settled `unavailable`
-by `ConsultationService.reconcile` after the creation grace. A consultation task therefore never exists before its
-asking task lists it, and a worker can never be offered a consultation the asker does not know.
+by `ConsultationService.reconcile` after the creation grace the caller passes. A consultation task therefore never
+exists before its asking task lists it, and a worker can never be offered a consultation the asker does not know.
 
 `QueueStore.updateAll` is not widened: the queue store is `core.queue`'s, its write discipline is specified in
 `store-schemas/16-task-queue.adoc`, and this package owns no part of it.
@@ -50,7 +50,8 @@ asking task lists it, and a worker can never be offered a consultation the asker
   exist. `ConsultationService.reconcile` settles it `unavailable` once the entry is older than the creation grace, so
   the asking task continues on its own judgment; a consultation task the protocol closed without an answer is repaired
   the same way.
-* A create failure propagates; the entry it left is settled `unavailable` by `reconcile` after the creation grace.
+* A create failure propagates; the entry it left is settled `unavailable` by `reconcile` after the creation grace the
+  caller passes.
 
 == Source
 

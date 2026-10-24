@@ -14,9 +14,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 
 
@@ -83,6 +86,7 @@ class ConsultationServiceTest {
         var fact = answered.facts().getFirst();
         var consultation = queue.read(opened.consultationId()).orElseThrow();
         var links = service.links(answered.askingTask(), List.of(ConsultationFixtures.REVIEWER));
+        var reconciled = service.reconcile(ConsultationFixtures.AT.plusSeconds(1), Duration.ofSeconds(60));
         assertAll(
                 () -> assertEquals(ConsultationStatus.ANSWERED, fact.status()),
                 () -> assertEquals(ConsultationFixtures.ANSWER, fact.answer()),
@@ -91,6 +95,9 @@ class ConsultationServiceTest {
                 () -> assertNotNull(answered.askingTask().consultations().getFirst().deliveredAt()),
                 () -> assertEquals(List.of(ConsultationFixtures.REVIEWER),
                         links.stream().map(ConsultationLink::role).toList()),
+                () -> assertEquals(0, reconciled),
+                () -> assertEquals(DeliveredTo.WAIT, queue.read(ConsultationFixtures.ASKER).orElseThrow()
+                        .consultations().getFirst().deliveredTo()),
                 () -> assertEquals(ConsultationRefusal.STALE_ENTITY, second.refusal()),
                 () -> assertEquals(Status.CLOSED, consultation.status()),
                 () -> assertEquals(Outcome.SUBMITTED, consultation.outcome()));
@@ -307,7 +314,7 @@ class ConsultationServiceTest {
                 service.answer(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION,
                         ConsultationFixtures.ANSWER, ConsultationFixtures.AT));
         protocol.fence(ConsultationFixtures.ASKING_GENERATION, ConsultationFixtures.AT.plusSeconds(1));
-        var repaired = service.reconcile(ConsultationFixtures.AT.plusSeconds(2));
+        var repaired = service.reconcile(ConsultationFixtures.AT.plusSeconds(2), Duration.ofSeconds(60));
 
         var successor = assertInstanceOf(WaitAnswer.Offered.class, protocol.wait(
                 new WaitRequest(ConsultationFixtures.SUCCESSOR_GENERATION, ConsultationFixtures.ASKER_ROLE,
@@ -391,13 +398,14 @@ class ConsultationServiceTest {
                 new TaskCall(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION),
                 AttemptEnd.WITHDRAWN, 3, ConsultationFixtures.AT));
 
-        var repaired = service.reconcile(ConsultationFixtures.AT.plusSeconds(1));
+        var repaired = service.reconcile(ConsultationFixtures.AT.plusSeconds(1), Duration.ofSeconds(60));
         var fact = service.facts(ConsultationFixtures.ASKER).getFirst();
 
         assertAll(
                 () -> assertEquals(1, repaired),
                 () -> assertEquals(ConsultationStatus.UNAVAILABLE, fact.status()),
-                () -> assertEquals(0, service.reconcile(ConsultationFixtures.AT.plusSeconds(2))));
+                () -> assertEquals(0, service.reconcile(ConsultationFixtures.AT.plusSeconds(2),
+                        Duration.ofSeconds(60))));
     }
 
     @Test
@@ -408,8 +416,8 @@ class ConsultationServiceTest {
                         ? ConsultationFixtures.askingWithOrphan("qt-00000000000000bb") : task)
                 .toList());
 
-        var early = service.reconcile(ConsultationFixtures.AT.plusSeconds(30));
-        var repaired = service.reconcile(ConsultationFixtures.AT.plusSeconds(61));
+        var early = service.reconcile(ConsultationFixtures.AT.plusSeconds(30), Duration.ofSeconds(60));
+        var repaired = service.reconcile(ConsultationFixtures.AT.plusSeconds(61), Duration.ofSeconds(60));
         var asker = queue.read(ConsultationFixtures.ASKER).orElseThrow();
 
         assertAll(
@@ -418,7 +426,55 @@ class ConsultationServiceTest {
                 () -> assertEquals(ConsultationStatus.UNAVAILABLE, asker.consultations().getFirst().status()),
                 () -> assertEquals(DeliveredTo.WAIT, asker.consultations().getFirst().deliveredTo()),
                 () -> assertEquals(Status.EXECUTING, asker.status()),
-                () -> assertEquals(0, service.reconcile(ConsultationFixtures.AT.plusSeconds(62))));
+                () -> assertEquals(0, service.reconcile(ConsultationFixtures.AT.plusSeconds(62),
+                        Duration.ofSeconds(60))));
+    }
+
+    @Test
+    @DisplayName("a lost consultation recorded for a wait is repaired to the successor's facts")
+    void lostThenFenceRepairsTheDurableDeliveryToFacts() {
+        var opened = opened(ConsultationFixtures.REVIEWER);
+        serve(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION, ConsultationFixtures.REVIEWER);
+        assertInstanceOf(ConsultationOutcome.Answered.class,
+                service.lost(opened.consultationId(), LostReason.ROLE_UNAVAILABLE, ConsultationFixtures.AT));
+        protocol.fence(ConsultationFixtures.ASKING_GENERATION, ConsultationFixtures.AT.plusSeconds(1));
+
+        var repaired = service.reconcile(ConsultationFixtures.AT.plusSeconds(2), Duration.ofSeconds(60));
+        var entry = queue.read(ConsultationFixtures.ASKER).orElseThrow().consultations().getFirst();
+
+        assertAll(
+                () -> assertEquals(1, repaired),
+                () -> assertEquals(ConsultationStatus.UNAVAILABLE, entry.status()),
+                () -> assertEquals(DeliveredTo.FACTS, entry.deliveredTo()),
+                () -> assertNull(entry.answer()));
+    }
+
+    @Test
+    @DisplayName("the consultation task carries the caller's form downgrade")
+    void consultationTaskCarriesTheCallersFormDowngrade() {
+        var opened = assertInstanceOf(ConsultationOutcome.Opened.class,
+                service.open(ConsultationFixtures.requestWithDowngrade(ConsultationFixtures.REVIEWER)));
+
+        assertTrue(queue.read(opened.consultationId()).orElseThrow().formDowngraded());
+    }
+
+    @Test
+    @DisplayName("a creation failure propagates and leaves the entry for the reconciliation")
+    void createFailurePropagatesAndLeavesTheEntryForReconcile() {
+        var failing = new ConsultationService(QueueStore.ofProject(base, "project-a", new FailingCreateLocks()));
+
+        assertThrows(UncheckedIOException.class, () -> failing.open(
+                ConsultationFixtures.request(ConsultationFixtures.ASKER, ConsultationFixtures.ASKING_GENERATION,
+                        ConsultationFixtures.REVIEWER)));
+        var asker = queue.read(ConsultationFixtures.ASKER).orElseThrow();
+        var repaired = failing.reconcile(ConsultationFixtures.AT.plusSeconds(61), Duration.ofSeconds(60));
+
+        assertAll(
+                () -> assertEquals(Status.CONSULTING, asker.status()),
+                () -> assertEquals(ConsultationStatus.OPEN, asker.consultations().getFirst().status()),
+                () -> assertEquals(1, repaired),
+                () -> assertEquals(ConsultationStatus.UNAVAILABLE,
+                        queue.read(ConsultationFixtures.ASKER).orElseThrow().consultations().getFirst().status()));
     }
 
     private ConsultationOutcome.Opened opened(String role) {

@@ -9,6 +9,7 @@
  */
 package de.planmarshall.workflow.consult;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -68,7 +69,8 @@ import de.planmarshall.core.role.RoleClass;
  * <p>
  * The asking task records the consultation before the consultation task is created (ADR 003), so no task is ever
  * offered that no asking task lists. A consultation the server closed outside {@link #answer} or {@link #lost} — for
- * example one whose attempts were spent — is repaired by {@link #reconcile(Instant)}, which the server calls on its
+ * example one whose attempts were spent — is repaired by {@link #reconcile(Instant, java.time.Duration)}, which the
+ * server calls on its
  * queue reconciliation tick.
  *
  * @since 0.1
@@ -80,9 +82,6 @@ public final class ConsultationService {
 
     /** The compiled length of a question and of an answer, in characters. */
     public static final int MAX_TEXT_LENGTH = 4_000;
-
-    /** How long an open consultation entry may wait for its consultation task before it is treated as orphaned. */
-    private static final long ORPHAN_GRACE_SECONDS = 60;
 
     private static final String NO_TASK = "the queue holds no task";
 
@@ -123,7 +122,8 @@ public final class ConsultationService {
     /**
      * Opens a consultation: records the consultation on the asking task and moves it to {@code consulting}, then
      * creates the queue task of the consulted role. If the task cannot be created, the failure propagates and
-     * {@link #reconcile(Instant)} settles the open entry {@code unavailable} after the creation grace.
+     * {@link #reconcile(Instant, java.time.Duration)} settles the open entry {@code unavailable} after the creation
+     * grace.
      *
      * @param request the ask
      * @return the opened consultation, or the refusal
@@ -219,15 +219,22 @@ public final class ConsultationService {
      * Repairs the consultations whose delivery left the record behind: an entry still {@code open} whose consultation
      * task closed outside {@link #answer} or {@link #lost} — for example with its attempts spent — is settled
      * {@code unavailable}; an entry still {@code open} whose consultation task was never created is settled
-     * {@code unavailable} once it is older than the grace for a creation in flight; and an answered entry recorded to
-     * {@code wait} whose asking generation no longer holds the task is recorded to {@code facts}. A consultation whose
-     * task is still open is never touched.
+     * {@code unavailable} once it is older than the creation grace; an answered or unavailable entry recorded to
+     * {@code wait} whose asking generation no longer holds the task is recorded to {@code facts}; and a consultation
+     * task whose asking task no longer lists it open is closed {@code lost} with {@code withdrawn}. A consultation whose
+     * asking task still lists it open is never touched.
      *
-     * @param at the instant of the repair
-     * @return the number of consultation entries repaired
+     * @param at           the instant of the repair
+     * @param orphanGrace  how long an open entry may wait for its consultation task before it is treated as orphaned;
+     *                     the server's reconciliation policy, not a compiled bound
+     * @return the number of entries repaired; a delivery-place rewrite counts once per asking task
      */
-    public int reconcile(Instant at) {
+    public int reconcile(Instant at, Duration orphanGrace) {
         Objects.requireNonNull(at, "at");
+        Objects.requireNonNull(orphanGrace, "orphanGrace");
+        if (orphanGrace.isNegative()) {
+            throw new IllegalArgumentException("The creation grace is not negative: " + orphanGrace);
+        }
         var repaired = new AtomicInteger();
         queue.updateAll(records -> {
             var existing = records.stream().map(QueueTaskRecord::queueTaskId).collect(Collectors.toSet());
@@ -255,7 +262,7 @@ public final class ConsultationService {
                 for (var consultation : asker.consultations()) {
                     if (consultation.status() == ConsultationStatus.OPEN
                             && !existing.contains(consultation.consultationId())
-                            && consultation.askedAt().plusSeconds(ORPHAN_GRACE_SECONDS).isBefore(at)) {
+                            && consultation.askedAt().plus(orphanGrace).isBefore(at)) {
                         updated = settleAsker(updated, consultation.consultationId(),
                                 ConsultationStatus.UNAVAILABLE, null, at);
                         repaired.incrementAndGet();
@@ -271,6 +278,17 @@ public final class ConsultationService {
                     askers.put(repairedAsker.queueTaskId(), repairedAsker);
                     repaired.incrementAndGet();
                 }
+            }
+            for (var task : records) {
+                if (task.kind() != Kind.CONSULTATION || task.isClosed()) {
+                    continue;
+                }
+                var asker = askers.get(task.consultationOf());
+                if (asker != null && hasOpenEntry(asker, task.queueTaskId())) {
+                    continue;
+                }
+                askers.put(task.queueTaskId(), closeTask(task, LostReason.WITHDRAWN, at));
+                repaired.incrementAndGet();
             }
             var after = new ArrayList<QueueTaskRecord>(records.size());
             for (var task : records) {
@@ -465,16 +483,17 @@ public final class ConsultationService {
     }
 
     /**
-     * Rewrites an answered entry recorded to {@code wait} whose asking generation no longer holds the task, so the
-     * durable delivery place is {@code facts}.
+     * Rewrites an answered or unavailable entry recorded to {@code wait} whose asking generation no longer holds the
+     * task, so the durable delivery place is {@code facts}.
      */
     private static QueueTaskRecord repairDeliveryPlace(QueueTaskRecord asker) {
         var generation = asker.lease() == null ? null : asker.lease().generationId();
         var consultations = new ArrayList<Consultation>();
         var changed = false;
         for (var consultation : asker.consultations()) {
-            if (consultation.status() == ConsultationStatus.ANSWERED
-                    && consultation.deliveredTo() == DeliveredTo.WAIT
+            var closed = consultation.status() == ConsultationStatus.ANSWERED
+                    || consultation.status() == ConsultationStatus.UNAVAILABLE;
+            if (closed && consultation.deliveredTo() == DeliveredTo.WAIT
                     && consultation.deliveredAt() != null
                     && !consultation.askedBy().equals(generation)) {
                 consultations.add(new Consultation(consultation.consultationId(), consultation.role(),

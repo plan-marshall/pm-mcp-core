@@ -119,4 +119,9 @@ final class ConsultationFixtures {
         return new ConsultationRequest(ASKER, ASKING_GENERATION, role, RoleClass.READ_ONLY, false, declaredRoles,
                 QUESTION, AT);
     }
+
+    static ConsultationRequest requestWithDowngrade(String role) {
+        return new ConsultationRequest(ASKER, ASKING_GENERATION, role, RoleClass.READ_ONLY, true, List.of(role),
+                QUESTION, AT);
+    }
 }
