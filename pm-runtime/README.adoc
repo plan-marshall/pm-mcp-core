@@ -20,7 +20,7 @@ All packages lie below `de.planmarshall.runtime`. Each line is the first sentenc
 * `enrolment`: the integrity of the project enrolments: the runtime's side of the enrolment store of `pm-core`, and the verification of the harness enrolment sidecar.
 * `ingest`: the level-1 ingestion validator for external text.
 * `job`: the job runtime of a project's process jobs: the verification of a job, its launch through `pm-exec`, its job log, its termination, the derivation of its fate and its settlement, run by `SubprocessJobRunner`.
-* `launch`: the launch composition of a worker: the harness templates, the job token and generation, the launch prompt and the model slots.
+* `launch`: the launch of a worker: the harness profile's templates and model rendering, the launch prompt with its shared prefix and writing skill, the job token, and the harness enrolment store with its launch-time verification.
 * `lock`: the lock manager of the runtime and the stale lease sweep: the implementation of the locking interface of `pm-core`.
 * `log`: the log messages of the module, `RuntimeLogMessages` with the prefix `PM_RUNTIME`, and the messages of the assembly `pm-mcp-server` until it takes them over.
 * `lsp`: the product LSP client of the warm language-server pool.

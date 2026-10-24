@@ -118,6 +118,23 @@ restored skill or schema for the composition failure.
 * The update-evidence port (`HarnessVerifier.EvidenceCheck`) is where a platform check for `code_signature` or
   `package_provenance` plugs in. The default refuses every change, which is the fail-closed direction.
 
+== Owed
+
+* *The start-failure guard goes to `supervisor` (PLAN-30)*, which resumes at 4-plan and is re-outlined against the merged
+  launch package. It hooks in at the worker start path: `SubprocessJobRunner.startWorker` returns a `Started` job and
+  `refuseWorker` a refused `JobId`; a refused launch (a `HarnessVerification.Refused` from `HarnessVerifier`) is the
+  start-failure event, counted per role and harness by the supervisor, with the tasks of the role closing `lost` with
+  `role_unavailable` after the compiled count.
+* *Specification sections left in place*: the launch sections of Model Work § Worker Launch are implemented and their
+  prose carries an `Implemented by` pointer; what remains in place is the start-failure guard (above) and, in
+  § Skill Delivery Record & Re-Delivery, the warm offer, the re-delivery, the offer bound, host activation and the
+  `skills_not_loaded` submit refusal, which are the task protocol's.
+* *Output and usage reading* is not a Done-when clause of this package: the mapping of the output stream to activity,
+  the per-turn usage and the result parsing remain in Model Work § Output Read While the Worker Runs.
+* *The Linux child subreaper* of the launcher (`PR_SET_CHILD_SUBREAPER` in `pm-exec`, a binary of `pm-mcp-clients`) is
+  owed by a package there; the runtime's descendant recording, sweep and audit are implemented
+  (ADR runtime-launch/003).
+
 == Specification
 
 * `doc/specification/model-work/04-worker-launch.adoc`
