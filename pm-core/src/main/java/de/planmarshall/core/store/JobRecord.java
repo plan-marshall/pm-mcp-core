@@ -239,6 +239,8 @@ String gateFacts) {
         PARTIAL_ABI_1("partial(abi=1)"),
         /** The ruleset was applied, and the container engine the job reaches writes outside it. */
         PARTIAL_CONTAINER_ENGINE("partial(container_engine)"),
+        /** The job was confined by the macOS Seatbelt profile. */
+        SEATBELT("seatbelt"),
         /** No ruleset could be applied. */
         UNAVAILABLE("unavailable"),
         /** No ruleset applies: an in-process operation. */

@@ -59,6 +59,15 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     /** The outcome of an action that was refused. */
     public static final String OUTCOME_REFUSED = "refused";
 
+    /** The name of the event that records a worker egress proxy refusal (PM-SEC-5). */
+    public static final String EGRESS_REFUSED = "egress_refused";
+
+    /** The detail of an egress refusal that names the worker generation. */
+    public static final String DETAIL_GENERATION_ID = "generation_id";
+
+    /** The detail of an egress refusal that names the refused destination, {@code host:port}. */
+    public static final String DETAIL_DESTINATION = "destination";
+
     /** The detail of a lock order violation that lists the lock paths the transaction held, in the lock order. */
     public static final String DETAIL_HELD = "held";
 
@@ -307,6 +316,21 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
         details.put(DETAIL_IDLE_SINCE, Objects.requireNonNull(idleSince, "idleSince").toString());
         details.put(DETAIL_IDLE_SECONDS, idleSeconds);
         return new AuditEvent(PLAN_STALLED, CATEGORY_TRANSITION, OUTCOME_WARNING, details);
+    }
+
+    /**
+     * The record of a destination the worker egress proxy refused, one per refusal, carrying the worker generation and
+     * the refused {@code host:port} (PM-SEC-5, Job Runtime § Worker Egress Proxy).
+     *
+     * @param generationId the worker's generation id
+     * @param destination  the refused destination, {@code host:port}
+     * @return the record of the refusal
+     * @throws NullPointerException if an argument is {@code null}
+     */
+    public static AuditEvent egressRefused(String generationId, String destination) {
+        return new AuditEvent(EGRESS_REFUSED, CATEGORY_SECURITY, OUTCOME_REFUSED,
+                Map.of(DETAIL_GENERATION_ID, Objects.requireNonNull(generationId, "generationId"), DETAIL_DESTINATION,
+                        Objects.requireNonNull(destination, DETAIL_DESTINATION)));
     }
 
     /**

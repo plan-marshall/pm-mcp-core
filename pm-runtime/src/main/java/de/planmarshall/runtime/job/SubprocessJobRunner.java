@@ -284,6 +284,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private final VerifyNotResolvePipeline pipeline;
     private final PmExecLauncher launcher;
     private final TerminationProtocol termination;
+    private final JobConfinementComposer confinementComposer;
     private final Environment environment;
     private final ProbeEnvironment probeEnvironment;
     private final OutputParser parser;
@@ -328,6 +329,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * @param pipeline    the verify-not-resolve pipeline
      * @param launcher    the launcher {@code pm-exec}
      * @param termination the termination protocol
+     * @param confinementComposer the composer of the confinement of a job; {@code null} for the standard composer
      * @param environment      the environment of a verified job
      * @param probeEnvironment the environment of a verified probe
      * @param parser           the parser of the job log of an ended job that is no probe
@@ -341,17 +343,24 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      *                              settled-record window is {@code null}
      */
     @Builder
+    // java:S5443 does not apply: /tmp is the system temporary directory the specification puts in every job's write
+    // set; it is passed to the launcher as a write path, not used to create a file the runtime trusts.
+    @SuppressWarnings("java:S5443")
     private SubprocessJobRunner(Path base, LockManager lockManager, VerifyNotResolvePipeline pipeline,
-            PmExecLauncher launcher, TerminationProtocol termination, Environment environment,
-            ProbeEnvironment probeEnvironment, OutputParser parser, PrimitiveJobs primitives, InstantSource clock,
-            Supervision supervision, AuditSink audit, Integer settledRecordsKept) {
+            PmExecLauncher launcher, TerminationProtocol termination, JobConfinementComposer confinementComposer,
+            Environment environment, ProbeEnvironment probeEnvironment, OutputParser parser, PrimitiveJobs primitives,
+            InstantSource clock, Supervision supervision, AuditSink audit, Integer settledRecordsKept) {
         this.base = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
         this.lockManager = Objects.requireNonNull(lockManager, "lockManager");
         this.pipeline = Objects.requireNonNull(pipeline, "pipeline");
         this.launcher = Objects.requireNonNull(launcher, "launcher");
         this.termination = Objects.requireNonNull(termination, "termination");
-        this.environment = Objects.requireNonNull(environment, "environment");
-        this.probeEnvironment = Objects.requireNonNull(probeEnvironment, "probeEnvironment");
+        this.confinementComposer = confinementComposer != null ? confinementComposer
+                : JobConfinementComposer.standard(this.base);
+        var defaultEnvironment = new JobEnvironmentComposer(this.confinementComposer.base(),
+                this.confinementComposer.systemTemp(), this.confinementComposer.deviceRoot());
+        this.environment = environment != null ? environment : defaultEnvironment;
+        this.probeEnvironment = probeEnvironment != null ? probeEnvironment : defaultEnvironment;
         this.parser = Objects.requireNonNull(parser, "parser");
         this.primitives = Objects.requireNonNull(primitives, "primitives");
         this.clock = clock == null ? InstantSource.system() : clock;
@@ -374,10 +383,11 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     public interface Environment {
 
         /**
-         * @param job the verified job
+         * @param job   the verified job
+         * @param jobId the id of the job
          * @return the complete environment of the job
          */
-        Map<String, String> of(VerifiedJob job);
+        Map<String, String> of(VerifiedJob job, JobId jobId);
     }
 
     /**
@@ -391,9 +401,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
         /**
          * @param candidate the candidate record of the verified probe
+         * @param jobId     the id of the probe job
          * @return the complete environment of the probe
          */
-        Map<String, String> of(ProbeCandidate candidate);
+        Map<String, String> of(ProbeCandidate candidate, JobId jobId);
     }
 
     /**
@@ -564,8 +575,13 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             return new JobRunner.StartResult.Started(first.jobId());
         }
         var verified = (ProbeVerification.Verified) verification;
-        return run(job, log -> new Launch(verified.workingDirectory(), verified.argv(), probeEnvironment.of(candidate),
-                Optional.empty(), log));
+        var checkoutRoot = candidate.workingDirectory() instanceof ProbeCandidate.CheckoutRoot(Path root)
+                ? Optional.of(root)
+                : Optional.<Path>empty();
+        return run(job, log -> new Launch(verified.workingDirectory(), verified.argv(),
+                probeEnvironment.of(candidate, first.jobId()), Optional.empty(), log,
+                confinementComposer.forProbe(first.jobId(), checkoutRoot, List.of(),
+                        candidate.kind() != ProbeCandidate.Kind.SCRIPT, List.of())));
     }
 
     /**
@@ -811,7 +827,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         if (job == null) {
             return new JobRunner.StartResult.Started(first.jobId());
         }
-        return run(job, log -> Launch.of(verified, environment.of(verified), request.stdin(), log));
+        return run(job, log -> Launch.of(verified, environment.of(verified, job.latest.jobId()), request.stdin(), log,
+                confinementComposer.forJob(verified.enrolment(), job.latest.jobId(), List.of(), false)));
     }
 
     /**

@@ -1,0 +1,59 @@
+= ADR 002: A Pinned Commit Is an Identity, Checked, Never a Name
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-23
+
+== Context
+
+The git contract is used with commits the server pins: the entry baseline and the capture snapshot, the `head_sha` of a
+pull request, the merge base, an epic's landing and `head_at_completion`. A name that happens to resolve to a commit is
+not an identity: a branch can be moved, a tag can be replaced, a branch can be named like a commit id, and an
+abbreviated id can match more than one object as the repository grows. The native variant resolves through JGit, which
+happily resolves a ref where a full id was meant.
+
+== Decision
+
+* `GitIdentity` classifies a revision string as a full commit id, a ref, an abbreviated commit id, a name that is both
+  a ref and an object id, a name that names two refs, or unknown.
+* A name that is both a ref and an object id, or that names two refs, is refused `git_identity_ambiguous`, naming the
+  name. An abbreviated commit id is refused `UNKNOWN_REVISION` with a detail that names it; it is never widened to the
+  one object it currently matches.
+* `JGitOperations.worktreeAdd` applies the rules to its start point, and refuses `git_identity_mismatch` with both ids
+  when an existing branch is not at the pinned commit the operation was meant to reach. `log` refuses the same
+  ambiguous and abbreviated revisions.
+* The ref spellings are the contract's: `refs/heads/<branch>`, `refs/pm-mcp/<name>` and
+  `refs/remotes/<remote>/<branch>`.
+
+The CLI variant (the `git` process) and the post-fetch, post-checkout, post-reset and post-rebase comparisons are not
+part of `pm-provider-git`; they are owed to the repository that runs the CLI variant.
+
+== Alternatives Considered
+
+1. *Resolve every revision through `Repository.resolve` and trust the answer.* _Rejected_: it prefers a ref and hides
+   the ambiguity that lets a branch impersonate a pin.
+2. *Accept an abbreviated id when it is unique.* _Rejected_: uniqueness is a property of the current object database,
+   not of the identity the caller pinned; a later fetch can make it ambiguous.
+3. *Refuse every non-full-id revision.* _Rejected_: the contract legitimately addresses branches (`HEAD`, `main`) for
+   read operations; only a pin is required to be an identity.
+
+== Consequences
+
+* A caller that passes an abbreviated commit id where a pin is required gets `UNKNOWN_REVISION`, not a silent
+  resolution.
+* A local branch or tag named like a pinned commit produces `git_identity_ambiguous` instead of a checkout of the
+  wrong object. A remote-tracking ref shortens to `<remote>/<id>` and is not mistaken for the pin.
+* The CLI variant still needs the same rules, with `--end-of-options` and `^{commit}`; that is a change in the
+  repository that runs it.
+
+== Source
+
+* Work package: PLAN-27 `job-confinement-and-environment`
+* link:../../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc#git-identities[Job Runtime § Git Identities]
+* link:../developer/provider-git.adoc[Provider Git Developer Guide]
+* `pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/GitIdentity.java`, `JGitOperations.java`

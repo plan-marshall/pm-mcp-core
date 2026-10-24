@@ -89,6 +89,22 @@ class PmExecLauncherTest {
         }
 
         @Test
+        @DisplayName("carries the confinement options between the launcher and the separator")
+        void confinementArgv() {
+            var launcher = new PmExecLauncher(home);
+            var confinement = new JobConfinement(List.of(Path.of("/tmp")),
+                    List.of(Path.of("/base/run/jobs/b-0123456789abcdef")), List.of(Path.of("/base")));
+            var launch = new Launch(work, List.of("/bin/true"), Map.of(), Optional.empty(), work.resolve("job.log"),
+                    confinement);
+
+            assertEquals(List.of(home.resolve("bin/pm-exec").toString(),
+                    "--write", "/tmp",
+                    "--read", "/base/run/jobs/b-0123456789abcdef",
+                    "--deny-read", "/base",
+                    "--", "/bin/true"), launcher.command(launch));
+        }
+
+        @Test
         @DisplayName("a missing launcher is not looked up anywhere else: the start fails")
         void missingLauncher() {
             var launcher = new PmExecLauncher(home);
