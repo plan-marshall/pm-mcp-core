@@ -22,7 +22,7 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import lombok.experimental.UtilityClass;
 
-import de.planmarshall.provider.ci.Json;
+import de.planmarshall.provider.http.Json;
 
 /**
  * Signs the RS256 JSON Web Token a GitHub App authenticates with, using the JDK only.

@@ -34,9 +34,9 @@ import mockwebserver3.MockResponse;
 import mockwebserver3.MockWebServer;
 import mockwebserver3.RecordedRequest;
 
-import de.planmarshall.provider.ci.CiEndpoint;
-import de.planmarshall.provider.ci.CiResult;
-import de.planmarshall.provider.ci.Json;
+import de.planmarshall.provider.http.Endpoint;
+import de.planmarshall.provider.http.Json;
+import de.planmarshall.provider.http.Result;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -79,7 +79,7 @@ class InstallationTokensTest {
     private final Map<String, Deque<MockResponse>> responses = new ConcurrentHashMap<>();
     /** The requests the mock web server received, in arrival order. */
     private final List<RecordedRequest> requests = new CopyOnWriteArrayList<>();
-    private CiEndpoint endpoint;
+    private Endpoint endpoint;
     private MovableClock clock;
     private List<String> redacted;
     private InstallationTokens tokens;
@@ -95,7 +95,7 @@ class InstallationTokensTest {
                 return next == null ? NOT_FOUND : next;
             }
         });
-        endpoint = CiEndpoint.of(URI.create("http://" + server.getHostName() + ":" + server.getPort() + "/"));
+        endpoint = Endpoint.of(URI.create("http://" + server.getHostName() + ":" + server.getPort() + "/"));
         clock = new MovableClock();
         redacted = new ArrayList<>();
         tokens = new InstallationTokens(endpoint, "Iv23liClient", () -> TestKeys.PKCS8_PEM, redacted::add, clock);
@@ -133,7 +133,7 @@ class InstallationTokensTest {
     void mints() throws Exception {
         on("POST", PATH, minted("ghs_one", NOW.plusSeconds(3600)));
 
-        CiResult<InstallationTokens.InstallationToken> result = tokens.token(42, "plan-marshall-mcp", PERMISSIONS);
+        Result<InstallationTokens.InstallationToken> result = tokens.token(42, "plan-marshall-mcp", PERMISSIONS);
 
         assertTrue(result.isOk());
         assertEquals("ghs_one", result.value().orElseThrow().token());
@@ -207,12 +207,12 @@ class InstallationTokensTest {
         on("POST", "/app/installations/7/access_tokens", json(201, "{\"token\":\"t\"}"));
         on("POST", "/app/installations/8/access_tokens", json(201, "{\"token\":\"t\",\"expires_at\":\"tomorrow\"}"));
 
-        assertEquals(CiResult.Outcome.AUTH_FAILED, tokens.token(42, "repo", PERMISSIONS).outcome());
-        assertEquals(CiResult.Outcome.FAILED, tokens.token(7, "repo", PERMISSIONS).outcome());
-        assertEquals(CiResult.Outcome.FAILED, tokens.token(8, "repo", PERMISSIONS).outcome());
+        assertEquals(Result.Outcome.AUTH_FAILED, tokens.token(42, "repo", PERMISSIONS).outcome());
+        assertEquals(Result.Outcome.FAILED, tokens.token(7, "repo", PERMISSIONS).outcome());
+        assertEquals(Result.Outcome.FAILED, tokens.token(8, "repo", PERMISSIONS).outcome());
         assertTrue(tokens.tokenSource(42, "repo", PERMISSIONS).token().isEmpty());
         try (var broken = new InstallationTokens(endpoint, "id", () -> "garbage", redacted::add, clock)) {
-            assertEquals(CiResult.Outcome.AUTH_FAILED, broken.token(42, "repo", PERMISSIONS).outcome());
+            assertEquals(Result.Outcome.AUTH_FAILED, broken.token(42, "repo", PERMISSIONS).outcome());
         }
         assertTrue(redacted.isEmpty());
         assertEquals(4, requests.size(), "an unusable key sends no request");

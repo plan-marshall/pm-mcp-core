@@ -2,10 +2,10 @@
   "id": "PLAN-103",
   "slug": "spec-coverage-pass",
   "workstream": "WS-10",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-103-spec-coverage-pass",
+  "pr": "#151",
+  "landing": "landings/PLAN-103.md",
   "seq": 103
 }

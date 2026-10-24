@@ -2,10 +2,10 @@
   "id": "PLAN-87",
   "slug": "journal-format-version-reset",
   "workstream": "WS-02",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-87-journal-format-version-reset",
+  "pr": "#148",
+  "landing": "landings/PLAN-87.md",
   "seq": 87
 }

@@ -2,14 +2,14 @@
 :nofooter:
 
 `pm-provider-gitlab` connects the engine to GitLab. It holds the native REST client over the shared HTTP base of
-`pm-provider-ci` and the argument vectors of the `glab` CLI variant. What the module may depend on is stated in the
+`pm-provider-http` and the argument vectors of the `glab` CLI variant. What the module may depend on is stated in the
 https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/specification/module-structure.adoc[Module Structure Specification].
 
 == Package
 
 The line is the first sentence of the package's `package-info.java`.
 
-* `de.planmarshall.provider.gitlab`: GitLab for PM-MCP: the native REST client over the shared HTTP base of `pm-provider-ci`, and the argument vectors of the `glab` CLI variant, which pass every body through standard input, never as an argument or a file.
+* `de.planmarshall.provider.gitlab`: GitLab for PM-MCP: the native REST client over the shared HTTP base of `pm-provider-http`, and the argument vectors of the `glab` CLI variant, which pass every body through standard input, never as an argument or a file.
 
 == Build and Test
 

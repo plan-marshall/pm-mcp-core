@@ -28,11 +28,11 @@ import mockwebserver3.MockResponse;
 import mockwebserver3.MockWebServer;
 import mockwebserver3.RecordedRequest;
 
-import de.planmarshall.provider.ci.CiEndpoint;
-import de.planmarshall.provider.ci.CiHttpClient;
-import de.planmarshall.provider.ci.CiResult;
-import de.planmarshall.provider.ci.Json;
 import de.planmarshall.provider.github.GitHubClient.ReviewThread;
+import de.planmarshall.provider.http.Endpoint;
+import de.planmarshall.provider.http.HttpClient;
+import de.planmarshall.provider.http.Json;
+import de.planmarshall.provider.http.Result;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,7 +53,7 @@ class GitHubClientTest {
     private final Map<String, Deque<MockResponse>> responses = new ConcurrentHashMap<>();
     /** The requests the mock web server received, in arrival order. */
     private final List<RecordedRequest> requests = new CopyOnWriteArrayList<>();
-    private CiHttpClient http;
+    private HttpClient http;
     private GitHubClient client;
 
     @BeforeEach
@@ -68,7 +68,7 @@ class GitHubClientTest {
             }
         });
         var base = URI.create("http://" + server.getHostName() + ":" + server.getPort() + "/");
-        http = new CiHttpClient(CiEndpoint.of(base), () -> Optional.of("ghs_installation"), InstallationTokens.HEADERS);
+        http = new HttpClient(Endpoint.of(base), () -> Optional.of("ghs_installation"), InstallationTokens.HEADERS);
         client = new GitHubClient(http, GitHubClient.GRAPHQL_PATH);
     }
 
@@ -120,7 +120,7 @@ class GitHubClientTest {
             on("POST", "/graphql", json(200, page(thread("T1", false), true, "CUR1")));
             on("POST", "/graphql", json(200, page(thread("T2", true), false, null)));
 
-            CiResult<List<ReviewThread>> result = client.reviewThreads("cuioss", "plan-marshall-mcp", 7);
+            Result<List<ReviewThread>> result = client.reviewThreads("cuioss", "plan-marshall-mcp", 7);
 
             assertTrue(result.isOk());
             assertTrue(result.complete());
@@ -146,9 +146,9 @@ class GitHubClientTest {
             on("POST", "/graphql",
                     json(200, "{\"data\":null,\"errors\":[{\"type\":\"NOT_FOUND\",\"message\":\"no repo\"}]}"));
 
-            assertEquals(CiResult.Outcome.NOT_FOUND, client.reviewThreads("o", "r", 1).outcome());
+            assertEquals(Result.Outcome.NOT_FOUND, client.reviewThreads("o", "r", 1).outcome());
             var error = client.reviewThreads("o", "missing", 1);
-            assertEquals(CiResult.Outcome.NOT_FOUND, error.outcome());
+            assertEquals(Result.Outcome.NOT_FOUND, error.outcome());
             assertEquals("no repo", error.detail());
         }
 
@@ -158,7 +158,7 @@ class GitHubClientTest {
             on("POST", "/graphql",
                     json(200, "{\"data\":{\"resolveReviewThread\":{\"thread\":{\"id\":\"T1\",\"isResolved\":true}}}}"));
 
-            CiResult<Boolean> result = client.resolveReviewThread("T1");
+            Result<Boolean> result = client.resolveReviewThread("T1");
 
             assertEquals(Optional.of(true), result.value());
             assertEquals(Optional.of(GitHubClient.RESOLVE_REVIEW_THREAD), Json.string(requestJson(0), "query"));
@@ -173,7 +173,7 @@ class GitHubClientTest {
 
             var result = client.resolveReviewThread("T1");
 
-            assertEquals(CiResult.Outcome.RATE_LIMITED, result.outcome());
+            assertEquals(Result.Outcome.RATE_LIMITED, result.outcome());
             assertEquals(1791194400L, result.resetAt().orElseThrow().getEpochSecond());
         }
     }
@@ -206,10 +206,10 @@ class GitHubClientTest {
 
             var refused = client.enqueue("PR_node", "stale");
 
-            assertEquals(CiResult.Outcome.REJECTED, refused.outcome());
+            assertEquals(Result.Outcome.REJECTED, refused.outcome());
             assertEquals("Expected head oid does not match", refused.detail());
-            assertEquals(CiResult.Outcome.FAILED, client.enqueue("PR_node", "x").outcome());
-            assertEquals(CiResult.Outcome.FAILED, client.enqueue("PR_node", "x").outcome());
+            assertEquals(Result.Outcome.FAILED, client.enqueue("PR_node", "x").outcome());
+            assertEquals(Result.Outcome.FAILED, client.enqueue("PR_node", "x").outcome());
         }
 
         @Test
@@ -229,8 +229,8 @@ class GitHubClientTest {
         void refusedComment() {
             on("POST", "/repos/cuioss/pm/issues/6/comments", json(201, "{}"));
 
-            assertEquals(CiResult.Outcome.NOT_FOUND, client.postComment("cuioss", "pm", 404, "x").outcome());
-            assertEquals(CiResult.Outcome.FAILED, client.postComment("cuioss", "pm", 6, "x").outcome());
+            assertEquals(Result.Outcome.NOT_FOUND, client.postComment("cuioss", "pm", 404, "x").outcome());
+            assertEquals(Result.Outcome.FAILED, client.postComment("cuioss", "pm", 6, "x").outcome());
         }
     }
 }

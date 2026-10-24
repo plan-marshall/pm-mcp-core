@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -26,13 +27,15 @@ import org.junit.jupiter.params.provider.CsvSource;
 /**
  * Controls of the build guards of this repository (PM-IMPL-1): each fixture project below
  * {@code src/guard-controls} breaks one rule of the root POM, and its build must fail in the enforcer
- * execution of that rule.
+ * execution of that rule. One fixture is a positive control: a provider adapter that depends on the
+ * shared HTTP base passes the rule that admits it.
  * <p>
  * Hazards the guards answer: a framework dependency in the engine ties the plain-Java modules to the
  * assembly; a dependency of the foundation on a module of the product other than {@code pm-api}, or on JGit
  * or {@code cui-http}, turns the dependency direction; so does the engine {@code pm-workflow} when it reaches a
- * provider module, {@code pm-runtime}, JGit or {@code cui-http}; a provider module that reaches the engine or
- * {@code pm-runtime} sees internals it must not; {@code commonmark} or LSP4J outside {@code pm-runtime}
+ * provider module, {@code pm-runtime}, JGit or {@code cui-http}; a provider module that reaches the engine,
+ * {@code pm-runtime} or another provider implementation sees internals it must not, and a contract module that
+ * reaches another provider module does the same; {@code commonmark} or LSP4J outside {@code pm-runtime}
  * spreads its dependencies; model-facing content in a module of this repository is published with its JAR; a
  * public repository that is asked for a coordinate of the product before the organisation registry learns the
  * coordinate and could answer (the fixture {@code central-before-registry} has its own {@code .mvn} with Maven
@@ -51,6 +54,8 @@ class BuildGuardsIT {
             "runtime-product-module, validate, runtime",
             "runtime-library, validate, runtime-libraries",
             "provider-product-module, validate, provider",
+            "provider-sibling-module, validate, provider",
+            "provider-contract-module, validate, provider-contract",
             "model-facing-content, prepare-package, no-model-facing-content",
             "central-before-registry, validate, product-coordinates-from-the-organisation-registry"})
     @DisplayName("a fixture that breaks a rule fails the build")
@@ -91,5 +96,40 @@ class BuildGuardsIT {
         assertNotEquals(0, process.exitValue(), output);
         assertTrue(output.contains("enforce (" + execution + ")"), output);
         assertTrue(output.contains("BUILD FAILURE"), output);
+    }
+
+    @ParameterizedTest(name = "{0} passes in {2}")
+    @CsvSource({"provider-http-allowed, validate, provider"})
+    @DisplayName("a fixture the rule admits passes the build")
+    void fixturePasses(String fixture, String phase, String execution, @TempDir Path temp) throws Exception {
+        var root = Path.of(System.getProperty("pm.root"));
+        var pom = root.resolve("src/guard-controls").resolve(fixture).resolve("pom.xml");
+        var fixtureDir = pom.getParent();
+        // Same invocation as the failing controls: started in the fixture's directory, with the repository's global
+        // settings when the fixture carries no .mvn of its own, and the output in a file the time limit can outlive.
+        var log = temp.resolve("fixture.log");
+        var command = new ArrayList<>(
+                List.of(root.resolve("mvnw").toString(), "-B", "--no-transfer-progress"));
+        if (!Files.exists(fixtureDir.resolve(".mvn/maven.config"))) {
+            command.add("-gs");
+            command.add(root.resolve(".mvn/settings.xml").toString());
+        }
+        command.add("-f");
+        command.add(pom.toString());
+        command.add(phase);
+        var builder = new ProcessBuilder(command).directory(fixtureDir.toFile()).redirectErrorStream(true)
+                .redirectOutput(log.toFile());
+
+        var process = builder.start();
+        if (!process.waitFor(5, TimeUnit.MINUTES)) {
+            process.descendants().forEach(ProcessHandle::destroyForcibly);
+            process.destroyForcibly().waitFor(30, TimeUnit.SECONDS);
+            fail("the build of the fixture did not end:\n" + Files.readString(log));
+        }
+        var output = Files.readString(log);
+
+        assertEquals(0, process.exitValue(), output);
+        assertTrue(output.contains("enforce (" + execution + ")"), output);
+        assertTrue(output.contains("BUILD SUCCESS"), output);
     }
 }

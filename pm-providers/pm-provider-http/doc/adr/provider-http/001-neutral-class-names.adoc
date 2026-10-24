@@ -1,0 +1,71 @@
+= ADR 001: Neutral Class Names in `provider.http`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-23
+
+== Context
+
+The Module Structure Specification cuts the provider module `pm-provider-http`
+(`de.planmarshall.provider.http.*`, link:https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/specification/module-structure.adoc[Module Structure Specification])
+as the shared origin-pinned HTTP base of the provider adapters, over `cui-http`, and states that it names
+no forge and no analysis service. The classes moved into it came from `pm-provider-ci` and carried its
+`Ci` prefix: `CiHttpClient`, `CiEndpoint`, `CiResponse` and `CiResult`. That prefix names an external
+contract the module no longer holds; a class of the shared base must read the same to every provider
+adapter, whether that adapter serves a forge, a code analysis service or something else.
+
+The classes that are already neutral — `PagedResult`, `TokenSource` and `Json` — keep their names.
+
+== Decision
+
+The four prefixed classes are renamed in the same change that moves them, and the module places no
+prefix of its own before them; the package `de.planmarshall.provider.http` supplies the context:
+
+[cols="2,2,3",options="header"]
+|===
+|Former name (in `provider.ci`) |Name (in `provider.http`) |What it is
+
+|`CiHttpClient` |`HttpClient` |The one HTTP client of the native provider clients
+|`CiEndpoint` |`Endpoint` |The API base and the origin the bearer token is pinned to
+|`CiResponse` |`Response` |The closed outcome of one request
+|`CiResult` |`Result` |The closed outcome of a provider operation, generic in its value
+|===
+
+`PagedResult`, `TokenSource` and `Json` keep their names. The type names appear in the module's
+`package-info.java`, in the developer guide (`doc/developer/provider-http.adoc`) and in the Javadoc of
+every moved type.
+
+Rationale not recorded beyond the specification's sentence that the module names no forge and no
+analysis service: the choice of the neutral names is the plan's, and the names carry no entity of an
+external system.
+
+== Alternatives Considered
+
+* *An `Http` prefix on every class* (`HttpEndpoint`, `HttpResponse`, `HttpResult`): rejected. In the
+  package `http`, the prefix repeats what the package states, and `HttpResponse` would shadow
+  `java.net.http.HttpResponse`, which the client uses as its exchange type.
+* *A `Provider` prefix* (`ProviderEndpoint`, `ProviderResponse`, `ProviderResult`): rejected. It
+  repeats the package's parent (`provider`) and lengthens every call site of the adapter modules.
+* *Keeping the `Ci` prefix*: rejected. It names the CI contract, which the module does not hold, and
+  the specification forbids the module naming a forge or an analysis service.
+
+== Consequences
+
+* Every provider adapter imports `de.planmarshall.provider.http.HttpClient`, `Endpoint`, `Response`,
+  `Result`, `PagedResult`, `TokenSource` and `Json`; no adapter imports a `provider.ci` type.
+* A type added to the module is named for what it does, never for a provider, a forge or an analysis
+  service.
+* The moved classes keep their behaviour: the rename changes no signature beyond the type names, and
+  the moved tests (`HttpClientTest`, `EndpointTest`, `JsonTest`) stay green.
+
+== Source
+
+* Pull request of the plan `provider-http-module` (the move of the HTTP base out of `pm-provider-ci`);
+  no package row below `doc/plans/` owns it
+* link:https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/specification/module-structure.adoc#module-pm-provider-http[Module Structure Specification § `pm-provider-http`]
+* Epic `pm-mcp-core-m2-m4`, plan spec `PLAN-86-provider-http-module.md`

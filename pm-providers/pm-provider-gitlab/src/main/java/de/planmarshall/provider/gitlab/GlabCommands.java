@@ -19,7 +19,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-import de.planmarshall.provider.ci.Json;
+import de.planmarshall.provider.http.Json;
 
 /**
  * The argument vectors of the {@code glab} CLI variant, composed server-side from a closed set of

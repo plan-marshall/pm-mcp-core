@@ -11,6 +11,6 @@
  * The native GitHub client of PM-MCP: GitHub App authentication (an RS256 JWT signed with the JDK,
  * installation-token minting with an in-memory reuse margin), fixed GraphQL documents for review
  * threads and the merge queue, and REST calls, all over the shared HTTP base of
- * {@code pm-provider-ci}.
+ * {@code pm-provider-http}.
  */
 package de.planmarshall.provider.github;
