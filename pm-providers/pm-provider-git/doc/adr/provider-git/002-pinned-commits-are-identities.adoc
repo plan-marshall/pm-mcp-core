@@ -55,5 +55,5 @@ part of `pm-provider-git`; they are owed to the repository that runs the CLI var
 
 * Work package: PLAN-27 `job-confinement-and-environment`
 * link:../../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc#git-identities[Job Runtime § Git Identities]
-* link:../developer/provider-git.adoc[Provider Git Developer Guide]
+* link:../../developer/provider-git.adoc[Provider Git Developer Guide]
 * `pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/GitIdentity.java`, `JGitOperations.java`
