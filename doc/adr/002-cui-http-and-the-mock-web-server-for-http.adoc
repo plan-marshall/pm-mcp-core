@@ -12,14 +12,15 @@ Accepted
 == Context
 
 The operator set two HTTP rules on 2026-10-09: every HTTP call goes through `cui-http`, and every test that involves
-HTTP runs against `cui-test-mockwebserver-junit5`. The code did not meet the second rule: `pm-provider-ci`,
-`pm-provider-github` and `pm-provider-gitlab` each carried a hand-made `FakeServer` on `com.sun.net.httpserver`.
-`CiHttpClient` of `pm-provider-ci` already sent every request through the `HttpHandler` of `cui-http`; its
-`java.net.http` imports are exchange types only.
+HTTP runs against `cui-test-mockwebserver-junit5`. The code did not meet the second rule: the shared HTTP base (then
+the module `pm-provider-ci`, today `pm-provider-http`), `pm-provider-github` and `pm-provider-gitlab` each carried a
+hand-made `FakeServer` on `com.sun.net.httpserver`. The HTTP client of the shared base (then `CiHttpClient`, today
+`HttpClient`) already sent every request through the `HttpHandler` of `cui-http`; its `java.net.http` imports are
+exchange types only.
 
 == Decision
 
-* Every HTTP call goes through `cui-http`. Because `CiHttpClient` already does so, the rule is pinned by a guard test (`sendsThroughCuiHttp` in `CiHttpClientTest`), not by a production change.
+* Every HTTP call goes through `cui-http`. Because `HttpClient` already does so, the rule is pinned by a guard test (`sendsThroughCuiHttp` in `HttpClientTest`), not by a production change.
 * Every HTTP test runs against `cui-test-mockwebserver-junit5`. Each test class carries `@EnableMockWebServer` and serves its canned responses from its own dispatcher, with no shared helper class.
 * The hand-made `FakeServer` doubles are deleted. The library is a test-scope dependency of the three provider modules, its version managed by the parent chain.
 * Cross-origin tests address the one mock web server as the literal of the address it bound (`127.0.0.1` or `[::1]`) and as `localhost`, two origins on one machine.

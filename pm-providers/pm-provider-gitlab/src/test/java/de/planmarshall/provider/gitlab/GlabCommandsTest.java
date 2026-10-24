@@ -18,7 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import de.planmarshall.provider.ci.Json;
+import de.planmarshall.provider.http.Json;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

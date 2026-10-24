@@ -50,7 +50,7 @@ _See Requirements:_
 Implemented in (link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc[Module Structure Specification]):
 
 * link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-workflow[`pm-workflow`]: the phase units, their primitives and the finalize step descriptors
-* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-provider-ci[`pm-provider-ci`]: part 06: merge and merge queue
+* the CI contract (no module of this repository yet; the package that builds it creates its module): part 06: merge and merge queue
 * link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-core[`pm-core`]: parts 04 and 05: the findings and code-analysis contracts
 * link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-provider-github[`pm-provider-github`], link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-provider-gitlab[`pm-provider-gitlab`]: part 05: review-bot findings
 * link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-provider-sonar[`pm-provider-sonar`]: part 04: the Sonar provider

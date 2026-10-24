@@ -1,7 +1,7 @@
 # Plan Marshall standing rules (OpenCode bridge bridge-version: 1)
 
 source: CLAUDE.md
-source-sha256: 1641125539c36d3a938cfbbb03db5a85dac37dd62ce35af728a1cf2c0844a9ee
+source-sha256: df1d5a0399d1521cbc974d7340e75e9a0c0cbd00f8ed2128e12041153da7dddc
 
 <!-- Generated from CLAUDE.md; edit the baseline, not this file. -->
 
@@ -71,7 +71,7 @@ its own pull request.
   (minimum 80% instruction and branch coverage per module)
 - Tests (`{module}`): `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "test -pl {path} -am"`
   — only on the modules with tests: `pm-core`, `pm-workflow`, `pm-runtime`, and below `pm-providers/` each of
-  `pm-provider-ci`, `pm-provider-git`, `pm-provider-github`, `pm-provider-gitlab`, `pm-provider-sonar`
+  `pm-provider-http`, `pm-provider-git`, `pm-provider-github`, `pm-provider-gitlab`, `pm-provider-sonar`
 - Integration tests (`pm-core`): `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "verify -Pintegration-tests -pl pm-core -am"`
   — only on `pm-core`
 - Integration tests (`pm-runtime`): `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "verify -Pintegration-tests -pl pm-runtime -am"`
@@ -106,8 +106,8 @@ them with a fixture project below `src/guard-controls`:
 - No module depends on Quarkus, CDI, Vert.x or an MCP library, nor on `pm-mcp-server` or a client binary module.
 - `pm-core` depends on `pm-api` alone among the modules of the product, and never on JGit or `cui-http`.
 - `pm-workflow` depends on `pm-core` alone among the modules of the product, and never on JGit or `cui-http`.
-- A provider module depends on `pm-core` and, for the shared HTTP base, on `pm-provider-ci`; the contract modules
-  `pm-provider-git` and `pm-provider-ci` on no other provider module.
+- A provider module depends on `pm-core` and, for the shared HTTP base, on `pm-provider-http`; the contract modules
+  `pm-provider-git` and `pm-provider-http` on no other provider module.
 - `pm-runtime` depends on `pm-core` and `pm-api` alone among the modules of the product, and it is the only module
   that depends on `commonmark` and LSP4J.
 - The coordinates of the product come from the organisation registry: `.mvn/settings.xml` lists it before Maven

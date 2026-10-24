@@ -20,10 +20,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import de.planmarshall.provider.ci.CiHttpClient;
-import de.planmarshall.provider.ci.CiResponse;
-import de.planmarshall.provider.ci.CiResult;
-import de.planmarshall.provider.ci.Json;
+import de.planmarshall.provider.http.HttpClient;
+import de.planmarshall.provider.http.Json;
+import de.planmarshall.provider.http.Response;
+import de.planmarshall.provider.http.Result;
 
 /**
  * The native GitHub operations of the review and merge path: review threads (list, resolve) and the
@@ -44,7 +44,7 @@ public final class GitHubClient {
     static final String RESOLVE_REVIEW_THREAD = document("resolve-review-thread");
     static final String ENQUEUE_PULL_REQUEST = document("enqueue-pull-request");
 
-    private final CiHttpClient http;
+    private final HttpClient http;
     private final String graphqlPath;
 
     /**
@@ -89,7 +89,7 @@ public final class GitHubClient {
      * @param graphqlPath the GraphQL path relative to the API base ({@link #GRAPHQL_PATH}, or
      *                    {@code ../graphql} for an Enterprise base {@code /api/v3/})
      */
-    public GitHubClient(CiHttpClient http, String graphqlPath) {
+    public GitHubClient(HttpClient http, String graphqlPath) {
         this.http = Objects.requireNonNull(http, "http");
         this.graphqlPath = Objects.requireNonNull(graphqlPath, "graphqlPath");
     }
@@ -102,7 +102,7 @@ public final class GitHubClient {
      * @param number the pull request number
      * @return the threads; {@code complete} is {@code false} when the page cap was reached
      */
-    public CiResult<List<ReviewThread>> reviewThreads(String owner, String name, int number) {
+    public Result<List<ReviewThread>> reviewThreads(String owner, String name, int number) {
         var threads = new ArrayList<ReviewThread>();
         Object cursor = null;
         for (int page = 0; page < MAX_THREAD_PAGES; page++) {
@@ -111,22 +111,22 @@ public final class GitHubClient {
             variables.put("name", name);
             variables.put("number", number);
             variables.put("cursor", cursor);
-            CiResult<Object> data = graphql(REVIEW_THREADS, variables);
+            Result<Object> data = graphql(REVIEW_THREADS, variables);
             if (!data.isOk()) {
                 return data.asFailure();
             }
             Object connection = Json.at(data.value().orElseThrow(), "repository", "pullRequest", "reviewThreads")
                     .orElse(null);
             if (connection == null) {
-                return CiResult.of(CiResult.Outcome.NOT_FOUND, owner + "/" + name + "#" + number);
+                return Result.of(Result.Outcome.NOT_FOUND, owner + "/" + name + "#" + number);
             }
             Json.list(connection, "nodes").forEach(node -> threads.add(thread(node)));
             if (!Json.bool(connection, PAGE_INFO, "hasNextPage")) {
-                return CiResult.ok(List.copyOf(threads), true);
+                return Result.ok(List.copyOf(threads), true);
             }
             cursor = Json.string(connection, PAGE_INFO, "endCursor").orElse(null);
         }
-        return CiResult.ok(List.copyOf(threads), false);
+        return Result.ok(List.copyOf(threads), false);
     }
 
     /**
@@ -135,14 +135,14 @@ public final class GitHubClient {
      * @param threadId the thread's node id
      * @return whether the thread is resolved afterwards
      */
-    public CiResult<Boolean> resolveReviewThread(String threadId) {
+    public Result<Boolean> resolveReviewThread(String threadId) {
         var variables = new LinkedHashMap<String, Object>();
         variables.put("threadId", threadId);
-        CiResult<Object> data = graphql(RESOLVE_REVIEW_THREAD, variables);
+        Result<Object> data = graphql(RESOLVE_REVIEW_THREAD, variables);
         if (!data.isOk()) {
             return data.asFailure();
         }
-        return CiResult.ok(Json.bool(data.value().orElseThrow(), "resolveReviewThread", "thread", "isResolved"));
+        return Result.ok(Json.bool(data.value().orElseThrow(), "resolveReviewThread", "thread", "isResolved"));
     }
 
     /**
@@ -152,19 +152,19 @@ public final class GitHubClient {
      * @param expectedHeadOid the head commit the barrier evaluated; a moved head is refused
      * @return the queue entry; {@code REJECTED} when GitHub refuses (e.g. head moved)
      */
-    public CiResult<MergeQueueEntry> enqueue(String pullRequestId, String expectedHeadOid) {
+    public Result<MergeQueueEntry> enqueue(String pullRequestId, String expectedHeadOid) {
         var variables = new LinkedHashMap<String, Object>();
         variables.put("pullRequestId", pullRequestId);
         variables.put("expectedHeadOid", expectedHeadOid);
-        CiResult<Object> data = graphql(ENQUEUE_PULL_REQUEST, variables);
+        Result<Object> data = graphql(ENQUEUE_PULL_REQUEST, variables);
         if (!data.isOk()) {
             return data.asFailure();
         }
         Object entry = Json.at(data.value().orElseThrow(), "enqueuePullRequest", "mergeQueueEntry").orElse(null);
         if (entry == null) {
-            return CiResult.of(CiResult.Outcome.FAILED, "enqueue returned no merge queue entry");
+            return Result.of(Result.Outcome.FAILED, "enqueue returned no merge queue entry");
         }
-        return CiResult.ok(new MergeQueueEntry(Json.string(entry, "id").orElse(""),
+        return Result.ok(new MergeQueueEntry(Json.string(entry, "id").orElse(""),
                 Json.string(entry, "position").orElse(""), Json.string(entry, "state").orElse("")));
     }
 
@@ -179,35 +179,35 @@ public final class GitHubClient {
      * @param body   the comment body
      * @return the comment's REST id
      */
-    public CiResult<String> postComment(String owner, String name, int number, String body) {
-        CiResponse response = http.send("POST", "repos/" + owner + "/" + name + "/issues/" + number + "/comments",
+    public Result<String> postComment(String owner, String name, int number, String body) {
+        Response response = http.send("POST", "repos/" + owner + "/" + name + "/issues/" + number + "/comments",
                 Optional.of(Json.write(Map.of("body", body))), Optional.empty());
         if (!response.isOk()) {
-            return CiResult.failed(response);
+            return Result.failed(response);
         }
-        return Json.string(Json.parseOrNull(response.body()), "id").map(CiResult::ok)
-                .orElseGet(() -> CiResult.of(CiResult.Outcome.FAILED, "comment response without id"));
+        return Json.string(Json.parseOrNull(response.body()), "id").map(Result::ok)
+                .orElseGet(() -> Result.of(Result.Outcome.FAILED, "comment response without id"));
     }
 
-    private CiResult<Object> graphql(String query, Map<String, Object> variables) {
+    private Result<Object> graphql(String query, Map<String, Object> variables) {
         var request = new LinkedHashMap<String, Object>();
         request.put("query", query);
         request.put("variables", variables);
-        CiResponse response = http.send("POST", graphqlPath, Optional.of(Json.write(request)), Optional.empty());
+        Response response = http.send("POST", graphqlPath, Optional.of(Json.write(request)), Optional.empty());
         if (!response.isOk()) {
-            return CiResult.failed(response);
+            return Result.failed(response);
         }
         Object json = Json.parseOrNull(response.body());
         List<Object> errors = Json.list(json, "errors");
         if (!errors.isEmpty()) {
             Object first = errors.getFirst();
-            CiResult.Outcome outcome = Json.string(first, "type").filter("NOT_FOUND"::equals).isPresent()
-                    ? CiResult.Outcome.NOT_FOUND
-                    : CiResult.Outcome.REJECTED;
-            return CiResult.of(outcome, Json.string(first, "message").orElse("GraphQL error"));
+            Result.Outcome outcome = Json.string(first, "type").filter("NOT_FOUND"::equals).isPresent()
+                    ? Result.Outcome.NOT_FOUND
+                    : Result.Outcome.REJECTED;
+            return Result.of(outcome, Json.string(first, "message").orElse("GraphQL error"));
         }
-        return Json.at(json, "data").map(CiResult::ok)
-                .orElseGet(() -> CiResult.of(CiResult.Outcome.FAILED, "GraphQL response without data"));
+        return Json.at(json, "data").map(Result::ok)
+                .orElseGet(() -> Result.of(Result.Outcome.FAILED, "GraphQL response without data"));
     }
 
     private static ReviewThread thread(Object node) {
