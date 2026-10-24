@@ -197,7 +197,7 @@ root — is a known limit below.
 
 == The Operator Writes
 
-_Requirements: link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2], link:{req}/12-migration.adoc#PM-MIG-1[PM-MIG-1]_
+_Requirements: link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2], link:{req}/11-migration.adoc#PM-MIG-1[PM-MIG-1]_
 
 `Enrolments` opens its own transaction per write and acquires the project's lock in it. `enrol` and the re-baseline
 acquire the credentials lock first and the project's lock second, because either may create the integrity key.
