@@ -1,0 +1,87 @@
+= Sonar as a Code Analysis Provider (`provider.sonar`) Developer Guide
+:docs: ../../../../../plan-marshall-documentation/doc
+:toc:
+:toclevels: 3
+:nofooter:
+
+:spec: ../../../../doc/specification
+:src: ../../src/main/java/de/planmarshall/provider/sonar
+:test: ../../src/test/java/de/planmarshall/provider/sonar
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]_
+
+Package `de.planmarshall.provider.sonar` is Sonar's place among the code analysis providers: the identity under which
+Sonar's results are stored, and the key an issue of Sonar is answered on. It is no CI provider; it depends on
+`pm-provider-http` for the shared HTTP base alone (link:../../../pm-provider-http/doc/developer/provider-http.adoc[`provider.http`]).
+
+The package is deliberately small: the identity and the key are what the contract of `core.analysis` and
+`core.findings` needs from the provider side first. The adapter that fetches and answers Sonar's issues builds on them and
+is not part of this slice.
+
+== Main Types
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]_
+
+[cols="1,3",options="header"]
+|===
+|Member |What it is
+
+|link:{src}/SonarProvider.java[`SonarProvider.ID`]
+|The provider id `sonar`: the tag of Sonar's results, the `provider` of its findings in the findings store, and the
+provider of the gate `analysis_gate:sonar`. It matches the provider-id pattern the registry and the analysis result check.
+
+|link:{src}/SonarIssueKey.java[`SonarIssueKey`]
+|The key of an issue on Sonar, the address a finding of Sonar is answered on. The key is assigned by Sonar and opaque
+here: it is refused only where it could not be one — when it is empty or holds white space (a Unicode space such as the
+no-break space included) or a control character.
+|===
+
+== Using the Identity
+
+* A finding of Sonar carries `source: analysis` and `provider: sonar`, and its `provider_ref.issue_key` is a
+  `SonarIssueKey`'s value. The key type refuses a value that cannot be an issue key, so a finding built here cannot carry
+  an unanswerable address.
+* The gate `analysis_gate:sonar` names the provider by `SonarProvider.ID`; a configured `integrations.sonar` is what
+  unprunes `default:analysis-roundtrip` in the plan-instance composition.
+* A code analysis provider registers under `FindingSourceKey.analysis(SonarProvider.ID)` and, where it files its issues in
+  the ledger, a `FindingSource` under the same key (link:../../../../pm-core/doc/developer/core-analysis.adoc[`core.analysis`],
+  link:../../../../pm-core/doc/developer/core-findings.adoc[`core.findings`]).
+
+== Invariants and Failure Modes
+
+* *The id is one value.* `sonar` is the provider id, the store's `provider` and the gate's suffix; a second spelling would
+  separate an observation from its findings and its gate.
+* *The key is opaque and non-empty.* This package never parses a Sonar issue key or derives one; it only refuses a value
+  that cannot be a key. A key with white space or a control character is a defect of whatever produced it, not something
+  to normalise here.
+* *No call is made here.* The package holds no HTTP call and no credential read; a credential refusal of Sonar is the
+  adapter's outcome, not an identity error.
+* *Unconfigured is not failed.* When the project configures no Sonar integration, the plan instance prunes the analysis
+  round-trip; no Sonar call is attempted and no empty analysis is reported.
+
+== Extending the Package
+
+. The adapter of Sonar's issues implements `CodeAnalysisProvider` and `FindingResponder` in this module, using
+   `SonarProvider.ID` and `SonarIssueKey`; it builds on `pm-provider-http` and the endpoints of the credential
+   configuration.
+2. A second Sonar-shaped service (another analysis host) gets its own provider id and its own constant or class; the id
+   is part of the stored data, so it is never shared.
+3. Add the accepted and refused key forms to `SonarIssueKeyTest` and the id to `SonarProviderTest`.
+
+== Testing
+
+[horizontal]
+link:{test}/SonarProviderTest.java[`SonarProviderTest`]:: the id is `sonar`, it matches the provider-id pattern, and the
+package names no other provider id.
+link:{test}/SonarIssueKeyTest.java[`SonarIssueKeyTest`]:: an ordinary Sonar key is accepted; an empty key, a key with a
+space, a no-break space, a tab and a control character are refused; and no key is ever transformed.
+
+== Specification Tracing
+
+* Specification: link:{docs}/specification/module-structure.adoc#module-pm-provider-sonar[Module Structure §
+  `pm-provider-sonar`], link:{spec}/credentials-and-enrolment/01-provider-credentials.adoc#agent-credentials[Credentials
+  & Enrolment § Agent Credentials of the Native Variant],
+  link:{spec}/phase-workflows/04-finalize-step-bands.adoc[Phase Workflows § Finalize Step Bands],
+  link:{spec}/job-runtime/03-parsers-and-gates.adoc[Job Runtime § Parsers and Gates]
+* The contracts it adapts: link:../../../../pm-core/doc/developer/core-analysis.adoc[`core.analysis`],
+  link:../../../../pm-core/doc/developer/core-findings.adoc[`core.findings`]
