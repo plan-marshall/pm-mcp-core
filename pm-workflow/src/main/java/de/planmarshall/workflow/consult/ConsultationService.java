@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -237,66 +238,110 @@ public final class ConsultationService {
         }
         var repaired = new AtomicInteger();
         queue.updateAll(records -> {
-            var existing = records.stream().map(QueueTaskRecord::queueTaskId).collect(Collectors.toSet());
-            var askers = new LinkedHashMap<String, QueueTaskRecord>();
-            for (var task : records) {
-                if (task.kind() == Kind.WORK) {
-                    askers.put(task.queueTaskId(), task);
-                }
+            var askers = workTasks(records);
+            var existing = idsOf(records);
+            var count = settleClosedConsultations(records, askers, at);
+            count += settleOrphanEntries(askers, existing, at, orphanGrace);
+            count += repairDeliveryPlaces(askers);
+            count += closeOrphanConsultations(records, askers, at);
+            repaired.set(count);
+            return withReplacements(records, askers);
+        });
+        return repaired.get();
+    }
+
+    private static Map<String, QueueTaskRecord> workTasks(List<QueueTaskRecord> records) {
+        var askers = new LinkedHashMap<String, QueueTaskRecord>();
+        for (var task : records) {
+            if (task.kind() == Kind.WORK) {
+                askers.put(task.queueTaskId(), task);
             }
-            for (var task : records) {
-                if (task.kind() != Kind.CONSULTATION || !task.isClosed()) {
-                    continue;
-                }
-                var asker = askers.get(task.consultationOf());
-                if (asker == null || !hasOpenEntry(asker, task.queueTaskId())) {
-                    continue;
-                }
+        }
+        return askers;
+    }
+
+    private static Set<String> idsOf(List<QueueTaskRecord> records) {
+        return records.stream().map(QueueTaskRecord::queueTaskId).collect(Collectors.toSet());
+    }
+
+    private static int settleClosedConsultations(List<QueueTaskRecord> records,
+            Map<String, QueueTaskRecord> askers, Instant at) {
+        var count = 0;
+        for (var task : records) {
+            var asker = askers.get(task.consultationOf());
+            if (task.kind() == Kind.CONSULTATION && task.isClosed() && asker != null
+                    && hasOpenEntry(asker, task.queueTaskId())) {
                 var closedAt = task.closedAt() == null ? at : task.closedAt();
                 askers.put(asker.queueTaskId(), settleAsker(asker, task.queueTaskId(),
                         ConsultationStatus.UNAVAILABLE, null, closedAt));
-                repaired.incrementAndGet();
+                count++;
             }
-            for (var asker : List.copyOf(askers.values())) {
-                var updated = asker;
-                for (var consultation : asker.consultations()) {
-                    if (consultation.status() == ConsultationStatus.OPEN
-                            && !existing.contains(consultation.consultationId())
-                            && consultation.askedAt().plus(orphanGrace).isBefore(at)) {
-                        updated = settleAsker(updated, consultation.consultationId(),
-                                ConsultationStatus.UNAVAILABLE, null, at);
-                        repaired.incrementAndGet();
-                    }
-                }
-                if (updated != asker) {
-                    askers.put(updated.queueTaskId(), updated);
-                }
-            }
-            for (var asker : List.copyOf(askers.values())) {
-                var repairedAsker = repairDeliveryPlace(asker);
-                if (repairedAsker != asker) {
-                    askers.put(repairedAsker.queueTaskId(), repairedAsker);
-                    repaired.incrementAndGet();
+        }
+        return count;
+    }
+
+    private static int settleOrphanEntries(Map<String, QueueTaskRecord> askers, Set<String> existing, Instant at,
+            Duration orphanGrace) {
+        var count = 0;
+        for (var asker : List.copyOf(askers.values())) {
+            var updated = asker;
+            for (var consultation : asker.consultations()) {
+                if (isOrphan(consultation, existing, at, orphanGrace)) {
+                    updated = settleAsker(updated, consultation.consultationId(),
+                            ConsultationStatus.UNAVAILABLE, null, at);
+                    count++;
                 }
             }
-            for (var task : records) {
-                if (task.kind() != Kind.CONSULTATION || task.isClosed()) {
-                    continue;
-                }
-                var asker = askers.get(task.consultationOf());
-                if (asker != null && hasOpenEntry(asker, task.queueTaskId())) {
-                    continue;
-                }
+            if (updated != asker) {
+                askers.put(updated.queueTaskId(), updated);
+            }
+        }
+        return count;
+    }
+
+    private static boolean isOrphan(Consultation consultation, Set<String> existing, Instant at, Duration grace) {
+        return consultation.status() == ConsultationStatus.OPEN
+                && !existing.contains(consultation.consultationId())
+                && consultation.askedAt().plus(grace).isBefore(at);
+    }
+
+    private static int repairDeliveryPlaces(Map<String, QueueTaskRecord> askers) {
+        var count = 0;
+        for (var asker : List.copyOf(askers.values())) {
+            var repaired = repairDeliveryPlace(asker);
+            if (repaired != asker) {
+                askers.put(repaired.queueTaskId(), repaired);
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private static int closeOrphanConsultations(List<QueueTaskRecord> records,
+            Map<String, QueueTaskRecord> askers, Instant at) {
+        var count = 0;
+        for (var task : records) {
+            var asker = askers.get(task.consultationOf());
+            if (task.kind() == Kind.CONSULTATION && !task.isClosed()
+                    && !listsOpenEntry(asker, task.queueTaskId())) {
                 askers.put(task.queueTaskId(), closeTask(task, LostReason.WITHDRAWN, at));
-                repaired.incrementAndGet();
+                count++;
             }
-            var after = new ArrayList<QueueTaskRecord>(records.size());
-            for (var task : records) {
-                after.add(askers.getOrDefault(task.queueTaskId(), task));
-            }
-            return after;
-        });
-        return repaired.get();
+        }
+        return count;
+    }
+
+    private static boolean listsOpenEntry(QueueTaskRecord asker, String consultationId) {
+        return asker != null && hasOpenEntry(asker, consultationId);
+    }
+
+    private static List<QueueTaskRecord> withReplacements(List<QueueTaskRecord> records,
+            Map<String, QueueTaskRecord> replacements) {
+        var after = new ArrayList<QueueTaskRecord>(records.size());
+        for (var task : records) {
+            after.add(replacements.getOrDefault(task.queueTaskId(), task));
+        }
+        return after;
     }
 
     /**

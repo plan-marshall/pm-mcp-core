@@ -462,10 +462,10 @@ class ConsultationServiceTest {
     @DisplayName("a creation failure propagates and leaves the entry for the reconciliation")
     void createFailurePropagatesAndLeavesTheEntryForReconcile() {
         var failing = new ConsultationService(QueueStore.ofProject(base, "project-a", new FailingCreateLocks()));
+        var request = ConsultationFixtures.request(ConsultationFixtures.ASKER,
+                ConsultationFixtures.ASKING_GENERATION, ConsultationFixtures.REVIEWER);
 
-        assertThrows(UncheckedIOException.class, () -> failing.open(
-                ConsultationFixtures.request(ConsultationFixtures.ASKER, ConsultationFixtures.ASKING_GENERATION,
-                        ConsultationFixtures.REVIEWER)));
+        assertThrows(UncheckedIOException.class, () -> failing.open(request));
         var asker = queue.read(ConsultationFixtures.ASKER).orElseThrow();
         var repaired = failing.reconcile(ConsultationFixtures.AT.plusSeconds(61), Duration.ofSeconds(60));
 

@@ -39,7 +39,7 @@ import de.planmarshall.core.role.RoleClass;
 public record ConsultationRequest(String askingTaskId, String generationId, String role, RoleClass roleClass,
 boolean formDowngraded, List<String> declaredRoles, String question, Instant at) {
 
-    private static final Pattern ROLE = Pattern.compile("[a-z][a-z0-9-]{1,31}");
+    private static final Pattern ROLE_PATTERN = Pattern.compile("[a-z][a-z0-9-]{1,31}");
     private static final Pattern GENERATION = Pattern.compile("l-[0-9a-f]{16}");
 
     /**
@@ -54,13 +54,13 @@ boolean formDowngraded, List<String> declaredRoles, String question, Instant at)
         if (generationId == null || !GENERATION.matcher(generationId).matches()) {
             throw new IllegalArgumentException("Not a generation (l- and 16 hex digits): " + generationId);
         }
-        if (role == null || !ROLE.matcher(role).matches()) {
+        if (role == null || !ROLE_PATTERN.matcher(role).matches()) {
             throw new IllegalArgumentException("Not a role name: " + role);
         }
         Objects.requireNonNull(roleClass, "roleClass");
         declaredRoles = List.copyOf(Objects.requireNonNull(declaredRoles, "declaredRoles"));
         for (var declared : declaredRoles) {
-            if (!ROLE.matcher(declared).matches()) {
+            if (!ROLE_PATTERN.matcher(declared).matches()) {
                 throw new IllegalArgumentException("Not a role name: " + declared);
             }
         }

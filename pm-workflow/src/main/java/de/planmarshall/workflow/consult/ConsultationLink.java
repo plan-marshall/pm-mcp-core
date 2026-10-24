@@ -38,7 +38,7 @@ public record ConsultationLink(String role) {
     /** The identifier of the one link a consultation entity offers: its answer. */
     public static final String ANSWER_ID = "answer";
 
-    private static final Pattern ROLE = Pattern.compile("[a-z][a-z0-9-]{1,31}");
+    private static final Pattern ROLE_PATTERN = Pattern.compile("[a-z][a-z0-9-]{1,31}");
 
     /**
      * @throws NullPointerException     if the role is {@code null}
@@ -46,7 +46,7 @@ public record ConsultationLink(String role) {
      */
     public ConsultationLink {
         Objects.requireNonNull(role, "role");
-        if (!ROLE.matcher(role).matches()) {
+        if (!ROLE_PATTERN.matcher(role).matches()) {
             throw new IllegalArgumentException("Not a role name: " + role);
         }
     }

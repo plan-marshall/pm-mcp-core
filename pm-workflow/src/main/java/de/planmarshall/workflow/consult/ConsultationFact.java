@@ -29,7 +29,7 @@ import de.planmarshall.core.queue.QueueTaskRecord.ConsultationStatus;
  */
 public record ConsultationFact(String consultationId, String role, ConsultationStatus status, String answer) {
 
-    private static final Pattern ROLE = Pattern.compile("[a-z][a-z0-9-]{1,31}");
+    private static final Pattern ROLE_PATTERN = Pattern.compile("[a-z][a-z0-9-]{1,31}");
 
     /**
      * @throws NullPointerException     if the status is {@code null}
@@ -39,7 +39,7 @@ public record ConsultationFact(String consultationId, String role, ConsultationS
         if (QueueTaskId.parse(consultationId).isEmpty()) {
             throw new IllegalArgumentException("Not a queue task id: " + consultationId);
         }
-        if (role == null || !ROLE.matcher(role).matches()) {
+        if (role == null || !ROLE_PATTERN.matcher(role).matches()) {
             throw new IllegalArgumentException("Not a role name: " + role);
         }
         Objects.requireNonNull(status, "status");
