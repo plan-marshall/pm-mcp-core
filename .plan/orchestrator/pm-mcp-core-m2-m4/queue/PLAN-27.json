@@ -2,10 +2,10 @@
   "id": "PLAN-27",
   "slug": "job-confinement-and-environment",
   "workstream": "WS-04",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-27-job-confinement-and-environment",
+  "pr": "#161",
+  "landing": "landings/PLAN-27.md",
   "seq": 27
 }
