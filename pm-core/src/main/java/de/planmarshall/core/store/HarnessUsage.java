@@ -76,7 +76,7 @@ Optional<BigDecimal> costUsd, Optional<UnmeasuredReason> unmeasuredReason) {
 
     /**
      * @throws NullPointerException     if a component is {@code null}
-     * @throws IllegalArgumentException if input or output tokens are {@code not_applicable}
+     * @throws IllegalArgumentException if input, output or tool uses are {@code not_applicable}
      */
     public HarnessUsage {
         Objects.requireNonNull(inputTokens, "inputTokens");
@@ -89,6 +89,9 @@ Optional<BigDecimal> costUsd, Optional<UnmeasuredReason> unmeasuredReason) {
         Objects.requireNonNull(unmeasuredReason, "unmeasuredReason");
         if (inputTokens.isNotApplicable() || outputTokens.isNotApplicable()) {
             throw new IllegalArgumentException("'input_tokens' and 'output_tokens' are never not_applicable");
+        }
+        if (toolUses.isNotApplicable()) {
+            throw new IllegalArgumentException("'tool_uses' is never not_applicable");
         }
     }
 

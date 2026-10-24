@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.store.BuildTimings.Baseline;
 import de.planmarshall.core.store.BuildTimings.KeyTimings;
+import de.planmarshall.core.store.BuildTimings.Learned;
 import de.planmarshall.core.store.JobRecord.BudgetDerivation;
 
 /**
@@ -98,5 +99,27 @@ class WorkerBudgetTest {
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new WorkerBudget(59, new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null),
                                 59)));
+    }
+
+    @Test
+    @DisplayName("takes the poisoned baseline only while the clean one has no observation, then the cold one")
+    void baselinePrecedence() {
+        var clean = new Baseline(500L, 4);
+        var poisoned = new Baseline(900L, 2);
+        var cold = new Baseline(1200L, 3);
+
+        assertAll(
+                () -> assertEquals(new Learned(500L, 4),
+                        new KeyTimings(clean, poisoned, cold, null, null).learned()),
+                () -> assertEquals(new Learned(900L, 2),
+                        new KeyTimings(Baseline.empty(), poisoned, cold, null, null).learned()),
+                () -> assertEquals(new Learned(1200L, 3),
+                        new KeyTimings(Baseline.empty(), Baseline.empty(), cold, null, null).learned()),
+                () -> assertEquals(new Learned(null, 0),
+                        new KeyTimings(Baseline.empty(), Baseline.empty(), Baseline.empty(), null, null).learned()),
+                () -> assertEquals(1125, WorkerBudget.allocate(FLOOR, null, null,
+                        new KeyTimings(Baseline.empty(), poisoned, cold, null, null)).seconds()),
+                () -> assertEquals(1500, WorkerBudget.allocate(FLOOR, null, null,
+                        new KeyTimings(Baseline.empty(), Baseline.empty(), cold, null, null)).seconds()));
     }
 }

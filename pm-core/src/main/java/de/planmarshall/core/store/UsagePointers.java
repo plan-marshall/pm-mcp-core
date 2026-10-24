@@ -50,11 +50,14 @@ String reasoning, String costUsd, String toolUses) {
     public static final String NOT_APPLICABLE = "not_applicable";
 
     /**
-     * @throws IllegalArgumentException if input or output tokens declare {@value #NOT_APPLICABLE}
+     * @throws IllegalArgumentException if input or output tokens declare {@value #NOT_APPLICABLE}, or
+     *                                  {@code tool_uses} does
      */
     public UsagePointers {
-        if (NOT_APPLICABLE.equals(inputTokens) || NOT_APPLICABLE.equals(outputTokens)) {
-            throw new IllegalArgumentException("'input_tokens' and 'output_tokens' are never not_applicable");
+        if (NOT_APPLICABLE.equals(inputTokens) || NOT_APPLICABLE.equals(outputTokens)
+                || NOT_APPLICABLE.equals(toolUses)) {
+            throw new IllegalArgumentException(
+                    "'input_tokens', 'output_tokens' and 'tool_uses' are never not_applicable");
         }
     }
 

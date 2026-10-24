@@ -113,11 +113,27 @@ public final class ModelSlotScheduler {
      * @param role        the role the worker runs
      * @param workerClass the class of the worker
      * @param form        the form of the worker
-     * @param planId      the plan of a writer worker; {@code null} for the other classes
+     * @param planId      the plan the worker serves, for every class; {@code null} only for a worker of the machine
+     *                    scope, which belongs to no plan
      * @since 0.1
      */
     public record Request(LeaseOwner owner, String jobId, String role, WorkerClass workerClass, Form form,
     String planId) {
+
+        /**
+         * @throws NullPointerException     if a required component is {@code null}
+         * @throws IllegalArgumentException if a writer names no plan
+         */
+        public Request {
+            Objects.requireNonNull(owner, "owner");
+            Objects.requireNonNull(jobId, "jobId");
+            Objects.requireNonNull(role, "role");
+            Objects.requireNonNull(workerClass, "workerClass");
+            Objects.requireNonNull(form, "form");
+            if (workerClass == WorkerClass.WRITER && planId == null) {
+                throw new IllegalArgumentException("A writer worker serves a plan: planId is set");
+            }
+        }
     }
 
     /**

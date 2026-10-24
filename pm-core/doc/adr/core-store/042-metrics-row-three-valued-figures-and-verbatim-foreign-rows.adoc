@@ -32,7 +32,8 @@ the schema of the other three.
   not resolve, or resolves to something other than a non-negative integer yields the measured value or the reason —
   never a default.
 * `MetricsCodec` reads and writes the task and worker-idle rows, and keeps a row of another kind as the raw JSON text
-  it was read with, written back unchanged. The store neither drops a row another package owns nor claims its schema.
+  it was read with, written back in the same shape token by token (the task rows first, then the idle rows, then the
+  rows of other kinds). The store neither drops a row another package owns nor claims its schema.
 * The codec refuses a stored `total_tokens` that does not equal the sum of the components it was written from.
 
 == Alternatives Considered

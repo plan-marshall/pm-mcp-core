@@ -104,7 +104,8 @@ public interface SettlementStep {
     /**
      * The slot a job held: the key of its lease in a machine lease store and the owner the lease was claimed with.
      *
-     * @param store         the machine lease store of the slot, build slots or model slots
+     * @param store         the machine lease store of the slot, build slots today; a model slot is released through
+     *                      {@code ModelSlotScheduler.release}, not through a lease store
      * @param key           the key of the lease
      * @param expectedOwner the owner the lease was claimed with
      * @since 0.1
@@ -210,9 +211,10 @@ public interface SettlementStep {
     }
 
     /**
-     * The release of the slot the job held, through {@link LeaseStore#release(String, LeaseOwner)}: the lease is
+     * The release of the build slot the job held, through {@link LeaseStore#release(String, LeaseOwner)}: the lease is
      * removed only while it still has the owner the job claimed it with. A lease that has another owner by now was
-     * adopted or claimed anew and is left in place; a job without a slot releases nothing.
+     * adopted or claimed anew and is left in place; a job without a slot releases nothing. A worker's model slot is no
+     * {@link LeaseStore} lease: it is released through {@code ModelSlotScheduler.release}.
      *
      * @return the slot release step
      */

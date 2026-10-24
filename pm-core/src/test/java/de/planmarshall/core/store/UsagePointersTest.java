@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import org.junit.jupiter.api.DisplayName;
@@ -173,6 +174,53 @@ class UsagePointersTest {
                     () -> assertEquals(Measurement.unmeasured(), usage.inputTokens()),
                     () -> assertEquals(Measurement.unmeasured(), usage.outputTokens()),
                     () -> assertFalse(usage.totalTokens().isPresent()));
+        }
+    }
+
+    @Nested
+    @DisplayName("the sum of turns")
+    class Sum {
+
+        @Test
+        @DisplayName("is measured per component when every turn measured it, and unmeasured when one did not")
+        void sumOfTurns() {
+            var measured = new HarnessUsage(Measurement.measured(1), Measurement.measured(2),
+                    Measurement.notApplicable(), Measurement.notApplicable(), Measurement.notApplicable(),
+                    Measurement.measured(1), Optional.empty(), Optional.empty());
+            var other = new HarnessUsage(Measurement.measured(10), Measurement.measured(20),
+                    Measurement.notApplicable(), Measurement.notApplicable(), Measurement.notApplicable(),
+                    Measurement.measured(2), Optional.empty(), Optional.empty());
+
+            var sum = HarnessUsage.sum(List.of(measured, other));
+            var partial = HarnessUsage.sum(List.of(measured, HarnessUsage.unparsed()));
+
+            assertAll(
+                    () -> assertEquals(Measurement.measured(11), sum.inputTokens()),
+                    () -> assertEquals(Measurement.measured(22), sum.outputTokens()),
+                    () -> assertEquals(Measurement.measured(3), sum.toolUses()),
+                    () -> assertEquals(Measurement.notApplicable(), sum.reasoningTokens()),
+                    () -> assertEquals(Optional.empty(), sum.unmeasuredReason()),
+                    () -> assertEquals(OptionalLong.of(33), sum.totalTokens()),
+                    () -> assertEquals(Measurement.unmeasured(), partial.inputTokens()),
+                    () -> assertEquals(Optional.of(UnmeasuredReason.OUTPUT_UNPARSED), partial.unmeasuredReason()));
+        }
+    }
+
+    @Nested
+    @DisplayName("a figure of the schema's measure")
+    class Measure {
+
+        @Test
+        @DisplayName("tool uses are never not_applicable")
+        void toolUsesRefused() {
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class, () -> new UsagePointers("/a", "/b", null, null,
+                            null, null, UsagePointers.NOT_APPLICABLE)),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> new HarnessUsage(Measurement.measured(1), Measurement.measured(1),
+                                    Measurement.notApplicable(), Measurement.notApplicable(),
+                                    Measurement.notApplicable(), Measurement.notApplicable(), Optional.empty(),
+                                    Optional.empty())));
         }
     }
 

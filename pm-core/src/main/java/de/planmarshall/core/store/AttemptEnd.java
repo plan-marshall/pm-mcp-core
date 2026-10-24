@@ -20,6 +20,10 @@ import java.util.Optional;
  * and no submission ({@link #EXITED_WITHOUT_SUBMIT}) is read per role, harness version, model and effort. {@code null}
  * is not a member of the set: the column is {@code null} only for a task closed without an attempt, whose cause class
  * is {@code refused}, and that absence is what {@link MetricsRow} requires.
+ * <p>
+ * The values mirror the queue task record's own enum ({@code QueueTaskRecord.AttemptEnd}). The vocabulary is declared
+ * here because {@code core.queue} depends on {@code core.store} and not the other way round; the writer of a row copies
+ * the value from the queue task record it reads.
  *
  * @since 0.1
  */

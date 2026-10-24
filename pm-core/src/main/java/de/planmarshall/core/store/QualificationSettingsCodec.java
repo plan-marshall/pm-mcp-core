@@ -65,7 +65,11 @@ public class QualificationSettingsCodec {
         Objects.requireNonNull(file, "file");
         Objects.requireNonNull(document, "document");
         var reader = new DocumentReader(file);
-        reader.read(document, null);
+        try {
+            reader.read(document, null);
+        } catch (StrictJson.Malformed e) {
+            throw StoreRefusal.unreadable(file, 1, String.valueOf(e.getMessage()), e);
+        }
         return reader.settings == null ? QualificationSettings.defaults() : reader.settings;
     }
 
@@ -83,7 +87,11 @@ public class QualificationSettingsCodec {
         Objects.requireNonNull(document, "document");
         Objects.requireNonNull(settings, "settings");
         var reader = new DocumentReader(file);
-        reader.read(document, settings);
+        try {
+            reader.read(document, settings);
+        } catch (StrictJson.Malformed e) {
+            throw StoreRefusal.unreadable(file, 1, String.valueOf(e.getMessage()), e);
+        }
         return reader.rewritten;
     }
 

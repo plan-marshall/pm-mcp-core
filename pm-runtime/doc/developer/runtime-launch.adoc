@@ -85,8 +85,9 @@ caller ──► ModelSlotScheduler.request(request)
 |===
 
 Tested by `ModelSlotSchedulerTest`: the FIFO with a cap of one, eight concurrent claims against a cap of two (exactly
-the cap granted, never more in the store), the one-writer rule beside a `read_only` worker, a stale slot reaped, a paused
-plan releasing both of its workers at once — the slot and the waiting entry — and the bounds of the cap.
+the cap granted, never more in the store), the one-writer rule beside a `read_only` worker, a stale slot reaped, a
+paused plan releasing both of its held slots at once and a second test dropping the plan's waiting worker, and the
+bounds of the cap.
 
 == Specification Tracing
 

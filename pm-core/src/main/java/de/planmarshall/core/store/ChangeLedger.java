@@ -12,8 +12,10 @@ package de.planmarshall.core.store;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.InternalFaultException;
@@ -32,6 +34,9 @@ import de.planmarshall.core.service.LockManager;
  */
 public final class ChangeLedger {
 
+    private static final Set<LockLevel> SCOPE_LEVELS =
+            EnumSet.of(LockLevel.PLAN, LockLevel.EPIC, LockLevel.WORKSPACE);
+
     private final JsonlStoreFile storeFile;
     private final LockManager lockManager;
     private final AuditSink auditSink;
@@ -40,11 +45,17 @@ public final class ChangeLedger {
      * @param storeFile   the ledger file with the key of the lock of its scope
      * @param lockManager the lock manager of the runtime
      * @param auditSink   where the record of a tail repair is handed over
+     * @throws IllegalArgumentException if the key of the ledger file is not the lock of a plan, an epic or the
+     *                                  workspace
      */
     public ChangeLedger(JsonlStoreFile storeFile, LockManager lockManager, AuditSink auditSink) {
         this.storeFile = Objects.requireNonNull(storeFile, "storeFile");
         this.lockManager = Objects.requireNonNull(lockManager, "lockManager");
         this.auditSink = Objects.requireNonNull(auditSink, "auditSink");
+        if (!SCOPE_LEVELS.contains(storeFile.lockKey().level())) {
+            throw new IllegalArgumentException(
+                    "A change ledger is guarded by the lock of its scope: " + storeFile.lockKey().lockFile());
+        }
     }
 
     /**

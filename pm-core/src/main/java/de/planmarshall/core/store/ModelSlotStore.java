@@ -127,7 +127,7 @@ public final class ModelSlotStore {
      * @param role           the role the worker runs
      * @param workerClass    the class of the worker
      * @param form           the form of the worker
-     * @param planId         the plan of a writer worker; {@code null} for the other classes
+     * @param planId         the plan the worker serves, for every class; {@code null} only for a machine-scope worker
      * @param acquiredAt     the instant the slot was acquired
      * @param leaseExpiresAt always {@code null}: a model slot has no time bound
      * @since 0.1
@@ -166,7 +166,7 @@ public final class ModelSlotStore {
      * @param role        the role the worker runs
      * @param workerClass the class of the worker
      * @param form        the form of the worker, which the admission carries into the slot it grants
-     * @param planId      the plan of a writer worker; {@code null} for the other classes
+     * @param planId      the plan the worker serves; {@code null} only for a machine-scope worker
      * @param enqueuedAt  the instant the worker was enqueued
      * @since 0.1
      */

@@ -22,11 +22,12 @@ import de.planmarshall.runtime.lock.StaleLeaseSweep.Action;
 
 /**
  * Step 4 of the per-project recovery ({@link RecoveryStep.Name#LEASES}): the leases of the project whose holder is
- * dead are marked orphaned, in every machine lease store the caller passes (the merge queue, the review-bot windows,
- * the build slots and the model slots), by {@link StaleLeaseSweep#sweep(LeaseStore, String, java.util.function.Predicate,
+ * dead are marked orphaned, in every machine lease store the caller passes (the merge queue, the review-bot windows and
+ * the build slots), by {@link StaleLeaseSweep#sweep(LeaseStore, String, java.util.function.Predicate,
  * java.time.Instant)}. A lease is released only on positive evidence of abandonment, which is the caller's knowledge
  * ({@link AbandonmentEvidence}); the default {@link AbandonmentEvidence#NONE} finds none, so the step never releases.
- * Leases of other projects are not touched.
+ * Leases of other projects are not touched. The model slots are no {@link LeaseStore}: their document is the slot store
+ * of {@code runtime.launch}, whose admission reaps a slot whose runtime died in its own transaction.
  * <p>
  * The releases of slots and task leases at once, for jobs and workers that ended with the previous runtime, belong to
  * {@link RecoveryStep.Name#JOBS_AND_WORKERS} and are not done here.

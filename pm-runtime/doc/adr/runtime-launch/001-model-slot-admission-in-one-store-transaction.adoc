@@ -17,8 +17,10 @@ and the FIFO of the workers waiting for one, and the cap `model_slots` of `machi
 worker of a plan holds a slot or waits for one, and a stale slot is reaped in the admission transaction as a build
 slot is. A paused plan holds no slot.
 
-The store document's waiting entry names the worker's owner, job id, role, class, plan id and enqueue instant, but not
-its form. The lease it becomes does carry the form.
+The store document's waiting entry as the specification first listed it names the worker's owner, job id, role, class,
+plan id and enqueue instant, but not its form; and it gives `plan_id` only to a writer. Both statements were corrected in
+store-schemas/13 by this work package: the entry becomes the lease in a later transaction and needs its form, and a pause
+releases every worker of a plan by its plan id, whatever the class.
 
 The choices were where the admission decides, and where the form comes from when a waiting worker is admitted after the
 request that enqueued it.
@@ -34,6 +36,9 @@ request that enqueued it.
 * The waiting entry carries the worker's `form`, beside the fields the specification names, because admission turns
   the entry into the lease in a later transaction, when the original request is no longer at hand. Without it the
   lease's form would have to be guessed from the worker class.
+* Every slot and waiting entry of a plan carries its `plan_id`, whatever the worker's class: the pause releases every
+  worker of a plan by that value, so a `read_only` or `zero_tool` worker admitted with `null` would survive a pause. Only
+  a machine-scope worker, which belongs to no plan, carries none. store-schemas/13 was corrected to state both.
 * A paused plan releases all of its slots and drops its waiting workers in one transaction, and the workers the freed
   slots make room for are admitted in the same transaction.
 

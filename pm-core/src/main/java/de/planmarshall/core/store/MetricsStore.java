@@ -12,7 +12,9 @@ package de.planmarshall.core.store;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.UnaryOperator;
 
 import de.planmarshall.core.service.InternalFaultException;
@@ -38,16 +40,23 @@ public final class MetricsStore {
     /** The format version of a metrics store document that is read and written. */
     public static final int FORMAT_VERSION = 1;
 
+    private static final Set<LockLevel> SCOPE_LEVELS = EnumSet.of(LockLevel.PLAN, LockLevel.EPIC, LockLevel.WORKSPACE);
+
     private final AtomicStoreFile storeFile;
     private final LockManager lockManager;
 
     /**
      * @param storeFile   the metrics store file with the key of the lock of its scope
      * @param lockManager the lock manager of the runtime
+     * @throws IllegalArgumentException if the key of the store file is not the lock of a plan, an epic or the workspace
      */
     public MetricsStore(AtomicStoreFile storeFile, LockManager lockManager) {
         this.storeFile = Objects.requireNonNull(storeFile, "storeFile");
         this.lockManager = Objects.requireNonNull(lockManager, "lockManager");
+        if (!SCOPE_LEVELS.contains(storeFile.lockKey().level())) {
+            throw new IllegalArgumentException(
+                    "A metrics store is guarded by the lock of its scope: " + storeFile.lockKey().lockFile());
+        }
     }
 
     /**

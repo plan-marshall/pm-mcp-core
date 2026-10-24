@@ -81,7 +81,8 @@ public record Measurement(State state, long value) {
     }
 
     /**
-     * @return the measured value; {@code 0} for {@code not_applicable}, and nothing for {@code unmeasured}
+     * @return the measured value; empty for {@code unmeasured} and for {@code not_applicable}. A caller that counts a
+     *         not-applicable figure as {@code 0} checks {@link #isNotApplicable()} first.
      */
     public OptionalLong measuredValue() {
         return state == State.MEASURED ? OptionalLong.of(value) : OptionalLong.empty();

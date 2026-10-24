@@ -988,7 +988,8 @@ from the five token components, never parsed
 (link:../adr/core-store/042-metrics-row-three-valued-figures-and-verbatim-foreign-rows.adoc[ADR 042]).
 `MetricsRow`, `WorkerIdleRow`, `MetricsCodec`, `MetricsStore`:: The task row and the worker-idle row of a
 `metrics.json`, their codec and the store. The codec keeps a row of another kind (`wait`, `phase_close`, `served_read`)
-as the raw JSON text it was read with and writes it back unchanged; the store refuses a second row for the same task and
+as the raw JSON text it was read with and re-emits it token by token in the same shape (the task rows first, then the
+idle rows, then the foreign ones); the store refuses a second row for the same task and
 attempt, or a second idle row for the same worker.
 `BuildTimings`, `BuildTimingsCodec`, `BuildTimingsStore`:: The learned budgets `build-timings.json` of a project: per
 budget key the clean, poisoned and cold baselines, the one-shot escalation and the instant of the last observation.

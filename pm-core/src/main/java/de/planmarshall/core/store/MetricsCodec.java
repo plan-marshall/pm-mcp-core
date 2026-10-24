@@ -47,9 +47,9 @@ import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
  * Reads and writes {@code metrics.json} (Store Schemas § Metrics &amp; Quality Report).
  * <p>
  * This store owns the rows of a task and of a worker's idle turns — the two kinds this milestone writes. A row of
- * another kind ({@code wait}, {@code phase_close}, {@code served_read}) is kept verbatim, as the raw JSON text it was
- * read with, and written back unchanged: another plan of the milestone owns those rows and writes them through its own
- * codec, so this reader neither invents their schema nor drops them.
+ * another kind ({@code wait}, {@code phase_close}, {@code served_read}) is kept as the raw JSON text it was read with
+ * and written back in the same shape, re-emitted token by token: another plan of the milestone owns those rows and
+ * writes them through its own codec, so this reader neither invents their schema nor drops them.
  * <p>
  * The reader is as strict as every store of the runtime: exactly the current {@code format_version}, only declared
  * fields, each at most once, every required field, and a {@code total_tokens} that equals the sum of the five token
@@ -103,7 +103,8 @@ public class MetricsCodec {
 
     /**
      * The rows of a metrics store: the task rows and the worker-idle rows this milestone owns, and the rows of other
-     * kinds as the raw JSON text they were read with.
+     * kinds as the raw JSON text they were read with. A write re-emits the task rows first, then the idle rows, then
+     * the rows of other kinds; a row of another kind keeps its content but not its position among the rows.
      *
      * @param taskRows    the task rows, in their order
      * @param idleRows    the worker-idle rows, in their order
@@ -528,7 +529,7 @@ public class MetricsCodec {
                 case FIELD_CACHE_READ -> cacheReadInputTokens = measurement(parser, field);
                 case FIELD_CACHE_CREATION -> cacheCreationInputTokens = measurement(parser, field);
                 case FIELD_REASONING -> reasoningTokens = measurement(parser, field);
-                case FIELD_TOOL_USES -> toolUses = measurement(parser, field);
+                case FIELD_TOOL_USES -> toolUses = measurements(parser, field);
                 case FIELD_COST_USD -> costUsd = cost(parser, field);
                 case FIELD_UNMEASURED_REASON ->
                     unmeasuredReason = nullableEnum(parser, field, UnmeasuredReason::fromWireName);
@@ -601,6 +602,15 @@ public class MetricsCodec {
             throw unreadable("'%s' must not be negative".formatted(field));
         }
         return Measurement.measured(value);
+    }
+
+    /** A figure of the schema's `measure`: an integer or {@code unmeasured}, never {@code not_applicable}. */
+    private static Measurement measurements(JsonParser parser, String field) throws IOException {
+        var measurement = measurement(parser, field);
+        if (measurement.isNotApplicable()) {
+            throw unreadable("'%s' is an integer or 'unmeasured', never 'not_applicable'".formatted(field));
+        }
+        return measurement;
     }
 
     private static Optional<BigDecimal> cost(JsonParser parser, String field) throws IOException {
