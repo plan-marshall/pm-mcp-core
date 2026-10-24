@@ -990,3 +990,43 @@ Guard:: Static check over the compiled `epic.pmwf` and every project-owned epic 
 `infeasible` and `lost` to `epic.active` with its item `held`; scenario: an `infeasible` re-grounding holds its rows
 (they do not start) and the epic continues with the next work; matched control: a `submitted` task commits the ledger.
 Source:: design review.
+
+[#PM-WATCH-DISP-64]
+=== PM-WATCH-DISP-64: An agreement counts only above what a constant answer reaches
+
+Anchor:: link:../specification/model-work/01-roles-and-configuration.adoc#constant-baseline[Model Work § Constant Baseline]
+Hazard:: The constant baseline is computed over every item of the topic instead of the graded ones, or rubric items
+are counted as agreeing with the constant answer, so the baseline is understated; or the operator's agreement level
+replaces the margin, so a topic whose references are 85 % one option qualifies a configuration that always answers it.
+Guard:: Fixture topic of ten `exact_choice` items, eight with the same reference: a scripted configuration that always
+answers that option reaches 80 % agreement at an 80 % level and does not qualify; matched control: a configuration that
+answers nine of ten right qualifies; a topic of ten equal references is reported too uniform; a quorum declaration
+that always agrees on the most frequent target escalates `calibration_failed`.
+Source:: Article analysis `agentic-graph-engineering` of plan-marshall-documentation.
+
+[#PM-WATCH-DISP-65]
+=== PM-WATCH-DISP-65: The judge is checked as an instrument before it grades
+
+Anchor:: link:../specification/model-work/01-roles-and-configuration.adoc#judge-instrument-check[Model Work § Judge Instrument Check]
+Hazard:: The blind run reuses the oracle prompt with the reference still in its facts, so blind and oracle agree and
+the check measures nothing; or a check with unscored answers is taken as passed; or a changed judge configuration
+keeps the old check record.
+Guard:: Fixture judge topic with a scripted judge: a judge that scores every answer `1` fails (oracle at the baseline),
+a judge that scores right without the reference as well as with it fails (blind within the margin), and a judge that
+follows the reference passes; the blind task's input is asserted to carry no reference; a lost judge task refuses the
+grading `judge_unchecked`; a changed judge model leaves no valid record.
+Source:: Article analysis `agentic-graph-engineering` of plan-marshall-documentation (the article's 7B judge scored 0.57 against a 0.51 constant baseline and was rejected; the 14B model
+scored 0.875 against 0.53).
+
+[#PM-WATCH-DISP-66]
+=== PM-WATCH-DISP-66: An exported item and its grading see only what was knowable at the decision
+
+Anchor:: link:../specification/model-work/11-decision-records.adoc#corpus-export[Model Work § Corpus Export]
+Hazard:: The export quotes the current version of a store record or file named as evidence, or grading runs an item
+mined from the project in today's checkout, so the item carries the fix made after the decision and its reference
+answer is visible in its input.
+Guard:: Scenario: a decision whose evidence finding was resolved and whose file was changed after the decision exports
+the finding's version before the decision and the file at the record's `head_sha`; a missing old version is tagged
+`evidence-incomplete`, never replaced; grading of that item runs in a worktree at its origin commit, and an item
+whose commit is missing records `checkout: current`.
+Source:: Article analysis `agentic-graph-engineering` of plan-marshall-documentation.
