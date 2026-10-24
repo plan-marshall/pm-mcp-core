@@ -238,6 +238,7 @@ public class ModelSlotCodec {
         }
         requireFields(seen, "slot", FIELD_OWNER, FIELD_JOB_ID, FIELD_ROLE, FIELD_CLASS, FIELD_FORM, FIELD_PLAN_ID,
                 FIELD_ACQUIRED_AT, FIELD_LEASE_EXPIRES_AT);
+        requireWriterPlan(workerClass, planId);
         try {
             return new Lease(owner, jobId, role, workerClass, form, planId, acquiredAt, leaseExpiresAt);
         } catch (IllegalArgumentException e) {
@@ -270,10 +271,18 @@ public class ModelSlotCodec {
         }
         requireFields(seen, "waiting worker", FIELD_OWNER, FIELD_JOB_ID, FIELD_ROLE, FIELD_CLASS, FIELD_FORM,
                 FIELD_PLAN_ID, FIELD_ENQUEUED_AT);
+        requireWriterPlan(workerClass, planId);
         try {
             return new Waiting(owner, jobId, role, workerClass, form, planId, enqueuedAt);
         } catch (IllegalArgumentException e) {
             throw unreadable(e.getMessage(), e);
+        }
+    }
+
+    /** A writer serves a plan; a stored writer without one is refused as unreadable rather than as an NPE. */
+    private static void requireWriterPlan(WorkerClass workerClass, String planId) {
+        if (workerClass == WorkerClass.WRITER && planId == null) {
+            throw unreadable("'plan_id' must be set for a writer worker");
         }
     }
 
@@ -363,19 +372,20 @@ public class ModelSlotCodec {
     }
 
     private static void requireOneWriterPerPlan(Document document) {
-        var plans = new HashSet<String>();
+        var writers = new HashSet<String>();
         for (var slot : document.slots()) {
-            addWriter(plans, slot.workerClass(), slot.planId());
+            addWriter(writers, slot.workerClass(), slot.owner().projectId(), slot.planId());
         }
         for (var waiting : document.waiting()) {
-            addWriter(plans, waiting.workerClass(), waiting.planId());
+            addWriter(writers, waiting.workerClass(), waiting.owner().projectId(), waiting.planId());
         }
     }
 
-    private static void addWriter(Set<String> plans, WorkerClass workerClass, String planId) {
-        if (workerClass == WorkerClass.WRITER && !plans.add(planId)) {
+    private static void addWriter(Set<String> writers, WorkerClass workerClass, String projectId, String planId) {
+        if (workerClass == WorkerClass.WRITER && !writers.add(projectId + '\u0000' + planId)) {
             throw new IllegalArgumentException(
-                    "The plan '%s' holds or awaits more than one writer worker".formatted(planId));
+                    "The plan '%s' of the project '%s' holds or awaits more than one writer worker"
+                            .formatted(planId, projectId));
         }
     }
 }

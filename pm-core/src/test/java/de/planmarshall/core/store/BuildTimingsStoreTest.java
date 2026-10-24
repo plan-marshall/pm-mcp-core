@@ -124,6 +124,19 @@ class BuildTimingsStoreTest {
             var belowTheCap = store.escalate(KEY, 300, 1800);
             assertEquals(600L, belowTheCap.escalationSeconds());
         }
+
+        @Test
+        @DisplayName("a budget above the cap stays its own escalation, and 2t is capped at C")
+        void escalationAboveTheCap() {
+            var aboveTheCap = store.escalate(KEY, 2000, 1800);
+            var halfTheCap = store.escalate(KEY, 900, 1800);
+            var justAboveHalf = store.escalate(KEY, 901, 1800);
+
+            assertAll(
+                    () -> assertEquals(2000L, aboveTheCap.escalationSeconds()),
+                    () -> assertEquals(1800L, halfTheCap.escalationSeconds()),
+                    () -> assertEquals(1800L, justAboveHalf.escalationSeconds()));
+        }
     }
 
     @Nested

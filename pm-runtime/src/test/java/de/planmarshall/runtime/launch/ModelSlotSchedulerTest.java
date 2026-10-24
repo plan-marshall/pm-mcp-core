@@ -172,6 +172,20 @@ class ModelSlotSchedulerTest {
         }
 
         @Test
+        @DisplayName("admits the writers of two projects that name the same plan id")
+        void writersOfTwoProjects() {
+            var scheduler = scheduler(2);
+            var holder = new HolderInstance(ProcessHandle.current().pid(), NOW);
+            var first = new Request(new LeaseOwner("project-a", ScopeType.PLAN, PLAN, holder, null),
+                    "l-0000000000000001", "writer", WorkerClass.WRITER, Form.FRESH, PLAN);
+            var second = new Request(new LeaseOwner("project-b", ScopeType.PLAN, PLAN, holder, null),
+                    "l-0000000000000002", "writer", WorkerClass.WRITER, Form.FRESH, PLAN);
+
+            assertInstanceOf(Granted.class, scheduler.request(first));
+            assertInstanceOf(Granted.class, scheduler.request(second));
+        }
+
+        @Test
         @DisplayName("reaps the slot of a runtime that no longer runs in the admission transaction")
         void staleSlot() {
             var scheduler = scheduler(1);

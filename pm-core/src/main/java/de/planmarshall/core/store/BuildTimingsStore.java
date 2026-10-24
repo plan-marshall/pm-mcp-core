@@ -98,9 +98,24 @@ public final class BuildTimingsStore {
         if (budgetSeconds < 1 || capSeconds < 1) {
             throw new IllegalArgumentException("The budget and its cap are at least one second");
         }
-        var escalation = Math.clamp(2 * budgetSeconds, budgetSeconds, capSeconds);
+        var escalation = escalate(budgetSeconds, capSeconds);
         return update(key, timings -> new KeyTimings(timings.clean(), timings.poisoned(), timings.cold(), escalation,
                 timings.lastObservedAt()));
+    }
+
+    /**
+     * {@code E = max(t, min(2 * t, C))}, computed without an overflow and without an inverted clamp for a budget above
+     * the cap: a budget at or above the cap stays its own escalation, a budget above half the cap escalates to the cap,
+     * and only a smaller budget doubles.
+     */
+    private static long escalate(long budgetSeconds, long capSeconds) {
+        if (budgetSeconds >= capSeconds) {
+            return budgetSeconds;
+        }
+        if (budgetSeconds > capSeconds / 2) {
+            return capSeconds;
+        }
+        return 2 * budgetSeconds;
     }
 
     /**

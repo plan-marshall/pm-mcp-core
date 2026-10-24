@@ -442,6 +442,9 @@ public class MetricsCodec {
         }
         var usage = usageState.build();
         requireCompleteUsage(usage);
+        if (outcome == null || causeClass == null || spendClass == null || population == null) {
+            throw unreadable("a task row declares a non-null outcome, cause_class, spend_class and population");
+        }
         try {
             return MetricsRow.builder().queueTaskId(queueTaskId).attempt(attempt).role(role).jobId(jobId)
                     .generationId(generationId).harness(harness).harnessVersion(harnessVersion).model(model)

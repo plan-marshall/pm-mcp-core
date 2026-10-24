@@ -311,6 +311,26 @@ class MetricsStoreTest {
                     () -> assertThrows(IllegalArgumentException.class, badWakeups::build),
                     () -> assertThrows(IllegalArgumentException.class, emptyModel::build));
         }
+
+        @Test
+        @DisplayName("a task row whose outcome is JSON null is refused")
+        void nullOutcome() throws Exception {
+            var nullOutcome = """
+                    {"format_version":1,"rows":[{"kind":"task","queue_task_id":"qt-0123456789abcdef","attempt":1,
+                     "role":"writer","job_id":"l-0123456789abcdef","generation_id":"l-0123456789abcdef",
+                     "harness":"opencode","harness_version":"1.2.3","model":"m","effort":null,"form":"fresh",
+                     "phase":"phase-5-execute","step_id":null,"envelope_id":null,"predicted_cost":null,
+                     "yield_reason":null,"outcome":null,"attempt_end":"closed","cause_class":"benign",
+                     "spend_class":"submitted","population":"model_job","total_tokens":2,
+                     "input_tokens":1,"output_tokens":1,"cache_read_input_tokens":"not_applicable",
+                     "cache_creation_input_tokens":"not_applicable","reasoning_tokens":"not_applicable",
+                     "tool_uses":"unmeasured","cost_usd":"unmeasured","unmeasured_reason":null,
+                     "duration_ms":null,"duration_basis":"process","queued_ms":null,"consultation_of":null,
+                     "recorded_at":"2026-10-22T10:00:00Z"}]}""";
+            Files.writeString(file, nullOutcome, UTF_8);
+
+            assertThrows(StoreRefusal.class, () -> store.snapshot());
+        }
     }
 
     @Nested

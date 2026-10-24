@@ -230,7 +230,8 @@ public final class ModelSlotScheduler {
             if (waiting.isPresent()) {
                 return new Revision<>(reaped, new Queued(waiting.get()));
             }
-            if (request.workerClass() == WorkerClass.WRITER && writerOfPlan(reaped, request.planId())) {
+            if (request.workerClass() == WorkerClass.WRITER
+                    && writerOfPlan(reaped, request.owner().projectId(), request.planId())) {
                 return new Revision<>(reaped, new Deferred(WRITER_HOLDS_PLAN));
             }
             var enqueued = new ArrayList<>(reaped.waiting());
@@ -341,11 +342,13 @@ public final class ModelSlotScheduler {
         return document.waiting().stream().filter(entry -> jobId.equals(entry.jobId())).findFirst();
     }
 
-    private static boolean writerOfPlan(Document document, String planId) {
+    private static boolean writerOfPlan(Document document, String projectId, String planId) {
         return document.slots().stream()
-                .anyMatch(lease -> lease.workerClass() == WorkerClass.WRITER && planId.equals(lease.planId()))
+                .anyMatch(lease -> lease.workerClass() == WorkerClass.WRITER && planId.equals(lease.planId())
+                        && projectId.equals(lease.owner().projectId()))
                 || document.waiting().stream()
-                .anyMatch(entry -> entry.workerClass() == WorkerClass.WRITER && planId.equals(entry.planId()));
+                .anyMatch(entry -> entry.workerClass() == WorkerClass.WRITER && planId.equals(entry.planId())
+                        && projectId.equals(entry.owner().projectId()));
     }
 
     private static List<Waiting> without(List<Waiting> waiting, String jobId) {

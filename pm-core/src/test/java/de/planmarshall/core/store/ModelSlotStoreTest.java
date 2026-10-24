@@ -117,6 +117,20 @@ class ModelSlotStoreTest {
         }
 
         @Test
+        @DisplayName("accepts one writer of the same plan id in two different projects")
+        void writersOfDifferentProjects() {
+            var holder = new HolderInstance(4711, NOW);
+            var first = new Lease(new LeaseOwner("project-a", ScopeType.PLAN, PLAN, holder, null),
+                    "l-0000000000000001", "writer", WorkerClass.WRITER, Form.FRESH, PLAN, NOW, null);
+            var second = new Lease(new LeaseOwner("project-b", ScopeType.PLAN, PLAN, holder, null),
+                    "l-0000000000000002", "writer", WorkerClass.WRITER, Form.FRESH, PLAN, NOW, null);
+
+            store.update(_ -> new Revision<>(new Document(List.of(first, second), List.of()), Boolean.TRUE));
+
+            assertEquals(List.of(first, second), store.snapshot().slots());
+        }
+
+        @Test
         @DisplayName("refuses a plan that holds and awaits two writers")
         void twoWritersOfOnePlan() {
             var held = lease("l-0000000000000001", PLAN, WorkerClass.WRITER);
@@ -153,6 +167,20 @@ class ModelSlotStoreTest {
             var second = first.replace("some-plan", "other-plan");
             Files.writeString(file, "{\"format_version\":1,\"slots\":[" + first + "," + second
                     + "],\"waiting\":[]}", UTF_8);
+
+            assertThrows(StoreRefusal.class, () -> store.snapshot());
+        }
+
+        @Test
+        @DisplayName("that holds a writer without a plan is refused on read")
+        void writerWithoutPlanInTheFile() throws Exception {
+            var owner = "{\"project_id\":\"pm-mcp-core\",\"scope_type\":\"plan\",\"scope_id\":\"some-plan\","
+                    + "\"holder_instance\":{\"runtime_pid\":4711,"
+                    + "\"runtime_started_at\":\"2026-10-22T10:00:00Z\"},\"orphaned_at\":null}";
+            var slot = "{\"owner\":" + owner + ",\"job_id\":\"l-0000000000000001\",\"role\":\"writer\","
+                    + "\"class\":\"writer\",\"form\":\"warm\",\"plan_id\":null,"
+                    + "\"acquired_at\":\"2026-10-22T10:00:00Z\",\"lease_expires_at\":null}";
+            Files.writeString(file, "{\"format_version\":1,\"slots\":[" + slot + "],\"waiting\":[]}", UTF_8);
 
             assertThrows(StoreRefusal.class, () -> store.snapshot());
         }
