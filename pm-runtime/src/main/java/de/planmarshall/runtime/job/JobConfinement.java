@@ -20,10 +20,10 @@ import java.util.Objects;
  * The filesystem confinement a job is launched with (PM-SEC-5): the write set, the extra read paths and the paths
  * excluded from the read set, as the {@code pm-exec} launcher takes them.
  * <p>
- * The launcher grants read and execute access to the whole filesystem except every {@code --deny-read} path, and write
- * access only to the {@code --write} paths. Every {@code --read} path is granted in addition to the enumerated read set;
- * it is how the runtime names the job-private directory of a worker or a probe and the runtime socket of a worker,
- * which lie inside the denied base directory.
+ * The launcher builds the read set as an enumeration of the filesystem at job start, less every {@code --deny-read}
+ * path, and grants write access only to the {@code --write} paths. Every {@code --read} path is granted in addition to
+ * the enumerated read set; it is how the runtime names the job-private directory of a worker or a probe and the runtime
+ * socket of a worker, which lie inside the denied base directory.
  * <p>
  * The launcher applies the sets on Linux with Landlock and, where the platform provides it, with its own sandbox
  * profile; on a platform without a ruleset it records {@code confinement: unavailable}. This type only composes the

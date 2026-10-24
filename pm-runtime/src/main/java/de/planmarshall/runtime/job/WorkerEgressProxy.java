@@ -157,9 +157,7 @@ public final class WorkerEgressProxy implements AutoCloseable {
             }
             drainHeaders(input);
             tunnel(client, destination);
-        }
-        /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
-        catch (IOException | RuntimeException e) {
+        } catch (IOException e) {
             // A broken client or destination ends its tunnel only; the proxy stays up
         } finally {
             open.remove(client);

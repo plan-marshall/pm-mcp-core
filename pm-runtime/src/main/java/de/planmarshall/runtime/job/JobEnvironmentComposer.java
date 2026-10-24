@@ -150,11 +150,12 @@ public final class JobEnvironmentComposer implements SubprocessJobRunner.Environ
         locale(environment, enrolment.buildEnvironment());
         environment.put(TMPDIR, systemTemp.toString());
         switch (jobId.kind()) {
-            case BUILD, PROJECT_SCRIPT -> buildToolchain(environment, enrolment);
+            case BUILD, PROJECT_SCRIPT -> buildToolchain(environment, enrolment,
+                    jobId.kind() == JobId.Kind.BUILD && enrolment.containerEngine() == ContainerEngine.DOCKER);
             case GIT -> {
                 git(environment, enrolment, sshAuthSock, committerName, committerEmail);
                 if (runRepositoryHooks) {
-                    buildToolchain(environment, enrolment);
+                    buildToolchain(environment, enrolment, false);
                 }
             }
             case CI -> ci(environment, enrolment);
@@ -199,10 +200,11 @@ public final class JobEnvironmentComposer implements SubprocessJobRunner.Environ
         return Map.copyOf(environment);
     }
 
-    private void buildToolchain(Map<String, String> environment, ProjectEnrolment enrolment) {
+    private void buildToolchain(Map<String, String> environment, ProjectEnrolment enrolment,
+            boolean withContainerEngine) {
         copy(environment, enrolment.buildEnvironment(), List.of("JAVA_HOME", "GRADLE_USER_HOME"));
         environment.put("MVND_DAEMON_STORAGE", BuildDaemonStore.mvnd(daemonStore(enrolment)).toString());
-        if (enrolment.containerEngine() == ContainerEngine.DOCKER) {
+        if (withContainerEngine) {
             copy(environment, enrolment.buildEnvironment(), List.of("DOCKER_HOST", "DOCKER_CONFIG"));
             copyPrefixed(environment, enrolment.buildEnvironment(), TESTCONTAINERS_PREFIX);
         }
@@ -315,6 +317,12 @@ public final class JobEnvironmentComposer implements SubprocessJobRunner.Environ
         var directories = new LinkedHashSet<String>();
         for (HostTool tool : enrolment.hostTools()) {
             directories.add(Path.of(tool.executablePath()).getParent().toString());
+            if (tool.interpreter() != null) {
+                var interpreter = tool.interpreter().wireName();
+                enrolment.hostTools().stream().filter(candidate -> candidate.name().wireName().equals(interpreter))
+                        .map(candidate -> Path.of(candidate.executablePath()).getParent().toString())
+                        .forEach(directories::add);
+            }
         }
         return String.join(":", directories);
     }

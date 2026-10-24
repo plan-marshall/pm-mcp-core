@@ -192,7 +192,9 @@ class JobConfinementComposerTest {
 
             assertAll(
                     () -> assertFalse(confinement.deniedPaths().contains(Path.of("/var/run/docker.sock"))),
-                    () -> assertFalse(confinement.deniedPaths().contains(Path.of("/run/docker.sock"))));
+                    () -> assertFalse(confinement.deniedPaths().contains(Path.of("/run/docker.sock"))),
+                    () -> assertFalse(confinement.deniedPaths().contains(Path.of("/run/user/1000/docker.sock")),
+                            "the rootless socket stays in the read set under the opt-in"));
         }
     }
 }

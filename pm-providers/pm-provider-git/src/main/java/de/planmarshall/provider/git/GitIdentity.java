@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
 import org.eclipse.jgit.lib.Constants;
-import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Repository;
 
 /**
@@ -122,18 +121,19 @@ public final class GitIdentity {
                 .map(ref -> Repository.shortenRefName(ref.getName()))
                 .filter(name::equals)
                 .toList();
-        var objectId = isFullCommitId(name)
-                && repository.getObjectDatabase().has(ObjectId.fromString(name));
+        // A full 40-character id is an identity by its syntax: a ref of the same name is ambiguous whether or not the
+        // object is present in this clone (a shallow clone or a GC must not turn the pin back into a named ref).
+        var fullCommitId = isFullCommitId(name);
         if (refs.size() > 1) {
             return Resolution.TWO_REFS;
         }
-        if (refs.size() == 1 && objectId) {
+        if (refs.size() == 1 && fullCommitId) {
             return Resolution.REF_AND_COMMIT_ID;
         }
         if (refs.size() == 1) {
             return Resolution.REF;
         }
-        if (objectId) {
+        if (fullCommitId) {
             return Resolution.FULL_COMMIT_ID;
         }
         if (isAbbreviatedCommitId(name) && repository.resolve(name) != null) {

@@ -319,7 +319,8 @@ The composition is deterministic and reads the project's verified enrolment; it 
 
 A probe's environment is composed for the probe alone: the rows that name all job types and a `PATH` of the probed executable and its interpreter only.
 
-
+[#_probe_jobs]
+== Probe Jobs
 
 _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:{req}/06-execution.adoc#PM-EXEC-3[PM-EXEC-3], link:{req}/06-execution.adoc#PM-EXEC-4[PM-EXEC-4]
 
@@ -338,7 +339,7 @@ A probe (kind `probe`, `job_id` prefix `v`) runs a program found on the machine 
 _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-4[PM-EXEC-4], link:{req}/12-testing.adoc#PM-TEST-3[PM-TEST-3]
 
 link:{test}/FakePmExec.java[`FakePmExec`] is the test launcher of the job runtime, shared through the test JAR of `pm-runtime`: a `/bin/sh` script written to `<PM_MCP_HOME>/bin/pm-exec` of a temporary directory.
-Like the real launcher it accepts only `-- <absolute executable> [args…]` (exit `64` otherwise), makes itself the leader of a new process group with `setsid` without changing its PID, writes one launch report line with its PID, the start instant and the confinement `unavailable`, and replaces itself with the target by `exec`.
+Like the real launcher it accepts the confinement options `--write`, `--read` and `--deny-read`, ignores them, and then requires `-- <absolute executable> [args…]` (exit `64` otherwise), makes itself the leader of a new process group with `setsid` without changing its PID, writes one launch report line with its PID, the start instant and the confinement `unavailable`, and replaces itself with the target by `exec`.
 It applies no confinement and verifies nothing.
 `FakePmExec.Mode` selects the launcher failures: `NO_REPORT`, `EXIT_64`, `EXIT_126` and `EXIT_127`.
 It runs on Linux only, so every test that starts it carries `@EnabledOnOs(OS.LINUX)`; `FakePmExec.tool(name)` names a tool of the base system by its absolute path, and `awaitLines` waits for a job log on the process instead of a fixed sleep.

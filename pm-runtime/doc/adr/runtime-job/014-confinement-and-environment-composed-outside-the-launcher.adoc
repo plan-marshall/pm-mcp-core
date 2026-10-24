@@ -49,9 +49,8 @@ Enforcement is not claimed here: on a platform whose launcher applies no ruleset
 
 1. *Put the composition in the assembly.* _Rejected_: the composition reads the verified enrolment and the job id,
    both of which the runner owns at launch; duplicating that knowledge in the assembly would let the two drift.
-2. *Extend the `Environment` seam with the job id and kind.* _Rejected_: the seam is the caller's allowlist and is
-   implemented by tests and the assembly; a concrete composer with its own signature keeps that seam unchanged and
-   leaves the choice of wiring to the caller.
+2. *Carry the job id through the seam's single argument.* _Rejected_: the daemon store and a worker's data directory
+   need the job id, and a `VerifiedJob` does not carry it; the seam now carries the job id beside the verified job.
 3. *Let the launcher compute the sets from the enrolment.* _Rejected_: the launcher may not read a project's
    enrolment; the runtime passes the sets as an argument vector, so an enrolment change takes effect for the next job.
 

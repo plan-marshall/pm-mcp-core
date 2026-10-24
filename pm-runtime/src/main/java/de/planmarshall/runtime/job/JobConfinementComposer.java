@@ -9,9 +9,12 @@
  */
 package de.planmarshall.runtime.job;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.SortedMap;
@@ -29,7 +32,8 @@ import de.planmarshall.core.store.ProjectEnrolment;
  * contains the runtime base directory, apart from the project's daemon store and a worker's own data directory, and
  * never {@code ~/.plan-marshall/}.
  * <p>
- * The read set is the whole filesystem except the runtime base directory, the session bus socket and, without the
+ * The read set is the filesystem enumerated at job start, less the runtime base directory, the session bus socket and,
+ * without the
  * container-engine opt-in, the container engine's sockets. The job-private directory of a worker or a probe and the
  * runtime socket of a worker are named as explicit read paths, because they lie inside the denied base directory.
  * <p>
@@ -92,7 +96,24 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
      * @return the composer
      */
     public static JobConfinementComposer standard(Path base) {
-        return standard(base, Optional.of(Path.of("/run/user")));
+        return standard(base, currentBusSocket());
+    }
+
+    /**
+     * The session bus socket of the current user: {@code /run/user/<uid>/bus} on Linux, the whole {@code /run/user}
+     * when the uid cannot be read, and none on macOS.
+     */
+    private static Optional<Path> currentBusSocket() {
+        if (!System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("linux")) {
+            return Optional.empty();
+        }
+        try (var lines = Files.lines(Path.of("/proc/self/status"))) {
+            var uid = lines.filter(line -> line.startsWith("Uid:")).findFirst()
+                    .map(line -> line.split("\\s+")[1]).orElse(null);
+            return uid == null ? Optional.of(Path.of("/run/user")) : Optional.of(Path.of("/run/user", uid, "bus"));
+        } catch (IOException e) {
+            return Optional.of(Path.of("/run/user"));
+        }
     }
 
     /**
@@ -189,17 +210,13 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
     private List<Path> denied(ProjectEnrolment enrolment) {
         var denied = new ArrayList<Path>();
         denied.add(base);
-        sessionBusSocket.ifPresent(socket -> {
-            denied.add(socket);
-            var parent = socket.getParent();
-            if (parent != null) {
-                denied.add(parent.resolve("docker.sock"));
-            }
-        });
+        sessionBusSocket.ifPresent(denied::add);
         if (enrolment == null || enrolment.containerEngine() == null) {
             for (var socket : CONTAINER_SOCKETS) {
                 denied.add(Path.of(socket));
             }
+            sessionBusSocket.map(Path::getParent)
+                    .ifPresent(parent -> denied.add(parent.resolve("docker.sock")));
             if (enrolment != null) {
                 unixDockerHost(enrolment.buildEnvironment()).ifPresent(denied::add);
             }
@@ -225,7 +242,6 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
         addIfAbsolute(directories, environment.get("GLAB_CONFIG_DIR"));
         var xdg = environment.get("XDG_CONFIG_HOME");
         if (xdg != null && !xdg.isEmpty()) {
-            directories.add(Path.of(xdg));
             directories.add(Path.of(xdg, "gh"));
             directories.add(Path.of(xdg, "glab"));
         }

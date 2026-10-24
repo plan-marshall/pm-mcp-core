@@ -254,6 +254,22 @@ class SubprocessJobRunnerTest {
                 .orElseThrow(() -> new AssertionError("job %s did not settle".formatted(jobId)));
     }
 
+    @Test
+    @DisplayName("the launch carries the composed confinement to the launcher")
+    void confinementIsPassedToTheLauncher() throws Exception {
+        FakePmExec.install(home, FakePmExec.Mode.REPORT_ARGV);
+
+        var jobId = started(runner.start(git(3600, "true")));
+        settled(jobId);
+
+        var log = Files.readString(jobs.logPath(jobId));
+        assertAll(
+                () -> assertTrue(log.contains("ARGV:--write "), log),
+                () -> assertTrue(log.contains("--deny-read "), log),
+                () -> assertTrue(log.contains(fixture.base.toString()), log),
+                () -> assertTrue(log.contains("-- "), log));
+    }
+
     /** Waits until the job's output holds a line, so a signal meets the job only once it is ready for it. */
     private void awaitOutput(JobId jobId, String line) throws IOException, InterruptedException {
         var log = new JobLog(jobs.logPath(jobId));
