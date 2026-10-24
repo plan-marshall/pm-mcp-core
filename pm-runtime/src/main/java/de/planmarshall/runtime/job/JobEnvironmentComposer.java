@@ -66,6 +66,9 @@ public final class JobEnvironmentComposer implements SubprocessJobRunner.Environ
     /** The default of {@code LC_ALL} when the enrolment captured none. */
     public static final String DEFAULT_LC_ALL = "C.UTF-8";
 
+    /** The variable of the locale override. */
+    private static final String LC_ALL = "LC_ALL";
+
     /** The prefixes of enrolment variables a {@code ci} job receives. */
     private static final List<String> TESTCONTAINERS_PREFIX = List.of("TESTCONTAINERS_");
 
@@ -136,6 +139,9 @@ public final class JobEnvironmentComposer implements SubprocessJobRunner.Environ
      * @param runRepositoryHooks whether a {@code git} job runs repository hooks
      * @return the complete environment
      */
+    // java:S107 does not apply: the method carries the rows of the job-environment table, one parameter per variable
+    // group; grouping them into a holder would hide which row a caller sets and where its value comes from.
+    @SuppressWarnings("java:S107")
     public Map<String, String> forJob(ProjectEnrolment enrolment, JobId jobId,
             Map<String, String> harnessSwitches, Optional<String> jobToken, Optional<String> workerDataVariable,
             Optional<String> egressProxy, Optional<String> sshAuthSock, Optional<String> committerName,
@@ -153,7 +159,7 @@ public final class JobEnvironmentComposer implements SubprocessJobRunner.Environ
             case BUILD, PROJECT_SCRIPT -> buildToolchain(environment, enrolment,
                     jobId.kind() == JobId.Kind.BUILD && enrolment.containerEngine() == ContainerEngine.DOCKER);
             case GIT -> {
-                git(environment, enrolment, sshAuthSock, committerName, committerEmail);
+                git(environment, sshAuthSock, committerName, committerEmail);
                 if (runRepositoryHooks) {
                     buildToolchain(environment, enrolment, false);
                 }
@@ -203,7 +209,7 @@ public final class JobEnvironmentComposer implements SubprocessJobRunner.Environ
     private void buildToolchain(Map<String, String> environment, ProjectEnrolment enrolment,
             boolean withContainerEngine) {
         copy(environment, enrolment.buildEnvironment(), List.of("JAVA_HOME", "GRADLE_USER_HOME"));
-        environment.put("MVND_DAEMON_STORAGE", BuildDaemonStore.mvnd(daemonStore(enrolment)).toString());
+        environment.put("MVND_DAEMON_STORAGE", BuildDaemonStore.mvndDirectory(daemonStore(enrolment)).toString());
         if (withContainerEngine) {
             copy(environment, enrolment.buildEnvironment(), List.of("DOCKER_HOST", "DOCKER_CONFIG"));
             copyPrefixed(environment, enrolment.buildEnvironment(), TESTCONTAINERS_PREFIX);
@@ -225,8 +231,8 @@ public final class JobEnvironmentComposer implements SubprocessJobRunner.Environ
         return BuildDaemonStore.path(base, enrolment.projectId(), write);
     }
 
-    private void git(Map<String, String> environment, ProjectEnrolment enrolment,
-            Optional<String> sshAuthSock, Optional<String> committerName, Optional<String> committerEmail) {
+    private void git(Map<String, String> environment, Optional<String> sshAuthSock, Optional<String> committerName,
+            Optional<String> committerEmail) {
         sshAuthSock.ifPresent(socket -> environment.put("SSH_AUTH_SOCK", socket));
         environment.put("GIT_TERMINAL_PROMPT", "0");
         environment.put("GCM_INTERACTIVE", "never");
@@ -258,14 +264,14 @@ public final class JobEnvironmentComposer implements SubprocessJobRunner.Environ
     }
 
     private static void locale(Map<String, String> environment, SortedMap<String, String> captured) {
-        var lcAll = captured.get("LC_ALL");
-        environment.put("LC_ALL", lcAll == null || lcAll.isEmpty() ? DEFAULT_LC_ALL : lcAll);
+        var lcAll = captured.get(LC_ALL);
+        environment.put(LC_ALL, lcAll == null || lcAll.isEmpty() ? DEFAULT_LC_ALL : lcAll);
         var lang = captured.get("LANG");
         if (lang != null && !lang.isEmpty()) {
             environment.put("LANG", lang);
         }
         for (var entry : captured.entrySet()) {
-            if (entry.getKey().startsWith("LC_") && !"LC_ALL".equals(entry.getKey()) && !entry.getValue().isEmpty()) {
+            if (entry.getKey().startsWith("LC_") && !LC_ALL.equals(entry.getKey()) && !entry.getValue().isEmpty()) {
                 environment.put(entry.getKey(), entry.getValue());
             }
         }

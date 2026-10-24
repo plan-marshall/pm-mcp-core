@@ -60,8 +60,8 @@ class BuildDaemonStoreTest {
         assertAll(
                 () -> assertEquals(base.resolve("projects/job-project/daemons")
                         .resolve(BuildDaemonStore.digest(writeSet())), store),
-                () -> assertEquals(store.resolve("mvnd"), BuildDaemonStore.mvnd(store)),
-                () -> assertEquals(store.resolve("gradle"), BuildDaemonStore.gradle(store)),
+                () -> assertEquals(store.resolve("mvnd"), BuildDaemonStore.mvndDirectory(store)),
+                () -> assertEquals(store.resolve("gradle"), BuildDaemonStore.gradleDirectory(store)),
                 () -> assertEquals("-Dorg.gradle.daemon.registry.base=" + store.resolve("gradle"),
                         BuildDaemonStore.gradleRegistryArgument(store)));
     }
@@ -70,6 +70,7 @@ class BuildDaemonStoreTest {
     @DisplayName("a relative base is refused")
     void relativeBase() {
         var paths = writeSet();
-        assertThrows(IllegalArgumentException.class, () -> BuildDaemonStore.path(Path.of("base"), "p", paths));
+        var relativeBase = Path.of("base");
+        assertThrows(IllegalArgumentException.class, () -> BuildDaemonStore.path(relativeBase, "p", paths));
     }
 }

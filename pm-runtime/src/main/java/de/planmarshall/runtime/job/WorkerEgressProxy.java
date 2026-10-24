@@ -129,7 +129,7 @@ public final class WorkerEgressProxy implements AutoCloseable {
                 var socket = server.accept();
                 open.add(socket);
                 Thread.startVirtualThread(() -> handle(socket));
-            } catch (IOException e) {
+            } catch (IOException _) {
                 if (!closed) {
                     // The listener cannot accept any more connections; nothing is left to serve
                     close();
@@ -157,7 +157,7 @@ public final class WorkerEgressProxy implements AutoCloseable {
             }
             drainHeaders(input);
             tunnel(client, destination);
-        } catch (IOException e) {
+        } catch (IOException _) {
             // A broken client or destination ends its tunnel only; the proxy stays up
         } finally {
             open.remove(client);
@@ -204,7 +204,7 @@ public final class WorkerEgressProxy implements AutoCloseable {
             } finally {
                 open.remove(remote);
             }
-        } catch (InterruptedException e) {
+        } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
         } finally {
             open.remove(client);
@@ -214,12 +214,12 @@ public final class WorkerEgressProxy implements AutoCloseable {
     private static void copy(Socket from, Socket to) {
         try {
             from.getInputStream().transferTo(to.getOutputStream());
-        } catch (IOException e) {
+        } catch (IOException _) {
             // the other end closed the tunnel
         } finally {
             try {
                 to.shutdownOutput();
-            } catch (IOException e) {
+            } catch (IOException _) {
                 // already closed
             }
         }
@@ -259,13 +259,13 @@ public final class WorkerEgressProxy implements AutoCloseable {
         closed = true;
         try {
             server.close();
-        } catch (IOException e) {
+        } catch (IOException _) {
             // already closed
         }
         for (var socket : open) {
             try {
                 socket.close();
-            } catch (IOException e) {
+            } catch (IOException _) {
                 // already closed
             }
         }

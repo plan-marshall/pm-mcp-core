@@ -59,6 +59,9 @@ public final class BuildDaemonStore {
     /** The system property of the Gradle daemon registry directory. */
     public static final String GRADLE_REGISTRY_PROPERTY = "-Dorg.gradle.daemon.registry.base=";
 
+    /** The name of the store argument in the null checks. */
+    private static final String ARG_STORE = "store";
+
     private BuildDaemonStore() {
     }
 
@@ -112,7 +115,7 @@ public final class BuildDaemonStore {
      * @throws java.io.UncheckedIOException if the directory cannot be created
      */
     public static void ensure(Path store) {
-        Objects.requireNonNull(store, "store");
+        Objects.requireNonNull(store, ARG_STORE);
         try {
             Files.createDirectories(store);
             Files.setPosixFilePermissions(store, PosixFilePermissions.fromString("rwx------"));
@@ -125,16 +128,16 @@ public final class BuildDaemonStore {
      * @param store the daemon store of the project and write set
      * @return the {@code mvnd} directory of the store
      */
-    public static Path mvnd(Path store) {
-        return Objects.requireNonNull(store, "store").resolve(MVND);
+    public static Path mvndDirectory(Path store) {
+        return Objects.requireNonNull(store, ARG_STORE).resolve(MVND);
     }
 
     /**
      * @param store the daemon store of the project and write set
      * @return the Gradle daemon registry directory of the store
      */
-    public static Path gradle(Path store) {
-        return Objects.requireNonNull(store, "store").resolve(GRADLE);
+    public static Path gradleDirectory(Path store) {
+        return Objects.requireNonNull(store, ARG_STORE).resolve(GRADLE);
     }
 
     /**
@@ -142,6 +145,6 @@ public final class BuildDaemonStore {
      * @return the argument the runtime appends to the argument vector of a Gradle wrapper
      */
     public static String gradleRegistryArgument(Path store) {
-        return GRADLE_REGISTRY_PROPERTY + gradle(store);
+        return GRADLE_REGISTRY_PROPERTY + gradleDirectory(store);
     }
 }

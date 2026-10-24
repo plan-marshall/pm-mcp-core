@@ -343,6 +343,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      *                              settled-record window is {@code null}
      */
     @Builder
+    // java:S5443 does not apply: /tmp is the system temporary directory the specification puts in every job's write
+    // set; it is passed to the launcher as a write path, not used to create a file the runtime trusts.
+    @SuppressWarnings("java:S5443")
     private SubprocessJobRunner(Path base, LockManager lockManager, VerifyNotResolvePipeline pipeline,
             PmExecLauncher launcher, TerminationProtocol termination, JobConfinementComposer confinementComposer,
             Environment environment, ProbeEnvironment probeEnvironment, OutputParser parser, PrimitiveJobs primitives,
@@ -572,8 +575,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             return new JobRunner.StartResult.Started(first.jobId());
         }
         var verified = (ProbeVerification.Verified) verification;
-        var checkoutRoot = candidate.workingDirectory() instanceof ProbeCandidate.CheckoutRoot root
-                ? Optional.of(root.root())
+        var checkoutRoot = candidate.workingDirectory() instanceof ProbeCandidate.CheckoutRoot(Path root)
+                ? Optional.of(root)
                 : Optional.<Path>empty();
         var confinement = confinementComposer.forProbe(first.jobId(), checkoutRoot, List.of(),
                 candidate.kind() != ProbeCandidate.Kind.SCRIPT, List.of());

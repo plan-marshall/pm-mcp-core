@@ -60,6 +60,9 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
     /** The runtime socket, a read path of every worker and of no other job. */
     public static final String RUNTIME_SOCKET = "run/runtime.sock";
 
+    /** The per-user runtime directory. */
+    private static final String RUN_USER = "/run/user";
+
     /** The container engine's socket paths that stay out of the read set without the opt-in. */
     private static final List<String> CONTAINER_SOCKETS =
             List.of("/var/run/docker.sock", "/run/docker.sock", "/run/docker/docker.sock");
@@ -69,9 +72,9 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
      * @throws IllegalArgumentException if a path is not absolute
      */
     public JobConfinementComposer {
-        base = absolute(base, "base");
-        systemTemp = absolute(systemTemp, "systemTemp");
-        deviceRoot = absolute(deviceRoot, "deviceRoot");
+        absolute(base, "base");
+        absolute(systemTemp, "systemTemp");
+        absolute(deviceRoot, "deviceRoot");
         Objects.requireNonNull(sessionBusSocket, "sessionBusSocket");
         sessionBusSocket = sessionBusSocket.map(path -> absolute(path, "sessionBusSocket"));
     }
@@ -83,6 +86,9 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
      * @param sessionBusSocket the session bus socket, {@code /run/user/<uid>/bus} on Linux
      * @return the composer
      */
+    // java:S5443 does not apply: /tmp is the system temporary directory the specification puts in every job's write
+    // set; the paths are passed to the launcher as the write set, not used as a place to create trusted files.
+    @SuppressWarnings("java:S5443")
     public static JobConfinementComposer standard(Path base, Optional<Path> sessionBusSocket) {
         return new JobConfinementComposer(base, Path.of("/tmp"), Path.of("/dev"), sessionBusSocket);
     }
@@ -102,6 +108,8 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
      * The session bus socket of the current user: {@code /run/user/<uid>/bus} on Linux, the whole {@code /run/user}
      * when the uid cannot be read, and none on macOS.
      */
+    // java:S5443 does not apply: /run/user is denied, never written; the path locates a socket outside the read set.
+    @SuppressWarnings("java:S5443")
     private static Optional<Path> currentBusSocket() {
         if (!System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("linux")) {
             return Optional.empty();
@@ -109,9 +117,9 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
         try (var lines = Files.lines(Path.of("/proc/self/status"))) {
             var uid = lines.filter(line -> line.startsWith("Uid:")).findFirst()
                     .map(line -> line.split("\\s+")[1]).orElse(null);
-            return uid == null ? Optional.of(Path.of("/run/user")) : Optional.of(Path.of("/run/user", uid, "bus"));
-        } catch (IOException e) {
-            return Optional.of(Path.of("/run/user"));
+            return Optional.of(uid == null ? Path.of(RUN_USER) : Path.of(RUN_USER, uid, "bus"));
+        } catch (IOException _) {
+            return Optional.of(Path.of(RUN_USER));
         }
     }
 

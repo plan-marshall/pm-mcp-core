@@ -105,7 +105,7 @@ class WorkerEgressProxyTest {
                     output.write(read);
                     output.flush();
                 }
-            } catch (IOException e) {
+            } catch (IOException _) {
                 // the client closed the connection
             }
         });

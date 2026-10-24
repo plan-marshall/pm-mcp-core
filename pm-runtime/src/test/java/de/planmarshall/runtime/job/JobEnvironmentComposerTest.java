@@ -76,7 +76,7 @@ class JobEnvironmentComposerTest {
             assertAll(
                     () -> assertTrue(confinement.writePaths().contains(store),
                             () -> "the store " + store + " is not in " + confinement.writePaths()),
-                    () -> assertEquals(BuildDaemonStore.mvnd(store), Path.of(environment.get("MVND_DAEMON_STORAGE"))));
+                    () -> assertEquals(BuildDaemonStore.mvndDirectory(store), Path.of(environment.get("MVND_DAEMON_STORAGE"))));
         }
 
         @Test

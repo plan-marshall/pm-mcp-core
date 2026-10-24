@@ -330,7 +330,7 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     public static AuditEvent egressRefused(String generationId, String destination) {
         return new AuditEvent(EGRESS_REFUSED, CATEGORY_SECURITY, OUTCOME_REFUSED,
                 Map.of(DETAIL_GENERATION_ID, Objects.requireNonNull(generationId, "generationId"), DETAIL_DESTINATION,
-                        Objects.requireNonNull(destination, "destination")));
+                        Objects.requireNonNull(destination, DETAIL_DESTINATION)));
     }
 
     /**
