@@ -125,7 +125,7 @@ Signal signal, String end, Integer unmappedLines, Instant at) {
         /** The acknowledgement of an answer. */
         ANSWER_ACK("answer_ack", Source.SERVER),
         /** An off-track signal with the action taken. */
-        SIGNAL("signal", Source.SERVER),
+        SIGNAL(SIGNAL_LABEL, Source.SERVER),
         /** How the attempt ended. */
         ATTEMPT_END("attempt_end", Source.SERVER);
 

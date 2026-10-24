@@ -211,7 +211,7 @@ public final class FencedGenerations {
                 var field = nextField(parser, seen);
                 switch (field) {
                     case FIELD_FORMAT_VERSION -> integer(parser, field);
-                    case FIELD_FENCED -> fences = array(parser, field, (element, name) -> readFence(element, name));
+                    case FIELD_FENCED -> fences = array(parser, field, FencedGenerations::readFence);
                     default -> throw undeclared(field);
                 }
             }

@@ -147,7 +147,7 @@ public final class ActivityJournal {
      * @throws java.io.UncheckedIOException if the journal cannot be read or written
      */
     public void append(String queueTaskId, ActivityEntry entry) {
-        Objects.requireNonNull(entry, "entry");
+        Objects.requireNonNull(entry, ENTRY_LABEL);
         appendNext(queueTaskId, expected -> {
             if (entry.seq() != expected) {
                 throw new IllegalArgumentException(
@@ -167,7 +167,7 @@ public final class ActivityJournal {
      */
     public void appendNext(String queueTaskId, IntFunction<ActivityEntry> entry) {
         var file = journalPath(queueTaskId);
-        Objects.requireNonNull(entry, "entry");
+        Objects.requireNonNull(entry, ENTRY_LABEL);
         try {
             Files.createDirectories(file.getParent());
         } catch (IOException e) {
@@ -178,7 +178,7 @@ public final class ActivityJournal {
             transaction.acquire(key);
             var current = Files.exists(file) ? read(file) : List.<ActivityEntry>of();
             var expected = current.isEmpty() ? 1 : current.getLast().seq() + 1;
-            var built = Objects.requireNonNull(entry.apply(expected), "entry");
+            var built = Objects.requireNonNull(entry.apply(expected), ENTRY_LABEL);
             if (built.seq() != expected) {
                 throw new IllegalArgumentException(
                         "The next entry of the journal has the seq %d, not %d".formatted(expected, built.seq()));
@@ -259,7 +259,7 @@ public final class ActivityJournal {
         for (var index = bytes.length - 1; index >= 0; index--) {
             if (bytes[index] == NEWLINE) {
                 if (index + 1 < bytes.length) {
-                    truncateTo(file, index + 1);
+                    truncateTo(file, (long) index + 1);
                 }
                 return;
             }
