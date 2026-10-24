@@ -76,6 +76,9 @@ public final class JGitOperations implements GitOperations {
     /** git's {@code upload-pack} refusing a want it does not serve, lower case. */
     private static final String NOT_OUR_REF = "not our ref";
 
+    /** The detail of a refused abbreviated start point or log revision. */
+    private static final String ABBREVIATED_COMMIT_ID = "abbreviated commit id: ";
+
     /** A remote refusing a want by its object id: JGit's {@code UploadPack} or a remote reporting it absent. */
     private static final Pattern WANT_REFUSED =
             Pattern.compile("(?i)\\bwant [0-9a-f]{40}(?:[0-9a-f]{24})? not (?:valid|found)\\b");
@@ -178,7 +181,7 @@ public final class JGitOperations implements GitOperations {
             return GitResult.of(GitOutcome.GIT_IDENTITY_AMBIGUOUS, input.startPoint());
         }
         if (resolution == GitIdentity.Resolution.ABBREVIATED_COMMIT_ID) {
-            return GitResult.of(GitOutcome.UNKNOWN_REVISION, "abbreviated commit id: " + input.startPoint());
+            return GitResult.of(GitOutcome.UNKNOWN_REVISION, ABBREVIATED_COMMIT_ID + input.startPoint());
         }
         var resolved = branchRef.isPresent() && !input.createBranch()
                 ? existingBranchStart(main, commonDir, input.branch().get(), branchRef.get())
@@ -239,7 +242,7 @@ public final class JGitOperations implements GitOperations {
             return StartPoint.refused(GitOutcome.GIT_IDENTITY_AMBIGUOUS, input.startPoint());
         }
         if (resolution == GitIdentity.Resolution.ABBREVIATED_COMMIT_ID) {
-            return StartPoint.refused(GitOutcome.UNKNOWN_REVISION, "abbreviated commit id: " + input.startPoint());
+            return StartPoint.refused(GitOutcome.UNKNOWN_REVISION, ABBREVIATED_COMMIT_ID + input.startPoint());
         }
         ObjectId start = main.resolve(input.startPoint() + "^{commit}");
         if (start == null) {
@@ -368,7 +371,7 @@ public final class JGitOperations implements GitOperations {
                 return GitResult.of(GitOutcome.GIT_IDENTITY_AMBIGUOUS, revision);
             }
             if (resolution == GitIdentity.Resolution.ABBREVIATED_COMMIT_ID) {
-                return GitResult.of(GitOutcome.UNKNOWN_REVISION, "abbreviated commit id: " + revision);
+                return GitResult.of(GitOutcome.UNKNOWN_REVISION, ABBREVIATED_COMMIT_ID + revision);
             }
             ObjectId start = repository.resolve(revision + "^{commit}");
             if (start == null) {
