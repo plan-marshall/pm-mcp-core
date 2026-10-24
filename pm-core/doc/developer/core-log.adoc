@@ -1,0 +1,103 @@
+= The Log Message Holder (`core.log`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+:src: ../../src/main/java/de/planmarshall/core/log
+:test: ../../src/test/java/de/planmarshall/core/log
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
+
+Package `de.planmarshall.core.log` of `pm-core` holds `CoreLogMessages`, the one holder of the module's INFO, WARN and
+ERROR records. Every module that logs has exactly one holder in its own `log` package; `pm-core`'s is this one, with the
+prefix `PM_CORE`. It is also the holder another module may log through: a module logs through its own holder and that of
+`pm-core`, and through no other.
+
+The rules of the layout and the current roster with each record's component, template and description are in
+link:../../../doc/LogMessages.adoc[`doc/LogMessages.adoc`]; this guide states how a holder is built and extended.
+
+== Main Types
+_Requirements: link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
+
+[cols="1,3",options="header"]
+|===
+|Member |What it holds
+
+|`CoreLogMessages.PREFIX`
+|`PM_CORE`, the prefix of every record of the module.
+
+|`CoreLogMessages.INFO`
+|The INFO records, identifiers 001-099.
+
+|`CoreLogMessages.WARN`
+|The WARN records, identifiers 100-199.
+
+|`CoreLogMessages.ERROR`
+|The ERROR records, identifiers 200-299.
+|===
+
+Every record is a `LogRecord` built by `LogRecordModel.builder()` with the prefix, the identifier and the template. A
+`LogRecord` is a constant: a caller logs it with the `CuiLogger` of its class and passes the arguments in the order of
+the template's `%s` placeholders. The `LogRecord` names the identifier, the template and the description of the message;
+the logger names the class that logged it.
+
+The roster of the module is in `doc/LogMessages.adoc`, which is the one place that states the identifiers in use; this
+guide does not repeat it. The ranges are fixed per level, and a new record takes the next free identifier of its level.
+
+== Using the Holder
+
+[source,java]
+----
+private static final CuiLogger LOGGER = new CuiLogger(SomeClass.class);
+
+LOGGER.warn(CoreLogMessages.WARN.AUDIT_RECORD_DEFERRED, event, transactionId, intent, reason);
+----
+
+The placeholders are `%s`; an exception is passed first, before the template arguments. slf4j, log4j and
+`System.out`/`System.err` are not used. The logger is `private static final` in its class, and every INFO, WARN and ERROR
+message is a record of the holder, never a literal at the call site.
+
+== Adding a Record
+
+. Find the next free identifier of the level in `doc/LogMessages.adoc` and in the holder: INFO 001-099, WARN 100-199,
+   ERROR 200-299. There are no workstream blocks and nothing is renumbered.
+. Add the constant to the holder's inner class, with a Javadoc sentence that states when it is logged, the component, the
+   template with its placeholders, and what each placeholder names.
+3. Add the row to the holder's table in `doc/LogMessages.adoc` with the same identifier, component, template and
+   description.
+4. Log it from the class of the module that owns the event. When two modules log one event, the record goes to the lower
+   module's holder (`pm-core`), and the other module logs through it.
+5. Run `CoreLogMessagesTest`: it refuses an identifier used twice or outside its level's range and pins the prefix and the
+   records.
+
+Do not add a message for an event an existing record already states: extend the record's description instead, so the
+log's vocabulary stays closed.
+
+== Invariants and Failure Modes
+
+* *One holder per module.* A module with a record of its own gets its holder in its own `log` package; it never adds a
+  record to another module's holder except `pm-core`'s, and `pm-core` never names a module of the product above it.
+* *The ranges are fixed.* INFO 001-099, WARN 100-199, ERROR 200-299 in every holder. `CoreLogMessagesTest` refuses a
+  duplicate and an out-of-range identifier.
+* *A record carries no secret.* A template and its arguments never name a token, a key or a credential value. A
+  provider's message that may quote one passes through the runtime's redaction before it is logged.
+* *The roster has one source.* `doc/LogMessages.adoc` states the current records; the holder is the code side of the
+  same list. A change to one without the other is a documentation defect.
+
+== Testing
+
+link:{test}/CoreLogMessagesTest.java[`CoreLogMessagesTest`]:: every identifier is unique and inside its level's range, the
+prefix is `PM_CORE`, and the records are pinned with their identifiers and templates. The test is the build's guard for
+<<_adding_a_record,adding a record>>.
+
+== Specification Tracing
+
+* The roster and the per-record descriptions:
+  link:../../../doc/LogMessages.adoc[`doc/LogMessages.adoc`]
+* Decision: link:../../../doc/adr/005-one-log-message-holder-per-module.adoc[repository ADR 005] one log-message holder
+  per module
+* The other holders: link:../../../pm-runtime/doc/developer/runtime-log.adoc[`runtime.log`],
+  link:../../../pm-workflow/doc/developer/workflow-log.adoc[`workflow.log`]

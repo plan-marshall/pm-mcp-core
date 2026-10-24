@@ -21,12 +21,6 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |nothing
 |Milestones 3 and 4
 
-|link:module-developer-docs.adoc[`module-developer-docs`]
-|The developer documentation of every package that has production code and no developer file, and the guides of `plan-marshall-documentation` folded in
-|`open`
-|nothing
-|Milestones 2 to 4
-
 |link:job-confinement-and-environment.adoc[`job-confinement-and-environment`]
 |Job confinement and job environment in the daemon
 |`open`

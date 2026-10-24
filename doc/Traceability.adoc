@@ -72,7 +72,7 @@ Documentation: link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow E
 link:../pm-workflow/doc/developer/workflow-engine.adoc#_entity_addressing[Workflow Engine Developer Guide § Entity Addressing],
 link:../pm-core/doc/developer/core-store.adoc[Workflow State Store and Engine Ports Developer Guide],
 link:../pm-runtime/doc/developer/runtime-question.adoc[Question Record Reader Developer Guide],
-link:../../plan-marshall-documentation/doc/developer/primitive-spi.adoc#spi-contract[Developer Guide § The Contract of a Primitive]
+link:../pm-core/doc/developer/core-spi.adoc#_the_contract_of_a_primitive[Developer Guide § The Contract of a Primitive]
 
 [#PM-ARCH-6]
 === PM-ARCH-6: Filesystem State Persistence & Cache-Only Process Memory
@@ -158,8 +158,8 @@ Documentation: link:../../plan-marshall-documentation/doc/concepts/runtime-lifec
 link:../../plan-marshall-documentation/doc/concepts/runtime-lifecycle.adoc#drain[Concepts § Drain],
 link:../../plan-marshall-documentation/doc/concepts/runtime-lifecycle.adoc#per-project-recovery[Concepts § Per-Project Recovery],
 link:../../plan-marshall-documentation/doc/concepts/runtime-lifecycle.adoc#periodic-sweep[Concepts § Periodic Sweep],
-link:../../plan-marshall-documentation/doc/developer/runtime-lifecycle.adoc#types[Developer Guide § Runtime Lifecycle],
-link:../../plan-marshall-documentation/doc/developer/locks-and-leases.adoc#sweep[Developer Guide § The Stale Lease Sweep],
+link:../pm-runtime/doc/developer/runtime-start.adoc#_start_drain_and_recovery[Developer Guide § Runtime Lifecycle],
+link:../pm-runtime/doc/developer/runtime-lock.adoc#_the_stale_lease_sweep[Developer Guide § The Stale Lease Sweep],
 link:../../plan-marshall-documentation/doc/user/operator.adoc#drain-timeout-seconds[User Guide § drain_timeout_seconds],
 link:../../plan-marshall-documentation/doc/user/operator.adoc#what-a-drain-does[User Guide § What a Drain Does],
 link:../../plan-marshall-documentation/doc/user/operator.adoc#recovery-after-a-crash[User Guide § Recovery After a Crash],
@@ -331,7 +331,7 @@ link:../pm-core/src/test/java/de/planmarshall/core/spi/validation/AsciiDocValida
 link:../pm-core/src/test/java/de/planmarshall/core/spi/validation/OutlineValidatorTest.java[OutlineValidatorTest]
 
 Documentation: link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer Guide],
-link:../../plan-marshall-documentation/doc/developer/primitive-spi.adoc#content-validators[Developer Guide § The Content Validators]
+link:../pm-core/doc/developer/core-spi.adoc#_the_content_validators[Developer Guide § The Content Validators]
 
 [#PM-WF-7]
 === PM-WF-7: Remediation Policies, Loop-Back & Iteration Bounds
@@ -493,7 +493,7 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowParserTes
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/WorkflowValidatorTest.java[WorkflowValidatorTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/AdditionalRulesTest.java[AdditionalRulesTest]
 
-Documentation: link:../../plan-marshall-documentation/doc/developer/workflow-dsl.adoc[Developer Guide § The Workflow Language],
+Documentation: link:../pm-workflow/doc/developer/workflow-dsl.adoc[Developer Guide § Workflow DSL],
 link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer Guide],
 link:../pm-workflow/doc/developer/workflow-engine.adoc#_entering_a_callee_through_its_entry[Workflow Engine Developer Guide § Entering a Callee Through Its Entry],
 link:../pm-workflow/doc/developer/workflow-ast.adoc[Workflow AST Developer Guide],
@@ -664,7 +664,7 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ExecutableCheckTest
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ArgumentCheckTest.java[ArgumentCheckTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/VerifyNotResolveAdversarialTest.java[VerifyNotResolveAdversarialTest]
 
-Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc[Concepts § Enrolment], link:../../plan-marshall-documentation/doc/developer/enrolment-store.adoc[Developer Guide § Enrolment Store], link:../pm-runtime/doc/developer/runtime-job.adoc[Developer Guide § Job Verification (`runtime.job`)]
+Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc[Concepts § Enrolment], link:../pm-runtime/doc/developer/runtime-enrolment.adoc[Developer Guide § Enrolment Check and Operator Writes], link:../pm-runtime/doc/developer/runtime-job.adoc[Developer Guide § Job Verification (`runtime.job`)]
 
 [#PM-EXEC-3]
 === PM-EXEC-3: Python Interpreter Pinning & Hash Verification
@@ -907,7 +907,7 @@ Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/EnrolmentCheckTest.java[EnrolmentCheckTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/StoreRefusalTest.java[StoreRefusalTest]
 
-Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#check[Concepts § Enrolment, The Check], link:../../plan-marshall-documentation/doc/developer/enrolment-store.adoc#check[Developer Guide § Enrolment Store, The Enrolment Check]
+Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#check[Concepts § Enrolment, The Check], link:../pm-runtime/doc/developer/runtime-enrolment.adoc#_the_enrolment_check[Developer Guide § Enrolment Check and Operator Writes, The Enrolment Check]
 
 [#PM-SEC-5]
 === PM-SEC-5: Subprocess Environment Sanitization & Linux Filesystem Confinement
@@ -936,7 +936,7 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/EnrolmentsTes
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/HarnessesSidecarCheckTest.java[HarnessesSidecarCheckTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/EnrolmentSidecarsTest.java[EnrolmentSidecarsTest]
 
-Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#integrity[Concepts § Enrolment, Integrity], link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#residual-risk[Concepts § Enrolment, Residual Risk], link:../../plan-marshall-documentation/doc/developer/enrolment-store.adoc#integrity-key[Developer Guide § Enrolment Store, The Integrity Key], link:../pm-runtime/doc/developer/runtime-enrolment.adoc[Developer Guide § Integrity Key and Sidecars (`runtime.enrolment`)], link:../pm-runtime/doc/developer/runtime-credentials.adoc#_the_first_recording_reconciles_the_key_of_both_stores[Developer Guide § The First Recording Reconciles the Key of Both Stores (`runtime.credentials`)], link:../pm-runtime/doc/adr/runtime-credentials/007-the-first-recording-reconciles-both-stores.adoc[ADR runtime-credentials/007]
+Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#integrity[Concepts § Enrolment, Integrity], link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#residual-risk[Concepts § Enrolment, Residual Risk], link:../pm-runtime/doc/developer/runtime-enrolment.adoc#_the_integrity_key_before_and_after_the_choice[Developer Guide § Enrolment Check and Operator Writes, The Integrity Key], link:../pm-runtime/doc/developer/runtime-enrolment.adoc[Developer Guide § Integrity Key and Sidecars (`runtime.enrolment`)], link:../pm-runtime/doc/developer/runtime-credentials.adoc#_the_first_recording_reconciles_the_key_of_both_stores[Developer Guide § The First Recording Reconciles the Key of Both Stores (`runtime.credentials`)], link:../pm-runtime/doc/adr/runtime-credentials/007-the-first-recording-reconciles-both-stores.adoc[ADR runtime-credentials/007]
 
 Implementation (the runtime side of the confinement and the job environment: the write set, the extra read paths and the read-denied paths composed from the verified enrolment and passed to `pm-exec` as `--write`/`--read`/`--deny-read`; the per-project daemon store keyed by the first 16 hex characters of the SHA-256 over the sorted write set; the container-engine opt-in withholding the container variables and denying the engine's sockets without it; the session bus socket denied and its variables never passed; the environment table built from scratch per job kind and the probe environment; and the worker egress proxy with its `headless.endpoints` allowlist and `egress_refused` audit record. The Landlock and Seatbelt enforcement, the network namespace and the egress tunnel enforcement are `pm-exec` work in `pm-mcp-clients` and are not implemented here; the `egress` field of the job record is not implemented here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobConfinement.java[JobConfinement],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobConfinementComposer.java[JobConfinementComposer],
@@ -1025,7 +1025,7 @@ Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/LifecycleG
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/EnrolmentsTest.java[EnrolmentsTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/EnrolmentCheckTest.java[EnrolmentCheckTest]
 
-Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#lifecycle-gate[Concepts § Enrolment, The Lifecycle Gate and Pilots], link:../../plan-marshall-documentation/doc/developer/enrolment-store.adoc#lifecycle-gate[Developer Guide § Enrolment Store, The Lifecycle Gate]
+Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#lifecycle-gate[Concepts § Enrolment, The Lifecycle Gate and Pilots], link:../pm-core/doc/developer/core-store.adoc#_the_enrolment_store[Developer Guide § Enrolment Store, The Lifecycle Gate]
 
 [#PM-MIG-2]
 === PM-MIG-2: Separate State Trees & Legacy Coexistence
@@ -1037,7 +1037,7 @@ link:../pm-core/src/main/java/de/planmarshall/core/store/EnrolmentSidecar.java[E
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/EnrolmentCodecTest.java[EnrolmentCodecTest]
 
-Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#enrolment-file[Concepts § Enrolment, One File per Project], link:../../plan-marshall-documentation/doc/developer/enrolment-store.adoc#schema-and-codec[Developer Guide § Enrolment Store, Schema and Codec]
+Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#enrolment-file[Concepts § Enrolment, One File per Project], link:../pm-core/doc/developer/core-store.adoc#_the_enrolment_store[Developer Guide § Enrolment Store, Schema and Codec]
 
 [#PM-MIG-4]
 === PM-MIG-4: Stage Exit Criteria & Lifecycle Gate
@@ -1084,7 +1084,7 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/TransitionFuzz
 Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/WorkflowValidatorTest.java[WorkflowValidatorTest] (a refusing fixture per check and the matched controls of its exemptions),
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/TransitionFuzzerTest.java[TransitionFuzzerTest] (a planted dead state and its matched control)
 
-Documentation: link:../../plan-marshall-documentation/doc/developer/workflow-dsl.adoc#verification[Developer Guide § Static Verification], link:../../plan-marshall-documentation/doc/developer/workflow-dsl.adoc#fuzzer[Developer Guide § Transition Fuzzer], link:../../plan-marshall-documentation/doc/concepts/workflow-verification.adoc[Concepts § Workflow Verification]
+Documentation: link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide], link:../../plan-marshall-documentation/doc/concepts/workflow-verification.adoc[Concepts § Workflow Verification]
 
 [#PM-TEST-4]
 === PM-TEST-4: End-to-End Scenario & Worker Supervision Testing
@@ -1205,7 +1205,7 @@ link:../pm-core/src/test/java/de/planmarshall/core/analysis/CodeAnalysisProvider
 link:../pm-core/src/test/java/de/planmarshall/core/guard/ProviderNeutralityArchTest.java[ProviderNeutralityArchTest],
 link:../pm-core/src/test/java/de/planmarshall/core/guard/AnalysisBoundaryArchTest.java[AnalysisBoundaryArchTest]
 
-Documentation: link:../../plan-marshall-documentation/doc/developer/assembly-boundary.adoc[Developer Guide § The Assembly Boundary], link:../../plan-marshall-documentation/doc/developer/registry-setup.adoc[Developer Guide § Registry Setup], link:../../plan-marshall-documentation/doc/developer/findings-and-analysis.adoc[Developer Guide § Findings and Code Analysis]
+Documentation: link:../../plan-marshall-documentation/doc/developer/assembly-boundary.adoc[Developer Guide § The Assembly Boundary], link:../../plan-marshall-documentation/doc/developer/registry-setup.adoc[Developer Guide § Registry Setup], link:../pm-core/doc/developer/core-analysis.adoc[Developer Guide § Code Analysis], link:../pm-core/doc/developer/core-findings.adoc[Developer Guide § Findings]
 
 [#PM-IMPL-2]
 === PM-IMPL-2: Versioned JSON/JSONL Storage & TOON Wire Output
@@ -1259,7 +1259,7 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusSchemaPar
 link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreIdentityCodecTest.java[ProjectStoreIdentityCodecTest]
 
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_operator_and_question_stores[Scope Stores Developer Guide § Operator and Question Stores, the Project Store and the Project Resolution],
-link:../../plan-marshall-documentation/doc/concepts/store-integrity.adoc#format-versions[Concepts § Store Integrity, Format Versions], link:../../plan-marshall-documentation/doc/developer/store-substrate.adoc#format-versions[Developer Guide § Store Substrate, Format Versions and Refusals], link:../../plan-marshall-documentation/doc/developer/findings-and-analysis.adoc#analysis-result[Developer Guide § Findings and Code Analysis, The Analysis Result and Its Codec], link:../../plan-marshall-documentation/doc/developer/enrolment-store.adoc#schema-and-codec[Developer Guide § Enrolment Store, Schema and Codec]
+link:../../plan-marshall-documentation/doc/concepts/store-integrity.adoc#format-versions[Concepts § Store Integrity, Format Versions], link:../pm-core/doc/developer/core-store.adoc#_format_versions[Developer Guide § Store Substrate, Format Versions and Refusals], link:../pm-core/doc/developer/core-analysis.adoc[Developer Guide § Code Analysis, The Analysis Result and Its Codec], link:../pm-core/doc/developer/core-store.adoc#_the_enrolment_store[Developer Guide § Enrolment Store, Schema and Codec]
 
 [#PM-IMPL-4]
 === PM-IMPL-4: Bounded Long-Poll & Progress-Reset Waiting Primitives
@@ -1430,12 +1430,12 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/unit/ProjectUnitLoade
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/SubWorkflowExecutionTest.java[SubWorkflowExecutionTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java[WorkflowStatusCodecTest]
 
-Documentation: link:../../plan-marshall-documentation/doc/developer/workflow-dsl.adoc[Developer Guide § The Workflow Language], link:../../plan-marshall-documentation/doc/developer/workflow-dsl.adoc#verification[Developer Guide § Static Verification],
+Documentation: link:../pm-workflow/doc/developer/workflow-dsl.adoc[Developer Guide § Workflow DSL], link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide],
 link:../pm-workflow/doc/developer/workflow-dsl.adoc#unit-frontmatter[Workflow DSL Developer Guide § The Unit Frontmatter],
 link:../pm-workflow/doc/developer/workflow-ast.adoc#unit-types[Workflow AST Developer Guide § Unit Types],
 link:../pm-workflow/doc/developer/workflow-verify.adoc#interface-rules[Workflow Verification Developer Guide § Interface Rules and Unit Types],
 link:../pm-workflow/doc/developer/workflow-verify.adoc#_inv_gen_1_over_type_and_interface[Workflow Verification Developer Guide § INV-GEN-1 over Type and Interface],
-link:../pm-workflow/doc/developer/workflow-unit.adoc#_the_author_of_a_unit[Workflow Units Developer Guide § The Author of a Unit], link:../../plan-marshall-documentation/doc/developer/workflow-dsl.adoc#fuzzer[Developer Guide § Transition Fuzzer], link:../../plan-marshall-documentation/doc/concepts/workflow-verification.adoc[Concepts § Workflow Verification],
+link:../pm-workflow/doc/developer/workflow-unit.adoc#_the_author_of_a_unit[Workflow Units Developer Guide § The Author of a Unit], link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide], link:../../plan-marshall-documentation/doc/concepts/workflow-verification.adoc[Concepts § Workflow Verification],
 link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer Guide],
 link:../pm-workflow/doc/developer/workflow-diagram.adoc[Workflow Diagrams Developer Guide],
 link:../pm-workflow/doc/developer/workflow-unit.adoc[Workflow Units Developer Guide],
@@ -1452,7 +1452,7 @@ link:../pm-workflow/doc/developer/workflow-dsl.adoc#call-values[Workflow DSL Dev
 ADRs link:../pm-workflow/doc/adr/workflow-plan/012-per-lane-routes-and-other-lane-pruning.adoc[workflow-plan/012] to link:../pm-workflow/doc/adr/workflow-plan/016-pruned-merge-gate-settles-in-the-engine.adoc[016], link:../pm-workflow/doc/adr/workflow-verify/029-inv-init-2-per-lane-with-a-lane-input.adoc[workflow-verify/029], link:../pm-workflow/doc/adr/workflow-dsl/006-empty-list-admitted-as-a-call-value.adoc[workflow-dsl/006],
 link:../pm-workflow/doc/adr/workflow-plan/017-per-lane-rework-fixture.adoc[workflow-plan/017], link:../pm-workflow/doc/adr/workflow-verify/030-lane-entry-ids-in-one-holder.adoc[workflow-verify/030],
 link:../pm-workflow/doc/developer/workflow-diagram.adoc#instance-forms[Workflow Diagrams Developer Guide § Instance forms],
-link:../../plan-marshall-documentation/doc/developer/primitive-spi.adoc#spi-contract[Developer Guide § The Contract of a Primitive], link:../../plan-marshall-documentation/doc/developer/primitive-spi.adoc#registry[Developer Guide § The Registry]
+link:../pm-core/doc/developer/core-spi.adoc#_the_contract_of_a_primitive[Developer Guide § The Contract of a Primitive], link:../pm-core/doc/developer/core-spi.adoc#_the_registry[Developer Guide § The Registry]
 
 [#PM-IMPL-7]
 === PM-IMPL-7: Data Store Invariants, Footprint Reconciliation & Lock Ordering
@@ -1528,7 +1528,7 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusStoreTest
 link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreTest.java[ProjectStoreTest]
 
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_operator_and_question_stores[Scope Stores Developer Guide § Operator and Question Stores, the Project Store and the Project Resolution],
-link:../../plan-marshall-documentation/doc/concepts/locks-and-leases.adoc[Concepts § Locks and Leases], link:../../plan-marshall-documentation/doc/concepts/store-integrity.adoc[Concepts § Store Integrity], link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#rebaseline[Concepts § Enrolment, Re-Baseline], link:../../plan-marshall-documentation/doc/developer/locks-and-leases.adoc[Developer Guide § Locks and Leases], link:../../plan-marshall-documentation/doc/developer/store-substrate.adoc[Developer Guide § Store Substrate], link:../../plan-marshall-documentation/doc/developer/enrolment-store.adoc#store[Developer Guide § Enrolment Store, The Store]
+link:../../plan-marshall-documentation/doc/concepts/locks-and-leases.adoc[Concepts § Locks and Leases], link:../../plan-marshall-documentation/doc/concepts/store-integrity.adoc[Concepts § Store Integrity], link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#rebaseline[Concepts § Enrolment, Re-Baseline], link:../pm-runtime/doc/developer/runtime-lock.adoc[Developer Guide § The Lock Manager], link:../pm-core/doc/developer/core-store.adoc#_the_store_substrate[Developer Guide § Store Substrate], link:../pm-core/doc/developer/core-store.adoc#_the_enrolment_store[Developer Guide § Enrolment Store, The Store]
 
 == link:../../plan-marshall-documentation/doc/requirements/16-model-work.adoc[Model Work]
 

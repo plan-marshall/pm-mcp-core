@@ -51,12 +51,18 @@ The module builds a test JAR with the fixtures the tests of the assembly share: 
 
 * link:doc/developer/runtime-audit.adoc[Audit Trail (`runtime.audit`)]
 * link:doc/developer/runtime-corpus.adoc[Git LFS Download of the Corpus Sources (`runtime.corpus`)]
-* link:doc/developer/runtime-credentials.adoc[Credential Stores (`runtime.credentials`)]
-* link:doc/developer/runtime-enrolment.adoc[Integrity Key and Sidecars (`runtime.enrolment`)]
+* link:doc/developer/runtime-credentials.adoc[Credential Stores (`runtime.credentials`, `runtime.credentials.dbus`)]
+* link:doc/developer/runtime-enrolment.adoc[Integrity Key, Check and Operator Writes (`runtime.enrolment`)]
+* link:doc/developer/runtime-ingest.adoc[Ingestion Validator (`runtime.ingest`)]
 * link:doc/developer/runtime-job.adoc[Job Verification and the Job Runner (`runtime.job`)]
+* link:doc/developer/runtime-lock.adoc[Lock Manager and Stale Lease Sweep (`runtime.lock`)]
+* link:doc/developer/runtime-log.adoc[Log Messages (`runtime.log`)]
 * link:doc/developer/runtime-lsp.adoc[Language Server Client (`runtime.lsp`)]
 * link:doc/developer/runtime-question.adoc[Question Record Reader (`runtime.question`)]
+* link:doc/developer/runtime-security.adoc[Authentication Seams (`runtime.security`)]
 * link:doc/developer/runtime-start.adoc[Sweep Steps, the Audit Chain Seam, the Store Move Resume and Job Recovery (`runtime.start`)]
+* link:doc/developer/runtime-web.adoc[Web Access and the TLS Certificate (`runtime.web`)]
+* link:doc/developer/runtime-workspace.adoc[Workspace Confinement (`runtime.workspace`)]
 
 == ADRs
 

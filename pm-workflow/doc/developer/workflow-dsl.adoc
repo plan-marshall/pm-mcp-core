@@ -59,6 +59,46 @@ The lines of the frontmatter, which the lexer cuts with the rest of the text, ar
 line, so the lexer's comment rule (`#` to the end of the line) never applies to them: inside the frontmatter a comment
 is refused.
 
+=== The Lexer
+
+`WorkflowLexer` cuts the source into lines, drops a comment from `#` to the end of its line, ignores indentation and
+blank lines, and gives every token its 1-based line and column. A word is an `INT` when it is all digits, an `IDENT`
+when it is lower case and starts with a letter, an `ENUM_VALUE` when it starts with a letter and contains an upper-case
+one, and `INVALID` otherwise. A `-` directly followed by `>` ends a word, so `done->next` is three tokens. The JSON of an
+`instance` line stays one token, so a `#` inside it is no comment. The lexer never refuses: an unknown character becomes
+an `INVALID` token that the parser refuses where it occurs.
+
+=== The Parser
+
+`WorkflowParser` is a recursive descent over the grammar: the unit header, the optional `instance` line, the `scope`
+clause with the `param` and `result` declarations of a sub-workflow, the `declare` and `decide` lines, `start`,
+`migrate`, and every state form with its links, guards, transitions, result guards and step completions. A `link`
+without a form takes `LinkRelation.defaultForm()`. Guards bind `not` before `and` before `or`; a guard nested deeper
+than 32 parentheses (`WorkflowParser.MAX_GUARD_DEPTH`) is refused, which bounds the recursion.
+
+The first refusal wins. Its `RefusalRule` is one of the members listed under <<_main_types>>; `STRUCTURE` covers a source
+that does not follow the grammar. A reserved keyword is refused where the grammar names a name, not everywhere:
+the positional vocabularies stay usable (`link retry retry [noop]` parses). What the parser leaves to later stages is
+the identifier length bounds, every verification rule, the merge of a multi-file unit and the refusal of an `instance`
+line in a project unit.
+
+[#instance-header]
+=== The Instance Header
+
+The `instance` line of a plan instance version is one line of JSON. `InstanceHeaderReader` reads it with the streaming
+`JsonParser` of `jackson-core` into `InstanceHeader` (`planId`, `version`, `event`, `inputs`, and the JSON exactly as
+read) with its `InstanceInputs`: the configuration hash, the template and sub-unit references (`UnitRef`: unit, optional
+file, digest, origin), the composition rule reference (`CompositionRules`: revision, digest), the plan facts digest, the
+realized-footprint digest, the change type, the providers digest and the three optional digests, empty when the member
+is absent or `null`.
+
+The reader checks the structure of the plan instance header: the required members and their JSON types, and no member
+named twice in any object. It ignores members it does not model, which stay in the JSON. A defect is a refusal
+`INSTANCE_HEADER` whose message names the member, for example
+`member 'inputs.templates[0].digest' of the instance header must be a string`; a header without `inputs` is refused. The
+other schema checks (constants, enumerations, patterns, members it does not allow) are made by `HeaderSchemaCheck` of
+`workflow.plan`. A `jackson-core` exception is mapped to the refusal and never rethrown.
+
 [#unit-frontmatter]
 == The Unit Frontmatter
 _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
