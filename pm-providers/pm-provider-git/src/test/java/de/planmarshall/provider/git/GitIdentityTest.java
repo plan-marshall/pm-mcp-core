@@ -125,6 +125,21 @@ class GitIdentityTest {
     }
 
     @Test
+    @DisplayName("an abbreviated start point is refused even when an existing branch ignores it")
+    void abbreviatedStartPointWithExistingBranch() throws Exception {
+        try (var repository = Git.open(repo.toFile())) {
+            repository.branchCreate().setName("pinned").setStartPoint(initial.id()).call();
+        }
+
+        var result = git.worktreeAdd(new WorktreeAddInput(repo, repo.resolve("wt"), Optional.of("pinned"), false,
+                initial.id().substring(0, 8)));
+
+        assertAll(
+                () -> assertEquals(GitOutcome.UNKNOWN_REVISION, result.outcome(), result.detail()),
+                () -> assertTrue(result.detail().contains("abbreviated"), result.detail()));
+    }
+
+    @Test
     @DisplayName("the ref spellings are the full ones of the contract")
     void refSpellings() {
         assertAll(

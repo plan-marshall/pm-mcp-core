@@ -240,5 +240,19 @@ class JobConfinementComposerTest {
             assertThrows(IllegalArgumentException.class,
                     () -> confinementComposer.forJob(enrolment, job, List.of(), false));
         }
+
+        @Test
+        @DisplayName("a base reached through a parent segment does not hide the protected tree")
+        void traversedBase() {
+            var traversed = base.resolve("..").resolve(base.getFileName());
+            var confinementComposer = new JobConfinementComposer(traversed, Path.of("/tmp"), Path.of("/dev"),
+                    Optional.empty());
+            var job = JobId.random(JobId.Kind.BUILD);
+            var enrolment = ConfinementFixture.enrolment(project, null,
+                    List.of(base.resolve("cache").toString()), Map.of(), List.of());
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> confinementComposer.forJob(enrolment, job, List.of(), false));
+        }
     }
 }

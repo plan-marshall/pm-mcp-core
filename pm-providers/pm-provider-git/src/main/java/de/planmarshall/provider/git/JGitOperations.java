@@ -173,6 +173,13 @@ public final class JGitOperations implements GitOperations {
     private GitResult<Worktree> addWorktree(Repository main, WorktreeAddInput input, Path target) throws IOException {
         Path commonDir = main.getCommonDirectory().toPath().toRealPath();
         Optional<String> branchRef = input.branch().map(b -> Constants.R_HEADS + b);
+        var resolution = GitIdentity.resolution(main, input.startPoint());
+        if (GitIdentity.isAmbiguous(resolution)) {
+            return GitResult.of(GitOutcome.GIT_IDENTITY_AMBIGUOUS, input.startPoint());
+        }
+        if (resolution == GitIdentity.Resolution.ABBREVIATED_COMMIT_ID) {
+            return GitResult.of(GitOutcome.UNKNOWN_REVISION, "abbreviated commit id: " + input.startPoint());
+        }
         var resolved = branchRef.isPresent() && !input.createBranch()
                 ? existingBranchStart(main, commonDir, input.branch().get(), branchRef.get())
                 : newStart(main, input, branchRef);

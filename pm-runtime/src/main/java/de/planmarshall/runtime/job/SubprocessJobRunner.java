@@ -578,10 +578,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         var checkoutRoot = candidate.workingDirectory() instanceof ProbeCandidate.CheckoutRoot(Path root)
                 ? Optional.of(root)
                 : Optional.<Path>empty();
-        var confinement = confinementComposer.forProbe(first.jobId(), checkoutRoot, List.of(),
-                candidate.kind() != ProbeCandidate.Kind.SCRIPT, List.of());
         return run(job, log -> new Launch(verified.workingDirectory(), verified.argv(),
-                probeEnvironment.of(candidate, first.jobId()), Optional.empty(), log, confinement));
+                probeEnvironment.of(candidate, first.jobId()), Optional.empty(), log,
+                confinementComposer.forProbe(first.jobId(), checkoutRoot, List.of(),
+                        candidate.kind() != ProbeCandidate.Kind.SCRIPT, List.of())));
     }
 
     /**

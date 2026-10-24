@@ -216,7 +216,9 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
      * @throws IllegalArgumentException if the path and the tree contain one another
      */
     private static void requireOutside(Path path, Path root, String name) {
-        if (path.startsWith(root) || root.startsWith(path)) {
+        var normalizedPath = path.toAbsolutePath().normalize();
+        var normalizedRoot = root.toAbsolutePath().normalize();
+        if (normalizedPath.startsWith(normalizedRoot) || normalizedRoot.startsWith(normalizedPath)) {
             throw new IllegalArgumentException(
                     "A " + name + " entry overlaps a protected runtime tree: " + path);
         }
