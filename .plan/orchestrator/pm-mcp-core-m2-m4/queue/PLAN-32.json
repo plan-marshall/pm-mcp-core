@@ -2,10 +2,10 @@
   "id": "PLAN-32",
   "slug": "consultation",
   "workstream": "WS-05",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-32-consultation",
+  "pr": "#169",
+  "landing": "landings/PLAN-32.md",
   "seq": 32
 }
