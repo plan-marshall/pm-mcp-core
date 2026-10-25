@@ -1,0 +1,70 @@
+= ADR 042: A Metrics Row Keeps Three-Valued Figures, and a Row of Another Kind Keeps Its Content
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-24
+
+== Context
+
+The Metrics Store specification makes `"unmeasured"`, `"not_applicable"` and a measured `0` three distinct values
+(Store Schemas § Metrics & Quality Report; Client Profiles § Tokens, Not Money). A column a harness does not report is
+`unmeasured` and never `0`, a column that does not exist for a harness by design is `not_applicable` and counts `0`,
+and `total_tokens` is derived from the five token components rather than parsed. The store also holds five row kinds,
+of which this work package owns two — the task row and the worker-idle row — while the wait, phase-close and
+served-read rows belong to later work packages.
+
+The choice was how a store that writes two row kinds keeps the invariants for the whole document without inventing
+the schema of the other three.
+
+== Decision
+
+* A usage figure is the record `Measurement`, whose closed state is `MEASURED`, `UNMEASURED` or `NOT_APPLICABLE`; only
+  a measured figure carries a value, so no state can be read as a zero by accident.
+* `HarnessUsage` keeps the five token components, `tool_uses` and the harness-reported cost, and derives
+  `total_tokens`: the sum of the five components, a not-applicable one counting `0`, when every applicable component is
+  measured, otherwise unmeasured; a derived `0` is unmeasured, because a total keeps its lower bound of `1`.
+* `UsagePointers` maps a profile's `headless.usage` declaration onto a parsed turn, and a pointer that is `null`, does
+  not resolve, or resolves to something other than a non-negative integer yields the measured value or the reason —
+  never a default.
+* `MetricsCodec` reads and writes the task and worker-idle rows, and keeps a row of another kind as the raw JSON text
+  it was read with, written back in the same shape token by token (the task rows first, then the idle rows, then the
+  rows of other kinds). The store neither drops a row another package owns nor claims its schema.
+* The codec refuses a stored `total_tokens` that does not equal the sum of the components it was written from.
+
+== Alternatives Considered
+
+1. *Write every one of the five row kinds now.* _Not taken_: the wait, phase-close and served-read rows belong to the
+   work packages that produce them (`record-metrics`, the wait attribution); typing them here would invent their
+   schema ahead of their implementation.
+2. *Refuse a document that holds a row of another kind.* _Not taken_: the `metrics.json` of a plan is one document for
+   every row kind, so a reader that refuses a foreign kind makes the store unusable as soon as another package writes
+   one row.
+3. *Store `total_tokens` as an ordinary measured column.* _Not taken_: the specification derives it from the five
+   components and allows no partial sum; a stored value that could disagree with its components would be a second
+   truth.
+
+== Consequences
+
+* A figure is either measured, absent by design, or unreported, and every consumer of the row sees which; an aggregate
+  over unmeasured rows is a floor, never a total.
+* A later work package adds its row kind without a format change: the kind is kept verbatim until its codec reads it.
+* The row's cost stays recorded data only; no view, sum or rule reads it.
+
+== Source
+
+* Plan PLAN-31, deliverables 2 and 4
+* link:../../../../doc/specification/store-schemas/05-metrics-and-quality-report.adoc[Store Schemas § Metrics &
+  Quality Report]
+* link:../../../../doc/specification/model-work/09-completion-usage-and-spend.adoc[Model Work § Worker Result & Usage
+  Parsing], § Post-Completion Integrity Invariants
+* link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#token-usage[Client Profiles § Tokens, Not
+  Money]
+* `pm-core/src/main/java/de/planmarshall/core/store/MetricsCodec.java`,
+  `pm-core/src/main/java/de/planmarshall/core/store/HarnessUsage.java`,
+  `pm-core/src/test/java/de/planmarshall/core/store/MetricsStoreTest.java`,
+  `pm-core/src/test/java/de/planmarshall/core/store/UsagePointersTest.java`

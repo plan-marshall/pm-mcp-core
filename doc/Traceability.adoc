@@ -449,7 +449,7 @@ link:../pm-core/doc/adr/core-store/040-a-question-set-is-asked-whole.adoc[ADR co
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-14[PM-WF-14]
 
-Implementation (the part of the third bullet by which usage limits nothing, as far as the library modules carry it: no policy class `spend`, so a status document with `policy_counters.spend` is refused on read and `LoopBackBudget` refuses the class; no remediation unit `remediation.spend`, so the remediation invariants give it no exemption and the plan instance header refuses it as a policy call unit; no `spend_overrun` route of the merge gate checked by `INV-FIN-5`; and the package `workflow.spend` stating the completion of a task and its usage only. The envelopes, the model slots and the recording of the usage from the harness output are not traced here): link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java[WorkflowStatus],
+Implementation (the part of the third bullet by which usage limits nothing, as far as the library modules carry it: no policy class `spend`, so a status document with `policy_counters.spend` is refused on read and `LoopBackBudget` refuses the class; no remediation unit `remediation.spend`, so the remediation invariants give it no exemption and the plan instance header refuses it as a policy call unit; no `spend_overrun` route of the merge gate checked by `INV-FIN-5`; and the package `workflow.spend` stating the completion of a task and its usage only. The envelopes are not traced here; the model slots and the recording of the usage from the harness output are traced in the second implementation line below): link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java[WorkflowStatus],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/RemediationInvariants.java[RemediationInvariants],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/FinalizeInvariants.java[FinalizeInvariants],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/InvariantId.java[InvariantId],
@@ -457,13 +457,44 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/HeaderSchemaChec
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/LoopBackBudget.java[LoopBackBudget],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/spend/package-info.java[package-info of `workflow.spend`]
 
+Implementation (the model slots and the usage rows, added by the work package `slots-usage-and-budgets` as far as the
+library modules carry it and not yet wired into the runtime `pm-mcpd`: the machine model slots with the cap of
+`machine-config.json`, admission in FIFO order, at most one writer worker per plan, the reaping of a slot whose runtime
+died, and the release of every slot of a paused plan; the task row and the worker-idle row of a `metrics.json` with each
+usage column read from the profile's `headless.usage` pointers, `unmeasured` and `not_applicable` kept apart, the total
+derived from the five components, and `attempt_end` copied from the queue task record; the learned per-role worker
+budget over the key `llm:<role>`, with the residued baselines and the one-shot escalation, and the fixed probe budgets;
+the change ledger and the operator's qualification settings): link:../pm-core/src/main/java/de/planmarshall/core/store/ModelSlotStore.java[ModelSlotStore],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/ModelSlotScheduler.java[ModelSlotScheduler],
+link:../pm-core/src/main/java/de/planmarshall/core/store/UsagePointers.java[UsagePointers],
+link:../pm-core/src/main/java/de/planmarshall/core/store/MetricsRow.java[MetricsRow],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WorkerIdleRow.java[WorkerIdleRow],
+link:../pm-core/src/main/java/de/planmarshall/core/store/MetricsStore.java[MetricsStore],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WorkerBudget.java[WorkerBudget],
+link:../pm-core/src/main/java/de/planmarshall/core/store/BuildTimingsStore.java[BuildTimingsStore],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeBudget.java[ProbeBudget],
+link:../pm-core/src/main/java/de/planmarshall/core/store/ChangeLedger.java[ChangeLedger],
+link:../pm-core/src/main/java/de/planmarshall/core/store/QualificationSettingsStore.java[QualificationSettingsStore]
+
 Verified by (no spend limit): link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java[WorkflowStatusCodecTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/LoopBackBudgetTest.java[LoopBackBudgetTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/CompiledInvariantsTest.java[CompiledInvariantsTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/HeaderSchemaCheckTest.java[HeaderSchemaCheckTest]
 
+Verified by (the model slots and the usage rows): link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/ModelSlotSchedulerTest.java[ModelSlotSchedulerTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/UsagePointersTest.java[UsagePointersTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/MetricsStoreTest.java[MetricsStoreTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/WorkerBudgetTest.java[WorkerBudgetTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/BuildTimingsStoreTest.java[BuildTimingsStoreTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ProbeBudgetTest.java[ProbeBudgetTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ChangeLedgerTest.java[ChangeLedgerTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QualificationSettingsStoreTest.java[QualificationSettingsStoreTest]
+
 Documentation: link:../pm-workflow/README.adoc[`pm-workflow` README] (the package `workflow.spend`),
-link:../pm-workflow/doc/adr/workflow-verify/024-remediation-budget-check-state.adoc[ADR workflow-verify/024]
+link:../pm-workflow/doc/adr/workflow-verify/024-remediation-budget-check-state.adoc[ADR workflow-verify/024],
+link:../pm-runtime/doc/developer/runtime-launch.adoc[Developer Guide § Worker Launch (`runtime.launch`)],
+link:../pm-core/doc/developer/core-store.adoc#_slots_metrics_budgets_ledger[Developer Guide § The Model-Slot, Metrics,
+Learned-Budget and Ledger Stores]
 
 [#PM-WF-16]
 === PM-WF-16: Reusable Compound Sub-Workflows & Config-Driven Git Commit/Push

@@ -64,6 +64,15 @@ writable sub-paths. `SubprocessJobRunner.startWorker` writes the record with the
 argument vector and revokes the token in the settlement. `refuseWorker` records a launch the runtime refused with the
 fate `refused`, the reason and the block, in one write and without a process.
 
+`ModelSlotScheduler`::
+The admission of the machine model slots. Every running worker, warm or fresh, holds one of the `model_slots` slots of
+`model-slots.json` from its spawn to its exit; a warm worker holds it for its whole generation, idle or not. The cap is
+`model_slots` of `machine-config.json`, its compiled default `2` and its bounds `1` to `16`. `request` answers
+`Granted`, `Queued` (in the FIFO of the store) or `Deferred` (another writer worker of the plan holds a slot or waits);
+`release` and `releasePlan(projectId, planId)` free what a settled worker or a paused plan held and return the leases
+the freed slots admitted. Admission decides in one transaction of `ModelSlotStore` (`core.store`), so two claims never
+see the same free slot.
+
 == How the parts work together
 
 [source,text]
@@ -83,6 +92,40 @@ A caller verifies the harness first and passes the accepted `HarnessEnrolment` i
 therefore never trusts an unverified build. The job record's `worker` block is composed from the same values as the
 argument vector, so the two cannot disagree.
 
+== The Model Slots
+
+[source,text]
+----
+caller ──> ModelSlotScheduler.request(request)
+              └─ ModelSlotStore.update(document -> …)         one transaction on locks/model-slots.lock
+                   1. reap: drop every slot and waiting worker whose runtime is not alive
+                   2. already granted or waiting? answer that place
+                   3. writer of a plan that holds or waits? Deferred("writer_holds_plan")
+                   4. append the waiting entry (with its form) and admit from the head while slots < cap
+                   5. return Granted, Queued or Deferred
+----
+
+* *The cap holds under concurrent claims*: every admission reads the slots and writes the one it adds in the same
+  transaction, so the document never holds more than `model_slots` leases.
+* *FIFO*: a request is appended to `waiting` and admission takes from its head only; a release or a pause admits the
+  head first, and never a worker behind it.
+* *One writer per plan*: at most one `writer` worker of a plan of one project holds a slot or waits for one — the
+  identity is the project together with the plan. A second writer is `Deferred` and its task stays `queued`; `read_only`
+  and `zero_tool` workers of the plan run beside it within the cap.
+* *Warm holds the slot*: a slot is released by its worker's fate, not by an idle wait; `releasePlan` is the one act that
+  releases a live plan's slots early, and it drops the plan's waiting workers too.
+* *Stale slots are reaped first*: a slot or waiting entry whose runtime died is dropped in the admission transaction,
+  before the cap is applied, so a slot a killed daemon left never keeps a worker out. The recovery of the runtime
+  settles the instance's jobs before an admission runs, so the worker of a reaped slot has ended.
+* *The budget starts at the spawn*: the time a worker waits for a slot is outside its budget. The metrics row that
+  records it as `queued_ms` is written by the settlement seam, which is owed to PLAN-29 or PLAN-30.
+
+The design is recorded in link:../adr/runtime-launch/005-model-slot-admission-in-one-store-transaction.adoc[ADR
+runtime-launch/005]. Tested by `ModelSlotSchedulerTest` (the FIFO, eight concurrent claims against a cap of two, the
+one-writer rule beside a `read_only` worker and across two projects, a stale slot reaped, a paused plan releasing its
+held slots and dropping its waiting workers, the bounds of the cap) and `ModelSlotStoreTest` (the document round trip,
+the refused duplicates and a writer without a plan).
+
 == Invariants
 
 * A launch never runs with a required skill missing: a skill that does not resolve, renders empty, or whose digest
@@ -92,6 +135,7 @@ argument vector, so the two cannot disagree.
   job-private directory.
 * A changed executable is never its own witness: the update evidence is checked before the version probe runs.
 * The job token exists only in the composed launch and in the relay's MCP configuration; the record holds its SHA-256.
+* The model slots never exceed their count, a plan holds at most one writer slot, and a paused plan holds none.
 
 == Failure modes
 
@@ -104,6 +148,8 @@ argument vector, so the two cannot disagree.
 |The executable changed without evidence, or the evidence failed |`harness_update_unverified`
 |The probed version lies outside the supported range |`harness_version_unsupported`
 |The prompt cannot be composed |`prompt_composition_failed`
+|The machine's cap lies outside `1` to `16` |the scheduler's constructor refuses it (`IllegalArgumentException`)
+|A writer requests a slot while its plan's writer holds one |`Deferred("writer_holds_plan")`; the task stays `queued`
 |===
 
 A refusal names the act that resolves it (`LaunchRefusal.resolvingAct`): a new enrolment for every harness refusal, a
@@ -117,6 +163,8 @@ restored skill or schema for the composition failure.
   exclusive declares no worker class.
 * The update-evidence port (`HarnessVerifier.EvidenceCheck`) is where a platform check for `code_signature` or
   `package_provenance` plugs in. The default refuses every change, which is the fail-closed direction.
+* A new class of worker (a fourth `class`) is added to the profile's class block and to `ModelSlotStore.WorkerClass`;
+  the one-writer rule applies to `writer` alone.
 
 == Owed
 
@@ -138,6 +186,10 @@ restored skill or schema for the composition failure.
 == Specification
 
 * `doc/specification/model-work/04-worker-launch.adoc`
+* `doc/specification/model-work/04-worker-launch.adoc#model-slots` (Model Slots & One Writer per Plan)
 * `doc/specification/store-schemas/11-enrolment-store.adoc` (Harness Enrolment Store)
 * `doc/specification/store-schemas/10-job-and-lesson-records.adoc` (Job Record)
+* `doc/specification/store-schemas/13-leases-integrity-testing.adoc#machine-lease-stores` (Machine Lease Stores)
+* `doc/specification/timeouts/02-runtime-leases-operator-web.adoc#model-slot-lease` (Model slot lease)
+* `doc/specification/timeouts/01-job-budgets-and-waits.adoc#model-slot-wait` (Model Slot Wait)
 * `doc/specification/client-profiles/01-profile-schema.adoc` (Profile Schema, Update Evidence)
