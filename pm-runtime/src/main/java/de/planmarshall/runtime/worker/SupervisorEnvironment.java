@@ -227,6 +227,17 @@ public record SupervisorEnvironment(String projectId, ProjectEnrolment enrolment
         boolean holds(String role, String harness);
 
         /**
+         * Clears the guard of one role on one harness, which the specification requires when the role's configuration
+         * changes or the harness is enrolled again. The open guard holds nothing and has nothing to clear.
+         *
+         * @param role    the role
+         * @param harness the client id of the harness
+         */
+        default void clear(String role, String harness) {
+            // the open guard counts no failure, so a clear leaves it as it is
+        }
+
+        /**
          * @return a guard that holds for no role: the supervisor's behaviour before a guard is wired
          */
         static StartGuard open() {

@@ -239,6 +239,9 @@ final class SupervisorTestFixture {
 
         boolean grant = true;
 
+        /** The role of the head of the FIFO; {@code null} while no worker waits for a slot. */
+        String waitingRole;
+
         final List<Lease> claimed = new CopyOnWriteArrayList<>();
 
         final List<Lease> released = new CopyOnWriteArrayList<>();
@@ -266,7 +269,7 @@ final class SupervisorTestFixture {
 
         @Override
         public Optional<String> nextWaitingRole() {
-            return Optional.empty();
+            return Optional.ofNullable(waitingRole);
         }
 
         @Override
