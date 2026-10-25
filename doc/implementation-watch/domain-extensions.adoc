@@ -348,6 +348,25 @@ Fixture:: #1368 (8 rounds for a stale doc line); `refusal_pattern_drift` `86d508
 enumeration in user-facing `doc/user/configuration.adoc`, found only because an operator opened the file, twice.
 Source:: plan-marshall defect review-apparatus PLAN-PR-030 (two self-review blind spots); post-run-quality PLAN-PRQ-10 D4.
 
+[#PM-WATCH-EXT-39]
+=== PM-WATCH-EXT-39: Consumers outside the footprint are derived, bounded and never invented as none
+
+Anchor:: link:../specification/domain-extensions/05-recipes-and-extension-points.adoc#self-review-consumers[Domain Extensions § Pre-Submission Self-Review Surfacer Extension Point] (Consumers Outside the Footprint)
+Hazard:: A consumer list derived from an index still being built, or from a language with no language server, is
+empty and reads as "nobody else calls this", so a behaviour change reaches untouched callers unreviewed; a test
+found only by a name pattern or through a caller is taken as proof that the change is tested; a list cut at its
+bound reads as complete.
+Guard:: Scenario test over a fixture with a changed `public` method and two callers outside the footprint, one in a
+test source set: the round's facts carry both consumers with `test` set by source set, the method `tested: direct`;
+with the test removed, `tested: via_caller` names the caller and its test; with the language server still indexing,
+the method is `consumers: not_derived` with the reason and no `external_consumers[]` entry; with 25 callers, 20 are
+listed, `consumers_total` is 25 and `consumers_omitted` 5. Matched control: a changed `private` method yields no
+entry.
+Fixture:: code-review-graph's own fidelity notes: tests found only through name patterns and calls miss tests that
+load code through a fixture or subprocess, and about 6% of symbols reached through a caller are never executed
+(`changes.py`, `graph.py` of tirth8205/code-review-graph at `d72e8fb`).
+Source:: ingestion of code-review-graph (2026-10-25).
+
 [#PM-WATCH-EXT-26]
 === PM-WATCH-EXT-26: Round accounting regression fixtures
 
