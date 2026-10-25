@@ -54,13 +54,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/chat-plan-revision.adoc` § What, Trace, Done When on `origin/main` at `4617865` (5 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/chat-plan-revision.adoc last touched 72aec5cb and unchanged at HEAD; 5 What bullets equal the Deliverables
+  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: doc/plans/chat-plan-revision.adoc last touched 72aec5cb and untouched since 88ec9c70; its 5 What bullets equal the Deliverables
 - OBSERVED: the package file and its index row (`blocked`; depends on PLAN-55 (`chat`); the re-planning of a running plan, its unit `replan` and its guards (no work package)) — read at `doc/plans/chat-plan-revision.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: README row at HEAD: open (not blocked); depends chat; re-planning (doc/plans/re-planning.adoc cut by #151 35fba9ed) so replan is no longer a dependency without a work package
+  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc: README row chat-plan-revision is open (not blocked) and depends on chat and re-planning (lines 126-129); doc/plans/re-planning.adoc exists as a package so replan is no longer a dependency without a work package
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line and the class names of § What, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: workflow/unit/ holds loaders only (chat.apply and replan states are default-unit content of plan-marshall-mcp; primitives in workflow/primitive/ package-info only); core/store holds replan_pending; replans; follow_ups; amendments only as raw retained members of WorkflowStatusCodec (their typed record is the re-planning package); the 6 OBSERVED paths exist
+  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc: workflow/unit holds loaders only (DefaultUnitLoader, PlanUnitMerger, ProjectUnitLoader, UnitFinding, UnitLoadResult, VerificationContext); WorkflowStatusCodec line 151 keeps amendments and the re-planning members as raw retained fields; CompositionEvent.REPLAN is still Trigger.SERVER; pm-workflow/doc/developer/workflow-unit.adoc and doc/adr/workflow-unit exist
 - Verify-first clause: before scoping, list the open pull requests for one that names `chat-plan-revision`, check in `doc/plans/README.adoc` that every dependency is `done`, and read the roadmap item this package serves for what the code already covers; a refutation of any claim above loops back to re-scope.
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: the clause evidence says the row is blocked; README row chat-plan-revision is open at HEAD (#151)
+  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc: clause evidence says blocked while the README row is open since #151; plan file untouched since 88ec9c70; open-PR list not readable (no gh)
 
 ## Expected Surface
 
@@ -77,6 +77,9 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/store-schemas/17-re-planning.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `doc/specification/phase-workflows/01-planning-phases-1-2.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `doc/specification/store-schemas/06-task-and-references.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `doc/specification/phase-workflows/07-questions-waivers-operator-influence.adoc` — exists at HEAD `8233fffc`; added by the second re-grounding pass of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `doc/specification/store-schemas/02-workflow-state-store.adoc` — exists at HEAD `8233fffc`; added by the second re-grounding pass of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `doc/implementation-watch/phase-workflows.adoc` — exists at HEAD `8233fffc`; added by the second re-grounding pass of 2026-10-25 (see Re-grounding Record)
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 
@@ -110,6 +113,19 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 
 - an accepted chat revision composes event replan but CompositionEvent.REPLAN is Trigger.SERVER while the revision is the operator's act; which trigger and in-force rule applies is unstated
 - D3 record of a chat revision overlaps re-planning.adoc bullet 1 (record with decided_by operator and the chat object); the split between the two packages is unstated
+
+### Second pass (HEAD `8233fffc`, after #177 and #179)
+
+The specification pull requests #177 (capability specs: Proportion, Amended after refine, Verified by, the Capability Test Guard, the replan triggers `capability_conflict` and `intent_amended`) and #179 landed after the first pass. 4 claims were re-read: 1 corroborated, 3 contradicted (still re-scoped by this record), 0 unverifiable; stamped `checked_at: 8233fffc`.
+
+Specification changes carried (not yet in the Deliverables above):
+
+- #177 — phase-workflows/07 Intent Amendments (changes is null for a revision accepted in a chat; null counts as possibly every item) and store-schemas/02 amendments[].changes: Fold into Deliverable 5: a chat revision that changes intent writes its amendment with changes null, and the revision it carries folds that amendment only if the revision is accepted after the amendment at (the amendment and the record revision must not tie the wrong way, otherwise finalize.architecture-refresh raises intent_amended on the plan's own chat revision); add doc/specification/phase-workflows/07-questions-waivers-operator-influence.adoc and doc/specification/store-schemas/02-workflow-state-store.adoc to the Expected Surface (both exist at HEAD)
+- #177 — phase-workflows/08 offered actions per trigger (a revision accepted for intent_amended or capability_conflict that changes a criterion makes the pre-submission-self-review verdict not current) and wa…: Add to Open questions: the spec states the not-current rule only for the two triggers; whether an accepted chat revision that changes a criterion also makes the verdict not current is unstated and the Deliverable 5 outline must settle it; add doc/implementation-watch/phase-workflows.adoc (exists at HEAD) as the guard of the fold path
+
+Applicability:
+
+- no deliverable becomes done or impossible or duplicated: store-schemas/17 kind enum gained capability_conflict and intent_amended but a chat revision keeps trigger null with decided_by operator and a chat object (lines 28 and 33) and is not charged to the budget (line 97); the re-planning package scope grew by two trigger kinds and this plan depends on it as before
 
 ## Dependencies and Sequencing
 

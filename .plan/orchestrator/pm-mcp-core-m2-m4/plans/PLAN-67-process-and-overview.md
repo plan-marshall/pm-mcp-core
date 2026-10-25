@@ -57,13 +57,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/process-and-overview.adoc` § What, Trace, Done When on `origin/main` at `4617865` (9 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/process-and-overview.adoc has 9 What bullets; last touched d1d58d2c (#77); not touched by the seven spec PRs
+  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: doc/plans/process-and-overview.adoc untouched; its specification parts (store-schemas/02 titles and phase-start; state-catalogue/04 Running Work; filesystem-layout/03) are not the sections #177 changed
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-43 (`phase-sub-workflows`); PLAN-42 (`operator-wait-and-machine-scope`); PLAN-51 (`plan-and-epic-control`) (the activity, the holds)) — read at `doc/plans/process-and-overview.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: README row process-and-overview open, depends on phase-sub-workflows, operator-wait-and-machine-scope, plan-and-epic-control (rows exist, open); queue PLAN-67 staged
+  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: README.adoc untouched; row process-and-overview open depending on phase-sub-workflows operator-wait-and-machine-scope plan-and-epic-control; queue/PLAN-67 not in the ledger diff
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line and the class names of § What, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Labelled hypothesis. workflow/plan/, core/store/, runtime/web/ exist (web holds only Der, WebState, WebTls, WebListenerConflictException); no process, needs_operator summary, events or ended-work code in src
+  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: labelled hypothesis; pm-runtime and pm-core store unchanged since 88ec9c70 so runtime/web still holds only Der WebState WebTls WebListenerConflictException and no process or needs_operator or ended-work code exists; additionally WorkflowStatusSchemaParityTest.membersEqualSchema is still @Disabled and #177 added only a nested member (amendments[].changes) so the eight missing top-level members are unchanged and WorkflowStatusCodec keeps amendments as raw retained JSON
 - Verify-first clause: before scoping, list the open pull requests for one that names `process-and-overview`, check in `doc/plans/README.adoc` that every dependency is `done`, and read the roadmap item this package serves for what the code already covers; a refutation of any claim above loops back to re-scope.
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Row open; no branch on origin names the package; open-PR list not read (no gh)
+  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: README row open and no branch/PR evidence changed; no doc/plans or pm-* diff; open-PR list still not read
 
 ## Expected Surface
 
@@ -99,6 +99,14 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 
 - Deliverables 2 to 7 are endpoints and streams placed in pm-runtime, but Adjacent says pm-mcp-server stays untouched while routes are pm-mcp-server classes
 - Deliverables intro cites regeneration at commit 710da61, which resolves in neither pm-mcp-core nor plan-marshall-documentation; the package file's last commit is d1d58d2c
+
+### Second pass (HEAD `8233fffc`, after #177 and #179)
+
+The specification pull requests #177 (capability specs: Proportion, Amended after refine, Verified by, the Capability Test Guard, the replan triggers `capability_conflict` and `intent_amended`) and #179 landed after the first pass. 4 claims were re-read: 3 corroborated, 0 contradicted (still re-scoped by this record), 1 unverifiable; stamped `checked_at: 8233fffc`.
+
+Applicability:
+
+- no deliverable made done or impossible or duplicated; Deliverable 9 stays exact because #177 added only the nested amendments[].changes and WorkflowStatusCodec retains amendments as raw JSON; separately any verify of this plan hits the same red FindingSchemaParityTest (capability_tests enum value a…: store-schemas/02 diff (amendments items only); WorkflowStatusCodec.MEMBERS and RETAINED_MEMBERS; FindingSchemaParityTest.enumerationsEqualSchema versus FindingSourceKind by static reading not run
 
 ## Dependencies and Sequencing
 

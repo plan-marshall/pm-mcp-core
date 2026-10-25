@@ -67,17 +67,17 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/phase-sub-workflows.adoc` § What, Trace, Done When on `origin/main` at `4617865` (10 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: Package bullet 10 changed at HEAD by #168 c3a4a6f8: the self-review also returns per decision DC-n followed with evidence, departed as a finding, or not_verified; spec Deliverable 10 and Done-when still name only CN and NG; the other 9 bullets and Trace equal the spec.
+  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc: doc/plans/phase-sub-workflows.adoc untouched since 88ec9c70 (git log 88ec9c70..8233fffc over doc/plans is empty); package bullet 10 still names per decision DC-n (#168) while spec Deliverable 10 and Done-when still name only CN and NG; the other 9 bullets and the trace equal the spec; no source change under pm-core/pm-workflow/pm-runtime/pm-providers in that range
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-42 (`operator-wait-and-machine-scope`)) — read at `doc/plans/phase-sub-workflows.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: README row phase-sub-workflows (lines 78-82) is open and depends on operator-wait-and-machine-scope only, as recorded.
+  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: doc/plans/README.adoc row phase-sub-workflows is still open; README untouched since 88ec9c70; the dependency on operator-wait-and-machine-scope is unchanged
 - OBSERVED: the call-graph depth limit of 4 (Rule 7, `CALL_GRAPH_DAG`) shipped with PLAN-41 (#34); this package grows the call depth by one — read at `pm-workflow/src/main/java/de/planmarshall/workflow/verify/VerificationRule.java`
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: VerificationRule.CALL_GRAPH_DAG(7) states maximum depth 4 (shipped by ebe82b34 #34); WorkflowStatus.MAX_CALL_DEPTH = 4, CallStack.MAX_DEPTH = that value, WorkflowValidator message maximum depth 4 at line 1405.
+  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: VerificationRule.CALL_GRAPH_DAG(7) javadoc states maximum depth at most 4; WorkflowStatus.MAX_CALL_DEPTH = 4 (line 86); WorkflowValidator line 1405 message says maximum depth 4; no pm-workflow or pm-core source changed since 88ec9c70
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line; the plan's history lands in `core.store` — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Hypothesis; no plan history type exists at HEAD (no history in pm-core store, spec Store Schemas 02 line 493); the OBSERVED paths (README, package file, 9 spec parts) all exist.
+  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: hypothesis; pm-core/store holds no plan-history type (listing read) and the unit package has loaders only (DefaultUnitLoader, PlanUnitMerger, ProjectUnitLoader); the plan history is not built so the surface cannot be confirmed before the outline
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: doc/plans/phase-sub-workflows.adoc last changed in c3a4a6f8 (#168) not 72aec5cb; the row is still open and PLAN-42 still listed; open-PR list not re-read.
+  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc: the package file changed in c3a4a6f8 (#168) and not in 72aec5cb; the row is still open with PLAN-42 listed; open-PR list not readable here (no gh), so that part of the clause stays unread
 - OBSERVED: the specification part above carries the added content — the bullet *Trade-offs nobody named* (refine) and the paragraph on the three questions of the builder check in `phase-workflows/01-planning-phases-1-2.adoc` — read at `4617865`
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: phase-workflows/01 holds Trade-offs nobody named (line 449) and the three questions of the builder check (line 476) at HEAD; #175 added a further bullet, A fix is tested, at line 453.
+  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: re-read at 8233fffc after #177 touched phase-workflows/01: Trade-offs nobody named (line 450) and the three questions of the builder check (line 480) are still present; #177 only inserted Proportion (448) and two Capability Specs bullets and appended one sentence to Revisions; A fix is tested (454) is still there
 
 ## Expected Surface
 
@@ -120,6 +120,7 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/store-schemas/06-task-and-references.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `doc/implementation-watch/phase-workflows.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `doc/specification/phase-workflows/04-finalize-step-bands.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `doc/specification/phase-workflows/07-questions-waivers-operator-influence.adoc` — exists at HEAD `8233fffc`; added by the second re-grounding pass of 2026-10-25 (see Re-grounding Record)
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 
@@ -151,6 +152,21 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 ### Open questions for the outline
 
 - The 02-planning-lanes-phases-3-4.adoc part is listed whole, but #141 added rows owned by finalize-pipeline-and-merge (the Merge Danger section of the PR body, the ADR number at landing); the plan must not delete or implement them.
+
+### Second pass (HEAD `8233fffc`, after #177 and #179)
+
+The specification pull requests #177 (capability specs: Proportion, Amended after refine, Verified by, the Capability Test Guard, the replan triggers `capability_conflict` and `intent_amended`) and #179 landed after the first pass. 6 claims were re-read: 3 corroborated, 2 contradicted (still re-scoped by this record), 1 unverifiable; stamped `checked_at: 8233fffc`.
+
+Specification changes carried (not yet in the Deliverables above):
+
+- #177 — phase-workflows/01 Intent Record bullet Proportion (record as large as the change on either lane; a fix is its triple; one defect is one criterion; bound 30 is a ceiling): Fold into Deliverable 7 and the refine task: add the Proportion rule with a matched scenario (a one-defect fix yields its triple and test and not several criteria); the maxItems 30 already stands in store-schemas/06 (line 253); no new path since phase-workflows/01 is on the surface; the Planning Weight figure it points to is in phase-workflows/05 and is not PLAN-43 scope
+- #177 — phase-workflows/02 Outline role skill paragraph (outline as large as the change: no deliverable or affected file or verification for behaviour the record does not name): Fold into Deliverable 8 (outline phase content) as a guidance-class role skill statement; phase-workflows/02 is already on the surface so no new path
+- #177 — phase-workflows/01 Revisions sentence and Amended after refine; phase-workflows/07 Intent Amendments changes member; store-schemas/02 amendments[].changes: Fold into Deliverable 7 revision rule: an amendment naming a capability-bound criterion is folded into a new revision before the capability specs are written; folded means a revision accepted after the amendment at (the intent store revision already has submitted_at in store-schemas/06); the trigger intent_amended itself belongs to re-planning and domain-extensions-and-architecture so PLAN-43 only carries the submit path; store-schemas/02 is already on the surface and phase-workflows/07 is to be added (exists at HEAD)
+- #177 and #179 — phase-workflows/04 simplify row (server checks a deletion only where a capability requirement names the test) and architecture-refresh row; phase-workflows/05 Capability Test Guard; store-schemas/03…: Not PLAN-43 scope except the simplify row: Deliverable 9 should state that a finalize.simplify-apply that deletes a test named in a requirement verified_by is judged by the guard after finalize.settle-commit (capability_test_removed) and is never an exemption; add to Open questions that PLAN-43 must not delete or implement the architecture-refresh row text, the Capability Test Guard section, the capability_tests source enumeration value, verified_by or the two watch items (owners unstaged: domain-extensions-and-architecture and finalize-pipeline-and-merge); the files already sit on its surface whole
+
+Applicability:
+
+- no deliverable becomes done or impossible or duplicated; D7 and re-planning share a boundary: no source for #177 or #179 content exists (git grep for intent_amended and capability_conflict and capability_test and verified_by and planning weight in Java and JSON finds only the raw amendments member in WorkflowStatusCodec line 151); spec 08 now requires a revised_intent for intent_amended so Deliverable 7 (a re-planning that changes intent carries the record) supplies the submit path while the trigger stays in the re-planning package
 
 ## Dependencies and Sequencing
 

@@ -60,13 +60,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/process-designer.adoc` § What, Trace, Done When on `origin/main` at `4617865` (12 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/process-designer.adoc last touched by 21872fbd; 12 What bullets, Trace (4 bullets) and Done When equal the spec Deliverables 1-12
+  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: doc/plans/process-designer.adoc untouched (no doc/plans diff); the cited specification parts workflow-dsl/01 02 04 05 06 09 domain-extensions/05 06 filesystem-layout/01 02 identifiers/01 state-catalogue and its 18 are not in the #177/#179 diff
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-43 (`phase-sub-workflows`); PLAN-50 (`recipe-workflows`); PLAN-46 (`machine-onboarding-unit`) (the plan axes and their variants); PLAN-76 (`start-source-intake`) (the short landings); PLAN-26 (`role-sets-and-model-caller`) (the effective role set)) — read at `doc/plans/process-designer.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: README.adoc at HEAD lists process-designer open depending on phase-sub-workflows, recipe-workflows, machine-onboarding-unit, start-source-intake only: PLAN-26 role-sets-and-model-caller left the row because it shipped (#146 964f673d: core.role RoleSets, RoleCatalog, EffectiveRole). True at 4617865, stale at HEAD
+  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc: README.adoc untouched; process-designer row still depends on phase-sub-workflows recipe-workflows machine-onboarding-unit start-source-intake only (PLAN-26 shipped #146); the spec text still names PLAN-26
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: Named path pm-runtime/src/main/java/de/planmarshall/runtime/ for the designer endpoints and git.land-unit: pm-runtime is framework-free and holds no endpoint (runtime package-info; module-structure puts /api/v1 routes in pm-mcp-server of plan-marshall-mcp, git.* primitives in pm-provider-git, units as classpath:/workflows/ content of plan-marshall-mcp). The 17 OBSERVED paths exist and the other hypotheses (workflow/unit, workflow/verify, core/store) exist
+  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc: pm-runtime has no endpoint code and no change since 88ec9c70; designer routes stay pm-mcp-server content of plan-marshall-mcp; the OBSERVED and added surface paths still exist
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Row open at HEAD; package file unchanged since 21872fbd; open-PR list not re-read; dependencies PLAN-43, 50, 46, 76 still open (PLAN-26 done)
+  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: README row open and package file unchanged; deps PLAN-43 50 46 76 still open in the index (no doc/plans diff); open-PR list not re-read
 
 ## Expected Surface
 
@@ -137,6 +137,18 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 - The package uses composition on config_drift and config_adopted and the dry run uses Rules 13 and 14, but VerificationRule ends at Rule 12 and plan-instance-versions (which builds Rules 13 and 14 and names process-designer as the caller of config_drift) is not in the index row's Depends on
 - The index row text says placing and removing happen 'with their audit' while Deliverable 11 and workflow-dsl/04 item 7 say they write no audit record; the row text is stale against the specification
 - Deliverable 4 says the setup copies no default unit, but the setup unit is built by PLAN-45 (state-catalogue/06 line 15 already states 'copies no workflow unit') and is plan-marshall-mcp content: it is unclear whether PLAN-62 changes any code for this beyond ProjectUnitLoader's MISSING finding
+
+### Second pass (HEAD `8233fffc`, after #177 and #179)
+
+The specification pull requests #177 (capability specs: Proportion, Amended after refine, Verified by, the Capability Test Guard, the replan triggers `capability_conflict` and `intent_amended`) and #179 landed after the first pass. 4 claims were re-read: 2 corroborated, 2 contradicted (still re-scoped by this record), 0 unverifiable; stamped `checked_at: 8233fffc`.
+
+Specification changes carried (not yet in the Deliverables above):
+
+- #177 — store-schemas/03 Findings Ledger Record: source enum gained capability_tests (finding types capability_test_removed and capability_tests_indeterminate); store-schemas/03 is in the Expected Surface an…: Add to the R10 note: FindingSchemaParityTest.enumerationsEqualSchema compares the schema's source enum with pm-core FindingSourceKind (values end at DEPENDENCY_DELTA); the schema now lists capability_tests so by static reading the test fails at HEAD until FindingSourceKind gains CAPABILITY_TESTS (not run; read-only); the plan must keep the enum byte-stable when deleting implemented sections and take the red test as inherited from #177 with its owner finalize-pipeline-and-merge (Capability Test Guard); no new path (FindingSourceKind exists at pm-core/src/main/java/de/planmarshall/core/findings/FindingSourceKind.java)
+
+Applicability:
+
+- no deliverable made done or impossible or duplicated; the designable replan.pmwf and finalize.pmwf keep their compiled invariants and the new triggers capability_conflict and intent_amended only extend the replan fallback table (state-catalogue/12 hand_back) without altering INV-REPLAN-1 or INV-AXI…: workflow-dsl/04 INV-REPLAN-1 row unchanged by #177/#179; state-catalogue/12 and phase-workflows/08 diffs of #177
 
 ## Dependencies and Sequencing
 
