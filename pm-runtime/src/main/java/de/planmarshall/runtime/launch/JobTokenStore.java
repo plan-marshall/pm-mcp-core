@@ -29,6 +29,8 @@ import de.planmarshall.runtime.security.JobTokens;
  */
 public final class JobTokenStore implements JobTokenRegistry {
 
+    private static final String GENERATION_ID = "generationId";
+
     private final Map<String, String> byDigest = new ConcurrentHashMap<>();
     private final Set<String> revoked = ConcurrentHashMap.newKeySet();
 
@@ -37,7 +39,7 @@ public final class JobTokenStore implements JobTokenRegistry {
      * @param jobTokenSha256 the lowercase-hex SHA-256 stored in the job record
      */
     public void register(String generationId, String jobTokenSha256) {
-        Objects.requireNonNull(generationId, "generationId");
+        Objects.requireNonNull(generationId, GENERATION_ID);
         Objects.requireNonNull(jobTokenSha256, "jobTokenSha256");
         byDigest.put(jobTokenSha256, generationId);
         revoked.remove(generationId);
@@ -50,7 +52,7 @@ public final class JobTokenStore implements JobTokenRegistry {
      * @param generationId the worker's generation
      */
     public void revoke(String generationId) {
-        Objects.requireNonNull(generationId, "generationId");
+        Objects.requireNonNull(generationId, GENERATION_ID);
         revoked.add(generationId);
     }
 
@@ -59,7 +61,7 @@ public final class JobTokenStore implements JobTokenRegistry {
      * @return whether the generation's token was revoked
      */
     public boolean revoked(String generationId) {
-        Objects.requireNonNull(generationId, "generationId");
+        Objects.requireNonNull(generationId, GENERATION_ID);
         return revoked.contains(generationId);
     }
 

@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 import de.planmarshall.runtime.security.JobTokens;
 import de.planmarshall.runtime.security.Secrets;
 
-/** The registry over the job records: a token resolves while its generation runs and never after its revocation. */
+/** The registry over the job records: a token resolves to its generation, also after its revocation, which {@code revoked} reports. */
 @DisplayName("Job token store")
 class JobTokenStoreTest {
 

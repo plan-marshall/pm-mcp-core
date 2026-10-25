@@ -56,11 +56,9 @@ public final class LaunchComposer {
     private static final String PROMPT_FILE = "prompt.md";
     private static final String MEMBER_MODEL = "model";
     private static final String MEMBER_EFFORT = "effort";
+    private static final String MEMBER_TOOLS = "tools";
     /** The effort order the harnesses of the shipped profiles use, from the lowest to the highest. */
     private static final List<String> EFFORT_SCALE = List.of("low", "medium", "high", "max");
-    /** The slots a harness template may declare. */
-    private static final Set<String> KNOWN_SLOTS = Set.of("prompt_file", "model", "effort", "mcp_config",
-            "result_schema", "tools", "cwd", "agent", "session_id");
     private static final String RESULT_SCHEMA_FILE = "result-schema.json";
     private static final String CWD = "cwd";
     private static final String EPHEMERAL_FLAG = "no-session-persistence";
@@ -284,12 +282,12 @@ public final class LaunchComposer {
         slots.put(MEMBER_EFFORT, effort);
         slots.put("prompt_file", promptFile.toString());
         slots.put("result_schema", resultSchema == null ? null : resultSchema.toString());
-        slots.put("tools", tools.isEmpty() ? null : String.join(",", tools));
+        slots.put(MEMBER_TOOLS, tools.isEmpty() ? null : String.join(",", tools));
         slots.put("cwd", workingDirectory.toString());
         slots.put("mcp_config", mcp.slot());
         slots.put("agent", block.agentMode() == HeadlessBlock.AgentMode.INLINE ? inlineAgent(request, model, effort,
                 tools) : null);
-        request.resumeSessionId().ifPresent(session -> slots.put("session_id", session));
+        slots.put("session_id", request.resumeSessionId().orElse(null));
         var filled = fill(template, slots);
         if (filled.isEmpty()) {
             throw new CompositionException("the argument template of '%s' rendered empty".formatted(roleClass
@@ -309,7 +307,7 @@ public final class LaunchComposer {
     private static String inlineAgent(LaunchRequest request, String model, String effort, List<String> tools) {
         var agent = new LinkedHashMap<String, JsonNode>();
         agent.put("description", JsonNode.string("PM-MCP worker '%s'".formatted(request.role().artifact().name())));
-        agent.put("tools", JsonNode.array(tools.stream().map(JsonNode::string).toList()));
+        agent.put(MEMBER_TOOLS, JsonNode.array(tools.stream().map(JsonNode::string).toList()));
         agent.put(MEMBER_MODEL, JsonNode.string(model));
         if (effort != null) {
             agent.put(MEMBER_EFFORT, JsonNode.string(effort));
@@ -375,7 +373,7 @@ public final class LaunchComposer {
             var rendered = new StringBuilder();
             while (matcher.find()) {
                 var name = matcher.group(1);
-                if (!KNOWN_SLOTS.contains(name)) {
+                if (!slots.containsKey(name)) {
                     throw new CompositionException("the template names an unknown slot '{{%s}}'".formatted(name));
                 }
                 var value = slots.get(name);
