@@ -56,13 +56,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/epic-auto.adoc` § What, Trace, Done When on `origin/main` at `4617865` (9 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/epic-auto.adoc at HEAD has 9 What bullets, unchanged since c281f6c7 (empty diff since 4617865).
+  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: doc/plans/epic-auto.adoc not in the 88ec9c70..8233fffc diff; 9 What bullets still equal Deliverables 1-9
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-51 (`plan-and-epic-control`) (the operator's acts on a plan); PLAN-77 (`epic-resource-and-release`) (next plan, the toggle among the epic's actions, archive, the release); PLAN-53 (`epic-decomposition`)) — read at `doc/plans/epic-auto.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: README row epic-auto at HEAD: open; depends on plan-and-epic-control, epic-resource-and-release, epic-decomposition with the same notes.
+  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: README row epic-auto (line 156-159) open and depends on plan-and-epic-control epic-resource-and-release epic-decomposition with the same notes; README not in the diff
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Hypothesis (verify-at-outline). All 8 observed paths exist at HEAD. No code for auto_start, overlap_max_files, overlap_found, the epic header or queue row exists (git grep in pm-core, pm-workflow, pm-runtime finds nothing).
+  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: hypothesis verify-at-outline; git grep of main java at 8233fffc finds no auto_start overlap_max_files or overlap_found; workflow/epic is package-info only and no epic header or queue-row type exists (core/queue holds the task queue only)
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Row epic-auto is open at HEAD; its three dependencies (plan-and-epic-control, epic-resource-and-release, epic-decomposition) are still listed; no remote branch names the package. Use cases not re-read (documentation repo).
+  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: row epic-auto open and its three dependencies still listed; package file not in the diff; no remote branch re-read
 
 ## Expected Surface
 
@@ -99,6 +99,15 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 ### Open questions for the outline
 
 - PUT auto and PUT settings are pm-mcp-server routes with no plan-marshall-mcp package, as for PLAN-77; and the epic header and queue-row types it extends are created by no package (see PLAN-77); the order against epic-resource-and-release, epic-decomposition and start-from-clients on the shared epic object is open.
+
+### Second pass (HEAD `8233fffc`, after #177 and #179)
+
+The specification pull requests #177 (capability specs: Proportion, Amended after refine, Verified by, the Capability Test Guard, the replan triggers `capability_conflict` and `intent_amended`) and #179 landed after the first pass. 4 claims were re-read: 3 corroborated, 0 contradicted (still re-scoped by this record), 1 unverifiable; stamped `checked_at: 8233fffc`.
+
+Specification changes carried (not yet in the Deliverables above):
+
+- #177 — phase-workflows/08 Re-Planning Triggers: new rows intent_amended and capability_conflict with the Order line and hand_back for both (also state-catalogue/12 and store-schemas/17 trigger kinds): The spec part phase-workflows/08 is on the Expected Surface and Deliverable 7 reacts to a plan that ended handed back; handed back is now also reached through capability_conflict and intent_amended at checkpoint finalize.architecture-refresh. Fold: no deliverable change; note in the Trace that the epic reaction on handed back covers the two new causes and that deleting implemented 08 sections must keep the new trigger rows and the Order line (base_advanced for Deliverable 6 is unchanged). No path to add and none to create
+- #179 — none beyond the row above (phase-workflows/04 simplify row is outside this package): no fold
 
 ## Dependencies and Sequencing
 

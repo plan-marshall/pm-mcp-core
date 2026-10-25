@@ -50,13 +50,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/recipe-workflows.adoc` § What, Trace, Done When on `origin/main` at `4617865` (3 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/recipe-workflows.adoc has 3 What bullets; last touched 21939cb2 (#107); not touched by the seven spec PRs
+  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: git diff 88ec9c70..8233fffc shows no change to doc/plans (recipe-workflows.adoc and README.adoc untouched); #177 and #179 touched no package-file text
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-43 (`phase-sub-workflows`); PLAN-48 (`start-from-clients`)) — read at `doc/plans/recipe-workflows.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: README row recipe-workflows open, depends on phase-sub-workflows and start-from-clients (rows exist, open); queue PLAN-50 staged
+  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: doc/plans/README.adoc untouched since 88ec9c70 (rows recipe-workflows open; phase-sub-workflows and start-from-clients still listed); ledger queue diff holds only PLAN-30/31/32 so queue/PLAN-50 is as in the first pass
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Labelled hypothesis. workflow/plan/ exists (composition, 29 classes); core/recipe/ is package-info.java only; core-recipe.adoc and the core-recipe ADR directory do not exist yet (create, as stated)
+  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: labelled hypothesis; git diff shows no change in pm-core pm-workflow pm-runtime; pm-core/src/main/java/de/planmarshall/core/recipe holds only package-info.java at HEAD; core-recipe.adoc and its ADR directory still to be created; phase-workflows/01 (an OBSERVED surface path) exists and was edited by #177 only in capability/proportion text outside recipe content
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Row open at HEAD. Part of what it restructures already shipped: simplify-recipe and recipe_override removal (see applicability); the spec Dependencies note on #150 icon holds (UnitFrontmatterReader icon grammar [a-z][a-z0-9._-]{0,63}); workflow-dsl ADRs run 001-008 so next is 009
+  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: the first-pass grounding (README row open; simplify-recipe/recipe_override removal and EMPTY_HARVEST already shipped; next workflow-dsl ADR 009) is code and index state and neither moved (no diff in pm-* or doc/plans or doc/adr)
 
 ## Expected Surface
 
@@ -99,6 +99,14 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 ### Open questions for the outline
 
 - Deliverable 2 removes recipe states from Phases 1 and 3, which are default phase units outside this repository (only fixtures under pm-workflow/src/test/resources/unit-fixtures/defaults exist); the spec does not say which copy this plan edits
+
+### Second pass (HEAD `8233fffc`, after #177 and #179)
+
+The specification pull requests #177 (capability specs: Proportion, Amended after refine, Verified by, the Capability Test Guard, the replan triggers `capability_conflict` and `intent_amended`) and #179 landed after the first pass. 4 claims were re-read: 3 corroborated, 0 contradicted (still re-scoped by this record), 1 unverifiable; stamped `checked_at: 8233fffc`.
+
+Applicability:
+
+- no deliverable made done or impossible or duplicated; phase-workflows/01 gained Proportion and Amended-after-refine and Verified-by text that is not recipe content and must be left out when its implemented recipe sections are deleted; a recipe plan without refine has no intent record so intent_amen…: phase-workflows/01 diff of #177 (Revisions sentence; Proportion bullet; capability-specs bullets) and phase-workflows/02 outline sentence; no recipe text changed
 
 ## Dependencies and Sequencing
 

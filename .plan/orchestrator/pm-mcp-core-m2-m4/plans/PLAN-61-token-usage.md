@@ -60,13 +60,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/token-usage.adoc` § What, Trace, Done When on `origin/main` at `4617865` (12 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/token-usage.adoc has an empty diff 4617865..HEAD (last change acb5bba9); the 12 What bullets are the spec Deliverables
+  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: doc/plans/token-usage.adoc untouched since 88ec9c70 (last change acb5bba9); the 12 What bullets are the Deliverables
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-31 (`slots-usage-and-budgets`); PLAN-34 (`role-qualification`)) — read at `doc/plans/token-usage.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: doc/plans/README.adoc at HEAD: token-usage open, Depends on role-qualification only; PLAN-31 shipped as 88ec9c70 (#164)
+  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc: README row token-usage (line 162) is open and depends on role-qualification only; PLAN-31 shipped as 88ec9c70 (#164); README untouched since
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis verify-at-outline; see surface rows
+  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: hypothesis verify-at-outline; no source change under pm-core, pm-workflow or pm-runtime since 88ec9c70 so the first pass reading of the surface stands
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: procedure; row open at HEAD; open PRs not reachable; PLAN-31 (a package this one builds on) shipped the usage rows, so the clause's loop-back to re-scope applies to the 'new column/new field' wording
+  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: verification procedure; row open; open PRs not readable here (no gh); PLAN-31 shipped the usage rows so the new column and new field wording is re-scoped by the Re-grounding Record
 
 ## Expected Surface
 
@@ -125,6 +125,18 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 - headless.long_context_thresholds (#174, a closed headless member the validator would refuse, and a cap of the envelope-budget fallback in model-work/06) has no owner among the staged packages; token-usage and client-profile-rendering are candidates
 - the trace names Phase Workflows Metric Aggregates whole; since #165 that section also holds the Caller-Drift Rate shape/content split (not token usage, finalize-pipeline-and-merge's); the spec does not say the plan leaves it
 - Deliverable 3 gives tokens to the qualification and decision calibration records but the calibration record is built by decision-quorum-and-calibration (unstaged, not a dependency) and the qualification record by PLAN-34; order and ownership of the token members are unstated
+
+### Second pass (HEAD `8233fffc`, after #177 and #179)
+
+The specification pull requests #177 (capability specs: Proportion, Amended after refine, Verified by, the Capability Test Guard, the replan triggers `capability_conflict` and `intent_amended`) and #179 landed after the first pass. 4 claims were re-read: 1 corroborated, 1 contradicted (still re-scoped by this record), 2 unverifiable; stamped `checked_at: 8233fffc`.
+
+Specification changes carried (not yet in the Deliverables above):
+
+- #177 — phase-workflows/05 Metric Aggregates bullet Planning Weight (item counts of the intent record and non-empty lines of the rendered records against lines added and removed between base_ref and HEAD; ra…: Add to Open questions beside the caller-drift note: Planning Weight sits in the section the trace names whole but is not token usage; PLAN-61 must not delete or implement it; no staged package or package file names it (grep over change-map, finalize-pipeline-and-merge, runtime-metrics, token-usage finds nothing) so the owner is unstated; no Expected Surface change
+
+Applicability:
+
+- Deliverable 9 (no limits) is unaffected by the Capability Test Guard and Planning Weight: both are blocking-finding and size figures with no token or spend comparison; no spend trigger or unit was added to 08 or state-catalogue/12 (the two new triggers are capability_conflict and intent_amended)
 
 ## Dependencies and Sequencing
 
