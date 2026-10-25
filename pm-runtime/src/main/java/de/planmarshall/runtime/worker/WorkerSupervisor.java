@@ -10,6 +10,8 @@
 package de.planmarshall.runtime.worker;
 
 import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -76,6 +78,7 @@ public final class WorkerSupervisor {
 
     private final SupervisorEnvironment environment;
     private final Map<String, WorkerGeneration> generations = new LinkedHashMap<>();
+    private boolean admitting = true;
 
     /**
      * @param environment the collaborators and installation values of the project
@@ -133,7 +136,7 @@ public final class WorkerSupervisor {
      */
     public synchronized List<StartOutcome> start(List<WorkerStartRequest> requests) {
         Objects.requireNonNull(requests, "requests");
-        if (requests.isEmpty()) {
+        if (requests.isEmpty() || !admitting) {
             return List.of();
         }
         var role = requests.getFirst().role();
@@ -157,18 +160,61 @@ public final class WorkerSupervisor {
      * @param generationId the worker's generation
      * @return the registered generation, or empty when this supervisor started none of that id
      */
-    public Optional<WorkerGeneration> generation(String generationId) {
+    public synchronized Optional<WorkerGeneration> generation(String generationId) {
         Objects.requireNonNull(generationId, "generationId");
-        synchronized (generations) {
-            return Optional.ofNullable(generations.get(generationId));
-        }
+        return Optional.ofNullable(generations.get(generationId));
     }
 
     /** @return the registered generations in start order */
-    public List<WorkerGeneration> generations() {
-        synchronized (generations) {
-            return List.copyOf(generations.values());
+    public synchronized List<WorkerGeneration> generations() {
+        return List.copyOf(generations.values());
+    }
+
+    /**
+     * Replaces one registered generation with its successor value, so a lifecycle transition and the terminal state a
+     * caller wrote are visible to the next decision.
+     *
+     * @param generation the generation in its new state
+     * @throws NullPointerException if the generation is {@code null}
+     */
+    public synchronized void replaced(WorkerGeneration generation) {
+        Objects.requireNonNull(generation, "generation");
+        generations.put(generation.generationId(), generation);
+        notifyAll();
+    }
+
+    /** Stops admitting starts, as the runtime drain requires; a start after this one starts nothing. */
+    public synchronized void stopAdmitting() {
+        admitting = false;
+    }
+
+    /** @return whether this supervisor still admits starts */
+    public synchronized boolean admitting() {
+        return admitting;
+    }
+
+    /** @return whether no generation of this supervisor is running any more */
+    public synchronized boolean quiet() {
+        return generations.values().stream().noneMatch(generation -> !generation.terminal());
+    }
+
+    /**
+     * Waits until no generation runs any more, at most until the deadline.
+     *
+     * @param deadline the end of the drain timeout
+     * @return {@code true} when nothing runs any more, {@code false} when the deadline passed first
+     * @throws InterruptedException if the wait is interrupted
+     */
+    public synchronized boolean awaitQuiet(Instant deadline) throws InterruptedException {
+        Objects.requireNonNull(deadline, "deadline");
+        while (!quiet()) {
+            var remaining = Duration.between(environment.clock().instant(), deadline).toMillis();
+            if (remaining <= 0) {
+                return false;
+            }
+            wait(remaining);
         }
+        return true;
     }
 
     /** @return the environment this supervisor was built with */
@@ -236,9 +282,7 @@ public final class WorkerSupervisor {
                 launch.model(), role.form(), request.workdirKind(), request.planId(), launch.workingDirectory(),
                 role.configurationDigest(), environment.clock().instant(), jobId, lease, WorkerLifecycle.STARTING,
                 null, List.of(), 0L, WorkerState.ContextTokens.UNMEASURED, null);
-        synchronized (generations) {
-            generations.put(generation.generationId(), generation);
-        }
+        generations.put(generation.generationId(), generation);
         return generation;
     }
 
@@ -289,13 +333,11 @@ public final class WorkerSupervisor {
 
     /** @return the generations of the role's form that have not reached a terminal lifecycle state */
     private List<WorkerGeneration> existing(EffectiveRole role) {
-        synchronized (generations) {
-            return generations.values().stream()
-                    .filter(generation -> generation.role().equals(role.artifact().name()))
-                    .filter(generation -> generation.form() == role.form())
-                    .filter(generation -> !generation.lifecycle().terminal())
-                    .toList();
-        }
+        return generations.values().stream()
+                .filter(generation -> generation.role().equals(role.artifact().name()))
+                .filter(generation -> generation.form() == role.form())
+                .filter(generation -> !generation.lifecycle().terminal())
+                .toList();
     }
 
     private static Set<WorkingDirectory> workingDirectories(List<WorkerGeneration> generations) {

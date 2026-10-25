@@ -38,6 +38,7 @@ import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.JobRunner;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.ProjectEnrolment;
+import de.planmarshall.core.store.WorkerState;
 import de.planmarshall.runtime.job.WorkerStart;
 import de.planmarshall.runtime.launch.ContractEnvelope;
 import de.planmarshall.runtime.launch.HarnessEnrolment;
@@ -53,8 +54,9 @@ import de.planmarshall.runtime.launch.SkillSource;
 import de.planmarshall.runtime.lock.FileLockManager;
 
 /**
- * The supervisor test fixture: the real launch contracts over a temporary base, a fake job starter, a fake model-slot
- * admission and the recording collaborators the start path and the log assertions read.
+ * The supervisor test fixture: the real launch contracts over a temporary base, a fake job starter that records the
+ * composed starts and ends, a fake model-slot admission, a recording state writer and the one order list the end path's
+ * collaborators append to.
  */
 final class SupervisorTestFixture {
 
@@ -84,7 +86,15 @@ final class SupervisorTestFixture {
 
     final FakeSlots slots = new FakeSlots();
 
+    final RecordingProtocol protocol = new RecordingProtocol();
+
+    final RecordingStateWriter stateWriter = new RecordingStateWriter();
+
+    final JobTokenStore jobTokens = new JobTokenStore();
+
     final List<AuditEvent> events = new CopyOnWriteArrayList<>();
+
+    final List<String> order = new CopyOnWriteArrayList<>();
 
     final ProjectEnrolment enrolment;
 
@@ -92,6 +102,10 @@ final class SupervisorTestFixture {
 
     /** Whether the fixture harness is enrolled; a test that wants a refused launch turns it off. */
     boolean enrol = true;
+
+    /** The timers of the environment; a test that drives a deadline replaces them. */
+    WorkerTimers timers = (at, action) -> () -> {
+    };
 
     private final InstantSource clock = InstantSource.fixed(NOW);
 
@@ -127,19 +141,17 @@ final class SupervisorTestFixture {
                 new FileLockManager(event -> {
                 }), USER);
         if (enrol) {
-            store.enrol(new HarnessEnrolment(CLIENT,
-                    base.resolve("bin").resolve(CLIENT), SHA, "1.5.0", NOW, NOW,
-                    new HarnessEnrolment.UsageReport(
-                            HarnessEnrolment.UsageSource.DECLARED, Map.of()),
-                    Map.of(), Map.of()));
+            store.enrol(new HarnessEnrolment(CLIENT, base.resolve("bin").resolve(CLIENT), SHA, "1.5.0", NOW, NOW,
+                    new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED, Map.of()), Map.of(),
+                    Map.of()));
         }
-        var verifier = new HarnessVerifier(store, file -> Optional.of(SHA),
-                (file, argv, pattern) -> Optional.of("1.5.0"), (evidence, file) -> true, events::add, clock);
+        var verifier = new HarnessVerifier(store, file -> Optional.of(SHA), (file, argv, pattern) -> Optional.of(
+                "1.5.0"), (evidence, file) -> true, events::add, clock);
         return new SupervisorEnvironment(PROJECT, enrolment, base, base.resolve("home"), base.resolve("runtime"),
-                base.resolve("run").resolve("pm.sock"), SHIM, skillSource, profile, verifier, new LaunchComposer(), starter,
-                new JobTokenStore(), slots, new NoProtocol(), events::add, clock,
-                (at, action) -> () -> {
-                }, guard, gate);
+                base.resolve("run").resolve("pm.sock"), SHIM, skillSource, profile, verifier, new LaunchComposer(),
+                starter, stateWriter, jobTokens, slots, protocol, events::add, clock, timers,
+                new FileLockManager(event -> {
+                }), guard, gate);
     }
 
     /** @return a role of the fixture harness with the given class, form and count */
@@ -191,17 +203,18 @@ final class SupervisorTestFixture {
     /**
      * A job starter that records the calls and answers the request's own generation, so no process is spawned.
      */
-    static final class FakeStarter implements SupervisorEnvironment.WorkerStarter {
+    final class FakeStarter implements SupervisorEnvironment.WorkerStarter {
 
         final List<WorkerStart> starts = new CopyOnWriteArrayList<>();
 
         final List<WorkerStart.Refusal> refusals = new CopyOnWriteArrayList<>();
 
+        final List<JobRunner.CancelCause> cancels = new CopyOnWriteArrayList<>();
+
         @Override
         public JobRunner.StartResult startWorker(WorkerStart request) {
             starts.add(request);
-            return new JobRunner.StartResult.Started(
-                    JobId.parse(request.launch().generationId()).orElseThrow());
+            return new JobRunner.StartResult.Started(JobId.parse(request.launch().generationId()).orElseThrow());
         }
 
         @Override
@@ -209,12 +222,20 @@ final class SupervisorTestFixture {
             refusals.add(refusal);
             return JobId.parse(refusal.generationId()).orElseThrow();
         }
+
+        @Override
+        public boolean cancel(JobId jobId, JobRunner.CancelCause cause) {
+            cancels.add(cause);
+            order.add("cancel:" + jobId.value());
+            return true;
+        }
     }
 
     /**
-     * A model-slot admission that grants while {@link #grant} is {@code true} and records the releases.
+     * A model-slot admission that grants while {@link #grant} is {@code true} and records the releases and whether the
+     * job token was revoked before one.
      */
-    static final class FakeSlots implements ModelSlots {
+    final class FakeSlots implements ModelSlots {
 
         boolean grant = true;
 
@@ -237,6 +258,10 @@ final class SupervisorTestFixture {
         @Override
         public void release(Lease lease) {
             released.add(lease);
+            if (!jobTokens.revoked(lease.generationId())) {
+                order.add("release-before-revoke");
+            }
+            order.add("release");
         }
 
         @Override
@@ -250,12 +275,18 @@ final class SupervisorTestFixture {
         }
     }
 
-    /** The task protocol boundary, which the start path does not call. */
-    static final class NoProtocol implements WorkerProtocol {
+    /** The task protocol boundary, which records the fence and whether the token was already revoked. */
+    final class RecordingProtocol implements WorkerProtocol {
+
+        final List<String> fences = new CopyOnWriteArrayList<>();
+
+        final List<Boolean> revokedAtFence = new CopyOnWriteArrayList<>();
 
         @Override
         public void fence(String generationId) {
-            // the start path never fences
+            fences.add(generationId);
+            revokedAtFence.add(jobTokens.revoked(generationId));
+            order.add("fence");
         }
 
         @Override
@@ -269,11 +300,41 @@ final class SupervisorTestFixture {
         }
     }
 
+    /** The terminal-state writer, recording the write and whether the slot was released before it. */
+    final class RecordingStateWriter implements SupervisorEnvironment.WorkerStateWriter {
+
+        final List<Write> writes = new CopyOnWriteArrayList<>();
+
+        @Override
+        public void write(String generationId, WorkerState.State state, Instant at, WorkerState.EndReason endReason,
+                boolean startFailure) {
+            writes.add(new Write(generationId, state, at, endReason, startFailure,
+                    slots.released.stream().anyMatch(lease -> lease.generationId().equals(generationId))));
+            order.add("write");
+        }
+    }
+
+    /**
+     * One recorded terminal-state write.
+     *
+     * @param generationId  the generation
+     * @param state         the terminal worker state
+     * @param at            the instant of the transition
+     * @param endReason     the end reason
+     * @param startFailure  whether the worker exited before its first call
+     * @param slotReleased  whether the model slot was released before this write
+     */
+    record Write(String generationId, WorkerState.State state, Instant at, WorkerState.EndReason endReason,
+            boolean startFailure, boolean slotReleased) {
+    }
+
     private static final String USER = System.getProperty("user.name");
 
     private static SecretKey key() {
-        return new SecretKeySpec("0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+        return new SecretKeySpec("0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.UTF_8), KEY_ALGORITHM);
     }
+
+    private static final String KEY_ALGORITHM = "HmacSHA256";
 
     private static String document() {
         return """

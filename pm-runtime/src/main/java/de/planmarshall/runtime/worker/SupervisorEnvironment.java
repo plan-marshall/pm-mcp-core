@@ -10,14 +10,19 @@
 package de.planmarshall.runtime.worker;
 
 import java.nio.file.Path;
+import java.time.Instant;
 import java.time.InstantSource;
 import java.util.Objects;
 
 import de.planmarshall.core.profile.LoadedProfile;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.JobRunner;
+import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.store.JobId;
+import de.planmarshall.core.store.JobRecordStore;
 import de.planmarshall.core.store.ProjectEnrolment;
+import de.planmarshall.core.store.WorkerState;
+import de.planmarshall.core.store.WorkerStateCodec;
 import de.planmarshall.runtime.job.SubprocessJobRunner;
 import de.planmarshall.runtime.job.WorkerStart;
 import de.planmarshall.runtime.launch.HarnessVerifier;
@@ -51,6 +56,8 @@ import de.planmarshall.runtime.launch.SkillSource;
  * @param harnessVerifier the launch-time verification of an enrolled harness
  * @param composer        the composition of one worker launch
  * @param starter         the job runtime that starts and settles a worker
+ * @param stateWriter     where the terminal worker state of a generation is written
+ * @param locks           the lock manager of the project stores
  * @param jobTokens       the registry of the job tokens minted at the spawns
  * @param slots           the admission of the machine model slots
  * @param protocol        the module-boundary contract to the task protocol
@@ -63,9 +70,9 @@ import de.planmarshall.runtime.launch.SkillSource;
  */
 public record SupervisorEnvironment(String projectId, ProjectEnrolment enrolment, Path base, Path home,
         Path runtimeHome, Path relaySocket, String shimParagraph, SkillSource skills, LoadedProfile profile,
-        HarnessVerifier harnessVerifier, LaunchComposer composer, WorkerStarter starter, JobTokenStore jobTokens,
-        ModelSlots slots, WorkerProtocol protocol, AuditSink audit, InstantSource clock, WorkerTimers timers,
-        StartGuard startGuard, EligibilityGate eligibilityGate) {
+        HarnessVerifier harnessVerifier, LaunchComposer composer, WorkerStarter starter, WorkerStateWriter stateWriter,
+        JobTokenStore jobTokens, ModelSlots slots, WorkerProtocol protocol, AuditSink audit, InstantSource clock, WorkerTimers timers,
+        LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate) {
 
     /**
      * @throws NullPointerException if a required component is {@code null}
@@ -83,12 +90,14 @@ public record SupervisorEnvironment(String projectId, ProjectEnrolment enrolment
         Objects.requireNonNull(harnessVerifier, "harnessVerifier");
         Objects.requireNonNull(composer, "composer");
         Objects.requireNonNull(starter, "starter");
+        Objects.requireNonNull(stateWriter, "stateWriter");
         Objects.requireNonNull(jobTokens, "jobTokens");
         Objects.requireNonNull(slots, "slots");
         Objects.requireNonNull(protocol, "protocol");
         Objects.requireNonNull(audit, "audit");
         Objects.requireNonNull(clock, "clock");
         Objects.requireNonNull(timers, "timers");
+        Objects.requireNonNull(locks, "locks");
         Objects.requireNonNull(startGuard, "startGuard");
         Objects.requireNonNull(eligibilityGate, "eligibilityGate");
     }
@@ -116,6 +125,13 @@ public record SupervisorEnvironment(String projectId, ProjectEnrolment enrolment
         JobId refuseWorker(WorkerStart.Refusal refusal);
 
         /**
+         * @param jobId the worker's job
+         * @param cause why the supervisor ends it
+         * @return whether the job was queued or running and this call decided its end
+         */
+        boolean cancel(JobId jobId, JobRunner.CancelCause cause);
+
+        /**
          * @param runner the landed job runtime
          * @return the starter the supervisor uses in production
          * @throws NullPointerException if the runner is {@code null}
@@ -132,6 +148,63 @@ public record SupervisorEnvironment(String projectId, ProjectEnrolment enrolment
                 @Override
                 public JobId refuseWorker(WorkerStart.Refusal refusal) {
                     return runner.refuseWorker(refusal);
+                }
+
+                @Override
+                public boolean cancel(JobId jobId, JobRunner.CancelCause cause) {
+                    return runner.cancel(jobId, cause);
+                }
+            };
+        }
+    }
+
+
+    /**
+     * Where the terminal state of a worker generation is written (PM-WORK-3, Job Record): the worker block is read from
+     * the record the generation's job id names, its state, state instant and end reason are replaced, and the record is
+     * written back through the one worker write point. The production adapter is {@link #over(Path, String,
+     * LockManager)}; a test supplies a writer that records the write without a store.
+     *
+     * @since 0.1
+     */
+    @FunctionalInterface
+    public interface WorkerStateWriter {
+
+        /**
+         * @param generationId the worker's generation, equal to its job id
+         * @param state        the terminal worker state
+         * @param at           the instant of the transition
+         * @param endReason    why the worker ended
+         * @param startFailure whether the worker exited before its first call
+         */
+        void write(String generationId, WorkerState.State state, Instant at, WorkerState.EndReason endReason,
+                boolean startFailure);
+
+        /**
+         * @param base      the runtime base
+         * @param projectId the project of the worker
+         * @param locks     the lock manager of the project stores
+         * @return the writer over the project's job records
+         * @throws NullPointerException if a component is {@code null}
+         */
+        static WorkerStateWriter over(Path base, String projectId, LockManager locks) {
+            Objects.requireNonNull(base, "base");
+            Objects.requireNonNull(projectId, "projectId");
+            Objects.requireNonNull(locks, "locks");
+            return (generationId, state, at, endReason, startFailure) -> {
+                var jobId = JobId.parse(generationId)
+                        .orElseThrow(() -> new IllegalArgumentException("Not a job id: " + generationId));
+                var store = JobRecordStore.ofProject(base, projectId);
+                try (var transaction = locks.openTransaction()) {
+                    var record = store.read(jobId)
+                            .orElseThrow(() -> new IllegalStateException("The job record of %s is absent"
+                                    .formatted(generationId)));
+                    if (record.jobId().kind() != JobId.Kind.LLM) {
+                        throw new IllegalStateException("The job %s is not a worker".formatted(generationId));
+                    }
+                    var current = WorkerStateCodec.read(store.recordPath(jobId), record.worker());
+                    store.writeWorker(transaction, jobId, current.withState(state).withStateAt(at)
+                            .withEndReason(endReason).withStartFailure(startFailure));
                 }
             };
         }

@@ -44,6 +44,10 @@ public interface WorkerTimers {
      */
     Cancellable schedule(Instant at, Runnable action);
 
+    /** Releases what the timers hold; the drain calls it after every worker ended. */
+    default void close() {
+    }
+
     /**
      * The production timers: one daemon scheduler thread for the supervisor, its delays measured from the injected
      * clock so a test that moves the clock moves the deadlines with it.
@@ -59,12 +63,21 @@ public interface WorkerTimers {
             thread.setDaemon(true);
             return thread;
         });
-        return (at, action) -> {
-            Objects.requireNonNull(at, "at");
-            Objects.requireNonNull(action, "action");
-            var delay = Math.max(0L, Duration.between(clock.instant(), at).toMillis());
-            var future = executor.schedule(action, delay, TimeUnit.MILLISECONDS);
-            return () -> future.cancel(false);
+        return new WorkerTimers() {
+
+            @Override
+            public Cancellable schedule(Instant at, Runnable action) {
+                Objects.requireNonNull(at, "at");
+                Objects.requireNonNull(action, "action");
+                var delay = Math.max(0L, Duration.between(clock.instant(), at).toMillis());
+                var future = executor.schedule(action, delay, TimeUnit.MILLISECONDS);
+                return () -> future.cancel(false);
+            }
+
+            @Override
+            public void close() {
+                executor.shutdownNow();
+            }
         };
     }
 }
