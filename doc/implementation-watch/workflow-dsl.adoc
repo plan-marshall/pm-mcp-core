@@ -522,3 +522,19 @@ Guard:: The plan implementing this anchor decides the point (with the operator w
 the result in the specification and the requirement it touches, and deletes this item.
 Source:: `workflow-dsl/08-remediation-units.adoc:116`, `state-catalogue/08-remediation-units.adoc:275-276`,
 `state-catalogue/11-remediation-units-merge-qgate-spend.adoc:30-31`.
+
+[#PM-WATCH-DSL-36]
+=== PM-WATCH-DSL-36: A conformance predicate passes on a call that failed or on a red that is not an assertion
+
+Anchor:: link:../specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#reference-check[Workflow DSL § Reference Check]
+Hazard:: A predicate that matches the tool call (a build was run) scores `held` while every call failed in a broken
+sandbox, and a "test seen failing" predicate that matches any failure marker accepts a test runner that could not load
+the tests, so a model that never saw its regression test fail scores as one that did; a predicate no correct answer
+can satisfy scores every model `violated`.
+Guard:: Fixture tests of the harness without a model: a scenario whose fixture does not start in its stated state, and
+one whose predicate rejects its reference tree, are refused `scenario_unsound`; a trace whose build calls all exit
+non-zero fails a predicate over those calls; a trace whose only failure is a load error of the runner fails the
+"seen failing" predicate, and one with an assertion failure of the new test before the source file changed passes it
+(matched control).
+Source:: bartek-890/superpowers-evals (commit `c3617b0`), README change log and `docs/RESULTS.md` (the `tool_used`
+grader on a broken sandbox, the `saw-red` false positive).
