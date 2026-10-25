@@ -2,10 +2,10 @@
   "id": "PLAN-29",
   "slug": "worker-launch",
   "workstream": "WS-04",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-29-worker-launch",
+  "pr": "#172",
+  "landing": "landings/PLAN-29.md",
   "seq": 29
 }
