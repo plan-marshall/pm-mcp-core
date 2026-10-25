@@ -129,8 +129,8 @@ This part lists the start, the settle band (orders `3..10`), push and pull reque
 |`phase-6-finalize`
 |`composite_job`
 |`finalize.next-step` (step `default:architecture-refresh`, order `9`).
-|First the capability changes of the intent record, written into `.marshall/capabilities/` after their `base` fingerprints are checked against the worktree; then the module and dependency discovery job, compared with the recorded architecture; a constituent failure fate maps to `failed`.
-|`replan` (`capability_conflict` raised) -> `finalize.replan`; `unchanged` -> `finalize.next-step` (`done`, `work_performed=false`); `capabilities_only` -> `finalize.settle-commit` (`done`); `changed` -> `finalize.architecture-judgment`; `failed`, `cancelled` -> `finalize.step-failed` (`completes … as failed`).
+|First the capability changes of the intent record, written into `.marshall/capabilities/` with their `verified_by` test files after their `base` fingerprints are checked against the worktree and no unfolded amendment may change a capability-bound criterion; then the module and dependency discovery job, compared with the recorded architecture; a constituent failure fate maps to `failed`.
+|`replan` (`capability_conflict` or `intent_amended` raised) -> `finalize.replan`; `unchanged` -> `finalize.next-step` (`done`, `work_performed=false`); `capabilities_only` -> `finalize.settle-commit` (`done`); `changed` -> `finalize.architecture-judgment`; `failed`, `cancelled` -> `finalize.step-failed` (`completes … as failed`).
 |link:../phase-workflows/04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Phase Workflows Specification, Step Catalogue row `9`]
 
 |[[state-finalize.architecture-judgment]]`finalize.architecture-judgment`

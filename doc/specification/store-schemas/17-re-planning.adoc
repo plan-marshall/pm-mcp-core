@@ -54,9 +54,9 @@ The plan's `mcp/status.json` (xref:02-workflow-state-store.adoc#_workflow_state_
       "additionalProperties": false,
       "description": "Also the shape of replan_pending.",
       "properties": {
-        "kind": { "type": "string", "enum": ["infeasible", "base_advanced", "merge_conflict", "downstream_limit", "ceiling"] },
-        "evidence_key": { "type": "string", "minLength": 1, "description": "kind-specific: the infeasible task ids, the base commit, the base commit and HEAD, HEAD and the bot, or the policy and its renewal; a checkpoint raises no trigger whose kind and key a record already carries." },
-        "checkpoint": { "type": "string", "description": "The state that raised it (execute.replan-check, execute.evaluate-envelope-return, execute.exit-barrier, finalize.sync-baseline, finalize.merge-sync, finalize.review-cap-check, or the remediation call state)." },
+        "kind": { "type": "string", "enum": ["infeasible", "base_advanced", "merge_conflict", "downstream_limit", "ceiling", "capability_conflict", "intent_amended"] },
+        "evidence_key": { "type": "string", "minLength": 1, "description": "kind-specific: the infeasible task ids, the base commit, the base commit and HEAD, HEAD and the bot, the policy and its renewal, the capability and the requirement, or the unfolded amendment ids; a checkpoint raises no trigger whose kind and key a record already carries." },
+        "checkpoint": { "type": "string", "description": "The state that raised it (execute.replan-check, execute.evaluate-envelope-return, execute.exit-barrier, finalize.sync-baseline, finalize.merge-sync, finalize.review-cap-check, finalize.architecture-refresh, or the remediation call state)." },
         "phase": { "type": "string", "description": "The phase value of the phase sub-workflow on the call stack of the checkpoint (store-schemas/03, Phases as Sub-Workflows)." },
         "base_sha": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$" },
         "head_sha": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$" },

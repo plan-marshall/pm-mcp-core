@@ -792,7 +792,7 @@ The plan's solution outline (link:../phase-workflows/02-planning-lanes-phases-3-
 === Capability Spec (`.marshall/capabilities/<capability>.json`)
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_
 
-A git-tracked team file of the project (link:../phase-workflows/01-planning-phases-1-2.adoc#capability-specs[Phase Workflows Specification, Capability Specs]), written only by the finalize step `architecture-refresh` in a plan's worktree; a requirement's fingerprint is the SHA-256 of the RFC 8785 canonical JSON of its object without `plan_id`. A removed requirement leaves the file; a capability whose last requirement is removed is deleted.
+A git-tracked team file of the project (link:../phase-workflows/01-planning-phases-1-2.adoc#capability-specs[Phase Workflows Specification, Capability Specs]), written only by the finalize step `architecture-refresh` in a plan's worktree; a requirement's fingerprint is the SHA-256 of the RFC 8785 canonical JSON of its object without `plan_id` and `verified_by`, so that following a renamed test changes no fingerprint. A removed requirement leaves the file; a capability whose last requirement is removed is deleted.
 
 [source,json]
 ----
@@ -887,6 +887,16 @@ A git-tracked team file of the project (link:../phase-workflows/01-planning-phas
           "plan_id": {
             "type": "string",
             "description": "The plan whose merge last changed the requirement."
+          },
+          "verified_by": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "description": "A repository-relative path of a test file under a test source root of its module."
+            },
+            "description": "The test files the self-review named as evidence of the requirement's criterion met, written by architecture-refresh; empty for a criterion verified by demonstration or inspection. Guarded by the Capability Test Guard."
           }
         }
       }

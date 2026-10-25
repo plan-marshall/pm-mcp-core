@@ -75,7 +75,7 @@ Exit contract: `done` (result `{runnable: bool}`: whether a plan task is runnabl
 |`auto`
 |`replan.gather` (`fallback`); `replan.review` (`lost`, `infeasible`).
 |`replan.conservative-fallback`: takes the trigger's fallback without a task and records it with its reason (`budget_spent`, `no_outline`, the task's `task_reason` such as `role_unqualified`, or `infeasible`).
-|`continue` (`base_advanced`, `merge_conflict`, `downstream_limit`) -> `replan.done`; `hand_back` (`infeasible`, `ceiling`) -> `replan.hand-back`.
+|`continue` (`base_advanced`, `merge_conflict`, `downstream_limit`) -> `replan.done`; `hand_back` (`infeasible`, `ceiling`, `capability_conflict`, `intent_amended`) -> `replan.hand-back`.
 |link:../phase-workflows/08-dynamic-re-planning.adoc#replan-fallback[Phase Workflows Specification, Conservative Fallback]
 
 |[[state-replan.apply]]`replan.apply`
