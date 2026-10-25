@@ -302,8 +302,24 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/RoleComposition
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/RoleUse.java[RoleUse],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/CompositionRefusal.java[CompositionRefusal]
 
+Implementation (the `worker-launch` part of bullets 3, 4 and 5's service side, `runtime.launch`): the launch of a worker
+of an enrolled harness from the role's effective configuration and the harness's client profile — the model tier rendered,
+the effort narrowed, the working directory fixed, the tool set and the per-call MCP configuration composed, the launch
+prompt with its shared prefix and the writing skill derived from the link schemas, the job token minted and only its
+digest recorded, the harness enrolment store with its HMAC sidecar and its launch-time verification and self-update, and
+the launch started or refused through the job runner
+(link:../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide]). Not implemented and owned
+elsewhere: the relay's per-request binding, the supervisor's start and supervision, output and usage reading, model slots,
+and warm offers (link:../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide] § Owed).
+
 Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/ModelCallerTest.java[ModelCallerTest],
-link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/RoleCompositionTest.java[RoleCompositionTest]
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/RoleCompositionTest.java[RoleCompositionTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/LaunchComposerTest.java[LaunchComposerTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/PromptComposerTest.java[PromptComposerTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/FreeTextDerivationTest.java[FreeTextDerivationTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessVerifierTest.java[HarnessVerifierTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessEnrolmentStoreTest.java[HarnessEnrolmentStoreTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/WorkerJobTest.java[WorkerJobTest]
 
 Documentation: link:../pm-workflow/doc/developer/workflow-model.adoc[The One Model Caller Developer Guide],
 link:../pm-workflow/doc/adr/workflow-model/001-model-caller-and-classes-at-use.adoc[ADR workflow-model/001]
@@ -690,7 +706,7 @@ link:../pm-runtime/doc/developer/runtime-job.adoc#_probe_jobs[Job Runtime Develo
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-4[PM-EXEC-4]
 
-Implementation (as far as the library modules `pm-core` and `pm-runtime` carry it and not yet wired into the runtime `pm-mcpd`: the job record of every job in the store of its scope (a project, the machine scope, an onboarding entry) with its identifier and its fixed write points, written ahead of the launch and replaced with the PID and the process start once the launcher reports them, each under the lock of the owning scope; the job runner service and its implementation, which verifies a job in a lock transaction of its own, launches it through `pm-exec` with in-memory `stdin`, takes the job PID as its process-group ID, reads and strips the launch report, keeps the job log readable while the job runs, terminates the job's process group for every cause (`SIGTERM`, the grace period, `SIGKILL` to every member left, the cancel before the group exists) through FFM, derives the fate by the closed 13-row outcome table with the child's wall time, and settles the job in the fixed write order; probe jobs with their fixed budgets. Not implemented yet: the launcher `pm-exec` itself and its Landlock, Seatbelt, network-namespace and egress enforcement, and the `egress` field of the job record (the confinement and the environment of a job are composed here, PM-SEC-5, but their enforcement is the launcher's), the wait of a queued job for its build or model slot, the launch of workers, the settlement steps that are seams (a worker's token and generation, its queue task record, the metrics row, the change-ledger row, the timing observation, its job-private directory), the in-process operations of the native variant, the parsers that supply the success markers and diagnostics, and the budgets of the other job kinds): link:../pm-core/src/main/java/de/planmarshall/core/store/JobId.java[JobId],
+Implementation (as far as the library modules `pm-core` and `pm-runtime` carry it and not yet wired into the runtime `pm-mcpd`: the job record of every job in the store of its scope (a project, the machine scope, an onboarding entry) with its identifier and its fixed write points, written ahead of the launch and replaced with the PID and the process start once the launcher reports them, each under the lock of the owning scope; the job runner service and its implementation, which verifies a job in a lock transaction of its own, launches it through `pm-exec` with in-memory `stdin`, takes the job PID as its process-group ID, reads and strips the launch report, keeps the job log readable while the job runs, terminates the job's process group for every cause (`SIGTERM`, the grace period, `SIGKILL` to every member left, the cancel before the group exists) through FFM, derives the fate by the closed 13-row outcome table with the child's wall time, and settles the job in the fixed write order; probe jobs with their fixed budgets; the launch of a worker of an enrolled harness (`runtime.launch`: the composed argument vector, the worker block, the job token and its revocation with the fate, and the refused launch recorded before a spawn, `SubprocessJobRunner.startWorker` and `refuseWorker`). Not implemented yet: the launcher `pm-exec` itself and its Landlock, Seatbelt, network-namespace and egress enforcement, and the `egress` field of the job record (the confinement and the environment of a job are composed here, PM-SEC-5, but their enforcement is the launcher's), the wait of a queued job for its build or model slot, the settlement steps that are seams (a worker's queue task record, the metrics row, the change-ledger row, the timing observation, its job-private directory), the in-process operations of the native variant, the parsers that supply the success markers and diagnostics, and the budgets of the other job kinds): link:../pm-core/src/main/java/de/planmarshall/core/store/JobId.java[JobId],
 link:../pm-core/src/main/java/de/planmarshall/core/store/JobRecord.java[JobRecord],
 link:../pm-core/src/main/java/de/planmarshall/core/store/JobRecordCodec.java[JobRecordCodec],
 link:../pm-core/src/main/java/de/planmarshall/core/store/JobRecordStore.java[JobRecordStore],
@@ -914,7 +930,7 @@ Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.ado
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-5[PM-SEC-5]
 
-Implementation (the enrolment part of the HMAC bullet: the HMAC-SHA-256 over the canonical content of every enrolment file in its sidecar record, written with every runtime write, the key in the keyring under the operator lane or in `<PM_MCP_BASE>/state/` with mode `0600`, read through a supplier of the store it lives in so a move of the credential store carries it and nothing is re-signed, carried from the store found before the choice into the store at its first recording and verified there against every sidecar before the switch, the key every sidecar verifies under being the one the reconcile of the two stores keeps, the check that refuses `enrolment_tampered` with an audit record for that project only, and the re-baseline; the verification of `harnesses.json` against its sidecar under a given key, and of every sidecar of the machine (the enrolment files, `harnesses.json`, `logs/audit.head`) under the moved key; the check in the recovery and before verify-not-resolve, the operator verb, the harness enrolment store with its verification before every worker spawn, and the job-runtime bullets are not implemented yet; the residual risk of the enrolment HMAC is documented): link:../pm-runtime/src/main/java/de/planmarshall/runtime/enrolment/EnrolmentKey.java[EnrolmentKey],
+Implementation (the enrolment part of the HMAC bullet: the HMAC-SHA-256 over the canonical content of every enrolment file in its sidecar record, written with every runtime write, the key in the keyring under the operator lane or in `<PM_MCP_BASE>/state/` with mode `0600`, read through a supplier of the store it lives in so a move of the credential store carries it and nothing is re-signed, carried from the store found before the choice into the store at its first recording and verified there against every sidecar before the switch, the key every sidecar verifies under being the one the reconcile of the two stores keeps, the check that refuses `enrolment_tampered` with an audit record for that project only, and the re-baseline; the verification of `harnesses.json` against its sidecar under a given key, and of every sidecar of the machine (the enrolment files, `harnesses.json`, `logs/audit.head`) under the moved key; the check in the recovery and before verify-not-resolve, the operator verb and the job-runtime bullets are not implemented here; the harness enrolment store and its verification before every worker spawn are implemented by `runtime.launch` (see the second Implementation paragraph of this requirement, and link:../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide]); the residual risk of the enrolment HMAC is documented): link:../pm-runtime/src/main/java/de/planmarshall/runtime/enrolment/EnrolmentKey.java[EnrolmentKey],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/enrolment/EnrolmentHmac.java[EnrolmentHmac],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/enrolment/EnrolmentCheck.java[EnrolmentCheck],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/enrolment/Enrolments.java[Enrolments],
@@ -926,6 +942,22 @@ link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialS
 link:../pm-core/src/main/java/de/planmarshall/core/store/EnrolmentSidecar.java[EnrolmentSidecar],
 link:../pm-core/src/main/java/de/planmarshall/core/store/StoreRefusal.java[StoreRefusal],
 link:../pm-core/src/main/java/de/planmarshall/core/service/AuditEvent.java[AuditEvent]
+
+Implementation (the harness enrolment store and its launch-time verification, `runtime.launch`): the machine-wide
+`harnesses.json` with its HMAC sidecar and the canonical write under `locks/harnesses.lock`, the single store API of the
+onboarding's `harness.enrol` and `pm-operator enrol-harness`, the re-baseline of a tampered file with the named client
+only, the re-digest of the executable before every spawn, the evidence check before the version probe, the accepted
+self-update with `harness_updated`, and the refusals `harness_not_enrolled`, `harness_update_unverified`,
+`harness_version_unsupported` and `harness_tampered` (with the `security` audit record `enrolment_tampered`):
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolment.java[HarnessEnrolment],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolmentStore.java[HarnessEnrolmentStore],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessVerifier.java[HarnessVerifier],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessVerification.java[HarnessVerification],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/LaunchRefusal.java[LaunchRefusal]
+
+Verified by (the harness enrolment store and its verification):
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessEnrolmentStoreTest.java[HarnessEnrolmentStoreTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessVerifierTest.java[HarnessVerifierTest]
 
 Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/credentials/CredentialStoreChoiceTest.java[CredentialStoreChoiceTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/credentials/CredentialStoreMoveTest.java[CredentialStoreMoveTest],

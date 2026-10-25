@@ -51,7 +51,7 @@ The per-project machine store records the main checkout it belongs to, the proje
 == Harness Enrolment Store (`<PM_MCP_BASE>/harnesses.json`)
 _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-33[PM-WATCH-DISP-33]_
 
-The verification of `harnesses.json` against its sidecar under a given integrity key is implemented, and the credential-store move uses it to verify the file under the moved key (link:../../../pm-runtime/src/main/java/de/planmarshall/runtime/enrolment/HarnessesSidecarCheck.java[HarnessesSidecarCheck], link:../../../pm-runtime/doc/developer/runtime-enrolment.adoc[Developer Guide § Integrity Key and Sidecars]). This section keeps what is not implemented yet: the file's schema, its writers, its verification before every worker spawn, the self-update and the tampered file.
+The verification of `harnesses.json` against its sidecar under a given integrity key is implemented, and the credential-store move uses it to verify the file under the moved key (link:../../../pm-runtime/src/main/java/de/planmarshall/runtime/enrolment/HarnessesSidecarCheck.java[HarnessesSidecarCheck], link:../../../pm-runtime/doc/developer/runtime-enrolment.adoc[Developer Guide § Integrity Key and Sidecars]). The file's schema, its two writers, its verification before every worker spawn, the self-update and the tampered file are implemented by `runtime.launch` (link:../../../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolmentStore.java[HarnessEnrolmentStore], link:../../../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessVerifier.java[HarnessVerifier], link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Developer Guide § Worker Launch]).
 
 One machine-wide file holds the harness CLIs that may run workers (job kind `llm`, xref:10-job-and-lesson-records.adoc#job-record[Job Record]). A harness is enrolled per machine, not per project, by `harness.enrol` of the machine's onboarding, which records a candidate of the harness scan or a harness the operator added with a verified profile (link:../client-profiles/01-profile-schema.adoc#harness-scan[Client Profiles Specification, Harness Scan]), or by `pm-operator enrol-harness <client_id>` (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-enrol-harness[CLI, Coordination & Security Specification, Harness Enrolment]): the runtime resolves the executable path once (no `PATH` lookup at job time), runs the profile's version probe, and records path, digest, and version, the usage report of its profile, and, where its profile declares a weights probe, the weights identity of each allowed model, and nothing else: the file holds no environment value, no variable name, and no credential, because `PM-MCP` never stores or exports a harness's authentication (the harness uses its own login). Written only by the runtime on those acts and on an accepted self-update, under `locks/harnesses.lock`, with an HMAC sidecar `harnesses.json.hmac` in the format of the sidecar of a project enrolment: a closed, versioned record with exactly `format_version` (`1`), `size` (the byte length of the canonical file), `sha256` (its lowercase-hex SHA-256) and `hmac` (the lowercase-hex HMAC-SHA-256 over its exact canonical bytes), under the same enrolment integrity key, verified before every worker spawn (link:../../../../plan-marshall-documentation/doc/concepts/enrolment.adoc#integrity[Concepts § Enrolment, Integrity]).
 
@@ -74,7 +74,7 @@ One machine-wide file holds the harness CLIs that may run workers (job kind `llm
       "propertyNames": { "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "client_id of a worker-eligible profile of the effective profile set with a headless template, a shipped or an operator-added one, or of an endpoint profile (its serving program); a profile marked headless null or worker.eligible false is never enrolled." },
       "additionalProperties": {
         "type": "object",
-        "required": ["executable_path", "sha256", "version", "enrolled_at", "updated_at", "usage_report"],
+        "required": ["executable_path", "sha256", "version", "enrolled_at", "updated_at", "usage_report", "events"],
         "additionalProperties": false,
         "properties": {
           "executable_path": { "type": "string", "minLength": 1, "description": "Resolved absolute path." },
@@ -113,8 +113,27 @@ One machine-wide file holds the harness CLIs that may run workers (job kind `llm
                   "reasoning": { "$ref": "#/$defs/figure" },
                   "tool_uses": { "$ref": "#/$defs/figure" }
                 }
+              },
+              "start_context": {
+                "type": "array",
+                "description": "Input tokens of a worker's first model turn per class and model, from the usage stage of the verification (Client Profiles Specification, Start Context); absent for source declared.",
+                "items": {
+                  "type": "object",
+                  "required": ["class", "model", "tokens"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "class": { "type": "string", "enum": ["writer", "read_only", "zero_tool"] },
+                    "model": { "type": "string", "minLength": 1, "maxLength": 128 },
+                    "tokens": { "oneOf": [ { "type": "integer", "minimum": 0 }, { "const": "unmeasured" } ] }
+                  }
+                }
               }
             }
+          },
+          "events": {
+            "type": "object",
+            "description": "The per-kind results of the events stage of the profile's verification, kept with the entry (Client Profiles Specification, What a Worker Does): each activity kind the stage checked, reported or missing. A shipped profile carries the release's results; an operator-added profile carries the results of its verification.",
+            "additionalProperties": { "type": "string", "enum": ["reported", "missing"] }
           }
         }
       }

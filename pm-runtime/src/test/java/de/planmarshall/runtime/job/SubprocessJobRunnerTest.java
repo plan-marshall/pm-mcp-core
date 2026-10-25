@@ -1772,6 +1772,15 @@ class SubprocessJobRunnerTest {
                     () -> assertEquals(0L, awaited.observedLength()),
                     () -> assertTrue(interruptStatus, "the interrupt is restored for the caller"));
         }
+
+        @Test
+        @DisplayName("records the descendants of a probe and of a worker, and of no other kind")
+        void tracksDescendantsOfProbesAndWorkers() {
+            for (var kind : JobId.Kind.values()) {
+                assertEquals(kind == JobId.Kind.PROBE || kind == JobId.Kind.LLM,
+                        SubprocessJobRunner.tracksDescendants(kind), kind::wireName);
+            }
+        }
     }
 
     /** A process whose exit and liveness the test controls. */

@@ -19,6 +19,7 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.RecordComponent;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -171,8 +172,30 @@ class FindingSchemaParityTest {
     void walkReachesNestedRecords() {
         var types = objects().stream().map(RecordObject::type).collect(Collectors.toSet());
 
-        assertEquals(Set.of(Finding.class, Finding.CiFailure.class, Finding.Screen.class, Finding.Screen.Span.class,
-                Finding.CarriedTo.class, Finding.Evidence.class, Finding.ProviderRef.class), types);
+        assertEquals(recordTree(Finding.class), types);
+    }
+
+    /** The record and every record reachable from its components, derived from the types themselves. */
+    private static Set<Class<?>> recordTree(Class<?> type) {
+        var types = new HashSet<Class<?>>();
+        collect(type, types);
+        return types;
+    }
+
+    private static void collect(Class<?> type, Set<Class<?>> types) {
+        if (!types.add(type)) {
+            return;
+        }
+        for (var component : type.getRecordComponents()) {
+            var componentType = component.getType();
+            if (componentType.isRecord()) {
+                collect(componentType, types);
+            } else if (List.class.equals(componentType)
+                    && component.getGenericType() instanceof ParameterizedType generic
+                    && generic.getActualTypeArguments()[0] instanceof Class<?> element && element.isRecord()) {
+                collect(element, types);
+            }
+        }
     }
 
     @Test

@@ -114,6 +114,7 @@ The per-project machine store is implemented as the one place of the server-owne
 ├── roles/                               # Project role set: operator role artifacts (mode 0700)
 │   ├── <role>.json                      # Role artifact; replaces the machine or shipped artifact of the same name
 │   ├── qualification/<role>.json        # Qualification record of the role's effective configuration (every operator-made record)
+│   ├── qualification/judge-check.json   # Instrument check of the judge configuration the project's gradings use
 │   └── qualification/decisions/<declaration-digest>.json  # Decision calibration record of a quorum declaration
 │
 ├── jobs/                                # Write-ahead job journal (crash recovery) and job logs
