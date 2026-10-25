@@ -344,7 +344,8 @@ The store, its codec, and the members the workflow engine owns (`format_version`
           "source": { "type": "string", "enum": ["user", "model", "quorum", "refutation"], "description": "user: the operator's answer (channel web or cli); model: a model judgment such as continue_narrowed; quorum: an answer a quorum of the adjudication decided (channel quorum); refutation: an in-triage refutation, or the premise evidence of a lesson source carried from the bootstrap (continue of the source-lesson premise state), written by the plan's creation transaction." },
           "question_id": { "type": ["string", "null"], "pattern": "^Q-[0-9]{3,6}$", "description": "The question record the answer belongs to; null for an amendment without a question." },
           "text": { "type": "string", "minLength": 1 },
-          "supersedes": { "type": ["string", "null"], "pattern": "^A-[0-9]+$" }
+          "supersedes": { "type": ["string", "null"], "pattern": "^A-[0-9]+$" },
+          "changes": { "type": ["array", "null"], "items": { "type": "string", "pattern": "^(AC|DC|CN|NG)-[0-9]+$" }, "uniqueItems": true, "description": "The intent-record items the amendment changes, where the writing transition knows them; null when the server cannot tell, which counts as possibly every item. An unfolded amendment naming a criterion bound to a capability, or null while the record holds one, raises intent_amended at finalize.architecture-refresh (Phase Workflows Specification, capability-specs)." }
         }
       }
     },

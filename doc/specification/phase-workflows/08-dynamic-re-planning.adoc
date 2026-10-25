@@ -68,6 +68,11 @@ The server detects every trigger itself, at fixed checkpoints, from recorded or 
 |A capability requirement the intent record changes no longer has the fingerprint (`base`) the record states: another plan changed it since.
 |The capability and the requirement
 
+|`intent_amended`
+|`finalize.architecture-refresh` before it writes the capability specs
+|An amendment after refine that no later revision of the intent record folded names a criterion with a `capability`, or its `changes` is unknown while the record holds such a criterion (xref:01-planning-phases-1-2.adoc#capability-specs[Capability Specs]).
+|The unfolded amendment ids
+
 |`ceiling`
 |The `exhausted` outcome of every remediation call of Phase 5 and of finalize before the merge (<<replan-existing-mechanisms>>)
 |The remediation policy spent its loop budget: a loop-back ceiling reached, a self-review or review that did not converge, a build, CI, analysis, or conflict fix that did not hold.
@@ -75,7 +80,7 @@ The server detects every trigger itself, at fixed checkpoints, from recorded or 
 |===
 
 * *Once per evidence*: A checkpoint raises a trigger only when no re-planning record of the plan carries the same trigger kind and evidence key, so a judged situation is never judged again; a later checkpoint with new evidence (a new base commit, a new `HEAD`) raises it anew. The `exhausted` outcome of a remediation call always enters the call state; when its `ceiling` key is already judged, the unit takes the fallback without a task.
-* *Order*: At one checkpoint the server raises at most one trigger, in the order `infeasible`, `ceiling`, `merge_conflict`, `capability_conflict`, `base_advanced`, `downstream_limit`; the others are evaluated again at the next checkpoint.
+* *Order*: At one checkpoint the server raises at most one trigger, in the order `infeasible`, `ceiling`, `merge_conflict`, `capability_conflict`, `intent_amended`, `base_advanced`, `downstream_limit`; the others are evaluated again at the next checkpoint.
 * *Lanes without an outline*: A plan of the `land` or `adopt` lane has no outline to revise; its triggers take their conservative fallback without a task.
 * *Decision records*: Every evaluation of `base_advanced`, `merge_conflict`, or `downstream_limit` that measured its value appends a `replan.trigger` decision record with the measured value against its threshold and source, raised or not (link:../model-work/11-decision-records.adoc#decision-points[Model Work Specification, Decision Points]); an evaluation skipped (a failed fetch) records nothing.
 * *`execute.replan-check`*: An `auto` state between `execute.deliverable-build` (`succeeded`) and `execute.envelope-ready`; it fetches the base (the `git` network class budget) and evaluates `base_advanced` and the projected `downstream_limit`. A revision accepted in a chat that waits for the plan's next task boundary is applied here, before the next envelope task (<<replan-chat>>). A failed fetch skips `base_advanced` at this checkpoint, never raising it.
@@ -104,7 +109,7 @@ The shipped values are defaults to be calibrated from the decision records, not 
 
 * *Facts*: the trigger with its evidence (link:../model-work/06-envelopes-questions-deadlines.adoc[Model Work Specification, Envelope Tasks, Questions & Decisions]): for `base_advanced` and `merge_conflict` the base commits since the branch base (id and subject), the overlapping paths, and the conflicted files grouped by area; for `downstream_limit` the bot, its cap, and the measurement with the changed files by area; for `ceiling` the policy, its spent budget, and its last failure envelopes; for `infeasible` the infeasible deliverables with their evidence and their server-computed transitive dependents. Then the plan: the outline's deliverables with their state (`done`, `open`, `infeasible`), the plan tasks with their status, the declared and the realized footprint (paths beyond a compiled list length as a count with a resource URI), the phase and the finalize steps done, the required review bots with their caps, whether a push remote exists, the plan's epic row and its siblings' declared surfaces, and the remaining budgets (`replan_budget`, the outline loop-back budget, the remediation budgets). Logs and excerpts stay behind `pm://plan/{plan_id}/evidence/{evidence_id}`.
 * *Links*: one closing link per offered action (<<replan-actions>>), each of rel `submit` with its parameters defined once in `facts.options` (link:../hypermedia-format/01-representation-and-link-forms.adoc#options-defined-once[Hypermedia Format Specification, Options Defined Once]). The task has no `ask` link: re-planning never asks the operator.
-* *Offered actions per trigger*: `rebase_and_reverify_only` is not offered for `infeasible` and `downstream_limit`; `wait_for_prerequisite` is not offered for `downstream_limit`; the `outline` re-entry of `reintegrate_in_plan` only while the outline loop-back budget is left. Every other action is offered for every trigger.
+* *Offered actions per trigger*: `rebase_and_reverify_only` is not offered for `infeasible` and `downstream_limit`; `wait_for_prerequisite` is not offered for `downstream_limit`; the `outline` re-entry of `reintegrate_in_plan` only while the outline loop-back budget is left; for `intent_amended` only `reintegrate_in_plan` and `hand_back` are offered, and a `reintegrate_in_plan` without `revised_intent` is refused, because the trigger exists to fold the amendments into the record. Every other action is offered for every trigger. A revision accepted for `intent_amended` or `capability_conflict` that changes a criterion makes the verdict of `pre-submission-self-review` not current, so the step fires again before `architecture-refresh` writes the capability specs.
 * *Closed outcomes*: A submit the guards refuse is answered `rejected` with its reason and the task continues; a task that ends without a valid submit is offered again within the task re-offer budget, then closes `lost`, and `lost` and `infeasible` take the conservative fallback (<<replan-fallback>>).
 
 [#replan-actions]
@@ -161,6 +166,7 @@ The operator may open a chat on a running plan in either client (link:../state-c
 |`ceiling` |`hand_back`, gap `cause: exhausted` with the spent policy budget: the route the remediation call takes without re-planning.
 |`base_advanced`, `merge_conflict` |`done`: the plan continues, and the base is integrated by the existing path (`finalize.sync-baseline` and `finalize.merge-sync` with `remediation.merge-conflict`); in Phase 5 nothing is integrated until finalize.
 |`downstream_limit` |`done`: the plan continues; at the review cap gate the exceeded cap takes its structural route (`remediation.review-findings`).
+|`capability_conflict`, `intent_amended` |`hand_back`, gap `cause: exhausted` with the reason of the fallback: no capability change is written from a record the server knows to be stale.
 |===
 
 The record names the fallback and its reason, and the trigger's evidence key is judged, so the same situation does not raise it again.

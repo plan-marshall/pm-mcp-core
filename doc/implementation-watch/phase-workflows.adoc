@@ -1769,3 +1769,36 @@ unchanged, and every probe has a build row bound to its commit; matched controls
 override skips with its reason.
 Source:: Article analysis `agentic-graph-engineering` of plan-marshall-documentation (17 of 105 archived plans of plan-marshall with Maven logs had three or more failed builds in a
 row; plan-marshall has no localisation).
+
+[#PM-WATCH-PHASE-118]
+=== PM-WATCH-PHASE-118: An amendment reaches the capability spec, never the criterion it replaced
+
+Anchor:: link:../specification/phase-workflows/01-planning-phases-1-2.adoc#capability-specs[Phase Workflows § Capability Specs] (Amended after Refine)
+Hazard:: `architecture-refresh` writes the capability changes from the intent record while an amendment made after
+refine changed one of its criteria, so the capability spec states what the plan no longer does; or an amendment whose
+`changes` is unknown is read as changing nothing; or the revision that folds it leaves the self-review's verdict
+standing on the replaced criterion.
+Guard:: Scenario over a plan whose task question in Phase 5 changes a criterion bound to a capability: `finalize.architecture-refresh`
+raises `intent_amended` with the amendment id, nothing is written to `.marshall/capabilities/`, the re-planning's
+`revised_intent` is required, `pre-submission-self-review` fires again, and the written requirement carries the amended
+text; matched controls: an amendment folded by a later revision, and one whose `changes` names only an item without a
+`capability`, raise nothing; one with `changes: null` raises the trigger while the record holds a capability-bound
+criterion.
+Source:: Article analysis `spec-anchored-development` of plan-marshall-documentation (Beck's objection to a spec frozen
+before implementation; plan-marshall's archived plans show intent changed in Phases 5 and 6, for example a scope widened
+in finalize, with no record revised).
+
+[#PM-WATCH-PHASE-119]
+=== PM-WATCH-PHASE-119: A capability's test is not removed without its requirement
+
+Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#capability-test-guard[Phase Workflows § Capability Test Guard]
+Hazard:: The guard reads `verified_by` from the worktree instead of `base_ref`, so a plan that deletes the test and its
+`verified_by` entry together passes; or a rename is reported as a removal, or a removal paired by a weak rename match
+is followed silently; or a missing capability spec at `base_ref` is read as nothing guarded.
+Guard:: Scenario over a project with a requirement whose `verified_by` names one test: a plan that deletes the test and
+edits the capability spec without a `capability` binding in its record gets `capability_test_removed`; matched controls:
+the same deletion in a plan whose criterion `modified` the requirement is not reported, a `git mv` of the test is
+followed and `verified_by` rewritten without a fingerprint change, and an unparsable capability spec yields
+`indeterminate` with a blocking finding.
+Source:: Article analysis `spec-anchored-development` of plan-marshall-documentation (contract tests as what keeps a
+living spec and the code in sync; capability specs had no link to a test).
