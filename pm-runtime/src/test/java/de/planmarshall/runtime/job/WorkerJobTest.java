@@ -123,7 +123,8 @@ class WorkerJobTest {
                 () -> assertEquals(Status.ENDED, settled.status()),
                 () -> assertEquals(Fate.SUCCEEDED, settled.fate()),
                 () -> assertTrue(settled.worker().contains("implementer")),
-                () -> assertTrue(tokens.resolve(Secrets.sha256(TOKEN)).isEmpty(), "the token is revoked with the fate"));
+                () -> assertEquals(GENERATION, tokens.resolve(Secrets.sha256(TOKEN)).orElseThrow().jobId()),
+                () -> assertTrue(tokens.revoked(GENERATION), "the token is revoked with the fate"));
     }
 
     @Test

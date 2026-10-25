@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.launch;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.DisplayName;
@@ -35,13 +36,15 @@ class JobTokenStoreTest {
     }
 
     @Test
-    @DisplayName("a revocation removes the generation's token")
+    @DisplayName("a revoked token still resolves so the handler answers the ended job")
     void revoke() {
         var store = new JobTokenStore();
         store.register(GENERATION, JobTokens.sha256Hex(TOKEN));
         store.register("l-fedcba9876543210", JobTokens.sha256Hex("other"));
         store.revoke(GENERATION);
-        assertTrue(store.resolve(Secrets.sha256(TOKEN)).isEmpty());
+        assertEquals(GENERATION, store.resolve(Secrets.sha256(TOKEN)).orElseThrow().jobId());
+        assertTrue(store.revoked(GENERATION));
         assertEquals("l-fedcba9876543210", store.resolve(Secrets.sha256("other")).orElseThrow().jobId());
+        assertFalse(store.revoked("l-fedcba9876543210"));
     }
 }

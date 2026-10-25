@@ -27,6 +27,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.planmarshall.runtime.enrolment.EnrolmentHmac;
 import de.planmarshall.runtime.enrolment.EnrolmentKey;
 import de.planmarshall.runtime.lock.FileLockManager;
 
@@ -41,10 +42,11 @@ class HarnessEnrolmentStoreTest {
     Path base;
 
     private HarnessEnrolmentStore store;
+    private SecretKey key;
 
     @BeforeEach
     void setUp() {
-        SecretKey key = new SecretKeySpec("0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.UTF_8),
+        key = new SecretKeySpec("0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.UTF_8),
                 EnrolmentKey.ALGORITHM);
         store = new HarnessEnrolmentStore(base, () -> key, new FileLockManager(event -> {
         }), USER);
@@ -79,6 +81,19 @@ class HarnessEnrolmentStoreTest {
         assertEquals(List.of("claude"), store.all().stream().map(HarnessEnrolment::clientId).toList());
         assertEquals("1.6.0", store.find("claude").orElseThrow().version());
         assertTrue(store.find("opencode").isEmpty());
+    }
+
+    @Test
+    @DisplayName("a new enrolment re-baselines a verified file that does not read as the store")
+    void rebaselineUnreadable() throws Exception {
+        store.enrol(enrolment("claude", "1.5.0"));
+        var file = base.resolve("harnesses.json");
+        var bytes = Files.readString(file, StandardCharsets.UTF_8)
+                .replace("\"format_version\":1", "\"format_version\":2").getBytes(StandardCharsets.UTF_8);
+        Files.write(file, bytes);
+        Files.write(base.resolve("harnesses.json.hmac"), EnrolmentHmac.sidecar(key, bytes).write());
+        store.enrol(enrolment("opencode", "1.0.0"));
+        assertEquals(List.of("opencode"), store.all().stream().map(HarnessEnrolment::clientId).toList());
     }
 
     @Test

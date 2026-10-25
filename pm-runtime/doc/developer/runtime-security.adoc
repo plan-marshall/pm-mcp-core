@@ -52,8 +52,9 @@ the relay's `PM_MCP_JOB_TOKEN` environment in the per-call MCP configuration; th
 the job from its digest on every request.
 
 `JobTokenStore` (in `runtime.launch`) is the registry over the job records: `register(generationId, tokenSha256)` at the
-start, `resolve` on every request, and `revoke(generationId)` in the job's settlement, so a token is valid only while its
-job runs. A `zero_tool` worker has no connection and therefore no token.
+start, `resolve` on every request, and `revoke(generationId)` in the job's settlement; a revoked token still resolves and
+`revoked(generationId)` says the generation ended, so the handler answers `job_ended` instead of `401`. A `zero_tool`
+worker has no connection and therefore no token.
 
 == Which Kind Counts Where
 

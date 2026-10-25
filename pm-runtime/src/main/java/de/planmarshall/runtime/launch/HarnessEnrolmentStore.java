@@ -24,6 +24,7 @@ import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -178,8 +179,8 @@ public final class HarnessEnrolmentStore {
 
     /**
      * @param transaction the transaction
-     * @param rebaseline  whether a file that fails its integrity check is read as empty, for the re-baseline of a new
-     *                    enrolment
+     * @param rebaseline  whether a file that fails its integrity check, or whose verified bytes do not read as the
+     *                    store, is read as empty for the re-baseline of a new enrolment
      */
     private Map<String, HarnessEnrolment> read(LockTransaction transaction, boolean rebaseline) {
         var result = check.verify(transaction, key.get());
@@ -194,7 +195,14 @@ public final class HarnessEnrolmentStore {
         if (result.outcome() == HarnessesSidecarCheck.Outcome.NOTHING_TO_VERIFY) {
             return new TreeMap<>();
         }
-        return decode(readBytes(file));
+        try {
+            return decode(readBytes(file));
+        } catch (StoreException unreadable) {
+            if (rebaseline && unreadable.refusal() == Refusal.UNREADABLE) {
+                return new TreeMap<>();
+            }
+            throw unreadable;
+        }
     }
 
     private static byte[] readBytes(Path path) {
@@ -222,7 +230,8 @@ public final class HarnessEnrolmentStore {
         for (var member : harnesses.members().entrySet()) {
             try {
                 entries.put(member.getKey(), entry(member.getKey(), member.getValue()));
-            } catch (ProfileRefusal | DateTimeParseException | IllegalArgumentException malformed) {
+            } catch (ProfileRefusal | DateTimeParseException | NoSuchElementException
+                    | IllegalArgumentException malformed) {
                 throw new StoreException(Refusal.UNREADABLE,
                         "the entry '%s' is malformed: %s".formatted(member.getKey(), malformed.getMessage()));
             }
