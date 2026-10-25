@@ -69,9 +69,9 @@ The admission of the machine model slots. Every running worker, warm or fresh, h
 `model-slots.json` from its spawn to its exit; a warm worker holds it for its whole generation, idle or not. The cap is
 `model_slots` of `machine-config.json`, its compiled default `2` and its bounds `1` to `16`. `request` answers
 `Granted`, `Queued` (in the FIFO of the store) or `Deferred` (another writer worker of the plan holds a slot or waits);
-`release` and `releasePlan` free what a settled worker or a paused plan held and return the leases the freed slots
-admitted. Admission decides in one transaction of `ModelSlotStore` (`core.store`), so two claims never see the same
-free slot.
+`release` and `releasePlan(projectId, planId)` free what a settled worker or a paused plan held and return the leases
+the freed slots admitted. Admission decides in one transaction of `ModelSlotStore` (`core.store`), so two claims never
+see the same free slot.
 
 == How the parts work together
 
@@ -117,8 +117,8 @@ caller ──> ModelSlotScheduler.request(request)
 * *Stale slots are reaped first*: a slot or waiting entry whose runtime died is dropped in the admission transaction,
   before the cap is applied, so a slot a killed daemon left never keeps a worker out. The recovery of the runtime
   settles the instance's jobs before an admission runs, so the worker of a reaped slot has ended.
-* *The budget starts at the spawn*: the time a worker waits for a slot is outside its budget and is recorded apart as
-  `queued_ms` of its metrics row.
+* *The budget starts at the spawn*: the time a worker waits for a slot is outside its budget. The metrics row that
+  records it as `queued_ms` is written by the settlement seam, which is owed to PLAN-29 or PLAN-30.
 
 The design is recorded in link:../adr/runtime-launch/005-model-slot-admission-in-one-store-transaction.adoc[ADR
 runtime-launch/005]. Tested by `ModelSlotSchedulerTest` (the FIFO, eight concurrent claims against a cap of two, the

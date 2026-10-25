@@ -55,6 +55,8 @@ import de.planmarshall.runtime.lock.FileLockManager;
 class ModelSlotSchedulerTest {
 
     private static final Instant NOW = Instant.parse("2026-10-22T10:00:00Z");
+    private static final Instant PROCESS_START =
+            ProcessHandle.current().info().startInstant().orElse(NOW);
     private static final String PLAN = "some-plan";
     private static final String OTHER_PLAN = "other-plan";
 
@@ -79,7 +81,7 @@ class ModelSlotSchedulerTest {
 
     private static LeaseOwner owner(String planId) {
         return new LeaseOwner("pm-mcp-core", planId == null ? ScopeType.PROJECT : ScopeType.PLAN, planId,
-                new HolderInstance(ProcessHandle.current().pid(), NOW), null);
+                new HolderInstance(ProcessHandle.current().pid(), PROCESS_START), null);
     }
 
     private static Request request(String planId, int job, WorkerClass workerClass, Form form) {
@@ -175,7 +177,7 @@ class ModelSlotSchedulerTest {
         @DisplayName("admits the writers of two projects that name the same plan id")
         void writersOfTwoProjects() {
             var scheduler = scheduler(2);
-            var holder = new HolderInstance(ProcessHandle.current().pid(), NOW);
+            var holder = new HolderInstance(ProcessHandle.current().pid(), PROCESS_START);
             var first = new Request(new LeaseOwner("project-a", ScopeType.PLAN, PLAN, holder, null),
                     "l-0000000000000001", "writer", WorkerClass.WRITER, Form.FRESH, PLAN);
             var second = new Request(new LeaseOwner("project-b", ScopeType.PLAN, PLAN, holder, null),
@@ -215,7 +217,7 @@ class ModelSlotSchedulerTest {
             scheduler.request(request(PLAN, 2, WorkerClass.READ_ONLY, Form.WARM));
             var waiting = assertInstanceOf(Queued.class, scheduler.request(writer(OTHER_PLAN, 3)));
 
-            var admitted = scheduler.releasePlan(PLAN);
+            var admitted = scheduler.releasePlan("pm-mcp-core", PLAN);
 
             assertAll(
                     () -> assertEquals(List.of("l-0000000000000003"), admitted.stream().map(Lease::jobId).toList()),
@@ -226,13 +228,32 @@ class ModelSlotSchedulerTest {
         }
 
         @Test
+        @DisplayName("releases only the plan of the named project, never another project's plan of the same id")
+        void releasesOneProjectOnly() {
+            var scheduler = scheduler(2);
+            var holder = new HolderInstance(ProcessHandle.current().pid(), PROCESS_START);
+            scheduler.request(new Request(new LeaseOwner("project-a", ScopeType.PLAN, PLAN, holder, null),
+                    "l-0000000000000001", "writer", WorkerClass.WRITER, Form.FRESH, PLAN));
+            scheduler.request(new Request(new LeaseOwner("project-b", ScopeType.PLAN, PLAN, holder, null),
+                    "l-0000000000000002", "writer", WorkerClass.WRITER, Form.FRESH, PLAN));
+
+            scheduler.releasePlan("project-a", PLAN);
+
+            var remaining = store.snapshot().slots();
+            assertAll(
+                    () -> assertEquals(1, remaining.size()),
+                    () -> assertEquals("project-b", remaining.getFirst().owner().projectId()),
+                    () -> assertEquals("l-0000000000000002", remaining.getFirst().jobId()));
+        }
+
+        @Test
         @DisplayName("drops its waiting workers too, so no slot is reserved for a plan that does not run")
         void releasesWaiting() {
             var scheduler = scheduler(1);
             scheduler.request(writer(OTHER_PLAN, 1));
             scheduler.request(request(PLAN, 2, WorkerClass.READ_ONLY, Form.FRESH));
 
-            scheduler.releasePlan(PLAN);
+            scheduler.releasePlan("pm-mcp-core", PLAN);
 
             assertAll(
                     () -> assertEquals(1, store.snapshot().slots().size()),

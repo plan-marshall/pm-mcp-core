@@ -41,7 +41,8 @@ import de.planmarshall.core.store.ModelSlotStore.WorkerClass;
  *   <li>a slot whose runtime is no longer alive is reaped in the admission transaction, before the cap is applied, so
  *       a slot a killed daemon left never keeps a worker out; the recovery of the runtime settles the jobs of that
  *       instance before an admission runs, so a reaped slot's worker has ended;</li>
- *   <li>a paused plan holds no slot: {@link #releasePlan(String)} releases every slot of the plan and drops its
+ *   <li>a paused plan holds no slot: {@link #releasePlan(String, String)} releases every slot of the plan of a project
+ *       and drops its
  *       waiting workers at once.</li>
  * </ul>
  * The cap is {@code model_slots} of {@code machine-config.json}, its compiled default {@value #DEFAULT_SLOTS} and its
@@ -91,9 +92,6 @@ public final class ModelSlotScheduler {
          */
         static Liveness processes() {
             return holder -> {
-                if (holder.runtimePid() == ProcessHandle.current().pid()) {
-                    return true;
-                }
                 var handle = ProcessHandle.of(holder.runtimePid());
                 if (handle.isEmpty() || !handle.get().isAlive()) {
                     return false;
@@ -266,25 +264,28 @@ public final class ModelSlotScheduler {
     }
 
     /**
-     * Releases every slot of a plan and drops its waiting workers at once: a paused plan holds no model slot. The
-     * workers the freed slots make room for are admitted in the same transaction.
+     * Releases every slot of a plan of one project and drops its waiting workers at once: a paused plan holds no model
+     * slot. The plan is named by its project together with its plan id, because a plan id is unique only within its
+     * project. The workers the freed slots make room for are admitted in the same transaction.
      *
-     * @param planId the plan
+     * @param projectId the project of the plan
+     * @param planId    the plan
      * @return the slots admitted in the plan's place, in admission order
      */
-    public List<Lease> releasePlan(String planId) {
+    public List<Lease> releasePlan(String projectId, String planId) {
+        Objects.requireNonNull(projectId, "projectId");
         Objects.requireNonNull(planId, "planId");
         return store.update(document -> {
             var reaped = reap(document);
             var remaining = new ArrayList<Lease>();
             for (var lease : reaped.slots()) {
-                if (!planId.equals(lease.planId())) {
+                if (!projectId.equals(lease.owner().projectId()) || !planId.equals(lease.planId())) {
                     remaining.add(lease);
                 }
             }
             var waiting = new ArrayList<Waiting>();
             for (var entry : reaped.waiting()) {
-                if (!planId.equals(entry.planId())) {
+                if (!projectId.equals(entry.owner().projectId()) || !planId.equals(entry.planId())) {
                     waiting.add(entry);
                 }
             }

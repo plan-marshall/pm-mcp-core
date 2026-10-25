@@ -76,9 +76,14 @@ public final class BuildTimingsStore {
         Objects.requireNonNull(residue, "residue");
         Objects.requireNonNull(observedAt, "observedAt");
         var seconds = Math.max(1, duration.toSeconds());
-        return update(key, timings -> new KeyTimings(observed(timings.clean(), residue, Residue.CLEAN, seconds),
-                observed(timings.poisoned(), residue, Residue.POISONED, seconds),
-                observed(timings.cold(), residue, Residue.COLD, seconds), null, observedAt));
+        return update(key, timings -> switch (residue) {
+            case CLEAN -> new KeyTimings(Baseline.observed(timings.clean(), seconds), timings.poisoned(),
+                    timings.cold(), null, observedAt);
+            case POISONED -> new KeyTimings(timings.clean(), Baseline.observed(timings.poisoned(), seconds),
+                    timings.cold(), null, observedAt);
+            case COLD -> new KeyTimings(timings.clean(), timings.poisoned(),
+                    Baseline.observed(timings.cold(), seconds), null, observedAt);
+        });
     }
 
     /**
@@ -155,10 +160,6 @@ public final class BuildTimingsStore {
             storeFile.write(transaction, BuildTimingsCodec.write(new BuildTimings(keys)));
             return timings;
         }
-    }
-
-    private static Baseline observed(Baseline baseline, Residue residue, Residue wanted, long seconds) {
-        return residue == wanted ? Baseline.observed(baseline, seconds) : baseline;
     }
 
     private BuildTimings decode(byte[] document) {
