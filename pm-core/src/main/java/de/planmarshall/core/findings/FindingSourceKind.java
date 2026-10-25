@@ -45,7 +45,9 @@ public enum FindingSourceKind {
     /** A code review. */
     CODE_REVIEW("code_review"),
     /** The server's pre-merge dependency delta check. */
-    DEPENDENCY_DELTA("dependency_delta");
+    DEPENDENCY_DELTA("dependency_delta"),
+    /** The server's pre-merge capability test guard. */
+    CAPABILITY_TESTS("capability_tests");
 
     private final String wireName;
 
