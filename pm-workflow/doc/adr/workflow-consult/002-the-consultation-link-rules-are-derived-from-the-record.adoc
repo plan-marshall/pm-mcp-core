@@ -1,0 +1,51 @@
+= ADR 002: The Link Rules Are Derived from the Task Record
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-24
+
+== Context
+
+Three rules bound the `consult:<role>` link (`model-work/05-consultation.adoc#consult-link`): one open consultation per
+task, at most the compiled three consultation links over all of the task's attempts, and depth one, so a consultation
+task offers no consultation. The queue task record already carries `consultations[]` with the status of each
+consultation and `kind` (`work` or `consultation`), and it survives a restart
+(`store-schemas/16-task-queue.adoc`).
+
+The rules could be kept in dedicated counter fields, in memory, or derived from the record's own values.
+
+== Decision
+
+`ConsultationService.links` and `ConsultationService.open` decide every rule from the record: no link while an entry is
+`open`; no link once `consultations[]` holds the compiled `MAX_CONSULT_LINKS` entries, whatever their status; no link
+for a task of kind `consultation`. A link for a role whose answer was already delivered to the successor in the facts
+is not offered to that successor. No field is added to the schema and no rule is kept outside the record.
+
+== Alternatives Considered
+
+1. *A `consult_count` field on the record.*
+   _Rejected_: it repeats a value the record's `consultations[]` length already carries and would need a format schema
+   change for no new information.
+2. *An in-memory counter per task.*
+   _Rejected_: it is lost on restart, while the bound is specified over all of the task's attempts, which survive a
+   restart.
+3. *Let the verifier bound the link count at composition.*
+   _Rejected_: the bound is a run-time property over attempts, not a property of the unit's declaration.
+
+== Consequences
+
+* The rules need no reconciliation and are testable over a record alone.
+* An entry counts toward the bound from the moment it opens, including a lost or unavailable one, which matches "over
+  all its attempts".
+* A later change that needs a rule the record does not carry must add it to the record's schema, not to a side store.
+
+== Source
+
+Work package `consultation`; link:../../../../doc/specification/model-work/05-consultation.adoc#consult-link[Model Work §
+The `consult:<role>` Link], link:../../../../doc/specification/timeouts/01-job-budgets-and-waits.adoc#consultation-bound[Timeouts
+& Budgets § Consultation Bound].

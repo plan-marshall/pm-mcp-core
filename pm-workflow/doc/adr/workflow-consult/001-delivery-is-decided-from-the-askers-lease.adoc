@@ -1,0 +1,65 @@
+= ADR 001: Delivery Is Decided from the Asker's Lease When the Consultation Closes
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-24
+
+== Context
+
+A consultation closes while the asking task is in `consulting`. The specification requires the answer to be delivered
+exactly once, to the asking generation's next wait, or — when the asking generation was fenced while the consultation
+was open or its answer undelivered — to the successor's offer through the task's facts
+(`model-work/05-consultation.adoc#consult-answer`). The queue task record carries the delivery as `delivered_at` and
+`delivered_to` (`wait` or `facts`) on the asking task's `consultations[]` entry
+(`store-schemas/16-task-queue.adoc`), and it keeps the current lease of the asking task.
+
+The delivery could be decided when the answer arrives, when the asking task is next waited for, or by an outbox of its
+own.
+
+== Decision
+
+`ConsultationService.settleAsker` decides the place in the same `QueueStore.updateAll` transaction that closes the
+consultation task: `wait` when the asking task's lease still names the generation that asked (`asked_by`), `facts`
+otherwise. On `wait` the asking task returns to `executing`, so the task protocol's next wait ends the `consulting`
+attempt as `waited_again` and re-offers the task with the answer in its facts; on `facts` the asking task stays
+`queued`, or keeps the successor's `executing` status when the successor already holds it, and the successor's offer
+carries the answer. The entry's `delivered_at` and `delivered_to` are written when the consultation closes, and a second
+answer is refused `stale_entity`. `ConsultationService.reconcile` may later rewrite `delivered_to` from `wait` to
+`facts` when the asking generation no longer holds the task, and never back.
+<p>
+A fence can land after the answer was recorded `wait` and before the asking generation's next wait. That delivery is
+treated as a delivery to the successor when the task is represented: `ConsultationService.links` suppresses the role
+when the recorded delivery is `facts`, or is `wait` and the current lease no longer names the asking generation.
+
+== Alternatives Considered
+
+1. *Decide the place on the asking task's next wait.*
+   _Rejected_: a fenced generation never waits again, so the answer would never reach the successor, and the decision
+   would have to read the fence after the consultation closed.
+2. *Keep a delivery outbox beside the queue.*
+   _Rejected_: it is a second source of truth for a fact the queue task record already carries, and it would have to be
+   reconciled after every restart.
+3. *Record the answer only in the consultation task and read it from there on the next wait.*
+   _Rejected_: the asking task's `consultations[]` is the specified home of the answer and of its delivery
+   (`store-schemas/16-task-queue.adoc`), and a successor offer needs it without a second read of another store.
+
+== Consequences
+
+* The delivery and the close are one journaled write on the queue lock; no window exists in which a closed
+  consultation has no delivery place.
+* A lost consultation is delivered the same way with the status `unavailable` and no answer; the asker continues on its
+  own judgment.
+* The asking task's status after an answer is `executing` (delivered to its wait) or `queued` (delivered to the
+  successor). A later change must keep `holdsLease` consistent with the status, which `QueueTaskRecord.validate`
+  enforces.
+
+== Source
+
+Work package `consultation`; link:../../../../doc/specification/model-work/05-consultation.adoc#consult-answer[Model Work
+§ The Answer through the Next Wait], link:../../../../doc/specification/store-schemas/16-task-queue.adoc[Store Schemas §
+Queue Task Record].

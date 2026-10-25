@@ -53,7 +53,8 @@ import de.planmarshall.core.service.LockManager;
  * The order of the checks of a call is the one of {@link TaskRefusal}: the job's end, the fence, the lease, the link,
  * the arguments and the delivered skills. The first valid submit closes the attempt in the transaction that validated it
  * and releases the lease; every later call of that generation is refused {@code stale_entity}, so a task is done exactly
- * once.
+ * once. A consultation task is closed through the consultation service's {@code answer}, never through {@code submit} or
+ * {@code infeasible}: both refuse it {@code link_not_available}, because it offers only {@code submit:answer}.
  * <p>
  * The protocol decides, the runtime transports: a pending {@code pm_wait} belongs to the transport, and this type
  * answers with an offer, an empty window or the end of the worker. A generation that holds a lease is offered no other
@@ -325,6 +326,9 @@ public final class TaskProtocol {
             if (task.status() != Status.EXECUTING) {
                 return new CallResult.Refused(TaskRefusal.LINK_NOT_AVAILABLE, task);
             }
+            if (task.kind() == QueueTaskRecord.Kind.CONSULTATION) {
+                return new CallResult.Refused(TaskRefusal.LINK_NOT_AVAILABLE, task);
+            }
             var missing = skills.missing(call.generationId(), required);
             if (!missing.isEmpty()) {
                 return new CallResult.Refused(TaskRefusal.SKILLS_NOT_LOADED, task,
@@ -356,6 +360,7 @@ public final class TaskProtocol {
     public CallResult infeasible(TaskCall call, Instant at) {
         Objects.requireNonNull(at, "at");
         return onLeasedTask(call, task -> task.status() == Status.EXECUTING
+                && task.kind() != QueueTaskRecord.Kind.CONSULTATION
                 ? new CallResult.Accepted(close(task, Outcome.INFEASIBLE, null, AttemptEnd.CLOSED, at))
                 : new CallResult.Refused(TaskRefusal.LINK_NOT_AVAILABLE, task));
     }

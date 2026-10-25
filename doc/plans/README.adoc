@@ -39,12 +39,6 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:supervisor.adoc[`supervisor`]
 |Milestone 4
 
-|link:consultation.adoc[`consultation`]
-|Consultation through the server
-|`open`
-|nothing
-|Milestone 4
-
 |link:question-continuation.adoc[`question-continuation`]
 |Continuation after a question: hold, suspend and resume, the answer acknowledgement, the answer in the next task, the question bound, the stage `resumability` of the profile verification
 |`open`
@@ -60,7 +54,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:supervision-scenarios.adoc[`supervision-scenarios`]
 |Deterministic supervision scenarios
 |`open`
-|link:supervisor.adoc[`supervisor`]; link:consultation.adoc[`consultation`]; link:worker-activity.adoc[`worker-activity`]; link:question-continuation.adoc[`question-continuation`]
+|link:supervisor.adoc[`supervisor`]; link:worker-activity.adoc[`worker-activity`]; link:question-continuation.adoc[`question-continuation`]
 |Milestone 4
 
 |link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]
