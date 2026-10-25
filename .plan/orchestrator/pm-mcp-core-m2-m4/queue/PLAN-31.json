@@ -2,9 +2,9 @@
   "id": "PLAN-31",
   "slug": "slots-usage-and-budgets",
   "workstream": "WS-04",
-  "status": "running",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "status": "shipped",
+  "plan_marshall_plan_id": "rb-31-slots-usage-and-budgets",
+  "pr": "#164",
+  "landing": "landings/PLAN-31.md",
   "seq": 31
 }
