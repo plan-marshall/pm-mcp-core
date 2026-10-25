@@ -159,6 +159,10 @@ Instant updatedAt) {
         }
         requireThat(line == null || line >= 1, "line must be at least 1");
         requireThat(!summary.isEmpty(), "summary must not be empty");
+        requireThat((disposition == Disposition.SUPPRESS) == (suppressReason != null),
+                "suppress_reason is set exactly for a SUPPRESS disposition");
+        requireThat((suppressReason == SuppressReason.CLAIM_REFUTED) == (resolution == Resolution.REJECTED),
+                "claim_refuted is set exactly when the resolution is rejected");
         requireMatchIfSet(BOT_KIND, botKind, "bot_kind");
         requireMatchIfSet(COMMIT_SHA, raisedAtHead, "raised_at_head");
         requireMatchIfSet(COMMIT_SHA, reviewedCommitSha, "reviewed_commit_sha");

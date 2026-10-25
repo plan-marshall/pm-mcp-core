@@ -58,8 +58,7 @@ class HeadlessBlockTest {
                 () -> assertTrue(block.runs(RoleClass.WRITER)),
                 () -> assertTrue(block.runs(RoleClass.READ_ONLY)),
                 () -> assertTrue(block.runs(RoleClass.ZERO_TOOL)),
-                () -> assertFalse(block.runs(RoleClass.ZERO_TOOL) && block.argumentsFor(RoleClass.ZERO_TOOL)
-                        .contains("{{mcp_config}}")));
+                () -> assertTrue(block.argumentsFor(RoleClass.ZERO_TOOL).contains("--setting-sources")));
     }
 
     @Test

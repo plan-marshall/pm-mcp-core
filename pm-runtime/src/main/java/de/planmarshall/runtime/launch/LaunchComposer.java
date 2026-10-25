@@ -20,6 +20,7 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -55,6 +56,11 @@ public final class LaunchComposer {
     private static final String PROMPT_FILE = "prompt.md";
     private static final String MEMBER_MODEL = "model";
     private static final String MEMBER_EFFORT = "effort";
+    /** The effort order the harnesses of the shipped profiles use, from the lowest to the highest. */
+    private static final List<String> EFFORT_SCALE = List.of("low", "medium", "high", "max");
+    /** The slots a harness template may declare. */
+    private static final Set<String> KNOWN_SLOTS = Set.of("prompt_file", "model", "effort", "mcp_config",
+            "result_schema", "tools", "cwd", "agent", "session_id");
     private static final String RESULT_SCHEMA_FILE = "result-schema.json";
     private static final String CWD = "cwd";
     private static final String EPHEMERAL_FLAG = "no-session-persistence";
@@ -86,7 +92,7 @@ public final class LaunchComposer {
         var token = roleClass == RoleClass.ZERO_TOOL ? "" : JobTokens.mint();
         var tokenSha256 = token.isEmpty() ? "" : JobTokens.sha256Hex(token);
         var mcp = composeMcp(request, roleClass, workingDirectory, token);
-        var tools = roleClass == RoleClass.ZERO_TOOL ? List.<String>of() : role.artifact().tools();
+        var tools = roleClass == RoleClass.ZERO_TOOL ? List.<String>of() : toolSet(role, block);
         var argv = composeArgv(request, block, roleClass, workingDirectory, model, effort.value(), promptFile,
                 resultSchema, tools, mcp);
         var env = composeEnvironment(request, jobPrivate);
@@ -172,13 +178,21 @@ public final class LaunchComposer {
 
     /**
      * @param role  the effective role
-     * @param model the model the harness takes
      * @param block the harness's launch contract
-     * @return the effort to pass, narrowed to the nearest accepted lower value
+     * @return the role's tools and the harness's MCP resource-reading tools, without duplicates
      */
-    public static NarrowedEffort narrowEffort(EffectiveRole role, String model, HeadlessBlock block) {
-        var declared = role.effort().value();
-        var accepted = block.efforts(model);
+    private static List<String> toolSet(EffectiveRole role, HeadlessBlock block) {
+        var tools = new LinkedHashSet<>(role.artifact().tools());
+        tools.addAll(block.resourceTools());
+        return List.copyOf(tools);
+    }
+
+    /**
+     * @param accepted the effort values the harness accepts for the model
+     * @param declared the role's effective effort
+     * @return the nearest accepted lower value, never a higher one
+     */
+    public static NarrowedEffort narrow(List<String> accepted, String declared) {
         if (declared == null) {
             return new NarrowedEffort(null, null);
         }
@@ -188,13 +202,27 @@ public final class LaunchComposer {
         if (accepted.contains(declared)) {
             return new NarrowedEffort(declared, null);
         }
+        var rank = EFFORT_SCALE.indexOf(declared);
         String lower = null;
+        var lowerRank = -1;
         for (var value : accepted) {
-            if (value.compareTo(declared) < 0) {
+            var candidateRank = EFFORT_SCALE.indexOf(value);
+            if (candidateRank >= 0 && candidateRank < rank && candidateRank > lowerRank) {
                 lower = value;
+                lowerRank = candidateRank;
             }
         }
         return new NarrowedEffort(lower, declared);
+    }
+
+    /**
+     * @param role  the effective role
+     * @param model the model the harness takes
+     * @param block the harness's launch contract
+     * @return the effort to pass, narrowed to the nearest accepted lower value
+     */
+    public static NarrowedEffort narrowEffort(EffectiveRole role, String model, HeadlessBlock block) {
+        return narrow(block.efforts(model), role.effort().value());
     }
 
     private static LaunchPrompt composePrompt(LaunchRequest request, EffectiveRole role, RoleClass roleClass) {
@@ -267,7 +295,7 @@ public final class LaunchComposer {
             throw new CompositionException("the argument template of '%s' rendered empty".formatted(roleClass
                     .wireName()));
         }
-        filled.set(0, request.enrolment().executablePath().toString());
+        filled.add(0, request.enrolment().executablePath().toString());
         if (mayResume(request)) {
             filled.removeIf(argument -> argument.contains(EPHEMERAL_FLAG));
         }
@@ -346,7 +374,11 @@ public final class LaunchComposer {
             var skipped = false;
             var rendered = new StringBuilder();
             while (matcher.find()) {
-                var value = slots.get(matcher.group(1));
+                var name = matcher.group(1);
+                if (!KNOWN_SLOTS.contains(name)) {
+                    throw new CompositionException("the template names an unknown slot '{{%s}}'".formatted(name));
+                }
+                var value = slots.get(name);
                 if (value == null) {
                     skipped = true;
                     break;

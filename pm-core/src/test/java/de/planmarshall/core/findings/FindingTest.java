@@ -188,6 +188,7 @@ class FindingTest {
             var builder = analysis()
                     .status(FindingStatus.CARRIED)
                     .disposition(Disposition.SUPPRESS)
+                    .suppressReason(SuppressReason.DUPLICATE)
                     .scopeClass(ScopeClass.IN_FOOTPRINT)
                     .carriedTo(new CarriedTo(CarriedTo.Target.LESSON, "lesson-1", CREATED))
                     .evidence(new Evidence(Evidence.EvidenceClass.SUBSTITUTE, "src/Main.java:42", true))

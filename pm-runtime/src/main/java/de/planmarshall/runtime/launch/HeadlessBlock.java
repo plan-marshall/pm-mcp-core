@@ -141,10 +141,17 @@ String versionPattern, List<String> writablePaths) {
 
     /**
      * @param roleClass a role class
-     * @return the argument template of the class, or the generic template when the class has no own
+     * @return the base argument template with the class's arguments appended, or the base template when the class has
+     *         none; the enrolled executable is prepended by the composer
      */
     public List<String> argumentsFor(RoleClass roleClass) {
-        return classArgs.getOrDefault(roleClass, argv);
+        var classArguments = classArgs.get(roleClass);
+        if (classArguments == null) {
+            return argv;
+        }
+        var combined = new ArrayList<>(argv);
+        combined.addAll(classArguments);
+        return List.copyOf(combined);
     }
 
     /**

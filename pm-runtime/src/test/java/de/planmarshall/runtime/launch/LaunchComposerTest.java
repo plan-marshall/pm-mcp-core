@@ -59,7 +59,7 @@ class LaunchComposerTest {
         assertEquals("high", launch.effort());
         assertEquals("max", launch.effortNarrowedFrom());
         assertTrue(argv.contains("--mcp-config"));
-        assertTrue(argv.contains("read_file,pm_state,pm_do"));
+        assertTrue(argv.contains("read_file,pm_state,pm_do,resources_list,resources_read"));
         assertTrue(launch.mcpConfig().orElseThrow().contains("PM_MCP_JOB_TOKEN"));
     }
 
@@ -193,6 +193,18 @@ class LaunchComposerTest {
     @DisplayName("an unmapped tier is passed through as the model identifier")
     void unmappedTier() {
         assertEquals("claude-unknown", LaunchComposer.renderModel("claude-unknown", LaunchFixtures.block()));
+    }
+
+    @Test
+    @DisplayName("an effort narrows by its rank, never to a higher value")
+    void effortNarrowsByRank() {
+        assertAll(
+                () -> assertEquals("low", LaunchComposer.narrow(List.of("low", "high"), "medium").value()),
+                () -> assertEquals("high", LaunchComposer.narrow(List.of("low", "high"), "max").value()),
+                () -> assertEquals("medium", LaunchComposer.narrow(List.of("low", "medium"), "medium").value()),
+                () -> assertNull(LaunchComposer.narrow(List.of(), "high").value()),
+                () -> assertEquals("high", LaunchComposer.narrow(List.of(), "high").narrowedFrom()),
+                () -> assertNull(LaunchComposer.narrow(List.of("low"), null).value()));
     }
 
     private WorkerLaunch compose(EffectiveRole role, boolean fresh, boolean freeText) {

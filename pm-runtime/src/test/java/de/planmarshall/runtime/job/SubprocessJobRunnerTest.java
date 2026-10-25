@@ -1776,13 +1776,10 @@ class SubprocessJobRunnerTest {
         @Test
         @DisplayName("records the descendants of a probe and of a worker, and of no other kind")
         void tracksDescendantsOfProbesAndWorkers() {
-            assertAll(
-                    () -> assertTrue(SubprocessJobRunner.tracksDescendants(JobId.Kind.PROBE)),
-                    () -> assertTrue(SubprocessJobRunner.tracksDescendants(JobId.Kind.LLM)),
-                    () -> assertFalse(SubprocessJobRunner.tracksDescendants(JobId.Kind.BUILD)),
-                    () -> assertFalse(SubprocessJobRunner.tracksDescendants(JobId.Kind.CI)),
-                    () -> assertFalse(SubprocessJobRunner.tracksDescendants(JobId.Kind.GIT)),
-                    () -> assertFalse(SubprocessJobRunner.tracksDescendants(JobId.Kind.PROJECT_SCRIPT)));
+            for (var kind : JobId.Kind.values()) {
+                assertEquals(kind == JobId.Kind.PROBE || kind == JobId.Kind.LLM,
+                        SubprocessJobRunner.tracksDescendants(kind), kind::wireName);
+            }
         }
     }
 
