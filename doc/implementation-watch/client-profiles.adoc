@@ -208,3 +208,24 @@ the key (a fixture whose answer echoes the body). The runtime retries nothing in
 budget decides. Fixtures: a stub that answers an alias request with a versioned id, one that answers `429` with a
 `retry-after`, one that redirects to another origin, and one whose probabilities do not sum to `1`.
 Source:: Article analysis `first-level-thinker` of plan-marshall-documentation.
+
+[#PM-WATCH-CLIENT-16]
+=== PM-WATCH-CLIENT-16: A worker's isolation covers the operator's own instruction files and skills
+
+Anchor:: link:../specification/client-profiles/01-profile-schema.adoc#user-level-files[Client Profiles § Nothing of the Operator's Own],
+link:../specification/client-profiles/01-profile-schema.adoc#profile-verification[§ Profile Verification],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]
+Hazard:: A harness reads user-level instruction files and skills from several places (its own home directory, a shared
+`~/.agents/skills/`, another harness's skill directory it also supports), and some of these lookups use the home
+directory even when the launch redirects the harness's data home. A settings switch that turns off user settings may
+leave the user's instruction file and skills loaded. A worker then carries the operator's personal skills and
+instructions: its behaviour and start context differ per machine, and a qualification graded on one machine does not
+hold on another. A decoy placed only in the redirected data home passes the stage while the real locations still load.
+Guard:: The isolation stage places its decoy user instruction file and decoy user skill in every user-level location
+the harness documents or is observed to read, at the real home directory, not only below the data home of the launch,
+and fails `extension_isolation` when the worker follows the instruction or knows the skill. Matched control: the same
+worker knows the project's instruction file and skill. Fixtures: a harness stub that reads skills from the home
+directory whatever its data-home variable says (the stage fails), and one that reads them only below the data home
+(the stage passes).
+Source:: Article analysis `claude-code-killer-six-months-goose` of plan-marshall-documentation (goose resolves its global
+skill directories from the home directory, not from its data-home root).
