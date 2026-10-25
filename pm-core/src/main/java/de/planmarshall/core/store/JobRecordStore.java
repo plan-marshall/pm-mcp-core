@@ -51,8 +51,11 @@ import de.planmarshall.core.store.JobRecord.Status;
  * <li>{@link #writePostSpawn post-spawn}: the PID and the process start of a process job, before the job counts as
  * running (PM-ARCH-7, bullet 8);</li>
  * <li>{@link #writeFate fate}: the settled record.</li>
+ * <li>{@link #writeWorker worker}: the protocol state of a worker, written at every transition of it;</li>
  * </ol>
- * Each point checks the record it replaces, so a record moves only forward through them.
+ * Each point checks the record it replaces, so a record moves only forward through them. The worker point is the one
+ * exception to the status rule: it replaces only the {@code worker} member of a queued or running worker and leaves
+ * the status and the fate untouched, so the fate point stays the only write that settles a record.
  * <p>
  * Allocating an id is a check-then-act on {@code jobs/}: the id is drawn at random, checked against the records and
  * logs present and drawn again on a collision, under the lock of the owning scope. The caller writes the first record
@@ -289,6 +292,44 @@ public final class JobRecordStore {
     }
 
     /**
+     * Writes the protocol state of a worker at one transition of it. It replaces only the {@code worker} member of
+     * the record of a queued or running worker, under the queue lock of the store the job belongs to; the status, the
+     * fate and every other member stay as they are. The fate write ({@link #writeFate}) remains the only write that
+     * settles a record, so a worker state written after the fate is refused.
+     *
+     * @param transaction the caller's transaction; the queue lock of the store is acquired in it
+     * @param jobId       the worker
+     * @param worker      the protocol state of the worker, whose generation is the job id
+     * @throws IllegalArgumentException if the job has no record, its kind is not a worker, its record is settled
+     *                                  already, the generation of the state is another job, or a job of its scope does
+     *                                  not belong to this store
+     * @throws StoreRefusal             if the record of the job is unreadable
+     * @throws UncheckedIOException     if the record cannot be written
+     * @throws InternalFaultException   if the lock must not be acquired after the locks the transaction holds
+     */
+    public void writeWorker(LockTransaction transaction, JobId jobId, WorkerState worker) {
+        Objects.requireNonNull(transaction, "transaction");
+        Objects.requireNonNull(jobId, "jobId");
+        Objects.requireNonNull(worker, "worker");
+        transaction.acquire(queueLock());
+        var current = read(jobId).orElseThrow(
+                () -> new IllegalArgumentException("The job %s has no record".formatted(jobId)));
+        if (current.kind() != JobId.Kind.LLM) {
+            throw new IllegalArgumentException("Only a worker carries a worker state, not the job %s".formatted(jobId));
+        }
+        if (current.status().isSettled()) {
+            throw new IllegalArgumentException(
+                    "The record of job %s is %s and carries its fate; its worker state is no longer written".formatted(
+                            jobId, current.status().wireName()));
+        }
+        if (!worker.generationId().equals(jobId)) {
+            throw new IllegalArgumentException("The generation %s of the worker state is not the job %s".formatted(
+                    worker.generationId(), jobId));
+        }
+        write(transaction, current.withWorker(WorkerStateCodec.write(worker)));
+    }
+
+    /**
      * Reads a record without a lock. A record is readable only if the {@code job_id} it states is the id its file name
      * carries.
      *
@@ -347,6 +388,16 @@ public final class JobRecordStore {
         Objects.requireNonNull(job, "job");
         transaction.acquire(lockKey(job.scope()));
         return read(job.jobId());
+    }
+
+    /** The queue lock that guards a worker's record: the project's for a project store, the machine's for the machine. */
+    private LockKey queueLock() {
+        return switch (home) {
+            case PROJECT -> LockKey.queue(base, homeId);
+            case MACHINE -> LockKey.machineQueue(base);
+            case ENTRY -> throw new IllegalArgumentException(
+                    "A worker belongs to a project or the machine, not to an onboarding entry: " + directory);
+        };
     }
 
     private void write(LockTransaction transaction, JobRecord job) {

@@ -10,13 +10,19 @@
 package de.planmarshall.core.store;
 
 import static de.planmarshall.core.store.JobRecordCodecTest.BUILD_ID;
+import static de.planmarshall.core.store.JobRecordCodecTest.CHILD_WALL_MS;
+import static de.planmarshall.core.store.JobRecordCodecTest.ENDED_AT;
 import static de.planmarshall.core.store.JobRecordCodecTest.PLAN_SCOPE;
+import static de.planmarshall.core.store.JobRecordCodecTest.PROCESS_STARTED_AT;
+import static de.planmarshall.core.store.JobRecordCodecTest.SPAWNED_AT;
 import static de.planmarshall.core.store.JobRecordCodecTest.ended;
 import static de.planmarshall.core.store.JobRecordCodecTest.postSpawn;
 import static de.planmarshall.core.store.JobRecordCodecTest.queued;
 import static de.planmarshall.core.store.JobRecordCodecTest.refused;
 import static de.planmarshall.core.store.JobRecordCodecTest.workerAhead;
 import static de.planmarshall.core.store.JobRecordCodecTest.writeAhead;
+import static de.planmarshall.core.store.WorkerStateCodecTest.full;
+import static de.planmarshall.core.store.WorkerStateCodecTest.waiting;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -44,8 +50,10 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.LockTransaction;
+import de.planmarshall.core.store.JobRecord.Confinement;
 import de.planmarshall.core.store.JobRecord.Fate;
 import de.planmarshall.core.store.JobRecord.Scope;
+import de.planmarshall.core.store.JobRecord.Status;
 import de.planmarshall.core.store.StoreRefusal.Outcome;
 
 /**
@@ -360,6 +368,95 @@ class JobRecordStoreTest {
             assertAll(
                     () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
                     () -> assertEquals(store.recordPath(other), refusal.file()));
+        }
+    }
+
+    @Nested
+    @DisplayName("the worker state of a record")
+    class WorkerStatePoint {
+
+        private static final JobId WORKER = new JobId("l-00000000000000ff");
+        private static final Scope PROJECT_SCOPE = new Scope(Scope.Type.PROJECT, null);
+
+        /** The settled record of a worker, written as its only record. */
+        private static JobRecord settledWorker(JobId jobId) {
+            return workerAhead(jobId, PROJECT_SCOPE, "{}").toBuilder().status(Status.ENDED).fate(Fate.SUCCEEDED)
+                    .outcomeRow(7).pid(4242L).processStartedAt(PROCESS_STARTED_AT).spawnedAt(SPAWNED_AT)
+                    .confinement(Confinement.CONFINED).landlockAbi(5).endedAt(ENDED_AT).childWallMs(CHILD_WALL_MS)
+                    .exitCode(0L).build();
+        }
+
+        private void writeWorker(JobRecordStore target, JobId jobId, WorkerState state) {
+            try (var transaction = locks.openTransaction()) {
+                target.writeWorker(transaction, jobId, state);
+            }
+        }
+
+        @Test
+        @DisplayName("it replaces only the worker block of a running worker, under the queue lock")
+        void replacesTheWorkerBlock() {
+            var worker = workerAhead(WORKER, PROJECT_SCOPE, "{}");
+            write(store::writeAhead, worker);
+            var state = full();
+
+            writeWorker(store, WORKER, state);
+
+            var expected = worker.withWorker(WorkerStateCodec.write(state));
+            assertAll(
+                    () -> assertEquals(Optional.of(expected), store.read(WORKER)),
+                    () -> assertEquals(Status.RUNNING, store.read(WORKER).orElseThrow().status()),
+                    () -> assertEquals(List.of(LockKey.queue(base, PROJECT), LockKey.queue(base, PROJECT)),
+                            locks.acquisitions()));
+        }
+
+        @Test
+        @DisplayName("a settled worker record is refused and stays as it was")
+        void settledRefused() {
+            var settled = settledWorker(WORKER);
+            write(store::writeFate, settled);
+
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class, () -> writeWorker(store, WORKER, waiting())),
+                    () -> assertEquals(Optional.of(settled), store.read(WORKER)));
+        }
+
+        @Test
+        @DisplayName("a record of another kind is refused")
+        void nonWorkerRefused() {
+            write(store::writeAhead, writeAhead(BUILD_ID, PLAN_SCOPE));
+
+            assertThrows(IllegalArgumentException.class, () -> writeWorker(store, BUILD_ID, waiting()));
+        }
+
+        @Test
+        @DisplayName("a worker without a record and a state of another generation are refused")
+        void unknownJobAndGeneration() {
+            var worker = new JobId("l-0000000000000001");
+            write(store::writeAhead, workerAhead(worker, PROJECT_SCOPE, "{}"));
+
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> writeWorker(store, new JobId("l-00000000000000aa"), waiting())),
+                    () -> assertThrows(IllegalArgumentException.class, () -> writeWorker(store, worker,
+                            waiting().withGenerationId(new JobId("l-00000000000000ee")))));
+        }
+
+        @Test
+        @DisplayName("a worker of the machine is written under the machine queue lock")
+        void machineWorker() {
+            var machine = JobRecordStore.ofMachine(base);
+            var worker = new JobId("l-0000000000000002");
+            try (var transaction = locks.openTransaction()) {
+                machine.writeAhead(transaction, workerAhead(worker, MACHINE, "{}"));
+            }
+            var state = waiting().withGenerationId(worker);
+
+            writeWorker(machine, worker, state);
+
+            assertAll(
+                    () -> assertEquals(LockKey.machineQueue(base), locks.acquisitions().get(1)),
+                    () -> assertEquals(WorkerStateCodec.write(state),
+                            machine.read(worker).orElseThrow().worker()));
         }
     }
 }
