@@ -207,6 +207,23 @@ class LaunchComposerTest {
                 () -> assertNull(LaunchComposer.narrow(List.of("low"), null).value()));
     }
 
+    @Test
+    @DisplayName("a harness the operator added from a verified profile is launched like a shipped one")
+    void operatorAddedHarness() {
+        var profile = LaunchFixtures.profileForClient("acme-cli");
+        var block = HeadlessBlock.of(profile);
+        var role = LaunchFixtures.roleWithHarness("acme-cli", skills);
+        var jobPrivate = root.resolve("run/jobs").resolve(GENERATION);
+        var request = new LaunchRequest(role, block, LaunchFixtures.enrolment(LaunchFixtures.enrolmentPath(root),
+                        LaunchFixtures.EXECUTABLE_DIGEST, "1.5.0"), GENERATION, root.resolve("runtime"), jobPrivate,
+                LaunchRequest.WorkdirKind.PROJECT_CHECKOUT, null, root.resolve("worktree"), root.resolve("daemon.sock"),
+                LaunchFixtures.SHIM, skills, true, false, List.of(), List.of(), null, 0, "", Optional.empty(),
+                LaunchFixtures.clock());
+        var launch = new LaunchComposer().compose(request);
+        assertEquals("acme-cli", launch.workerBlock().member("harness").orElseThrow().text().orElseThrow());
+        assertEquals("acme-cli", launch.harness());
+    }
+
     private WorkerLaunch compose(EffectiveRole role, boolean fresh, boolean freeText) {
         return new LaunchComposer().compose(request(role, fresh, LaunchRequest.WorkdirKind.PLAN_WORKTREE, freeText));
     }

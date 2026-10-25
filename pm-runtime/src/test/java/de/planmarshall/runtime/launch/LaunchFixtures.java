@@ -121,6 +121,15 @@ final class LaunchFixtures {
         return role(RoleClass.WRITER, "frontier", "max", RoleForm.FRESH, skills, List.of(ROLE_SKILL));
     }
 
+    static EffectiveRole roleWithHarness(String harness, SkillSource skills) {
+        var artifact = new RoleArtifact(1, "implementer", "the implementer", RoleClass.WRITER, List.of("read_file"),
+                harness, "frontier", new EffortValue("high"), RoleForm.FRESH, 1, List.of(ROLE_SKILL), null, 60, null,
+                new RoleArtifact.Questions(0, 0), Map.of());
+        var resolved = List.of(new RoleSkill(ROLE_SKILL, skills.resolve(ROLE_SKILL).orElseThrow().digest()));
+        return new EffectiveRole(artifact, harness, "frontier", new EffortValue("high"), resolved, "1.5", Optional
+                .empty(), new RoleArtifact.Questions(0, 0), Map.of(), 400_000, 3);
+    }
+
     static final String ROLE_SKILL = "skill://pm/role/implementer/SKILL.md";
 
     static SkillSource skills() {
