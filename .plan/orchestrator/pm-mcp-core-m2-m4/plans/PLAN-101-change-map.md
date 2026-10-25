@@ -55,19 +55,19 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: no work package builds this: none of the package files under `doc/plans/` names `Change Map`, `change-map`, `change_map`, and the index has no row for `change-map` — `grep` of `doc/plans/` and `ls doc/plans/change-map.adoc` at `4617865`
-  - verdict: corroborated | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: git grep -il of Change Map, change-map, change_map over doc/plans at 4617865 finds nothing; no row and no file for change-map
+  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: doc/plans/change-map.adoc EXISTS at HEAD (created by 9c9d99c6 #143 on 2026-10-22 19:33, after 4617865; reclassified in 35fba9ed #151) and README row change-map is blocked; doc/plans/own-calls.adoc exists too
 - OBSERVED: the specification this plan builds exists and carries the anchors it names — `doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc`, `doc/implementation-watch/phase-workflows.adoc`
-  - verdict: corroborated | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: 2 cited path(s) exist at 4617865 and are unchanged since 0bf64f7 (git diff --stat 0bf64f7..4617865 empty): doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc, doc/implementation-watch/phase-workflows.adoc
+  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: 05-finalize-review-metrics-descriptor.adoc has anchors #change-map (line 250) and #dependency-delta (line 238); watch PM-WATCH-PHASE-114 at implementation-watch/phase-workflows.adoc line 1708. The part changed since 0bf64f7 (#141 added Merge Danger, #165, #171)
 - OBSERVED: the dependencies named below are queue rows of this ledger (PLAN-96, PLAN-100, PLAN-43); `PLAN-96` is the plan that writes the package file and the index row
-  - verdict: corroborated | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: queue rows at 4617865: PLAN-96 staged, PLAN-100 parked, PLAN-43 staged; PLAN-96 is staged and writes the package files
+  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: queue rows exist: PLAN-96 now shipped (#143, it wrote the package files), PLAN-100 slug own-calls parked, PLAN-43 phase-sub-workflows staged
 - OBSERVED: the packages this one waits on have no work package — the index and the package files under `doc/plans/` build none of `Dependency Delta`, `module discovery`, `build-file dependency parser`; the index will keep this package `blocked` on them
-  - verdict: corroborated | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: git grep -il of Dependency Delta, module discovery, build-file dependency parser over doc/plans at 4617865 finds nothing
+  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: doc/plans/domain-extensions-and-architecture.adoc (module discovery plus build-file dependency parser) and doc/plans/finalize-pipeline-and-merge.adoc (pre-merge Dependency Delta Check and finalize pipeline) exist at HEAD (cut by #151 35fba9ed); change-map.adoc Left-out bullet now names both and README change-map row depends on them
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line and the specification parts — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan; 5 OBSERVED surface paths checked at 4617865, all exist
+  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Labelled hypothesis. Paths exist: workflow/finalize/ (FinalizePipelineValidator, FinalizeStepDescriptor, PipelineRule, PipelineViolation), core/discovery/ (package-info.java only)
 - HYPOTHESIS: the milestone in the `Serves` line and the edges of the `Dependencies` section are the orchestrator's reading of the roadmap and of the specification, not an operator decision — confirm/refute at `doc/plans/README.adoc` and the roadmap items of `plan-marshall-documentation` (verify-at-outline)
-  - verdict: unverifiable | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
+  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: Milestone and item hold: roadmap origin/main line 618 (Milestone 10) names the change-map item with PM-WF-13 and PM-WF-21. The Dependencies edges are stale: README row depends on own-calls, phase-sub-workflows, domain-extensions-and-architecture, finalize-pipeline-and-merge; spec lists PLAN-96, PLAN-100, PLAN-43 only
 - Verify-first clause: before scoping, check that PLAN-96 has landed (the package file and the index row exist), that the packages this one depends on are done or in flight, and list the open pull requests for one that names the package; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: no package file and no index row for this spec (a plan with no package file); the only open PR (ci pr list) is #71, a dependabot bump, which does not name it; the claims above were re-read individually
+  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Precondition met at HEAD: PLAN-96 shipped (#143), package file doc/plans/change-map.adoc and its README row exist; remote has no branch naming the package. The earlier evidence (no file, no row) is stale
 
 ## Expected Surface
 
@@ -79,6 +79,42 @@ None beyond the standing rules named in the First Instruction above.
 - HYPOTHESIS: `pm-workflow/doc/adr/workflow-finalize/` — ADRs of the package's design decisions
 - OBSERVED: `doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/implementation-watch/phase-workflows.adoc` — PM-WATCH-PHASE-114 retired with the package
+- OBSERVED: `pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- HYPOTHESIS: `pm-core/doc/developer/core-discovery.adoc` — to be created; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `doc/specification/phase-workflows/04-finalize-step-bands.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+
+## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (the plans #172, #169 and #164 and the specification pull requests #141, #165, #168, #171, #173, #174 and #175 have landed since the grounding of `4617865`). The Objective, Deliverables, Dependencies and Hand-Off above are the earlier text and stay as the audit record; **where this section and that text differ, this section is the later reading**, and the outline records the departure. Spec-sourced items below are the specification's own content, not inferences of the orchestrator; every statement about the repository was read at the cited place.
+
+- Claims re-read: 7: 3 corroborated, 3 contradicted (re-scoped by this section), 1 unverifiable. Verdicts are stamped on the claims above (`checked_at: 88ec9c70`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claim 0: doc/plans/change-map.adoc EXISTS at HEAD (created by 9c9d99c6 #143 on 2026-10-22 19:33, after 4617865; reclassified in 35fba9ed #151) and README row change-map is blocked; doc/plans/own-calls.adoc exists too
+- Claim 3: doc/plans/domain-extensions-and-architecture.adoc (module discovery plus build-file dependency parser) and doc/plans/finalize-pipeline-and-merge.adoc (pre-merge Dependency Delta Check and finalize pipeline) exist at HEAD (cut by #151 35fba9ed); change-map.adoc Left-out bullet now names both and README change-map row depends on them
+- Claim 5: Milestone and item hold: roadmap origin/main line 618 (Milestone 10) names the change-map item with PM-WF-13 and PM-WF-21. The Dependencies edges are stale: README row depends on own-calls, phase-sub-workflows, domain-extensions-and-architecture, finalize-pipeline-and-merge; spec lists PLAN-96, PLAN-100, PLAN-43 only
+
+### Surface
+
+- Added to the Expected Surface above: `pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/`, `pm-core/doc/developer/core-discovery.adoc`, `doc/specification/phase-workflows/04-finalize-step-bands.adoc`.
+- wrong: doc/plans/change-map.adoc is listed as written by PLAN-96 but already exists at HEAD (#143, #151); PLAN-96 is shipped. Fix Objective, Deliverable 8 Left-out bullet and Dependencies: module discovery and parser are domain-extensions-and-architecture, Dependency Delta Check is finalize-pipeline-and-merge, both have package files and rows
+- understated: The crawl at base_ref over git objects needs a git read the contract lacks (GitOperations has readFile over a cache repository only, no tree listing) and pm-core must not depend on JGit: add pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/ (GitOperations, JGitOperations), a pm-core seam in core/discovery or core/spi, and pm-core/doc/developer/core-discovery.adoc (new); add doc/specification/phase-workflows/04-finalize-step-bands.adoc (self-review row and create-pr row carry change map and own calls)
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #141 — Phase Workflows § Merge Danger (05-finalize-review-metrics-descriptor: Reach from the change map's crawl at HEAD, section ## Merge Danger of the pull-request body and the landing record): Add a deliverable: the Reach part of ## Merge Danger (modules with a path in the realized footprint and their direct dependents from the HEAD crawl, two counts and names up to 20, named not computed when the map is partial or indeterminate) rendered beside ## Change Map; the Hard to Undo part reads decisions and stays with decision-engine. Roadmap origin/main line 620 has the item, no package file names it. Paths: same finalize/ and 05 spec part
+- #168 — Phase Workflows § Step Catalogue (04-finalize-step-bands: review-requirement now also returns one result per decision DC-n, followed or departed): Same submission contract this plan extends with own-call and replaced-coordinate results; the DC-n results belong to phase-sub-workflows (PLAN-43, package file updated by #168). Note in Deliverable 6 that the contract is shared and the omission refusals compose; no new path
+
+### Shipped or superseded since the last grounding
+
+- Package file, index row and the dependency packages now exist; the change map itself is not built: doc/plans/change-map.adoc (#143), README row blocked, doc/plans/domain-extensions-and-architecture.adoc and finalize-pipeline-and-merge.adoc (#151); no change_map, ChangeMap or edges_partial symbol in src; core/discovery is package-info only
+
+### Open questions for the outline
+
+- Dependency edges are stale: the spec lists PLAN-96, PLAN-100, PLAN-43 but the index row now also depends on domain-extensions-and-architecture and finalize-pipeline-and-merge; the own-calls package is itself blocked on the task envelope submit link and Task Diff Record (no work package)
+- The completion report is created by operator-reports (PLAN-58) and PLAN-101 Deliverables 4 and 5 add own calls and change map to it, but no dependency edge links the two
+- Merge Danger (roadmap origin/main line 620, Phase Workflows § Merge Danger) reads the change map and no package file or queue spec owns it
 
 ## Dependencies and Sequencing
 

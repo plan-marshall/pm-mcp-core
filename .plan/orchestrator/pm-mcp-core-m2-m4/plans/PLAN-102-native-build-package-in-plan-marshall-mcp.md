@@ -88,17 +88,17 @@ The native build of `pm-mcpd` ran against the named `SNAPSHOT` and its report li
 ## Claim Labels
 
 - OBSERVED: no package of `plan-marshall-mcp` names the native build as a check of the engine — `git grep -i` of `doc/plans` at `origin/main` (`38bd66d`) for `captureCallState`, `downcall` and `native build of` finds nothing; `integration-layers` mentions `verify -Pnative,integration-tests` only as its local test command
-  - verdict: corroborated | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: git grep -iE of captureCallState|downcall|native build of over plan-marshall-mcp doc/plans at origin/main (38bd66d) finds nothing
+  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: git grep -iE captureCallState|downcall|native build of|native-build over plan-marshall-mcp doc/plans at its local origin/main (38bd66d, local ref only, no fetch allowed) finds nothing; doc/plans/integration-layers.adoc:26 names verify -Pnative,integration-tests only as the local test command; no native-build file in doc/plans (checkout HEAD b94cdfa is two commits behind that ref)
 - OBSERVED: the `pm-mcp-core` `CLAUDE.md` names the native build of `pm-mcpd` in `plan-marshall-mcp` as the check of native-image metadata, and `plan-marshall-mcp` `CLAUDE.md` gives the command `verify -Pnative,integration-tests` with `GRAALVM_HOME` and `JAVA_HOME` — read at `4617865` and at `origin/main` `38bd66d`
-  - verdict: corroborated | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: pm-mcp-core CLAUDE.md names the native build; plan-marshall-mcp CLAUDE.md at origin/main (38bd66d) gives verify -Pnative,integration-tests with GRAALVM_HOME
+  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: pm-mcp-core CLAUDE.md names the native build of pm-mcpd in plan-marshall-mcp as the check of native-image metadata; plan-marshall-mcp origin/main:CLAUDE.md line 65 gives verify -Pnative,integration-tests with GRAALVM_HOME and JAVA_HOME; pm-runtime job/KillBinding.java lines 24-25 confirm the kill descriptor with Linker.Option.captureCallState is registered in META-INF/native-image/de.planmarshall/pm-runtime-credentials/reachability-metadata.json
 - OBSERVED: the index of `plan-marshall-mcp` links packages that no longer exist — `pm-mcp-core`: `job-runner`, `operator-and-question-stores`, `project-machine-store`, `stalled-scope-detection` (no file under `doc/plans/` at `4617865`); `pm-mcp-clients`: `api-contract`, `integration-layers`, `operator-enrolment-verbs`, `operator-harness-and-roles-verbs` (moved to `doc/plans/implemented/`) — `doc/plans/README.adoc` at `origin/main` `38bd66d`; the local checkout of `pm-mcp-clients` may lag, so the plan re-reads `origin/main`
-  - verdict: corroborated | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: plan-marshall-mcp index at origin/main (38bd66d) links the 4 pm-mcp-core packages (no file in doc/plans at 4617865) and 4 pm-mcp-clients packages that are under doc/plans/implemented/ at pm-mcp-clients origin/main (9379836)
+  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: pm-mcp-core HEAD doc/plans has no job-runner, operator-and-question-stores, project-machine-store, stalled-scope-detection; pm-mcp-clients local origin/main (9379836) holds api-contract, integration-layers, operator-enrolment-verbs, operator-harness-and-roles-verbs only under doc/plans/implemented/; plan-marshall-mcp origin/main README links all eight; the list is now understated (see applicability)
 - HYPOTHESIS: this plan can be launched from the checkout of `plan-marshall-mcp` with the absolute path of this spec in the ledger worktree of `pm-mcp-core` (the lane takes a spec outside its repository) — confirm/refute at the first step of the lane (verify-at-outline); if it refuses, the operator copies the spec into that repository's `.plan/temp/`
-  - verdict: unverifiable | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
+  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis verify-at-outline; user memory note says a runbook lane refuses the ledger worktree path and reads specs from the main checkout, where this spec now exists since the ledger landed (4a8c034c #176)
 - HYPOTHESIS: the package depends on nothing (the native build of the daemon exists today) and serves Milestone 4 — confirm/refute against the index of `plan-marshall-mcp` and its roadmap items (verify-at-outline)
-  - verdict: unverifiable | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
+  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis; landings/PLAN-84.md line 27 says plan-marshall-mcp has no plan for the native build, which supports no dependency, but the index row of that repository cannot be checked until the package exists
 - Verify-first clause: before writing, `git fetch` the three repositories, list the open pull requests of `plan-marshall-mcp` for one touching `doc/plans/README.adoc`, and re-read the index at `origin/main`; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: no package file and no index row for this spec (a plan with no package file); the only open PR (ci pr list) is #71, a dependabot bump, which does not name it; the claims above were re-read individually
+  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: procedure; no native-build-verification package file or index row at plan-marshall-mcp local origin/main; open-PR list and a fetch of the three repositories are not reachable read-only
 
 ## Expected Surface
 
@@ -106,6 +106,25 @@ The native build of `pm-mcpd` ran against the named `SNAPSHOT` and its report li
 - HYPOTHESIS: `plan-marshall-mcp/doc/plans/README.adoc` — the new row and the dropped dependencies, in the repository `plan-marshall-mcp`
 
 This plan touches no path of this repository; the entries above name another repository, so the reader of this section cannot anchor them here, and the plan is sequenced rather than paired by the disjointness gate (deliberate).
+
+## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (the plans #172, #169 and #164 and the specification pull requests #141, #165, #168, #171, #173, #174 and #175 have landed since the grounding of `4617865`). The Objective, Deliverables, Dependencies and Hand-Off above are the earlier text and stay as the audit record; **where this section and that text differ, this section is the later reading**, and the outline records the departure. Spec-sourced items below are the specification's own content, not inferences of the orchestrator; every statement about the repository was read at the cited place.
+
+- Claims re-read: 6: 3 corroborated, 0 contradicted (re-scoped by this section), 3 unverifiable. Verdicts are stamped on the claims above (`checked_at: 88ec9c70`).
+
+### Surface
+
+- understated: plan-marshall-mcp/doc/plans/README.adoc Depends-on cells also link four more shipped pm-mcp-core packages absent from pm-mcp-core doc/plans at HEAD: role-sets-and-model-caller, task-queue-and-protocol, waits, worker-launch; Deliverable 2 names only four of eight
+
+### Shipped or superseded since the last grounding
+
+- partly superseded by shipped plans: four further pm-mcp-core packages linked in the plan-marshall-mcp index are gone at pm-mcp-core HEAD: role-sets-and-model-caller (#146), task-queue-and-protocol (#160), waits (#145), worker-launch (#172); the plan's named list of four understates the dangling set, its re-read instruction covers them
+
+### Open questions for the outline
+
+- hand-off command uses the _orchestrator worktree path of the spec; user memory says a lane resolves specs from the main checkout only, and the spec is now landed at /home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-102-native-build-package-in-plan-marshall-mcp.md
+- plan-marshall-mcp checkout HEAD is b94cdfa while its local origin/main is 38bd66d (21 Oct) and the other repositories' origin refs could not be fetched read-only: every dangling-link finding rests on local refs and must be re-read after git fetch
 
 ## Dependencies and Sequencing
 

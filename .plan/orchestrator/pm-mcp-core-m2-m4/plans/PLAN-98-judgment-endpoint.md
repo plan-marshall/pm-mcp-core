@@ -55,17 +55,17 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: no work package builds this: none of the package files under `doc/plans/` names `04-judgment-endpoint`, `system_one`, and the index has no row for `judgment-endpoint` — `grep` of `doc/plans/` and `ls doc/plans/judgment-endpoint.adoc` at `4617865`
-  - verdict: corroborated | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: git grep -il of 04-judgment-endpoint, system_one over doc/plans at 4617865 finds nothing; no row and no file for judgment-endpoint
+  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: doc/plans/judgment-endpoint.adoc exists at HEAD (#143 9c9d99c6) and doc/plans/README.adoc has the row judgment-endpoint (open; depends on endpoint-harness); the specification part client-profiles/04-judgment-endpoint.adoc is named in it.
 - OBSERVED: the specification this plan builds exists and carries the anchors it names — `doc/specification/client-profiles/04-judgment-endpoint.adoc`, `doc/implementation-watch/client-profiles.adoc`
-  - verdict: corroborated | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: anchors found at 4617865 in: implementation-watch/client-profiles.adoc: PM-WATCH-CLIENT-15
+  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/specification/client-profiles/04-judgment-endpoint.adoc exists (#judgment-endpoint, #judgment-verification) and is unchanged since 4617865; implementation-watch/client-profiles.adoc holds PM-WATCH-CLIENT-15 (line 191); the watch file grew +21 lines by #174 (PM-WATCH-CLIENT-16), item 15 intact.
 - OBSERVED: the dependencies named below are queue rows of this ledger (PLAN-96, PLAN-97); `PLAN-96` is the plan that writes the package file and the index row
-  - verdict: corroborated | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: queue rows at 4617865: PLAN-96 staged, PLAN-97 staged; PLAN-96 is staged and writes the package files
+  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Queue rows PLAN-96 (shipped, #143) and PLAN-97 (endpoint-harness, staged) exist at HEAD; the package files PLAN-96 writes exist (#143).
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line and the specification parts — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan; 6 OBSERVED surface paths checked at 4617865, all exist
+  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Hypothesis (verify-at-outline). HEAD: runtime/endpoint/ does not exist (new package of PLAN-97); credentials/ and enrolment/ exist; see surface block.
 - HYPOTHESIS: the milestone in the `Serves` line and the edges of the `Dependencies` section are the orchestrator's reading of the roadmap and of the specification, not an operator decision — confirm/refute at `doc/plans/README.adoc` and the roadmap items of `plan-marshall-documentation` (verify-at-outline)
-  - verdict: unverifiable | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
+  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Roadmap reading not checked. Index row at HEAD: Milestone 14, depends only on endpoint-harness (PLAN-96 shipped); this matches the spec edges except the shipped PLAN-96.
 - Verify-first clause: before scoping, check that PLAN-96 has landed (the package file and the index row exist), that the packages this one depends on are done or in flight, and list the open pull requests for one that names the package; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: no package file and no index row for this spec (a plan with no package file); the only open PR (ci pr list) is #71, a dependabot bump, which does not name it; the claims above were re-read individually
+  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: Evidence 'no package file and no index row' is false at HEAD: doc/plans/judgment-endpoint.adoc and its row exist; PLAN-96 shipped #143; endpoint-harness still listed and its profile members (protocol, locality, credential_key) are absent from ProfileValidator, so the package is not ready.
 
 ## Expected Surface
 
@@ -79,6 +79,36 @@ None beyond the standing rules named in the First Instruction above.
 - HYPOTHESIS: `pm-runtime/doc/adr/runtime-endpoint/` — ADRs of the package's design decisions
 - OBSERVED: `doc/specification/client-profiles/04-judgment-endpoint.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/implementation-watch/client-profiles.adoc` — PM-WATCH-CLIENT-15 retired with the package
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `doc/specification/store-schemas/11-enrolment-store.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+
+## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (the plans #172, #169 and #164 and the specification pull requests #141, #165, #168, #171, #173, #174 and #175 have landed since the grounding of `4617865`). The Objective, Deliverables, Dependencies and Hand-Off above are the earlier text and stay as the audit record; **where this section and that text differ, this section is the later reading**, and the outline records the departure. Spec-sourced items below are the specification's own content, not inferences of the orchestrator; every statement about the repository was read at the cited place.
+
+- Claims re-read: 6: 2 corroborated, 2 contradicted (re-scoped by this section), 2 unverifiable. Verdicts are stamped on the claims above (`checked_at: 88ec9c70`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claim 0: doc/plans/judgment-endpoint.adoc exists at HEAD (#143 9c9d99c6) and doc/plans/README.adoc has the row judgment-endpoint (open; depends on endpoint-harness); the specification part client-profiles/04-judgment-endpoint.adoc is named in it.
+- Claim 5: Evidence 'no package file and no index row' is false at HEAD: doc/plans/judgment-endpoint.adoc and its row exist; PLAN-96 shipped #143; endpoint-harness still listed and its profile members (protocol, locality, credential_key) are absent from ProfileValidator, so the package is not ready.
+
+### Surface
+
+- Added to the Expected Surface above: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/`, `doc/specification/store-schemas/11-enrolment-store.adoc`.
+- unresolvable: pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/ does not exist; it is the new package of PLAN-97 (endpoint-harness), not yet landed.
+- understated: The harness enrolment is not in runtime/enrolment/ but in pm-runtime/src/main/java/de/planmarshall/runtime/launch/ (HarnessEnrolment, HarnessEnrolmentStore, HarnessVerifier, shipped by PLAN-29 #172); HarnessEnrolment requires a non-null absolute executablePath and sha256, which a remote form does not have; runtime/enrolment/ holds only HarnessesSidecarCheck. Add runtime/launch/ and pm-core/.../core/profile/ProfileStages.java and VerificationRecord.java.
+- unresolvable: pm-core/src/main/java/de/planmarshall/core/profile/ exists, but the endpoint members protocol, locality, credential_key are absent from ProfileValidator; PLAN-97 admits them, so this package cannot start before it.
+- unresolvable: pm-runtime/doc/developer/runtime-endpoint.adoc is declared 'extended' but does not exist (PLAN-97 creates it); pm-runtime/doc/adr/runtime-endpoint/ absent. Existing guides to extend: runtime-launch.adoc, runtime-enrolment.adoc, runtime-credentials.adoc.
+- understated: Trace names doc/specification/store-schemas/11-enrolment-store.adoc (Harness Enrolment Store; changed by #174), credentials-and-enrolment/01-provider-credentials.adoc and client-profiles/03-endpoint-harness.adoc, none in the surface; add the first two as parts the package edits.
+
+### Shipped or superseded since the last grounding
+
+- superseded-by-shipped: PLAN-96 shipped (queue row status shipped, pr #143): the package files and index rows it must write exist, so 'PLAN-96 must land first' and 'no work package builds this' are done.
+
+### Open questions for the outline
+
+- store-schemas/11 Harness Enrolment Store requires executable_path, sha256 and version for every entry and has no member for an origin or credential key, yet the remote form has executable and identity null and enrols an origin and credential key; the shipped HarnessEnrolment record (runtime/launch) is built to the same required members.
 
 ## Dependencies and Sequencing
 

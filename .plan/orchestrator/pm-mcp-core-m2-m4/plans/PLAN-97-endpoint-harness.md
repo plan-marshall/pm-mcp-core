@@ -57,17 +57,17 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: no work package builds this: none of the package files under `doc/plans/` names `03-endpoint-harness`, `endpoint harness`, `profile_kind`, and the index has no row for `endpoint-harness` — `grep` of `doc/plans/` and `ls doc/plans/endpoint-harness.adoc` at `4617865`
-  - verdict: corroborated | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: git grep -il of 03-endpoint-harness, endpoint harness, profile_kind over doc/plans at 4617865 finds nothing; no row and no file for endpoint-harness
+  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: doc/plans/endpoint-harness.adoc exists at HEAD with the 10 bullets of this spec and an index row (open; depends role-qualification; Milestone 14); added by #143 9c9d99c6 (PLAN-96)
 - OBSERVED: the specification this plan builds exists and carries the anchors it names — `doc/specification/client-profiles/03-endpoint-harness.adoc`, `doc/implementation-watch/client-profiles.adoc`
-  - verdict: corroborated | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: anchors found at 4617865 in: implementation-watch/client-profiles.adoc: PM-WATCH-CLIENT-14
+  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/specification/client-profiles/03-endpoint-harness.adoc exists; PM-WATCH-CLIENT-14 is at doc/implementation-watch/client-profiles.adoc line 170
 - OBSERVED: the dependencies named below are queue rows of this ledger (PLAN-96, PLAN-26, PLAN-29, PLAN-34; PLAN-19 shipped as #137); `PLAN-96` is the plan that writes the package file and the index row
-  - verdict: corroborated | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: queue rows at 4617865: PLAN-96 staged, PLAN-19 shipped, PLAN-26 staged, PLAN-29 staged, PLAN-34 staged; PLAN-96 is staged and writes the package files
+  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: PLAN-96 landed as #143 9c9d99c6; PLAN-26 shipped as #146 964f673d; PLAN-29 shipped as #172 4806a304; only PLAN-34 (role-qualification) is still an open row and README at HEAD lists it as the sole dependency
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line and the specification parts — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan; 6 OBSERVED surface paths checked at 4617865, all exist
+  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: pm-runtime/.../launch/ is not package-info only: it holds HarnessEnrolment; HarnessEnrolmentStore; HarnessVerifier; LaunchComposer; WorkerLaunch and about 20 more types (#172); the harness enrolment with its weights map is in launch/ and not in runtime/enrolment/ (project enrolment integrity classes and HarnessesSidecarCheck); runtime/endpoint does not exist yet (new); core/profile (17 classes) exists
 - HYPOTHESIS: the milestone in the `Serves` line and the edges of the `Dependencies` section are the orchestrator's reading of the roadmap and of the specification, not an operator decision — confirm/refute at `doc/plans/README.adoc` and the roadmap items of `plan-marshall-documentation` (verify-at-outline)
-  - verdict: unverifiable | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
+  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: README row endpoint-harness serves Milestone 14 and the roadmap Milestone 14 item Implement the endpoint harness is unchecked at documentation origin/main; judgment-endpoint depends on endpoint-harness; edge to role-qualification present
 - Verify-first clause: before scoping, check that PLAN-96 has landed (the package file and the index row exist), that the packages this one depends on are done or in flight, and list the open pull requests for one that names the package; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 4617865ef6716b21e61b931f5d290a54d2eb5f91 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: no package file and no index row for this spec (a plan with no package file); the only open PR (ci pr list) is #71, a dependabot bump, which does not name it; the claims above were re-read individually
+  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: same account as claim 0: package file and index row exist at HEAD (#143 9c9d99c6); the PR #71 part could not be re-read here
 
 ## Expected Surface
 
@@ -81,6 +81,50 @@ None beyond the standing rules named in the First Instruction above.
 - HYPOTHESIS: `pm-runtime/doc/adr/runtime-endpoint/` — ADRs of the package's design decisions; new directory
 - OBSERVED: `doc/specification/client-profiles/03-endpoint-harness.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/implementation-watch/client-profiles.adoc` — PM-WATCH-CLIENT-14 retired with the package
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/HarnessUsage.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/RoleDigests.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `doc/specification/client-profiles/01-profile-schema.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `doc/specification/store-schemas/11-enrolment-store.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-core/doc/developer/core-profile.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-runtime/doc/developer/runtime-launch.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+
+## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (the plans #172, #169 and #164 and the specification pull requests #141, #165, #168, #171, #173, #174 and #175 have landed since the grounding of `4617865`). The Objective, Deliverables, Dependencies and Hand-Off above are the earlier text and stay as the audit record; **where this section and that text differ, this section is the later reading**, and the outline records the departure. Spec-sourced items below are the specification's own content, not inferences of the orchestrator; every statement about the repository was read at the cited place.
+
+- Claims re-read: 6: 2 corroborated, 4 contradicted (re-scoped by this section), 0 unverifiable. Verdicts are stamped on the claims above (`checked_at: 88ec9c70`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claim 0: doc/plans/endpoint-harness.adoc exists at HEAD with the 10 bullets of this spec and an index row (open; depends role-qualification; Milestone 14); added by #143 9c9d99c6 (PLAN-96)
+- Claim 2: PLAN-96 landed as #143 9c9d99c6; PLAN-26 shipped as #146 964f673d; PLAN-29 shipped as #172 4806a304; only PLAN-34 (role-qualification) is still an open row and README at HEAD lists it as the sole dependency
+- Claim 3: pm-runtime/.../launch/ is not package-info only: it holds HarnessEnrolment; HarnessEnrolmentStore; HarnessVerifier; LaunchComposer; WorkerLaunch and about 20 more types (#172); the harness enrolment with its weights map is in launch/ and not in runtime/enrolment/ (project enrolment integrity classes and HarnessesSidecarCheck); runtime/endpoint does not exist yet (new); core/profile (17 classes) exists
+- Claim 5: same account as claim 0: package file and index row exist at HEAD (#143 9c9d99c6); the PR #71 part could not be re-read here
+
+### Surface
+
+- Added to the Expected Surface above: `pm-core/src/main/java/de/planmarshall/core/store/HarnessUsage.java`, `pm-core/src/main/java/de/planmarshall/core/role/RoleDigests.java`, `doc/specification/client-profiles/01-profile-schema.adoc`, `doc/specification/store-schemas/11-enrolment-store.adoc`, `pm-core/doc/developer/core-profile.adoc`, `pm-runtime/doc/developer/runtime-launch.adoc`.
+- wrong: runtime/enrolment is the project enrolment integrity package (HarnessesSidecarCheck only for harnesses); the harness enrolment is pm-runtime/.../runtime/launch/HarnessEnrolment.java; HarnessEnrolmentStore.java; HarnessVerifier.java (replace the path)
+- wrong: runtime/launch is no longer package-info only; add LaunchComposer; PromptComposer; WorkerLaunch; LaunchRefusal as the request and refusal seam to extend
+- understated: add pm-core/src/main/java/de/planmarshall/core/role/RoleDigests.java and EffectiveRole.java (weights identity already in the qualification digest) and pm-core/.../store/HarnessUsage.java (unmeasured usage)
+- understated: spec parts to delete from but not listed: doc/specification/client-profiles/01-profile-schema.adoc (Profile Sets; Profile Verification) and doc/specification/store-schemas/11-enrolment-store.adoc (Harness Enrolment Store); docs to extend: pm-core/doc/developer/core-profile.adoc; pm-runtime/doc/developer/runtime-launch.adoc (adr dirs core-profile and runtime-launch exist)
+- understated: doc/plans/endpoint-harness.adoc is not hypothetical any more: exists at HEAD from #143 (state it as OBSERVED)
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #174 — store-schemas/11 Harness Enrolment Store (usage_report.start_context; events): Say whether an endpoint enrolment carries start_context (its four stages run no usage stage) so HarnessEnrolment.UsageReport and HarnessEnrolmentStore in pm-runtime/.../launch/ stay consistent; add those two files to the surface
+- #171 — model-work/01 Judge Instrument Check (judge exempt from qualification but checked as an instrument via judge-check.json): Reconcile D4 (a judge on an endpoint is ungraded) with the instrument check that binds to the qualification digest incl. weights identity; correct client-profiles/03 line 23 if needed
+
+### Shipped or superseded since the last grounding
+
+- partly fixed: weights identity in enrolment and digest: HarnessEnrolment.weights (Map of Weights with weightsId and readAt) and HarnessEnrolmentStore (#172 4806a304); RoleDigests puts weights_identity into the qualification digest and EffectiveRole.weightsIdentity (#146 964f673d); no code reads a weights probe
+- partly fixed: refusal and audit ids: LaunchRefusal and HarnessVerifier already use harness_not_enrolled and audit harness_updated for process harnesses (#172); the listening-socket owner check is absent (no socket owner code in pm-runtime)
+- partly fixed: client profile weights_probe validation: ProfileValidator.weightsProbe validates headless.weights_probe; no profile_kind or endpoint profile exists
+
+### Open questions for the outline
+
+- the package file is written by PLAN-96 in the spec text but exists since #143; Deliverables and Expected Surface need rewording and the PLAN-96 dependency removal
+- module-structure.adoc (documentation repository) lists no runtime.endpoint package and no endpoint harness; the spec does not say who registers it
 
 ## Dependencies and Sequencing
 
