@@ -2,10 +2,10 @@
   "id": "PLAN-40",
   "slug": "module-developer-docs",
   "workstream": "WS-10",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-40-module-developer-docs",
+  "pr": "#167",
+  "landing": "landings/PLAN-40.md",
   "seq": 40
 }
