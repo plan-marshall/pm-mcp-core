@@ -162,6 +162,21 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     /** The detail of a harness self-update that holds the digest of the changed executable. */
     public static final String DETAIL_NEW_SHA256 = "new_sha256";
 
+    /** The name of the event that records one counted worker start failure of a role on a harness. */
+    public static final String WORKER_START_FAILED = "worker_start_failed";
+
+    /** The detail of a worker start failure that names the role whose start failed. */
+    public static final String DETAIL_ROLE = "role";
+
+    /** The detail of a worker start failure that names the harness whose start failed. */
+    public static final String DETAIL_HARNESS = "harness";
+
+    /**
+     * The detail of a worker start failure that holds the failed worker's own error text, bounded and redacted by the
+     * guard that reports it.
+     */
+    public static final String DETAIL_HARNESS_ERROR = "harness_error";
+
     /** The category of the events of the integrity and per-use checks. */
     public static final String CATEGORY_SECURITY = "security";
 
@@ -438,6 +453,26 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
                         Objects.requireNonNull(oldSha256, "oldSha256"), DETAIL_NEW_VERSION,
                         Objects.requireNonNull(newVersion, "newVersion"), DETAIL_NEW_SHA256,
                         Objects.requireNonNull(newSha256, "newSha256")));
+    }
+
+    /**
+     * The record of one counted worker start failure of a role on a harness: an {@code operator} record with the
+     * outcome {@link #OUTCOME_FAILED}, the project, the role and the harness, and the failed worker's own error text
+     * as the guard bounded and redacted it. It is operator and audit data only and is never rendered to a model.
+     *
+     * @param projectId the project whose worker failed to start
+     * @param role      the role of the worker that failed to start
+     * @param harness   the harness on which the start failed
+     * @param detail    the bounded, redacted error text of the failed worker
+     * @return the record of the start failure
+     * @throws NullPointerException if an argument is {@code null}
+     */
+    public static AuditEvent workerStartFailed(String projectId, String role, String harness, String detail) {
+        return new AuditEvent(WORKER_START_FAILED, CATEGORY_OPERATOR, OUTCOME_FAILED,
+                Map.of(DETAIL_PROJECT_ID, Objects.requireNonNull(projectId, "projectId"), DETAIL_ROLE,
+                        Objects.requireNonNull(role, DETAIL_ROLE), DETAIL_HARNESS,
+                        Objects.requireNonNull(harness, DETAIL_HARNESS), DETAIL_HARNESS_ERROR,
+                        Objects.requireNonNull(detail, "detail")));
     }
 
     /**
