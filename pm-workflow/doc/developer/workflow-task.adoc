@@ -61,8 +61,10 @@ generation, the task and the attempt; `AuditLogSecurityAudit` writes it under th
   delivered to the generation (else `skills_not_loaded` with the missing `skill://` URIs, and the task stays
   executing), then closes the task `submitted` in the transaction that validated the submit and releases the lease. A
   later call of that generation is `stale_entity` unless the job-end or fence check refuses it first; the task is done
-  exactly once.
-* `infeasible`: closes the task `infeasible` through the entity's link, as `submit` closes it `submitted`.
+  exactly once. A consultation task is refused `link_not_available`: it offers only `submit:answer`, recorded by
+  `workflow.consult`.
+* `infeasible`: closes the task `infeasible` through the entity's link, as `submit` closes it `submitted`. A
+  consultation task is refused `link_not_available`, like `submit`.
 * `report`: ends the attempt without a result, releases the lease and re-queues the task. An end that counts spends a
   re-offer; when the budget is spent the task closes `lost` with `attempts_spent`
   (link:../adr/workflow-task/002-the-re-offer-budget-is-spent-by-counted-attempt-ends.adoc[ADR 002]). `withdrawn` and
@@ -96,6 +98,7 @@ from a store the protocol does not own.
 * A call on a task whose lease another generation holds is `job_scope_mismatch`; a call on a task that closed while the
   caller's generation held it is `stale_entity`; a call of a generation that never held it is `job_scope_mismatch`; a
   submit before the acknowledgement is `link_not_available`.
-* The first valid submit closes the task; a second submit never closes it again.
+* The first valid submit closes the task; a second submit never closes it again. A consultation task is closed by
+  `workflow.consult`, never by `submit` or `infeasible`.
 * A pause spends no re-offer and is queued at once; the offer waits only for the plan to be started.
 * An `agent_started` signal never takes an action other than `restart`.
