@@ -113,6 +113,20 @@ One machine-wide file holds the harness CLIs that may run workers (job kind `llm
                   "reasoning": { "$ref": "#/$defs/figure" },
                   "tool_uses": { "$ref": "#/$defs/figure" }
                 }
+              },
+              "start_context": {
+                "type": "array",
+                "description": "Input tokens of a worker's first model turn per class and model, from the usage stage of the verification (Client Profiles Specification, Start Context); absent for source declared.",
+                "items": {
+                  "type": "object",
+                  "required": ["class", "model", "tokens"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "class": { "type": "string", "enum": ["writer", "read_only", "zero_tool"] },
+                    "model": { "type": "string", "minLength": 1, "maxLength": 128 },
+                    "tokens": { "oneOf": [ { "type": "integer", "minimum": 0 }, { "const": "unmeasured" } ] }
+                  }
+                }
               }
             }
           },
