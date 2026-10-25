@@ -1,0 +1,45 @@
+= ADR 004: Start a worker through the job runner, and record a refusal as a job
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-24
+
+== Context
+
+A worker's launch is composed before it exists (`LaunchComposer`), but the job record, the process, the supervision and
+the settlement belong to `SubprocessJobRunner`. The runner's ordinary `start` refuses the kind `llm`, because a worker
+has no verified target; a worker's launch is verified against the harness enrolment instead. A launch the runtime
+refuses before its spawn must still leave a job record with the fate `refused` and the `refusal_reason`, which the
+specification reads for the start-failure guard and for both clients.
+
+== Decision
+
+`SubprocessJobRunner.startWorker(WorkerStart)` starts a composed launch: the generation id of the launch is the job id,
+the record carries the `worker` block, the argument vector is digested like every job's, the job token is registered
+with its digest and revoked in the settlement, and the confinement comes from the project's enrolment and the
+harness's writable sub-paths. `refuseWorker(WorkerStart.Refusal)` records a refused launch in the one write of its
+record, with the reason and the block, and starts nothing. Both paths stay in the runner, so a worker shares the
+settlement, the cancellation, the descendant sweep and the drain with every other job.
+
+== Alternatives Considered
+
+* Starting the process in the supervisor would duplicate the runner's write-ahead record, supervision, drain and
+  descendant sweep, and would split the ownership of a job's life between two packages.
+* Recording a refusal in the supervisor would need a second writer of the job store and a second place that knows the
+  record's shape.
+
+== Consequences
+
+The supervisor composes and verifies, then calls one of the two methods. A worker whose generation id is taken or is
+not a worker id is refused before anything is written. A refused worker counts as a start failure of the role on its
+harness; the guard that stops starting after the compiled number stays with the supervisor.
+
+== Source
+
+Work package `worker-launch`; Model Work Specification § Worker Launch, § Harness Eligibility & Launch Refusals; Store
+Schemas Specification § Job Record.

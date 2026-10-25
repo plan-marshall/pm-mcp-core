@@ -1,0 +1,49 @@
+= ADR 002: Verify the enrolled harness before every spawn and accept a self-update only on profile evidence
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-24
+
+== Context
+
+Harness CLIs update themselves. The enrolment store `harnesses.json` records the absolute path, the version and the
+SHA-256 of the last accepted build, signed by the HMAC sidecar under the enrolment integrity key. A changed executable
+is never its own witness: it must not run before evidence from outside it shows it is the vendor's. The store is also
+the one write surface of two clients, the onboarding's `harness.enrol` and `pm-operator enrol-harness`.
+
+== Decision
+
+`HarnessEnrolmentStore` is the single store API. Every read verifies the file and its sidecar first; a failure is
+refused as `harness_tampered` (or `harness_store_unreadable` when the verified bytes do not read as the store) and never
+parsed. A new enrolment re-baselines a tampered file with the named client only. `HarnessVerifier` re-digests the
+executable before every spawn. A changed digest is accepted only on the profile's `update_evidence`, checked before
+the version probe runs, and then only when the probe reports a version inside `headless.supported_versions`; the
+accepting transaction rewrites the file and its sidecar and audits `harness_updated`. Every other case refuses before
+spawn with `harness_update_unverified`, `harness_version_unsupported`, `harness_not_enrolled` or `harness_tampered`,
+and `LaunchRefusal` names the act that resolves it.
+
+== Alternatives Considered
+
+* Accepting a changed executable on its own reported version would let a replaced or tampered file choose its own
+  identity; it was not taken.
+* Refusing every change and requiring an operator enrolment every time would make a vendor's routine self-update an
+  outage; the profile's evidence is the middle way, and the method `none` still waits for the operator.
+* Parsing the store before verifying it would expose an untrusted document to the runtime; the verification precedes
+  every parse.
+
+== Consequences
+
+The evidence port (`HarnessVerifier.EvidenceCheck`) is the extension point for the platform checks
+`code_signature` and `package_provenance`; the default refuses every change. A tampered store refuses every worker
+launch of that machine until the named client is enrolled again, and the entries of the other clients are not carried
+over.
+
+== Source
+
+Work package `worker-launch`; Store Schemas Specification § Harness Enrolment Store; Client Profiles Specification §
+Update Evidence; Model Work Specification § Harness Eligibility & Launch Refusals.

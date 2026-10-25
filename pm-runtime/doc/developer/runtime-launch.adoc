@@ -1,0 +1,143 @@
+= Worker Launch and Harness Enrolment (`runtime.launch`)
+:toc: left
+:toclevels: 2
+:nofooter:
+
+link:../../README.adoc[`pm-runtime`] » Worker Launch
+
+== What the package is for
+
+`de.planmarshall.runtime.launch` composes the launch of a worker, the job of kind `llm`: the argument vector, the
+environment, the working directory, the per-call MCP configuration and the `worker` block of its job record. It also
+owns the machine's harness enrolment store and the launch-time verification of the enrolled executable. It never
+starts a process of its own: the job runner starts the composed vector, and the supervisor decides when.
+
+The package is the one place that reads the shape of a profile's `headless` block. Everything a launch contains is
+server-owned; no element is read from a file a model can write.
+
+== Main types
+
+`HeadlessBlock`::
+The launch contract of one client profile, projected out of its `headless` block: the executable, the argument-vector
+template with its typed slots, the per-class templates, the agent mode, the MCP delivery, the launch environment, the
+model tiers and efforts, the supported version range, the update evidence, the resource tools, the per-worker data
+home, the session residue, the resumability and the writable sub-paths.
+
+`LaunchComposer`::
+Composes a `WorkerLaunch` from a `LaunchRequest`. It renders a tier of the default assignment into the model the
+harness maps it to (`HeadlessBlock.tierModel`), narrows an effort the harness does not accept to the nearest accepted
+lower value, fixes the working directory (the plan worktree, the project checkout, or the empty `cwd/` of a
+`zero_tool` worker), fills only the slots the template declares, withholds the ephemeral flag for a role that may
+resume, writes the prompt file and the result schema into the job-private directory, mints the job token and composes
+the `worker` block.
+
+`PromptComposer`::
+Renders the launch prompt in the specification's order: the shim paragraph, the core conduct skill, the task-protocol
+skill, the role skill and its further skills — the shared prefix, byte-identical for every launch of a role on the same
+skill digests — then, per launch, the task's skills and the contract envelope of a fresh worker. The writing skill is
+owned here and added from the link schemas alone. A skill that does not resolve fails the composition; no worker ever
+runs with a required skill missing.
+
+`FreeTextDerivation`::
+Derives whether a task writes free text from its entity's link schemas: a parameter of type `text`, or a named
+parameter schema with a `string` field that has neither `enum` nor `pattern`. A closed value never triggers the writing
+skill.
+
+`HarnessEnrolmentStore`::
+The machine-wide `harnesses.json` and its HMAC sidecar. Every read verifies the pair under the enrolment integrity key
+first; every write holds `locks/harnesses.lock` and writes the canonical file and its sidecar owner-only. One API
+serves the onboarding's `harness.enrol` and `pm-operator enrol-harness`. A file that fails its check is re-baselined by
+the next enrolment with the named client only.
+
+`HarnessVerifier`::
+Verifies the harness before every spawn: the store's integrity, the enrolment, the digest of the executable, and,
+where the digest changed, the update evidence and then the version probe. An accepted self-update rewrites the store
+and is audited `harness_updated`; every other case returns a `HarnessVerification.Refused` carrying a `LaunchRefusal`.
+
+`JobTokenStore`::
+Resolves a presented token's SHA-256 to the generation it was minted for, and revokes the token with the job's fate. The
+token itself is never stored.
+
+`WorkerStart` (in `runtime.job`)::
+The supervisor's start of a composed launch: the launch, the verified enrolment, the scope, the budget and the
+writable sub-paths. `SubprocessJobRunner.startWorker` writes the record with the `worker` block, starts the composed
+argument vector and revokes the token in the settlement. `refuseWorker` records a launch the runtime refused with the
+fate `refused`, the reason and the block, in one write and without a process.
+
+== How the parts work together
+
+[source,text]
+----
+LaunchRequest ──> LaunchComposer ──> WorkerLaunch ──> job runner (kind llm)
+      │                  │
+      │                  ├── PromptComposer ──> prompt file, prompt digest, delivered skills
+      │                  ├── HeadlessBlock  ──> argv, env, MCP configuration
+      │                  └── JobTokens      ──> token (returned), SHA-256 (worker block)
+      │
+HarnessVerifier ──> HarnessEnrolmentStore ──> harnesses.json + harnesses.json.hmac
+      │
+      └── update evidence ──> version probe ──> supported range ──> accepted self-update
+----
+
+A caller verifies the harness first and passes the accepted `HarnessEnrolment` into the `LaunchRequest`; the composer
+therefore never trusts an unverified build. The job record's `worker` block is composed from the same values as the
+argument vector, so the two cannot disagree.
+
+== Invariants
+
+* A launch never runs with a required skill missing: a skill that does not resolve, renders empty, or whose digest
+  changed after the role was read fails the composition (`prompt_composition_failed`).
+* The shared prefix contains nothing per launch: the job token, an identifier, a time and a fact of a task follow it.
+* A `zero_tool` worker has no tool, no MCP configuration, no `job_token_sha256`, and runs in the empty `cwd/` of its
+  job-private directory.
+* A changed executable is never its own witness: the update evidence is checked before the version probe runs.
+* The job token exists only in the composed launch and in the relay's MCP configuration; the record holds its SHA-256.
+
+== Failure modes
+
+|===
+|Failure |Result
+
+|The harness is not enrolled |`harness_not_enrolled`
+|The store fails its per-use check or its HMAC |`harness_tampered` (audited `enrolment_tampered`)
+|The store is verified but unreadable |`harness_store_unreadable`
+|The executable changed without evidence, or the evidence failed |`harness_update_unverified`
+|The probed version lies outside the supported range |`harness_version_unsupported`
+|The prompt cannot be composed |`prompt_composition_failed`
+|===
+
+A refusal names the act that resolves it (`LaunchRefusal.resolvingAct`): a new enrolment for every harness refusal, a
+restored skill or schema for the composition failure.
+
+== Extending it
+
+* A new launch slot is added to `HeadlessBlock`'s projection and filled in `LaunchComposer.composeArgv`; it must also
+  reach the profile validator's slot set.
+* A new harness profile needs no code: the profile's `headless` block is data. A harness whose MCP configuration is not
+  exclusive declares no worker class.
+* The update-evidence port (`HarnessVerifier.EvidenceCheck`) is where a platform check for `code_signature` or
+  `package_provenance` plugs in. The default refuses every change, which is the fail-closed direction.
+
+== Owed
+
+* *The start-failure guard goes to `supervisor` (PLAN-30)*, which resumes at 4-plan and is re-outlined against the merged
+  launch package. It hooks in at the worker start path: `SubprocessJobRunner.startWorker` returns a `Started` job and
+  `refuseWorker` a refused `JobId`; a refused launch (a `HarnessVerification.Refused` from `HarnessVerifier`) is the
+  start-failure event, counted per role and harness by the supervisor, with the tasks of the role closing `lost` with
+  `role_unavailable` after the compiled count.
+* *Specification sections left in place*: the launch sections of Model Work § Worker Launch are implemented and their
+  prose carries an `Implemented by` pointer; what remains in place is the start-failure guard (above) and, in
+  § Skill Delivery Record & Re-Delivery, the warm offer, the re-delivery, the offer bound, host activation and the
+  `skills_not_loaded` submit refusal, which are the task protocol's.
+* *Output and usage reading* is not a Done-when clause of this package: the mapping of the output stream to activity,
+  the per-turn usage and the result parsing remain in Model Work § Output Read While the Worker Runs.
+* *The Linux child subreaper* of the launcher (`PR_SET_CHILD_SUBREAPER` in `pm-exec`, a binary of `pm-mcp-clients`) is
+  owed by a package there; the runtime's descendant recording, sweep and audit are implemented
+  (ADR runtime-launch/003).
+
+== Specification
+
+* `doc/specification/model-work/04-worker-launch.adoc`
+* `doc/specification/store-schemas/11-enrolment-store.adoc` (Harness Enrolment Store)
+* `doc/specification/store-schemas/10-job-and-lesson-records.adoc` (Job Record)
+* `doc/specification/client-profiles/01-profile-schema.adoc` (Profile Schema, Update Evidence)

@@ -610,6 +610,12 @@ version, and digest only, and neither it, the credential store, nor the worker's
 authentication value (the harness runs on its own login, and one that is not logged in fails its start).
 Source:: design review.
 
+Implemented (the self-update and refusal half): the re-digest, the evidence check, the accepted self-update with
+`harness_updated` and the refusals `harness_not_enrolled`, `harness_update_unverified`,
+`harness_version_unsupported`, `harness_tampered` and `harness_store_unreadable`
+(link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide]). Remaining: the
+start-failure guard, which is `supervisor`'s (PLAN-30).
+
 [#PM-WATCH-DISP-34]
 === PM-WATCH-DISP-34: The host bundle stays inert inside a worker
 

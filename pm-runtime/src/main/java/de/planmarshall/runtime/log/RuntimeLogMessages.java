@@ -335,6 +335,16 @@ public final class RuntimeLogMessages {
                 .identifier(34)
                 .template("Service unit '%s' removed, the reinstall kept no previous unit")
                 .build();
+
+        /**
+         * Logged when a launch accepted a harness's self-update: names the client, the old and the new version and the
+         * new digest, never a token.
+         */
+        public static final LogRecord HARNESS_SELF_UPDATE_ACCEPTED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(35)
+                .template("Harness '%s' self-updated from version '%s' to '%s' (digest '%s')")
+                .build();
     }
 
     /** WARN level messages. */
@@ -716,6 +726,16 @@ public final class RuntimeLogMessages {
                 .prefix(PREFIX)
                 .identifier(138)
                 .template("The descendant sweep of job '%s' failed, the job is settled without it: %s")
+                .build();
+
+        /**
+         * Logged when a worker launch is refused before its spawn: names the harness, the refusal reason and the act
+         * that resolves it. A harness refusal counts as a start failure of the role on that harness.
+         */
+        public static final LogRecord WORKER_LAUNCH_REFUSED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(139)
+                .template("Launch of a worker of harness '%s' refused '%s': %s; resolve it by: %s")
                 .build();
     }
 

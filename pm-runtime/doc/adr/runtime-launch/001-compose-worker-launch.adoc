@@ -1,0 +1,47 @@
+= ADR 001: Compose a worker launch from the profile's headless block
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-24
+
+== Context
+
+A worker is a job of kind `llm`: the server starts the headless command line of an enrolled harness itself. The role
+configuration names the harness, the model and the effort; the harness's client profile carries the argument-vector
+template, the per-class arguments, the agent mode, the MCP delivery, the launch environment, the model tiers and
+efforts, the supported version range and the update evidence. The template declares typed slots, and a value the
+template does not declare must not reach the argument vector.
+
+== Decision
+
+`HeadlessBlock` is the one projection of a profile's `headless` block, and `LaunchComposer` composes a `WorkerLaunch`
+from it and a `LaunchRequest`. The composer fills only the slots the template declares (`{{prompt_file}}`,
+`{{model}}`, `{{effort}}`, `{{mcp_config}}`, `{{result_schema}}`, `{{tools}}`, `{{cwd}}`, `{{agent}}`, and
+`{{session_id}}` in a resume template); an element whose slot has no value is dropped. A tier of the default assignment
+is rendered into the model the harness maps it to before the effort is narrowed. The ephemeral flag is withheld for a
+role that may resume after a question. The `worker` block of the job record is composed from the same values as the
+argument vector.
+
+== Alternatives Considered
+
+* A per-harness Java implementation would duplicate the profile and make an operator-added harness a code change; it
+  was not taken because the profile is data and the specification grows no closed list of harnesses.
+* Resolving a model or effort at the harness instead of at the launch would leave the job record's `worker` block and
+  the argument vector able to disagree; the launch is composed once and recorded.
+
+== Consequences
+
+A new harness is a profile, not a code change. A new slot needs both the validator's slot set and the composer. The
+record's `worker` block is the authority for what a generation was launched with; a change of the role's effective
+configuration applies to the next generation only.
+
+== Source
+
+Work package `worker-launch` (`doc/plans/worker-launch.adoc`); Model Work Specification § Worker Launch, § Model &
+Effort, § Agent Composition per Harness; Client Profiles Specification § `headless`; Store Schemas Specification § Job
+Record.

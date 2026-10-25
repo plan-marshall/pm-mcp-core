@@ -27,16 +27,10 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:../../../pm-mcp-clients/doc/plans/exec-read-denied-paths.adoc[`pm-mcp-clients` / `exec-read-denied-paths`]
 |Milestone 4
 
-|link:worker-launch.adoc[`worker-launch`]
-|Worker launch and harness enrolment
-|`open`
-|link:job-confinement-and-environment.adoc[`job-confinement-and-environment`]; link:client-profile-rendering.adoc[`client-profile-rendering`] (the rendered launch prompt)
-|Milestone 4
-
 |link:supervisor.adoc[`supervisor`]
 |Worker supervisor
 |`open`
-|link:worker-launch.adoc[`worker-launch`]
+|nothing
 |Milestone 4
 
 |link:worker-activity.adoc[`worker-activity`]
@@ -48,7 +42,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:slots-usage-and-budgets.adoc[`slots-usage-and-budgets`]
 |Model slots, usage rows and learned budgets
 |`open`
-|link:worker-launch.adoc[`worker-launch`]
+|nothing
 |Milestone 4
 
 |link:consultation.adoc[`consultation`]
@@ -60,7 +54,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:question-continuation.adoc[`question-continuation`]
 |Continuation after a question: hold, suspend and resume, the answer acknowledgement, the answer in the next task, the question bound, the stage `resumability` of the profile verification
 |`open`
-|link:supervisor.adoc[`supervisor`]; link:worker-launch.adoc[`worker-launch`]; link:../../../plan-marshall-mcp/doc/plans/question-loop-verification.adoc[`plan-marshall-mcp` / `question-loop-verification`]
+|link:supervisor.adoc[`supervisor`]; link:../../../plan-marshall-mcp/doc/plans/question-loop-verification.adoc[`plan-marshall-mcp` / `question-loop-verification`]
 |Milestone 4
 
 |link:role-qualification.adoc[`role-qualification`]
@@ -216,7 +210,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:endpoint-harness.adoc[`endpoint-harness`]
 |The endpoint harness: a model served on the loopback interface, its profile, its request, its enrolment and the identity of its weights
 |`open`
-|link:worker-launch.adoc[`worker-launch`]; link:role-qualification.adoc[`role-qualification`] (the weights identity is a member of the qualification digest)
+|link:role-qualification.adoc[`role-qualification`] (the weights identity is a member of the qualification digest)
 |Milestone 14
 
 |link:judgment-endpoint.adoc[`judgment-endpoint`]

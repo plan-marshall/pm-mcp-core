@@ -13,8 +13,9 @@ _Requirements: link:{docs}/Requirements.adoc#PM-SEC-4[PM-SEC-4]_
 
 Package `de.planmarshall.runtime.security` of `pm-runtime` holds what the authentication of the daemon resolves a
 presented credential through: the kinds of token it accepts, the registries that resolve a token's hash to the job or
-the paired device it was minted for, and the constant-time comparison and digest of secrets. The package holds no
-listener and no request path; the assembly `pm-mcp-server` authenticates a request and asks these seams.
+the paired device it was minted for, the minting and digest of a worker's job token, and the constant-time comparison
+and digest of secrets. The package holds no listener and no request path; the assembly `pm-mcp-server` authenticates a
+request and asks these seams.
 
 == Main Types
 _Requirements: link:{docs}/Requirements.adoc#PM-SEC-4[PM-SEC-4]_
@@ -31,6 +32,10 @@ stated in its Javadoc and in the assembly's authenticator; this guide does not r
 |`resolve(tokenSha256)` → the `JobBinding(jobId)` the token was minted for, or empty for an unknown token. Only the hash is
 stored (in the job record); a revoked token still resolves, so its calls are answered by the tool handler, never `401`.
 
+|link:{src}/JobTokens.java[`JobTokens`]
+|`mint()` draws a random 256-bit token, base64url without padding; `sha256Hex(token)` is the value the job record stores;
+`hex(digest)` spells a raw digest. The token itself is never written, logged or put into a message.
+
 |link:{src}/DeviceRegistry.java[`DeviceRegistry`]
 |`resolve(secretSha256)` → the device id, or empty for an unknown, revoked or expired secret. The secret has the prefix
 `pmw_`; the registry is checked on every request without a cache (the web device store).
@@ -38,6 +43,18 @@ stored (in the job record); a revoked token still resolves, so its calls are ans
 |link:{src}/Secrets.java[`Secrets`]
 |`sha256(secret)` over the UTF-8 bytes, and `constantTimeEquals(expected, presented)` through `MessageDigest.isEqual`.
 |===
+
+== Worker Job Token
+
+A worker never receives the runtime token. At the spawn, `LaunchComposer` mints a token with `JobTokens.mint()`, and only
+`JobTokens.sha256Hex(token)` enters the worker block of the job record (`job_token_sha256`). The token itself travels in
+the relay's `PM_MCP_JOB_TOKEN` environment in the per-call MCP configuration; the relay sends it and the daemon resolves
+the job from its digest on every request.
+
+`JobTokenStore` (in `runtime.launch`) is the registry over the job records: `register(generationId, tokenSha256)` at the
+start, `resolve` on every request, and `revoke(generationId)` in the job's settlement; a revoked token still resolves and
+`revoked(generationId)` says the generation ended, so the handler answers `job_ended` instead of `401`. A `zero_tool`
+worker has no connection and therefore no token.
 
 == Which Kind Counts Where
 
@@ -63,8 +80,8 @@ compared with `Secrets.constantTimeEquals`, so the time a comparison takes does 
   into a transport error.
 * *The device registry is uncached.* Each request asks the store, so a revocation or an expiry takes effect on the next
   request.
-* *No secret reaches a log, an exception or an audit detail.* Neither registry, nor `Secrets`, logs its input. A message
-  names the kind and the outcome, never the value or its hash.
+* *No secret reaches a log, an exception or an audit detail.* Neither registry, nor `Secrets` or `JobTokens`, logs its
+  input. A message names the kind and the outcome, never the value or its hash.
 * *Comparison is constant-time.* Never use `String.equals` or `Arrays.equals` on a secret or a digest of one.
 
 == Extending the Package
@@ -79,13 +96,15 @@ compared with `Secrets.constantTimeEquals`, so the time a comparison takes does 
 == Testing
 
 The package has no unit test of its own in this module's test tree yet: `CredentialKind`, the two registries and
-`Secrets` are exercised through the assembly's authentication path, which implements the registries. A test added here
-should cover:
+`Secrets` are exercised through the assembly's authentication path, which implements the registries. `JobTokens` is
+exercised by the launch tests of `runtime.launch`, which assert that only the digest enters the job record. A test added
+here should cover:
 
 * the three constants and the listener each one counts on;
 * a resolved and an unknown token for both registries, and a revoked job token that still resolves;
 * the UTF-8 digest of `Secrets.sha256` and the equal and unequal cases of `constantTimeEquals`, with an equal prefix and
-  equal length.
+  equal length;
+* a minted job token of 256 bits and its digest, and that two mints differ.
 
 == Specification Tracing
 
