@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -94,6 +95,37 @@ class HarnessEnrolmentStoreTest {
         Files.write(base.resolve("harnesses.json.hmac"), EnrolmentHmac.sidecar(key, bytes).write());
         store.enrol(enrolment("opencode", "1.0.0"));
         assertEquals(List.of("opencode"), store.all().stream().map(HarnessEnrolment::clientId).toList());
+    }
+
+    @Test
+    @DisplayName("an entry without a required object member is refused, not read as empty")
+    void malformedMembers() throws Exception {
+        var withoutEvents = entryDocument("");
+        assertUnreadable(withoutEvents);
+        assertUnreadable(entryDocument(",\"events\":\"not-an-object\""));
+        assertUnreadable(entryDocument(",\"events\":{\"text\":5}"));
+        assertUnreadable(entryDocument(",\"events\":{},\"weights\":[]"));
+    }
+
+    private void assertUnreadable(String document) throws Exception {
+        var bytes = document.getBytes(StandardCharsets.UTF_8);
+        var file = base.resolve("harnesses.json");
+        var sidecar = base.resolve("harnesses.json.hmac");
+        Files.write(file, bytes);
+        Files.write(sidecar, EnrolmentHmac.sidecar(key, bytes).write());
+        var restricted = PosixFilePermissions.fromString("rw-------");
+        Files.setPosixFilePermissions(file, restricted);
+        Files.setPosixFilePermissions(sidecar, restricted);
+        var refusal = assertThrows(HarnessEnrolmentStore.StoreException.class, () -> store.find("claude"));
+        assertEquals(HarnessEnrolmentStore.Refusal.UNREADABLE, refusal.refusal(), document);
+    }
+
+    /** @param tail a malformed member appended after {@code usage_report}, before the closing braces */
+    private static String entryDocument(String tail) {
+        return "{\"format_version\":1,\"harnesses\":{\"claude\":{\"executable_path\":\"/usr/local/bin/claude\","
+                + "\"sha256\":\"" + "a".repeat(64) + "\",\"version\":\"1.5.0\","
+                + "\"enrolled_at\":\"2026-10-24T10:00:00Z\",\"updated_at\":\"2026-10-24T10:00:00Z\","
+                + "\"usage_report\":{\"source\":\"declared\",\"figures\":{\"input\":\"reported\"}}" + tail + "}}}";
     }
 
     @Test

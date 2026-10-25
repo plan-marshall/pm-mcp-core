@@ -241,30 +241,56 @@ public final class HarnessEnrolmentStore {
 
     private static HarnessEnrolment entry(String clientId, JsonNode node) {
         return new HarnessEnrolment(clientId, Path.of(text(node, "executable_path")), text(node, "sha256"),
-                text(node, "version"), Instant.parse(text(node, "enrolled_at")), Instant.parse(text(node, "updated_at")),
-                usageReport(node.member("usage_report").orElseThrow()), events(node.member("events").orElse(JsonNode
-                .nullValue())), weights(node.member("weights").orElse(JsonNode.nullValue())));
+                text(node, "version"), Instant.parse(text(node, "enrolled_at")), Instant.parse(text(node,
+                        "updated_at")), usageReport(node), events(node), weights(node));
     }
 
     private static HarnessEnrolment.UsageReport usageReport(JsonNode node) {
+        var report = requiredObject(node, "usage_report");
         var figures = new LinkedHashMap<String, String>();
-        node.member("figures").orElse(JsonNode.nullValue()).members()
-                .forEach((figure, result) -> figures.put(figure, result.text().orElseThrow()));
+        requiredObject(report, "figures").members()
+                .forEach((figure, result) -> figures.put(figure, textValue(result, "the figure '%s'".formatted(figure))));
         return new HarnessEnrolment.UsageReport(
-                HarnessEnrolment.UsageSource.fromWireName(text(node, "source")), figures);
+                HarnessEnrolment.UsageSource.fromWireName(text(report, "source")), figures);
     }
 
     private static Map<String, String> events(JsonNode node) {
         var results = new LinkedHashMap<String, String>();
-        node.members().forEach((kind, result) -> results.put(kind, result.text().orElseThrow()));
+        requiredObject(node, "events").members().forEach((kind, result) -> results.put(kind,
+                textValue(result, "the event '%s'".formatted(kind))));
         return results;
     }
 
     private static Map<String, HarnessEnrolment.Weights> weights(JsonNode node) {
         var weights = new LinkedHashMap<String, HarnessEnrolment.Weights>();
-        node.members().forEach((model, entry) -> weights.put(model, new HarnessEnrolment.Weights(text(entry,
-                "weights_id"), Instant.parse(text(entry, "read_at")))));
+        node.member("weights").ifPresent(value -> {
+            if (!value.isObject()) {
+                throw new IllegalArgumentException("the member 'weights' is not an object");
+            }
+            value.members().forEach((model, entry) -> weights.put(model, new HarnessEnrolment.Weights(text(entry,
+                    "weights_id"), Instant.parse(text(entry, "read_at")))));
+        });
         return weights;
+    }
+
+    /**
+     * @param node   the object that carries the member
+     * @param member the name of a required object member
+     * @return the member's value
+     * @throws IllegalArgumentException if the member is absent, {@code null} or not an object, so a malformed document
+     *                                  is refused instead of read as an empty map
+     */
+    private static JsonNode requiredObject(JsonNode node, String member) {
+        var value = node.member(member).orElseThrow(
+                () -> new IllegalArgumentException("the member '%s' is missing".formatted(member)));
+        if (!value.isObject()) {
+            throw new IllegalArgumentException("the member '%s' is not an object".formatted(member));
+        }
+        return value;
+    }
+
+    private static String textValue(JsonNode node, String what) {
+        return node.text().orElseThrow(() -> new IllegalArgumentException("%s is not a string".formatted(what)));
     }
 
     private static String text(JsonNode node, String member) {

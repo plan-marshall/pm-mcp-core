@@ -40,9 +40,9 @@ A worker is a leaf (`PM-WF-5`): its connection never follows a link that starts 
 [#launch-contract]
 === Launch Contract
 
-Implemented by `runtime.launch` (`HeadlessBlock`, `LaunchComposer`, `WorkerStart`), and recorded in the job record
-(`worker`, `argv_digest`): the server composes the launch of every worker from server-owned inputs only, and no element
-is read from a file the model can write (link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch
+Implemented by `runtime.launch` (`HeadlessBlock`, `LaunchComposer`) and `runtime.job.WorkerStart`, and recorded in the
+job record (`worker`, `argv_digest`): the server composes the launch of every worker from server-owned inputs only, and no
+element is read from a file the model can write (link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch
 Developer Guide]; link:../store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas Specification, Job
 Record]). A change of the role's effective configuration applies to the next worker generation; a running generation
 keeps the contract it was launched with. Remaining: the verify-not-resolve argument-schema validation of the composed
@@ -135,14 +135,16 @@ a model or an effort for a worker, and no agent file is installed per model or p
 
 Implemented by `HeadlessBlock` and `LaunchComposer` (link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker
 Launch Developer Guide]): the `headless` block declares `agent_mode: inline | flags`, the typed slots `{{prompt_file}}`,
-`{{model}}`, `{{effort}}`, `{{mcp_config}}`, `{{result_schema}}`, `{{tools}}`, `{{cwd}}`, and `{{agent}}` (the rendered
-inline agent definition), the per-class entries `classes` with their argument templates, the delivery of the MCP
-configuration `mcp_config`, the launch environment `env`, and the capabilities; the server fills only the slots a
-template declares and drops an element whose slot has no value. The `inline` mode renders a per-worker named agent into
-the `{{agent}}` slot; `flags` turns the same slots into per-call flags. The ephemeral flag is withheld for a role that
-may resume after a question, and a resumed generation is launched with `headless.resumability.resume.argv` in place of
-the start of a new session (the continuation itself is `question-continuation`'s,
-link:06-envelopes-questions-deadlines.adoc#continuation[Continuing after a Question]).
+`{{model}}`, `{{effort}}`, `{{mcp_config}}`, `{{result_schema}}`, `{{tools}}`, `{{cwd}}`, `{{agent}}` (the rendered
+inline agent definition) and, for a resumed generation only, `{{session_id}}`, the per-class entries `classes` with their
+argument templates, the delivery of the MCP configuration `mcp_config`, the launch environment `env`, and the
+capabilities; the server fills only the slots a template declares and drops an element whose slot has no value. A
+placeholder the composition does not know fails the launch (`prompt_composition_failed`, <<harness-selection>>) rather
+than being dropped, and a known slot without a value drops its element, together with the flag that introduces it. The
+`inline` mode renders a per-worker named agent into the `{{agent}}` slot; `flags` turns the same slots into per-call
+flags. The ephemeral flag is withheld for a role that may resume after a question, and a resumed generation is launched
+with `headless.resumability.resume.argv` in place of the start of a new session (the continuation itself is
+`question-continuation`'s, link:06-envelopes-questions-deadlines.adoc#continuation[Continuing after a Question]).
 
 [#job-tool-sets]
 === Tool Sets
