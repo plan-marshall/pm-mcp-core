@@ -21,7 +21,7 @@ Defect archetypes, real-corpus fixtures and verification hints that guard the sp
 
 |link:implementation-watch/workflow-dsl.adoc[Workflow DSL]
 |`DSL`
-|32
+|34
 |link:specification/workflow-dsl.adoc[Workflow DSL & Engine Specification]
 
 |link:implementation-watch/phase-workflows.adoc[Phase Workflows]
