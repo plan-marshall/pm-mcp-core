@@ -435,6 +435,14 @@ Every blocking condition of a plan has a bounded server retry and then a defined
 |As retry budget.
 |link:../workflow-dsl/08-remediation-units.adoc#remediation-units[Workflow DSL, Remediation Policy Units]
 
+|[[sweep-localisation-cap]]Sweep localisation builds
+|$\lceil \log_2 n \rceil + 1$ builds for $n$ plan commits after the merge base, capped.
+|no
+|hard cap `8` (compiled)
+|`execute.localise-sweep`, the bisection before the build remediation policy of a sweep red
+|The localisation ends `indeterminate`; the red reaches the policy without a culprit.
+|link:../phase-workflows/03-q-gate-and-execute.adoc#sweep-culprit[Phase Workflows, Culprit Localisation]
+
 |[[waiver-wait]]Waiver request
 |No time limit: a `request_waiver` makes the remediation unit rest in an operator wait until the operator answers `waive` or `decline` in either client; `request_waiver` is offered for every gate on the closed waivable list.
 |—

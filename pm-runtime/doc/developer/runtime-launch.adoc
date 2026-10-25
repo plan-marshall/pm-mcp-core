@@ -1,44 +1,102 @@
-= Worker Launch: the Machine Model Slots (`runtime.launch`) Developer Guide
-:spec: ../../../doc/specification
-:toc:
-:toclevels: 3
+= Worker Launch and Harness Enrolment (`runtime.launch`)
+:toc: left
+:toclevels: 2
 :nofooter:
 
-:docs: ../../../../plan-marshall-documentation/doc
+link:../../README.adoc[`pm-runtime`] » Worker Launch
 
-== Purpose
-_Requirements: link:{docs}/Requirements.adoc#PM-WF-14[PM-WF-14], link:{docs}/Requirements.adoc#PM-WORK-3[PM-WORK-3]_
+== What the package is for
 
-The package `de.planmarshall.runtime.launch` holds the launch-side coordination of the runtime's workers. This guide
-covers its first part, the machine model slots: the admission that bounds how many workers run on the machine and which
-of them wait.
+`de.planmarshall.runtime.launch` composes the launch of a worker, the job of kind `llm`: the argument vector, the
+environment, the working directory, the per-call MCP configuration and the `worker` block of its job record. It also
+owns the machine's harness enrolment store and the launch-time verification of the enrolled executable. It never
+starts a process of its own: the job runner starts the composed vector, and the supervisor decides when.
 
-The slots are the machine-wide half of the worker launch; the worker's own launch contract — the composed argument
-vector, the job token, the harness enrolment and the prompt — is the work package `worker-launch` (PLAN-29) and will be
-added here beside this admission. The store the slots live in is `de.planmarshall.core.store.ModelSlotStore`, described
-in link:../../../pm-core/doc/developer/core-store.adoc[`core.store` Developer Guide].
+The package is the one place that reads the shape of a profile's `headless` block. Everything a launch contains is
+server-owned; no element is read from a file a model can write.
+
+== Main types
+
+`HeadlessBlock`::
+The launch contract of one client profile, projected out of its `headless` block: the executable, the argument-vector
+template with its typed slots, the per-class templates, the agent mode, the MCP delivery, the launch environment, the
+model tiers and efforts, the supported version range, the update evidence, the resource tools, the per-worker data
+home, the session residue, the resumability and the writable sub-paths.
+
+`LaunchComposer`::
+Composes a `WorkerLaunch` from a `LaunchRequest`. It renders a tier of the default assignment into the model the
+harness maps it to (`HeadlessBlock.tierModel`), narrows an effort the harness does not accept to the nearest accepted
+lower value, fixes the working directory (the plan worktree, the project checkout, or the empty `cwd/` of a
+`zero_tool` worker), fills only the slots the template declares, withholds the ephemeral flag for a role that may
+resume, writes the prompt file and the result schema into the job-private directory, mints the job token and composes
+the `worker` block.
+
+`PromptComposer`::
+Renders the launch prompt in the specification's order: the shim paragraph, the core conduct skill, the task-protocol
+skill, the role skill and its further skills — the shared prefix, byte-identical for every launch of a role on the same
+skill digests — then, per launch, the task's skills and the contract envelope of a fresh worker. The writing skill is
+owned here and added from the link schemas alone. A skill that does not resolve fails the composition; no worker ever
+runs with a required skill missing.
+
+`FreeTextDerivation`::
+Derives whether a task writes free text from its entity's link schemas: a parameter of type `text`, or a named
+parameter schema with a `string` field that has neither `enum` nor `pattern`. A closed value never triggers the writing
+skill.
+
+`HarnessEnrolmentStore`::
+The machine-wide `harnesses.json` and its HMAC sidecar. Every read verifies the pair under the enrolment integrity key
+first; every write holds `locks/harnesses.lock` and writes the canonical file and its sidecar owner-only. One API
+serves the onboarding's `harness.enrol` and `pm-operator enrol-harness`. A file that fails its check is re-baselined by
+the next enrolment with the named client only.
+
+`HarnessVerifier`::
+Verifies the harness before every spawn: the store's integrity, the enrolment, the digest of the executable, and,
+where the digest changed, the update evidence and then the version probe. An accepted self-update rewrites the store
+and is audited `harness_updated`; every other case returns a `HarnessVerification.Refused` carrying a `LaunchRefusal`.
+
+`JobTokenStore`::
+Resolves a presented token's SHA-256 to the generation it was minted for, and revokes the token with the job's fate. The
+token itself is never stored.
+
+`WorkerStart` (in `runtime.job`)::
+The supervisor's start of a composed launch: the launch, the verified enrolment, the scope, the budget and the
+writable sub-paths. `SubprocessJobRunner.startWorker` writes the record with the `worker` block, starts the composed
+argument vector and revokes the token in the settlement. `refuseWorker` records a launch the runtime refused with the
+fate `refused`, the reason and the block, in one write and without a process.
+
+`ModelSlotScheduler`::
+The admission of the machine model slots. Every running worker, warm or fresh, holds one of the `model_slots` slots of
+`model-slots.json` from its spawn to its exit; a warm worker holds it for its whole generation, idle or not. The cap is
+`model_slots` of `machine-config.json`, its compiled default `2` and its bounds `1` to `16`. `request` answers
+`Granted`, `Queued` (in the FIFO of the store) or `Deferred` (another writer worker of the plan holds a slot or waits);
+`release` and `releasePlan` free what a settled worker or a paused plan held and return the leases the freed slots
+admitted. Admission decides in one transaction of `ModelSlotStore` (`core.store`), so two claims never see the same
+free slot.
+
+== How the parts work together
+
+[source,text]
+----
+LaunchRequest ──> LaunchComposer ──> WorkerLaunch ──> job runner (kind llm)
+      │                  │
+      │                  ├── PromptComposer ──> prompt file, prompt digest, delivered skills
+      │                  ├── HeadlessBlock  ──> argv, env, MCP configuration
+      │                  └── JobTokens      ──> token (returned), SHA-256 (worker block)
+      │
+HarnessVerifier ──> HarnessEnrolmentStore ──> harnesses.json + harnesses.json.hmac
+      │
+      └── update evidence ──> version probe ──> supported range ──> accepted self-update
+----
+
+A caller verifies the harness first and passes the accepted `HarnessEnrolment` into the `LaunchRequest`; the composer
+therefore never trusts an unverified build. The job record's `worker` block is composed from the same values as the
+argument vector, so the two cannot disagree.
 
 == The Model Slots
-_Requirements: link:{docs}/Requirements.adoc#PM-WF-14[PM-WF-14]_
 
-Every running worker, warm or fresh, holds one of the machine's `model_slots` slots from its spawn to its exit; a warm
-worker holds its slot for its whole generation, idle or not. The cap is `model_slots` of `machine-config.json`, its
-compiled default `2` and its bounds `1` to `16` (Timeouts & Budgets § Model slot lease).
-
-[horizontal]
-`ModelSlotScheduler`:: The admission. Its `request` answers `Granted` when the worker holds a slot, `Queued` when it
-waits in the FIFO, and `Deferred` when its plan already has a `writer` worker that holds a slot or waits for one. Its
-`release(jobId)` and `releasePlan(planId)` free what a settled worker or a paused plan held and return the leases the
-freed slots admitted, so the caller knows which workers to start.
-`ModelSlotScheduler.Liveness`:: The seam that decides whether the runtime a slot records still runs. `processes()` is
-the production probe: the PID must exist and its process start instant must lie within one second of the recorded one.
-A runtime the probe cannot decide is never reaped.
-`ModelSlotStore`:: The document `state/model-slots.json`. It decides nothing itself: `update` runs one read, change and
-write under the lock `LockKey.modelSlots`, which is what makes an admission atomic.
-
-[source]
+[source,text]
 ----
-caller ──► ModelSlotScheduler.request(request)
+caller ──> ModelSlotScheduler.request(request)
               └─ ModelSlotStore.update(document -> …)         one transaction on locks/model-slots.lock
                    1. reap: drop every slot and waiting worker whose runtime is not alive
                    2. already granted or waiting? answer that place
@@ -47,57 +105,91 @@ caller ──► ModelSlotScheduler.request(request)
                    5. return Granted, Queued or Deferred
 ----
 
-=== Invariants
-
 * *The cap holds under concurrent claims*: every admission reads the slots and writes the one it adds in the same
-  transaction, so no two claims see the same free slot and the document never holds more than `model_slots` leases.
+  transaction, so the document never holds more than `model_slots` leases.
 * *FIFO*: a request is appended to `waiting` and admission takes from its head only; a release or a pause admits the
   head first, and never a worker behind it.
-* *One writer per plan*: at most one `writer` worker of a plan holds a slot or waits for one. A second writer is
-  `Deferred` and its task stays `queued`; `read_only` and `zero_tool` workers of the plan run beside it within the cap.
+* *One writer per plan*: at most one `writer` worker of a plan of one project holds a slot or waits for one — the
+  identity is the project together with the plan. A second writer is `Deferred` and its task stays `queued`; `read_only`
+  and `zero_tool` workers of the plan run beside it within the cap.
 * *Warm holds the slot*: a slot is released by its worker's fate, not by an idle wait; `releasePlan` is the one act that
   releases a live plan's slots early, and it drops the plan's waiting workers too.
 * *Stale slots are reaped first*: a slot or waiting entry whose runtime died is dropped in the admission transaction,
-  before the cap is applied, so a killed daemon never keeps a worker out.
+  before the cap is applied, so a slot a killed daemon left never keeps a worker out. The recovery of the runtime
+  settles the instance's jobs before an admission runs, so the worker of a reaped slot has ended.
 * *The budget starts at the spawn*: the time a worker waits for a slot is outside its budget and is recorded apart as
   `queued_ms` of its metrics row.
 
-=== Failure Modes
+The design is recorded in link:../adr/runtime-launch/005-model-slot-admission-in-one-store-transaction.adoc[ADR
+runtime-launch/005]. Tested by `ModelSlotSchedulerTest` (the FIFO, eight concurrent claims against a cap of two, the
+one-writer rule beside a `read_only` worker and across two projects, a stale slot reaped, a paused plan releasing its
+held slots and dropping its waiting workers, the bounds of the cap) and `ModelSlotStoreTest` (the document round trip,
+the refused duplicates and a writer without a plan).
 
-[cols="2,3"]
+== Invariants
+
+* A launch never runs with a required skill missing: a skill that does not resolve, renders empty, or whose digest
+  changed after the role was read fails the composition (`prompt_composition_failed`).
+* The shared prefix contains nothing per launch: the job token, an identifier, a time and a fact of a task follow it.
+* A `zero_tool` worker has no tool, no MCP configuration, no `job_token_sha256`, and runs in the empty `cwd/` of its
+  job-private directory.
+* A changed executable is never its own witness: the update evidence is checked before the version probe runs.
+* The job token exists only in the composed launch and in the relay's MCP configuration; the record holds its SHA-256.
+* The model slots never exceed their count, a plan holds at most one writer slot, and a paused plan holds none.
+
+== Failure modes
+
 |===
-|Failure |Behaviour
+|Failure |Result
 
-|`model-slots.json` is of another format version or unreadable
-|`StoreRefusal` naming the file; nothing is admitted or released.
-
-|The machine's cap lies outside `1` to `16`
-|The scheduler's constructor throws `IllegalArgumentException`; no admission runs.
-
-|A writer request for a plan that already has a writer
-|`Deferred("writer_holds_plan")`; the task stays `queued`, nothing is written for it.
-
-|The runtime of a slot is dead
-|The slot is reaped in the next admission transaction and the freed slot is admitted to the head of the FIFO.
-
-|A pause
-|`releasePlan` frees every slot of the plan and drops its waiting workers in one transaction.
+|The harness is not enrolled |`harness_not_enrolled`
+|The store fails its per-use check or its HMAC |`harness_tampered` (audited `enrolment_tampered`)
+|The store is verified but unreadable |`harness_store_unreadable`
+|The executable changed without evidence, or the evidence failed |`harness_update_unverified`
+|The probed version lies outside the supported range |`harness_version_unsupported`
+|The prompt cannot be composed |`prompt_composition_failed`
+|The machine's cap lies outside `1` to `16` |the scheduler's constructor refuses it (`IllegalArgumentException`)
+|A writer requests a slot while its plan's writer holds one |`Deferred("writer_holds_plan")`; the task stays `queued`
 |===
 
-Tested by `ModelSlotSchedulerTest`: the FIFO with a cap of one, eight concurrent claims against a cap of two (exactly
-the cap granted, never more in the store), the one-writer rule beside a `read_only` worker, a stale slot reaped, a
-paused plan releasing both of its held slots at once and a second test dropping the plan's waiting worker, and the
-bounds of the cap.
+A refusal names the act that resolves it (`LaunchRefusal.resolvingAct`): a new enrolment for every harness refusal, a
+restored skill or schema for the composition failure.
 
-== Specification Tracing
+== Extending it
 
-* Specification: link:{spec}/model-work/04-worker-launch.adoc#model-slots[Model Work § Model Slots & One Writer per
-  Plan], link:{spec}/store-schemas/13-leases-integrity-testing.adoc#machine-lease-stores[Store Schemas § Machine Lease
-  Stores], link:{spec}/timeouts/02-runtime-leases-operator-web.adoc#model-slot-lease[Timeouts & Budgets § Model slot
-  lease], link:{spec}/timeouts/01-job-budgets-and-waits.adoc#model-slot-wait[Timeouts & Budgets § Model Slot Wait]
-* Concepts: link:{docs}/concepts/store-integrity.adoc[Concepts § Store Integrity]
+* A new launch slot is added to `HeadlessBlock`'s projection and filled in `LaunchComposer.composeArgv`; it must also
+  reach the profile validator's slot set.
+* A new harness profile needs no code: the profile's `headless` block is data. A harness whose MCP configuration is not
+  exclusive declares no worker class.
+* The update-evidence port (`HarnessVerifier.EvidenceCheck`) is where a platform check for `code_signature` or
+  `package_provenance` plugs in. The default refuses every change, which is the fail-closed direction.
+* A new class of worker (a fourth `class`) is added to the profile's class block and to `ModelSlotStore.WorkerClass`;
+  the one-writer rule applies to `writer` alone.
 
-== Decisions
+== Owed
 
-* link:../adr/runtime-launch/001-model-slot-admission-in-one-store-transaction.adoc[ADR 001]: the admission decides in
-  one store transaction, and the waiting entry carries the worker's form.
+* *The start-failure guard goes to `supervisor` (PLAN-30)*, which resumes at 4-plan and is re-outlined against the merged
+  launch package. It hooks in at the worker start path: `SubprocessJobRunner.startWorker` returns a `Started` job and
+  `refuseWorker` a refused `JobId`; a refused launch (a `HarnessVerification.Refused` from `HarnessVerifier`) is the
+  start-failure event, counted per role and harness by the supervisor, with the tasks of the role closing `lost` with
+  `role_unavailable` after the compiled count.
+* *Specification sections left in place*: the launch sections of Model Work § Worker Launch are implemented and their
+  prose carries an `Implemented by` pointer; what remains in place is the start-failure guard (above) and, in
+  § Skill Delivery Record & Re-Delivery, the warm offer, the re-delivery, the offer bound, host activation and the
+  `skills_not_loaded` submit refusal, which are the task protocol's.
+* *Output and usage reading* is not a Done-when clause of this package: the mapping of the output stream to activity,
+  the per-turn usage and the result parsing remain in Model Work § Output Read While the Worker Runs.
+* *The Linux child subreaper* of the launcher (`PR_SET_CHILD_SUBREAPER` in `pm-exec`, a binary of `pm-mcp-clients`) is
+  owed by a package there; the runtime's descendant recording, sweep and audit are implemented
+  (ADR runtime-launch/003).
+
+== Specification
+
+* `doc/specification/model-work/04-worker-launch.adoc`
+* `doc/specification/model-work/04-worker-launch.adoc#model-slots` (Model Slots & One Writer per Plan)
+* `doc/specification/store-schemas/11-enrolment-store.adoc` (Harness Enrolment Store)
+* `doc/specification/store-schemas/10-job-and-lesson-records.adoc` (Job Record)
+* `doc/specification/store-schemas/13-leases-integrity-testing.adoc#machine-lease-stores` (Machine Lease Stores)
+* `doc/specification/timeouts/02-runtime-leases-operator-web.adoc#model-slot-lease` (Model slot lease)
+* `doc/specification/timeouts/01-job-budgets-and-waits.adoc#model-slot-wait` (Model Slot Wait)
+* `doc/specification/client-profiles/01-profile-schema.adoc` (Profile Schema, Update Evidence)

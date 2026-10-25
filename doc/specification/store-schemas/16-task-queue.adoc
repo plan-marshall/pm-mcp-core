@@ -262,11 +262,12 @@ The record of one grading of a role's configuration by the operator's grading in
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["item_id", "form", "answer", "score", "total_tokens", "duration_ms"],
+        "required": ["item_id", "form", "checkout", "answer", "score", "total_tokens", "duration_ms"],
         "additionalProperties": false,
         "properties": {
           "item_id": { "type": "string", "minLength": 1 },
           "form": { "type": "string", "enum": ["fresh", "warm"] },
+          "checkout": { "type": "string", "enum": ["item_commit", "current", "corpus_context"], "description": "Where the item ran (model-work/01, Grading): item_commit for an item of the project's own repository run at its origin commit, current for one run in the project checkout, corpus_context for one run in an empty directory with its own context files." },
           "answer": { "type": ["string", "object", "null"], "description": "The submitted answer; null when the task closed lost." },
           "score": { "oneOf": [ { "type": "number", "minimum": 0, "maximum": 1 }, { "type": "string", "const": "ungraded" } ], "description": "The grade a task of the judge role gave the answer (model-work/01, Role Qualification); ungraded when that judge task closed lost." },
           "total_tokens": { "oneOf": [ { "type": "integer", "minimum": 1 }, { "type": "string", "const": "unmeasured" } ], "description": "The tokens the answer used (store-schemas/05, Usage Columns)." },
@@ -278,10 +279,11 @@ The record of one grading of a role's configuration by the operator's grading in
   "$defs": {
     "topicResult": {
       "type": "object",
-      "required": ["agreement", "items"],
+      "required": ["agreement", "constant_baseline", "items"],
       "additionalProperties": false,
       "properties": {
         "agreement": { "type": "number", "minimum": 0, "maximum": 100, "description": "Percent of the graded items of the topic (review status draft or confirmed, ungraded items excluded) answered right in this form." },
+        "constant_baseline": { "type": "number", "minimum": 0, "maximum": 100, "description": "The agreement of the best constant answerer over the same items (model-work/01, Constant Baseline); the topic qualifies only when agreement exceeds it by the qualification margin." },
         "items": { "type": "integer", "minimum": 1 }
       }
     },
@@ -321,7 +323,7 @@ The record of one calibration of a quorum declaration by the operator's calibrat
   "$id": "https://cuioss.de/plan-marshall-mcp/schemas/decision-calibration-record.json",
   "title": "DecisionCalibrationRecord",
   "type": "object",
-  "required": ["format_version", "decision_kind", "declaration_digest", "declaration", "roles", "corpus_revision", "items_graded", "auto_share", "false_auto_share", "graded_at", "items"],
+  "required": ["format_version", "decision_kind", "declaration_digest", "declaration", "roles", "corpus_revision", "items_graded", "auto_share", "false_auto_share", "constant_baseline", "graded_at", "items"],
   "additionalProperties": false,
   "properties": {
     "format_version": { "type": "integer", "const": 1 },
@@ -342,6 +344,7 @@ The record of one calibration of a quorum declaration by the operator's calibrat
     "items_graded": { "type": "integer", "minimum": 0, "description": "The corpus items tagged decision-kind:<kind> that were graded." },
     "auto_share": { "type": "number", "minimum": 0, "maximum": 100, "description": "Percent of the graded items the declaration would decide automatically." },
     "false_auto_share": { "type": "number", "minimum": 0, "maximum": 100, "description": "Percent of the automatically decided items that disagree with the reference; 0 when none was decided automatically." },
+    "constant_baseline": { "type": "number", "minimum": 0, "maximum": 100, "description": "Percent of the graded items whose target is the most frequent target option (model-work/10, Quorum Calibration)." },
     "graded_at": { "type": "string", "format": "date-time" },
     "items": {
       "type": "array",
@@ -372,6 +375,51 @@ The record of one calibration of a quorum declaration by the operator's calibrat
         "qualification_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "The role's qualification digest at the calibration (Role Qualification Record)." },
         "harness": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "The harness of the qualification record the digest names." },
         "model": { "type": "string", "description": "For a judgment role the versioned model id." }
+      }
+    }
+  }
+}
+----
+
+[#judge-check-record]
+=== Judge Check Record (`<set>/qualification/judge-check.json`)
+
+The record of one instrument check of a judge configuration, run before the first grading on that configuration (`PM-WORK-6`; method and validity: link:../model-work/01-roles-and-configuration.adoc#judge-instrument-check[Model Work Specification, Judge Instrument Check]). It stores measurements, never a pass flag; the grading compares them with the qualification margin at every check.
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/judge-check-record.json",
+  "title": "JudgeCheckRecord",
+  "type": "object",
+  "required": ["format_version", "qualification_digest", "harness", "model", "corpus_revision", "oracle_accuracy", "blind_accuracy", "constant_baseline", "unscored", "checked_at", "items"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "qualification_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "The qualification digest of the judge configuration checked; the record is valid only for a judge with the same digest." },
+    "harness": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
+    "model": { "type": "string", "minLength": 1 },
+    "corpus_revision": { "type": "string", "minLength": 1 },
+    "oracle_accuracy": { "type": "number", "minimum": 0, "maximum": 100, "description": "Percent of the scored answers judged as their label says, with the reference given." },
+    "blind_accuracy": { "type": "number", "minimum": 0, "maximum": 100, "description": "The same with the reference withheld." },
+    "constant_baseline": { "type": "number", "minimum": 0, "maximum": 100, "description": "The larger of the shares of right and wrong answers in the topic judge/." },
+    "unscored": { "type": "integer", "minimum": 0, "description": "Answers whose judge task closed lost; a record with unscored > 0 has no verdict." },
+    "checked_at": { "type": "string", "format": "date-time" },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["item_id", "label", "oracle_score", "blind_score", "total_tokens", "duration_ms"],
+        "additionalProperties": false,
+        "properties": {
+          "item_id": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "enum": ["right", "wrong"] },
+          "oracle_score": { "oneOf": [ { "type": "number", "minimum": 0, "maximum": 1 }, { "type": "string", "const": "unscored" } ] },
+          "blind_score": { "oneOf": [ { "type": "number", "minimum": 0, "maximum": 1 }, { "type": "string", "const": "unscored" } ] },
+          "total_tokens": { "oneOf": [ { "type": "integer", "minimum": 1 }, { "type": "string", "const": "unmeasured" } ] },
+          "duration_ms": { "type": ["integer", "null"], "minimum": 0 }
+        }
       }
     }
   }

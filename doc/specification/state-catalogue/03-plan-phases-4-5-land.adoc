@@ -116,7 +116,7 @@ Envelopes run serially as tasks of the writer role `implement`: a plan runs at m
 |[[state-execute.remediate-build]]`execute.remediate-build`
 |`phase-5-execute`
 |`call`
-|`execute.deliverable-build` (failure fates), `execute.verify-sweep` (`red`, `cancelled`).
+|`execute.deliverable-build` (failure fates), `execute.verify-sweep` (`red`, `cancelled`), `execute.localise-sweep` (every fate).
 |As xref:01-conventions-generic-conditions.adoc#state-phase.remediate-build[`<phase>.remediate-build`]; the entering transition writes the status field `remediation_cause` (`deliverable` or `sweep`, link:../store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Store Schemas Specification, Workflow State Store]).
 |`resolved` -> `execute.route-build-cause`; `fix_requested` -> `execute.allocate-remediation`; `exhausted` -> `execute.replan` (trigger `ceiling`); `stepped_out` -> `finalize.hand-back`.
 |link:../phase-workflows/03-q-gate-and-execute.adoc#_whole_tree_verification_gates_triage_required_routing[Phase Workflows Specification, Whole-Tree Verification Gates]
@@ -158,8 +158,16 @@ Envelopes run serially as tasks of the writer role `implement`: a plan runs at m
 |`composite_job`
 |`execute.envelope-ready` (`all_complete`); `execute.route-commit-cause` (`sweep`); `execute.route-build-cause` (`sweep`); `execute.replan` (`done` without a runnable task); `execute.exit-barrier` (`stale`).
 |Runs the plan instance's Phase 5 verification steps (`module-tests`, `quality-gate`, `coverage`, `arch-gate`) with footprint-driven scope and the relocation override. A red that is red only through failures also present on the base passes by the server rule: a `baseline_red` ledger row bound to `worktree_sha`, the merge base, and the diagnostics digest (`assurance_verdict: degraded`, the baseline failures listed in the pull request body and the landing record). A constituent `failed_unparsed`, `refused`, `cancelled`, `timed_out`, `killed`, or `indeterminate` fate maps to `red`.
-|`all_green` -> `execute.exit-barrier`; `red` (plan-caused, or no verdict), `cancelled` (cancelled by the server or the operator) -> `execute.remediate-build` (writes `remediation_cause: sweep`).
+|`all_green` -> `execute.exit-barrier`; `red_interaction` (a plan-caused red of a step that passed in every per-deliverable build, in a plan with at least two commits after the merge base, the relocation override not applied) -> `execute.localise-sweep`; `red` (any other plan-caused red, or no verdict), `cancelled` (cancelled by the server or the operator) -> `execute.remediate-build` (writes `remediation_cause: sweep`).
 |link:../phase-workflows/03-q-gate-and-execute.adoc#_whole_tree_verification_gates_triage_required_routing[Phase Workflows Specification, Whole-Tree Verification Gates]; link:../job-runtime/03-parsers-and-gates.adoc#_gate_honesty_verification[Job Runtime Specification, Gate Honesty Verification]
+
+|[[state-execute.localise-sweep]]`execute.localise-sweep`
+|`phase-5-execute`
+|`job`
+|`execute.verify-sweep` (`red_interaction`).
+|Bisects the failing step over the plan's commits after the merge base in a job-private detached worktree, within the compiled localisation cap, and writes the fact `sweep_culprit` (`found`, `not_reproduced`, or `indeterminate`) for the remediation decision.
+|Every fate -> `execute.remediate-build` (writes `remediation_cause: sweep`); a fate without a verdict records `sweep_culprit: indeterminate`.
+|link:../phase-workflows/03-q-gate-and-execute.adoc#sweep-culprit[Phase Workflows Specification, Culprit Localisation]
 
 |[[state-execute.exit-barrier]]`execute.exit-barrier`
 |`phase-5-execute`

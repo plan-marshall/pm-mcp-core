@@ -55,6 +55,7 @@ The module builds a test JAR with the fixtures the tests of the assembly share: 
 * link:doc/developer/runtime-enrolment.adoc[Integrity Key, Check and Operator Writes (`runtime.enrolment`)]
 * link:doc/developer/runtime-ingest.adoc[Ingestion Validator (`runtime.ingest`)]
 * link:doc/developer/runtime-job.adoc[Job Verification and the Job Runner (`runtime.job`)]
+* link:doc/developer/runtime-launch.adoc[Worker Launch and Harness Enrolment (`runtime.launch`)]
 * link:doc/developer/runtime-lock.adoc[Lock Manager and Stale Lease Sweep (`runtime.lock`)]
 * link:doc/developer/runtime-log.adoc[Log Messages (`runtime.log`)]
 * link:doc/developer/runtime-lsp.adoc[Language Server Client (`runtime.lsp`)]
