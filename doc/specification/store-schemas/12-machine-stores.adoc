@@ -119,6 +119,13 @@ Written only by the runtime under `locks/machine-config.lock`, on the operator's
         "model": { "type": "string", "pattern": "^(same|[a-z]{2,3}(-[A-Za-z0-9]{1,8})*)$", "default": "same", "description": "The machine's model language: same (the interface language) or a locale; a project's language.model of local-config.json overrides it." }
       }
     },
+    "diagrams": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "format": { "type": "string", "enum": ["text", "mermaid"], "default": "text", "description": "The form of a diagram in text a model writes for a human (the writing skill): text, a fixed-width text diagram, or mermaid, a fenced Mermaid block; a project's diagrams.format of local-config.json overrides it." }
+      }
+    },
     "harnesses": {
       "type": "object",
       "additionalProperties": false,

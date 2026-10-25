@@ -132,6 +132,13 @@ The operator's values of one project and its machine-local bindings, written onl
         "model": { "type": "string", "pattern": "^(same|[a-z]{2,3}(-[A-Za-z0-9]{1,8})*)$", "description": "The project's model language: same (the interface language) or a locale; absent: the machine's language.model." }
       }
     },
+    "diagrams": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "format": { "type": "string", "enum": ["text", "mermaid"], "description": "The form of a diagram in text a model writes for a human (the writing skill): text, a fixed-width text diagram, or mermaid, a fenced Mermaid block; absent: the machine's diagrams.format." }
+      }
+    },
     "plan_defaults": {
       "type": "object",
       "additionalProperties": false,
@@ -305,6 +312,11 @@ The machine sets defaults, not final values. Every value the machine's onboardin
 |Model language
 |`machine-config.json` `language.model`
 |`local-config.json` `language.model`
+|operator
+
+|Diagram format in model text
+|`machine-config.json` `diagrams.format`
+|`local-config.json` `diagrams.format`
 |operator
 
 |Allowed models

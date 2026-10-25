@@ -538,3 +538,32 @@ non-zero fails a predicate over those calls; a trace whose only failure is a loa
 (matched control).
 Source:: bartek-890/superpowers-evals (commit `c3617b0`), README change log and `docs/RESULTS.md` (the `tool_used`
 grader on a broken sandbox, the `saw-red` false positive).
+
+== Positioned Layout
+
+[#PM-WATCH-DSL-37]
+=== PM-WATCH-DSL-37: The same graph laid out twice gives two layouts
+
+Anchor:: link:../specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#diagram-layout[Workflow DSL § Positioned Layout],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]
+Hazard:: A layout that iterates a hash map, compares floating-point barycentres without a tie rule, or formats a
+number in the locale of the machine changes between two runs or two machines, although the graph did not change. A
+client then redraws a diagram that did not change, and the golden files fail at random.
+Guard:: The golden tests lay out every fixture twice in one JVM and once in a fresh JVM under another default locale,
+and compare the bytes. One fixture declares its states in an order other than the alphabetical one, and one has two
+nodes with equal barycentres, so that a tie broken by name or by hash order fails the test.
+Source:: obsidianmd/pele (commit `4eff76f`), `AGENTS.md` (identical inputs and text measurer must give identical
+SVG), `src/layout/layered.ts`.
+
+[#PM-WATCH-DSL-38]
+=== PM-WATCH-DSL-38: A label that fits on the server overflows its box in the browser
+
+Anchor:: link:../specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#diagram-layout[Workflow DSL § Positioned Layout] (_Text width_)
+Hazard:: The server measures labels with a width table; the browser draws them with the font it has. When the two
+differ (another font family, a fallback font on a machine without Arial or Liberation Sans, bold text measured as
+regular), a label runs over its box or is clipped, and the server's tests cannot see it.
+Guard:: A generator test measures labels of wide characters (`W`, `M`), narrow characters (`i`, `l`), bold, and a wide
+East Asian character against the table. A browser test of the web app draws the same fixture layout with the shipped
+diagram font and checks that the drawn width of every label lies within its box.
+Source:: obsidianmd/pele (commit `4eff76f`), `src/text/measurer.ts`, `src/text/metrics.ts` (advance widths of Arial
+compiled into the renderer, measured without a DOM).
