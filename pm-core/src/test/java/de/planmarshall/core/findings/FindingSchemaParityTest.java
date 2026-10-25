@@ -171,8 +171,9 @@ class FindingSchemaParityTest {
     void walkReachesNestedRecords() {
         var types = objects().stream().map(RecordObject::type).collect(Collectors.toSet());
 
-        assertEquals(Set.of(Finding.class, Finding.CiFailure.class, Finding.Screen.class, Finding.Screen.Span.class,
-                Finding.CarriedTo.class, Finding.Evidence.class, Finding.ProviderRef.class), types);
+        assertEquals(Set.of(Finding.class, Finding.IntroducedBy.class, Finding.CiFailure.class, Finding.Screen.class,
+                Finding.Screen.Span.class, Finding.CarriedTo.class, Finding.Evidence.class, Finding.ProviderRef.class),
+                types);
     }
 
     @Test

@@ -46,6 +46,8 @@ import lombok.Builder;
  * @param blocking             whether the finding blocks its gate
  * @param status               the status in the finding's lifecycle
  * @param disposition          the triage disposition; nullable
+ * @param suppressReason       the closed reason of a {@link Disposition#SUPPRESS}; {@code null} otherwise
+ * @param introducedBy         the remediation fix whose changed lines the finding is located in; nullable
  * @param resolution           the server-written outcome of the finding
  * @param scopeClass           the classification of the finding's path against the footprint; nullable
  * @param carriedTo            where the finding was carried out of the plan; nullable
@@ -90,6 +92,8 @@ Severity severity,
 boolean blocking,
 FindingStatus status,
 Disposition disposition,
+SuppressReason suppressReason,
+IntroducedBy introducedBy,
 Resolution resolution,
 ScopeClass scopeClass,
 CarriedTo carriedTo,
@@ -191,6 +195,31 @@ Instant updatedAt) {
     private static void requireThat(boolean rule, String message) {
         if (!rule) {
             throw new IllegalArgumentException(message);
+        }
+    }
+
+    /**
+     * The remediation fix whose changed lines the finding is located in (member {@code introduced_by}, see Fix
+     * Attribution).
+     *
+     * @param remediationClass the class of the remediation fix
+     * @param round            the remediation round, at least 1
+     * @param commitSha        the fix commit, 40 lower-case hexadecimal digits
+     */
+    public record IntroducedBy(RemediationClass remediationClass, Integer round, String commitSha) {
+
+        private static final Pattern SHA = Pattern.compile("^[0-9a-f]{40}$");
+
+        /**
+         * @throws NullPointerException     if a member is {@code null}
+         * @throws IllegalArgumentException if the round is below 1 or the commit is not a full SHA
+         */
+        public IntroducedBy {
+            Objects.requireNonNull(remediationClass, "remediation_class");
+            Objects.requireNonNull(round, "round");
+            Objects.requireNonNull(commitSha, "commit_sha");
+            requireThat(round >= 1, "introduced_by.round must be at least 1");
+            requireThat(SHA.matcher(commitSha).matches(), "introduced_by.commit_sha must be a 40-digit SHA");
         }
     }
 
