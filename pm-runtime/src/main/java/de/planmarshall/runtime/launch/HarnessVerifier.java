@@ -91,11 +91,7 @@ public final class HarnessVerifier {
         try {
             found = store.find(clientId);
         } catch (HarnessEnrolmentStore.StoreException refusal) {
-            if (refusal.refusal() == Refusal.TAMPERED || refusal.refusal() == Refusal.INSECURE) {
-                audit.append(AuditEvent.enrolmentTampered(clientId, refusal.getMessage()));
-            }
-            return refused(clientId, refusal.refusal() == Refusal.UNREADABLE ? LaunchRefusal.HARNESS_STORE_UNREADABLE
-                    : LaunchRefusal.HARNESS_TAMPERED, refusal.getMessage());
+            return storeRefused(clientId, refusal);
         }
         if (found.isEmpty()) {
             return refused(clientId, LaunchRefusal.HARNESS_NOT_ENROLLED,
@@ -111,6 +107,12 @@ public final class HarnessVerifier {
         if (current.get().equals(enrolment.sha256())) {
             return new HarnessVerification.Accepted(enrolment);
         }
+        return selfUpdate(clientId, block, enrolment, current.get());
+    }
+
+    /** The self-update path of a changed executable: the evidence, the version probe and the accepted rewrite. */
+    private HarnessVerification selfUpdate(String clientId, HeadlessBlock block, HarnessEnrolment enrolment,
+            String current) {
         if (block.updateEvidence().method() == HeadlessBlock.EvidenceMethod.NONE
                 || !evidenceCheck.passes(block.updateEvidence(), enrolment.executablePath())) {
             return refused(clientId, LaunchRefusal.HARNESS_UPDATE_UNVERIFIED,
@@ -127,26 +129,32 @@ public final class HarnessVerifier {
                     "the version '%s' lies outside the supported range of '%s'".formatted(probed.get(), clientId));
         }
         var recheck = digest.sha256(enrolment.executablePath());
-        if (recheck.isEmpty() || !recheck.get().equals(current.get())) {
+        if (recheck.isEmpty() || !recheck.get().equals(current)) {
             return refused(clientId, LaunchRefusal.HARNESS_UPDATE_UNVERIFIED,
                     "the executable changed again while its update was verified");
         }
         Optional<HarnessEnrolment> accepted;
         try {
-            accepted = store.acceptSelfUpdate(clientId, probed.get(), current.get(), clock.instant());
+            accepted = store.acceptSelfUpdate(clientId, probed.get(), current, clock.instant());
         } catch (HarnessEnrolmentStore.StoreException failure) {
-            return refused(clientId, failure.refusal() == Refusal.UNREADABLE ? LaunchRefusal.HARNESS_STORE_UNREADABLE
-                    : LaunchRefusal.HARNESS_TAMPERED, failure.getMessage());
+            return storeRefused(clientId, failure);
         }
         if (accepted.isEmpty()) {
             return refused(clientId, LaunchRefusal.HARNESS_NOT_ENROLLED,
                     "the harness '%s' was removed while its self-update was accepted".formatted(clientId));
         }
-        audit.append(AuditEvent.harnessUpdated(clientId, enrolment.version(), enrolment.sha256(), probed.get(),
-                current.get()));
-        LOGGER.info(RuntimeLogMessages.INFO.HARNESS_SELF_UPDATE_ACCEPTED, clientId, enrolment
-                .version(), probed.get(), current.get());
+        audit.append(AuditEvent.harnessUpdated(clientId, enrolment.version(), enrolment.sha256(), probed.get(), current));
+        LOGGER.info(RuntimeLogMessages.INFO.HARNESS_SELF_UPDATE_ACCEPTED, clientId, enrolment.version(), probed.get(),
+                current);
         return new HarnessVerification.Accepted(accepted.get());
+    }
+
+    private HarnessVerification storeRefused(String clientId, HarnessEnrolmentStore.StoreException refusal) {
+        if (refusal.refusal() == Refusal.TAMPERED || refusal.refusal() == Refusal.INSECURE) {
+            audit.append(AuditEvent.enrolmentTampered(clientId, refusal.getMessage()));
+        }
+        return refused(clientId, refusal.refusal() == Refusal.UNREADABLE ? LaunchRefusal.HARNESS_STORE_UNREADABLE
+                : LaunchRefusal.HARNESS_TAMPERED, refusal.getMessage());
     }
 
     private HarnessVerification refused(String clientId, LaunchRefusal reason, String detail) {

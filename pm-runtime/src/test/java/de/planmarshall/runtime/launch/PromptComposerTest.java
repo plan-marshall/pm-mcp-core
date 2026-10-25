@@ -86,6 +86,15 @@ class PromptComposerTest {
     }
 
     @Test
+    @DisplayName("a zero_tool worker without its fixed prompt fails the composition")
+    void zeroToolWithoutPrompt() {
+        var composer = new PromptComposer();
+        assertThrows(PromptComposer.CompositionException.class, () -> composer.compose(
+                new PromptComposer.PromptRequest(LaunchFixtures.SHIM, true, "", skills, List.of(), true, false,
+                        List.of(), List.of(), null, 0)));
+    }
+
+    @Test
     @DisplayName("above the in-band bound the remaining task skills are an index")
     void skillIndex() {
         var prompt = new PromptComposer().compose(new PromptComposer.PromptRequest(LaunchFixtures.SHIM, false, "",

@@ -52,7 +52,7 @@ class HarnessEnrolmentStoreTest {
 
     @Test
     @DisplayName("writes and reads an enrolment, with the canonical file and its sidecar")
-    void writeAndRead() throws Exception {
+    void writeAndRead() {
         store.enrol(enrolment("claude", "1.5.0"));
         assertEquals("1.5.0", store.find("claude").orElseThrow().version());
         assertTrue(Files.exists(base.resolve("harnesses.json")));

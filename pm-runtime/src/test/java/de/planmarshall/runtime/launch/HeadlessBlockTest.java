@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -91,5 +92,13 @@ class HeadlessBlockTest {
     void noHeadless() {
         var profile = LaunchFixtures.profile("{\"client_id\":\"claude\",\"headless\":null}");
         assertThrows(IllegalArgumentException.class, () -> HeadlessBlock.of(profile));
+    }
+
+    @Test
+    @DisplayName("the writable sub-paths resolve the profile's home")
+    void writablePathsResolveTheHome() {
+        var home = Path.of("/home/operator");
+        assertEquals(List.of(home.resolve(".claude.json"), home.resolve(".claude/sessions")),
+                block.writablePaths(home));
     }
 }

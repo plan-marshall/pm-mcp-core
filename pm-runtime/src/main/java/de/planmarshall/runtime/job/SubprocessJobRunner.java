@@ -539,7 +539,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * @throws StoreRefusal             if a record of the job's store cannot be read
      */
     public JobRunner.StartResult startWorker(WorkerStart request) {
-        Objects.requireNonNull(request, "request");
+        Objects.requireNonNull(request, ARG_REQUEST);
         var launch = request.launch();
         var budget = new JobBudget(request.budgetKey(), request.budgetSeconds(), request.budgetDerivation());
         var store = workerStore(request.scope(), request.enrolment());
@@ -566,7 +566,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         var confinement = confinementComposer.forJob(request.enrolment(), jobId, request.writablePaths(), false);
         var token = launch.jobToken().isEmpty() ? Optional.<String>empty() : Optional.of(launch.jobToken());
         return run(job, log -> new Launch(launch.workingDirectory(), launch.argv(), environment.ofWorker(request
-                .enrolment(), jobId, launch.env(), token, Optional.empty(), request.egressProxy()), Optional.empty(),
+                        .enrolment(), jobId, launch.env(), token, Optional.empty(), request.egressProxy()), Optional.empty(),
                 log, confinement));
     }
 

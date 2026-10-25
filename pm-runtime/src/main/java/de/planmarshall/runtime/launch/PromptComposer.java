@@ -99,16 +99,15 @@ public final class PromptComposer {
         var index = new StringBuilder();
         var bound = request.inBandBoundChars();
         for (var uri : uris) {
-            if (delivered.stream().anyMatch(skill -> skill.uri().equals(uri))) {
-                continue;
+            if (delivered.stream().noneMatch(skill -> skill.uri().equals(uri))) {
+                var resolved = request.skills().resolve(uri).filter(skill -> !skill.text().isEmpty())
+                        .orElseThrow(() -> new CompositionException("the skill '%s' does not resolve".formatted(uri)));
+                if (bound > 0 && inBand.length() + resolved.text().length() > bound) {
+                    index.append("- ").append(uri).append('\n');
+                } else {
+                    appendSkill(inBand, resolved, delivered);
+                }
             }
-            var resolved = request.skills().resolve(uri).filter(skill -> !skill.text().isEmpty())
-                    .orElseThrow(() -> new CompositionException("the skill '%s' does not resolve".formatted(uri)));
-            if (bound > 0 && inBand.length() + resolved.text().length() > bound) {
-                index.append("- ").append(uri).append('\n');
-                continue;
-            }
-            appendSkill(inBand, resolved, delivered);
         }
         out.append(inBand);
         if (!index.isEmpty()) {

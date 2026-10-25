@@ -69,10 +69,7 @@ public final class FreeTextDerivation {
     }
 
     private static boolean isFreeString(JsonNode schema) {
-        if (!isStringType(schema) || schema.member("enum").isPresent() || schema.member("pattern").isPresent()) {
-            return false;
-        }
-        return true;
+        return isStringType(schema) && schema.member("enum").isEmpty() && schema.member("pattern").isEmpty();
     }
 
     private static boolean isStringType(JsonNode schema) {

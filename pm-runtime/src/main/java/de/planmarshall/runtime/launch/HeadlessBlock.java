@@ -80,7 +80,7 @@ String versionPattern, List<String> writablePaths) {
         modelEfforts.forEach((model, values) -> efforts.put(model, List.copyOf(values)));
         modelEfforts = Collections.unmodifiableMap(efforts);
         resourceTools = List.copyOf(Objects.requireNonNull(resourceTools, "resourceTools"));
-        sessionResidue = Objects.requireNonNull(sessionResidue, "sessionResidue");
+        Objects.requireNonNull(sessionResidue, "sessionResidue");
         resumeArgv = List.copyOf(Objects.requireNonNull(resumeArgv, "resumeArgv"));
         capabilities = Set.copyOf(Objects.requireNonNull(capabilities, "capabilities"));
         Objects.requireNonNull(updateEvidence, "updateEvidence");

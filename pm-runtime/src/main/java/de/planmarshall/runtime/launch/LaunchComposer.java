@@ -53,6 +53,8 @@ public final class LaunchComposer {
     private static final Set<PosixFilePermission> OWNER_ONLY_DIRECTORY = PosixFilePermissions.fromString("rwx------");
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{([a-z_]+)}}");
     private static final String PROMPT_FILE = "prompt.md";
+    private static final String MEMBER_MODEL = "model";
+    private static final String MEMBER_EFFORT = "effort";
     private static final String RESULT_SCHEMA_FILE = "result-schema.json";
     private static final String CWD = "cwd";
     private static final String EPHEMERAL_FLAG = "no-session-persistence";
@@ -113,8 +115,8 @@ public final class LaunchComposer {
         members.put("form", JsonNode.string(role.form().wireName()));
         members.put("harness", JsonNode.string(role.harness()));
         members.put("harness_version", JsonNode.string("-"));
-        members.put("model", JsonNode.string(role.model()));
-        members.put("effort", JsonNode.nullValue());
+        members.put(MEMBER_MODEL, JsonNode.string(role.model()));
+        members.put(MEMBER_EFFORT, JsonNode.nullValue());
         members.put("effort_narrowed_from", JsonNode.nullValue());
         members.put("generation_id", JsonNode.string(generationId));
         members.put("workdir", JsonNode.object(Map.of("kind", JsonNode.string("project_checkout"), "plan_id",
@@ -240,6 +242,9 @@ public final class LaunchComposer {
         return new McpComposition(null, json);
     }
 
+    // java:S107 does not apply: the parameters are the slots a launch fills, one per input of the composition; a
+    // holder would hide which slot a caller sets and where its value comes from.
+    @SuppressWarnings("java:S107")
     private static List<String> composeArgv(LaunchRequest request, HeadlessBlock block, RoleClass roleClass,
             Path workingDirectory, String model, String effort, Path promptFile, Path resultSchema, List<String> tools,
             McpComposition mcp) {
@@ -247,8 +252,8 @@ public final class LaunchComposer {
                 ? block.resumeArgv()
                 : block.argumentsFor(roleClass);
         var slots = new LinkedHashMap<String, String>();
-        slots.put("model", model);
-        slots.put("effort", effort);
+        slots.put(MEMBER_MODEL, model);
+        slots.put(MEMBER_EFFORT, effort);
         slots.put("prompt_file", promptFile.toString());
         slots.put("result_schema", resultSchema == null ? null : resultSchema.toString());
         slots.put("tools", tools.isEmpty() ? null : String.join(",", tools));
@@ -277,9 +282,9 @@ public final class LaunchComposer {
         var agent = new LinkedHashMap<String, JsonNode>();
         agent.put("description", JsonNode.string("PM-MCP worker '%s'".formatted(request.role().artifact().name())));
         agent.put("tools", JsonNode.array(tools.stream().map(JsonNode::string).toList()));
-        agent.put("model", JsonNode.string(model));
+        agent.put(MEMBER_MODEL, JsonNode.string(model));
         if (effort != null) {
-            agent.put("effort", JsonNode.string(effort));
+            agent.put(MEMBER_EFFORT, JsonNode.string(effort));
         }
         return CanonicalJson.write(JsonNode.object(Map.of(RELAY, JsonNode.object(agent))));
     }
@@ -295,6 +300,8 @@ public final class LaunchComposer {
         return env;
     }
 
+    // java:S107 does not apply: the parameters are the members of the worker block, one per value the record carries.
+    @SuppressWarnings("java:S107")
     private static JsonNode workerBlock(LaunchRequest request, EffectiveRole role, RoleClass roleClass,
             LaunchRequest.WorkdirKind workdirKind, String model, NarrowedEffort effort, LaunchPrompt prompt,
             Instant now, String tokenSha256) {
@@ -305,8 +312,8 @@ public final class LaunchComposer {
         members.put("form", JsonNode.string(request.fresh() ? "fresh" : "warm"));
         members.put("harness", JsonNode.string(role.harness()));
         members.put("harness_version", JsonNode.string(request.enrolment().version()));
-        members.put("model", JsonNode.string(model));
-        members.put("effort", effort.value() == null ? JsonNode.nullValue() : JsonNode.string(effort.value()));
+        members.put(MEMBER_MODEL, JsonNode.string(model));
+        members.put(MEMBER_EFFORT, effort.value() == null ? JsonNode.nullValue() : JsonNode.string(effort.value()));
         members.put("effort_narrowed_from", effort.narrowedFrom() == null ? JsonNode.nullValue()
                 : JsonNode.string(effort.narrowedFrom()));
         members.put("generation_id", JsonNode.string(request.generationId()));

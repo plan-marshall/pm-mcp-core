@@ -23,6 +23,7 @@ import java.time.InstantSource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.crypto.SecretKey;
@@ -130,19 +131,44 @@ class HarnessVerifierTest {
     @Test
     @DisplayName("a harness the operator added from a verified profile is enrolled and accepted like a shipped one")
     void operatorAddedHarness() {
-        var executable = base.resolve("bin").resolve("acme-cli");
+        var added = base.resolve("bin").resolve("acme-cli");
         try {
-            Files.writeString(executable, "#!/bin/sh\necho 1.5.0\n", StandardCharsets.UTF_8);
+            Files.writeString(added, "#!/bin/sh\necho 1.5.0\n", StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
-        var digest = HarnessVerifier.digestExecutable(executable).orElseThrow();
-        store.enrol(new HarnessEnrolment("acme-cli", executable, digest, "1.5.0", NOW, NOW,
+        var digest = HarnessVerifier.digestExecutable(added).orElseThrow();
+        store.enrol(new HarnessEnrolment("acme-cli", added, digest, "1.5.0", NOW, NOW,
                 new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED, Map.of("input", "reported")),
                 Map.of("text", "reported"), Map.of()));
         var verification = verifier().verify("acme-cli", HeadlessBlock.of(LaunchFixtures.profileForClient("acme-cli")));
         assertInstanceOf(HarnessVerification.Accepted.class, verification);
         assertEquals("acme-cli", ((HarnessVerification.Accepted) verification).enrolment().clientId());
+    }
+
+    @Test
+    @DisplayName("a changed executable that changes again during the probe is refused")
+    void recheckRefusesASecondChange() {
+        store.enrol(enrolment("a".repeat(64), "1.5.0"));
+        evidence.set(true);
+        var verifier = new HarnessVerifier(store, HarnessVerifier.executableDigest(), (file, argv, pattern) -> {
+            try {
+                Files.writeString(file, "#!/bin/sh\necho 1.6.0\n", StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                throw new IllegalStateException(e);
+            }
+            return Optional.of("1.5.0");
+        }, (declared, file) -> evidence.get(), audit::add, InstantSource.fixed(NOW));
+        var verification = verifier.verify("claude", LaunchFixtures.block());
+        assertEquals(LaunchRefusal.HARNESS_UPDATE_UNVERIFIED, refusal(verification));
+    }
+
+    @Test
+    @DisplayName("the version matcher reports an absent pattern or no match as empty")
+    void versionMatching() {
+        assertTrue(HarnessVerifier.matchVersion("claude 1.5.0", null).isEmpty());
+        assertTrue(HarnessVerifier.matchVersion("no version here", "(\\d+\\.\\d+\\.\\d+)").isEmpty());
+        assertEquals("2.3.4", HarnessVerifier.matchVersion("v2.3.4", "(\\d+\\.\\d+\\.\\d+)").orElseThrow());
     }
 
     private HarnessVerifier verifier() {

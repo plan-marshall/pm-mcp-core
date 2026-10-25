@@ -177,6 +177,24 @@ class LaunchComposerTest {
                 () -> assertFalse(launch.argv().contains("--setting-sources")));
     }
 
+    @Test
+    @DisplayName("a refusal block names the role's class and is marked a start failure")
+    void refusalBlock() {
+        var block = LaunchComposer.refusalBlock(LaunchFixtures.writer(skills), GENERATION, LaunchFixtures.NOW);
+        assertAll(
+                () -> assertEquals("implementer", block.member("role").orElseThrow().text().orElseThrow()),
+                () -> assertEquals("writer", block.member("class").orElseThrow().text().orElseThrow()),
+                () -> assertEquals("lost", block.member("state").orElseThrow().text().orElseThrow()),
+                () -> assertTrue(block.member("start_failure").orElseThrow().booleanValue().orElseThrow()),
+                () -> assertTrue(block.member("job_token_sha256").orElseThrow().isNull()));
+    }
+
+    @Test
+    @DisplayName("an unmapped tier is passed through as the model identifier")
+    void unmappedTier() {
+        assertEquals("claude-unknown", LaunchComposer.renderModel("claude-unknown", LaunchFixtures.block()));
+    }
+
     private WorkerLaunch compose(EffectiveRole role, boolean fresh, boolean freeText) {
         return new LaunchComposer().compose(request(role, fresh, LaunchRequest.WorkdirKind.PLAN_WORKTREE, freeText));
     }
