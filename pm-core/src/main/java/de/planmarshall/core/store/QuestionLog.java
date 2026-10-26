@@ -182,7 +182,7 @@ public final class QuestionLog {
     }
 
     /**
-     * @param scope the plan, epic or workspace scope whose log this is
+     * @param scope the plan, epic, workspace or machine scope whose log this is
      * @throws IllegalArgumentException if the scope is the lesson store, which has no question log
      */
     public QuestionLog(JournalScope scope) {

@@ -14,13 +14,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Path;
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.planmarshall.core.store.JournalScopeType;
+import de.planmarshall.core.store.RetryCounters;
+import de.planmarshall.core.store.WaiverRecord;
+import de.planmarshall.core.store.WaiverRequest;
 import de.planmarshall.core.store.WaiverRequestOutcome;
+import de.planmarshall.core.store.WorkflowStatus;
+import de.planmarshall.core.store.WorkflowStatusCodec;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.dsl.ParseResult;
@@ -56,5 +65,38 @@ class WaiverDeclineTest {
                 () -> assertEquals(List.of(WaiverRequestOutcome.WAIVED, WaiverRequestOutcome.RAISED,
                                 WaiverRequestOutcome.DECLINED, WaiverRequestOutcome.CANCELLED),
                         List.of(WaiverRequestOutcome.values())));
+    }
+
+    @Test
+    @DisplayName("Should keep a declined waiver request as the request's outcome in the status document")
+    void declinedRequestRoundTrips() {
+        var requested = Instant.parse("2026-10-26T10:00:00Z");
+        var declined = new WaiverRequest("WR-1", "retry_budget:ci-failure", "remediation.ci-failure",
+                "the runner is flaky", null, requested, WaiverRequestOutcome.DECLINED, null,
+                new WaiverRequest.Answered(WaiverRecord.Channel.WEB, "dev-0123456789ab", "not enough evidence",
+                        requested.plusSeconds(60)),
+                null);
+        var status = WorkflowStatus.builder()
+                .scopeType(JournalScopeType.PLAN)
+                .scopeId("waiver-plan")
+                .phase("phase-5-execute")
+                .state("execute.wait")
+                .callStack(List.of())
+                .policyCounters(Map.of())
+                .waiverRequests(List.of(declined))
+                .retryCounters(RetryCounters.empty())
+                .activeJobs(Map.of())
+                .activeTasks(Map.of())
+                .updatedAt(requested)
+                .retained(Map.of())
+                .build();
+
+        var read = WorkflowStatusCodec.read(Path.of("status.json"), WorkflowStatusCodec.write(status));
+
+        assertAll(
+                () -> assertEquals(1, read.waiverRequests().size()),
+                () -> assertEquals(WaiverRequestOutcome.DECLINED, read.waiverRequests().getFirst().outcome()),
+                () -> assertEquals("not enough evidence",
+                        read.waiverRequests().getFirst().answered().reason()));
     }
 }

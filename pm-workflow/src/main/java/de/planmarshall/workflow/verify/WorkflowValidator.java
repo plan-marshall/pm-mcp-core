@@ -400,10 +400,11 @@ public final class WorkflowValidator {
     }
 
     /**
-     * Interface rule 2: a unit without exits declares a terminal, its stop point, except the resident workspace unit; a
-     * unit with exits reports through its terminals exactly its exits, plus {@code stepped_out} on a terminal of that
-     * class; a landing variant declares neither an exit nor a terminal. A terminal {@code stepped_out} of another class
-     * is {@link VerificationRule#SUBWORKFLOW_CALL_CONTRACT}'s and is not repeated here.
+     * Interface rule 2: a unit without exits declares a terminal, its stop point, except the resident workspace and
+     * machine units; a resident machine unit declares no terminal at all; a unit with exits reports through its
+     * terminals exactly its exits, plus {@code stepped_out} on a terminal of that class; a landing variant declares
+     * neither an exit nor a terminal. A terminal {@code stepped_out} of another class is
+     * {@link VerificationRule#SUBWORKFLOW_CALL_CONTRACT}'s and is not repeated here.
      */
     private static void checkStopPointsOrExits(WorkflowDefinition definition, List<Violation> violations) {
         var exits = declaredExits(definition);
@@ -421,9 +422,15 @@ public final class WorkflowValidator {
                             .formatted(terminal.id()))));
             return;
         }
+        if (definition.scope() == WorkflowScope.MACHINE) {
+            terminals.forEach(terminal -> violations.add(new Violation(
+                    VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS, terminal.id(), terminal.location(),
+                    "the resident machine unit declares the terminal '%s'; it lives on and rests in '%s'"
+                            .formatted(terminal.id(), MACHINE_RESTING_STATE))));
+            return;
+        }
         if (exits.isEmpty()) {
-            if (terminals.isEmpty() && definition.scope() != WorkflowScope.WORKSPACE
-                    && definition.scope() != WorkflowScope.MACHINE) {
+            if (terminals.isEmpty() && definition.scope() != WorkflowScope.WORKSPACE) {
                 violations.add(new Violation(VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS, unitStateId(definition),
                         definition.location(), "the unit declares neither an exit nor a terminal state"));
             }

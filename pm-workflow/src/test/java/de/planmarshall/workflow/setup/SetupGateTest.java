@@ -113,6 +113,14 @@ class SetupGateTest {
     }
 
     @Test
+    @DisplayName("Should admit an act whose step is done while another step is still pending")
+    void doneStepIsAdmitted() {
+        var onboarding = MachineOnboarding.fromStatus(machineStatus("onboard.harnesses", "\"first_run\""));
+
+        assertInstanceOf(SetupGate.Admitted.class, SetupGate.decideStep("language", onboarding));
+    }
+
+    @Test
     @DisplayName("Should stay open during a later reconfigure run of one aspect")
     void reconfigureRunStaysOpen() {
         var onboarding = MachineOnboarding.fromStatus(machineStatus("language.choose", "\"reconfigure\""));

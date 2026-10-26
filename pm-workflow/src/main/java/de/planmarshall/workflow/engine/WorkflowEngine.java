@@ -41,6 +41,8 @@ import de.planmarshall.core.store.WorkflowStatus.JobEntry;
 import de.planmarshall.core.store.WorkflowStatus.TaskEntry;
 import de.planmarshall.core.store.WorkflowStatusStore;
 import de.planmarshall.workflow.ast.CallFrame;
+import de.planmarshall.workflow.ast.LinkAction;
+import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.OutcomeTransition;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
@@ -208,7 +210,7 @@ public final class WorkflowEngine {
      * Starts a scope at the unit's start state and chains from there.
      *
      * @param scopeType the type of the scope
-     * @param scopeId   the plan or epic id; {@code null} for the workspace scope
+     * @param scopeId   the plan or epic id; {@code null} for the workspace and the machine scope
      * @return the step the start ends in, with the first status of the scope
      * @throws IllegalArgumentException if the unit declares no start state (a unit with entries is called, never
      *                                  started), the scope does not fit the status store, or the start state inherits
@@ -308,6 +310,9 @@ public final class WorkflowEngine {
                 run.chain(transitionOf(node, modelJob.transitions(), outcome, Map.of()).targetStateId());
             case StateBehavior.QuestionWait question when event instanceof EngineEvent.QuestionResolved resolved ->
                 resolve(run, status, node, question, resolved);
+            case StateBehavior.InteractiveLinks links when event instanceof EngineEvent.OperatorAct act ->
+                run.chain(run.runPrimitive(node, primitiveOf(linkOf(links, act)),
+                        linkOf(links, act).transitions()));
             default -> throw new IllegalStateException("the state '%s' accepted %s, which it cannot route"
                     .formatted(node.id(), event));
         };
@@ -507,6 +512,18 @@ public final class WorkflowEngine {
     private Primitive<?, ?> primitiveOf(String primitiveId) {
         return registry.find(primitiveId).orElseThrow(
                 () -> fault(Reason.UNRESOLVED_NAME, "the primitive '%s' is not registered", primitiveId));
+    }
+
+    /** The link of an operator wait the operator's act names. */
+    private static LinkSpec linkOf(StateBehavior.InteractiveLinks links, EngineEvent.OperatorAct act) {
+        return links.links().stream().filter(link -> link.idPattern().equals(act.linkId())).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "the operator wait '%s' offers no link '%s'".formatted(act.stateId(), act.linkId())));
+    }
+
+    /** The primitive a link runs; {@code do <primitive_id>} is the only link action. */
+    private static String primitiveOf(LinkSpec link) {
+        return ((LinkAction.ExecutePrimitive) link.action()).primitiveId();
     }
 
     private static String phaseOf(String dslPhase) {

@@ -36,7 +36,7 @@ public final class ChangeLedger {
     private final String storePath;
 
     /**
-     * @param scope the plan, epic or workspace scope whose ledger this is
+     * @param scope the plan, epic, workspace or machine scope whose ledger this is
      * @throws IllegalArgumentException if the scope is the lesson store, which has no change ledger
      */
     public ChangeLedger(JournalScope scope) {

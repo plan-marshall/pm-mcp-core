@@ -31,7 +31,8 @@ import de.planmarshall.core.store.WorkflowStatus;
  *
  * @param firstRunCompleted whether the machine's first onboarding has reached {@value #RESTING_STATE}
  * @param state             the current state of the machine scope
- * @param pendingSteps      the onboarding steps that are not done, in their order; empty once the first run completed
+ * @param pendingSteps      the onboarding steps that are not done, in their order; never empty while the first run is
+ *                          incomplete
  * @since 0.1
  */
 public record MachineOnboarding(boolean firstRunCompleted, String state, List<String> pendingSteps) {
@@ -55,6 +56,10 @@ public record MachineOnboarding(boolean firstRunCompleted, String state, List<St
     public MachineOnboarding {
         Objects.requireNonNull(state, "state");
         pendingSteps = List.copyOf(pendingSteps);
+        if (!firstRunCompleted && pendingSteps.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "An incomplete machine onboarding names at least one pending step");
+        }
     }
 
     /**
@@ -108,7 +113,8 @@ public record MachineOnboarding(boolean firstRunCompleted, String state, List<St
             if (parser.nextToken() != JsonToken.START_ARRAY) {
                 throw new IllegalArgumentException("'onboard_steps' is an array of step objects: " + raw);
             }
-            while (parser.nextToken() == JsonToken.START_OBJECT) {
+            var token = parser.nextToken();
+            while (token == JsonToken.START_OBJECT) {
                 String step = null;
                 String state = null;
                 while (parser.nextToken() != JsonToken.END_OBJECT) {
@@ -124,6 +130,13 @@ public record MachineOnboarding(boolean firstRunCompleted, String state, List<St
                     throw new IllegalArgumentException("A step of 'onboard_steps' names its step and its state: " + raw);
                 }
                 steps.add(new Step(step, state));
+                token = parser.nextToken();
+            }
+            if (token != JsonToken.END_ARRAY) {
+                throw new IllegalArgumentException("'onboard_steps' holds only step objects: " + raw);
+            }
+            if (parser.nextToken() != null) {
+                throw new IllegalArgumentException("'onboard_steps' is one array, nothing after it: " + raw);
             }
         } catch (IOException e) {
             throw new IllegalArgumentException("'onboard_steps' is not JSON: " + e.getMessage(), e);

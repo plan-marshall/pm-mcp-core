@@ -51,7 +51,7 @@ public final class MetricsStore {
     private final String storePath;
 
     /**
-     * @param scope the plan, epic or workspace scope whose metrics store this is
+     * @param scope the plan, epic, workspace or machine scope whose metrics store this is
      * @throws IllegalArgumentException if the scope is the lesson store, which has no metrics store
      */
     public MetricsStore(JournalScope scope) {

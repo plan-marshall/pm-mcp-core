@@ -1678,6 +1678,24 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
         assertEquals(List.of(), violations(plan));
 
+        var epic = unit("epic", """
+                state verify.entry
+                    phase verify
+                    link next proceed ()
+                        do test.proceed
+                            done -> verify.done
+                """ + DONE_TERMINAL);
+        assertEquals(List.of(), violations(epic));
+
+        var workspace = unit("workspace", """
+                state verify.entry
+                    phase verify
+                    link next proceed ()
+                        do test.proceed
+                            done -> verify.entry
+                """);
+        assertEquals(List.of(), violations(workspace));
+
         var worker = VerifyFixtures.parseSource("worker.pmwf", """
                 ---
                 name: worker-task

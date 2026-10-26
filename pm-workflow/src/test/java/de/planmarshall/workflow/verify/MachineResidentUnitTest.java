@@ -103,6 +103,33 @@ class MachineResidentUnitTest {
                 && violation.message().contains("onboard.completed")), violations::toString);
     }
 
+    @Test
+    @DisplayName("Should refuse a machine unit that declares a terminal")
+    void terminalIsRefused() {
+        var unit = machineUnit("""
+                state onboard.entry
+                    phase machine
+                    link next start ()
+                        do test.proceed
+                            done -> onboard.completed
+
+                state onboard.completed
+                    phase machine
+                    link next reconfigure ()
+                        do test.proceed
+                            done -> onboard.entry
+
+                state onboard.stopped terminal stopped failure
+                    phase machine
+                """);
+
+        var violations = validator.verify(unit).violations();
+
+        assertTrue(violations.stream().anyMatch(violation ->
+                violation.rule() == VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS
+                        && "onboard.stopped".equals(violation.stateId())), violations::toString);
+    }
+
     private static WorkflowDefinition machineUnit(String states) {
         return VerifyFixtures.parseSource("machine.pmwf", """
                 ---

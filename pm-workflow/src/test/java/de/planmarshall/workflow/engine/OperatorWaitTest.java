@@ -74,6 +74,17 @@ class OperatorWaitTest {
                 () -> engine.advance(status, new EngineEvent.TimeElapsed(EngineFixtures.T0.plus(Duration.ofDays(30)))),
                 "time does not end an operator wait");
         assertEquals(started, engine.advance(status), "the wait is unchanged");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> engine.advance(status, new EngineEvent.OperatorAct("execute.wait", "unknown")),
+                "only a link the state offers is accepted");
+
+        var acted = assertInstanceOf(EngineStep.Resting.class,
+                engine.advance(status, new EngineEvent.OperatorAct("execute.wait", "proceed")));
+        assertAll(
+                () -> assertEquals("execute.build", acted.stateId()),
+                () -> assertEquals(AwaitedEvent.JOB_SETTLED, acted.awaitedEvent()),
+                () -> assertEquals(1, fixtures.jobStarter.requests.size(), "the link's transition started the job"));
     }
 
     @Test

@@ -26,7 +26,7 @@ import java.util.regex.Pattern;
  */
 public sealed interface EngineEvent
         permits EngineEvent.JobSettled, EngineEvent.TasksSettled, EngineEvent.QuestionResolved,
-        EngineEvent.TimeElapsed {
+        EngineEvent.OperatorAct, EngineEvent.TimeElapsed {
 
     /**
      * A job ended with its fate, which the job state routes as its outcome.
@@ -120,6 +120,26 @@ public sealed interface EngineEvent
                 throw new IllegalArgumentException("question_id does not match ^Q-[0-9]{3,6}$: " + questionId);
             }
             requireNonBlank(outcome, "outcome");
+        }
+    }
+
+    /**
+     * The operator acted through one of the links of an operator wait: the state runs the link's primitive and routes
+     * its outcome.
+     *
+     * @param stateId the operator-wait state the act was made in
+     * @param linkId  the identifier pattern of the link the operator followed
+     * @since 0.1
+     */
+    record OperatorAct(String stateId, String linkId) implements EngineEvent {
+
+        /**
+         * @throws NullPointerException     if a component is {@code null}
+         * @throws IllegalArgumentException if a component is blank
+         */
+        public OperatorAct {
+            requireNonBlank(stateId, "stateId");
+            requireNonBlank(linkId, "linkId");
         }
     }
 

@@ -197,7 +197,7 @@ items 1 to 4 and link:{dsl}/01-grammar.adoc#sub-workflow-exits[Workflow DSL § R
   of every state of the left sub-workflow, and takes the calling state's transition of the terminal's outcome. Of an
   outcome routed twice, the transition whose result guard holds over the frame's result record wins; the result record
   is the facts the sub-workflow's primitives returned (`PrimitiveResult.updatedFacts`) in the same advance.
-* *Step-out*: `stepOut(status)` is the implicit `step_out` of a resting link state of a session-driven sub-workflow.
+* *Step-out*: `stepOut(status)` is the implicit `step_out` of a resting link state of an operator wait in a sub-workflow.
   It pops exactly one frame and the calling state routes the outcome `stepped_out` once; a caller that is itself a
   sub-workflow routes it to a state of its own. A terminal of class `stepped_out` returns the same way. A scope in no
   sub-workflow, a scope with a condition, or a state that is no link state is refused with `IllegalStateException`.

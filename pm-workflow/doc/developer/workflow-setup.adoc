@@ -26,8 +26,13 @@ refuses a status of another scope and an `onboard_steps` member that is not the 
 `SetupGate`:: The one guard. `decide(act, onboarding)` admits a step of the onboarding itself and an operator verb in
 every state; every start (`START_PLAN`, `START_EPIC`, `START_PROJECT_ONBOARDING`) is refused `machine_not_onboarded`
 while the first run is incomplete. `decideStep(step, onboarding)` refuses an act over the local API that needs a step
-that is not done with `onboarding_incomplete` and the HTTP status `409`. A refusal names the missing step and both of the
-operator's clients, `web` and `cli`, where the onboarding goes on.
+that is still pending with `onboarding_incomplete` and the HTTP status `409`; an act whose step is done is admitted even
+while another step is pending. A refusal names the step and both of the operator's clients, `web` and `cli`, where the
+onboarding goes on.
+
+A caller that finds no machine status passes no `WorkflowStatus`; it treats the onboarding as incomplete — no step is
+`done`, and the missing step is the entry state of the machine unit — and lets the gate refuse the start. The gate does
+not invent a status.
 
 == Invariants
 
