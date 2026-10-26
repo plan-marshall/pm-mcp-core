@@ -36,9 +36,9 @@ no codec; writing the ledger is not part of this package.
 |`FindingSourceKind`, `Severity`, `FindingStatus`, `Resolution`, `ScopeClass`, `TransmitOutcome`, `TransmitReason`,
 `ResolveState`, `FindingPhase`
 |The closed enumerations of the ledger record. Each constant carries its name on the wire (`wireName()`,
-`fromWireName(String)`); the values are those of the code and of the schema and are not repeated here. Two of the
-`source` values name a check of the server itself rather than a provider: `dependency_delta` is the pre-merge
-Dependency Delta Check and `capability_tests` is the pre-merge Capability Test Guard, whose finding types are
+`fromWireName(String)`); the values are those of the code and of the schema and are not repeated here. Two of them are
+the server's own pre-merge checks rather than a source outside it: `dependency_delta` is the pre-merge Dependency Delta
+Check and `capability_tests` is the pre-merge Capability Test Guard, whose finding types are
 `capability_test_removed` and `capability_tests_indeterminate`.
 
 |link:{src}/Disposition.java[`Disposition`]

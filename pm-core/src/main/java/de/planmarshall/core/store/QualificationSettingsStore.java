@@ -78,11 +78,11 @@ public final class QualificationSettingsStore {
      * @throws StoreRefusal         if the document is unreadable
      * @throws UncheckedIOException if the document exists and cannot be read
      */
-    public Snapshot read() {
+    public QualificationSettingsCodec.Snapshot read() {
         return StoreSnapshot.read(storeFile.store()).content()
                 .map(document -> QualificationSettingsCodec.read(storeFile.store(), document))
-                .map(read -> new Snapshot(read.settings(), read.revision()))
-                .orElseGet(() -> new Snapshot(QualificationSettings.defaults(), NO_DOCUMENT));
+                .orElseGet(() -> new QualificationSettingsCodec.Snapshot(QualificationSettings.defaults(),
+                        NO_DOCUMENT));
     }
 
     /**

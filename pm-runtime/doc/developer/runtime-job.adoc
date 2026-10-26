@@ -71,7 +71,7 @@ The verified argument vector is the absolute start that stage 2 answers (the int
 _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2]
 
 `EnrolmentCheck.verify` reads the project's enrolment under the caller's transaction and checks its HMAC, its digest and its per-use rules.
-Its refusal is mapped: a tampered file to `enrolment_tampered`, a failed per-use check to `enrolment_insecure`, a refused strict read of the file or its sidecar, an outdated or newer format, or a violated enrolment rule to `enrolment_invalid`, and a project with neither file nor sidecar to `not_enrolled`. The detail names the project and the outcome code; no refusal names an operator act (Hypermedia Format Specification, No Operator Relay).
+Its refusal is mapped: a tampered file to `enrolment_tampered`, a failed per-use check to `enrolment_insecure`, a refused strict read of the file or its sidecar, an outdated or newer format, or a violated enrolment rule to `enrolment_invalid`, and a project with neither file nor sidecar to `not_enrolled`. A `conflict` outcome cannot arise from this read and is mapped to `enrolment_invalid` for the switch's exhaustiveness over `StoreRefusal.Outcome`. The detail names the project and the outcome code; no refusal names an operator act (Hypermedia Format Specification, No Operator Relay).
 
 === Stage 1: Working Directory
 

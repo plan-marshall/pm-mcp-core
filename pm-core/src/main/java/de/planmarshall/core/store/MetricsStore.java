@@ -31,7 +31,7 @@ import java.util.function.UnaryOperator;
  * document already holds is kept verbatim (see {@link MetricsCodec}).
  * <p>
  * Each scope has its own store and its own partition of the rows (Store Schemas § Metrics Store, Scope): a plan's file
- * holds its task rows and carries their {@code phase}; the epic and workspace files hold only task rows with
+ * holds its task rows and records their {@code phase}; the epic and workspace files hold only task rows with
  * {@code phase: null}; the workspace file also holds the {@code worker_idle} rows of the project's warm workers, which
  * serve every scope and are reported apart, never in a plan's figures. A row of another partition is refused.
  *
@@ -152,8 +152,8 @@ public final class MetricsStore {
     private void requireTaskRowOfThisScope(MetricsRow row) {
         if (scope.type() != JournalScopeType.PLAN && row.phase() != null) {
             throw new IllegalArgumentException(
-                    "The metrics store of the %s scope %s holds only task rows with no phase, not the phase %s"
-                            .formatted(scope.type().wireName(), scope.scopeId(), row.phase().wireName()));
+                    "The metrics store of the %s holds only task rows with no phase, not the phase %s"
+                            .formatted(scopeName(), row.phase().wireName()));
         }
     }
 
@@ -161,8 +161,14 @@ public final class MetricsStore {
         if (scope.type() != JournalScopeType.WORKSPACE) {
             throw new IllegalArgumentException(
                     "The worker-idle rows of the project's warm workers belong to the workspace metrics store, not to "
-                            + "the %s scope %s".formatted(scope.type().wireName(), scope.scopeId()));
+                            + "the " + scopeName());
         }
+    }
+
+    /** The store's scope, named in a refusal: the type and its id where it has one. */
+    private String scopeName() {
+        return scope.scopeId() == null ? scope.type().wireName()
+                : "%s '%s'".formatted(scope.type().wireName(), scope.scopeId());
     }
 
     private void update(ScopeTransaction transaction, UnaryOperator<MetricsCodec.Document> change) {

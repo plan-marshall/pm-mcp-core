@@ -197,6 +197,10 @@ public final class StoreRefusal extends RuntimeException {
     /**
      * The refusal of a write against a revision that is not the current one: the document changed since the caller
      * read it, and the write would overwrite that change.
+     * <p>
+     * The revision pair is carried in the message, not in the format-version fields: {@link #found()} is
+     * {@link #NO_VERSION} and {@link #current()} the document's format version, because a revision is not a format
+     * version and the two must never be read as one another.
      *
      * @param file     the refused document
      * @param expected the revision the caller read

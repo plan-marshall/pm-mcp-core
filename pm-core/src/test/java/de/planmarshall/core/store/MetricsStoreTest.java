@@ -281,7 +281,6 @@ class MetricsStoreTest {
                     .harnessVersion("1.2.3").model("deepseek-v4.1-flash").usage(usage()).idleWakeups(3)
                     .recordedAt(RECORDED_AT).build();
             var epic = JournalScope.epic(base, PROJECT, "some-epic");
-            var workspace = JournalScope.workspace(base, PROJECT);
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> append(idle)),
