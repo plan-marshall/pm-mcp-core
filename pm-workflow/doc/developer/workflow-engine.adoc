@@ -304,10 +304,13 @@ its outcome.
 |`QuestionResolved`; the engine reads the record through `QuestionRecordReader` and routes the outcome only when the
 record is resolved with the same outcome.
 
-|`link`
-|Nothing is bound.
-|No engine event; a model's link, or the step-out.
+|`link` (operator wait)
+|Nothing is bound: no task is opened, no job is started, and no worker and no model slot is held.
+|No engine event; the operator's act through one of its links, or an engine-owned transition that ends the scope. The
+wait is `OPERATOR_ACT`, so nothing decides it by time.
 |===
+
+A resting link state is an operator wait in every unit and every scope (link:../../../doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL § Waiting for the Operator]). Its `restingWait` carries `OPERATOR_ACT`; a `TimeElapsed` or any other engine event is refused, and the status stays as it is. A question state, by contrast, declares no link, and its own resolution edges await the answer.
 
 `restingWait(status)` and `advance(status, event)` derive the wait from the status through `RestingWait`; an event the
 wait does not accept is refused with the status unchanged. The transition that leaves a state clears its bindings.
@@ -632,3 +635,5 @@ _Requirements: link:{docs}/Requirements.adoc#PM-WF-1[PM-WF-1], link:{docs}/Requi
   through its entry, named or the sole one, and the frame records the entry in the transaction of the call.
 * link:../adr/workflow-engine/012-model-waits-selected-from-the-connection-profile-and-token.adoc[ADR 012]: a model
   wait is selected from the connection profile and the progress token, one rule in `WaitSelection`.
+* link:../adr/workflow-engine/013-link-states-await-the-operator-act.adoc[ADR 013]: a resting link state is an operator
+  wait and awaits `OPERATOR_ACT`; no engine event and no time ends it.

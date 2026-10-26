@@ -63,7 +63,8 @@ round-trips byte for byte. Its readers and writers of a call frame and a conditi
 member, are package-private, because the pending entry record holds members of the same shapes
 (<<_pending_entry_record>>).
 `WorkflowStatusStore`:: The store of one `JournalScope` (`mcp/status.json` of a plan, `status.json` of an epic,
-`workspace/mcp/status.json` of the workspace). `read()` takes no lock and reads through `StoreSnapshot`; a store that
+`workspace/mcp/status.json` of the workspace, `mcp/status.json` of the machine scope, which is
+`<PM_MCP_BASE>/machine/mcp/status.json`). `read()` takes no lock and reads through `StoreSnapshot`; a store that
 does not exist is reported as `Optional.empty()`, never as an empty status. `write(ScopeTransaction, WorkflowStatus)`
 adds the whole document as one replace target to the caller's transaction and never commits on its own.
 
@@ -122,6 +123,16 @@ format change:
   round trip and its refusals.
 
 A document written before the change still reads, because the member was declared and kept verbatim all along.
+
+=== The Machine Scope
+
+One machine scope exists per machine, beside the plan, epic and workspace scopes: `JournalScope.machine(base)` is its
+scope with the type `JournalScopeType.MACHINE`, no scope id, the path base `<PM_MCP_BASE>/machine/`, the journal
+`machine/mcp/transaction-journal.json`, the sidecar `machine/mcp/digests.json` and the scope lock
+`machine/locks/machine.lock` (`LockKey.machineScope`, at the level of the workspace lock). Its workflow state is
+`machine/mcp/status.json` (`WorkflowStatusStore`), the status of the resident unit `onboarding.pmwf`, whose phase is
+`machine`; the status carries no plan id. The change ledger, the metrics store and the question log of the scope lie
+directly below `machine/`; the machine's task queue and job records are the separate machine stores.
 
 [#_the_call_stack]
 == The Call Stack
@@ -1626,3 +1637,5 @@ parity check the specification has run ahead of is `@Disabled` with the work pac
   `ChangeLedger` write through the caller's `ScopeTransaction`, so the scope's digest sidecar covers both files.
 * link:../adr/core-store/045-qualification-settings-refuse-a-stale-revision.adoc[ADR 045]: a write of the qualification
   settings names the revision it read, and a stale revision is refused as `conflict`.
+* link:../adr/core-store/046-the-machine-scope-keeps-its-state-in-machine-mcp.adoc[ADR 046]: the machine scope's status
+  lies in `machine/mcp/status.json` under the machine scope lock, beside no project.

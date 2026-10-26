@@ -36,9 +36,9 @@ the column. The verifier had to decide where these checks live.
   the outcomes of its terminals.
 * The tree marks neither a landing variant nor the adjudication unit, so both exceptions are recognised by name: a
   landing variant by the id prefix `landing.`, the adjudication unit by the id `adjudicate.decisions`.
-* The row of the type `system` with scope `machine`, and the machine unit as a resident unit of rule 2, are not
-  checked: the tree has no `machine` scope yet. They follow with the work package that adds the scope,
-  `operator-wait-and-machine-scope`.
+* The row of the type `system` with scope `machine`, and the machine unit as a resident unit of rule 2, are checked
+  since the machine scope exists: `TYPE_FITS` admits the scope and `EXIT_PATH` holds the resident shape
+  (link:031-the-machine-unit-is-resident.adoc[ADR 031]).
 
 Rationale not recorded beyond the specification's assignment of the interface rules to Rules 3 and 6.
 
