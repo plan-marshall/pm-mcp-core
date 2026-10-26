@@ -83,8 +83,8 @@ class NavigationFiguresTest {
     void cacheReadIndeterminate() {
         var empty = NavigationFigures.derive(List.of(), VOCABULARY, List.of(), Map.of());
         var nullUsage = NavigationFigures.derive(List.of(
-                ActivityEntry.builder().seq(1).attempt(1).source(ActivityEntry.Source.HARNESS)
-                        .kind(ActivityEntry.Kind.TURN).at(AT).build()),
+                        ActivityEntry.builder().seq(1).attempt(1).source(ActivityEntry.Source.HARNESS)
+                                .kind(ActivityEntry.Kind.TURN).at(AT).build()),
                 VOCABULARY, List.of(), Map.of());
 
         assertAll(

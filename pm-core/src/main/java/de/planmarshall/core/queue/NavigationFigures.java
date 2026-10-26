@@ -114,7 +114,7 @@ Figure fallbackToReadRate, List<SkillResidency> residency) {
         if (input.isEmpty() || read.isEmpty() || creation.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(new long[] {read.get(), input.get() + read.get() + creation.get()});
+        return Optional.of(new long[]{read.get(), input.get() + read.get() + creation.get()});
     }
 
     /** @return whether a turn's usage text is a readable object; a malformed or empty one is not */
@@ -213,7 +213,7 @@ Figure fallbackToReadRate, List<SkillResidency> residency) {
         var target = entry.tool().target();
         var separator = target.indexOf('#');
         var section = separator < 0 ? "" : target.substring(separator + 1);
-        return section.isEmpty() ? new String[0] : new String[] {target.substring(0, separator), section};
+        return section.isEmpty() ? new String[0] : new String[]{target.substring(0, separator), section};
     }
 
     private static List<ActivityEntry> lookups(List<ActivityEntry> entries, NavigationVocabulary vocabulary) {
