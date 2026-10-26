@@ -140,10 +140,11 @@ public final class StartFailureGuard implements SupervisorEnvironment.StartGuard
 
     /**
      * Counts one start failure of the role on the harness and reports it: the {@code WORKER_START_FAILED} record carries
-     * the consecutive number and the bounded, redacted detail, and the policy owns one
-     * {@link AuditEvent#workerStartFailed} record per counted failure. Reaching the hold closes the role's queued and
-     * new tasks through {@link WorkerProtocol#closeUnavailable} and logs {@code WORKER_START_GUARD_HELD}; a failure of
-     * a holding guard is a failed probe and restarts the backoff the same way.
+     * the consecutive number and the bounded, redacted detail, and the guard hands one
+     * {@link AuditEvent#workerStartFailed} record to the audit log per counted failure. Reaching the hold closes the
+     * role's queued and new tasks through {@link WorkerProtocol#closeUnavailable} and logs
+     * {@code WORKER_START_GUARD_HELD}; a failure of a holding guard is a failed probe and restarts the backoff the same
+     * way.
      *
      * @param role    the role whose start failed
      * @param harness the client id of the harness the start failed on

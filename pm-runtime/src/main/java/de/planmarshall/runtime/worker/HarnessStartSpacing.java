@@ -20,10 +20,10 @@ import java.util.concurrent.TimeUnit;
  * harness can collide in what the harness shares besides its per-worker data home — its caches, its login refresh — so
  * the workers of one harness start one after another on the machine.
  * <p>
- * The next start waits until the previous worker of the harness made its first call or ended, at most {@link
- * #SPACING_BOUND}. A collision that still makes a worker exit before its first call is a start failure and counts for
- * the {@link StartFailureGuard}, which is why the spacing only ever delays a start and never refuses one: past the
- * bound the next start proceeds.
+ * The next start waits until the previous worker of the harness made its first call or ended, at most the compiled
+ * bound of {@value #SPACING_BOUND}. A collision that still makes a worker exit before its first call is a start failure
+ * and counts for the {@link StartFailureGuard}, which is why the spacing only ever delays a start and never refuses one:
+ * past the bound the next start proceeds.
  * <p>
  * The instance is shared by every supervisor of the runtime, so the spacing spans the supervisors of all projects: the
  * class keys on the client id of the harness alone and holds no per-project state. A caller announces the start's
