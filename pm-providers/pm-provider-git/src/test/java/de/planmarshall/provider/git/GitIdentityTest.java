@@ -170,7 +170,9 @@ class GitIdentityTest {
                 () -> assertFalse(GitIdentity.isFullCommitId(initial.id().substring(0, 8))),
                 () -> assertTrue(GitIdentity.isAbbreviatedCommitId(initial.id().substring(0, 8))),
                 () -> assertTrue(GitIdentity.isAbbreviatedCommitId(
-                        initial.id().substring(0, 8).toUpperCase(Locale.ROOT))));
+                        initial.id().substring(0, 8).toUpperCase(Locale.ROOT))),
+                () -> assertFalse(GitIdentity.isFullCommitId(null)),
+                () -> assertFalse(GitIdentity.isAbbreviatedCommitId(null)));
     }
 
     @Test
