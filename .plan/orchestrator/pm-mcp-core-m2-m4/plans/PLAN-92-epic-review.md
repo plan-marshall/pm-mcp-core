@@ -53,21 +53,21 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/epic-review.adoc` § What, Trace, Done When on `origin/main` at `4617865` (6 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/epic-review.adoc last touched by 72aec5cb (unchanged since the grounding); 6 What bullets, Trace and Done When equal the spec Deliverables 1-6; state ids review.* match state-catalogue/17 lines 104-211
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/epic-review.adoc unchanged; 6 What bullets and Done When equal D1 to D6
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-42 (`operator-wait-and-machine-scope`); PLAN-55 (`chat`); PLAN-77 (`epic-resource-and-release`) (the archive check reads its registers)) — read at `doc/plans/epic-review.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: README.adoc at HEAD: epic-review open, depends on PLAN-42, chat, epic-resource-and-release (the archive check reads its registers); row not in the 4617865..HEAD README diff
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open, depends on operator-wait-and-machine-scope, chat, epic-resource-and-release, all listed
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line of the package file and the class-level surfaces of the former specs, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: All 7 OBSERVED paths exist at HEAD (README, package file, model-work/08, model-work/01, state-catalogue/06, state-catalogue/17, store-schemas/04); pm-workflow workflow/unit, core/store and workflow/epic exist, workflow/epic is package-info only citing model-work/08-epic-coordination.adoc as claimed; understated, see surface rows
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: workflow/epic and workflow/primitive package-info only; no register store, no review.json code
 - OBSERVED: each module that logs has one holder with its own test, which refuses an identifier used twice and one outside the range of its level (INFO 1-99, WARN 100-199, ERROR 200-299): `CoreLogMessages` (5 records), `RuntimeLogMessages` (81), `WorkflowLogMessages` (5) — `static final LogRecord` counted on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Same holder facts as PLAN-48 claim 3 at HEAD: Core 5, Workflow 5, Runtime 83 LogRecords, each holder with its range and uniqueness test
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: holders and range/unique tests exist; Core 5, Workflow 5, Runtime 89 (the 81 in the text is stale)
 - HYPOTHESIS: the package adds INFO, WARN or ERROR messages; its module's log holder is deliberately NOT in the Expected Surface: a record is appended at the next free identifier and a collision is resolved on rebase, as the operator decided for the shared holder on 2026-10-09 and kept for the per-module holders on 2026-10-13 — confirm/refute the need at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Hypothesis verify-at-outline; nothing to read before the trace matrix (R12 unchanged)
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis about log need; nothing to read
 - HYPOTHESIS: whether the package makes an HTTP call is decided at the specification sections of the trace starting set; the two HTTP constraints bind only if the trace matrix shows one, and only in `pm-runtime` or a provider module — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Hypothesis verify-at-outline; the review, registers and watches re-check sections (model-work/08 findings-watches and epic-review, state-catalogue/17, store-schemas/04 epic-registers) show no outbound HTTP, so R03/R04 are not expected to bind
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: the epic spec parts are unchanged since 4617865 and show no outbound HTTP
 - OBSERVED: the specification and watch parts of the Expected Surface changed since the claims were last grounded at `c281f6c` only as listed in the verdict — `git diff --numstat c281f6c..4617865`; the executing plan re-reads them at its branch point
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Numstat c281f6c..4617865 reproduces (model-work/01 +11/-10, model-work/08 +18/-5, state-catalogue/06 +1/-1, store-schemas/04 +36/-5). Since 4617865 model-work/08, state-catalogue/06, state-catalogue/17 and store-schemas/04 are unchanged (git log empty); model-work/01 changed (#171 constant baseline, judge check, grading) but its Default Role Set section default-roles did not
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: model-work/08, state-catalogue/06 and 17, store-schemas/04 have no commit after 4617865; model-work/01 changed (#189 screener repeated runs), the default role set untouched
 - Verify-first clause: before scoping, read the roadmap item this package serves for what the code already covers, list the open pull requests for one that names `epic-review`, and check in `doc/plans/README.adoc` that every dependency is `done`; a refutation of any claim above loops back to re-scope.
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Row epic-review open at HEAD, package file unchanged since 72aec5cb; open-PR list not re-read; dependencies PLAN-42, chat (PLAN-55), PLAN-77 all still open
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open, dependencies listed, package file unchanged
 
 ## Expected Surface
 
@@ -88,6 +88,30 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/primitive/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - HYPOTHESIS: `pm-workflow/doc/developer/workflow-epic.adoc` — to be created; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - HYPOTHESIS: `pm-workflow/doc/adr/workflow-epic/` — to be created; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/ScopeTransaction.java` — the registers are written in the epic ledger write under the `ScopeTransaction` pattern (ADR `core-store/044`); added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/JournalScopeType.java` — the `EPIC` scope; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 8: 5 corroborated, 0 contradicted, 3 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`). Nothing is contradicted.
+
+### Surface
+
+- Added to the Expected Surface above: `ScopeTransaction`, `JournalScopeType`. No annotation is wrong. No register store exists (`ChangeLedger` is `change-ledger.jsonl` only; no `register_item`, `register.jsonl`, `review.json` code).
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #189 (`1c9f366d`) — Model Work 01 § Grading, a new item "Repeated runs for the screener" (line 378): outside the Default Role Set the spec cites; no effect; keep when deleting implemented text. No overlap with `security-audit-and-code-scanning` (epic register findings are not plan findings; the Located Finding Grounding of Store Schemas 03 does not apply).
+
+### Shipped or superseded since the last grounding
+
+- #185 / ADR `core-store/044` and `045`: the `EPIC` scope is a `ScopeTransaction` scope; next `core-store` ADR 046; `workflow-unit` next 007; `workflow-epic` 001. No epic ledger store and no review or register code. Dependencies: PLAN-42, PLAN-55, PLAN-77 open; sequenced with PLAN-53 (the same four specification files).
+
+### Open questions for the outline
+
+- Which package builds the epic ledger store (`epic.json`, queue rows) that the registers presuppose; the home of `review.pmwf` (`plan-marshall-mcp` content).
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

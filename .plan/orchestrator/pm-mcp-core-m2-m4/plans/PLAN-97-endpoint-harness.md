@@ -57,17 +57,17 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: no work package builds this: none of the package files under `doc/plans/` names `03-endpoint-harness`, `endpoint harness`, `profile_kind`, and the index has no row for `endpoint-harness` — `grep` of `doc/plans/` and `ls doc/plans/endpoint-harness.adoc` at `4617865`
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: doc/plans/endpoint-harness.adoc exists at HEAD with the 10 bullets of this spec and an index row (open; depends role-qualification; Milestone 14); added by #143 9c9d99c6 (PLAN-96)
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: doc/plans/endpoint-harness.adoc exists since #143 (10 What bullets), row open, Depends role-qualification, Milestone 14; unchanged since 88ec9c70; the spec still says it is written by PLAN-96
 - OBSERVED: the specification this plan builds exists and carries the anchors it names — `doc/specification/client-profiles/03-endpoint-harness.adoc`, `doc/implementation-watch/client-profiles.adoc`
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/specification/client-profiles/03-endpoint-harness.adoc exists; PM-WATCH-CLIENT-14 is at doc/implementation-watch/client-profiles.adoc line 170
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: client-profiles/03-endpoint-harness.adoc exists unchanged; PM-WATCH-CLIENT-14 now at implementation-watch/client-profiles.adoc:152 (moved when #190 deleted CLIENT-13)
 - OBSERVED: the dependencies named below are queue rows of this ledger (PLAN-96, PLAN-26, PLAN-29, PLAN-34; PLAN-19 shipped as #137); `PLAN-96` is the plan that writes the package file and the index row
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: PLAN-96 landed as #143 9c9d99c6; PLAN-26 shipped as #146 964f673d; PLAN-29 shipped as #172 4806a304; only PLAN-34 (role-qualification) is still an open row and README at HEAD lists it as the sole dependency
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: PLAN-96 (#143), PLAN-26 (#146) and PLAN-29 (#172) are shipped; only PLAN-34 role-qualification is still open and the sole dependency in the index
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line and the specification parts — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: pm-runtime/.../launch/ is not package-info only: it holds HarnessEnrolment; HarnessEnrolmentStore; HarnessVerifier; LaunchComposer; WorkerLaunch and about 20 more types (#172); the harness enrolment with its weights map is in launch/ and not in runtime/enrolment/ (project enrolment integrity classes and HarnessesSidecarCheck); runtime/endpoint does not exist yet (new); core/profile (17 classes) exists
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: runtime/launch holds 19 classes (HarnessEnrolment, HarnessEnrolmentStore, HarnessVerifier, LaunchComposer ...); the harness enrolment is there, not in runtime/enrolment; runtime/endpoint does not exist; core/profile holds 17 classes, none handles profile_kind
 - HYPOTHESIS: the milestone in the `Serves` line and the edges of the `Dependencies` section are the orchestrator's reading of the roadmap and of the specification, not an operator decision — confirm/refute at `doc/plans/README.adoc` and the roadmap items of `plan-marshall-documentation` (verify-at-outline)
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: README row endpoint-harness serves Milestone 14 and the roadmap Milestone 14 item Implement the endpoint harness is unchecked at documentation origin/main; judgment-endpoint depends on endpoint-harness; edge to role-qualification present
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row Milestone 14; roadmap item Implement the endpoint harness unchecked on documentation origin/main (PM-CLIENT-2, PM-WORK-6, PM-WATCH-CLIENT-14)
 - Verify-first clause: before scoping, check that PLAN-96 has landed (the package file and the index row exist), that the packages this one depends on are done or in flight, and list the open pull requests for one that names the package; a refutation loops back to re-scope.
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: same account as claim 0: package file and index row exist at HEAD (#143 9c9d99c6); the PR #71 part could not be re-read here
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: package file and row exist (#143); PLAN-96 landed; PLAN-34 still open; the open-PR list is not readable read-only
 
 ## Expected Surface
 
@@ -87,6 +87,54 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/store-schemas/11-enrolment-store.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `pm-core/doc/developer/core-profile.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `pm-runtime/doc/developer/runtime-launch.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/ProfileValidator.java` — the endpoint profile's validation is extended here (no `profile_kind`, protocol or locality exists); added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/ProfileStages.java` — the endpoint stages (identity, launch, classes, limits); added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/VerificationRecord.java` — carries `tool` since #190; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolment.java` — the harness enrolment and its weights map live in `runtime.launch`; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolmentStore.java` — the enrolment store, with the `harness_store_unreadable` rule of #185; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessVerifier.java` — `harness_not_enrolled` and `harness_updated` live with the verifier; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-runtime/doc/adr/runtime-launch/` — next free number 006; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-core/doc/adr/core-profile/` — next free number 006; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/LogMessages.adoc` — one row per log record the package adds (holder `RuntimeLogMessages`, 89 records now, R12); added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07` (the specification pull requests #181, #184, #186 to #189, #191 and #192 and the code plans #185 and #190 have landed since the pass of `88ec9c70`). This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 6: 2 corroborated, 4 contradicted (re-scoped by this section), 0 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claim 0: `doc/plans/endpoint-harness.adoc` exists since #143 (10 What bullets equal the 10 Deliverables by count), unchanged since `88ec9c70`; the Objective's "written by PLAN-96, must land first" is spent.
+- Claim 2: PLAN-96, PLAN-26 and PLAN-29 are shipped; only PLAN-34 `role-qualification` is open and the index's sole dependency (the edge is partly built: `RoleDigests.qualification` already carries `weights_identity`).
+- Claim 3: the harness enrolment with its weights map is `runtime/launch/HarnessEnrolment`, `HarnessEnrolmentStore`, `HarnessVerifier` (19 classes in `launch/`), **not** `runtime/enrolment/` (which holds the project-enrolment integrity classes, e.g. `HarnessesSidecarCheck`); `runtime/endpoint` does not exist; `core/profile` holds 17 classes, none handles `profile_kind`.
+- Claim 5: package file and row exist; PLAN-34 is still open; the open-PR list is not readable.
+
+### Surface
+
+- Added to the Expected Surface above: `ProfileValidator`, `ProfileStages`, `VerificationRecord` (`core.profile`), `HarnessEnrolment`, `HarnessEnrolmentStore`, `HarnessVerifier` (`runtime.launch`), the ADR directories `runtime-launch/` (006) and `core-profile/` (006), `doc/LogMessages.adoc`.
+- wrong: `pm-runtime/.../runtime/enrolment/` is annotated as where the harness enrolment lives; it is `runtime/launch/`; path stays, annotation wrong.
+- wrong: `pm-runtime/.../runtime/launch/` is annotated "package-info.java only"; it holds 19 classes.
+- wrong: `doc/plans/endpoint-harness.adoc` is annotated HYPOTHESIS "written by PLAN-96"; it exists.
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #187 (`f287eb50`) — Client Profiles 01 § headless block and § Profile Verification: a new required member `headless.readable_paths` and a new stage `paths` (a decoy file outside the read set), a condition of `worker.eligible`. It binds the client profile's headless block, **not** the endpoint profile (no headless block; stages identity, launch, classes, limits). `readable_paths` is absent from the code; the open package `job-confinement-and-environment` will edit the same `ProfileValidator` and `ProfileStages`: an overlap to sequence, not a dependency, and the `paths` stage must not apply to an endpoint.
+- #190 (`f4a1bd07`) — Client Profiles 01 § Runtime check on load: `ProfileWorkerEligibility` in `runtime.worker` consults the record before every start; `PM-WATCH-CLIENT-13` deleted. An endpoint profile has no worker block (open question below).
+- #185 (`71a15338`) — Store Schemas 11 § Harness Enrolment Store, "Unreadable Store": an enrolment entry whose required object member (`events`, `usage_report.figures`, a present `weights`) is absent, `null` or not an object is refused `harness_store_unreadable`; the endpoint enrolment's weights map is under this rule (the code exists since #172).
+- #188 (`854a7c7a`) — Model Work 10 § Model Identity: quorum voters are compared by the weights identities in the enrolments, so the weights this plan reads must be exact and comparable.
+
+### Shipped or superseded since the last grounding
+
+- PLAN-29 (#172): `HarnessEnrolment.weights`, `HarnessEnrolmentStore`, `HarnessVerifier`, `LaunchRefusal.HARNESS_NOT_ENROLLED`, `AuditEvent.HARNESS_UPDATED` (process harnesses only). PLAN-31: `HarnessUsage` with `unmeasured`. #190: `WorkerParameters`, `VerificationRecord.tool`, `ProfileWorkerEligibility`, `ProbeWorkspace`, `DecoyServers` (loopback sockets), `VerifyingBinaryCheck`. Still absent: `profile_kind`, the listening-socket owner check, any reader of `weights_probe`, `runtime/endpoint`.
+- Dependencies: PLAN-96, PLAN-26, PLAN-29 shipped; PLAN-34 open (PLAN-97 is ready once it lands). `PM-WATCH-CLIENT-14` present (client-profiles.adoc:152).
+
+### Open questions for the outline
+
+- Does an endpoint harness pass or bypass the #190 load-time gate `ProfileWorkerEligibility` (it reads the `worker` block through `WorkerParameters`; an endpoint profile has none)?
+- Order against `job-confinement-and-environment` on `ProfileValidator`/`ProfileStages`.
+- Does an endpoint enrolment carry `usage_report.start_context` (#174)? `module-structure.adoc` lists no `runtime.endpoint` package.
+- Is the PLAN-34 edge still needed, given `weights_identity` is already in `RoleDigests`?
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

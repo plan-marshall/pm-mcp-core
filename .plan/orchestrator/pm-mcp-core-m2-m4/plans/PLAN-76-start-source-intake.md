@@ -60,21 +60,21 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/start-source-intake.adoc` § What, Trace, Done When on `origin/main` at `4617865` (12 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/start-source-intake.adoc last touched c6da0e20 and unchanged at HEAD 88ec9c70; its 12 What bullets equal the Deliverables
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/start-source-intake.adoc has no commit since 88ec9c70; 12 What bullets equal D1 to D12
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-42 (`operator-wait-and-machine-scope`); PLAN-46 (`machine-onboarding-unit`); PLAN-45 (`project-onboarding-unit`)) — read at `doc/plans/start-source-intake.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: README row start-source-intake at HEAD: open; depends operator-wait-and-machine-scope; machine-onboarding-unit; project-onboarding-unit; start-from-clients; decision-engine; chat; operator-reports; process-designer still depend on it; NOTE access-grants (row added by #151 35fba9ed) also depends on it and is missing from the spec Blocks line
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open, depends on operator-wait-and-machine-scope, machine-onboarding-unit, project-onboarding-unit, all listed
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line of the package file and the class-level surfaces of the former specs, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: 2 of the 6 hypothesis paths are wrong at HEAD: pm-runtime/.../runtime/web/ holds only Der; WebState; WebTls; WebListenerConflictException (TLS and web state; no /api/v1 route in any pm-* module; the listeners are pm-mcp-server per module-structure.adoc) and pm-workflow/.../workflow/unit/ holds only loaders (DefaultUnitLoader; ProjectUnitLoader; PlanUnitMerger; VerificationContext) while default units are classpath:/workflows/ of pm-mcp-server (plan-marshall-mcp doc/plans/default-units-and-drift-tests.adoc); core/store; core/spi; workflow/screening; runtime/start exist; the 9 OBSERVED paths al…
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: runtime/web is TLS state only (Der, WebState, WebTls, WebListenerConflictException); workflow/unit is six loader files; workflow/screening is package-info only; the start units and routes are not here
 - OBSERVED: each module that logs has one holder with its own test, which refuses an identifier used twice and one outside the range of its level (INFO 1-99, WARN 100-199, ERROR 200-299): `CoreLogMessages` (5 records), `RuntimeLogMessages` (81), `WorkflowLogMessages` (5) — `static final LogRecord` counted on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: structure holds (CoreLogMessagesTest; RuntimeLogMessagesTest; WorkflowLogMessagesTest each refuse a duplicate id and an out-of-range id) but the count drifted: Core 5 and Workflow 5 hold; RuntimeLogMessages has 83 static final LogRecord at HEAD not 81 (HARNESS_SELF_UPDATE_ACCEPTED and WORKER_LAUNCH_REFUSED added by #172 4806a304)
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: LogRecord counts at f4a1bd07: Core 5, Workflow 5, Runtime 89 (not 81); three holder tests hold
 - HYPOTHESIS: the package adds INFO, WARN or ERROR messages; its module's log holder is deliberately NOT in the Expected Surface: a record is appended at the next free identifier and a collision is resolved on rebase, as the operator decided for the shared holder on 2026-10-09 and kept for the per-module holders on 2026-10-13 — confirm/refute the need at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis for the outline; pointer: Deliverable 3 retires PendingEntryRecordsSweep whose record PM_RUNTIME-23 RuntimeLogMessages.INFO.PENDING_ENTRY_RECORDS_SWEPT (doc/LogMessages.adoc row; RuntimeLogMessagesTest.sweepRecords) and audit id AuditEvent.PENDING_ENTRY_REMOVED are touched by that retirement
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: D3's retirement still touches PM_RUNTIME-23 and AuditEvent.PENDING_ENTRY_REMOVED, both present
 - HYPOTHESIS: whether the package makes an HTTP call is decided at the specification sections of the trace starting set; the two HTTP constraints bind only if the trace matrix shows one, and only in `pm-runtime` or a provider module — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis for the outline; pointer: Deliverable 1 reads issues and PRs through the provider modules; pm-provider-http HttpClient already returns Outcome.RATE_LIMITED with Optional resetAt (#156 3672829a); no source unit exists yet
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: no source unit exists; HttpClient returns Outcome.RATE_LIMITED with resetAt; fetches go through providers on the closed outbound list
 - OBSERVED: the specification and watch parts of the Expected Surface changed since the claims were last grounded at `c281f6c` only as listed in the verdict — `git diff --numstat c281f6c..4617865`; the executing plan re-reads them at its branch point
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: git diff --numstat c281f6c..4617865 gives filesystem-layout/03 12/8; runtime-lifecycle/01 2/2; store-schemas/10 5/9; since 4617865 runtime-lifecycle/01 and state-catalogue/09 are unchanged; filesystem-layout/03 +1 line (judge-check.json); store-schemas/01 and timeouts/02 link-only; store-schemas/10 +#141 remedy and skipped_tests
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: three declared spec parts changed since 88ec9c70: model-work/07 (#189), state-catalogue/09 (#189), store-schemas/10 (#188, #189)
 - Verify-first clause: before scoping, read the roadmap item this package serves for what the code already covers, list the open pull requests for one that names `start-source-intake`, and check in `doc/plans/README.adoc` that every dependency is `done`; a refutation of any claim above loops back to re-scope.
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: row open at HEAD; PLAN-42; PLAN-46; PLAN-45 packages still listed open (none done); no commit 4617865..HEAD names start-source-intake; open-PR list not re-read (no gh in this leaf)
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: procedure: the index part holds (row open, three dependencies listed, none done)
 
 ## Expected Surface
 
@@ -106,6 +106,45 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/service/AuditEvent.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `doc/LogMessages.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/PendingEntrySchemaParityTest.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-core/doc/adr/core-store/036-entry-question-file-moved-by-the-store.adoc` — accepted; keeps the entry flat and moves in two transactions; D4 needs it superseded; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/PeriodicSweep.java` — `PENDING_ENTRY_MAX_AGE` and the residue sweep still exist; named by the narrative; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/PendingEntryRecordsSweep.java` — the sweep step D3 retires; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/primitive/` — package-info only; the move at creation belongs here and in `core/store` (the `QuestionLog.moveEntryQuestions` precedent); added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/implementation-watch/store-schemas.adoc` — `PM-WATCH-STORE-58` (untrusted lessons); added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-runtime/doc/adr/runtime-start/` — next free number 016; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/Traceability.adoc` — every package adds its lines; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 8: 2 corroborated, 3 contradicted (re-scoped by this section), 3 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claim 2: `runtime/web/` is TLS state only (`Der`, `WebState`, `WebTls`, `WebListenerConflictException`); `workflow/unit/` is six loader files; `workflow/screening/` is package-info only; the start units and routes are not here.
+- Claim 3: `RuntimeLogMessages` holds 89 records (not 81); Core 5 and Workflow 5; the three holder tests hold; `PM_RUNTIME-23` `PENDING_ENTRY_RECORDS_SWEPT` is still present.
+- Claim 6: three declared specification parts changed since `88ec9c70`: `model-work/07` (#189), `state-catalogue/09` (#189), `store-schemas/10` (#188, #189); `filesystem-layout/03`, `runtime-lifecycle/01`, `store-schemas/01`, `timeouts/02` are unchanged.
+
+### Surface
+
+- Added to the Expected Surface above: ADR `core-store/036`, the two sweep classes, `workflow/primitive/`, the store-schemas watch, the `runtime-start` ADR directory, `doc/Traceability.adoc`.
+- wrong: `pm-runtime/.../runtime/web/` is TLS state only (no entry endpoint or file listing can live there: `pm-mcp-server`). `pm-workflow/.../workflow/unit/` is loaders only; the start units are `plan-marshall-mcp` content.
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- **#189 (`1c9f366d`) — Model Work 07 "Trusted" no longer includes a lesson derived from untrusted text (the new field `derived_from_untrusted`): a start screens it like an external source and it stays marked untrusted.** D6's "the operator's text and documents on the machine are never screened" stays true, but a lesson is no longer always trusted; D5, D7 and D8 `source-lesson.*` now include `source-lesson.screen`, `.flagged`, `.unscreened` (State Catalogue 09 renames the source-lesson outcome `stored_untrusted` to `source-lesson.screen`); **D7's "(source-issue.unscreened, source-pr.unscreened)" is incomplete**; the manifest trust rule in Filesystem Layout 03 (`trusted` for what is on this machine) was not updated. Store Schemas 10 adds the required lesson member `derived_from_untrusted` and `PM-WATCH-STORE-58`; the lesson-record code does not exist yet. Widen D5 and D7 to `source-lesson` screening or name the owner at the outline.
+- #188 — Store Schemas 10 job-record `gate_facts` gains a required `side_state`: not this package's; `JobRecordSchemaParityTest` copies `gate_facts` verbatim and is unaffected. Credentials and Enrolment 03 § Closed List of Outbound Calls: the forge fetches of D1 are configured providers and are on the list; they must stay in the provider modules (`pm-provider-http` over `cui-http` `HttpHandler`, `Outcome.RATE_LIMITED` with `resetAt`), and the "no connection" integration test must use a local fake, not a forge.
+- #187 — Job Runtime 02 § Worker Read Set: no effect (the screener is `zero_tool` and gets text in-band; `pending/<id>/sources/` lies under `<PM_MCP_BASE>`, outside every job's read set).
+
+### Shipped or superseded since the last grounding
+
+- #190: the supervisor start of a screener (`WorkerStartRequest.zeroToolPrompt`, `WorkdirKind.JOB_PRIVATE`) and `WorkerProtocol.closeUnavailable`; D7's fail-closed must map the model caller's `role_unqualified` and `role_undefined` (PLAN-26) **and** the start-failure guard's `role_unavailable` close onto `source-<kind>.unscreened`, never onto `suspicious`. Screening cannot run end to end in production until something drives the supervision loop (no owner). Still absent: the `entry.json` directory form, `decisions.jsonl`, `chat/`, `sources/`, the `rate_limited` source cause, `integrity_pause`, `documents_mode`. `PendingEntrySchemaParityTest` is still `@Disabled` and its anchor `=== Pending Entry Record` no longer exists (the heading is `== Pending Entry (pending/<entry_id>/)`).
+- The spec's Blocks line omits `access-grants`, which the index lists as dependent on `start-source-intake`.
+
+### Open questions for the outline
+
+- Which package carries the lesson remedy into the intent (D8, #141 earlier); whether D5 and D7 widen to `source-lesson.*` and who owns it; superseding ADR 036; the anchor repoint for `PendingEntrySchemaParityTest`; where the entry service and routes live; whether the residue sweep keeps `PM_RUNTIME-23` and `pending_entry_removed`.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

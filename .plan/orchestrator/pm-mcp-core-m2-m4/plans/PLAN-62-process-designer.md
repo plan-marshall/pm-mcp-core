@@ -60,13 +60,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/process-designer.adoc` § What, Trace, Done When on `origin/main` at `4617865` (12 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: doc/plans/process-designer.adoc untouched (no doc/plans diff); the cited specification parts workflow-dsl/01 02 04 05 06 09 domain-extensions/05 06 filesystem-layout/01 02 identifiers/01 state-catalogue and its 18 are not in the #177/#179 diff
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/process-designer.adoc has no commit since 88ec9c70; 12 What bullets equal D1 to D12 (several cited spec parts changed since: see the record)
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-43 (`phase-sub-workflows`); PLAN-50 (`recipe-workflows`); PLAN-46 (`machine-onboarding-unit`) (the plan axes and their variants); PLAN-76 (`start-source-intake`) (the short landings); PLAN-26 (`role-sets-and-model-caller`) (the effective role set)) — read at `doc/plans/process-designer.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc: README.adoc untouched; process-designer row still depends on phase-sub-workflows recipe-workflows machine-onboarding-unit start-source-intake only (PLAN-26 shipped #146); the spec text still names PLAN-26
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: index row lists phase-sub-workflows, recipe-workflows, machine-onboarding-unit, start-source-intake only; PLAN-26 shipped (#146, no row); the spec still lists it
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc: pm-runtime has no endpoint code and no change since 88ec9c70; designer routes stay pm-mcp-server content of plan-marshall-mcp; the OBSERVED and added surface paths still exist
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: runtime/ cannot hold designer endpoints or git.land-unit (pm-mcp-server and plan-marshall-mcp); unit/ is loaders only, UnitOrigin has DEFAULT and PROJECT only; no catalogue or machine level
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: README row open and package file unchanged; deps PLAN-43 50 46 76 still open in the index (no doc/plans diff); open-PR list not re-read
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: procedure: the index part holds; all four dependency rows present, none blocked
 
 ## Expected Surface
 
@@ -102,6 +102,41 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `pm-workflow/doc/developer/workflow-plan.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `pm-workflow/doc/developer/workflow-ast.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `pm-workflow/doc/developer/workflow-dsl.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/` — the catalogue source `RoleCatalog`; the narrative names it, the surface omitted it; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/spi/` — the catalogue source `PrimitiveRegistry`; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-workflow/doc/adr/workflow-dsl/` — next free number 009 (R11 and R06 for the changed packages); added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-workflow/doc/adr/workflow-plan/` — next free number 018; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-workflow/doc/adr/workflow-ast/` — next free number 003; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/findings/FindingSchemaParityTest.java` — R10: a reader of a Surface specification part (byte-stable); added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/analysis/AnalysisResultSchemaTest.java` — R10: reader of a Surface specification part; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/dsl/UnitFrontmatterReaderTest.java` — R10: reader of a Surface specification part; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/Traceability.adoc` — every package adds its lines; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 4: 1 corroborated, 2 contradicted (re-scoped by this section), 1 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claim 1: the index row lists `phase-sub-workflows`, `recipe-workflows`, `machine-onboarding-unit`, `start-source-intake` only; PLAN-26 shipped (#146, no row) and the spec still lists it; the row text still says "with their audit" while D11 says no audit record.
+- Claim 2: `runtime/` cannot hold the designer endpoints or `git.land-unit` (`pm-mcp-server` and `plan-marshall-mcp`); `unit/` is loaders only, `UnitOrigin` has `DEFAULT` and `PROJECT` only, `HeaderJson:521` maps only `project`, `ProjectUnitLoader` still emits MISSING; there is no catalogue or machine level.
+
+### Surface
+
+- Added to the Expected Surface above: `core/role/`, `core/spi/`, the ADR directories of `workflow-dsl`, `workflow-plan`, `workflow-ast`, three R10 test readers, `doc/Traceability.adoc`.
+- wrong: `pm-runtime/.../runtime/` — designer endpoints (`pm-mcp-server`) and `git-land-unit.pmwf` (`plan-marshall-mcp`) are not here; `worker/` is unrelated. The R10 note of the second pass is stale: `FindingSourceKind` has `CAPABILITY_TESTS` (#185) and `ADDED_LINES` (#189), so `enumerationsEqualSchema` should match; `componentsInSchemaOrder` is `@Disabled` until `security-audit-and-code-scanning`.
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #186 — Workflow DSL 02 § Declaration schema: the finalize phase unit `phase-6-finalize` gets a compiled declaration `security_severity_caps` (Phase Workflows 05 § Security Audit Calibration). `phase-6-finalize` is designable, so the catalogue's declarable parameters and the validation (`declaration_invalid`) must cover it; `DeclarationBounds` today covers `adjudicate.decisions` and `replan` only.
+- #188 — Workflow DSL 04 INV-ADJ-1: `quorum_not_diverse` by model identity; Rules 13 and 14 are built by `plan-instance-versions`, which is not in this package's Depends: D7's dry run of a placed `adjudicate-decisions.pmwf` applies the identity rule.
+- #181 — Workflow DSL 07 § Positioned Layout and `PM-WATCH-DSL-37`, `-38`: no Deliverable wrong; no package owns the layout. #186, #189, #191 — Store Schemas 03 (finding `submitted_severity`, `security{...}`, the `source` enum `added_lines`, `credential_shaped`), Filesystem Layout 01, Domain Extensions 05: R10 byte-stability only. #184 — Domain Extensions 05 § Consumers Outside the Footprint: not a recipe-place section.
+
+### Open questions for the outline
+
+- Whether Rules 13 and 14 (`plan-instance-versions`) must become a dependency; whether validate and catalogue serve the terminal client (#165, carried earlier); whether the catalogue lists `security_severity_caps`; whether the designer serves the positioned layout.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

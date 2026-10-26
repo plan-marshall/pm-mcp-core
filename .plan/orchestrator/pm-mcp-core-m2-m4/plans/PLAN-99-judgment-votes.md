@@ -56,19 +56,19 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: no work package builds this: none of the package files under `doc/plans/` names `Judgment Votes`, `judgment-vote`, `judgment role`, and the index has no row for `judgment-votes` — `grep` of `doc/plans/` and `ls doc/plans/judgment-votes.adoc` at `4617865`
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: doc/plans/judgment-votes.adoc exists at HEAD (cut by #143 9c9d99c6, dependencies edited by #151 35fba9ed) and doc/plans/README.adoc has the row judgment-votes (open; depends on judgment-endpoint, decision-engine, role-qualification, decision-quorum-and-calibration).
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: doc/plans/judgment-votes.adoc exists (9 What bullets), row open, Depends judgment-endpoint, decision-engine, role-qualification, decision-quorum-and-calibration, Milestone 14; unchanged since 88ec9c70
 - OBSERVED: the specification this plan builds exists and carries the anchors it names — `doc/specification/model-work/10-decision-quorum.adoc`, `doc/specification/store-schemas/16-task-queue.adoc`, `doc/implementation-watch/model-work.adoc`
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: model-work/10-decision-quorum.adoc (#blind-input line 149, #judgment-vote line 160, #quorum-calibration line 196), store-schemas/16-task-queue.adoc (#decision-calibration-record) and implementation-watch/model-work.adoc (PM-WATCH-DISP-63 line 493) exist with their anchors; all three CHANGED since 0bf64f7 by #171 (constant_baseline in the calibration record, judge-check record, PM-WATCH-DISP-64 to 66), so the evidence 'unchanged' is stale, the anchors are intact.
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: anchors read at f4a1bd07: model-work/10 blind-input, judgment-vote, quorum-calibration; store-schemas/16 decision-calibration-record; PM-WATCH-DISP-63 at model-work.adoc:467; 10-decision-quorum.adoc changed only by #188
 - OBSERVED: the dependencies named below are queue rows of this ledger (PLAN-96, PLAN-98, PLAN-47, PLAN-34); `PLAN-96` is the plan that writes the package file and the index row
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Queue rows PLAN-96, PLAN-98, PLAN-47, PLAN-34 exist at HEAD (.plan/orchestrator/pm-mcp-core-m2-m4/queue); PLAN-96 is now shipped (pr #143) and wrote the package files; PLAN-98, PLAN-47, PLAN-34 staged. The index lists a fifth dependency, decision-quorum-and-calibration, that the spec omits.
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: PLAN-96 shipped (#143); PLAN-98, PLAN-47 and PLAN-34 still open rows; the index adds a fifth dependency, decision-quorum-and-calibration
 - OBSERVED: the packages this one waits on have no work package — the index and the package files under `doc/plans/` build none of `the decision quorum`, `adjudicate.decisions`, `Quorum Calibration`, `quorum declaration`; the index will keep this package `blocked` on them
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: doc/plans/decision-quorum-and-calibration.adoc exists (#151 35fba9ed) with an index row (open; depends on decision-engine, role-qualification) and names the decision quorum, adjudicate.decisions, the quorum declarations and the quorum calibration. Code is still absent (pm-workflow workflow/decision/ holds package-info.java only), so the package is cut but not built.
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: doc/plans/decision-quorum-and-calibration.adoc exists (open, Depends decision-engine and role-qualification, Milestone 8); code absent: workflow/decision holds package-info only
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line and the specification parts — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Hypothesis (verify-at-outline). At HEAD the observed paths exist; the HYPOTHESIS doc/plans/judgment-votes.adoc now exists; the surface is partly misplaced (see surface block).
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis verify-at-outline; the class-rule half lives in workflow/model (RoleUse, RoleComposition), so the surface is partly misplaced
 - HYPOTHESIS: the milestone in the `Serves` line and the edges of the `Dependencies` section are the orchestrator's reading of the roadmap and of the specification, not an operator decision — confirm/refute at `doc/plans/README.adoc` and the roadmap items of `plan-marshall-documentation` (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Roadmap reading not read (documentation checkout lags origin, no fetch allowed). Index row at HEAD says Milestone 14 and lists 4 dependencies, so the edge set differs from the spec (adds quorum package, PLAN-96 shipped).
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: milestone holds (14); the edges do not: the index lists four dependencies including decision-quorum-and-calibration, the spec lists PLAN-96/98/47/34 and omits it
 - Verify-first clause: before scoping, check that PLAN-96 has landed (the package file and the index row exist), that the packages this one depends on are done or in flight, and list the open pull requests for one that names the package; a refutation loops back to re-scope.
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: Evidence 'no package file and no index row' is false at HEAD: doc/plans/judgment-votes.adoc and its index row exist, PLAN-96 shipped as #143; judgment-endpoint, decision-engine, role-qualification and decision-quorum-and-calibration are still in the table, so the package is not ready.
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: package file and row exist; PLAN-98, PLAN-47, PLAN-34 and the quorum package are all still open
 
 ## Expected Surface
 
@@ -89,6 +89,41 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/model-work/01-roles-and-configuration.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `doc/specification/model-work/11-decision-records.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `doc/specification/store-schemas/18-decision-records.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/corpus/` — grading reads `exact_choice` items (`ImportedItem.Method.EXACT_CHOICE`); read; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/model/` — the class half of the class rule lives here (`RoleUse`, `RoleComposition`); already in the surface, annotation corrected below; added by the re-grounding of 2026-10-26 as a note
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 7: 3 corroborated, 3 contradicted (re-scoped by this section), 1 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claim 0 and 6: `doc/plans/judgment-votes.adoc` exists (9 What bullets), row open; PLAN-98, PLAN-47, PLAN-34 and the quorum package are all still open.
+- Claim 3: `doc/plans/decision-quorum-and-calibration.adoc` exists (index open, depends on `decision-engine` and `role-qualification`, Milestone 8); it is a **fifth dependency** of this plan in the index and the spec's "(the decision quorum, no work package)" is stale; code is absent (`workflow/decision` is package-info only).
+- Claim 5: the milestone holds (14), the edges do not: the index lists judgment-endpoint, decision-engine, role-qualification and decision-quorum-and-calibration; the spec lists PLAN-96, 98, 47, 34 and omits the quorum package.
+
+### Surface
+
+- Added to the Expected Surface above: `core/role/corpus/` (read) and the note on `workflow/model/`.
+- wrong: `doc/plans/judgment-votes.adoc` is annotated HYPOTHESIS "written by PLAN-96"; it exists.
+- wrong: `pm-core/src/main/java/de/planmarshall/core/store/` is annotated "the decision and calibration records"; no decision or calibration record exists; the home (`core.store` here, `core.role` per the quorum package, `workflow.decision` per `module-structure`) is unsettled.
+- wrong: `pm-workflow/.../workflow/decision/` is "package-info only", still true; the class-rule half lives in `workflow/model`, not `core/role`.
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #188 (`854a7c7a`) — Model Work 10 § Decision Declarations, paragraph **Model Identity** (anchor `model-identity`, watch `PM-WATCH-DISP-67`): two listed roles of one declaration count as one model when their enrolments' weights identities are equal, or else when their identifiers are equal after dropping everything up to the last `/`, everything from the first `:`, and case; the check errs towards refusing (`quorum_not_diverse`, naming both roles, identifiers and the shared identity). It binds the Done-when fixture quorum (a judgment role plus a worker role must name different models) and the composition check of a declaration; the rule itself belongs to the quorum package.
+
+### Shipped or superseded since the last grounding
+
+- PLAN-26 (#146): the class half of the class rule (`RoleUse.classesOf`, `RoleComposition` raising `class_mismatch`). PLAN-104 (#185): `ScopeTransaction`-based appends (ADR `core-store/044`), the seam a decision or calibration record write would use. Still absent: the protocol half (`system_one` vs `openai_chat`), the vote, `rationale_origin`, probabilities, the calibration `form`, any decision or calibration record type.
+- Dependencies: PLAN-96 shipped; PLAN-98, PLAN-47, PLAN-34 and `decision-quorum-and-calibration` open. `PM-WATCH-DISP-63` present (model-work.adoc:467), `PM-WATCH-DISP-67` added by #188.
+
+### Open questions for the outline
+
+- One home for the decision and calibration records; whether `exact_choice` is the corpus's method name (`ImportedItem.Method.EXACT_CHOICE` exists); the fixture quorum must satisfy the #188 model-identity rule; the calibration record's `constant_baseline` (#171) belongs to the quorum package.
+- Package file Left-out: it links `decision-quorum-and-calibration`; the spec's Deliverable 9 says "no work package".
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

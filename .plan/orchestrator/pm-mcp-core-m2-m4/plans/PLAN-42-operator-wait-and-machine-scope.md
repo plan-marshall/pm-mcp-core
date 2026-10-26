@@ -53,15 +53,15 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/operator-wait-and-machine-scope.adoc` § What, Trace, Done When on `origin/main` at `4617865` (6 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc (the only commits since 88ec9c70 are #177 and #179, which touch store-schemas/02 amendments[].changes and phase-workflows/capability text, not this claim's grounding; doc/plans and the code are identical): doc/plans/operator-wait-and-machine-scope.adoc last changed by 88ec9c70 (PLAN-31): bullet 2 no longer links the package files task-queue-and-protocol and slots-usage-and-budgets, it links Model Work 04-worker-launch.adoc#model-slots; the spec Deliverable 2 still names those two shipped packages (6 bullets otherwise unchanged)
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: package file unchanged since 88ec9c70 but its bullet 2 links Model Work 04 model-slots while spec D2 still names task-queue-and-protocol and slots-usage-and-budgets (shipped); other 5 bullets and the Trace match
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-25 (`waits`)) — read at `doc/plans/operator-wait-and-machine-scope.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc (the only commits since 88ec9c70 are #177 and #179, which touch store-schemas/02 amendments[].changes and phase-workflows/capability text, not this claim's grounding; doc/plans and the code are identical): doc/plans/README.adoc at HEAD: row operator-wait-and-machine-scope is open and Depends on nothing; PLAN-25 waits shipped as a53d312d (#145)
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: index row open, Depends on nothing; PLAN-25 waits shipped (a53d312d, no package file); the claim still says it depends on PLAN-25
 - OBSERVED: the static verifier's Rule 10 (`SESSION_DRIVEN_LINKS`, resting link states only in session-driven units) shipped with PLAN-41 (#34) and is one of the things this package changes — read at `pm-workflow/src/main/java/de/planmarshall/workflow/verify/VerificationRule.java`
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc (the only commits since 88ec9c70 are #177 and #179, which touch store-schemas/02 amendments[].changes and phase-workflows/capability text, not this claim's grounding; doc/plans and the code are identical): pm-workflow verify/VerificationRule.java:98 SESSION_DRIVEN_LINKS(10); WorkflowValidator.java lines 2083-2093 emit the violations for resting link states outside session-driven units
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: VerificationRule.SESSION_DRIVEN_LINKS(10) at VerificationRule.java:98; WorkflowValidator emits the violations; pm-workflow has no commit since 88ec9c70
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line; the machine scope's store lands in `core.store` — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc (the only commits since 88ec9c70 are #177 and #179, which touch store-schemas/02 amendments[].changes and phase-workflows/capability text, not this claim's grounding; doc/plans and the code are identical): hypothesis; at HEAD no machine scope store exists in core.store: WorkflowStatus.PHASES lacks machine and JournalScopeType has PLAN, EPIC, WORKSPACE, LESSONS only, while store-schemas/02 enum lists machine
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: no machine store at f4a1bd07 (JournalScopeType has PLAN, EPIC, WORKSPACE, LESSONS); core.store is the plausible home
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc (the only commits since 88ec9c70 are #177 and #179, which touch store-schemas/02 amendments[].changes and phase-workflows/capability text, not this claim's grounding; doc/plans and the code are identical): procedure; index row is open and not blocked at HEAD; use-case agreement and open PRs not reachable read-only; PLAN-25 shipped so a restructured package has landed
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: procedure: index row open; PLAN-14 and PLAN-25 shipped; use-case agreement and open PRs not readable
 
 ## Expected Surface
 
@@ -87,6 +87,44 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusSchemaParityTest.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `doc/specification/store-schemas/02-workflow-state-store.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `doc/specification/filesystem-layout/02-machine-runtime.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/JournalScope.java` — a `machine` scope needs a factory beside the four that exist; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/ChangeLedger.java` — exhaustive switch over `JournalScopeType` (PLAN, EPIC, WORKSPACE, LESSONS) needs an arm for MACHINE; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/MetricsStore.java` — same switch; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/QuestionLog.java` — same switch; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatusStore.java` — same switch; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/` — the test twins of those switches (`MetricsStoreTest`, `ChangeLedgerTest`, the `QuestionLog` tests); added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/setup/` — still package-info only; the plausible home of the setup-gate guard (`machine_not_onboarded`, `onboarding_incomplete` occur in no main source); added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 5: 1 corroborated, 2 contradicted (re-scoped by this section), 2 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claim 0: the package file is unchanged since `88ec9c70`; its bullet 2 links Model Work 04 `#model-slots`, while spec D2 still names `task-queue-and-protocol` and `slots-usage-and-budgets` (both shipped); the other five bullets and the Trace match.
+- Claim 1: the index row is open and depends on nothing; PLAN-25 `waits` is shipped (`a53d312d`, no package file).
+
+### Surface
+
+- Added to the Expected Surface above: `JournalScope`, `ChangeLedger`, `MetricsStore`, `QuestionLog`, `WorkflowStatusStore`, their tests, and `workflow/setup/`.
+- wrong: `pm-core/doc/adr/core-store/` (001 to 045, next 046), `pm-workflow/doc/adr/workflow-verify/` (to 030), `workflow-engine/` (to 012), `workflow-dsl/` (to 008) are annotated "new directory if absent"; all exist. All other entries exist at HEAD; `WorkflowStatusSchemaParityTest` still has `@Disabled` on `phasesEqualSchema` and `scopeTypesEqualSchema`.
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #186 — Workflow DSL 02 § Unit Declarations: the finalize unit `phase-6-finalize` and its `security_severity_caps` join the compiled declaration schemas; the Operator Wait and Waivers sections are untouched.
+- #188 — Workflow DSL 04 INV-ADJ-1: `quorum_not_diverse` compares by model identity; Rules 10, 11b and Static Verification for the operator wait are untouched.
+- #187, #190 — Model Work 04: only read-set text and a deleted start-failure paragraph; the `#model-slots` anchor D2 links is intact (line 193).
+- **Cross-cutting (#185):** `ChangeLedger`, `MetricsStore`, `QuestionLog` and `WorkflowStatusStore` take a `JournalScope` and switch exhaustively over `JournalScopeType`, which has PLAN, EPIC, WORKSPACE, LESSONS only; D4 and D6 add a MACHINE scope, which forces arms in those four switches. `StoreRefusal.Outcome.CONFLICT` is used by `QualificationSettingsStore` only. `PlanInstanceStore` already writes through a `ScopeTransaction`.
+
+### Shipped or superseded since the last grounding
+
+- #190: `runtime.worker` (`WorkerSupervisor`, `ModelSlots`, `WorkerEnding` releasing the slot and the lease) exists with no production caller; with PLAN-31's `ModelSlotStore` the Done-when "no worker and no slot" test can be written against real types. ADR `runtime-worker/008` (lease-aware idle) is the code for the exception of a worker held for its own question.
+
+### Open questions for the outline
+
+- Home of the setup-gate guard and the resident unit `onboarding.pmwf` (no `*.pmwf` under `src/main`; CLAUDE.md forbids content under `workflows/`); whether the vote-wait expiry (`deadline_expired`, `AttemptEnd.DEADLINE_EXPIRED`) stays; how `StalledScopeDetector` treats a machine scope.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

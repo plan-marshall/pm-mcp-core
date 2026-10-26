@@ -54,11 +54,11 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/plan-instance-versions.adoc` § What, Trace, Done When on `origin/main` at `4617865` (5 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc (the only commits since 88ec9c70 are #177 and #179, which touch store-schemas/02 amendments[].changes and phase-workflows/capability text, not this claim's grounding; doc/plans and the code are identical): The package file changed after 4617865: #146 (964f673d) and #151 (35fba9ed) rewrote its Context sentence (the alignment is now stated as done, linking workflow-plan.adoc, no longer plan-instance-alignment's) and its Rules 13 and 14 bullet (role-sets-and-model-caller replaced by the link to Model Work Role Sets & Precedence); the spec's Deliverables still carry the old wording. Substance of the 5 bullets, Trace and Done When is unchanged.
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: doc/plans/plan-instance-versions.adoc changed by 854a7c7a (#188): Rules 13 and 14 now say quorum roles must not be on the same model by Model Work Model Identity (weights identity first, stripped identifier otherwise) and link Role Sets and Precedence; spec D4 lacks the identity clause and still links role-sets-and-model-caller; the Context sentence says plan-instance-alignment's where the file says aligned
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line, the class names of § What and the specification parts the package links, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
-  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc (the only commits since 88ec9c70 are #177 and #179, which touch store-schemas/02 amendments[].changes and phase-workflows/capability text, not this claim's grounding; doc/plans and the code are identical): Hypothesis (verify-at-outline). 7 observed paths exist at HEAD; the hypothesised code and test twins and the developer files (workflow-engine, workflow-plan, workflow-verify, core-store) all exist (see surface block).
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: all 25 Expected Surface paths exist; WorkflowStatusCodec.MEMBERS still names instance_version without a field
 - Verify-first clause: before scoping, list the open pull requests for one that names `plan-instance-versions`, check in `doc/plans/README.adoc` that no package it depends on is still listed, and read the roadmap item this package serves for what the code already covers; a refutation of any claim above loops back to re-scope.
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc (the only commits since 88ec9c70 are #177 and #179, which touch store-schemas/02 amendments[].changes and phase-workflows/capability text, not this claim's grounding; doc/plans and the code are identical): README row plan-instance-versions at HEAD: open, depends on nothing (role-sets-and-model-caller shipped as #146); no remote branch names it. Package file last changed by #151.
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open, depends on nothing; PLAN-26 (#146) shipped
 
 ## Expected Surface
 
@@ -88,6 +88,36 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/model/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `pm-workflow/doc/developer/workflow-model.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `pm-workflow/src/main/resources/de/planmarshall/workflow/plan/composition-rules.json` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/RoleEnvironment.java` — `weightsIdentity(clientId, model)` is the input of the model-identity comparison of Rule 13's quorum check; in a directory not on the surface; read; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `doc/specification/model-work/10-decision-quorum.adoc` — now holds the Model Identity rule (`#model-identity`, `PM-WATCH-DISP-67`) D4 builds on; read; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 3: 1 corroborated, 1 contradicted (re-scoped by this section), 1 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claim 0: `doc/plans/plan-instance-versions.adoc` changed by #188 (`854a7c7a`): the "Rules 13 and 14" bullet now says quorum roles must not be on the same model by Model Work § Model Identity, weights identity first and the stripped identifier otherwise, and links Model Work § Role Sets & Precedence. **Spec D4 lacks the identity clause and still links `role-sets-and-model-caller`** (shipped, no package file); the Context sentence says alignment is `plan-instance-alignment`'s where the file says it is aligned (linking `workflow-plan.adoc`). The other bullets, the Done-when and the Trace match.
+
+### Surface
+
+- Added to the Expected Surface above: `RoleEnvironment` (read), `model-work/10`.
+- wrong: `pm-core/doc/adr/core-store/`, `pm-workflow/doc/adr/workflow-engine/`, `workflow-plan/`, `workflow-verify/` are annotated "new directory if absent"; all exist (last 045, 012, 017, 030).
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #188 (`854a7c7a`) — Model Work 10 § Decision Declarations and the new § Model Identity, Workflow DSL 04 INV-ADJ-1, the package file and the watch: two listed roles are the same model when their enrolments' weights identities are equal; where either has none, when the identifiers are equal after dropping everything up to the last `/`, everything from the first `:`, and lower-casing; the check errs towards refusal (`qwen3:32b` equals `qwen3:8b`); the refusal names both roles, both identifiers and the shared identity. **D4's "pairwise different models" is wrong without "by model identity"**, and `PM-WATCH-DISP-67` (a table test plus a matched control) applies to D4: add both to D4, the Trace and the Done-when at the outline.
+- #181 — adds `PM-WATCH-DSL-37` and `-38` only; `PM-WATCH-DSL-21` untouched (workflow-dsl.adoc:248).
+
+### Shipped or superseded since the last grounding
+
+- `quorum_not_diverse` appears in no main source; the owner of the quorum validation outside composition is still unnamed. #185: `PlanInstanceStore` already writes through a `ScopeTransaction`; `StoreRefusal.Outcome.CONFLICT` is available. No `pm-workflow` change since `88ec9c70`. Dependencies: PLAN-26 shipped (#146).
+
+### Open questions for the outline
+
+- Which package owns the `quorum_invalid` / `quorum_not_diverse` validation outside composition (Model Work 10 "same compositions and every adjudication"); where plan creation (`start`) lives (no creation code and no `start-from-clients` dependency).
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

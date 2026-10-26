@@ -56,21 +56,21 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/epic-resource-and-release.adoc` § What, Trace, Done When on `origin/main` at `4617865` (7 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/epic-resource-and-release.adoc at HEAD has 7 What bullets and is unchanged since 72aec5cb (git diff 4617865 HEAD on it is empty); Trace and Done When equal the spec.
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/epic-resource-and-release.adoc has no commit since 88ec9c70; 7 What bullets equal D1 to D7
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-51 (`plan-and-epic-control`) (coupling: the bullet _Holds and their acts_ there offers the epic cancel built here as an integrity pause's resolution _abort_; recorded on this edge, not as a reverse dependency)) — read at `doc/plans/epic-resource-and-release.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/README.adoc row epic-resource-and-release at HEAD: open, depends only on plan-and-epic-control with the same Holds-and-their-acts coupling note.
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open, depends on plan-and-epic-control with the holds-and-their-acts coupling note
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line of the package file and the class-level surfaces of the former specs, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Hypothesis (verify-at-outline). HEAD facts: the 7 observed paths exist; pm-workflow workflow/epic/ holds package-info.java only; pm-runtime runtime/web/ holds Der, WebState, WebTls, WebListenerConflictException only (see surface block).
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: workflow/epic is package-info only; runtime/web is TLS only; runtime/enrolment (9 classes) exists; no epic header, queue-row or terminal_reason type
 - OBSERVED: each module that logs has one holder with its own test, which refuses an identifier used twice and one outside the range of its level (INFO 1-99, WARN 100-199, ERROR 200-299): `CoreLogMessages` (5 records), `RuntimeLogMessages` (81), `WorkflowLogMessages` (5) — `static final LogRecord` counted on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Each holder has its test (CoreLogMessagesTest, RuntimeLogMessagesTest, WorkflowLogMessagesTest: range of level, no identifier twice). Counts at HEAD: Core 5, Workflow 5, Runtime 83; Runtime was 81 at 4617865 and PLAN-29 (#172) added 2, so the figure 81 is stale.
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: LogRecord counts: Core 5, Workflow 5, Runtime 89 (81 at 4617865, 83 at 88ec9c70, +6 by #190)
 - HYPOTHESIS: the package adds INFO, WARN or ERROR messages; its module's log holder is deliberately NOT in the Expected Surface: a record is appended at the next free identifier and a collision is resolved on rebase, as the operator decided for the shared holder on 2026-10-09 and kept for the per-module holders on 2026-10-13 — confirm/refute the need at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Hypothesis that the package adds records; nothing to read at HEAD. Next free Runtime identifiers move with every landing (83 records now).
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: the release will add Runtime records; the next ids move with each landing
 - HYPOTHESIS: whether the package makes an HTTP call is decided at the specification sections of the trace starting set; the two HTTP constraints bind only if the trace matrix shows one, and only in `pm-runtime` or a provider module — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Hypothesis; no release or epic-action code exists to show an HTTP call. The package makes none in its text; undecidable before the trace matrix.
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: nothing in the deliverables calls out; the closed outbound list is not engaged
 - OBSERVED: the specification and watch parts of the Expected Surface changed since the claims were last grounded at `c281f6c` only as listed in the verdict — `git diff --numstat c281f6c..4617865`; the executing plan re-reads them at its branch point
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Re-run over the declared spec parts since 4617865: only credentials-and-enrolment/02 (1 line, developer-guide links) and filesystem-layout/03 (+1 line qualification/judge-check.json) changed; model-work/08, state-catalogue/06 and store-schemas/04 are unchanged.
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: no diff 88ec9c70..f4a1bd07 over credentials-and-enrolment/02, filesystem-layout/03, model-work/08, state-catalogue/06, store-schemas/04
 - Verify-first clause: before scoping, read the roadmap item this package serves for what the code already covers, list the open pull requests for one that names `epic-resource-and-release`, and check in `doc/plans/README.adoc` that every dependency is `done`; a refutation of any claim above loops back to re-scope.
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: README row open at HEAD; PLAN-51 still listed (the recorded coupling); only remote branch besides main is origin/dependabot/maven/... (open PR list itself not queried, no gh); package file unchanged since 72aec5cb.
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: procedure: the index part holds (row open, PLAN-51 listed)
 
 ## Expected Surface
 
@@ -93,6 +93,37 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/store-schemas/04-epic-and-change-ledger.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/service/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/queue/QueueTaskRecord.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- HYPOTHESIS: `pm-workflow/doc/adr/workflow-epic/` — new directory, still absent (also created by `PLAN-57`); added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/` — the release must end workers (`WorkerEnding`, `EndCause`, `WorkerSupervisor`); neither is wired; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-runtime/doc/adr/runtime-enrolment/` — exists, 7 ADRs, next 008; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/Traceability.adoc` — every package adds its lines; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 8: 3 corroborated, 1 contradicted (re-scoped by this section), 4 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claim 3: `RuntimeLogMessages` holds 89 records (81 at `4617865`, 83 at `88ec9c70`, +6 by #190); Core 5 and Workflow 5; the three holder tests hold.
+
+### Surface
+
+- Added to the Expected Surface above: `workflow-epic` ADR directory, `runtime/worker/`, the `runtime-enrolment` ADR directory, `doc/Traceability.adoc`.
+- wrong: `pm-runtime/.../runtime/web/` is TLS and web state only (`Der`, `WebState`, `WebTls`, `WebListenerConflictException`); the epic resource and operator endpoints are `pm-mcp-server` routes.
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- None: no commit of #181 to #192 touches this plan's Surface specification parts (`credentials-and-enrolment/02`, `filesystem-layout/03`, `model-work/08`, `state-catalogue/06`, `store-schemas/04` have an empty diff since `88ec9c70`).
+
+### Shipped or superseded since the last grounding
+
+- Already built (re-read at HEAD): `ProjectEnrolment.releasedAt`/`isReleased`, `EnrolmentCodec` `released_at`, `LifecycleGate` `lifecycle_closed` for a released project, `Enrolments` clears the release on enrol, unenrol refused `scope_active` (ADR `runtime-enrolment/004`), `QueueTaskRecord` `WITHDRAWN`. #190 adds the worker end path: **`EndCause` is closed at TASK_DONE, RECYCLE, DRAIN, PAUSE_AT_ONCE, LOST, OFF_TRACK, START_FAILURE: there is no release or abort cause and no per-plan or per-project end call; `WorkerSupervisor.stopAdmitting()` is one-way and cannot be reused for `lifecycle_closed` (the gate belongs at the caller); "unenrol refused while work runs" would count `generations()`/`quiet()` through a `LiveWork` adapter that does not exist.** The release act, `release_landing_pending`, the `released` outcomes, the epic resource and `terminal_reason` are all absent.
+
+### Open questions for the outline
+
+- Which per-plan or per-project worker-end call the release uses, and which cause; how the `pm-runtime` release reaches the engine's `plan.aborted`/`epic.aborted` without depending on `pm-workflow` (still unnamed); the epic ledger record types are created by no package.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

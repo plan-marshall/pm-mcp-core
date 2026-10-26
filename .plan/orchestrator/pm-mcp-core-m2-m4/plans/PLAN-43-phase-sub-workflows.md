@@ -67,17 +67,17 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/phase-sub-workflows.adoc` § What, Trace, Done When on `origin/main` at `4617865` (10 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc: doc/plans/phase-sub-workflows.adoc untouched since 88ec9c70 (git log 88ec9c70..8233fffc over doc/plans is empty); package bullet 10 still names per decision DC-n (#168) while spec Deliverable 10 and Done-when still name only CN and NG; the other 9 bullets and the trace equal the spec; no source change under pm-core/pm-workflow/pm-runtime/pm-providers in that range
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: doc/plans/phase-sub-workflows.adoc unchanged since 88ec9c70 (last c3a4a6f8, #168); its bullet 10 adds per decision DC-n (followed with evidence, departed as a finding, or not_verified), spec D10 lacks it
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-42 (`operator-wait-and-machine-scope`)) — read at `doc/plans/phase-sub-workflows.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: doc/plans/README.adoc row phase-sub-workflows is still open; README untouched since 88ec9c70; the dependency on operator-wait-and-machine-scope is unchanged
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open, depends on operator-wait-and-machine-scope only; PLAN-42 not shipped
 - OBSERVED: the call-graph depth limit of 4 (Rule 7, `CALL_GRAPH_DAG`) shipped with PLAN-41 (#34); this package grows the call depth by one — read at `pm-workflow/src/main/java/de/planmarshall/workflow/verify/VerificationRule.java`
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: VerificationRule.CALL_GRAPH_DAG(7) javadoc states maximum depth at most 4; WorkflowStatus.MAX_CALL_DEPTH = 4 (line 86); WorkflowValidator line 1405 message says maximum depth 4; no pm-workflow or pm-core source changed since 88ec9c70
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: VerificationRule.CALL_GRAPH_DAG maximum depth 4; WorkflowStatus.MAX_CALL_DEPTH = 4; CallStack.MAX_DEPTH; WorkflowValidator message says 4
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line; the plan's history lands in `core.store` — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: hypothesis; pm-core/store holds no plan-history type (listing read) and the unit package has loaders only (DefaultUnitLoader, PlanUnitMerger, ProjectUnitLoader); the plan history is not built so the surface cannot be confirmed before the outline
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: no plan-history type in core.store; mcp/history.jsonl is the ADR core-store/044 append idiom, which supports core.store but is not proof
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc: the package file changed in c3a4a6f8 (#168) and not in 72aec5cb; the row is still open with PLAN-42 listed; open-PR list not readable here (no gh), so that part of the clause stays unread
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: the refutation stands: the package file carries DC-n, spec D10 does not; row open with PLAN-42 still listed
 - OBSERVED: the specification part above carries the added content — the bullet *Trade-offs nobody named* (refine) and the paragraph on the three questions of the builder check in `phase-workflows/01-planning-phases-1-2.adoc` — read at `4617865`
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: re-read at 8233fffc after #177 touched phase-workflows/01: Trade-offs nobody named (line 450) and the three questions of the builder check (line 480) are still present; #177 only inserted Proportion (448) and two Capability Specs bullets and appended one sentence to Revisions; A fix is tested (454) is still there
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: phase-workflows/01 Trade-offs nobody named and the three builder-check questions still present; #189 and #192 touched only the source-lesson row and the builder-check operator bullet
 
 ## Expected Surface
 
@@ -121,6 +121,40 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/implementation-watch/phase-workflows.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `doc/specification/phase-workflows/04-finalize-step-bands.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `doc/specification/phase-workflows/07-questions-waivers-operator-influence.adoc` — exists at HEAD `8233fffc`; added by the second re-grounding pass of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-workflow/doc/developer/workflow-finalize.adoc` — D9 and D10 change `workflow.finalize` (`FinalizePipelineValidator`); the package is on the surface, its documents were not; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `pm-workflow/doc/adr/workflow-finalize/` — last number 003; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-workflow/doc/adr/workflow-ast/` — last number 002; D2 removes `StateNode.phase` and `partVersions` in `workflow.ast`; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc` — § Positioned Layout (#181) addresses a plan unit or phase sub-workflow by the process tree's `node_id`; read, not edited; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 6: 3 corroborated, 2 contradicted (re-scoped by this section), 1 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claims 0 and 4: `doc/plans/phase-sub-workflows.adoc` (last `c3a4a6f8`, #168) carries in its bullet 10 "per decision DC-n (followed with its evidence, departed as a finding, or not_verified)"; spec D10 lacks it. Bullets 1 to 9, Done-when and Trace match. The row is open with PLAN-42 still listed.
+
+### Surface
+
+- Added to the Expected Surface above: `workflow-finalize` guide and ADR directory, `workflow-ast` ADR directory, `workflow-dsl/07`.
+- wrong: the ADR directories of `workflow-unit`, `workflow-engine`, `workflow-verify`, `workflow-plan`, `workflow-diagram`, `core-store` are annotated "new if absent"; all exist (last 006, 012, 030, 017, 011, 045).
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- **#192 (`2dba06fd`) — Phase Workflows 01 § Builder Check, the `operator` question bullet: a goal the criteria do not reach is always an operator question**, restated as the implementation and what of the goal it leaves undone, naming the goal and the criteria it passes; a second fixture (goal "an export completes for every account") is added to `PM-WATCH-PHASE-111` (present at phase-workflows.adoc:1652). The package file, spec D8, D10 and the Done-when do not carry it: add it to D8 and D10 at the outline.
+- Add the DC-n clause to D10 (above).
+- #186, #191 — Store Schemas 03 (`security`, `submitted_severity`, Located Finding Grounding, `credential_shaped`), Phase Workflows 04 and Workflow DSL 02 (`security_severity_caps`): owned by `security-audit-and-code-scanning`; this plan deletes only § Phases as Sub-Workflows from `store-schemas/03` and must not touch those. #189 — the `source-lesson` row is `start-source-intake`'s; `FindingSourceKind.ADDED_LINES` exists.
+- #181 — Workflow DSL 07 § Positioned Layout: a graph is one unit of the plan instance in force (the plan unit or one phase sub-workflow), addressed by the process tree's `node_id`; **no package owns it**.
+
+### Shipped or superseded since the last grounding
+
+- #185 gives the `ScopeTransaction.append` idiom for `history.jsonl` (ADRs `core-store/044`, `045`); PLAN-31's `ModelSlots` and #190's `ModelSlots` allow D9's test "never takes the plan's writer slot". Nothing delivers the history, the phases or the intent record. Dependencies: PLAN-42 open.
+
+### Open questions for the outline
+
+- Does the builder-check goal question (#192) apply to a chat or re-planning revision (D7 and D8 carry only the submit path)? Who builds the Positioned Layout of a unit? Do not delete or implement the `02-planning-lanes-phases-3-4` rows owned by `finalize-pipeline-and-merge`.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

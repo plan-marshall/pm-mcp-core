@@ -65,15 +65,15 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/decision-engine.adoc` § What, Trace, Done When on `origin/main` at `4617865` (9 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/decision-engine.adoc has an empty diff 4617865..HEAD (last change c281f6c); Deliverables 1-9 equal its What
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/decision-engine.adoc has no commit since 88ec9c70; its 9 What bullets equal D1 to D9
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-42 (`operator-wait-and-machine-scope`); PLAN-76 (`start-source-intake`) (the entry's decision stores and their move)) — read at `doc/plans/decision-engine.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/README.adoc at HEAD: decision-engine open; Depends on operator-wait-and-machine-scope and start-source-intake, neither shipped
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open, depends on operator-wait-and-machine-scope and start-source-intake, both rows still listed
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis verify-at-outline; see surface rows for the paths HEAD already holds
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: runtime/ root has only question/ (QuestionLogRecordReader) and web/ (TLS state); the answer endpoint is a pm-mcp-server route; workflow/decision and workflow/question are package-info only
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: procedure; row open and not blocked at HEAD; open PRs and use-case agreement not reachable read-only
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: procedure: the index part holds (row open); use-case agreement and open PRs are not readable
 - OBSERVED: the specification parts above carry the added content — `rationale_origin` and `probabilities` in the vote schema of `store-schemas/18-decision-records.adoc`, the adjudication sentence of `model-work/11-decision-records.adoc` and § Judgment Votes of `model-work/10-decision-quorum.adoc` — read at `4617865`
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: HEAD: store-schemas/18-decision-records.adoc carries rationale_origin (2 hits) and probabilities (3); model-work/11 mentions the adjudication (9 hits); model-work/10 line 161 is the heading Judgment Votes
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: store-schemas/18 required holds rationale_origin and probabilities; model-work/11 adjudication sentence present; model-work/10 Judgment Votes at line 164
 
 ## Expected Surface
 
@@ -96,6 +96,34 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/model-work/11-decision-records.adoc` — specification part; the implemented sections deleted (added by cleanup on 2026-10-22: changed by #132 to #134)
 - HYPOTHESIS: `pm-workflow/doc/developer/workflow-decision.adoc` — to be created; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `pm-runtime/doc/developer/runtime-question.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-runtime/doc/adr/runtime-question/` — exists (001 to 004), next 005; the plan extends `runtime/question`; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `doc/Traceability.adoc` — every package adds Implementation, Verified by and Documentation lines; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 5: 3 corroborated, 0 contradicted, 2 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`). Nothing is contradicted; the spec equals its unchanged package file.
+
+### Surface
+
+- Added to the Expected Surface above: the `runtime-question` ADR directory and `doc/Traceability.adoc`.
+- wrong: `pm-runtime/src/main/java/de/planmarshall/runtime/` — the root is not an endpoint host: the `/api/v1` routes (the answer endpoint, channel `cli`) are `pm-mcp-server`; only `runtime/question/` exists, as a reader adapter. `runtime/worker/` is new at the root and unrelated. The R06 documents `pm-workflow/doc/developer/workflow-question.adoc`, `adr/workflow-decision/`, `adr/workflow-question/` are absent (the narrative says so, the surface lists only `workflow-decision.adoc`).
+- Note: the answer endpoint's counterpart is a route in `plan-marshall-mcp`.
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #188 (`854a7c7a`) — Model Work 10 § Decision Declarations and a new paragraph **Model Identity** (`quorum_not_diverse` by weights identity, else the identifier stripped of the prefix up to the last `/` and the variant from the first `:`, lower-cased; `PM-WATCH-DISP-67`): no Deliverable or Done-when is made wrong; deleting implemented sections of `model-work/10` must keep that paragraph, because `decision-quorum-and-calibration` and `plan-instance-versions` own it. Model Work 10 § Judgment Votes is now at line 164.
+- #177 (`3b3ada1d`) — Store Schemas 02: `amendments[]` gains an optional member `changes` (null where the server cannot tell; an answered question writes null, which counts as possibly every item and can raise `intent_amended`); reaches D1 through Model Work 06 § Answers & Amendments.
+
+### Shipped or superseded since the last grounding
+
+- #93 (earlier): `QuestionRecord`, `QuestionLog`, `QuestionRefusal` (Conflict, AlreadyAnswered), `QuestionChannel`. #185: `StoreRefusal.Outcome.CONFLICT` is a separate vocabulary from `QuestionRefusal.Conflict` (ADR `core-store/045` rejects reuse); D8's conflict is the question one; the answer record can follow the `ScopeTransaction` append pattern (ADR 044). #190: only the supervisor seam: `interpret` and quorum voters start as ordinary queue tasks through `WorkerSupervisor.start(WorkerStartRequest)`; `WorkerLifecycle.HOLDING` exists; D4's `none_fits` and answer-in-next-task are `question-continuation`'s. Still absent: `DecisionRecord`, `invalid_answer`, `dependency_unanswered`, the interpret/read-back/confirm states, the answer endpoint.
+- Dependencies: PLAN-42 and PLAN-76 open. The index lists `judgment-votes`, `own-calls`, `decision-quorum-and-calibration` and `remediation-units` as dependants; the spec's Blocks names only PLAN-55 and PLAN-58.
+
+### Open questions for the outline
+
+- Where the answer endpoint's pure logic lives (`pm-runtime` vs `pm-mcp-server`); whether D1's amendment write carries `changes: null` or a computed value; whether `none_fits` offers its `ask` link again through `question-continuation` (open, not a dependency); vote derivation is testable on fixture votes only.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

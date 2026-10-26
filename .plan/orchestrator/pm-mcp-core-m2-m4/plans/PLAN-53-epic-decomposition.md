@@ -54,21 +54,21 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/epic-decomposition.adoc` § What, Trace, Done When on `origin/main` at `4617865` (7 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: doc/plans/epic-decomposition.adoc last touched 72aec5cb (#111) and untouched since; 7 What bullets equal the Deliverables
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/epic-decomposition.adoc unchanged; 7 What bullets and Done When equal D1 to D7
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-42 (`operator-wait-and-machine-scope`); PLAN-55 (`chat`); PLAN-77 (`epic-resource-and-release`) (the archive check, next plan)) — read at `doc/plans/epic-decomposition.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: README row epic-decomposition is open (line 144) and depends on operator-wait-and-machine-scope, chat and epic-resource-and-release (all listed rows); README untouched since 88ec9c70
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open, depends on operator-wait-and-machine-scope, chat, epic-resource-and-release, all rows still listed
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line of the package file and the class-level surfaces of the former specs, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
-  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: hypothesis verify-at-outline; workflow/epic holds package-info.java only; git grep for decomposition and epic-intent in Java and JSON sources finds nothing; decomposition.pmwf and the decompose role are plan-marshall-mcp content
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: workflow/epic is package-info only; no decomposition or epic.json code in any main source
 - OBSERVED: each module that logs has one holder with its own test, which refuses an identifier used twice and one outside the range of its level (INFO 1-99, WARN 100-199, ERROR 200-299): `CoreLogMessages` (5 records), `RuntimeLogMessages` (81), `WorkflowLogMessages` (5) — `static final LogRecord` counted on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: static final LogRecord counts are CoreLogMessages 5, WorkflowLogMessages 5, RuntimeLogMessages 83 (the quoted 81 is stale); no source change since 88ec9c70; the per-holder tests were confirmed in the first pass
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: holders and tests exist; Core 5, Workflow 5, Runtime 89 (the 81 in the text is stale)
 - HYPOTHESIS: the package adds INFO, WARN or ERROR messages; its module's log holder is deliberately NOT in the Expected Surface: a record is appended at the next free identifier and a collision is resolved on rebase, as the operator decided for the shared holder on 2026-10-09 and kept for the per-module holders on 2026-10-13 — confirm/refute the need at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: hypothesis about the need for log records; no decomposition code exists so nothing in source can settle it
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis about log need; no decomposition code exists
 - HYPOTHESIS: whether the package makes an HTTP call is decided at the specification sections of the trace starting set; the two HTTP constraints bind only if the trace matrix shows one, and only in `pm-runtime` or a provider module — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: hypothesis about HTTP calls; Deliverable 2 names git.commit_and_push only and no code for this package exists
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: D2 names only git.commit_and_push; the epic spec parts have no outbound HTTP
 - OBSERVED: the specification and watch parts of the Expected Surface changed since the claims were last grounded at `c281f6c` only as listed in the verdict — `git diff --numstat c281f6c..4617865`; the executing plan re-reads them at its branch point
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: re-read at 8233fffc: of the Expected Surface specification parts only phase-workflows/01 changed since 4617865 (git diff --numstat shows 6 added and 1 removed there; model-work/08, state-catalogue/06 and 17 and store-schemas/04 show no change); the extent is now #175 plus #177 rather than the +1 line of the first pass, and #177 added only plan-level capability and proportion text
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: epic spec parts (model-work/08, state-catalogue/06 and 17, store-schemas/04) have no commit after 4617865; phase-workflows/01 changed (#177, #189, #192), see the record
 - Verify-first clause: before scoping, read the roadmap item this package serves for what the code already covers, list the open pull requests for one that names `epic-decomposition`, and check in `doc/plans/README.adoc` that every dependency is `done`; a refutation of any claim above loops back to re-scope.
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: README row open and all three dependencies are still listed rows; open-PR list not readable (no gh), caveat as in the first pass
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open, all three dependencies listed rows
 
 ## Expected Surface
 
@@ -88,6 +88,31 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/phase-workflows/01-planning-phases-1-2.adoc` — specification part; the implemented sections deleted (the Intent Record)
 - HYPOTHESIS: `pm-workflow/doc/developer/workflow-epic.adoc` — to be created; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - HYPOTHESIS: `pm-workflow/doc/adr/workflow-epic/` — to be created; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/ScopeTransaction.java` — the one ledger write under the epic lock is now the `ScopeTransaction` pattern (ADR `core-store/044`); added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/JournalScopeType.java` — the `EPIC` scope exists; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 8: 5 corroborated, 0 contradicted, 3 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`). Nothing is contradicted.
+
+### Surface
+
+- Added to the Expected Surface above: `ScopeTransaction`, `JournalScopeType`. No annotation is wrong. No `epic.json`, queue or landings store exists: only `ChangeLedger` (`change-ledger.jsonl`).
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- **Caution (#177, #189, #192) — Phase Workflows 01:** the Intent Record section holds Proportion (line 448, inside the section this plan partly deletes) and the epic-seed Preservation bullet (line 438: required claims from `done_when` and non-goals); Capability Specs (456 to 468) and Builder Check (469 to 483; #192 adds "a goal the criteria do not reach" as an operator question) are plan-level; Plan Source Contracts at 290 (#189). **This plan may delete only the epic-intent parts of The Intent Record (406 to 455) and must keep the rest.**
+- No overlap with `security-audit-and-code-scanning` (epic registers are not plan findings; the grounding of #186 does not apply to them).
+
+### Shipped or superseded since the last grounding
+
+- #185 / ADR `core-store/044`: `ChangeLedger` and `MetricsStore` append through `ScopeTransaction` with an `EPIC` scope, and ADR 045 `StoreRefusal.CONFLICT`: what the epic ledger writes must build on; next `core-store` ADR 046. D6 (restructure) still has no target: nothing of decomposition exists. Dependencies: PLAN-42, PLAN-55, PLAN-77 open (the index agrees).
+
+### Open questions for the outline
+
+- Home of the compiled-only `decomposition.pmwf` and the `decompose` role (`plan-marshall-mcp` vs fixtures here); who builds the epic ledger store (`epic.json`, queue rows) that decomposition and `PLAN-92` both presuppose.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

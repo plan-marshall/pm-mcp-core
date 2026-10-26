@@ -106,8 +106,10 @@ lane's figures.
 `disagree` (declarations are package-level), one is unevaluated (PLAN-102). **30 staged and parked specs share files beyond
 the index with the footprint:** 28 on code (`JobRecordStore`, `WorkerState`, `WorkerStateCodec` by `core/store` directory;
 `VerificationRecord`, `WorkerParameters` by `core/profile`; `runtime/worker/` by package) and 2 on documents only (PLAN-35,
-PLAN-60). **Seven specs declare `runtime/worker/` itself and still say it holds only `package-info.java`** (PLAN-46, 47, 57,
-58, 62, 66, 73): their premise "the package is greenfield" is now false. Running plans: none. The two shared files with the
+PLAN-60). **Two specs say `runtime.worker` holds only `package-info.java`** (PLAN-66 in its Expected Surface, PLAN-73 in
+Deliverable 1): their premise "the package is greenfield" is now false. (The first count of this report, seven, was a prefix
+match on the `runtime/` root that PLAN-46, 47, 57, 58, 62, 76 and 77 declare as a hypothesis; the cleanup of 2026-10-26
+read the specs and corrected it.) Running plans: none. The two shared files with the
 last landing (`model-work/04-worker-launch.adoc`, `store-schemas/11`) merged clean.
 
 ADR numbers: `runtime-worker` 001 to 009 are taken (a new directory); `core-store` stays at 046 next and `runtime-launch` at 006

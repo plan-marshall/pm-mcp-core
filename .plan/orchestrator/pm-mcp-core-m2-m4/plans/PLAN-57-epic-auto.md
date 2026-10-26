@@ -56,13 +56,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/epic-auto.adoc` § What, Trace, Done When on `origin/main` at `4617865` (9 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: doc/plans/epic-auto.adoc not in the 88ec9c70..8233fffc diff; 9 What bullets still equal Deliverables 1-9
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/epic-auto.adoc has no commit since 88ec9c70; 9 What bullets equal D1 to D9
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-51 (`plan-and-epic-control`) (the operator's acts on a plan); PLAN-77 (`epic-resource-and-release`) (next plan, the toggle among the epic's actions, archive, the release); PLAN-53 (`epic-decomposition`)) — read at `doc/plans/epic-auto.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: README row epic-auto (line 156-159) open and depends on plan-and-epic-control epic-resource-and-release epic-decomposition with the same notes; README not in the diff
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open, depends on plan-and-epic-control, epic-resource-and-release, epic-decomposition, all rows still listed
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: hypothesis verify-at-outline; git grep of main java at 8233fffc finds no auto_start overlap_max_files or overlap_found; workflow/epic is package-info only and no epic header or queue-row type exists (core/queue holds the task queue only)
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: no auto_start, overlap_max_files, overlap_found or terminal_reason symbol in main Java; workflow/epic is package-info only; runtime/ root cannot host PUT auto|settings
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: row epic-auto open and its three dependencies still listed; package file not in the diff; no remote branch re-read
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: procedure: the index part holds; use cases and open PRs are not readable
 
 ## Expected Surface
 
@@ -83,6 +83,33 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/store-schemas/07-project-configuration.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/08-project-configuration-local.adoc` — specification part; the implemented sections deleted
 - HYPOTHESIS: `pm-workflow/doc/developer/workflow-epic.adoc` — to be created; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- HYPOTHESIS: `pm-workflow/doc/adr/workflow-epic/` — new directory; R06 for the new `workflow/epic` package; `PLAN-77` declares the same developer file and ADR directory, so the two co-create them; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `doc/Traceability.adoc` — every package adds its lines; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 4: 2 corroborated, 0 contradicted, 2 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`). Nothing is contradicted; the spec equals its unchanged package file.
+
+### Surface
+
+- Added to the Expected Surface above: `workflow-epic` ADR directory and `doc/Traceability.adoc`.
+- wrong: `pm-runtime/.../runtime/` — not an endpoint host; `PUT .../auto` and `PUT .../settings` are `pm-mcp-server` routes; the root now also holds `worker/`, unrelated.
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #181 (`7f1d6a99`) — Store Schemas 08: the `local-config.json` schema gains a sibling object `diagrams.format` (`text` or `mermaid`) and a key-table row; the project values `epic.auto_start` and `epic.overlap_max_files` are untouched; deleting implemented sections of `store-schemas/08` must keep `diagrams`, and the writer must keep other members.
+- #185 — ADR `core-store/045`: `QualificationSettingsStore.write(settings, revision)` refuses a stale revision with `StoreRefusal.Outcome.CONFLICT` and other members survive: the precedent for the epic values of `local-config.json`.
+- No other commit touches Model Work 08, Phase Workflows 08, State Catalogue 06, Store Schemas 04 or 07 since `8233fffc`.
+
+### Shipped or superseded since the last grounding
+
+- #185's revision/conflict pattern only; #190 and PLAN-29/31/32/40: nothing for the epic. Dependencies: PLAN-51 (its Depends dropped `supervisor`), PLAN-77, PLAN-53 open.
+
+### Open questions for the outline
+
+- Order against `PLAN-77` and `start-from-clients` on the same `epic` object of `local-config.json` (and the epic header and queue-row types, which no package creates); the `pm-mcp-server` routes have no `plan-marshall-mcp` package.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

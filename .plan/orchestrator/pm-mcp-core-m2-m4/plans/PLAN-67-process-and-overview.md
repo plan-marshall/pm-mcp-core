@@ -57,13 +57,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/process-and-overview.adoc` § What, Trace, Done When on `origin/main` at `4617865` (9 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: doc/plans/process-and-overview.adoc untouched; its specification parts (store-schemas/02 titles and phase-start; state-catalogue/04 Running Work; filesystem-layout/03) are not the sections #177 changed
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/process-and-overview.adoc has no commit since 88ec9c70; 9 What bullets, Done-when and Trace equal the spec
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-43 (`phase-sub-workflows`); PLAN-42 (`operator-wait-and-machine-scope`); PLAN-51 (`plan-and-epic-control`) (the activity, the holds)) — read at `doc/plans/process-and-overview.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: README.adoc untouched; row process-and-overview open depending on phase-sub-workflows operator-wait-and-machine-scope plan-and-epic-control; queue/PLAN-67 not in the ledger diff
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open, depends on phase-sub-workflows, operator-wait-and-machine-scope, plan-and-epic-control; all three open
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line and the class names of § What, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
-  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: labelled hypothesis; pm-runtime and pm-core store unchanged since 88ec9c70 so runtime/web still holds only Der WebState WebTls WebListenerConflictException and no process or needs_operator or ended-work code exists; additionally WorkflowStatusSchemaParityTest.membersEqualSchema is still @Disabled and #177 added only a nested member (amendments[].changes) so the eight missing top-level members are unchanged and WorkflowStatusCodec keeps amendments as raw retained JSON
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: runtime/web holds Der, WebListenerConflictException, WebState, WebTls; WorkflowStatusSchemaParityTest.membersEqualSchema still disabled; the eight status members are in the schema and absent from WorkflowStatusCodec.MEMBERS
 - Verify-first clause: before scoping, list the open pull requests for one that names `process-and-overview`, check in `doc/plans/README.adoc` that every dependency is `done`, and read the roadmap item this package serves for what the code already covers; a refutation of any claim above loops back to re-scope.
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: README row open and no branch/PR evidence changed; no doc/plans or pm-* diff; open-PR list still not read
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: procedure: the three dependencies are open so every dependency is done does not hold; open PRs not readable
 
 ## Expected Surface
 
@@ -78,6 +78,33 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/state-catalogue/04-plan-finalize-terminal.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/02-workflow-state-store.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `pm-core/doc/developer/core-store.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/diagram/` — the Positioned Layout (#181) joins the process answer to a layout by `node_id`; no package owns it; read; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc` — § Positioned Layout constrains D2's `node_id` form; read; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 4: 2 corroborated, 0 contradicted, 2 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`). Nothing is contradicted; the spec equals its unchanged package file.
+
+### Surface
+
+- Added to the Expected Surface above: `workflow/diagram/` and `workflow-dsl/07`.
+- All 11 entries exist; no ADR directory `pm-runtime/doc/adr/runtime-web/` exists (not named).
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #181 (`7f1d6a99`) — Workflow DSL 07 § Positioned Layout: the layout graph of a unit carries the `node_id` of the process tree and is joined with the states of the process answer by `node_id`; it constrains D2's `node_id` form. The file is not named in this spec; **no package owns the layout**.
+- None of #185 to #192 touches `filesystem-layout/03`, `state-catalogue/04` or `store-schemas/02`.
+
+### Shipped or superseded since the last grounding
+
+- #185: `MetricsStore` through `ScopeTransaction` (the tokens so far come from it). #190: `WorkerState`, `JobRecordStore.writeWorker`, `AuditEvent.workerStartFailed`, the start-failure guard's role hold (not a closed `needs_operator` kind per State Catalogue 01 Holds). No process, ended-work or stream code. `WorkflowStatusSchemaParityTest.membersEqualSchema` is still disabled; the eight status members are in the schema and absent from `WorkflowStatusCodec.MEMBERS`.
+- Dependencies: PLAN-43, PLAN-42, PLAN-51 open (so "every dependency is done" does not hold).
+
+### Open questions for the outline
+
+- Unchanged: `pm-mcp-server` routes versus runtime placement; regeneration commit `710da61`. New: who builds the Positioned Layout; whether a role hold of the start-failure guard needs a `needs_operator` kind.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

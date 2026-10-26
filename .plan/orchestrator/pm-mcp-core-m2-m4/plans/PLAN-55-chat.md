@@ -58,13 +58,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/chat.adoc` § What, Trace, Done When on `origin/main` at `4617865` (11 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/chat.adoc last touched 72aec5cb and unchanged at HEAD; 11 What bullets equal the Deliverables
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/chat.adoc unchanged since 88ec9c70; 11 What bullets
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-42 (`operator-wait-and-machine-scope`); PLAN-43 (`phase-sub-workflows`); PLAN-28 (`task-queue-and-protocol`); PLAN-26 (`role-sets-and-model-caller`); PLAN-34 (`role-qualification`); PLAN-47 (`decision-engine`); PLAN-48 (`start-from-clients`) (chat while starting); PLAN-76 (`start-source-intake`) (the entry's `chat/` and its move); PLAN-67 (`process-and-overview`) (ended work)) — read at `doc/plans/chat.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: README row chat at HEAD: open; no longer lists task-queue-and-protocol (PLAN-28 shipped #160 2709d289) nor role-sets-and-model-caller (PLAN-26 shipped #146 964f673d); the other seven dependencies are still listed
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: index row chat lists seven dependencies (operator-wait-and-machine-scope, phase-sub-workflows, role-qualification, decision-engine, start-from-clients, start-source-intake, process-and-overview); the spec still names PLAN-28 and PLAN-26, both shipped
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: workflow/unit/ holds loaders only (chat.pmwf is default-unit content of plan-marshall-mcp; primitives would sit in workflow/primitive/ which is package-info only) and runtime/web/ holds TLS and web state (no routes); core/store exists but has no transcript type; the 8 OBSERVED paths exist
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: still wrong: workflow/unit has loaders only; runtime/web holds Der, WebState, WebTls, WebListenerConflictException (no routes); core/store has no transcript type
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: row chat is open at HEAD (not blocked); dependencies still undone; no commit 4617865..HEAD names chat; open-PR list not re-read
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: chat row open, not blocked; all seven dependency rows open; no PR; #185 and #190 touch nothing of chat
 
 ## Expected Surface
 
@@ -87,6 +87,37 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/model/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `doc/specification/state-catalogue/16-decision.adoc` — `decision.chat` is in the chat trace and the file was not in the surface; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `doc/specification/state-catalogue/17-epic-decomposition-and-review.adoc` — `decomposition.chat` and `review.chat`; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 4: 2 corroborated, 2 contradicted (re-scoped by this section), 0 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claim 1: the index row `chat` lists seven dependencies (`operator-wait-and-machine-scope`, `phase-sub-workflows`, `role-qualification`, `decision-engine`, `start-from-clients`, `start-source-intake`, `process-and-overview`); the spec still names PLAN-28 and PLAN-26, both shipped (no package file or row).
+- Claim 2: still wrong: `workflow/unit` holds loaders only (no chat unit code anywhere; `plan-marshall-mcp` holds no `.pmwf`), `runtime/web` holds `Der`, `WebState`, `WebTls`, `WebListenerConflictException` (no routes), `core/store` has no transcript type (only `QuestionRecord.Answer.afterChat`).
+
+### Surface
+
+- Added to the Expected Surface above: `state-catalogue/16` and `/17` (paths verified by file name).
+- wrong: `pm-workflow/.../workflow/unit/` is loaders only; `chat.pmwf` is default-unit content of `plan-marshall-mcp`; state code belongs in `workflow/primitive/` (package-info only) and routing in `workflow/model/` (`ModelCaller`, `QualificationLookup`, `RoleUse` exist). `pm-runtime/.../runtime/web/` is TLS and web state only; the chat endpoints are `pm-mcp-server` routes. `pm-core/doc/adr/core-store/` annotation is stale (next 046); `pm-runtime/doc/adr/runtime-web/` is absent (new, as annotated); `runtime-web.adoc` and `workflow-unit.adoc` exist (extend).
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #189 (`1c9f366d`) — State Catalogue 09 § Source Units (`source-lesson`) and Model Work 07: a lesson with the new `derived_from_untrusted` field is no longer trusted: stored marked untrusted and unscreened (exit `stored_untrusted` becomes `source-lesson.screen`, with `.flagged` and `.unscreened`). D9's offer rule for `start.sources` (chat "once a source is stored and every external one screened") must count a derived lesson as a screened source, and `chat.open`'s facts must mark it untrusted. No Deliverable sentence becomes wrong.
+- #189 — Model Work 01 screener repeated runs: only the screener's grading; no effect on D3. #186 — Workflow DSL 02: `phase-6-finalize` `security_severity_caps` joins the declaration schemas; the chat unit paragraph is unchanged. #185, #187, #188, #190: no text this spec names; #187's worker read set has no effect on chat (`<PM_MCP_BASE>`, which holds `pending/`, the archive and the transcripts, was never readable by any job).
+
+### Shipped or superseded since the last grounding
+
+- #190's supervisor and `ModelSlots` are the worker side of `chat.reply` tasks (no production caller). `QuestionRecord.Answer.afterChat` exists.
+
+### Open questions for the outline
+
+- Which plan owns the transcript-move and `start.create` test (this plan or `start-source-intake`); the chat unit needs the `icon` frontmatter key (#150); whether the derived-lesson screening state (#189) gates the chat offer at `start.sources`.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 
