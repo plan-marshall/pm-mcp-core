@@ -65,7 +65,19 @@ sibling `<queue_task_id>.jsonl.lock` — a bounded journal is replaced by an ato
 journal itself (link:../adr/core-queue/006-the-journal-lock-is-a-sibling-file.adoc[ADR 006]) — cuts a torn last line
 before the next append, and keeps the compiled bound of 5,000 entries by dropping the oldest `text` entries first and
 never a server entry; a journal whose excess lies in server entries alone keeps them, because a server entry is never
-cut.
+cut. It masks the entry it writes and offers `archiveInto(task, directory)` and `delete(task)` for the plan's archive
+and its cleanup (link:../adr/core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR 008]).
+
+`ActivityEventMapping`, `ActivityEventMapper` and `SecretRedactor`::
+The projection of the profile's `headless.events` block and the masking of what the journal writes. The projection is
+read once per launch and the mapper turns one output line into one activity entry; the mapping is never read from the
+profile on the stream path (link:../adr/core-queue/007-the-events-mapping-is-projected.adoc[ADR 007]).
+
+`Figure`, `NavigationVocabulary`, `SkillResidency` and `NavigationFigures`::
+The navigation figures derived from a task's activity beside its tokens: the cache-read share, the revisits, the
+language-server use and the fallback-to-read rate, each with its population, plus the residency of each required skill.
+A figure whose population cannot be read is `indeterminate`, and a harness that reports no cache reads is `unmeasured`
+(link:../adr/core-queue/009-a-navigation-figure-carries-its-population.adoc[ADR 009]).
 
 == How to use and extend it
 
@@ -94,3 +106,7 @@ The runtime writes the `agent_started` detection through `workflow.task`'s proto
 * A torn last line of a journal is cut by the next append; `seq` is never reused.
 * The journal's leaf lock is the sibling `<queue_task_id>.jsonl.lock`: the journal itself is replaced by a rename when it
   exceeds its bound, and a lock on the replaced inode would exclude nobody.
+* Every text, tool target and link target is masked before the write; a masked value is stored masked, and a secret is
+  never in the journal at rest.
+* A navigation figure is either measured with a population or one of the two sentinels; an absent population is never
+  rendered as `0`.

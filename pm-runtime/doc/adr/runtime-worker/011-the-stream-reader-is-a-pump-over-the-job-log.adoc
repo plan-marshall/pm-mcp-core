@@ -1,0 +1,47 @@
+= ADR 011: The Stream Reader Is a Pump Over the Job Log
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-26
+
+== Context
+
+Model Work § Output Read While the Worker Runs requires the runtime to read the worker's output line by line while it
+runs, never after its exit, never by scraping a terminal and never from the harness's session transcript. The launched
+worker's stdout already lands in the job log (`JobLog`), which the runner reads for the launch report and for a failed
+start. The supervision loop that would call a reader has no production owner yet (ADR `runtime-worker/009`).
+
+== Decision
+
+`WorkerActivityPump` is the stream reader: it keeps the byte offset it has read from the job log, maps the complete
+lines the log gained through the activity mapper, appends each mapped line through `ActivityRecorder`, counts a line
+that matches no mapping, and appends the `attempt_end` entry with that count when the attempt ends. The caller drives
+it: `pump` costs only the new lines, so the assembly's supervision loop calls it while the worker runs and the pump
+starts no thread of its own.
+
+== Alternatives Considered
+
+1. *A reader thread per worker in the supervisor.*
+   _Rejected_: the supervisor's loop has no production caller yet, and a thread would outlive the caller that owns the
+   worker's lifetime; the pump is a step the loop already needs.
+2. *Read the harness's session transcript.*
+   _Rejected_: the specification forbids it, and a worker runs without session persistence.
+3. *Read the log only at the exit.*
+   _Rejected_: the journal must be written while the worker runs, and the signals are evaluated at every entry.
+
+== Consequences
+
+* A line is mapped once and in order; a second call appends only what the log gained.
+* An unreadable or truncated log appends nothing and keeps the offset, so the next call retries from the same place.
+* The `attempt_end` entry carries the count of unmatched lines, which is never shown as content.
+
+== Source
+
+Work package `worker-activity`; link:../../../../doc/specification/model-work/04-worker-launch.adoc#worker-output[Model
+Work § Output Read While the Worker Runs], link:../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc[Job
+Runtime § Pipeline and Subprocesses].

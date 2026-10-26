@@ -39,6 +39,12 @@ not exported and `keytool` code is not in a native image.
 |link:{src}/WebListenerConflictException.java[`WebListenerConflictException`]
 |The listener cannot open: its port is occupied, or web access is enabled with the other exposure. The API error code is
 `web_listener_conflict`.
+
+|link:{src}/ActivityService.java[`ActivityService`]
+|Serves a task's activity to a client from a cursor (`page`) and as a pull stream (`open`), on the journal of the task's
+scope. `ActivityPage` carries the entries after a cursor, the next cursor and whether more follow; `ActivityStream` is
+the cursor the transport drives, and `ActivityLinks` spells the activity URI the plan's process names per leaf
+(link:../adr/runtime-web/001-activity-is-served-from-a-cursor-and-a-pull-stream.adoc[ADR 001]).
 |===
 
 == The Certificate
@@ -52,6 +58,18 @@ certificate is assembled with JDK APIs and the `Der` encoder only.
 A new address on the machine is not in an existing certificate's name set: the certificate is generated once and reused.
 Regenerating it changes the fingerprint, and every paired device has to pair again; that is an operator action, not a
 side effect of a start.
+
+== The Activity Service
+
+The activity of a task is served, not pushed. `ActivityService.page(task, cursor, limit)` reads the journal of the
+task's scope and returns the entries after the cursor, the next cursor and whether more follow; the page bound is
+`MAX_PAGE` (200). `open(task, cursor)` returns an `ActivityStream` the transport drives: `poll()` answers only what was
+written since the previous poll, and `close()` ends it. The stream holds no subscriber state and no thread, so a client
+that disconnects without notice leaves nothing behind.
+
+The cursor is the `seq` the client last saw. A bounded journal never reuses a `seq`, so a cursor stays valid and a gap
+in the sequence shows what gave way. `ActivityLinks.of(task)` and `ActivityLinks.ofLeaf(tasks)` spell
+`pm://task/{queue_task_id}/activity`, the same target the task resource uses, for the plan's process to name per leaf.
 
 == The State
 
@@ -76,6 +94,8 @@ reports the new state; this package does not mutate a running listener.
   port that is occupied.
 * *A failure to build the material is a start failure.* An unreadable or malformed key or certificate is not replaced
   silently: the caller fails and the operator sees the file that is wrong.
+* *An activity cursor is a sequence, never an offset.* The journal's `seq` is never reused, so a cursor stays valid across
+  a bounded rewrite and a gap in it is visible; a page never renumbers an entry.
 
 == Extending the Package
 

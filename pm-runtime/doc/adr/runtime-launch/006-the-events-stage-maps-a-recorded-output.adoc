@@ -1,0 +1,45 @@
+= ADR 006: The Events Stage Maps a Recorded Output Per Kind
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-26
+
+== Context
+
+Client Profiles § Profile Verification requires the `events` stage of the profile verification to check that every
+mapping of `headless.events` resolves on the real output and every expected activity kind appears, recording per kind
+`reported` or `missing`. The stage is one of the closed stages of a `VerificationRecord`; `HarnessEnrolment.events`
+already stores the per-kind result. Nothing computed it.
+
+== Decision
+
+`HarnessEventVerification` maps a recorded output through the same `ActivityEventMapper` the stream reader uses and
+records per declared kind `reported` when at least one line mapped to it and `missing` otherwise; the stage fails when
+any declared kind is missing. A harness whose profile declares `headless.events: null` is not measured by the stage and
+passes with an empty result, which is the stage's `not_run` case in the record. The recorded output is a fixture the
+verification writes for the test, never the content of the product.
+
+== Alternatives Considered
+
+1. *A second, verification-only parser.*
+   _Rejected_: it would accept a mapping the stream reader does not, which is exactly the divergence the stage exists to
+   catch.
+2. *Treat a malformed line as a mapping failure per kind.*
+   _Rejected_: an unrelated malformed line is the harness's output, not the mapping's; only a kind that never appears is
+   missing.
+
+== Consequences
+
+* The stage and the stream reader share one definition of “resolves”.
+* A new activity kind is one entry in the mapping and one row of the stage, with no change to the verifier.
+* The recorded fixtures say which harness build they came from; a harness whose format changes gets a new fixture.
+
+== Source
+
+Work package `worker-activity`; link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#profile-verification[Client
+Profiles § Profile Verification].

@@ -1,0 +1,51 @@
+= ADR 008: The Journal Masks at Its Write Boundary and Is Kept With Its Plan
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-26
+
+== Context
+
+Store Schemas § Activity Journal requires every text and target to be masked like every job log before it is written, and
+the journal to be archived with its plan and deleted with it. The repository holds no masking component: the activity
+entry documents the requirement, and every writer of a store writes what it is given. A masker in the line mapper would
+cover the harness kinds only, leaving the server's own targets (a link target, a question) and any later caller outside
+it.
+
+== Decision
+
+`SecretRedactor` masks at the journal's write boundary: `ActivityJournal.appendNext` masks the entry it is about to write,
+so every writer — the stream pump, the task protocol, a future caller — gets it. The masker replaces the value of an
+explicit credential-shaped assignment (a password, token, secret, key or authorization header), a bearer value and a
+provider token shape; it keeps the label, is idempotent, and leaves prose, a path and a commit id alone.
+
+`ActivityJournal.archiveInto(task, directory)` copies one task's journal where the plan archive is built, and
+`delete(task)` removes the journal and its lock with the plan. The journal lives inside the plan's store, so the
+plan-directory archive carries it; the two methods give the cleanup an explicit surface for the task file and its lock.
+
+== Alternatives Considered
+
+1. *Mask in the line mapper.*
+   _Rejected_: it covers only the harness kinds and is bypassed by every server entry and every later writer.
+2. *Mask in the clients.*
+   _Rejected_: the journal is a store at rest, and the specification asks for the mask before the write.
+3. *Mask every long token-like string.*
+   _Rejected_: a hash, a commit id and a base64 blob in prose would disappear; the operator loses evidence for no gain.
+   The narrow assignment shapes cover the credentials a worker is told about.
+
+== Consequences
+
+* A masked value is stored masked; there is no unmasked copy to leak, and no reader needs to know the masker.
+* The patterns are a compiled list beside the journal; a new credential shape is one pattern and one test.
+* Archive and delete are callable; the plan cleanup adopts them when it archives the plan directory.
+
+== Source
+
+Work package `worker-activity`; link:../../../../doc/specification/store-schemas/16-task-queue.adoc#activity-journal[Store
+Schemas § Activity Journal], link:../../../../doc/specification/timeouts/03-retention-host-config.adoc#cleanup[Timeouts &
+Budgets § One Cleanup].

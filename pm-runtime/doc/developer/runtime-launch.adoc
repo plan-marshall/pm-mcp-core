@@ -166,6 +166,18 @@ restored skill or schema for the composition failure.
 * A new class of worker (a fourth `class`) is added to the profile's class block and to `ModelSlotStore.WorkerClass`;
   the one-writer rule applies to `writer` alone.
 
+== The Activity Projection and Its Verification
+
+`HeadlessBlock.of` projects the profile's `usage` pointers and its `events` mapping beside the launch contract, so the
+runtime maps a worker's output line and a turn's usage without reading the profile document
+(link:../../../pm-core/doc/adr/core-queue/007-the-events-mapping-is-projected.adoc[core-queue ADR 007]).
+
+`HarnessEventVerification.verify(mapping, usagePointers, recordedOutput)` is the `events` stage of the profile
+verification: it maps a recorded output through the same mapper the stream reader uses and records per declared kind
+`reported` or `missing`; the stage fails when a kind never appears, and a harness whose profile declares no event stream
+is not measured by it (link:../adr/runtime-launch/006-the-events-stage-maps-a-recorded-output.adoc[ADR 006]). The
+recorded output is a fixture written for the test.
+
 == Owed
 
 * *The start-failure guard goes to `supervisor` (PLAN-30)*, which resumes at 4-plan and is re-outlined against the merged
