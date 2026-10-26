@@ -1,0 +1,547 @@
+= Worker Supervision (`runtime.worker`) Developer Guide
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+:req: ../../../../plan-marshall-documentation/doc/requirements
+:spec: ../../../doc/specification
+:src: ../../src/main/java/de/planmarshall/runtime/worker
+:test: ../../src/test/java/de/planmarshall/runtime/worker
+
+link:../../README.adoc[`pm-runtime`] » Worker Supervision
+
+== Purpose
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3], link:{req}/02-workflow.adoc#PM-WF-14[PM-WF-14], link:{req}/01-architecture.adoc#PM-ARCH-8[PM-ARCH-8]
+
+Package `de.planmarshall.runtime.worker` is the supervisor of the worker processes. One supervisor serves one project
+and one role. It starts the workers a request asks for as far as the role's form and `count`, the start-failure guard,
+the verification-record gate and the machine's model slots admit them, keeps each started generation in a registry, and
+drives that generation through its deadlines, its end path and its recycling. It keeps no launch composition and no
+process of its own: it composes through `runtime.launch` and starts through `runtime.job`, and it reaches the task
+protocol through the module-boundary adapter `WorkerProtocol`.
+
+The package serves the three requirements above. Its start path also enforces
+link:{req}/13-client-profiles.adoc#PM-CLIENT-5[PM-CLIENT-5] and link:{req}/08-security.adoc#PM-SEC-8[PM-SEC-8] through
+the verification-record gate, its off-track detection serves link:{req}/16-model-work.adoc#PM-WORK-7[PM-WORK-7], and its
+scenario tests serve link:{req}/12-testing.adoc#PM-TEST-4[PM-TEST-4]. The model slots are
+link:{req}/02-workflow.adoc#PM-WF-14[PM-WF-14]'s.
+
+The decisions of the package are recorded in `pm-runtime/doc/adr/runtime-worker/`:
+
+* xref:../adr/runtime-worker/001-one-supervisor-per-project-and-role.adoc[ADR 001: One Supervisor per Project and Role]
+* xref:../adr/runtime-worker/002-landed-contracts-and-the-protocol-adapter.adoc[ADR 002: Landed Launch Contracts and the
+  Protocol Adapter]
+* xref:../adr/runtime-worker/003-worker-state-written-into-the-job-record.adoc[ADR 003: Worker State Written into the Job
+  Record]
+* xref:../adr/runtime-worker/004-deadlines-from-an-injected-clock-and-timer.adoc[ADR 004: Deadlines from an Injected
+  Clock and Timer]
+* xref:../adr/runtime-worker/005-agent-started-reads-executable-path-and-digest.adoc[ADR 005: `agent_started` Reads the
+  Executable Path and Digest]
+* xref:../adr/runtime-worker/006-verification-record-gate-at-the-start-path.adoc[ADR 006: The Verification-Record Gate at
+  the Start Path]
+* xref:../adr/runtime-worker/007-verification-controls-built-in-runtime-worker.adoc[ADR 007: The Profile-Verification
+  Controls Built in `runtime.worker`]
+* xref:../adr/runtime-worker/008-lease-aware-idle-and-idle-yields.adoc[ADR 008: Lease-Aware Idle and Idle Yields]
+* xref:../adr/runtime-worker/009-transport-notifications-and-the-protocol-adapter.adoc[ADR 009: Transport Notifications
+  and the Protocol Adapter]
+
+== Core Types
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3], link:{req}/01-architecture.adoc#PM-ARCH-8[PM-ARCH-8]
+
+[horizontal]
+link:{src}/WorkerSupervisor.java[`WorkerSupervisor`]:: The supervisor of one project and role. It owns the registry of
+started generations, serializes starts, bounds the registry by the role's form and `count`, and exposes
+`stopAdmitting()`, `quiet()` and `awaitQuiet(Instant)` for the drain. A start answers `StartOutcome.Started` or
+`StartOutcome.Declined`; a declined start names a `WorkerStartRefusal` and leaves the caller's task queued.
+link:{src}/SupervisorEnvironment.java[`SupervisorEnvironment`]:: The collaborators and installation values the supervisor
+is built with: the project and its enrolment, the runtime base and home, the relay socket, the effective client profile,
+the landed launch and job contracts, the state writer, the job tokens, the model slots, the protocol adapter, the audit
+sink, the clock, the timers, the lock manager and the two seams `StartGuard` and `EligibilityGate`.
+link:{src}/WorkerGeneration.java[`WorkerGeneration`]:: One worker generation: the immutable facts it was started with
+(generation id, role, harness, model, form, working directory, plan, configuration digest, spawn instant, job id, model
+slot) and the state the supervision advances (lifecycle, leased task, served tasks, idle wake-ups, context tokens,
+worktree mark). It is an immutable snapshot; `@With` methods produce the successor, and equality is by generation id
+alone.
+link:{src}/WorkerLifecycle.java[`WorkerLifecycle`]:: The closed lifecycle state of a generation and its mapping onto the
+job record's `WorkerState.State`. The table allows `STARTING` to `WAITING`, `ENDING`, `LOST` or `START_FAILED`;
+`WAITING` to `OFFERED`, `ENDING` or `LOST`; `OFFERED` to `ACKNOWLEDGED`, `WAITING`, `ENDING` or `LOST`;
+`ACKNOWLEDGED` to `EXECUTING`, `CONSULTING`, `WAITING`, `ENDING` or `LOST`; `EXECUTING` to `CONSULTING`, `WAITING`,
+`ENDING` or `LOST`; `CONSULTING` to `EXECUTING`, `HOLDING`, `WAITING`, `ENDING` or `LOST`; `HOLDING` to `EXECUTING`,
+`ENDING` or `LOST`; and `ENDING` to `ENDED` or `LOST`. Every other transition, and every transition out of a terminal
+state, is refused. The protocol's `SUBMITTED` is folded into `WAITING`, because a submitted task ends the attempt and
+the worker waits again.
+link:{src}/WorkerStartRequest.java[`WorkerStartRequest`]:: What one start needs beyond the environment: the resolved
+effective role, the working-directory kind and path, the plan of a plan-worktree start, the contract envelope of a fresh
+worker's task, the prompt facts and the optional session to resume.
+link:{src}/WorkerStartRefusal.java[`WorkerStartRefusal`]:: The closed set of reasons the supervisor declines a start
+itself: `ROLE_GUARD_HELD`, `HARNESS_INELIGIBLE`, `NO_MODEL_SLOT` and `LAUNCH_REFUSED`. The set is disjoint from the
+launch's own refusals, which the runtime records on the refused job.
+
+== The Start Path and the Generations
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3], link:{req}/02-workflow.adoc#PM-WF-14[PM-WF-14],
+link:{req}/13-client-profiles.adoc#PM-CLIENT-5[PM-CLIENT-5], link:{req}/08-security.adoc#PM-SEC-8[PM-SEC-8],
+link:{req}/01-architecture.adoc#PM-ARCH-8[PM-ARCH-8]
+
+A start is one ordered decision, and each step can decline it. The order is the code's, not the caller's:
+
+. `StartGuard.holds(role, harness)` — a held guard declines every request of the call with `ROLE_GUARD_HELD`.
+. `EligibilityGate.admits(role, harness)` — a harness whose verification record does not establish the role's claims
+  declines every request with `HARNESS_INELIGIBLE`.
+. The role's form and `count` — a `fresh` role admits one worker per queued task, a `warm` role one worker per working
+  directory, never more than `count` workers of that form at once. Requests beyond the role's room are not attempted and
+  have no outcome.
+. `ModelSlots.claim` — an admission that grants no lease (queued or deferred, including the second writer worker of a
+  plan) declines the start with `NO_MODEL_SLOT` and withdraws the place the claim queued, so a phantom request cannot be
+  admitted later; the task stays queued.
+. `HarnessVerifier.verify` and `LaunchComposer.compose` — a refusal before the spawn is recorded through
+  `WorkerStarter.refuseWorker` as the refused job, the claimed slot is released, and the start is declined with
+  `LAUNCH_REFUSED`.
+. `WorkerStarter.startWorker` — a started job registers the generation; a runner refusal or a runner exception releases
+  the slot and declines the start.
+
+The registration fixes the generation's facts, its `STARTING` lifecycle, its job id and the slot it holds for its whole
+life, uses the budget key `worker:<role>` with the role's floor budget, and logs `WORKER_GENERATION_STARTED` exactly
+once. `WorkerSupervisor.replaced(WorkerGeneration)` publishes a successor snapshot so the next decision sees the new
+lifecycle and terminal state; `generation(id)` and `generations()` read the registry in start order.
+
+Starts of one supervisor are serialized on the supervisor's own monitor, so two concurrent callers never start the
+role's workers beyond its count. A successful start is the only path that keeps the claimed slot; every refusal path
+releases it. The terminal worker state is written at the end path, not here (<<_ending_fencing_and_drain>>).
+
+The start path is ADR 001's (one supervisor per project and role) and ADR 002's (the landed launch contracts and the
+two seams). The job record's worker block is ADR 003's.
+
+== Detection
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3], link:{req}/13-client-profiles.adoc#PM-CLIENT-2[PM-CLIENT-2],
+link:{req}/16-model-work.adoc#PM-WORK-7[PM-WORK-7]
+
+link:{src}/LossDetection.java[`LossDetection`] owns the three deadlines of one generation and keeps no timing literal:
+
+* *Exit* — the per-worker watcher observed the process exit. An exit after the first call is
+  `LossReason.EXIT`; an exit before the first call is a start failure, not a loss, and `exit(Instant)` answers empty so
+  the start-failure guard counts it (<<_the_start_failure_guard_and_the_start_spacing>>).
+* *Acknowledgement missed* — an offer (or a fresh worker's first call) was not acknowledged within the host's
+  acknowledgement deadline, where the acknowledgement is not marked informational and the role has a connection.
+* *Silence* — the worker made no call and holds no open bounded wait for longer than the host's silence limit. A held
+  wait is an open call and suppresses the signal; the answer re-arms it.
+
+The detector is armed from the spawn, so a worker that never makes its first call counts as silent from there. Every
+value comes from the harness's `WorkerParameters` and the injected clock. `due(Instant)` answers a signal only when a
+deadline lies at or before the instant it is asked about; it never ends a worker early. The detector arms and re-arms
+one `WorkerTimers.Cancellable` at the earliest open deadline and hands the fired signal to its consumer.
+
+A `zero_tool` worker has no MCP connection: it receives no offer, is never silent and produces neither an
+acknowledgement nor a silence signal. Its exit and its worker budget alone decide its task. A live worker that is alive
+but makes no progress is not a detection case: that is the off-track signal of PM-WORK-7, which the task protocol owns
+and which ends the worker through `EndCause.OFF_TRACK` (see `agent_started` below).
+
+link:{src}/LossSignal.java[`LossSignal`] carries the reason, the generation, the instant the loss was observed, the
+deadline that was crossed (equal to the observation instant for an exit), whether the first call was made, and the
+leased task. link:{src}/LossReason.java[`LossReason`] maps the reason to the job record's `WorkerState.EndReason` and to
+the attempt end the queue task carries: `EXIT` → `EXITED_WITHOUT_SUBMIT`, `ACK_MISSED` and `SILENCE` → `WORKER_LOST`.
+Every deadline rides an injected clock and injected timers (ADR 004).
+
+== Ending, Fencing and Drain
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3], link:{req}/16-model-work.adoc#PM-WORK-2[PM-WORK-2],
+link:{req}/16-model-work.adoc#PM-WORK-7[PM-WORK-7]
+
+link:{src}/WorkerEnding.java[`WorkerEnding`] is the one end path of every generation, whatever the cause:
+
+. The end is requested, so the transport answers the worker's next wait with `end`.
+. When the worker does not exit within the termination grace (`TerminationProtocol.GRACE_PERIOD`, five seconds), the
+  force reaches the process only through `WorkerStarter.cancel`, which is the job runtime's termination protocol. The
+  supervisor starts no process and sends no signal itself.
+. After the exit the generation is fenced through `WorkerProtocol.fence`, its job token revoked through
+  `JobTokenStore.revoke`, its model slot released, and its terminal `WorkerState` written through the state writer.
+  The end is logged once as `WORKER_GENERATION_ENDED`, and a successor is started when work remains.
+
+A detected loss takes the same path but forces at once: `end(generation, LossSignal)` does not wait for the grace. A
+drain, a pause at once and an off-track restart also reach the forced end through the drain participant or the
+off-track detector.
+
+link:{src}/EndCause.java[`EndCause`] is the closed set of causes and the fact each writes:
+
+[cols="1,1,1,1,1"]
+|===
+|Cause |Wire name |Job record end reason |Spends a re-offer |Terminal state
+
+|`TASK_DONE` |`task_done` |`TASK_DONE` |no |`ENDED`
+|`RECYCLE` |`recycle` |`IDLE_RECYCLE` |no |`ENDED`
+|`DRAIN` |`drain` |`DRAIN` |no |`ENDED`
+|`PAUSE_AT_ONCE` |`pause_at_once` |`WITHDRAWN` |no |`ENDED`
+|`LOST` |`lost` |`EXITED` (refined by the `LossSignal`) |yes |`LOST`
+|`OFF_TRACK` |`off_track` |`WITHDRAWN` |no |`ENDED`
+|`START_FAILURE` |`start_failure` |`START_FAILURE` |no |`ENDED`
+|===
+
+A pause at once reaches the runner with `JobRunner.CancelCause.PLAN_PAUSED_NOW`; every other end reaches it with
+`SUPERVISOR_END`. The runner derives the job's fate and records the ended worker's usage as unmeasured.
+
+link:{src}/WorkerDrainParticipant.java[`WorkerDrainParticipant`] makes the supervisor the runtime's drain participant
+`workers`. It stops admitting starts, ends every idle warm generation with `DRAIN`, waits until no generation runs (at
+most the drain deadline), then forces the remaining workers. Their tasks stay queued and are offered again after the
+next start, without counting a re-offer. The participant closes the supervisor's timers after the drain.
+
+The end path is ADR 003's (the terminal worker state in the job record) and ADR 004's (the grace is a timer on the
+injected clock).
+
+== Recycling
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3], link:{req}/02-workflow.adoc#PM-WF-14[PM-WF-14]
+
+link:{src}/WorkerRecycling.java[`WorkerRecycling`] decides the four recycle triggers and the idle yield. A recycle never
+interrupts a task: every decision hands the generation to `WorkerEnding` through `EndCause.RECYCLE`, so the one end path
+fences, revokes, releases the slot, writes the terminal state and starts a successor when work remains. Every recycle
+logs `WORKER_GENERATION_RECYCLED` exactly once with its link:{src}/RecycleCause.java[`RecycleCause`].
+
+* *Idle* (`IDLE`) — a warm generation that ended its bounded waits without a task `min(host.worker.idle_wakeups,
+  role.recycling.idle_wakeups)` times in a row. The role can only lower the host's bound. A generation holding a lease
+  (a consulting worker or one holding for an answer) is not idle: its `wait_again` counts no wake-up.
+* *Token budget* (`TOKEN_BUDGET`) — the context of the generation's latest turn reached the role's token budget. Only
+  the latest turn's context is read, never a run total; an unmeasured context is ignored. A generation that still leases
+  a task waits for the task to close, so the recycle lands on the wait after the task rather than in the middle of it;
+  the one exception is a generation that holds its task for an answer, which may be recycled at the budget. A generation
+  that has closed no task yet is recycled only in that hold, because a worker's starting context can exceed a small
+  budget.
+* *Tasks per generation* (`TASKS_PER_GENERATION`) — the generation closed the role's `recycling.tasks_per_generation`.
+* *Configuration changed* (`CONFIGURATION_CHANGED`) — the role's current configuration digest, carried by the wait,
+  differs from the digest the generation was started with. This trigger also clears the role's start-failure guard on
+  its harness.
+* *Idle yield* (`IDLE_YIELD`) — another role's queued task waits for a model slot. The longest-idle warm generation that
+  is `WAITING`, holds no lease and serves another role is recycled, so idle warm workers never starve queued work.
+
+A `fresh` generation is never recycled: it ends after its one task. The idle yield and the lease-aware idle rule are
+ADR 008's; the deadlines and the timers are ADR 004's.
+
+== The Start-Failure Guard and the Start Spacing
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3], link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
+
+link:{src}/StartFailureGuard.java[`StartFailureGuard`] counts the consecutive starts of one role on one harness that
+failed before the worker's first call, or that the runtime refused before the spawn. A `zero_tool` worker makes no call,
+so it is never counted; the supervisor consults the guard for a role that has a connection only.
+
+* *Count* — `startFailed(role, harness, logTail)` counts one failure per role and harness. The
+  link:{src}/StartFailureReport.java[`StartFailureReport`] bounds the worker's own error text to the job record's
+  `MAX_HARNESS_ERROR` tail and redacts a minted job token, a minted worker secret, the user information of a URI and an
+  e-mail address. The report goes to the audit log as `workerStartFailed` and to the assembly's clients; it is never
+  rendered to a model.
+* *Hold* — at `StartFailureGuard.HOLD_THRESHOLD` (three) consecutive failures the guard holds. It logs
+  `WORKER_START_GUARD_HELD` and closes the role's queued and new tasks through `WorkerProtocol.closeUnavailable` as
+  `lost` with the reason `role_unavailable`, with their conservative fallback (PM-WORK-6).
+* *Probe* — after `PROBE_BACKOFF` (1,800 seconds) the next start of the role on that harness is admitted as one probe
+  instead of a hold. A probe that failed restarts the backoff; a probe that never produced a started worker — the caller
+  declined it, or the start threw before the worker started — restarts it too (`probeDeclined`), so a consumed probe
+  never holds the guard forever; a probe's first call clears the guard.
+* *Clear* — `firstCall(role, harness)` clears the count on the first call of any worker of the role on the harness.
+  `clear` does the same when the role's configuration changes or the harness is enrolled again, and retires the role's
+  failed generations from the registry the count is rebuilt from, so a guard constructed later over that registry does
+  not recreate the hold.
+
+The count lives in a link:{src}/StartFailureState.java[`StartFailureState`] per role and harness. It is rebuilt from the
+supervisor's generation registry when the guard is constructed, so a guard built beside a supervisor that already
+started workers resumes the count of the generations that exited before their first call instead of counting from zero.
+`WorkerSupervisor.forgetStartFailures` is the retirement a `clear` performs through the guard's constructor.
+
+link:{src}/HarnessStartSpacing.java[`HarnessStartSpacing`] is the machine-wide spacing of one harness. It is shared by
+every supervisor of the runtime and keys on the harness's client id alone, so it spans all projects. The next start waits
+until the previous worker of the harness made its first call or ended, at most `SPACING_BOUND` (30 seconds). Past the
+bound the next start proceeds, so the spacing only ever delays a start and never refuses one. A collision that still
+makes a worker exit before its first call is a start failure and counts for the guard. The production instance is the
+compiled bound; a test lowers the bound instead of sleeping.
+
+The guard and the spacing are part of the supervisor's start ownership (ADR 001).
+
+== `agent_started`
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-7[PM-WORK-7], link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3]
+
+link:{src}/AgentStartedDetector.java[`AgentStartedDetector`] detects that a worker started a second agent. On every pass
+it refreshes the generation's recorded process tree through `ProcessTreeTracker`, reads each member's executable path and
+digest, and compares them with every enrolled harness executable and with the installed operator binary at
+`bin/pm-operator` under the runtime home. The pass is the supervision loop's call; `WorkerSupervisor` owns the starts,
+and the loop that drives `detect`, `LossDetection` and `WorkerRecycling` is composed outside this package.
+
+The comparison is by path *and* digest, never by name: a binary that carries an enrolled executable's name with other
+content is not the enrolled executable, and a process that runs a program the supervisor never enrolled is not reported.
+The tree is the one `ProcessTreeTracker` records for the worker's process, so a member that leaves the process group or
+starts a new session is still examined — that detachment is what a started agent does.
+
+link:{src}/ProcessExecutables.java[`ProcessExecutables`] answers a decision, never an exception: `Found` carries the
+absolute path and the `sha256:` digest, `Absent` means the process is gone or the operating system answered no
+executable, and `NotRegular` means the path is absent or is not a regular file (a binary deleted after it was started,
+for example). link:{src}/SystemProcessExecutables.java[`SystemProcessExecutables`] is the operating system's own answer:
+`/proc/<pid>/exe` on Linux and the `libproc` `proc_pidpath` downcall on macOS, each digested through
+`HarnessVerifier.digestExecutable`. Nothing is read from `/proc/<pid>/cmdline` or from `ps` output, and no path is
+resolved through `PATH`: a command line is the process's own claim and a `PATH` lookup answers the name the process was
+asked for, while this reading must answer the file it runs. The `proc_pidpath` descriptor is registered in the module's
+reachability metadata next to `kill`; a platform that is neither Linux nor macOS answers `Absent` for every PID.
+
+At the first match the detector logs `AGENT_STARTED_DETECTED`, reports the fact through
+`WorkerProtocol.agentStarted(generationId, queueTaskId, attempt, executable, at)` with the process's start instant, and
+ends the worker through `EndCause.OFF_TRACK`. A generation is reported at most once, so one started agent never ends a
+worker twice. The protocol stays the owner of the signal entry, the activity entry, the `security` audit record and the
+re-offer; the supervisor reports the fact and never writes those records itself. The signal's threshold is `1` and its
+action `restart`, fixed in the detector — it reads no role artifact, which is how those two values hold whatever the
+artifact names for its other off-track signals.
+
+The detection is ADR 005's (read the executable path and digest, never trust a command line); the protocol ownership is
+ADR 009's.
+
+== The Verification-Record Gate
+
+_Requirements:_ link:{req}/13-client-profiles.adoc#PM-CLIENT-5[PM-CLIENT-5], link:{req}/08-security.adoc#PM-SEC-8[PM-SEC-8]
+
+link:{src}/ProfileWorkerEligibility.java[`ProfileWorkerEligibility`] is the pure predicate the supervisor consults before
+every start. It decides whether a machine or project profile's claims may be believed on the platform the runtime runs
+on. The supervisor's `EligibilityGate` reads only `admits(role, harness)`; a report names the refusal from `verdict()`.
+
+No value of a profile is believed because the profile says so:
+
+* A *shipped* profile is trusted — the release compiled its document.
+* A profile that makes *no claim* (`worker.eligible: false` and no `zero_tool` class) passes untouched.
+* A claimed profile makes up to three claims. `worker.eligible: true` is honoured only when the record carries `faults`
+  and `egress` as `passed`. A non-null `zero_tool` class is honoured only when `classes` and `isolation` passed. An
+  `enforced` tool set on `writer` or `read_only` is honoured only when the record measured the `classes` stage that
+  establishes it. Beyond the claim's own stages, every stage the record carries must be `passed`: a record that measured
+  a failure anywhere does not establish the profile's claims.
+* The gate refuses a claimed profile with `RECORD_ABSENT`, `OTHER_PLATFORM`, `CLAIM_STAGE_ABSENT`, `STAGE_FAILED` or
+  `STAGE_NOT_RUN`. The stages the claim rests on are examined first, so the refusal names the stage that decided the
+  claim where one exists. link:{src}/EligibilityRefusal.java[`EligibilityRefusal`] carries the closed reason, the stage
+  (when a stage decided it) and the profile's client id; link:{src}/EligibilityVerdict.java[`EligibilityVerdict`] has
+  exactly two members, `Eligible` and `Refused`, so a caller cannot read a third state into it.
+
+link:{src}/RuntimePlatform.java[`RuntimePlatform`] is the operating system and architecture in the record's spelling
+(`linux`, `darwin`; `x86_64`, `aarch64`), normalised from `os.name` and `os.arch`. It compares the record's `platform`
+with the machine the runtime runs on; the record's `platform.confinement` is not part of the value, because confinement
+is decided per job by the launcher. A record written on another operating system or architecture refuses, leaving the
+profile usable for detection and rendering but its harness ineligible for workers.
+
+The egress-acceptance half of the specification is deliberately not here: whether the operator accepts unenforced egress
+is a machine-level decision the egress owner holds, and this gate only requires the record's `egress` stage to be
+`passed`. The gate is ADR 006's; the controls its claims rest on are ADR 007's.
+
+== The Three Verification Controls
+
+_Requirements:_ link:{req}/13-client-profiles.adoc#PM-CLIENT-5[PM-CLIENT-5], link:{req}/12-testing.adoc#PM-TEST-4[PM-TEST-4]
+
+The record's stages attest three controls built in this package. The stage runner that uses them is the verification's,
+not the gate's; the gate only reads the stages the controls produced.
+
+link:{src}/ProbeWorkspace.java[`ProbeWorkspace`]:: The fresh probe workspace of one verification run: a temporary
+directory below the JVM's temporary directory with mode `0700`, outside `<PM_MCP_BASE>` (which no job may read or write),
+and the only project root in the probe worker's write set. It carries the run's canary — an unpredictable token generated
+afresh for every workspace and written to `canary.txt`; a worker that names it has left its own configuration. Beside the
+workspace the control creates an outside read path (`pm-mcp-probe-outside-*` with `outside.txt`) that the worker may read
+but must never write. `observe(output)` returns `Observation(canaryReturned, outsideWrites)`; `outsideWrites` names the
+paths inside that outside read path the run created, changed or removed, not every path of the machine outside the
+workspace. `stayedInside()` is true only when the output named no canary and that path was left as it was. The workspace
+and its outside path are removed together on close, on a clean run and on a detected violation alike; a second close
+removes nothing more.
+link:{src}/DecoyServers.java[`DecoyServers`]:: The loopback-only decoy MCP server and decoy model endpoint of one run.
+Each binds `127.0.0.1` on an ephemeral port, answers every path — the MCP decoy `/mcp`, the endpoint decoy `/models`,
+and every other path a worker's configuration names, such as `/v1/messages` — and records the requests a worker made of
+it as `METHOD path`; `touched()` is true when a worker reached it. The servers never leave loopback, so a decoy cannot be
+reached from the network. A worker that lists or calls a decoy tool, or that sends a request to the decoy endpoint, has
+left its own configuration.
+link:{src}/VerifyingBinaryCheck.java[`VerifyingBinaryCheck`]:: The verifying-binary control of the load-time check. It
+runs the installed binary with the fixed argument vector `--version`, never with an argument taken from the record, and
+waits at most ten seconds. The output is read as the version and the commit, and only an exact match of both is accepted.
+A binary that answers nothing or answers with fewer than two fields is `Unreadable`; a different build is `Mismatch`.
+The control belongs to the verification that writes the record, not to the start path: the eligibility gate reads the
+record and does not run the binary on every start (ADR 006).
+
+The controls are ADR 007's (built in `runtime.worker`, no separate watch item). The workspace's isolation and the decoy
+hits are what the verification's `isolation` and `classes` stages record.
+
+== Ports and the Assembly Adapter
+
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-8[PM-ARCH-8], link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3],
+link:{req}/02-workflow.adoc#PM-WF-14[PM-WF-14]
+
+Every collaborator of the supervisor is the landed type of its package, and no port stands between the supervisor and
+`runtime.launch`, `runtime.job` or `pm-core`. `SupervisorEnvironment` carries the `HarnessVerifier`, the `LaunchComposer`,
+the `SubprocessJobRunner` adapter, the `JobTokenStore`, the `SkillSource`, the effective `LoadedProfile` and the
+`AuditSink`. Three adapter seams exist, and each exists for a stated reason:
+
+* `SupervisorEnvironment.WorkerStarter` — the start-path adapter over `SubprocessJobRunner`. `startWorker` forwards the
+  landed start, `refuseWorker` the landed refusal, and `cancel` the landed termination call, so the supervisor calls
+  exactly the landed paths and a test can record the composed `WorkerStart` and `WorkerStart.Refusal` without a spawn.
+* `SupervisorEnvironment.WorkerStateWriter` — the terminal-state writer over `JobRecordStore`. It parses the generation
+  id as a job id, requires the job to be of kind `LLM`, takes the queue lock, reads the current worker block through
+  `WorkerStateCodec`, and writes the terminal state back through the one `writeWorker` point in the same lock
+  transaction. The state, its instant, the end reason, the start-failure flag and the cleared task are built in one
+  construction, because the block refuses a terminal state whose end reason is still absent and a leased task in a state
+  that holds none. The supervisor and the transport never each parse the block.
+* `WorkerProtocol` — the module-boundary contract to the task protocol. `pm-runtime` may not reference `pm-workflow`, so
+  the assembly `pm-mcp-server` adapts `de.planmarshall.workflow.task.TaskProtocol` to this interface. The protocol stays
+  the owner of the fences, the re-offers and the `agent_started` security record: the supervisor reports the fact and
+  never writes those records itself.
+
+`StartGuard` and `EligibilityGate` are the two further seams of the start path. Their production implementations live
+beside the supervisor (`StartFailureGuard`, `ProfileWorkerEligibility`); their `open()` defaults hold for no role and
+admit every role, which is the supervisor's behaviour before they are wired.
+
+`ModelSlots` is the adapter over the landed `runtime.launch.ModelSlotScheduler`. `claim` maps `Granted` to a lease and
+both `Queued` and `Deferred` to no lease, so a queued request keeps its FIFO place until the start decides and a plan's
+second writer worker declines the start instead of waiting. A start that gets no lease withdraws the place its claim
+queued (`withdraw`, the scheduler's removal by job id), so no phantom entry outlives the generation that never started.
+`release`, `nextWaitingRole` and `releasePlan` carry the rest of the scheduler's surface into the supervisor; the
+scheduler's admission transaction is the single decision.
+
+`WorkerCalls` is the supervisor's inbound API, consumed by the assembly's transport. It hands over a heartbeat, an opened
+wait with the role's current configuration digest, a completed turn with its context size, a closed task, a plan paused
+at once and a harness enrolled anew. A wait answer is one of the protocol's three: `Offered`, `WaitAgain` or `End`. Every
+call names the generation it concerns; the supervisor resolves it from its registry and ignores a call of a generation it
+does not know.
+
+The landed-contract decision and its two seams are ADR 002's; the protocol adapter is ADR 009's; the one writer block is
+ADR 003's.
+
+== The Test Harness
+
+_Requirements:_ link:{req}/12-testing.adoc#PM-TEST-4[PM-TEST-4], link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3]
+
+The package's tests are deterministic and sleep-free. The clock they move is an injected value, and the harness they
+start is a real process whose behaviour they observe rather than assume.
+
+[horizontal]
+link:{test}/SupervisorTestFixture.java[`SupervisorTestFixture`]:: Builds the real launch contracts over a temporary base
+and records the composed starts, the ends, the slots, the terminal writes and the audit events in one order list.
+link:{test}/VirtualClock.java[`VirtualClock`]:: Implements both `InstantSource` and `WorkerTimers`. A scenario moves the
+clock and every timer scheduled at or before the new instant fires in order; a timer scheduled while the clock is being
+moved is picked up by the same move, so a re-armed deadline is never missed.
+link:{test}/FixtureHarness.java[`FixtureHarness`]:: The test-scope program started as a real process. It prints the lines
+it is given after a scripted first-call delay, holds its call, delays its own exit for a scripted grace after `SIGTERM`,
+and starts a child with a named executable — the member the `agent_started` detector examines in the process tree. A
+scenario reads its real output stream through `Handle.awaitLine(Duration)`.
+link:{test}/SupervisorScenarioTest.java[`SupervisorScenarioTest`]:: The package's Done When. Every deadline is asserted at
+deadline−1, at the deadline and after it; the consultation, resume and `agent_started` scenarios start
+`FixtureHarness` and read its scripted stream, so what the harness does is observed rather than assumed.
+
+The unit tests bound each collaborator: link:{test}/WorkerLossDetectionTest.java[`WorkerLossDetectionTest`],
+link:{test}/WorkerEndingTest.java[`WorkerEndingTest`], link:{test}/WorkerDrainParticipantTest.java[`WorkerDrainParticipantTest`],
+link:{test}/WorkerRecyclingTest.java[`WorkerRecyclingTest`], link:{test}/StartFailureGuardTest.java[`StartFailureGuardTest`],
+link:{test}/HarnessStartSpacingTest.java[`HarnessStartSpacingTest`], link:{test}/AgentStartedDetectorTest.java[`AgentStartedDetectorTest`],
+link:{test}/ProfileWorkerEligibilityTest.java[`ProfileWorkerEligibilityTest`], link:{test}/ProbeWorkspaceTest.java[`ProbeWorkspaceTest`],
+link:{test}/DecoyServersTest.java[`DecoyServersTest`], link:{test}/VerifyingBinaryCheckTest.java[`VerifyingBinaryCheckTest`],
+link:{test}/SystemProcessExecutablesTest.java[`SystemProcessExecutablesTest`],
+link:{test}/WorkerSupervisorStartTest.java[`WorkerSupervisorStartTest`] and
+link:{test}/WorkerSupervisorLaunchTest.java[`WorkerSupervisorLaunchTest`].
+
+The virtual clock is ADR 004's. The fixtures and scenarios serve PM-TEST-4's fault matrix and the package's Done When.
+
+== The Failure Modes
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3], link:{req}/12-testing.adoc#PM-TEST-4[PM-TEST-4]
+
+[cols="1,2,2"]
+|===
+|Failure |What observes it |What the supervisor does
+
+|The launch is refused before its spawn
+|`HarnessVerifier` or `LaunchComposer`
+|Records the refused job through `WorkerStarter.refuseWorker`, releases the claimed slot and declines with
+`LAUNCH_REFUSED`. The start-failure guard counts the failure; the task stays queued.
+
+|The worker exits before its first call
+|`LossDetection.exit` answers empty and sets `startFailure`
+|The supervisor records the start failure (`LossDetection.startFailure()`); the assembly counts it through the guard and
+the task takes its start-failure path. A `zero_tool` worker is never counted.
+
+|The worker exits after its first call
+|`LossDetection.exit`
+|`LOST` with `LossReason.EXIT`; the task is offered again within its re-offer budget.
+
+|An offer is not acknowledged
+|`LossDetection.due` at the acknowledgement deadline
+|`LOST` with `LossReason.ACK_MISSED`; the attempt ends `WORKER_LOST`.
+
+|The worker is silent with no open wait
+|`LossDetection.due` at the silence deadline
+|`LOST` with `LossReason.SILENCE`; the attempt ends `WORKER_LOST`. An open bounded wait suppresses the signal.
+
+|The worker is alive but makes no progress
+|The task protocol's off-track signals (PM-WORK-7)
+|The protocol reports it; the supervisor ends the worker through `EndCause.OFF_TRACK` on the action the role artifact
+chose. `agent_started` is the one fixed `restart` signal.
+
+|A second agent starts in the worker's tree
+|`AgentStartedDetector`
+|Reports `WorkerProtocol.agentStarted` and ends the worker through `EndCause.OFF_TRACK`; the protocol owns the audit
+record and the re-offer.
+
+|No model slot is free, or the plan's writer holds it
+|`ModelSlots.claim` returns no lease
+|Declines with `NO_MODEL_SLOT` and withdraws the queued entry, so no phantom request is admitted later; the task stays
+queued.
+
+|The role's guard holds
+|`StartGuard.holds`
+|Declines with `ROLE_GUARD_HELD`; the guard has already closed the queued tasks as `lost` with `role_unavailable`.
+
+|The harness is ineligible
+|`EligibilityGate.admits`
+|Declines with `HARNESS_INELIGIBLE`; the task stays queued. The predicate's refusal (reason, stage and client id) is
+available from `ProfileWorkerEligibility.verdict()` for a report; the start path's declining outcome carries the reason
+code alone.
+
+|A warm worker reached a recycle trigger
+|`WorkerRecycling`
+|Ends through `EndCause.RECYCLE`; a successor starts when work remains. A fresh worker is never recycled.
+
+|The runtime drains
+|`WorkerDrainParticipant`
+|Ends idle warm workers, waits up to the drain deadline, then forces the rest. The tasks stay queued and are offered
+again without counting a re-offer.
+
+|The operator pauses the plan at once
+|`WorkerCalls.planPaused`
+|Forces the plan's workers with `EndCause.PAUSE_AT_ONCE`; the end reason is `WITHDRAWN` and the task is queued again
+without a re-offer.
+
+|A start of one harness collides with the previous one
+|`HarnessStartSpacing`
+|Delays the next start by at most 30 seconds, then proceeds. It never refuses; a real crash before the first call counts
+as a start failure.
+|===
+
+The failure-mode coverage is the fault matrix of PM-TEST-4 and the scenarios of `SupervisorScenarioTest`.
+
+== Specification Tracing
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3], link:{req}/01-architecture.adoc#PM-ARCH-8[PM-ARCH-8],
+link:{req}/02-workflow.adoc#PM-WF-14[PM-WF-14], link:{req}/13-client-profiles.adoc#PM-CLIENT-5[PM-CLIENT-5],
+link:{req}/08-security.adoc#PM-SEC-8[PM-SEC-8], link:{req}/16-model-work.adoc#PM-WORK-7[PM-WORK-7],
+link:{req}/12-testing.adoc#PM-TEST-4[PM-TEST-4]
+
+* Specification: link:{spec}/model-work/03-supervision-and-recycling.adoc[Model Work § Supervision & Recycling],
+  link:{spec}/model-work/03-supervision-and-recycling.adoc#worker-off-track[§ A Worker Off Track],
+  link:{spec}/model-work/04-worker-launch.adoc[Model Work § Worker Launch],
+  link:{spec}/client-profiles/01-profile-schema.adoc#profile-verification[Client Profiles § Profile Verification],
+  link:{spec}/client-profiles/01-profile-schema.adoc#profile-hardening[§ Profile Hardening],
+  link:{spec}/client-profiles/01-profile-schema.adoc#worker-activity[§ What a Worker Does],
+  link:{spec}/timeouts/01-job-budgets-and-waits.adoc#worker-supervision[Timeouts § Worker Supervision & Recycling]
+* Stores and records: link:../../../pm-core/doc/developer/core-store.adoc[`core.store`] (the job record's worker block,
+  `WorkerState`, `WorkerStateCodec`)
+* Job runtime: link:runtime-job.adoc[`runtime.job`] (the runner, the termination protocol, the settlement)
+* Launch contracts: link:runtime-launch.adoc[`runtime.launch`] (the composer, the harness verifier, the job tokens, the
+  model-slot scheduler)
+* Traceability: link:../../../doc/Traceability.adoc#PM-WORK-3[`doc/Traceability.adoc` § PM-WORK-3],
+  link:../../../doc/Traceability.adoc#PM-CLIENT-5[§ PM-CLIENT-5],
+  link:../../../doc/Traceability.adoc#PM-ARCH-8[§ PM-ARCH-8]
+* Decisions: link:../adr/runtime-worker/001-one-supervisor-per-project-and-role.adoc[ADR 001],
+  link:../adr/runtime-worker/002-landed-contracts-and-the-protocol-adapter.adoc[ADR 002],
+  link:../adr/runtime-worker/003-worker-state-written-into-the-job-record.adoc[ADR 003],
+  link:../adr/runtime-worker/004-deadlines-from-an-injected-clock-and-timer.adoc[ADR 004],
+  link:../adr/runtime-worker/005-agent-started-reads-executable-path-and-digest.adoc[ADR 005],
+  link:../adr/runtime-worker/006-verification-record-gate-at-the-start-path.adoc[ADR 006],
+  link:../adr/runtime-worker/007-verification-controls-built-in-runtime-worker.adoc[ADR 007],
+  link:../adr/runtime-worker/008-lease-aware-idle-and-idle-yields.adoc[ADR 008],
+  link:../adr/runtime-worker/009-transport-notifications-and-the-protocol-adapter.adoc[ADR 009]

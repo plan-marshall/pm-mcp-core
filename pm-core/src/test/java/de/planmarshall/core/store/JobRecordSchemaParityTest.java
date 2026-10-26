@@ -33,6 +33,11 @@ import de.planmarshall.core.store.JobRecord.Execution;
 import de.planmarshall.core.store.JobRecord.Fate;
 import de.planmarshall.core.store.JobRecord.Scope;
 import de.planmarshall.core.store.JobRecord.Status;
+import de.planmarshall.core.store.WorkerState.EndReason;
+import de.planmarshall.core.store.WorkerState.Form;
+import de.planmarshall.core.store.WorkerState.RoleClass;
+import de.planmarshall.core.store.WorkerState.State;
+import de.planmarshall.core.store.WorkerState.Workdir;
 
 /**
  * The codec of the job record keeps parity with the schema of Store Schemas § Job Record (PM-EXEC-4): the members of
@@ -128,6 +133,60 @@ class JobRecordSchemaParityTest {
                 () -> assertEquals(JobRecord.FIRST_OUTCOME_ROW, number(outcomeRow.get("minimum"))),
                 () -> assertEquals(JobRecord.LAST_OUTCOME_ROW, number(outcomeRow.get("maximum"))),
                 () -> assertEquals(JobRecord.MAX_BUDGET_KEY, number(member("budget_key").get("maxLength"))));
+    }
+
+    @Test
+    @DisplayName("the members of the worker block are those of the schema in schema order, every one required")
+    void workerMembersEqualSchema() {
+        var worker = member("worker");
+        var workerProperties = SpecificationDocument.object(worker.get("properties"));
+        var workdir = SpecificationDocument.object(workerProperties.get("workdir"));
+        var mark = SpecificationDocument.object(workerProperties.get("worktree_mark"));
+        var skill = SpecificationDocument.object(
+                SpecificationDocument.object(workerProperties.get("delivered_skills")).get("items"));
+
+        assertAll(
+                () -> assertFalse(WorkerStateCodec.MEMBERS.isEmpty(), "the worker block declares members"),
+                () -> assertEquals(WorkerStateCodec.MEMBERS, keys(worker)),
+                () -> assertEquals(WorkerStateCodec.REQUIRED_MEMBERS, required(worker)),
+                () -> assertEquals(WorkerStateCodec.WORKDIR_MEMBERS, keys(workdir)),
+                () -> assertEquals(WorkerStateCodec.WORKDIR_MEMBERS, required(workdir)),
+                () -> assertEquals(WorkerStateCodec.WORKTREE_MARK_MEMBERS, keys(mark)),
+                () -> assertEquals(WorkerStateCodec.WORKTREE_MARK_MEMBERS, required(mark)),
+                () -> assertEquals(WorkerStateCodec.DELIVERED_SKILL_MEMBERS, keys(skill)),
+                () -> assertEquals(WorkerStateCodec.DELIVERED_SKILL_MEMBERS, required(skill)));
+    }
+
+    @Test
+    @DisplayName("the values of the worker enumerations are those of the schema")
+    void workerEnumerationsEqualSchema() {
+        var workerProperties = SpecificationDocument.object(member("worker").get("properties"));
+        var workdirProperties = SpecificationDocument.object(
+                SpecificationDocument.object(workerProperties.get("workdir")).get("properties"));
+
+        assertAll(
+                () -> assertEquals(enumOf(workerProperties, "class"),
+                        wireNames(RoleClass.values(), RoleClass::wireName)),
+                () -> assertEquals(enumOf(workerProperties, "form"), wireNames(Form.values(), Form::wireName)),
+                () -> assertEquals(enumOf(workerProperties, "state"), wireNames(State.values(), State::wireName)),
+                () -> assertEquals(enumOf(workerProperties, "end_reason"),
+                        wireNames(EndReason.values(), EndReason::wireName)),
+                () -> assertEquals(enumOf(workdirProperties, "kind"),
+                        wireNames(Workdir.Kind.values(), Workdir.Kind::wireName)));
+    }
+
+    @Test
+    @DisplayName("the bounds of the worker block are those of the schema")
+    void workerBoundsEqualSchema() {
+        var workerProperties = SpecificationDocument.object(member("worker").get("properties"));
+
+        assertAll(
+                () -> assertEquals(WorkerState.MAX_MODEL, number(
+                        SpecificationDocument.object(workerProperties.get("model")).get("maxLength"))),
+                () -> assertEquals(WorkerState.MAX_HARNESS_ERROR, number(
+                        SpecificationDocument.object(workerProperties.get("harness_error")).get("maxLength"))),
+                () -> assertEquals(0, number(
+                        SpecificationDocument.object(workerProperties.get("idle_wakeups")).get("minimum"))));
     }
 
     private static Map<?, ?> member(String name) {

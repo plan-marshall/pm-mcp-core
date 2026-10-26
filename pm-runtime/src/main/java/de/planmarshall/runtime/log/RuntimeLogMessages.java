@@ -345,6 +345,30 @@ public final class RuntimeLogMessages {
                 .identifier(35)
                 .template("Harness '%s' self-updated from version '%s' to '%s' (digest '%s')")
                 .build();
+
+        /**
+         * Logged by the worker supervisor once the runner reported the started job; names the generation, the role and
+         * the harness.
+         */
+        public static final LogRecord WORKER_GENERATION_STARTED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(36)
+                .template("Worker generation '%s' of role '%s' started on harness '%s'")
+                .build();
+
+        /** Logged by the worker supervisor when a generation ended; names the generation, the role and the cause. */
+        public static final LogRecord WORKER_GENERATION_ENDED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(37)
+                .template("Worker generation '%s' of role '%s' ended with cause '%s'")
+                .build();
+
+        /** Logged by the worker supervisor when a warm generation was recycled; names the generation, the role and why. */
+        public static final LogRecord WORKER_GENERATION_RECYCLED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(38)
+                .template("Worker generation '%s' of role '%s' recycled for '%s'")
+                .build();
     }
 
     /** WARN level messages. */
@@ -736,6 +760,33 @@ public final class RuntimeLogMessages {
                 .prefix(PREFIX)
                 .identifier(139)
                 .template("Launch of a worker of harness '%s' refused '%s': %s; resolve it by: %s")
+                .build();
+
+        /**
+         * Logged when the start-failure guard counted a failed start of a role on a harness; names the role, the harness,
+         * the consecutive failure number and the harness's own error text, bounded and redacted like every job log.
+         */
+        public static final LogRecord WORKER_START_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(140)
+                .template("Start of a worker of role '%s' on harness '%s' failed (consecutive failure %s): %s")
+                .build();
+
+        /** Logged when the start-failure guard holds; names the role, the harness and the failures it counted. */
+        public static final LogRecord WORKER_START_GUARD_HELD = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(141)
+                .template("Start-failure guard of role '%s' on harness '%s' holds after %s consecutive failures")
+                .build();
+
+        /**
+         * Logged when a process of a worker's tree started an enrolled executable; names the generation, the role, the
+         * executable and its digest, never a command line.
+         */
+        public static final LogRecord AGENT_STARTED_DETECTED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(142)
+                .template("Agent started in the process tree of worker generation '%s' of role '%s': '%s' (%s)")
                 .build();
     }
 

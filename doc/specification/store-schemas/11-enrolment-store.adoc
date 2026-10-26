@@ -49,7 +49,6 @@ The per-project machine store records the main checkout it belongs to, the proje
 
 [#harness-enrolment-store]
 == Harness Enrolment Store (`<PM_MCP_BASE>/harnesses.json`)
-_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-33[PM-WATCH-DISP-33]_
 
 The verification of `harnesses.json` against its sidecar under a given integrity key is implemented, and the credential-store move uses it to verify the file under the moved key (link:../../../pm-runtime/src/main/java/de/planmarshall/runtime/enrolment/HarnessesSidecarCheck.java[HarnessesSidecarCheck], link:../../../pm-runtime/doc/developer/runtime-enrolment.adoc[Developer Guide § Integrity Key and Sidecars]). The file's schema, its two writers, its verification before every worker spawn, the self-update and the tampered file are implemented by `runtime.launch` (link:../../../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolmentStore.java[HarnessEnrolmentStore], link:../../../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessVerifier.java[HarnessVerifier], link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Developer Guide § Worker Launch]).
 

@@ -1,5 +1,5 @@
 {
-  "comment": "FFM downcalls of pm-runtime, one entry per descriptor: de.planmarshall.runtime.credentials (MacSecurity, Posix) and de.planmarshall.runtime.job (KillBinding: kill, errno captured)",
+  "comment": "FFM downcalls of pm-runtime, one entry per descriptor: de.planmarshall.runtime.credentials (MacSecurity, Posix), de.planmarshall.runtime.job (KillBinding: kill, errno captured) and de.planmarshall.runtime.worker (SystemProcessExecutables: libproc proc_pidpath)",
   "foreign": {
     "downcalls": [
       { "returnType": "void*", "parameterTypes": ["void*", "void*", "jint"] },
@@ -15,7 +15,8 @@
       { "returnType": "jint", "parameterTypes": ["void*", "void*"] },
       { "returnType": "jint", "parameterTypes": ["void*"] },
       { "returnType": "jint", "parameterTypes": [] },
-      { "returnType": "jint", "parameterTypes": ["jint", "jint"], "options": { "captureCallState": true } }
+      { "returnType": "jint", "parameterTypes": ["jint", "jint"], "options": { "captureCallState": true } },
+      { "returnType": "jint", "parameterTypes": ["jint", "void*", "jint"] }
     ]
   }
 }

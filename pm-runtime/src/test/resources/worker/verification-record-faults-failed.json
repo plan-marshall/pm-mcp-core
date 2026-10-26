@@ -1,0 +1,45 @@
+{
+  "format_version": 1,
+  "client_id": "acme-cli",
+  "profile_schema_version": 1,
+  "profile_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "verified_at": "2026-10-25T12:00:00Z",
+  "tool": {
+    "version": "0.1.99",
+    "commit": "1a2b3c4"
+  },
+  "harness": {
+    "executable": "claude",
+    "version": "1.5.0",
+    "executable_sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "models": ["a-model"]
+  },
+  "platform": {
+    "os": "linux",
+    "arch": "x86_64",
+    "confinement": "landlock"
+  },
+  "stages": {
+    "identity": {
+      "status": "passed"
+    },
+    "egress": {
+      "status": "passed"
+    },
+    "classes": {
+      "status": "passed"
+    },
+    "isolation": {
+      "status": "passed"
+    },
+    "faults": {
+      "status": "failed"
+    }
+  },
+  "values": [
+    {
+      "pointer": "/worker/eligible",
+      "status": "measured"
+    }
+  ]
+}

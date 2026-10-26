@@ -1,0 +1,55 @@
+= ADR 009: Transport Notifications and the Protocol Adapter
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-26
+
+== Context
+
+The supervisor has to notify the rest of the runtime when it fences a worker, when an agent starts, and when a role's
+tasks have to be closed. Those notifications travel over the worker transport, which is a separate module that consumes
+the supervisor. A direct dependency from `runtime.worker` on the transport would run back into the module that consumes
+it, and every test would need the transport to observe a notification.
+
+The question was how the supervisor sends its notifications without depending on the transport.
+
+== Decision
+
+`WorkerProtocol` is the module-boundary adapter: it declares `fence`, `agentStarted` and `closeUnavailable`, and the
+transport module implements it. `runtime.worker` calls only the adapter and never names a transport type.
+`SupervisorEnvironment` supplies the adapter, so a test implements a recording protocol and observes every notification
+without a transport.
+
+The notifications are sent from the supervisor's own transitions: the end path fences and then releases, the
+`agent_started` signal is recorded after the detector accepted it, and a held start-failure guard closes the role's
+tasks through `closeUnavailable`.
+
+== Alternatives Considered
+
+1. *Let `runtime.worker` depend on the transport module.* _Not taken_: the transport consumes the supervisor, so the
+   dependency would be a cycle; it also makes a unit test of a deadline need a transport.
+2. *Publish the notifications on a process-wide event bus.* _Not taken_: the bus adds a global lookup and makes the
+   ordering of a fence and a release implicit.
+3. *Send no notification and let the transport poll the supervisor's state.* _Not taken_: a fence has to reach the
+   transport before a late call is served, and a poll cannot order it.
+
+== Consequences
+
+* The supervisor and its tests run with no transport: `WorkerProtocol` is the only crossing and `FixtureHarness`
+  records it.
+* A new notification is added to `WorkerProtocol` and implemented by the transport; it is not a new dependency.
+* The end path's order — fence, revoke, release, write — is expressed through the adapter and is observable in a test.
+
+== Source
+
+* Plan PLAN-30, deliverable 13
+* link:../../../../doc/specification/model-work/04-worker-launch.adoc#model-slots[Model Work § Model Slots & One Writer
+  per Plan]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerProtocol.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerCalls.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/worker/SupervisorEnvironment.java`

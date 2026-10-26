@@ -72,7 +72,7 @@ Every task except a `zero_tool` worker's (the screener's, the judge's) works in 
 
 [#job-result-schema]
 === Worker Result & Usage Parsing
-_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-3[PM-WATCH-DISP-3], link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-40[PM-WATCH-DISP-40], link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-43[PM-WATCH-DISP-43]_
+_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-3[PM-WATCH-DISP-3], link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-40[PM-WATCH-DISP-40]_
 
 *Result*: A fresh `writer` or `read_only` worker ends with the structured output `job-result`, validated by the server; it is display text and evidence, never the route and never a deliverable. A warm worker ends when the server answers its wait with `end` and has no final result.
 

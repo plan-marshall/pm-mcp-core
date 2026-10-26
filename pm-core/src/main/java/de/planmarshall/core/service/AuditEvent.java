@@ -162,6 +162,21 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     /** The detail of a harness self-update that holds the digest of the changed executable. */
     public static final String DETAIL_NEW_SHA256 = "new_sha256";
 
+    /** The name of the event that records one counted worker start failure of a role on a harness. */
+    public static final String WORKER_START_FAILED = "worker_start_failed";
+
+    /** The detail of a worker start failure that names the role whose start failed. */
+    public static final String DETAIL_ROLE = "role";
+
+    /** The detail of a worker start failure that names the harness whose start failed. */
+    public static final String DETAIL_HARNESS = "harness";
+
+    /**
+     * The detail of a worker start failure that holds the failed worker's own error text, bounded and redacted by the
+     * guard that reports it.
+     */
+    public static final String DETAIL_HARNESS_ERROR = "harness_error";
+
     /** The category of the events of the integrity and per-use checks. */
     public static final String CATEGORY_SECURITY = "security";
 
@@ -215,6 +230,9 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
 
     /** The name of the transaction id argument, as a null check reports it. */
     private static final String TRANSACTION_ID_ARGUMENT = "transactionId";
+
+    /** The name of the project id argument, as a null check reports it. */
+    private static final String PROJECT_ID_ARGUMENT = "projectId";
 
     /**
      * @throws NullPointerException if a component, a detail key or a detail value is {@code null}
@@ -441,6 +459,26 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     }
 
     /**
+     * The record of one counted worker start failure of a role on a harness: an {@code operator} record with the
+     * outcome {@link #OUTCOME_FAILED}, the project, the role and the harness, and the failed worker's own error text
+     * as the guard bounded and redacted it. It is operator and audit data only and is never rendered to a model.
+     *
+     * @param projectId the project whose worker failed to start
+     * @param role      the role of the worker that failed to start
+     * @param harness   the harness on which the start failed
+     * @param detail    the bounded, redacted error text of the failed worker
+     * @return the record of the start failure
+     * @throws NullPointerException if an argument is {@code null}
+     */
+    public static AuditEvent workerStartFailed(String projectId, String role, String harness, String detail) {
+        return new AuditEvent(WORKER_START_FAILED, CATEGORY_OPERATOR, OUTCOME_FAILED,
+                Map.of(DETAIL_PROJECT_ID, Objects.requireNonNull(projectId, PROJECT_ID_ARGUMENT), DETAIL_ROLE,
+                        Objects.requireNonNull(role, DETAIL_ROLE), DETAIL_HARNESS,
+                        Objects.requireNonNull(harness, DETAIL_HARNESS), DETAIL_HARNESS_ERROR,
+                        Objects.requireNonNull(detail, "detail")));
+    }
+
+    /**
      * The record of the same operator write as it stands before the write is confirmed: the same event, category and
      * details, the outcome {@link #OUTCOME_FAILED} and the reason {@link #REASON_NOT_CONFIRMED}. It is what a write
      * owes in its durable intent before it mutates, and is replaced by the succeeded record once the mutation has
@@ -463,14 +501,14 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
 
     private static AuditEvent refusal(String event, String category, String projectId, String reason) {
         return new AuditEvent(event, category, OUTCOME_REFUSED,
-                Map.of(DETAIL_PROJECT_ID, Objects.requireNonNull(projectId, "projectId"), DETAIL_REASON,
+                Map.of(DETAIL_PROJECT_ID, Objects.requireNonNull(projectId, PROJECT_ID_ARGUMENT), DETAIL_REASON,
                         Objects.requireNonNull(reason, DETAIL_REASON)));
     }
 
     private static AuditEvent operatorSucceeded(String event, String projectId, String transactionId) {
         return new AuditEvent(event, CATEGORY_OPERATOR, OUTCOME_SUCCEEDED,
-                Map.of(DETAIL_PROJECT_ID, Objects.requireNonNull(projectId, "projectId"), DETAIL_TRANSACTION_ID,
-                        Objects.requireNonNull(transactionId, TRANSACTION_ID_ARGUMENT)));
+                Map.of(DETAIL_PROJECT_ID, Objects.requireNonNull(projectId, PROJECT_ID_ARGUMENT),
+                        DETAIL_TRANSACTION_ID, Objects.requireNonNull(transactionId, TRANSACTION_ID_ARGUMENT)));
     }
 
     private static String lockPath(LockKey key) {

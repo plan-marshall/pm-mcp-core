@@ -84,24 +84,6 @@ full output saved under `~/.local/share/opencode/tool-output/`); the worker's `p
 `{"task_id":"unknown"}`. Claude Code 2.1.291 completed all three sizes.
 Source:: link:../../../plan-marshall-documentation/doc/specification/evaluation.adoc#results[Evaluation Reference], Gate 13.
 
-[#PM-WATCH-CLIENT-13]
-=== PM-WATCH-CLIENT-13: The record's stages and platform are not checked on load
-
-Anchor:: link:../specification/client-profiles/01-profile-schema.adoc#profile-verification[Client Profiles § Profile Verification],
-link:../specification/client-profiles/01-profile-schema.adoc#profile-hardening[Client Profiles § A Profile Is Untrusted Input] (Claims)
-Hazard:: The profile loader carries a machine profile's verification record, its platform and its stage results, but
-the runtime does not yet refuse `worker.eligible: true` or a non-null `zero_tool` when the record's stages did not pass
-on the platform it runs on. A record written elsewhere, or with every stage `not_run`, would then be believed because
-the profile says so. The probe workspace, the decoy servers and the binary version/commit of the record are the
-verification's and are not implemented either.
-Guard:: The loader validates the document, binds the record by digest and HMAC sidecar, compares the harness build and
-the supported range, checks the role-class declarations and carries the record on the loaded profile. The load-time
-stage/platform gate belongs to the launch path (`worker-launch`, not yet decided there); its control fixture is a record
-with a failing `faults` or `isolation` stage that must leave the harness ineligible. The launch path must also own the
-probe-workspace, decoy-server, and verifying-binary version/commit checks, or link each control to its own watch item.
-Source:: the work package `profile-loader` (PLAN-19) implemented the loader, the record, the sidecar and every hardening
-fixture and left this gate open; its pull request narrows this item instead of deleting it.
-
 == On-the-Fly Placeholder Rendering Rules
 
 [#PM-WATCH-CLIENT-1]

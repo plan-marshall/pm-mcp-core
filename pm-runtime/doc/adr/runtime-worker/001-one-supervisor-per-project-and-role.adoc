@@ -1,0 +1,59 @@
+= ADR 001: One Supervisor per Project and Role
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-26
+
+== Context
+
+A runtime serves the workers of several projects, and a project has several roles. Each worker generation belongs to one
+project and one role, and the supervisor's state is that ownership: the role's `count` bounds the starts of the role, a
+start is serialized against the other starts of the role, and the start-failure guard counts the failures of one role on
+one harness. The machine-wide state the starts also depend on — the start spacing of one harness, the model-slot
+admission, the audit trail — is not owned by any single project.
+
+The question was how far the supervisor's state reaches: one supervisor for the runtime, one per project, or one per
+project and role.
+
+== Decision
+
+`WorkerSupervisor` is created per project and role, and it holds only that role's generations, its admitting flag and
+its serialized start decision. The machine-wide collaborators are supplied through `SupervisorEnvironment` and are
+shared: `HarnessStartSpacing` keys on the harness alone, `ModelSlots` delegates to the landed
+`runtime.launch.ModelSlotScheduler`, and the audit sink is the runtime's.
+
+`SupervisorEnvironment.StartGuard` and `SupervisorEnvironment.EligibilityGate` are seams of the supervisor, not of the
+process, so a supervisor consults the guard and the gate of its own project and role.
+
+== Alternatives Considered
+
+1. *One supervisor for the whole runtime.* _Not taken_: the role's `count` is per project and role, and one supervisor
+   would let a busy project consume another project's workers.
+2. *One supervisor per worker generation.* _Not taken_: the `count`, the serialized start and the guard are properties
+   of the role, and a per-worker supervisor cannot enforce them.
+3. *Share the guard through a static singleton.* _Not taken_: the guard is already machine-scoped by its key, and a
+   static would make the test isolation of the scenarios fragile.
+
+== Consequences
+
+* A start decision is made under one supervisor, so two callers of the same project and role never start beyond the
+  role's count.
+* The machine-wide limits remain machine-wide: a warm worker of one project holds its model slot and spaces its
+  harness's starts exactly as a worker of another project does.
+* A later change that adds a per-project or per-role limit adds it to `SupervisorEnvironment`; it does not widen the
+  supervisor's state across projects.
+
+== Source
+
+* Plan PLAN-30, deliverable 13
+* link:../../../../doc/specification/model-work/04-worker-launch.adoc#model-slots[Model Work § Model Slots & One Writer
+  per Plan]
+* link:../../../../doc/specification/model-work/01-roles-and-configuration.adoc#role-artifact[Model Work § Role Artifact
+  Schema]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerSupervisor.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/worker/SupervisorEnvironment.java`

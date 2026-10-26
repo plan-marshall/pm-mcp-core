@@ -1,0 +1,57 @@
+= ADR 002: Landed Launch Contracts and the Protocol Adapter
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-26
+
+== Context
+
+The launch path that the supervisor composes a worker through is landed, not a seam to be invented in this package:
+PLAN-31 delivered `runtime.launch.ModelSlotScheduler`, the `HarnessEnrolmentStore` and `HarnessVerifier`, the launch
+composition, and the enrolment, egress, platform and profile-lookup contracts the launch reads. The supervisor must
+compose a start through those contracts and must not grow a second, parallel set of them.
+
+The supervisor also has to notify its collaborators — the fence, the `agent_started` signal, the close of a role — and
+it must not depend on the transport module that carries those notifications, or the dependency would run from
+`runtime.worker` back into the module that consumes it.
+
+== Decision
+
+The supervisor composes a start through the landed launch contracts. `ModelSlots` is the adapter over the landed
+`runtime.launch.ModelSlotScheduler`: the scheduler's admission transaction remains the single decision and the adapter
+carries its verdict into the supervisor. No seam this package depends on is described as unlanded.
+
+`WorkerProtocol` is the module-boundary adapter. `runtime.worker` calls `fence`, `agentStarted` and `closeUnavailable`
+through it, and the transport module implements it. The supervisor never names a transport type.
+
+== Alternatives Considered
+
+1. *Define the launch and slot contracts again inside `runtime.worker`.* _Not taken_: the landed contracts already own
+   the admission transaction and the enrolment checks, and a second copy would decide an admission twice.
+2. *Let `runtime.worker` depend on the transport module directly.* _Not taken_: the transport consumes the supervisor,
+   so the dependency would be a cycle, and every test would drag the transport in.
+3. *Keep an "unlanded" seam beside the landed one during a transition.* _Not taken_: the transition is over; a
+   parallel seam would make two places decide the same admission.
+
+== Consequences
+
+* A slot admission, an enrolment check and a launch composition have one owner each, in `runtime.launch`.
+* The supervisor and its tests can run without a transport: `WorkerProtocol` is the only crossing.
+* A later change to the admission transaction is made in `runtime.launch` and reaches the supervisor through
+  `ModelSlots`; the adapter does not re-decide it.
+
+== Source
+
+* Plan PLAN-30, deliverable 13; PLAN-31 merged the launch and model-slot contracts
+* link:../runtime-launch/005-model-slot-admission-in-one-store-transaction.adoc[ADR `runtime.launch` 005: Model-Slot
+  Admission in One Store Transaction]
+* link:../../../../doc/specification/model-work/04-worker-launch.adoc#model-slots[Model Work § Model Slots & One Writer
+  per Plan]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/worker/ModelSlots.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerProtocol.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/worker/SupervisorEnvironment.java`

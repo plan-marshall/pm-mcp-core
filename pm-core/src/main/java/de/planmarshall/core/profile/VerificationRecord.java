@@ -33,13 +33,14 @@ import java.util.Set;
  * @param clientId        the client id of the verified profile
  * @param profileDigest   the canonical-JSON digest the profile had when it was verified
  * @param verifiedAt      when the verification ran
+ * @param tool            the build of the tool whose stages measured the profile
  * @param harness         the harness build the record was measured on
  * @param platform        the platform of the verification
  * @param stages          the stage results by stage name
  * @since 0.1
  */
 public record VerificationRecord(int formatVersion, String clientId, String profileDigest, Instant verifiedAt,
-HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
+Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
 
     /** The one format version of a verification record. */
     public static final int FORMAT_VERSION = 1;
@@ -112,6 +113,17 @@ HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
     }
 
     /**
+     * The build of the tool whose stages measured the profile, as the record binds it: the verifying-binary control
+     * compares {@code version} and {@code commit} with the identity of the installed binary and refuses a mismatch.
+     *
+     * @param version the exact version of the tool
+     * @param commit  the commit of the tool
+     * @since 0.1
+     */
+    public record Tool(String version, String commit) {
+    }
+
+    /**
      * @param document the record, UTF-8 encoded
      * @param name     the record, as a refusal names it
      * @return the record
@@ -161,18 +173,19 @@ HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
                 throw ProfileRefusal.recordInvalid(document, "/profile_digest", "not a sha256: digest");
             }
             var verifiedAt = instant(root, "/verified_at");
-            tool(required(root, "/tool"));
+            var tool = tool(required(root, "/tool"));
             var harness = harness(required(root, "/harness"));
             var platform = platform(required(root, "/platform"));
             var stages = stages(required(root, "/stages"));
             values(required(root, "/values"));
-            return new VerificationRecord((int) format, clientId, digest, verifiedAt, harness, platform, stages);
+            return new VerificationRecord((int) format, clientId, digest, verifiedAt, tool, harness, platform, stages);
         }
 
-        private void tool(JsonNode tool) {
+        private Tool tool(JsonNode tool) {
             object(tool, "/tool", "tool", Set.of(NAME_VERSION, "commit"));
-            string(tool, "/tool/version", NAME_VERSION);
-            string(tool, "/tool/commit", "commit");
+            var version = string(tool, "/tool/version", NAME_VERSION);
+            var commit = string(tool, "/tool/commit", "commit");
+            return new Tool(version, commit);
         }
 
         private HarnessBuild harness(JsonNode harness) {

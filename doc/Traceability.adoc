@@ -189,14 +189,29 @@ Documentation: link:../pm-runtime/doc/developer/runtime-start.adoc#_the_stalled_
 Implementation (the connection independence of the two calls a model holds, as far as the library module
 `pm-workflow` carries it: the server selects a bounded long-poll or a progress-reset wait from the client profile and
 the request's progress token, and a progress wait emits a frame at every interval before the answer, at least one, so a host never reads the hold as
-an idle connection and the call never ends as a transport timeout. Not implemented yet: the relay, the MCP tool
-binding, and the worker supervision that reads the profile): link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WaitSelection.java[WaitSelection],
+an idle connection and the call never ends as a transport timeout. Not implemented yet: the relay and the MCP tool
+binding; the worker supervision that reads the profile is implemented in `runtime.worker`):
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WaitSelection.java[WaitSelection],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/ModelWait.java[ModelWait]
 
 Verified by (the waits a model holds): link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/ModelWaitTest.java[ModelWaitTest]
 
 Documentation (the waits a model holds): link:../pm-workflow/doc/developer/workflow-engine.adoc#_waits_held_by_a_model[Workflow Engine Developer Guide § Waits Held by a Model],
 link:../pm-workflow/doc/adr/workflow-engine/012-model-waits-selected-from-the-connection-profile-and-token.adoc[ADR workflow-engine/012]
+
+Implementation (the worker side of the continuation, as far as the library module `pm-runtime` carries it and not yet
+wired into the runtime `pm-mcpd`: a worker's next step is answered by the runtime and never chosen by the worker — the
+supervisor holds each generation's end request so the transport answers its next wait with `end`, receives the calls the
+worker makes, and reads the client profile's bounded wait, acknowledgement deadline and silence grace for the supervision
+it drives; a lost worker is ended, fenced and its task offered again, and an idle warm worker is ended rather than kept
+alive by the transport): link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerSupervisor.java[WorkerSupervisor],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerCalls.java[WorkerCalls],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerLifecycle.java[WorkerLifecycle]
+
+Verified by (the worker side): link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorScenarioTest.java[SupervisorScenarioTest] (each end path, the loss deadlines at deadline−1, at the deadline and after it, and the offered successor)
+
+Documentation (the worker side): link:../pm-runtime/doc/developer/runtime-worker.adoc[Worker Supervision Developer Guide],
+link:../pm-runtime/doc/adr/runtime-worker/009-transport-notifications-and-the-protocol-adapter.adoc[ADR runtime-worker/009]
 
 [#PM-ARCH-10]
 === PM-ARCH-10: One Cleanup of Work History & Automatic Removal of Residue
@@ -1230,6 +1245,28 @@ link:../pm-core/doc/adr/core-profile/002-canonical-digest-and-hmac-sidecar.adoc[
 link:../pm-core/doc/adr/core-profile/003-refused-profile-is-a-value-next-set-in-force.adoc[ADR core-profile/003],
 link:../pm-core/doc/adr/core-profile/004-bundle-managed-paths-as-installation-data.adoc[ADR core-profile/004]
 
+Implementation (the load-time gate and the three verification controls, as far as the library module `pm-runtime`
+carries them and not yet wired into the runtime `pm-mcpd`: the pure predicate the supervisor consults before every
+start, which honours a shipped profile and honours a machine or project profile's `worker.eligible: true`, non-null
+`zero_tool` or an `enforced` tool set only when the record's stages passed on the runtime's platform, and refuses a record
+written on another platform with the reason and the stage that decided it; and the probe workspace, the decoy servers and
+the verifying-binary check the record's stages attest): link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/ProfileWorkerEligibility.java[ProfileWorkerEligibility],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/EligibilityVerdict.java[EligibilityVerdict],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/EligibilityRefusal.java[EligibilityRefusal],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/RuntimePlatform.java[RuntimePlatform],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/ProbeWorkspace.java[ProbeWorkspace],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/DecoyServers.java[DecoyServers],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/VerifyingBinaryCheck.java[VerifyingBinaryCheck]
+
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/ProfileWorkerEligibilityTest.java[ProfileWorkerEligibilityTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/ProbeWorkspaceTest.java[ProbeWorkspaceTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/DecoyServersTest.java[DecoyServersTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/VerifyingBinaryCheckTest.java[VerifyingBinaryCheckTest]
+
+Documentation: link:../pm-runtime/doc/developer/runtime-worker.adoc[Worker Supervision Developer Guide],
+link:../pm-runtime/doc/adr/runtime-worker/006-verification-record-gate-at-the-start-path.adoc[ADR runtime-worker/006],
+link:../pm-runtime/doc/adr/runtime-worker/007-verification-controls-built-in-runtime-worker.adoc[ADR runtime-worker/007]
+
 == link:../../plan-marshall-documentation/doc/requirements/14-implementation.adoc[Implementation]
 
 [#PM-IMPL-1]
@@ -1681,6 +1718,52 @@ link:../pm-workflow/doc/adr/workflow-task/001-the-protocol-decides-the-runtime-t
 link:../pm-workflow/doc/adr/workflow-task/002-the-re-offer-budget-is-spent-by-counted-attempt-ends.adoc[ADR workflow-task/002],
 link:../pm-workflow/doc/adr/workflow-task/003-the-agent-started-detection-is-audited-through-a-port.adoc[ADR workflow-task/003],
 link:../pm-workflow/doc/adr/workflow-task/004-the-delivery-record-is-a-runtime-projection.adoc[ADR workflow-task/004]
+
+[#PM-WORK-3]
+=== PM-WORK-3: Supervision & Recycling
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3]
+
+Implementation (the supervisor of the worker processes, as far as the library module `pm-runtime` carries it and not yet
+wired into the runtime `pm-mcpd`: one supervisor per project and role that starts the workers a request asks for as far
+as the role's form, its `count`, the start-failure guard, the verification-record gate and the model slots admit them;
+the three loss deadlines and the off-track `agent_started` signal, compared by executable path and digest; the one end
+path with its fence, token revocation, slot release and terminal state; the drain participant; the four recycle triggers
+and the idle yields; the start-failure guard with its bounded report and its probe; the machine-wide start spacing of one
+harness; and the worker state of the generation written into the job record. The transport and the assembly wiring are
+`pm-mcp-server`'s, and the model slots are the landed scheduler's): link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerSupervisor.java[WorkerSupervisor],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerGeneration.java[WorkerGeneration],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerLifecycle.java[WorkerLifecycle],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/LossDetection.java[LossDetection],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerEnding.java[WorkerEnding],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerRecycling.java[WorkerRecycling],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerDrainParticipant.java[WorkerDrainParticipant],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/StartFailureGuard.java[StartFailureGuard],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/HarnessStartSpacing.java[HarnessStartSpacing],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/AgentStartedDetector.java[AgentStartedDetector],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerTimers.java[WorkerTimers],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerCalls.java[WorkerCalls],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerProtocol.java[WorkerProtocol],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/ModelSlots.java[ModelSlots],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WorkerState.java[WorkerState]
+
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorScenarioTest.java[SupervisorScenarioTest] (the package's Done When scenarios over the fixture harness and the virtual clock, supported by the mechanism tests named below: AgentStartedDetectorTest for the `agent_started` match and the impostor, StartFailureGuardTest for the count, the hold, the probe and the clear, WorkerRecyclingTest for the four recycle triggers, and WorkerEndingTest for the one end path),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerSupervisorStartTest.java[WorkerSupervisorStartTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerSupervisorLaunchTest.java[WorkerSupervisorLaunchTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerLossDetectionTest.java[WorkerLossDetectionTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerEndingTest.java[WorkerEndingTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerDrainParticipantTest.java[WorkerDrainParticipantTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerRecyclingTest.java[WorkerRecyclingTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/StartFailureGuardTest.java[StartFailureGuardTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/HarnessStartSpacingTest.java[HarnessStartSpacingTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/AgentStartedDetectorTest.java[AgentStartedDetectorTest]
+
+Documentation: link:../pm-runtime/doc/developer/runtime-worker.adoc[Worker Supervision Developer Guide],
+link:../pm-runtime/doc/adr/runtime-worker/001-one-supervisor-per-project-and-role.adoc[ADR runtime-worker/001],
+link:../pm-runtime/doc/adr/runtime-worker/004-deadlines-from-an-injected-clock-and-timer.adoc[ADR runtime-worker/004],
+link:../pm-runtime/doc/adr/runtime-worker/005-agent-started-reads-executable-path-and-digest.adoc[ADR runtime-worker/005],
+link:../pm-runtime/doc/adr/runtime-worker/008-lease-aware-idle-and-idle-yields.adoc[ADR runtime-worker/008],
+link:../pm-runtime/doc/adr/runtime-worker/009-transport-notifications-and-the-protocol-adapter.adoc[ADR runtime-worker/009]
 
 [#PM-WORK-4]
 === PM-WORK-4: Consultation through the Server

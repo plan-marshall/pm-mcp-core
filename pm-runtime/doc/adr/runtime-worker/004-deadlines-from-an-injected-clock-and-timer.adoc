@@ -1,0 +1,60 @@
+= ADR 004: Deadlines from an Injected Clock and Timer
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-26
+
+== Context
+
+A worker generation has three deadlines: the exit the watcher observed, the missing acknowledgement of an offer, and
+silence past the bounded wait plus the host's silence grace. The values come from the harness's `WorkerParameters`, so
+the detector has no timing literal of its own. A test that waits for a real deadline would sleep for the bounded wait
+plus the grace and would fail intermittently when the machine is slow; the scenarios must assert the state at
+deadline−1, at the deadline and after it without a sleep.
+
+The question was how the detector reads time and how it is woken at a deadline.
+
+== Decision
+
+`LossDetection` reads every deadline from an injected `InstantSource` and schedules the next one through an injected
+`WorkerTimers`. It arms one cancellable timer at the earliest deadline still open and re-arms it whenever a call opens,
+closes or clears a deadline. `due(Instant)` is the pure predicate: it answers a signal only when a deadline lies at or
+before the instant asked about, so no timer can end a worker earlier than the specification says.
+
+The production `WorkerTimers.system(clock)` measures its delays from the same injected clock, in nanoseconds, so a
+deadline carried by an instant with sub-millisecond precision is not shortened; a test supplies `VirtualClock`, which
+implements both `InstantSource` and `WorkerTimers` and fires a due timer when the scenario moves the clock.
+
+== Alternatives Considered
+
+1. *Poll the deadlines with `Thread.sleep`.* _Not taken_: it sleeps for the whole bound, is slow and flaky, and
+   contradicts the package's sleep-free scenario contract.
+2. *Use a `ScheduledExecutorService` directly.* _Not taken_: the wall clock would be the time source and a scenario
+   could not move a deadline.
+3. *Fire a deadline from the timer without re-checking the clock.* _Not taken_: a spurious wake-up would fire a signal
+   before its deadline; the timer must ask `due` at the instant the clock actually reached.
+
+== Consequences
+
+* Every deadline is testable by moving the clock; `SupervisorScenarioTest` asserts the state at deadline−1, at the
+  deadline and after it, and no scenario sleeps.
+* A new deadline is added by reading it from the worker parameters and arming it in the detector's `reschedule`, not by
+  adding a `System.currentTimeMillis()` call.
+* The timer fires at the deadline and `due` re-checks it, so a timer that runs late still reports the deadline it
+  crossed rather than the delayed instant.
+* A timer that wakes before its deadline re-arms at that deadline instead of losing the signal, and the check and the
+  effect run under the detector's monitor, so an acknowledgement or an exit that lands at the same instant wins.
+
+== Source
+
+* Plan PLAN-30, deliverable 13
+* link:../../../../doc/specification/model-work/04-worker-launch.adoc#model-slots[Model Work § Model Slots & One Writer
+  per Plan]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/worker/LossDetection.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerTimers.java`,
+  `pm-runtime/src/test/java/de/planmarshall/runtime/worker/VirtualClock.java`

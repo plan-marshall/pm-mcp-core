@@ -1,0 +1,58 @@
+= ADR 003: Worker State Written into the Job Record
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-26
+
+== Context
+
+A worker generation is a process of the job runner, and the job record is the durable record of that process: its
+state, its lease and its terminal fact. The supervisor advances the worker's state as it serves tasks — running, idle,
+ending — and a recovery that reads the job store after a crash needs that state to reconcile the generation it finds.
+
+The question was where the terminal state lives: in the supervisor's in-memory generation only, in a side file of the
+worker package, or in the job record the job runner already writes.
+
+== Decision
+
+`SupervisorEnvironment.WorkerStateWriter` writes the worker state into the job record through `JobRecordStore` and
+`WorkerState` / `WorkerStateCodec`. The supervisor writes the terminal state after the end path has fenced the worker,
+revoked its job token and released its model slot, so a reader of the record never sees a terminal state whose slot is
+still held.
+
+The writer records the state, the transition instant, the end reason and whether the exit was a start failure, and clears
+the leased task in the same construction, because a terminal state holds no task. The in-memory `WorkerGeneration`
+remains the supervisor's working value; it is not the durable record.
+
+== Alternatives Considered
+
+1. *Keep the terminal state only in the supervisor's map.* _Not taken_: the map dies with the runtime, and a recovery
+   cannot reconcile a worker whose process ended.
+2. *Write a side file of the worker package.* _Not taken_: the job record already carries the generation, and a second
+   record would have to be kept consistent with it.
+3. *Write the state before releasing the slot.* _Not taken_: a reader would then see a terminal worker that still holds
+   a model slot, which is exactly the stale lease the recovery must not adopt.
+
+== Consequences
+
+* The job record is the single durable statement of a worker's state, and a recovery reads the same record the launch
+  wrote.
+* The order fence → revoke → release → write is a contract of the end path; a later change that reorders it must keep a
+  terminal state from observing a held slot.
+* The `WorkerState` codec is the closed shape of that record; a new state is added there, not in an ad-hoc member.
+
+== Source
+
+* Plan PLAN-30, deliverable 13
+* link:../../../../doc/specification/model-work/04-worker-launch.adoc#model-slots[Model Work § Model Slots & One Writer
+  per Plan]
+* link:../runtime-launch/003-worker-descendants-in-the-runner.adoc[ADR `runtime.launch` 003: Worker Descendants in the
+  Runner]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/worker/SupervisorEnvironment.java`,
+  `pm-core/src/main/java/de/planmarshall/core/store/WorkerState.java`,
+  `pm-core/src/main/java/de/planmarshall/core/store/JobRecordStore.java`

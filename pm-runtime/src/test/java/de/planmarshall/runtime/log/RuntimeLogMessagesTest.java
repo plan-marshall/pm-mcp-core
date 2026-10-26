@@ -222,6 +222,31 @@ class RuntimeLogMessagesTest {
                 () -> assertEquals(template, logRecord.getTemplate()));
     }
 
+    static Stream<Arguments> workerSupervisorRecords() {
+        return Stream.of(
+                Arguments.of(RuntimeLogMessages.INFO.WORKER_GENERATION_STARTED, "PM_RUNTIME-36",
+                        "Worker generation '%s' of role '%s' started on harness '%s'"),
+                Arguments.of(RuntimeLogMessages.INFO.WORKER_GENERATION_ENDED, "PM_RUNTIME-37",
+                        "Worker generation '%s' of role '%s' ended with cause '%s'"),
+                Arguments.of(RuntimeLogMessages.INFO.WORKER_GENERATION_RECYCLED, "PM_RUNTIME-38",
+                        "Worker generation '%s' of role '%s' recycled for '%s'"),
+                Arguments.of(RuntimeLogMessages.WARN.WORKER_START_FAILED, "PM_RUNTIME-140",
+                        "Start of a worker of role '%s' on harness '%s' failed (consecutive failure %s): %s"),
+                Arguments.of(RuntimeLogMessages.WARN.WORKER_START_GUARD_HELD, "PM_RUNTIME-141",
+                        "Start-failure guard of role '%s' on harness '%s' holds after %s consecutive failures"),
+                Arguments.of(RuntimeLogMessages.WARN.AGENT_STARTED_DETECTED, "PM_RUNTIME-142",
+                        "Agent started in the process tree of worker generation '%s' of role '%s': '%s' (%s)"));
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("workerSupervisorRecords")
+    @DisplayName("the records of the worker supervisor")
+    void workerSupervisor(LogRecord logRecord, String identifier, String template) {
+        assertAll(
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
+                () -> assertEquals(template, logRecord.getTemplate()));
+    }
+
     @Test
     @DisplayName("the record of the former file-store fallback is gone and its identifier 104 is not reused")
     void fileStoreFallbackRemoved() throws Exception {

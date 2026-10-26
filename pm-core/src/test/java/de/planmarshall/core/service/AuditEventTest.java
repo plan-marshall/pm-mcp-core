@@ -98,6 +98,43 @@ class AuditEventTest {
     }
 
     @Nested
+    @DisplayName("worker start failures")
+    class WorkerStartFailures {
+
+        private static final String PROJECT = "pm-mcp-core";
+
+        @Test
+        @DisplayName("a start failure is a failed operator record naming the project, role, harness and error text")
+        void workerStartFailed() {
+            var detail = "the harness exited before its first call";
+
+            var event = AuditEvent.workerStartFailed(PROJECT, "supervisor", "claude", detail);
+
+            assertAll(
+                    () -> assertEquals("worker_start_failed", event.event()),
+                    () -> assertEquals(AuditEvent.WORKER_START_FAILED, event.event()),
+                    () -> assertEquals("operator", event.category()),
+                    () -> assertEquals("failed", event.outcome()),
+                    () -> assertEquals(Map.of("project_id", PROJECT, "role", "supervisor", "harness", "claude",
+                            "harness_error", detail), event.details()));
+        }
+
+        @Test
+        @DisplayName("a start failure without its project, role, harness or error text is refused")
+        void workerStartFailedRefusesMissingValues() {
+            assertAll(
+                    () -> assertThrows(NullPointerException.class,
+                            () -> AuditEvent.workerStartFailed(null, "supervisor", "claude", "detail")),
+                    () -> assertThrows(NullPointerException.class,
+                            () -> AuditEvent.workerStartFailed(PROJECT, null, "claude", "detail")),
+                    () -> assertThrows(NullPointerException.class,
+                            () -> AuditEvent.workerStartFailed(PROJECT, "supervisor", null, "detail")),
+                    () -> assertThrows(NullPointerException.class,
+                            () -> AuditEvent.workerStartFailed(PROJECT, "supervisor", "claude", null)));
+        }
+    }
+
+    @Nested
     @DisplayName("roll-forward of a transaction")
     class RolledForward {
 

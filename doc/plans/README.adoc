@@ -27,34 +27,28 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:../../../pm-mcp-clients/doc/plans/exec-read-denied-paths.adoc[`pm-mcp-clients` / `exec-read-denied-paths`]; link:../../../pm-mcp-clients/doc/plans/exec-listed-read-set.adoc[`pm-mcp-clients` / `exec-listed-read-set`]
 |Milestone 4
 
-|link:supervisor.adoc[`supervisor`]
-|Worker supervisor
-|`open`
-|nothing
-|Milestone 4
-
 |link:worker-activity.adoc[`worker-activity`]
 |What a worker does: the activity of a task mapped per harness, the activity journal, the off-track signals and their actions
 |`open`
-|link:supervisor.adoc[`supervisor`]
+|nothing
 |Milestone 4
 
 |link:question-continuation.adoc[`question-continuation`]
 |Continuation after a question: hold, suspend and resume, the answer acknowledgement, the answer in the next task, the question bound, the stage `resumability` of the profile verification
 |`open`
-|link:supervisor.adoc[`supervisor`]; link:../../../plan-marshall-mcp/doc/plans/question-loop-verification.adoc[`plan-marshall-mcp` / `question-loop-verification`]
+|link:../../../plan-marshall-mcp/doc/plans/question-loop-verification.adoc[`plan-marshall-mcp` / `question-loop-verification`]
 |Milestone 4
 
 |link:role-qualification.adoc[`role-qualification`]
 |Role qualification
 |`open`
-|link:supervisor.adoc[`supervisor`]
+|nothing
 |Milestone 4
 
 |link:supervision-scenarios.adoc[`supervision-scenarios`]
 |Deterministic supervision scenarios
 |`open`
-|link:supervisor.adoc[`supervisor`]; link:worker-activity.adoc[`worker-activity`]; link:question-continuation.adoc[`question-continuation`]
+|link:worker-activity.adoc[`worker-activity`]; link:question-continuation.adoc[`question-continuation`]
 |Milestone 4
 
 |link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]
@@ -132,7 +126,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:plan-and-epic-control.adoc[`plan-and-epic-control`]
 |Controlling plans: a plan's acts (pause, start, cancel, abandon), a plan's settings, the epic told, holds and their acts
 |`open`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]; link:project-onboarding-unit.adoc[`project-onboarding-unit`]; link:supervisor.adoc[`supervisor`]
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]; link:project-onboarding-unit.adoc[`project-onboarding-unit`]
 |Milestones 10 and 12; the client work of `pm-mcp-clients`
 
 |link:epic-resource-and-release.adoc[`epic-resource-and-release`]
@@ -174,13 +168,13 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:runtime-control.adoc[`runtime-control`]
 |Controlling the runtime from the clients: stop now or after a drain, the withdrawable drain, restart, the update check, the upgrade
 |`blocked`
-|link:supervisor.adoc[`supervisor`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the consent store); the operator's answer to the open question of the registry credential, for the update check and the fetch (no work package)
+|link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the consent store); the operator's answer to the open question of the registry credential, for the update check and the fetch (no work package)
 |Milestone 2; the client work of `pm-mcp-clients`
 
 |link:runtime-metrics.adoc[`runtime-metrics`]
 |What the runtime is doing: the metrics registry maintained where things happen, the closed catalogue, the snapshot endpoints and the stream
 |`open`
-|link:supervisor.adoc[`supervisor`]; link:token-usage.adoc[`token-usage`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (held and paused)
+|link:token-usage.adoc[`token-usage`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (held and paused)
 |Milestone 2; the client work of `pm-mcp-clients`
 
 |link:process-designer.adoc[`process-designer`]
