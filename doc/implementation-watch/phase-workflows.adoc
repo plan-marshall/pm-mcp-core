@@ -1802,3 +1802,39 @@ followed and `verified_by` rewritten without a fingerprint change, and an unpars
 `indeterminate` with a blocking finding.
 Source:: Article analysis `spec-anchored-development` of plan-marshall-documentation (contract tests as what keeps a
 living spec and the code in sync; capability specs had no link to a test).
+
+[#PM-WATCH-PHASE-120]
+=== PM-WATCH-PHASE-120: A tool that did not report is never clean, and a plan never dismisses an alert it did not raise
+
+Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#code-scanning-provider[Phase Workflows § Code Scanning Alerts as a Code Analysis Provider]
+Hazard:: The adapter reads "no open alert" as `passed` while a configured tool's upload for the head commit is missing
+or failed, so the finalize wait goes green on a scan that never happened; or the issue set takes every open alert of
+the pull request's ref, base-branch alerts included, and a `SUPPRESS` of such a finding dismisses an alert for the
+whole repository; or a re-run that GitHub keys to the same alert files a second finding.
+Guard:: Scenario against a recorded code-scanning fixture of a pull request with two configured tools: tool A uploaded
+for the head commit with one new alert, tool B uploaded only for an older commit; after CI completes the status is
+`undecidable` naming B, never `passed`. A `SUPPRESS` with `claim_refuted` transmits one dismissal for A's alert; a
+finding on an alert whose first instance is on the base branch is absent from the issue set. Matched controls: with
+B's upload for the head commit and A's alert fixed, the status is `passed`; a second poll after a re-run files no
+duplicate; an alert of an unconfigured tool is ignored.
+Source:: Article analysis `mantis` of plan-marshall-documentation (Mantis writes SARIF and must run in an isolated
+environment, so PM-MCP takes its results through code scanning instead of running it; a dismissal on GitHub is
+repository-wide).
+
+[#PM-WATCH-PHASE-121]
+=== PM-WATCH-PHASE-121: A severity cap only lowers, and a reproduced claim names its run
+
+Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#security-audit-calibration[Phase Workflows § Security Audit Calibration]
+Hazard:: The cap is applied as an assignment, so a `minor` submission under a `major` cap is raised; or two applicable
+caps are applied in table order instead of taking the lowest; or `evidence_level: test_reproduced` is accepted from the
+model without a build job of the plan's run, which lifts the strongest cap on a claim nobody ran; or the removed-guard
+escalation blames the working tree instead of the base commit, so a guard added by an earlier fix and moved since is
+missed.
+Guard:: Table test over the shipped `security_severity_caps`: each submitted severity crossed with each `security` combination
+yields the minimum of the submission and the applicable caps, `cap_rule` names the lowest cap, and `submitted_severity`
+keeps the input; `test_reproduced` without an `evidence.ref` of a build job of the plan is recorded `reasoned`. Scenario:
+a plan that deletes a validation added by the fix commit of an archived `security_audit` finding gets a blocking
+`security_guard_removed` finding naming it. Matched controls: a submission below every cap is filed unchanged, and
+deleting a guard no security fix added stays a removed-guard candidate for `review-code`.
+Source:: Article analysis `mantis` of plan-marshall-documentation (Mantis's calibration rubric with caps where the most
+restrictive wins and a cap never raises; its lineage of earlier fixes).
