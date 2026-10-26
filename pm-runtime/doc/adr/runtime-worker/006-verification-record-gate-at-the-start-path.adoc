@@ -15,7 +15,7 @@ A machine or project profile makes two claims the runtime must not take on faith
 `headless.classes.zero_tool`. The profile verification writes a verification record beside the profile, and the runtime
 check on load must refuse a claim the record does not establish for the platform the runtime runs on. The loader
 validates the document, binds the record by digest and sidecar, and carries the record on the loaded profile, but the
-load-time stage and platform gate was left open (PM-WATCH-CLIENT-13).
+load-time stage and platform gate was left open.
 
 The question was where the gate lives — at load, at the launch path, or in the supervisor's start decision — and what it
 decides.

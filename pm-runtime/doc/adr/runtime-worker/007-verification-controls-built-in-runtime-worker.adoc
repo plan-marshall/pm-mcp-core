@@ -13,8 +13,8 @@ Accepted
 
 The profile verification's stages need three controls the runtime had not implemented: a fresh probe workspace with a
 canary, loopback-only decoy servers, and a verifier that compares the installed binary's version and commit with the
-verification record. PM-WATCH-CLIENT-13 recorded them as the verification's own and left them to the launch path, which
-is `runtime.worker`. The stages run as jobs of the runtime with a probe workspace outside `<PM_MCP_BASE>`, and a probe
+verification record. The profile loader left them to the verification of the harness profile, and this package builds them
+for the launch path, which is `runtime.worker`. The stages run as jobs of the runtime with a probe workspace outside `<PM_MCP_BASE>`, and a probe
 worker is confined like every other job.
 
 The question was where the controls live and how far each reaches.
