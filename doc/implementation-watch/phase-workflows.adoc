@@ -1665,10 +1665,14 @@ Guard:: Tests submit the self-review with a constraint or a non-goal omitted (re
 `clean_unverified`), and for a record without constraints (unaffected). The facts of `refine.builder-check` are composed
 from a record whose accepted default permits what a constraint rules out; the question reaches the operator naming both
 items. Corpus fixture: the article's first-run case (spec and all tests accept a fallback that hides items, the
-constraint is "never lose an item silently").
+constraint is "never lose an item silently"). A second fixture gives a record whose criteria all hold for an
+implementation that leaves the goal sentence false (the goal "an export completes for every account", the criteria
+only that a request is accepted and a job started); the check names the goal and those criteria in one `operator`
+question.
 Source:: Article analysis `ai-native-sdlc-four-files` of plan-marshall-documentation (the review against the intent's
 constraint was the only step that caught the spec-approved default). Article analysis `spec-driven-tools-heise`
-(OpenSpec's coherence check: decisions reflected in the code).
+(OpenSpec's coherence check: decisions reflected in the code). Article analysis `right-amount-of-spec` (criteria a builder can
+meet while missing the goal).
 
 [#PM-WATCH-PHASE-112]
 === PM-WATCH-PHASE-112: Behaviour nobody asked for is listed, not passed
