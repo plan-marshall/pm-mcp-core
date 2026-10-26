@@ -255,9 +255,15 @@ final class SupervisorTestFixture {
 
         final List<JobRunner.CancelCause> cancels = new CopyOnWriteArrayList<>();
 
+        /** The failure this starter raises instead of answering, so a test can drive a start path that throws. */
+        RuntimeException startFailure;
+
         @Override
         public JobRunner.StartResult startWorker(WorkerStart request) {
             starts.add(request);
+            if (startFailure != null) {
+                throw startFailure;
+            }
             return new JobRunner.StartResult.Started(JobId.parse(request.launch().generationId()).orElseThrow());
         }
 

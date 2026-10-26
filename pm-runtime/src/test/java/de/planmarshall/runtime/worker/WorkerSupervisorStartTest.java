@@ -12,6 +12,7 @@ package de.planmarshall.runtime.worker;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.juli.LogAsserts;
@@ -26,13 +27,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.planmarshall.core.role.EffectiveRole;
 import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.runtime.worker.WorkerSupervisor.StartOutcome;
 
 /**
  * The supervisor's start decision (PM-WORK-3, PM-WF-14): the fresh and warm forms, the role's count, the three refusals
- * it decides itself, and the one log line a successful start writes.
+ * it decides itself, the probe a throwing start settles, and the one log line a successful start writes.
  */
 @EnableTestLogger
 @DisplayName("Worker supervisor start decision")
@@ -114,6 +116,33 @@ class WorkerSupervisorStartTest {
     }
 
     @Test
+    @DisplayName("a start that throws after consuming the probe restarts the backoff instead of stranding the guard")
+    void aThrowingStartRestartsTheProbeBackoff() {
+        var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
+        var guard = new StartFailureGuard(SupervisorTestFixture.PROJECT, List::of, fixture.protocol,
+                fixture.events::add, fixture.clock);
+        hold(guard, role);
+        fixture.advance(StartFailureGuard.PROBE_BACKOFF);
+        fixture.starter.startFailure = new IllegalStateException("the job runtime is gone");
+        var supervisor = supervisor(guard, OPEN_GATE);
+
+        var thrown = assertThrows(IllegalStateException.class,
+                () -> supervisor.start(List.of(fixture.freshRequest(role))));
+        var heldWhileTheRestartedBackoffRuns = guard.holds(role.artifact().name(), role.harness());
+        fixture.advance(StartFailureGuard.PROBE_BACKOFF);
+        var nextProbeAdmitted = !guard.holds(role.artifact().name(), role.harness());
+
+        assertAll(
+                () -> assertEquals("the job runtime is gone", thrown.getMessage(),
+                        "the start's own failure propagates"),
+                () -> assertTrue(heldWhileTheRestartedBackoffRuns,
+                        "the throw releases the consumed probe and restarts its backoff"),
+                () -> assertTrue(nextProbeAdmitted, "the restarted backoff admits the next probe"),
+                () -> assertTrue(supervisor.generations().isEmpty(), "the throwing start registers no generation"),
+                () -> assertEquals(1, fixture.slots.released.size(), "the throwing start returns its model slot"));
+    }
+
+    @Test
     @DisplayName("a refusing verification-record gate starts no worker")
     void gateRefusedStartsNothing() {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 2);
@@ -181,6 +210,12 @@ class WorkerSupervisorStartTest {
 
     private static long started(List<StartOutcome> outcomes) {
         return outcomes.stream().filter(StartOutcome.Started.class::isInstance).count();
+    }
+
+    private static void hold(StartFailureGuard guard, EffectiveRole role) {
+        for (var failure = 1; failure <= StartFailureGuard.HOLD_THRESHOLD; failure++) {
+            guard.startFailed(role.artifact().name(), role.harness(), "the start failed");
+        }
     }
 
     private static WorkerStartRefusal declined(List<StartOutcome> outcomes) {

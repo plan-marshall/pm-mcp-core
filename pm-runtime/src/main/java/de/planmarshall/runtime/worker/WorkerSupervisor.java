@@ -132,6 +132,8 @@ public final class WorkerSupervisor {
      *         count are not attempted and have no outcome
      * @throws NullPointerException     if the list or an element is {@code null}
      * @throws IllegalArgumentException if the requests name different roles
+     * @throws RuntimeException         whatever a start raises; the probe the guard admitted is settled before it
+     *                                  propagates, so a throwing start never leaves the guard held with no future probe
      */
     public synchronized List<StartOutcome> start(List<WorkerStartRequest> requests) {
         Objects.requireNonNull(requests, "requests");
@@ -142,21 +144,23 @@ public final class WorkerSupervisor {
         for (var request : requests) {
             requireSameRole(role, request.role());
         }
-        if (environment.startGuard().holds(role.artifact().name(), role.harness())) {
+        var roleName = role.artifact().name();
+        var harness = role.harness();
+        if (environment.startGuard().holds(roleName, harness)) {
             return declineAll(requests, WorkerStartRefusal.ROLE_GUARD_HELD);
         }
-        if (!environment.eligibilityGate().admits(role.artifact().name(), role.harness())) {
-            environment.startGuard().probeDeclined(role.artifact().name(), role.harness());
-            return declineAll(requests, WorkerStartRefusal.HARNESS_INELIGIBLE);
-        }
         var outcomes = new ArrayList<StartOutcome>();
-        for (var request : admitted(role, requests)) {
-            outcomes.add(startOne(request));
+        try {
+            if (!environment.eligibilityGate().admits(roleName, harness)) {
+                return declineAll(requests, WorkerStartRefusal.HARNESS_INELIGIBLE);
+            }
+            for (var request : admitted(role, requests)) {
+                outcomes.add(startOne(request));
+            }
+            return List.copyOf(outcomes);
+        } finally {
+            settleProbeUnlessStarted(role, outcomes);
         }
-        if (outcomes.stream().noneMatch(StartOutcome.Started.class::isInstance)) {
-            environment.startGuard().probeDeclined(role.artifact().name(), role.harness());
-        }
-        return List.copyOf(outcomes);
     }
 
     /**
@@ -223,6 +227,22 @@ public final class WorkerSupervisor {
     /** @return the environment this supervisor was built with */
     public SupervisorEnvironment environment() {
         return environment;
+    }
+
+    /**
+     * Settles the probe the start-failure guard admitted to this start when no worker of it started: the start
+     * returned only declines, or it threw. Neither settles the probe through a first call or a counted failure,
+     * so the consumed probe is released and its backoff restarted, instead of the guard holding with no future
+     * probe. A probe worker that did start keeps the probe in flight and settles it through its own first call or
+     * its own failure.
+     *
+     * @param role     the role whose start the guard admitted
+     * @param outcomes the outcomes attempted before the start returned or threw, in request order
+     */
+    private void settleProbeUnlessStarted(EffectiveRole role, List<StartOutcome> outcomes) {
+        if (outcomes.stream().noneMatch(StartOutcome.Started.class::isInstance)) {
+            environment.startGuard().probeDeclined(role.artifact().name(), role.harness());
+        }
     }
 
     private StartOutcome startOne(WorkerStartRequest request) {
