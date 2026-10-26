@@ -56,6 +56,9 @@ int silenceGraceSeconds, int idleWakeups, int boundedWaitSeconds, boolean progre
     private static final String NAME_BOUNDED_WAIT_SECONDS = "bounded_wait_seconds";
     private static final String NAME_PROGRESS_RESETS_TIMEOUT = "progress_resets_timeout";
 
+    /** The pointer of one declared value, as a refusal names it: {@code /<block>/<name>}. */
+    private static final String POINTER_FORMAT = "/%s/%s";
+
     /** Copies the optional deadline. */
     public WorkerParameters {
         Objects.requireNonNull(ackDeadlineSeconds, "ackDeadlineSeconds");
@@ -98,7 +101,8 @@ int silenceGraceSeconds, int idleWakeups, int boundedWaitSeconds, boolean progre
             return OptionalInt.empty();
         }
         return OptionalInt.of(Math.toIntExact(value.integerValue().orElseThrow(
-                () -> refusal(profile, "/%s/%s".formatted(blockName, name), "the declared value is no integer"))));
+                () -> refusal(profile, POINTER_FORMAT.formatted(blockName, name),
+                        "the declared value is no integer"))));
     }
 
     private static int integer(String blockName, JsonNode block, String name, LoadedProfile profile, boolean required) {
@@ -109,7 +113,7 @@ int silenceGraceSeconds, int idleWakeups, int boundedWaitSeconds, boolean progre
         if (!required) {
             return 0;
         }
-        throw refusal(profile, "/%s/%s".formatted(blockName, name),
+        throw refusal(profile, POINTER_FORMAT.formatted(blockName, name),
                 "an eligible worker host declares its '%s'".formatted(name));
     }
 
@@ -120,11 +124,12 @@ int silenceGraceSeconds, int idleWakeups, int boundedWaitSeconds, boolean progre
             if (!required) {
                 return false;
             }
-            throw refusal(profile, "/%s/%s".formatted(blockName, name),
+            throw refusal(profile, POINTER_FORMAT.formatted(blockName, name),
                     "an eligible worker host declares its '%s'".formatted(name));
         }
         return value.booleanValue().orElseThrow(
-                () -> refusal(profile, "/%s/%s".formatted(blockName, name), "the declared value is no boolean"));
+                () -> refusal(profile, POINTER_FORMAT.formatted(blockName, name),
+                        "the declared value is no boolean"));
     }
 
     private static ProfileRefusal refusal(LoadedProfile profile, String pointer, String detail) {

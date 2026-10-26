@@ -381,7 +381,7 @@ boolean startFailure, String harnessError) {
     public record ContextTokens(Long tokens, boolean unmeasured) {
 
         /** The one unmeasured value. */
-        public static final ContextTokens UNMEASURED = new ContextTokens(null, true);
+        public static final ContextTokens NOT_MEASURED = new ContextTokens(null, true);
 
         /**
          * @param tokens the measured context size

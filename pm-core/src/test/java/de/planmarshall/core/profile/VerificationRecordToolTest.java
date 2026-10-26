@@ -52,11 +52,11 @@ class VerificationRecordToolTest {
     @Test
     @DisplayName("the reader keeps the tool version and the tool commit")
     void toolVersionAndCommit() {
-        var record = readWithTool("\"tool\": {\"version\": \"0.1.99\", \"commit\": \"1a2b3c4\"},");
+        var verificationRecord = readWithTool("\"tool\": {\"version\": \"0.1.99\", \"commit\": \"1a2b3c4\"},");
 
         assertAll(
-                () -> assertEquals("0.1.99", record.tool().version(), "the version is kept as recorded"),
-                () -> assertEquals("1a2b3c4", record.tool().commit(), "the commit is kept as recorded"));
+                () -> assertEquals("0.1.99", verificationRecord.tool().version(), "the version is kept as recorded"),
+                () -> assertEquals("1a2b3c4", verificationRecord.tool().commit(), "the commit is kept as recorded"));
     }
 
     @Test

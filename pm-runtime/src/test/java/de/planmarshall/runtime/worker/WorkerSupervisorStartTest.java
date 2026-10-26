@@ -125,9 +125,9 @@ class WorkerSupervisorStartTest {
         fixture.advance(StartFailureGuard.PROBE_BACKOFF);
         fixture.starter.startFailure = new IllegalStateException("the job runtime is gone");
         var supervisor = supervisor(guard, OPEN_GATE);
+        var requests = List.of(fixture.freshRequest(role));
 
-        var thrown = assertThrows(IllegalStateException.class,
-                () -> supervisor.start(List.of(fixture.freshRequest(role))));
+        var thrown = assertThrows(IllegalStateException.class, () -> supervisor.start(requests));
         var heldWhileTheRestartedBackoffRuns = guard.holds(role.artifact().name(), role.harness());
         fixture.advance(StartFailureGuard.PROBE_BACKOFF);
         var nextProbeAdmitted = !guard.holds(role.artifact().name(), role.harness());

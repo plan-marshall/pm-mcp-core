@@ -108,7 +108,7 @@ class ProfileWorkerEligibilityTest {
     @Test
     @DisplayName("an eligible harness with no zero-tool class is honoured when its record established the claim")
     void theNoZeroToolControlIsEligible() {
-        var profile = profile(true, false, record(Map.of("faults", "passed", "egress", "passed")));
+        var profile = profile(true, false, verificationRecord(Map.of("faults", "passed", "egress", "passed")));
 
         var verdict = ProfileWorkerEligibility.of(profile, THIS_PLATFORM).verdict();
 
@@ -120,9 +120,9 @@ class ProfileWorkerEligibilityTest {
     void anEnforcedToolSetNeedsTheClassesStage() {
         var enforced = "\"writer\": {\"tool_set\": \"enforced\"}";
         var measured = loaded(ProfileSetKind.MACHINE, true, enforced,
-                record(Map.of("faults", "passed", "egress", "passed", "classes", "passed")));
+                verificationRecord(Map.of("faults", "passed", "egress", "passed", "classes", "passed")));
         var unmeasured = loaded(ProfileSetKind.MACHINE, true, enforced,
-                record(Map.of("faults", "passed", "egress", "passed")));
+                verificationRecord(Map.of("faults", "passed", "egress", "passed")));
 
         var refusal = refusalOf(unmeasured);
 
@@ -138,7 +138,7 @@ class ProfileWorkerEligibilityTest {
     @DisplayName("an advisory tool set makes no claim and needs no classes stage")
     void anAdvisoryToolSetMakesNoClaim() {
         var advisory = loaded(ProfileSetKind.MACHINE, true, "\"writer\": {\"tool_set\": \"advisory\"}",
-                record(Map.of("faults", "passed", "egress", "passed")));
+                verificationRecord(Map.of("faults", "passed", "egress", "passed")));
 
         var verdict = ProfileWorkerEligibility.of(advisory, THIS_PLATFORM).verdict();
 
@@ -160,7 +160,7 @@ class ProfileWorkerEligibilityTest {
     @Test
     @DisplayName("a claimed stage the record never measured is refused")
     void aClaimStageAbsentRefuses() {
-        var profile = profile(true, false, record(Map.of("faults", "passed")));
+        var profile = profile(true, false, verificationRecord(Map.of("faults", "passed")));
 
         var refusal = refusalOf(profile);
 
@@ -173,7 +173,7 @@ class ProfileWorkerEligibilityTest {
     @DisplayName("a failed stage outside the claim still refuses the profile")
     void anIncidentalFailedStageRefuses() {
         var profile = profile(true, false,
-                record(Map.of("faults", "passed", "egress", "passed", "identity", "failed")));
+                verificationRecord(Map.of("faults", "passed", "egress", "passed", "identity", "failed")));
 
         var refusal = refusalOf(profile);
 
@@ -186,7 +186,9 @@ class ProfileWorkerEligibilityTest {
     @DisplayName("the gate admits a start exactly when its verdict is eligible")
     void admitsFollowsTheVerdict() {
         var eligible = ProfileWorkerEligibility.of(
-                profile(true, false, record(Map.of("faults", "passed", "egress", "passed"))), THIS_PLATFORM);
+                profile(true, false,
+                        verificationRecord(Map.of("faults", "passed", "egress", "passed"))),
+                THIS_PLATFORM);
         var refused = ProfileWorkerEligibility.of(
                 profile(true, false, fixture("verification-record-faults-failed.json")), THIS_PLATFORM);
 
@@ -202,24 +204,20 @@ class ProfileWorkerEligibilityTest {
         return assertInstanceOf(EligibilityVerdict.Refused.class, verdict).refusal();
     }
 
-    private static LoadedProfile profile(boolean eligible, boolean zeroTool, VerificationRecord record) {
-        return loaded(ProfileSetKind.MACHINE, eligible, zeroTool, record);
+    private static LoadedProfile profile(boolean eligible, boolean zeroTool, VerificationRecord verificationRecord) {
+        return loaded(ProfileSetKind.MACHINE, eligible, zeroTool, verificationRecord);
     }
 
     private static LoadedProfile loaded(ProfileSetKind kind, boolean eligible, boolean zeroTool,
-            VerificationRecord record) {
-        return loaded(kind, eligible, zeroTool ? "\"zero_tool\": {}" : "", record);
+            VerificationRecord verificationRecord) {
+        return loaded(kind, eligible, zeroTool ? "\"zero_tool\": {}" : "", verificationRecord);
     }
 
     private static LoadedProfile loaded(ProfileSetKind kind, boolean eligible, String classes,
-            VerificationRecord record) {
+            VerificationRecord verificationRecord) {
         var bytes = document(eligible, classes);
         return new LoadedProfile(CLIENT, kind, JsonDocument.parse(bytes, "profile"), bytes,
-                LoadedProfile.State.VERIFIED, record);
-    }
-
-    private static byte[] document(boolean eligible, boolean zeroTool) {
-        return document(eligible, zeroTool ? "\"zero_tool\": {}" : "");
+                LoadedProfile.State.VERIFIED, verificationRecord);
     }
 
     private static byte[] document(boolean eligible, String classes) {
@@ -245,7 +243,7 @@ class ProfileWorkerEligibilityTest {
         }
     }
 
-    private static VerificationRecord record(Map<String, String> stages) {
+    private static VerificationRecord verificationRecord(Map<String, String> stages) {
         var stageJson = stages.entrySet().stream()
                 .map(entry -> "\"%s\": {\"status\": \"%s\"}".formatted(entry.getKey(), entry.getValue()))
                 .collect(Collectors.joining(", "));

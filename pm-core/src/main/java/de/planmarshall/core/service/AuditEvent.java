@@ -231,6 +231,9 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     /** The name of the transaction id argument, as a null check reports it. */
     private static final String TRANSACTION_ID_ARGUMENT = "transactionId";
 
+    /** The name of the project id argument, as a null check reports it. */
+    private static final String PROJECT_ID_ARGUMENT = "projectId";
+
     /**
      * @throws NullPointerException if a component, a detail key or a detail value is {@code null}
      */
@@ -469,7 +472,7 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
      */
     public static AuditEvent workerStartFailed(String projectId, String role, String harness, String detail) {
         return new AuditEvent(WORKER_START_FAILED, CATEGORY_OPERATOR, OUTCOME_FAILED,
-                Map.of(DETAIL_PROJECT_ID, Objects.requireNonNull(projectId, "projectId"), DETAIL_ROLE,
+                Map.of(DETAIL_PROJECT_ID, Objects.requireNonNull(projectId, PROJECT_ID_ARGUMENT), DETAIL_ROLE,
                         Objects.requireNonNull(role, DETAIL_ROLE), DETAIL_HARNESS,
                         Objects.requireNonNull(harness, DETAIL_HARNESS), DETAIL_HARNESS_ERROR,
                         Objects.requireNonNull(detail, "detail")));
@@ -498,14 +501,14 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
 
     private static AuditEvent refusal(String event, String category, String projectId, String reason) {
         return new AuditEvent(event, category, OUTCOME_REFUSED,
-                Map.of(DETAIL_PROJECT_ID, Objects.requireNonNull(projectId, "projectId"), DETAIL_REASON,
+                Map.of(DETAIL_PROJECT_ID, Objects.requireNonNull(projectId, PROJECT_ID_ARGUMENT), DETAIL_REASON,
                         Objects.requireNonNull(reason, DETAIL_REASON)));
     }
 
     private static AuditEvent operatorSucceeded(String event, String projectId, String transactionId) {
         return new AuditEvent(event, CATEGORY_OPERATOR, OUTCOME_SUCCEEDED,
-                Map.of(DETAIL_PROJECT_ID, Objects.requireNonNull(projectId, "projectId"), DETAIL_TRANSACTION_ID,
-                        Objects.requireNonNull(transactionId, TRANSACTION_ID_ARGUMENT)));
+                Map.of(DETAIL_PROJECT_ID, Objects.requireNonNull(projectId, PROJECT_ID_ARGUMENT),
+                        DETAIL_TRANSACTION_ID, Objects.requireNonNull(transactionId, TRANSACTION_ID_ARGUMENT)));
     }
 
     private static String lockPath(LockKey key) {

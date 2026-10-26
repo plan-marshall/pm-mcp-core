@@ -413,10 +413,11 @@ class JobRecordStoreTest {
         @DisplayName("a settled worker record is refused and stays as it was")
         void settledRefused() {
             var settled = settledWorker(WORKER);
+            var state = waiting();
             write(store::writeFate, settled);
 
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> writeWorker(store, WORKER, waiting())),
+                    () -> assertThrows(IllegalArgumentException.class, () -> writeWorker(store, WORKER, state)),
                     () -> assertEquals(Optional.of(settled), store.read(WORKER)));
         }
 
@@ -425,20 +426,24 @@ class JobRecordStoreTest {
         void nonWorkerRefused() {
             write(store::writeAhead, writeAhead(BUILD_ID, PLAN_SCOPE));
 
-            assertThrows(IllegalArgumentException.class, () -> writeWorker(store, BUILD_ID, waiting()));
+            var state = waiting();
+
+            assertThrows(IllegalArgumentException.class, () -> writeWorker(store, BUILD_ID, state));
         }
 
         @Test
         @DisplayName("a worker without a record and a state of another generation are refused")
         void unknownJobAndGeneration() {
             var worker = new JobId("l-0000000000000001");
+            var unknown = new JobId("l-00000000000000aa");
+            var state = waiting();
+            var otherGeneration = state.withGenerationId(new JobId("l-00000000000000ee"));
             write(store::writeAhead, workerAhead(worker, PROJECT_SCOPE, "{}"));
 
             assertAll(
+                    () -> assertThrows(IllegalArgumentException.class, () -> writeWorker(store, unknown, state)),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> writeWorker(store, new JobId("l-00000000000000aa"), waiting())),
-                    () -> assertThrows(IllegalArgumentException.class, () -> writeWorker(store, worker,
-                            waiting().withGenerationId(new JobId("l-00000000000000ee")))));
+                            () -> writeWorker(store, worker, otherGeneration)));
         }
 
         @Test

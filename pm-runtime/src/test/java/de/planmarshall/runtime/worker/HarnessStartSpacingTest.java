@@ -48,7 +48,7 @@ class HarnessStartSpacingTest {
         var waiting = new Thread(() -> {
             try {
                 spacing.awaitTurn(CLIENT);
-            } catch (InterruptedException interrupted) {
+            } catch (InterruptedException _) {
                 Thread.currentThread().interrupt();
             } finally {
                 released.countDown();

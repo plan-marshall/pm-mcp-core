@@ -196,13 +196,13 @@ LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate) {
                         .orElseThrow(() -> new IllegalArgumentException("Not a job id: " + generationId));
                 var store = JobRecordStore.ofProject(base, projectId);
                 try (var transaction = locks.openTransaction()) {
-                    var record = store.read(jobId)
+                    var jobRecord = store.read(jobId)
                             .orElseThrow(() -> new IllegalStateException("The job record of %s is absent"
                                     .formatted(generationId)));
-                    if (record.jobId().kind() != JobId.Kind.LLM) {
+                    if (jobRecord.jobId().kind() != JobId.Kind.LLM) {
                         throw new IllegalStateException("The job %s is not a worker".formatted(generationId));
                     }
-                    var current = WorkerStateCodec.read(store.recordPath(jobId), record.worker());
+                    var current = WorkerStateCodec.read(store.recordPath(jobId), jobRecord.worker());
                     store.writeWorker(transaction, jobId, current.withState(state).withStateAt(at)
                             .withEndReason(endReason).withStartFailure(startFailure));
                 }

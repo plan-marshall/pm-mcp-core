@@ -29,7 +29,7 @@ import de.planmarshall.runtime.start.DrainParticipant;
 public final class WorkerDrainParticipant implements DrainParticipant {
 
     /** The name of the participant in the log and in the drain outcome. */
-    public static final String NAME = "workers";
+    public static final String PARTICIPANT_NAME = "workers";
 
     private final WorkerSupervisor supervisor;
     private final WorkerEnding ending;
@@ -47,7 +47,7 @@ public final class WorkerDrainParticipant implements DrainParticipant {
 
     @Override
     public String name() {
-        return NAME;
+        return PARTICIPANT_NAME;
     }
 
     @Override

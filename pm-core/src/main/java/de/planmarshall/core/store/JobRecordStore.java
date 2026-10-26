@@ -75,6 +75,12 @@ public final class JobRecordStore {
     private static final Set<Scope.Type> PROJECT_SCOPES =
             Set.of(Scope.Type.PLAN, Scope.Type.EPIC, Scope.Type.WORKSPACE, Scope.Type.PROJECT);
 
+    /** The name of the job id argument, as a null check reports it. */
+    private static final String JOB_ID_ARGUMENT = "jobId";
+
+    /** The name of the transaction argument, as a null check reports it. */
+    private static final String TRANSACTION_ARGUMENT = "transaction";
+
     /** The mode of every directory this store creates, {@code 0700}: the job logs beside the records may hold secrets. */
     private static final FileAttribute<Set<PosixFilePermission>> OWNER_ONLY_DIRECTORY =
             PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------"));
@@ -138,7 +144,7 @@ public final class JobRecordStore {
      * @return the record file of the job, absolute and normalized
      */
     public Path recordPath(JobId jobId) {
-        return directory.resolve(Objects.requireNonNull(jobId, "jobId").recordFileName());
+        return directory.resolve(Objects.requireNonNull(jobId, JOB_ID_ARGUMENT).recordFileName());
     }
 
     /**
@@ -146,7 +152,7 @@ public final class JobRecordStore {
      * @return the raw log of the job beside its record, absolute and normalized
      */
     public Path logPath(JobId jobId) {
-        return directory.resolve(Objects.requireNonNull(jobId, "jobId").logFileName());
+        return directory.resolve(Objects.requireNonNull(jobId, JOB_ID_ARGUMENT).logFileName());
     }
 
     /**
@@ -187,7 +193,7 @@ public final class JobRecordStore {
      * @see #allocate(LockTransaction, JobId.Kind, Scope)
      */
     JobId allocate(LockTransaction transaction, JobId.Kind kind, Scope scope, RandomGenerator random) {
-        Objects.requireNonNull(transaction, "transaction");
+        Objects.requireNonNull(transaction, TRANSACTION_ARGUMENT);
         Objects.requireNonNull(kind, "kind");
         transaction.acquire(lockKey(scope));
         JobId candidate;
@@ -309,8 +315,8 @@ public final class JobRecordStore {
      * @throws InternalFaultException   if the lock must not be acquired after the locks the transaction holds
      */
     public void writeWorker(LockTransaction transaction, JobId jobId, WorkerState worker) {
-        Objects.requireNonNull(transaction, "transaction");
-        Objects.requireNonNull(jobId, "jobId");
+        Objects.requireNonNull(transaction, TRANSACTION_ARGUMENT);
+        Objects.requireNonNull(jobId, JOB_ID_ARGUMENT);
         Objects.requireNonNull(worker, "worker");
         transaction.acquire(queueLock());
         var current = read(jobId).orElseThrow(
@@ -385,7 +391,7 @@ public final class JobRecordStore {
     }
 
     private Optional<JobRecord> currentUnderLock(LockTransaction transaction, JobRecord job) {
-        Objects.requireNonNull(transaction, "transaction");
+        Objects.requireNonNull(transaction, TRANSACTION_ARGUMENT);
         Objects.requireNonNull(job, "job");
         transaction.acquire(lockKey(job.scope()));
         return read(job.jobId());

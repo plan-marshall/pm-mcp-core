@@ -47,6 +47,9 @@ public final class WorkerRecycling {
 
     private static final CuiLogger LOGGER = new CuiLogger(WorkerRecycling.class);
 
+    /** The name of the generation argument, as a null check reports it. */
+    private static final String GENERATION_ARGUMENT = "generation";
+
     private final SupervisorEnvironment environment;
     private final WorkerEnding ending;
     private final Supplier<List<WorkerGeneration>> generations;
@@ -103,7 +106,7 @@ public final class WorkerRecycling {
      * @throws NullPointerException if the generation is {@code null}
      */
     public synchronized WaitAgainResult waitAgain(WorkerGeneration generation) {
-        Objects.requireNonNull(generation, "generation");
+        Objects.requireNonNull(generation, GENERATION_ARGUMENT);
         if (generation.terminal() || generation.leasedTask() != null) {
             return new WaitAgainResult(generation.idleWakeups(), Optional.empty());
         }
@@ -124,7 +127,7 @@ public final class WorkerRecycling {
      * @throws NullPointerException if the generation is {@code null}
      */
     public synchronized Optional<RecycleCause> afterTurnCompleted(WorkerGeneration generation) {
-        Objects.requireNonNull(generation, "generation");
+        Objects.requireNonNull(generation, GENERATION_ARGUMENT);
         if (generation.terminal() || generation.form() != RoleForm.WARM) {
             return Optional.empty();
         }
@@ -154,7 +157,7 @@ public final class WorkerRecycling {
      * @throws NullPointerException if the generation is {@code null}
      */
     public synchronized Optional<RecycleCause> afterTaskClosed(WorkerGeneration generation, String roleDigest) {
-        Objects.requireNonNull(generation, "generation");
+        Objects.requireNonNull(generation, GENERATION_ARGUMENT);
         if (generation.terminal() || generation.form() != RoleForm.WARM) {
             return Optional.empty();
         }

@@ -116,10 +116,10 @@ public final class AgentStartedDetector {
         }
         var enrolled = enrolments.get();
         for (var pid : tree.members().stream().sorted().toList()) {
-            if (executables.read(pid) instanceof ProcessExecutables.Found found
-                    && matches(found.executable(), enrolled)) {
-                report(generation, task, found.executable(), pid);
-                return Optional.of(found.executable());
+            if (executables.read(pid) instanceof ProcessExecutables.Found(ProcessExecutable executable)
+                    && matches(executable, enrolled)) {
+                report(generation, task, executable, pid);
+                return Optional.of(executable);
             }
         }
         return Optional.empty();

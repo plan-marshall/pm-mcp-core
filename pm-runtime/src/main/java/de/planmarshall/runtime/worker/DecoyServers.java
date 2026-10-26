@@ -39,12 +39,12 @@ public final class DecoyServers implements AutoCloseable {
      */
     public static final class Server implements AutoCloseable {
 
-        private final HttpServer server;
+        private final HttpServer httpServer;
 
         private final List<String> hits = new CopyOnWriteArrayList<>();
 
-        private Server(HttpServer server) {
-            this.server = server;
+        private Server(HttpServer httpServer) {
+            this.httpServer = httpServer;
         }
 
         /** @return the loopback base URI of the decoy */
@@ -54,7 +54,7 @@ public final class DecoyServers implements AutoCloseable {
 
         /** @return the ephemeral port the decoy listens on */
         public int port() {
-            return server.getAddress().getPort();
+            return httpServer.getAddress().getPort();
         }
 
         /** @return the requests the decoy received, as {@code METHOD path} */
@@ -70,7 +70,7 @@ public final class DecoyServers implements AutoCloseable {
         /** Stops the decoy. */
         @Override
         public void close() {
-            server.stop(0);
+            httpServer.stop(0);
         }
     }
 
@@ -111,7 +111,7 @@ public final class DecoyServers implements AutoCloseable {
     private static Server server(String path) throws IOException {
         var address = new InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0);
         var decoy = new Server(HttpServer.create(address, 0));
-        decoy.server.createContext(path, exchange -> {
+        decoy.httpServer.createContext(path, exchange -> {
             decoy.hits.add(exchange.getRequestMethod() + " " + exchange.getRequestURI().getPath());
             var body = "{\"decoy\":true}".getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
@@ -120,7 +120,7 @@ public final class DecoyServers implements AutoCloseable {
                 out.write(body);
             }
         });
-        decoy.server.start();
+        decoy.httpServer.start();
         return decoy;
     }
 }

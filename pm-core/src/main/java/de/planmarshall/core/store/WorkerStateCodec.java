@@ -130,7 +130,7 @@ public class WorkerStateCodec {
      * @return the block, in its one canonical text
      */
     public static String write(WorkerState state) {
-        Objects.requireNonNull(state, "state");
+        Objects.requireNonNull(state, STATE);
         return CanonicalJson.write(document(state));
     }
 
@@ -283,7 +283,7 @@ public class WorkerStateCodec {
         if (parser.currentToken() == JsonToken.VALUE_STRING) {
             var text = string(parser, field);
             if (UNMEASURED.equals(text)) {
-                return ContextTokens.UNMEASURED;
+                return ContextTokens.NOT_MEASURED;
             }
             throw unreadable("'%s' is a non-negative count or '%s': %s".formatted(field, UNMEASURED, text));
         }

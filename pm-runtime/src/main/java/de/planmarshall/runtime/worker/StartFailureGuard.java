@@ -125,6 +125,7 @@ public final class StartFailureGuard implements SupervisorEnvironment.StartGuard
      * @param harness the client id of the harness
      * @throws NullPointerException if a value is {@code null}
      */
+    @Override
     public synchronized void probeDeclined(String role, String harness) {
         var key = new StartFailureState.Key(role, harness);
         var state = states.get(key);

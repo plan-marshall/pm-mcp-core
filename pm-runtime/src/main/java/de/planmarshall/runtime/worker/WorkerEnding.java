@@ -42,6 +42,9 @@ public final class WorkerEnding {
 
     private static final CuiLogger LOGGER = new CuiLogger(WorkerEnding.class);
 
+    /** The name of the generation argument, as a null check reports it. */
+    private static final String GENERATION_ARGUMENT = "generation";
+
     private final SupervisorEnvironment environment;
     private final BooleanSupplier workQueued;
     private final Runnable successor;
@@ -68,7 +71,7 @@ public final class WorkerEnding {
      * @param cause      why it ends
      */
     public synchronized void end(WorkerGeneration generation, EndCause cause) {
-        Objects.requireNonNull(generation, "generation");
+        Objects.requireNonNull(generation, GENERATION_ARGUMENT);
         Objects.requireNonNull(cause, "cause");
         if (requests.containsKey(generation.generationId())) {
             return;
@@ -85,7 +88,7 @@ public final class WorkerEnding {
      * @param signal     the detection that ended it
      */
     public synchronized void end(WorkerGeneration generation, LossSignal signal) {
-        Objects.requireNonNull(generation, "generation");
+        Objects.requireNonNull(generation, GENERATION_ARGUMENT);
         Objects.requireNonNull(signal, "signal");
         if (requests.containsKey(generation.generationId())) {
             return;
@@ -101,7 +104,7 @@ public final class WorkerEnding {
      * @param cause      why it ends
      */
     public synchronized void forceEnd(WorkerGeneration generation, EndCause cause) {
-        Objects.requireNonNull(generation, "generation");
+        Objects.requireNonNull(generation, GENERATION_ARGUMENT);
         Objects.requireNonNull(cause, "cause");
         requests.putIfAbsent(generation.generationId(), new Request(cause, cause.endReason()));
         force(generation, cause);
@@ -133,7 +136,7 @@ public final class WorkerEnding {
      * @return the generation in its terminal state
      */
     public synchronized WorkerGeneration exited(WorkerGeneration generation) {
-        Objects.requireNonNull(generation, "generation");
+        Objects.requireNonNull(generation, GENERATION_ARGUMENT);
         var generationId = generation.generationId();
         cancelGrace(generationId);
         var request = requests.remove(generationId);

@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -268,7 +269,7 @@ public final class WorkerSupervisor {
             environment.slots().release(slot.get());
             return new StartOutcome.Declined(WorkerStartRefusal.LAUNCH_REFUSED);
         }
-        var started = startWorker(role, block, enrolment, launch, slot.get());
+        var started = startWorker(role, block, launch, slot.get());
         if (started.isEmpty()) {
             environment.slots().release(slot.get());
             return new StartOutcome.Declined(WorkerStartRefusal.LAUNCH_REFUSED);
@@ -282,20 +283,22 @@ public final class WorkerSupervisor {
      * Starts the composed worker and returns its slot on every path that started none: a runner that throws has already
      * settled or left no job, so the slot is released. A successful start keeps the slot for the generation.
      */
-    private Optional<JobId> startWorker(EffectiveRole role, HeadlessBlock block, HarnessEnrolment enrolment,
-            WorkerLaunch launch, ModelSlots.Lease lease) {
+    private Optional<JobId> startWorker(EffectiveRole role, HeadlessBlock block, WorkerLaunch launch,
+            ModelSlots.Lease lease) {
         try {
             var result = environment.starter().startWorker(new WorkerStart(launch, environment.enrolment(),
                     new JobRecord.Scope(JobRecord.Scope.Type.PROJECT, null), budgetKey(role),
                     role.artifact().budgetFloorSeconds(), floorDerivation(), block.writablePaths(environment.home()),
                     Optional.empty()));
             return switch (result) {
-                case JobRunner.StartResult.Started started -> Optional.of(started.jobId());
+                case JobRunner.StartResult.Started(var jobId) -> Optional.of(jobId);
                 case JobRunner.StartResult.Refused _ -> Optional.empty();
             };
-        }
-        /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
-        catch (RuntimeException failure) {
+            // Deliberately RuntimeException: the landed start may fail with any runtime exception (an illegal worker
+            // id, an unwritable record, an unreadable store), and the slot must be released on every one of them, so
+            // narrowing the catch would leak the slot. Owner: runtime supervision.
+            // cui-rewrite:disable InvalidExceptionUsageRecipe
+        } catch (RuntimeException failure) {
             environment.slots().release(lease);
             throw failure;
         }
@@ -306,7 +309,7 @@ public final class WorkerSupervisor {
         var generation = new WorkerGeneration(launch.generationId(), role.artifact().name(), role.harness(),
                 launch.model(), role.form(), request.workdirKind(), request.planId(), launch.workingDirectory(),
                 role.configurationDigest(), environment.clock().instant(), jobId, lease, WorkerLifecycle.STARTING,
-                null, List.of(), 0L, WorkerState.ContextTokens.UNMEASURED, null);
+                null, List.of(), 0L, WorkerState.ContextTokens.NOT_MEASURED, null);
         generations.put(generation.generationId(), generation);
         return generation;
     }
@@ -378,11 +381,7 @@ public final class WorkerSupervisor {
     }
 
     private static List<StartOutcome> declineAll(List<WorkerStartRequest> requests, WorkerStartRefusal reason) {
-        var outcomes = new ArrayList<StartOutcome>(requests.size());
-        for (var ignored : requests) {
-            outcomes.add(new StartOutcome.Declined(reason));
-        }
-        return List.copyOf(outcomes);
+        return Collections.nCopies(requests.size(), new StartOutcome.Declined(reason));
     }
 
     private static void requireSameRole(EffectiveRole expected, EffectiveRole actual) {

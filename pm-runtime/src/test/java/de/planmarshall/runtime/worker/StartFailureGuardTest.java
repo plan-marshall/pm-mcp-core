@@ -267,7 +267,7 @@ class StartFailureGuardTest {
         return new WorkerGeneration(generationId, ROLE, HARNESS, "a-model", RoleForm.FRESH,
                 LaunchRequest.WorkdirKind.JOB_PRIVATE, null, Path.of("work"), "sha256:" + "0".repeat(64), NOW,
                 JobId.random(JobId.Kind.LLM), new ModelSlots.Lease(generationId, ROLE), lifecycle, null,
-                List.of(), 0L, ContextTokens.UNMEASURED, null);
+                List.of(), 0L, ContextTokens.NOT_MEASURED, null);
     }
 
     private InstantSource clock() {

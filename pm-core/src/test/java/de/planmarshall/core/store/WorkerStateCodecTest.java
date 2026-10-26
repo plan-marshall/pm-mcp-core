@@ -59,7 +59,7 @@ class WorkerStateCodecTest {
                 .generationId(GENERATION).workdir(new Workdir(Workdir.Kind.PLAN_WORKTREE, "plan-one"))
                 .promptDigest(DIGEST).jobTokenSha256(DIGEST).connectedAt(CONNECTED_AT).state(State.WAITING)
                 .stateAt(CONNECTED_AT.plusSeconds(1)).servedTasks(List.of()).idleWakeups(0)
-                .contextTokens(ContextTokens.UNMEASURED).deliveredSkills(List.of()).startFailure(false);
+                .contextTokens(ContextTokens.NOT_MEASURED).deliveredSkills(List.of()).startFailure(false);
     }
 
     /** The worker that connected and waits for its first offer. */
@@ -257,9 +257,10 @@ class WorkerStateCodecTest {
             var refusal = refusalOf(replace(WorkerStateCodec.write(waiting()),
                     "\"generation_id\":\"l-00000000000000ff\"", "\"generation_id\":\"x-00000000000000ff\""));
 
+            var foreignGeneration = base().generationId(new JobId("b-00000000000000ff"));
+
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> base().generationId(new JobId("b-00000000000000ff")).build()),
+                    () -> assertThrows(IllegalArgumentException.class, () -> foreignGeneration.build()),
                     () -> assertTrue(refusal.getMessage().contains("generation_id"), refusal.getMessage()));
         }
     }
@@ -271,19 +272,22 @@ class WorkerStateCodecTest {
         @Test
         @DisplayName("a terminal state without an end reason, and an end reason before the end, are refused")
         void terminalState() {
+            var terminalWithoutReason = base().state(State.ENDED);
+            var reasonBeforeEnd = base().state(State.WAITING).endReason(EndReason.TASK_DONE);
+
             assertAll(
-                    () -> assertTrue(assertThrows(IllegalArgumentException.class,
-                            () -> base().state(State.ENDED).build()).getMessage().contains("end_reason")),
-                    () -> assertTrue(assertThrows(IllegalArgumentException.class,
-                            () -> base().state(State.WAITING).endReason(EndReason.TASK_DONE).build())
+                    () -> assertTrue(assertThrows(IllegalArgumentException.class, () -> terminalWithoutReason.build())
+                            .getMessage().contains("end_reason")),
+                    () -> assertTrue(assertThrows(IllegalArgumentException.class, () -> reasonBeforeEnd.build())
                             .getMessage().contains("end_reason")));
         }
 
         @Test
         @DisplayName("a task in a state that holds none is refused")
         void taskWithoutLease() {
-            var failure = assertThrows(IllegalArgumentException.class,
-                    () -> base().task("qt-0000000000000003").build());
+            var stateWithoutLease = base().task("qt-0000000000000003");
+
+            var failure = assertThrows(IllegalArgumentException.class, () -> stateWithoutLease.build());
 
             assertTrue(failure.getMessage().contains("leased"), failure.getMessage());
         }
@@ -291,8 +295,9 @@ class WorkerStateCodecTest {
         @Test
         @DisplayName("a state timestamp before the first call is refused")
         void beforeConnection() {
-            var failure = assertThrows(IllegalArgumentException.class,
-                    () -> base().stateAt(CONNECTED_AT.minusSeconds(1)).build());
+            var stateBeforeConnection = base().stateAt(CONNECTED_AT.minusSeconds(1));
+
+            var failure = assertThrows(IllegalArgumentException.class, () -> stateBeforeConnection.build());
 
             assertTrue(failure.getMessage().contains("state_at"), failure.getMessage());
         }
@@ -300,24 +305,31 @@ class WorkerStateCodecTest {
         @Test
         @DisplayName("the start failure and its error text are one pair")
         void startFailurePair() {
+            var errorWithoutFailure = base().harnessError("boom");
+            var failureWithoutError = base().state(State.ENDED).endReason(EndReason.START_FAILURE)
+                    .startFailure(true);
+
             assertAll(
-                    () -> assertTrue(assertThrows(IllegalArgumentException.class,
-                            () -> base().harnessError("boom").build()).getMessage().contains("harness_error")),
-                    () -> assertTrue(assertThrows(IllegalArgumentException.class,
-                            () -> base().state(State.ENDED).endReason(EndReason.START_FAILURE).startFailure(true)
-                                    .build()).getMessage().contains("first call")));
+                    () -> assertTrue(assertThrows(IllegalArgumentException.class, () -> errorWithoutFailure.build())
+                            .getMessage().contains("harness_error")),
+                    () -> assertTrue(assertThrows(IllegalArgumentException.class, () -> failureWithoutError.build())
+                            .getMessage().contains("first call")));
         }
 
         @Test
         @DisplayName("a narrowed-from effort without the narrowed effort is refused")
         void narrowWithoutEffort() {
-            assertThrows(IllegalArgumentException.class, () -> base().effortNarrowedFrom("xhigh").build());
+            var narrowedWithoutEffort = base().effortNarrowedFrom("xhigh");
+
+            assertThrows(IllegalArgumentException.class, () -> narrowedWithoutEffort.build());
         }
 
         @Test
         @DisplayName("a zero-tool worker holds no job token")
         void zeroToolToken() {
-            assertThrows(IllegalArgumentException.class, () -> base().roleClass(RoleClass.ZERO_TOOL).build());
+            var zeroToolWithoutToken = base().roleClass(RoleClass.ZERO_TOOL);
+
+            assertThrows(IllegalArgumentException.class, () -> zeroToolWithoutToken.build());
         }
     }
 }

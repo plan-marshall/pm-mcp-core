@@ -175,7 +175,7 @@ class WorkerRecyclingTest {
     @DisplayName("a changed configuration digest recycles after the task and clears the start-failure guard")
     void changedConfigurationRecyclesAfterTheTask() {
         var closed = warm().withLifecycle(WorkerLifecycle.WAITING).withServedTasks(List.of(FIRST_TASK))
-                .withContextTokens(ContextTokens.UNMEASURED);
+                .withContextTokens(ContextTokens.NOT_MEASURED);
 
         assertAll(
                 () -> assertTrue(recycling.afterTaskClosed(closed, closed.configurationDigest()).isEmpty(),

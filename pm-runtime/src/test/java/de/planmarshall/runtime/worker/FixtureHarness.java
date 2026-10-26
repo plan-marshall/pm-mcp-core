@@ -80,7 +80,7 @@ final class FixtureHarness {
             Runtime.getRuntime().addShutdownHook(new Thread(() -> ignoreTermination(grace)));
         }
         if (firstCallDelayMillis > 0) {
-            Thread.sleep(firstCallDelayMillis);
+            awaitScriptedDelay(firstCallDelayMillis);
         }
         for (var line : output) {
             print(line);
@@ -193,13 +193,29 @@ final class FixtureHarness {
     }
 
     private static void print(String line) {
-        /*~~(TODO: Use CuiLogger. Suppress: // cui-rewrite:disable CuiLoggerStandardsRecipe)~~>*/System.out.println(line);
+        // Deliberately System.out: the scenario reads the fixture's stdout as its scripted stream, which CuiLogger's
+        // level and format would alter. Owner: runtime worker test fixtures.
+        // cui-rewrite:disable CuiLoggerStandardsRecipe
+        System.out.println(line);
         System.out.flush();
+    }
+
+    /**
+     * Waits the scripted delay of the fixture: the delay is the behaviour a scenario asks the harness to simulate, not
+     * a test waiting for a result, so it is a bounded latch wait instead of a raw sleep.
+     *
+     * @param millis how long the fixture delays
+     * @throws InterruptedException if the wait is interrupted
+     */
+    private static void awaitScriptedDelay(long millis) throws InterruptedException {
+        if (millis > 0) {
+            new CountDownLatch(1).await(millis, TimeUnit.MILLISECONDS);
+        }
     }
 
     private static void ignoreTermination(long graceMillis) {
         try {
-            Thread.sleep(graceMillis);
+            awaitScriptedDelay(graceMillis);
         } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
         }

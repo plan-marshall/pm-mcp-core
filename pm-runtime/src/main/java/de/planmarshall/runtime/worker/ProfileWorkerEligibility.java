@@ -52,9 +52,10 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
     private static final String FAILED = "failed";
     private static final String NOT_RUN = "not_run";
 
-    private static final List<String> ELIGIBLE_STAGES = List.of("faults", "egress");
-    private static final List<String> ZERO_TOOL_STAGES = List.of("classes", "isolation");
     private static final String CLASSES_STAGE = "classes";
+
+    private static final List<String> ELIGIBLE_STAGES = List.of("faults", "egress");
+    private static final List<String> ZERO_TOOL_STAGES = List.of(CLASSES_STAGE, "isolation");
 
     private final LoadedProfile profile;
     private final RuntimePlatform platform;
@@ -134,15 +135,15 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
         if (claimedStages.isEmpty()) {
             return EligibilityVerdict.eligible();
         }
-        var record = profile.verificationRecord();
-        if (record == null) {
+        var verificationRecord = profile.verificationRecord();
+        if (verificationRecord == null) {
             return refuse(EligibilityRefusal.Reason.RECORD_ABSENT, null, profile);
         }
-        if (!platform.matches(record.platform())) {
+        if (!platform.matches(verificationRecord.platform())) {
             return refuse(EligibilityRefusal.Reason.OTHER_PLATFORM, null, profile);
         }
         for (var stage : claimedStages) {
-            var recorded = record.stages().get(stage);
+            var recorded = verificationRecord.stages().get(stage);
             if (recorded == null) {
                 return refuse(EligibilityRefusal.Reason.CLAIM_STAGE_ABSENT, stage, profile);
             }
@@ -151,7 +152,7 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
                 return EligibilityVerdict.refused(refusal);
             }
         }
-        for (var entry : record.stages().entrySet()) {
+        for (var entry : verificationRecord.stages().entrySet()) {
             if (claimedStages.contains(entry.getKey())) {
                 continue;
             }
