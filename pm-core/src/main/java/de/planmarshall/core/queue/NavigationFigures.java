@@ -43,12 +43,12 @@ public record NavigationFigures(Figure cacheReadShare, Figure revisits, Figure l
 Figure fallbackToReadRate, List<SkillResidency> residency) {
 
     /** The name of the revisits figure. */
-    private static final String REVISITS = "revisits";
+    private static final String REVISITS_FIGURE = "revisits";
 
     /** Copies the residency list. */
     public NavigationFigures {
         Objects.requireNonNull(cacheReadShare, "cacheReadShare");
-        Objects.requireNonNull(revisits, "revisits");
+        Objects.requireNonNull(revisits, REVISITS_FIGURE);
         Objects.requireNonNull(languageServerUse, "languageServerUse");
         Objects.requireNonNull(fallbackToReadRate, "fallbackToReadRate");
         residency = List.copyOf(Objects.requireNonNull(residency, "residency"));
@@ -119,8 +119,8 @@ Figure fallbackToReadRate, List<SkillResidency> residency) {
                 }
             }
         }
-        return reads == 0 ? Figure.indeterminate(REVISITS)
-                : Figure.measured(REVISITS, (double) revisited / reads, reads);
+        return reads == 0 ? Figure.indeterminate(REVISITS_FIGURE)
+                : Figure.measured(REVISITS_FIGURE, (double) revisited / reads, reads);
     }
 
     private static boolean isReadOfAFile(ActivityEntry entry, NavigationVocabulary vocabulary) {
@@ -175,7 +175,7 @@ Figure fallbackToReadRate, List<SkillResidency> residency) {
         var sectionsBySkill = new LinkedHashMap<String, List<String>>();
         for (var entry : entries) {
             var skillRead = skillRead(entry, vocabulary);
-            if (skillRead != null) {
+            if (skillRead.length > 0) {
                 sectionsBySkill.computeIfAbsent(skillRead[0], ignored -> new ArrayList<>()).add(skillRead[1]);
             }
         }
@@ -188,16 +188,16 @@ Figure fallbackToReadRate, List<SkillResidency> residency) {
         return List.copyOf(residency);
     }
 
-    /** @return the skill URI and the section of one on-demand read, or {@code null} for any other entry */
+    /** @return the skill URI and the section of one on-demand read, or an empty array for any other entry */
     private static String[] skillRead(ActivityEntry entry, NavigationVocabulary vocabulary) {
         if (entry.kind() != ActivityEntry.Kind.TOOL_CALL || entry.tool() == null
                 || !vocabulary.skillTool().equals(entry.tool().name()) || entry.tool().target() == null) {
-            return null;
+            return new String[0];
         }
         var target = entry.tool().target();
         var separator = target.indexOf('#');
         var section = separator < 0 ? "" : target.substring(separator + 1);
-        return section.isEmpty() ? null : new String[] {target.substring(0, separator), section};
+        return section.isEmpty() ? new String[0] : new String[] {target.substring(0, separator), section};
     }
 
     private static List<ActivityEntry> lookups(List<ActivityEntry> entries, NavigationVocabulary vocabulary) {

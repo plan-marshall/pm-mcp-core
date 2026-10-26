@@ -145,7 +145,7 @@ public final class OffTrackDetector {
     }
 
     /** Sums the {@code total_tokens} field of the usage objects of the attempt's turns. */
-    static double spentTokens(List<ActivityEntry> entries) {
+    static long spentTokens(List<ActivityEntry> entries) {
         long total = 0;
         for (var entry : entries) {
             if (entry.kind() != ActivityEntry.Kind.TURN || entry.usage() == null) {
@@ -153,7 +153,7 @@ public final class OffTrackDetector {
             }
             total += totalTokens(entry.usage());
         }
-        return (double) total;
+        return total;
     }
 
     private static long totalTokens(String usage) {
