@@ -9,12 +9,12 @@
  */
 package de.planmarshall.workflow.setup;
 
-import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import com.fasterxml.jackson.core.JsonToken;
 import de.planmarshall.core.store.StrictJson;
 import de.planmarshall.core.store.WorkflowStatus;
 
@@ -73,7 +73,7 @@ public record MachineOnboarding(boolean firstRunCompleted, String state, List<St
                             .formatted(status.scopeType().wireName()));
         }
         var reconfigure = RECONFIGURE.equals(trimmed(status.retained().get(ONBOARD_RUN)));
-        var completed = status.state().equals(RESTING_STATE) || reconfigure;
+        var completed = RESTING_STATE.equals(status.state()) || reconfigure;
         var steps = readSteps(status.retained().get(ONBOARD_STEPS));
         var pending = new ArrayList<String>();
         for (var step : steps) {

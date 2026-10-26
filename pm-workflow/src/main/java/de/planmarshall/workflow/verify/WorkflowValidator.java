@@ -499,7 +499,7 @@ public final class WorkflowValidator {
             case SYSTEM -> scope == WorkflowScope.SUBWORKFLOW
                     ? new TypeRow(Set.of(WorkflowScope.SUBWORKFLOW), true, true)
                     : new TypeRow(Set.of(WorkflowScope.WORKSPACE, WorkflowScope.MACHINE, WorkflowScope.ENTITY), false,
-                            false);
+                    false);
             case TASK -> new TypeRow(Set.of(WorkflowScope.SUBWORKFLOW, WorkflowScope.ENTITY), false, true);
         };
         var location = definition.frontmatter().location();
@@ -2275,7 +2275,7 @@ public final class WorkflowValidator {
         if (!definition.states().containsKey(MACHINE_RESTING_STATE)) {
             violations.add(new Violation(VerificationRule.EXIT_PATH, unitStateId(definition),
                     definition.location(), "the resident machine unit declares no resting state '%s'"
-                            .formatted(MACHINE_RESTING_STATE)));
+                    .formatted(MACHINE_RESTING_STATE)));
             return;
         }
         var returning = graph.backwardClosure(Set.of(MACHINE_RESTING_STATE));
@@ -2283,7 +2283,7 @@ public final class WorkflowValidator {
                 .filter(state -> !isTerminal(state) && !returning.contains(state.id()))
                 .forEach(state -> violations.add(new Violation(VerificationRule.EXIT_PATH, state.id(),
                         state.location(), "the state '%s' has no path back to the resting state '%s'"
-                                .formatted(state.id(), MACHINE_RESTING_STATE))));
+                        .formatted(state.id(), MACHINE_RESTING_STATE))));
     }
 
     private void checkReleasedStates(WorkflowDefinition definition, List<Violation> violations) {

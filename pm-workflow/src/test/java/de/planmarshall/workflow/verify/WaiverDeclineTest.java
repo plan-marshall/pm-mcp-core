@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -48,11 +50,11 @@ class WaiverDeclineTest {
                 () -> assertEquals(1, declined.size()),
                 () -> assertEquals("remediation-qgate.exhausted", declined.getFirst().targetStateId()),
                 () -> assertTrue(job.transitions().stream()
-                        .noneMatch(transition -> "expired".equals(transition.outcomeName())),
+                                .noneMatch(transition -> "expired".equals(transition.outcomeName())),
                         "no waiver request ends by time"),
                 () -> assertEquals("declined", WaiverRequestOutcome.DECLINED.wireName()),
                 () -> assertEquals(List.of(WaiverRequestOutcome.WAIVED, WaiverRequestOutcome.RAISED,
-                        WaiverRequestOutcome.DECLINED, WaiverRequestOutcome.CANCELLED),
+                                WaiverRequestOutcome.DECLINED, WaiverRequestOutcome.CANCELLED),
                         List.of(WaiverRequestOutcome.values())));
     }
 }
