@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -96,14 +97,18 @@ class WorkerActivityPumpTest {
         }
     }
 
-    private static void append(Path log, String line) throws IOException {
-        Files.writeString(log, line + "\n", StandardCharsets.UTF_8, StandardOpenOption.CREATE,
-                StandardOpenOption.APPEND);
+    private static void append(Path log, String line) {
+        try {
+            Files.writeString(log, line + "\n", StandardCharsets.UTF_8, StandardOpenOption.CREATE,
+                    StandardOpenOption.APPEND);
+        } catch (IOException e) {
+            throw new UncheckedIOException("the fixture log cannot be written", e);
+        }
     }
 
     @Test
     @DisplayName("only the lines gained since the previous pass are appended, and an unmatched line is counted")
-    void pumpsNewLines(@TempDir Path base) throws IOException {
+    void pumpsNewLines(@TempDir Path base) {
         var journal = ActivityJournal.ofScope(base, "project-a",
                 new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, "plan-a"),
                 new FileLockManager(_ -> {

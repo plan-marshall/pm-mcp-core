@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -115,7 +116,7 @@ class ActivityJournalTest {
     void observerSeesTheNewEntry(@TempDir Path base) {
         var journal = ActivityJournal.ofScope(base, "project-a", QueueFixtures.planScope(), new TestLocks());
         journal.append(TASK, signal(1));
-        var seen = new java.util.ArrayList<Integer>();
+        var seen = new ArrayList<Integer>();
 
         journal.appendNext(TASK, seq -> signal(seq), entries -> seen.addAll(
                 entries.stream().map(ActivityEntry::seq).toList()));

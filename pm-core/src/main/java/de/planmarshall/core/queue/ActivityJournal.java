@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.function.IntFunction;
 import java.util.regex.Pattern;
 
@@ -183,7 +184,7 @@ public final class ActivityJournal {
      * @throws java.io.UncheckedIOException if the journal cannot be read or written
      */
     public void appendNext(String queueTaskId, IntFunction<ActivityEntry> entry,
-            java.util.function.Consumer<List<ActivityEntry>> observer) {
+            Consumer<List<ActivityEntry>> observer) {
         var file = journalPath(queueTaskId);
         Objects.requireNonNull(entry, ENTRY_LABEL);
         Objects.requireNonNull(observer, "observer");
