@@ -77,18 +77,29 @@ Figure fallbackToReadRate, List<SkillResidency> residency) {
         long cacheRead = 0;
         long context = 0;
         var turns = 0;
+        var readable = 0;
+        var counted = 0;
         for (var entry : entries) {
-            var share = cacheShareOf(entry);
-            if (share.isPresent()) {
-                cacheRead += share.get()[0];
-                context += share.get()[1];
+            if (entry.kind() == ActivityEntry.Kind.TURN) {
                 turns++;
+                if (readableUsage(entry.usage())) {
+                    readable++;
+                }
+                var share = cacheShareOf(entry);
+                if (share.isPresent()) {
+                    cacheRead += share.get()[0];
+                    context += share.get()[1];
+                    counted++;
+                }
             }
         }
-        if (turns == 0 || context == 0) {
+        if (turns == 0 || readable == 0) {
+            return Figure.indeterminate("cache_read_share");
+        }
+        if (counted == 0 || context == 0) {
             return Figure.unmeasured("cache_read_share");
         }
-        return Figure.measured("cache_read_share", (double) cacheRead / context, turns);
+        return Figure.measured("cache_read_share", (double) cacheRead / context, counted);
     }
 
     /** @return the cache reads and the context tokens of one turn, or empty when the turn is no full measurement */
@@ -104,6 +115,11 @@ Figure fallbackToReadRate, List<SkillResidency> residency) {
             return Optional.empty();
         }
         return Optional.of(new long[] {read.get(), input.get() + read.get() + creation.get()});
+    }
+
+    /** @return whether a turn's usage text is a readable object; a malformed or empty one is not */
+    private static boolean readableUsage(String raw) {
+        return raw != null && !usage(raw).members().isEmpty();
     }
 
     /** The reads of a file already read earlier in the task over all its reads. */
@@ -223,7 +239,8 @@ Figure fallbackToReadRate, List<SkillResidency> residency) {
             return Optional.empty();
         }
         if (value.isInteger()) {
-            return Optional.of(value.integerValue().orElse(0));
+            var count = value.integerValue().orElse(0);
+            return count < 0 ? Optional.empty() : Optional.of(count);
         }
         if (value.isString() && "not_applicable".equals(value.text().orElse(null))) {
             return Optional.of(0L);
@@ -233,12 +250,16 @@ Figure fallbackToReadRate, List<SkillResidency> residency) {
 
     /**
      * Reads a cache column: {@code not_applicable} is the harness reporting no cache reads, which makes the share
-     * {@code unmeasured} rather than a measured zero (Model Work § Navigation Figures).
+     * {@code unmeasured} rather than a measured zero (Model Work § Navigation Figures). A negative count is no
+     * measurement.
      */
     private static Optional<Long> reportedInteger(JsonNode usage, String key) {
         var value = usage.member(key).orElse(null);
-        return value == null || value.isNull() || !value.isInteger() ? Optional.empty()
-                : Optional.of(value.integerValue().orElse(0));
+        if (value == null || value.isNull() || !value.isInteger()) {
+            return Optional.empty();
+        }
+        var count = value.integerValue().orElse(0);
+        return count < 0 ? Optional.empty() : Optional.of(count);
     }
 
     private static JsonNode usage(String raw) {

@@ -79,6 +79,30 @@ class NavigationFiguresTest {
     }
 
     @Test
+    @DisplayName("a turn population that cannot be read is indeterminate, not unmeasured")
+    void cacheReadIndeterminate() {
+        var empty = NavigationFigures.derive(List.of(), VOCABULARY, List.of(), Map.of());
+        var nullUsage = NavigationFigures.derive(List.of(
+                ActivityEntry.builder().seq(1).attempt(1).source(ActivityEntry.Source.HARNESS)
+                        .kind(ActivityEntry.Kind.TURN).at(AT).build()),
+                VOCABULARY, List.of(), Map.of());
+
+        assertAll(
+                () -> assertEquals(Figure.SENTINEL_INDETERMINATE, empty.cacheReadShare().sentinel()),
+                () -> assertEquals(Figure.SENTINEL_INDETERMINATE, nullUsage.cacheReadShare().sentinel()));
+    }
+
+    @Test
+    @DisplayName("a negative token count is no measurement")
+    void negativeCounts() {
+        var figures = NavigationFigures.derive(List.of(
+                        turn("{\"input_tokens\":-1,\"cache_read\":10,\"cache_creation\":0}")),
+                VOCABULARY, List.of(), Map.of());
+
+        assertEquals(Figure.SENTINEL_UNMEASURED, figures.cacheReadShare().sentinel());
+    }
+
+    @Test
     @DisplayName("revisits count a file read twice in the same task over all its reads")
     void revisits() {
         var figures = NavigationFigures.derive(List.of(

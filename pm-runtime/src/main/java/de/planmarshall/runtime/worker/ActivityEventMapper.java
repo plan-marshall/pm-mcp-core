@@ -122,7 +122,7 @@ public final class ActivityEventMapper {
         for (var pointer : declaration.targetPointers()) {
             var found = resolve(root, pointer).flatMap(JsonNode::text).orElse(null);
             if (found != null) {
-                target = found.length() > 1000 ? found.substring(0, 1000) : found;
+                target = cutChars(found, 1000);
                 break;
             }
         }
@@ -153,7 +153,16 @@ public final class ActivityEventMapper {
             return Optional.empty();
         }
         return Optional.of(new Mapped(ActivityEntry.Kind.FILE_CHANGED, null, false, null, null,
-                path.length() > 1000 ? path.substring(0, 1000) : path, null, null));
+                cutChars(path, 1000), null, null));
+    }
+
+    /** Cuts by UTF-16 units, never splitting a surrogate pair: a target's or path's bound is its {@code length()}. */
+    private static String cutChars(String value, int bound) {
+        if (value.length() <= bound) {
+            return value;
+        }
+        var end = Character.isHighSurrogate(value.charAt(bound - 1)) ? bound - 1 : bound;
+        return value.substring(0, end);
     }
 
     private Optional<Mapped> turn(JsonNode root, KindMapping declaration) {

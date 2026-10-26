@@ -47,13 +47,8 @@ public interface WorkerProtocol {
      * Worker Off Track).
      *
      * @param report the signal and the facts the protocol records
-     * @implSpec the assembly adapter must override this; a protocol that does not is refused rather than silently
-     *           dropping the signal.
      */
-    default void offTrack(OffTrackReport report) {
-        throw new UnsupportedOperationException(
-                "The assembly adapter of WorkerProtocol must record the off-track signal " + report.signal());
-    }
+    void offTrack(OffTrackReport report);
 
     /**
      * One activity-derived off-track signal as the runtime reports it.

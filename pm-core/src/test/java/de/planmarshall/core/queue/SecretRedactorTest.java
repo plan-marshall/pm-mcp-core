@@ -50,6 +50,20 @@ class SecretRedactorTest {
     }
 
     @Test
+    @DisplayName("a credential in an environment-variable name is redacted")
+    void environmentVariables() {
+        assertAll(
+                () -> assertEquals("DB_PASSWORD=" + SecretRedactor.REDACTED,
+                        SecretRedactor.redactText("DB_PASSWORD=hunter22")),
+                () -> assertEquals("export GITHUB_TOKEN=" + SecretRedactor.REDACTED,
+                        SecretRedactor.redactText("export GITHUB_TOKEN=abc12345")),
+                () -> assertEquals("MY_API_KEY=" + SecretRedactor.REDACTED,
+                        SecretRedactor.redactText("MY_API_KEY=abcd1234")),
+                () -> assertEquals("AWS_SECRET_ACCESS_KEY=" + SecretRedactor.REDACTED,
+                        SecretRedactor.redactText("AWS_SECRET_ACCESS_KEY=abcd1234")));
+    }
+
+    @Test
     @DisplayName("a provider token shape is redacted")
     void tokenShape() {
         assertEquals("the key is " + SecretRedactor.REDACTED,

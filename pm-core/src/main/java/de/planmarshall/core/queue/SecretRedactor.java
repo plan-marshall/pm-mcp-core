@@ -33,7 +33,7 @@ public final class SecretRedactor {
     /** The text that replaces a redacted value. */
     public static final String REDACTED = "[redacted]";
 
-    private static final String ASSIGNMENT_LABEL = "(?i)\\b(pass(?:word|wd|phrase)|secret|token"
+    private static final String ASSIGNMENT_LABEL = "(?i)(?<![a-z0-9])(pass(?:word|wd|phrase)|secret|token"
             + "|(?:api|access|private)[_-]?key|auth)\\b(\\s*[:=]\\s*[\"']?)";
 
     private static final Pattern AUTH_HEADER = Pattern.compile(
@@ -81,11 +81,11 @@ public final class SecretRedactor {
         }
         if (entry.tool() != null && entry.tool().target() != null) {
             masked = masked.withTool(new ActivityEntry.Tool(entry.tool().name(),
-                    cut(redactText(entry.tool().target()), 1000).value()));
+                    cutUtf16(redactText(entry.tool().target()), 1000).value()));
         }
         if (entry.link() != null && entry.link().target() != null) {
             masked = masked.withLink(new ActivityEntry.Link(entry.link().rel(),
-                    cut(redactText(entry.link().target()), 128).value()));
+                    cutUtf16(redactText(entry.link().target()), 128).value()));
         }
         return masked;
     }
@@ -98,6 +98,15 @@ public final class SecretRedactor {
         var length = value.codePointCount(0, value.length());
         return length <= bound ? new Cut(value, false)
                 : new Cut(value.substring(0, value.offsetByCodePoints(0, bound)), true);
+    }
+
+    /** Cuts by UTF-16 units, never splitting a surrogate pair: a target's bound is its {@code length()}. */
+    private static Cut cutUtf16(String value, int bound) {
+        if (value.length() <= bound) {
+            return new Cut(value, false);
+        }
+        var end = Character.isHighSurrogate(value.charAt(bound - 1)) ? bound - 1 : bound;
+        return new Cut(value.substring(0, end), true);
     }
 
     private record Cut(String value, boolean cut) {
