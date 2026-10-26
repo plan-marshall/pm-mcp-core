@@ -41,8 +41,8 @@ public enum EndCause {
     /** A worker was detected as lost; its task is offered again within its re-offer budget. */
     LOST("lost", WorkerState.EndReason.EXITED, true, WorkerState.State.LOST),
 
-    /** An off-track action restarted the attempt; it spends no re-offer. */
-    OFF_TRACK("off_track", WorkerState.EndReason.WITHDRAWN, false, WorkerState.State.ENDED),
+    /** An off-track action restarted the attempt; it is offered again within its re-offer budget. */
+    OFF_TRACK("off_track", WorkerState.EndReason.WITHDRAWN, true, WorkerState.State.ENDED),
 
     /** The worker exited before its first call. */
     START_FAILURE("start_failure", WorkerState.EndReason.START_FAILURE, false, WorkerState.State.ENDED);

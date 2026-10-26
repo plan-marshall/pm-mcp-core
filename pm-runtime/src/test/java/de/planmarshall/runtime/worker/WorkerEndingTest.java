@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.worker;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -40,8 +41,8 @@ import de.planmarshall.runtime.worker.WorkerSupervisor.StartOutcome;
 /**
  * The one end path of a worker generation (PM-WORK-3, Ending a Worker): every cause ends with its own state and one log
  * record, the forced end reaches the process only through the runner's cancel, the fence, token revocation, slot release
- * and terminal state occur in that order, a pause at once spends no re-offer, and a task-done end starts a successor
- * when work remains.
+ * and terminal state occur in that order, only a lost worker and an off-track restart spend a re-offer, and a task-done
+ * end starts a successor when work remains.
  */
 @EnableTestLogger
 @DisplayName("Worker ending")
@@ -155,6 +156,19 @@ class WorkerEndingTest {
 
         assertFalse(EndCause.PAUSE_AT_ONCE.spendsReoffer());
         assertEquals(List.of(JobRunner.CancelCause.PLAN_PAUSED_NOW), fixture.starter.cancels);
+    }
+
+    @Test
+    @DisplayName("only a lost worker and an off-track restart spend a re-offer")
+    void onlyLostAndOffTrackSpendAReoffer() {
+        assertAll(
+                () -> assertTrue(EndCause.LOST.spendsReoffer(), "a lost worker is offered again"),
+                () -> assertTrue(EndCause.OFF_TRACK.spendsReoffer(), "an off-track restart is offered again"),
+                () -> assertFalse(EndCause.DRAIN.spendsReoffer(), "a drained task stays queued"),
+                () -> assertFalse(EndCause.START_FAILURE.spendsReoffer(), "a start failure spends none"),
+                () -> assertFalse(EndCause.PAUSE_AT_ONCE.spendsReoffer(), "a paused task spends none"),
+                () -> assertFalse(EndCause.TASK_DONE.spendsReoffer(), "a served task is done"),
+                () -> assertFalse(EndCause.RECYCLE.spendsReoffer(), "a recycle serves its task"));
     }
 
     @Test

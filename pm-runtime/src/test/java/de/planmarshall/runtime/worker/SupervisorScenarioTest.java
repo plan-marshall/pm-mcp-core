@@ -322,7 +322,7 @@ class SupervisorScenarioTest {
                             "the signal names the task whose attempt is re-offered"),
                     () -> assertEquals(Optional.of(EndCause.OFF_TRACK), ending.requestedCause(generation.generationId()),
                             "the fixed action is restart"),
-                    () -> assertFalse(EndCause.OFF_TRACK.spendsReoffer(), "the restart spends no re-offer"));
+                    () -> assertTrue(EndCause.OFF_TRACK.spendsReoffer(), "the restart spends one re-offer"));
             ProcessHandle.of(childPid).ifPresent(ProcessHandle::destroyForcibly);
         }
     }
