@@ -51,7 +51,8 @@ import de.planmarshall.core.store.JobRecord.Status;
  * <li>{@link #writePostSpawn post-spawn}: the PID and the process start of a process job, before the job counts as
  * running (PM-ARCH-7, bullet 8);</li>
  * <li>{@link #writeFate fate}: the settled record.</li>
- * <li>{@link #writeWorker worker}: the protocol state of a worker, written at every transition of it;</li>
+ * <li>{@link #writeWorker worker}: the protocol state of a worker, written for one transition at a time by the caller
+ * that owns that transition (the supervisor writes the terminal state through it);</li>
  * </ol>
  * Each point checks the record it replaces, so a record moves only forward through them. The worker point is the one
  * exception to the status rule: it replaces only the {@code worker} member of a queued or running worker and leaves

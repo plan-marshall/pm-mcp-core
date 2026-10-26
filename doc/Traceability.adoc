@@ -1747,7 +1747,7 @@ link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerProtocol.j
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/ModelSlots.java[ModelSlots],
 link:../pm-core/src/main/java/de/planmarshall/core/store/WorkerState.java[WorkerState]
 
-Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorScenarioTest.java[SupervisorScenarioTest] (the package's Done When over the fixture harness and the virtual clock),
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorScenarioTest.java[SupervisorScenarioTest] (the package's Done When scenarios over the fixture harness and the virtual clock, supported by the mechanism tests named below: AgentStartedDetectorTest for the `agent_started` match and the impostor, StartFailureGuardTest for the count, the hold, the probe and the clear, WorkerRecyclingTest for the four recycle triggers, and WorkerEndingTest for the one end path),
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerSupervisorStartTest.java[WorkerSupervisorStartTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerSupervisorLaunchTest.java[WorkerSupervisorLaunchTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerLossDetectionTest.java[WorkerLossDetectionTest],
