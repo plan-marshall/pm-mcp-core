@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.IntFunction;
 import java.util.regex.Pattern;
@@ -183,6 +184,7 @@ public final class ActivityJournal {
                 throw new IllegalArgumentException(
                         "The next entry of the journal has the seq %d, not %d".formatted(expected, built.seq()));
             }
+            built = SecretMasker.mask(built);
             truncateTornTail(file);
             var entries = new ArrayList<>(current);
             entries.add(built);
@@ -218,6 +220,47 @@ public final class ActivityJournal {
             return Files.exists(file) ? read(file) : List.of();
         } catch (IOException e) {
             throw new UncheckedIOException("Activity journal cannot be read: " + file, e);
+        }
+    }
+
+    /**
+     * Copies one task's journal into the archive of a plan, so the activity is kept with the plan it belongs to
+     * (Store Schemas § Activity Journal: kept with the plan).
+     *
+     * @param queueTaskId     the task whose journal is archived
+     * @param targetDirectory the directory that receives the journal
+     * @return the archived file, or empty when the task has no journal
+     * @throws java.io.UncheckedIOException if the copy fails
+     */
+    public Optional<Path> archiveInto(String queueTaskId, Path targetDirectory) {
+        var file = journalPath(queueTaskId);
+        if (!Files.exists(file)) {
+            return Optional.empty();
+        }
+        var target = Objects.requireNonNull(targetDirectory, "targetDirectory")
+                .toAbsolutePath().normalize().resolve(file.getFileName());
+        try {
+            Files.createDirectories(target.getParent());
+            Files.copy(file, target, StandardCopyOption.REPLACE_EXISTING);
+            return Optional.of(target);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Activity journal cannot be archived: " + file, e);
+        }
+    }
+
+    /**
+     * Deletes one task's journal and its lock with the plan it belongs to.
+     *
+     * @param queueTaskId the task whose journal is deleted
+     * @throws java.io.UncheckedIOException if a file exists and cannot be deleted
+     */
+    public void delete(String queueTaskId) {
+        var file = journalPath(queueTaskId);
+        try {
+            Files.deleteIfExists(file);
+            Files.deleteIfExists(lockFile(file));
+        } catch (IOException e) {
+            throw new UncheckedIOException("Activity journal cannot be deleted: " + file, e);
         }
     }
 
