@@ -181,6 +181,9 @@ enrolment is owed (see § Owed).
 
 == Owed
 
+* *The events stage goes to the verification path*, which runs the profile verification and writes its record: the
+  computation here returns a `Result`; recording it in `VerificationRecord.stages` and `HarnessEnrolment.events` is that
+  path's. The recorded outputs per shipped harness version are written where the shipped profiles live.
 * *The start-failure guard goes to `supervisor` (PLAN-30)*, which resumes at 4-plan and is re-outlined against the merged
   launch package. It hooks in at the worker start path: `SubprocessJobRunner.startWorker` returns a `Started` job and
   `refuseWorker` a refused `JobId`; a refused launch (a `HarnessVerification.Refused` from `HarnessVerifier`) is the

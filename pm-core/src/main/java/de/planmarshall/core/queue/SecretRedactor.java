@@ -76,14 +76,30 @@ public final class SecretRedactor {
     public static ActivityEntry redact(ActivityEntry entry) {
         var masked = entry;
         if (entry.text() != null) {
-            masked = masked.withText(redactText(entry.text()));
+            var redacted = cut(redactText(entry.text()), ActivityEntry.TEXT_BOUND);
+            masked = masked.withText(redacted.value()).withTruncated(entry.truncated() || redacted.cut());
         }
         if (entry.tool() != null && entry.tool().target() != null) {
-            masked = masked.withTool(new ActivityEntry.Tool(entry.tool().name(), redactText(entry.tool().target())));
+            masked = masked.withTool(new ActivityEntry.Tool(entry.tool().name(),
+                    cut(redactText(entry.tool().target()), 1000).value()));
         }
         if (entry.link() != null && entry.link().target() != null) {
-            masked = masked.withLink(new ActivityEntry.Link(entry.link().rel(), redactText(entry.link().target())));
+            masked = masked.withLink(new ActivityEntry.Link(entry.link().rel(),
+                    cut(redactText(entry.link().target()), 128).value()));
         }
         return masked;
+    }
+
+    /**
+     * Redaction can lengthen a value, so the bound of the entry is applied once more after it: a redacted value that
+     * grew past its bound is cut, and the text says it was cut.
+     */
+    private static Cut cut(String value, int bound) {
+        var length = value.codePointCount(0, value.length());
+        return length <= bound ? new Cut(value, false)
+                : new Cut(value.substring(0, value.offsetByCodePoints(0, bound)), true);
+    }
+
+    private record Cut(String value, boolean cut) {
     }
 }

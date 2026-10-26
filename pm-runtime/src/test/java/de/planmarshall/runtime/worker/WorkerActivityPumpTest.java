@@ -103,7 +103,7 @@ class WorkerActivityPumpTest {
 
     @Test
     @DisplayName("only the lines gained since the previous pass are appended, and an unmatched line is counted")
-    void pumpsNewLines(@TempDir Path base) throws Exception {
+    void pumpsNewLines(@TempDir Path base) throws IOException {
         var journal = ActivityJournal.ofScope(base, "project-a",
                 new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, "plan-a"),
                 new FileLockManager(_ -> {

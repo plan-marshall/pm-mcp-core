@@ -26,10 +26,10 @@ import de.planmarshall.core.role.RoleArtifact;
  * Writes a worker's activity into the journal of the task's scope and evaluates the off-track signals at every entry
  * (Model Work § Output Read While the Worker Runs: every appended entry is the evaluation point).
  * <p>
- * The entry is appended under the journal's own leaf lock, which assigns its sequence and masks it; the signals are
- * then computed from the journal and the task's facts, and each signal that holds is reported to the task protocol,
- * which takes its action and records it. A signal already on the attempt's record is not reported twice, so one cause
- * never takes its action twice.
+ * The journal hands the attempt's entries, the new one included, to the detector inside its own leaf-lock transaction,
+ * which assigns the sequence, redacts the entry and bounds it; each signal that holds is then reported to the task
+ * protocol after the lock, and the protocol takes its action and records it. A signal already on the attempt's record
+ * is not reported twice, so one cause never takes its action twice.
  * <p>
  * The recorder never evaluates a signal for a task whose facts it cannot read: an unknown task gets no signal, because
  * a signal without an attempt and a role would guess at a threshold.

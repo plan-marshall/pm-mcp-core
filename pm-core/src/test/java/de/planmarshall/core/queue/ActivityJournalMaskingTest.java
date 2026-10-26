@@ -45,6 +45,29 @@ class ActivityJournalMaskingTest {
     }
 
     @Test
+    @DisplayName("a secret at the text bound is redacted and refitted, not refused")
+    void redactionAtTheBound(@TempDir Path base) {
+        var journal = ActivityJournal.ofScope(base, "project-a", QueueFixtures.planScope(), new TestLocks());
+        var text = "password=abcd " + "x".repeat(ActivityEntry.TEXT_BOUND - 14);
+
+        journal.append(TASK, ActivityEntry.builder()
+                .seq(1)
+                .attempt(1)
+                .source(ActivityEntry.Source.HARNESS)
+                .kind(ActivityEntry.Kind.TEXT)
+                .text(text)
+                .at(QueueFixtures.AT)
+                .build());
+
+        var written = journal.entries(TASK).getFirst();
+        assertAll(
+                () -> assertEquals(ActivityEntry.TEXT_BOUND,
+                        written.text().codePointCount(0, written.text().length())),
+                () -> assertTrue(written.truncated()),
+                () -> assertTrue(written.text().contains(SecretRedactor.REDACTED)));
+    }
+
+    @Test
     @DisplayName("a task's journal is archived with the plan and deleted with it")
     void archiveAndDelete(@TempDir Path base) {
         var journal = ActivityJournal.ofScope(base, "project-a", QueueFixtures.planScope(), new TestLocks());

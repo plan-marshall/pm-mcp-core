@@ -203,6 +203,7 @@ public final class ActivityJournal {
                         "The next entry of the journal has the seq %d, not %d".formatted(expected, built.seq()));
             }
             built = SecretRedactor.redact(built);
+            built = fit(built);
             var entries = new ArrayList<>(current);
             entries.add(built);
             observer.accept(List.copyOf(entries));
@@ -288,6 +289,30 @@ public final class ActivityJournal {
         } catch (IOException e) {
             throw new UncheckedIOException("Activity journal cannot be deleted: " + file, e);
         }
+    }
+
+    /**
+     * Refits an entry after redaction, which can lengthen a value ({@code [redacted]} is longer than a four-character
+     * secret). The bound is the entry's own: a text entry is cut to the compiled bound and marked truncated, and a tool
+     * or link target is cut to its maximum. Without this a masked line at the bound would be refused by the entry's
+     * constructor and wedge the writer.
+     */
+    private static ActivityEntry fit(ActivityEntry entry) {
+        var fitted = entry;
+        if (entry.text() != null && entry.text().codePointCount(0, entry.text().length())
+                > ActivityEntry.TEXT_BOUND) {
+            fitted = fitted.withText(entry.text().substring(0,
+                    entry.text().offsetByCodePoints(0, ActivityEntry.TEXT_BOUND))).withTruncated(true);
+        }
+        if (entry.tool() != null && entry.tool().target() != null && entry.tool().target().length() > 1000) {
+            fitted = fitted.withTool(new ActivityEntry.Tool(entry.tool().name(),
+                    entry.tool().target().substring(0, 1000)));
+        }
+        if (entry.link() != null && entry.link().target() != null && entry.link().target().length() > 128) {
+            fitted = fitted.withLink(new ActivityEntry.Link(entry.link().rel(),
+                    entry.link().target().substring(0, 128)));
+        }
+        return fitted;
     }
 
     private static List<ActivityEntry> read(Path file) throws IOException {

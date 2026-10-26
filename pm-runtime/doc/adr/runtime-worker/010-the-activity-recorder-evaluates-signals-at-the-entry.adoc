@@ -18,8 +18,9 @@ queue lock. The runtime must compute the signals; the workflow's task protocol o
 
 == Decision
 
-`ActivityRecorder` is the one write path: the journal hands it the attempt's entries, the new one included, inside its
-own leaf-lock transaction and the recorder asks `OffTrackDetector` for the signals that hold there; the signals are
+`ActivityRecorder` is the harness-side write path into the journal of the task's scope: the journal hands it the
+attempt's entries, the new one included, inside its own leaf-lock transaction and the recorder asks `OffTrackDetector`
+for the signals that hold there; the signals are
 reported to the `WorkerProtocol` boundary after the lock is released, because the protocol takes the queue lock and the
 two locks are never nested. The protocol stays the owner of the queue record's `signals[]`, the journal's `signal`
 entry, the action and the re-offer. The recorder keeps the signals it reported per task and attempt, so a second entry
