@@ -1856,3 +1856,22 @@ with such a character that the plan does not touch is not reported; `\uE0001` sp
 line is one non-blocking `model_instruction` finding.
 Source:: Article analysis `context-collapse` of plan-marshall-documentation (an instruction hidden in a Word document
 copied by the model into each document it drafts, which then carries it on).
+
+[#PM-WATCH-PHASE-123]
+=== PM-WATCH-PHASE-123: A credential a worker copied never leaves the machine in a commit or a provider text
+
+Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#added-line-scan[Phase Workflows § Added-Line Scan]
+Hazard:: The credential stage reads the tree difference `base_ref..HEAD` like the other stages, so a value one commit
+adds and a later fix removes passes while the push publishes the commit that holds it; or commit messages are not read;
+or the finding's summary, the audit record, or the refusal of a provider write repeats the value it found; or a
+hand-back before `create-pr` pushes the branch while the finding is open; or the outbound check runs on the text before
+the server adds its own sections, or not at all for a review reply.
+Guard:: Scenario over a plan with three commits: the first adds a `.env` line with a `ghp_` token of valid length, the
+second removes it, the third's message holds an `AKIA` key: two blocking `credential_shaped` findings, no push, and a
+fallback to the hand-back that takes the local form; neither the findings store, the audit log, nor the landing record
+contains either value. A worker that writes a redaction-registry value into a pull-request body gets
+`credential_shaped_text` and no request is sent to the provider. Matched controls: the word `ghp_` in prose, a value of
+the pattern table's example set, and a PEM public key are no hits; an operator waiver of both findings lets the push
+proceed.
+Source:: Article analysis `digitalocean-agent-credentials` of plan-marshall-documentation (credentials kept outside the
+agent's reach because a persuaded agent sends on whatever it can read).
