@@ -32,7 +32,8 @@ import de.planmarshall.core.profile.VerificationRecord;
 /**
  * The verification-record eligibility gate (PM-CLIENT-5, Runtime check on load; PM-SEC-8, Consent Before Acting): the
  * pure predicate the supervisor consults before a start, over the failing {@code faults} stage, the {@code not_run}
- * isolation stage, a record written on another platform, the shipped profile, and the two no-claim controls.
+ * isolation stage, the missing {@code classes} stage of an enforced tool-set claim, a record written on another
+ * platform, the shipped profile, and the two no-claim controls.
  */
 @DisplayName("The verification-record eligibility gate")
 class ProfileWorkerEligibilityTest {
@@ -115,6 +116,36 @@ class ProfileWorkerEligibilityTest {
     }
 
     @Test
+    @DisplayName("an enforced tool set is admitted only against the measured classes stage")
+    void anEnforcedToolSetNeedsTheClassesStage() {
+        var enforced = "\"writer\": {\"tool_set\": \"enforced\"}";
+        var measured = loaded(ProfileSetKind.MACHINE, true, enforced,
+                record(Map.of("faults", "passed", "egress", "passed", "classes", "passed")));
+        var unmeasured = loaded(ProfileSetKind.MACHINE, true, enforced,
+                record(Map.of("faults", "passed", "egress", "passed")));
+
+        var refusal = refusalOf(unmeasured);
+
+        assertAll(
+                () -> assertTrue(ProfileWorkerEligibility.of(measured, THIS_PLATFORM).verdict().isEligible(),
+                        "the measured classes stage establishes the enforced tool set"),
+                () -> assertEquals(EligibilityRefusal.Reason.CLAIM_STAGE_ABSENT, refusal.reason(),
+                        "an enforced tool set is a claim the record must measure"),
+                () -> assertEquals("classes", refusal.stage(), "the absent classes stage refuses the claim"));
+    }
+
+    @Test
+    @DisplayName("an advisory tool set makes no claim and needs no classes stage")
+    void anAdvisoryToolSetMakesNoClaim() {
+        var advisory = loaded(ProfileSetKind.MACHINE, true, "\"writer\": {\"tool_set\": \"advisory\"}",
+                record(Map.of("faults", "passed", "egress", "passed")));
+
+        var verdict = ProfileWorkerEligibility.of(advisory, THIS_PLATFORM).verdict();
+
+        assertTrue(verdict.isEligible(), "an advisory tool set claims nothing about enforcement");
+    }
+
+    @Test
     @DisplayName("a claiming profile without a record is refused")
     void aRecordAbsentRefuses() {
         var profile = profile(true, false, null);
@@ -177,13 +208,21 @@ class ProfileWorkerEligibilityTest {
 
     private static LoadedProfile loaded(ProfileSetKind kind, boolean eligible, boolean zeroTool,
             VerificationRecord record) {
-        var bytes = document(eligible, zeroTool);
+        return loaded(kind, eligible, zeroTool ? "\"zero_tool\": {}" : "", record);
+    }
+
+    private static LoadedProfile loaded(ProfileSetKind kind, boolean eligible, String classes,
+            VerificationRecord record) {
+        var bytes = document(eligible, classes);
         return new LoadedProfile(CLIENT, kind, JsonDocument.parse(bytes, "profile"), bytes,
                 LoadedProfile.State.VERIFIED, record);
     }
 
     private static byte[] document(boolean eligible, boolean zeroTool) {
-        var classes = zeroTool ? "\"zero_tool\": {}" : "";
+        return document(eligible, zeroTool ? "\"zero_tool\": {}" : "");
+    }
+
+    private static byte[] document(boolean eligible, String classes) {
         return """
                 {
                   "schema_version": 1,

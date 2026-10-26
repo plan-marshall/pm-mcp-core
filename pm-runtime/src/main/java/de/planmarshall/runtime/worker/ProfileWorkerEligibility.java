@@ -12,6 +12,7 @@ package de.planmarshall.runtime.worker;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Stream;
 
 import de.planmarshall.core.profile.LoadedProfile;
 import de.planmarshall.core.profile.ProfileSetKind;
@@ -25,13 +26,15 @@ import de.planmarshall.core.role.RoleClass;
  * be believed on the platform the runtime runs on.
  * <p>
  * No value of a profile is believed because the profile says so. A shipped profile is trusted as today — the release
- * compiled its document — while a machine or project profile makes exactly two claims that the gate examines:
+ * compiled its document — while a machine or project profile makes exactly three claims that the gate examines:
  * {@code worker.eligible: true} is honoured only when the record carries {@code faults} and {@code egress} as
- * {@code passed}, and a non-null {@code zero_tool} class only when {@code classes} and {@code isolation} passed.
- * Beyond the claim's own stages, every stage the record carries must be {@code passed}: a record that measured a
- * failure anywhere does not establish the profile's claims. A record written on another operating system or
- * architecture refuses, leaving the profile usable for detection and rendering but its harness ineligible for workers.
- * A profile that makes no claim ({@code eligible: false}, {@code zero_tool: null}) passes untouched.
+ * {@code passed}, a non-null {@code zero_tool} class only when {@code classes} and {@code isolation} passed, and an
+ * {@code enforced} tool set on {@code writer} or {@code read_only} only when the record measured the {@code classes}
+ * stage that establishes it. Beyond the claim's own stages, every stage the record carries must be {@code passed}: a
+ * record that measured a failure anywhere does not establish the profile's claims. A record written on another operating
+ * system or architecture refuses, leaving the profile usable for detection and rendering but its harness ineligible for
+ * workers. A profile that makes no claim ({@code eligible: false}, {@code zero_tool: null}, every tool set
+ * {@code advisory}) passes untouched.
  * <p>
  * The egress-acceptance half of the specification is deliberately not here: whether the operator accepts unenforced
  * egress is a machine-level decision the egress owner holds, and this gate only requires the record's {@code egress}
@@ -51,6 +54,7 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
 
     private static final List<String> ELIGIBLE_STAGES = List.of("faults", "egress");
     private static final List<String> ZERO_TOOL_STAGES = List.of("classes", "isolation");
+    private static final String CLASSES_STAGE = "classes";
 
     private final LoadedProfile profile;
     private final RuntimePlatform platform;
@@ -171,7 +175,20 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
         if (facts.runs(RoleClass.ZERO_TOOL)) {
             stages.addAll(ZERO_TOOL_STAGES);
         }
+        if (enforcesAToolSet(facts) && !stages.contains(CLASSES_STAGE)) {
+            stages.add(CLASSES_STAGE);
+        }
         return List.copyOf(stages);
+    }
+
+    /**
+     * @param facts the facts projected from a profile
+     * @return whether the profile claims an enforced tool set on a role class that has one
+     */
+    private static boolean enforcesAToolSet(HarnessProfile facts) {
+        return Stream.of(RoleClass.WRITER, RoleClass.READ_ONLY)
+                .anyMatch(roleClass -> facts.toolSet(roleClass)
+                        .filter(HarnessProfile.ToolSet.ENFORCED::equals).isPresent());
     }
 
     private static EligibilityRefusal refusalOf(VerificationRecord.Stage stage, String name, LoadedProfile profile) {
