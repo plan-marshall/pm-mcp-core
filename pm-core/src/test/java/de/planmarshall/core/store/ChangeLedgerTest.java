@@ -17,7 +17,6 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -180,7 +179,7 @@ class ChangeLedgerTest {
 
         @Test
         @DisplayName("an appended line has a sidecar entry, as every store of the scope's transactions")
-        void sidecarEntry() throws IOException {
+        void sidecarEntry() throws Exception {
             append(changeRow());
 
             var digest = DigestSidecar.load(scope.sidecarFile()).digest(ChangeLedger.FILE_NAME);
@@ -192,7 +191,7 @@ class ChangeLedgerTest {
 
         @Test
         @DisplayName("an out-of-band edit of the ledger is a Mismatch of the integrity check")
-        void outOfBandEdit() throws IOException {
+        void outOfBandEdit() throws Exception {
             append(changeRow());
             var recorded = DigestSidecar.load(scope.sidecarFile()).digest(ChangeLedger.FILE_NAME).orElseThrow();
             var edited = Files.readAllBytes(file);
@@ -207,7 +206,7 @@ class ChangeLedgerTest {
 
         @Test
         @DisplayName("a transaction of another scope is refused")
-        void otherScope() throws IOException {
+        void otherScope() throws Exception {
             var other = JournalScope.plan(base, PROJECT, "another-plan");
             Files.createDirectories(other.journalFile().getParent());
 

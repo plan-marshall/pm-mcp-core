@@ -194,7 +194,7 @@ class MetricsStoreTest {
 
         @Test
         @DisplayName("an appended row has a sidecar entry, as every store of the scope's transactions")
-        void sidecarEntry() throws IOException {
+        void sidecarEntry() throws Exception {
             append(row("qt-0123456789abcdef", usage()));
 
             var digest = DigestSidecar.load(scope.sidecarFile()).digest(MetricsStore.FILE_NAME);
@@ -206,7 +206,7 @@ class MetricsStoreTest {
 
         @Test
         @DisplayName("an out-of-band edit of the store is a Mismatch of the integrity check")
-        void outOfBandEdit() throws IOException {
+        void outOfBandEdit() throws Exception {
             append(row("qt-0123456789abcdef", usage()));
             var recorded = DigestSidecar.load(scope.sidecarFile()).digest(MetricsStore.FILE_NAME).orElseThrow();
             var edited = Files.readAllBytes(file);
@@ -221,7 +221,7 @@ class MetricsStoreTest {
 
         @Test
         @DisplayName("a transaction of another scope is refused")
-        void otherScope() throws IOException {
+        void otherScope() throws Exception {
             var other = JournalScope.plan(base, PROJECT, "another-plan");
             Files.createDirectories(other.journalFile().getParent());
 
@@ -241,7 +241,7 @@ class MetricsStoreTest {
 
         @Test
         @DisplayName("the epic store holds a task row with no phase and refuses one with a phase")
-        void epicTaskRow() throws IOException {
+        void epicTaskRow() throws Exception {
             var epic = JournalScope.epic(base, PROJECT, "some-epic");
             Files.createDirectories(epic.journalFile().getParent());
             var epicStore = new MetricsStore(epic);
@@ -258,7 +258,7 @@ class MetricsStoreTest {
 
         @Test
         @DisplayName("the workspace store holds a task row with no phase and refuses one with a phase")
-        void workspaceTaskRow() throws IOException {
+        void workspaceTaskRow() throws Exception {
             var workspace = JournalScope.workspace(base, PROJECT);
             Files.createDirectories(workspace.journalFile().getParent());
             var workspaceStore = new MetricsStore(workspace);
@@ -291,7 +291,7 @@ class MetricsStoreTest {
 
         @Test
         @DisplayName("the workspace store accepts a worker-idle row")
-        void workspaceIdleRow() throws IOException {
+        void workspaceIdleRow() throws Exception {
             var workspace = JournalScope.workspace(base, PROJECT);
             Files.createDirectories(workspace.journalFile().getParent());
             var workspaceStore = new MetricsStore(workspace);
@@ -350,7 +350,7 @@ class MetricsStoreTest {
 
         @Test
         @DisplayName("round-trips a worker-idle row")
-        void idleRow() throws IOException {
+        void idleRow() throws Exception {
             var workspace = JournalScope.workspace(base, PROJECT);
             Files.createDirectories(workspace.journalFile().getParent());
             var workspaceStore = new MetricsStore(workspace);
