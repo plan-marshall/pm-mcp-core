@@ -34,6 +34,9 @@ import de.planmarshall.runtime.launch.ModelSlotScheduler;
  */
 public interface ModelSlots {
 
+    /** The name of the generation component, used by the adapter's null guards. */
+    String GENERATION_ID = "generationId";
+
     /**
      * One held model slot.
      *
@@ -47,7 +50,7 @@ public interface ModelSlots {
          * @throws NullPointerException if a component is {@code null}
          */
         public Lease {
-            Objects.requireNonNull(generationId, "generationId");
+            Objects.requireNonNull(generationId, GENERATION_ID);
             Objects.requireNonNull(role, "role");
         }
     }
@@ -112,7 +115,7 @@ public interface ModelSlots {
 
             @Override
             public Optional<Lease> claim(String generationId, String role) {
-                Objects.requireNonNull(generationId, "generationId");
+                Objects.requireNonNull(generationId, GENERATION_ID);
                 Objects.requireNonNull(role, "role");
                 var admission = scheduler.request(new ModelSlotScheduler.Request(owner, generationId, role, workerClass,
                         form, planId));
@@ -125,7 +128,7 @@ public interface ModelSlots {
 
             @Override
             public void withdraw(String generationId) {
-                Objects.requireNonNull(generationId, "generationId");
+                Objects.requireNonNull(generationId, GENERATION_ID);
                 scheduler.release(generationId);
             }
 
