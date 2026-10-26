@@ -205,9 +205,11 @@ public final class ProbeWorkspace implements AutoCloseable {
         }
     }
 
+    private static final SecureRandom RANDOM = new SecureRandom();
+
     private static byte[] randomBytes() {
         var bytes = new byte[CANARY_BYTES];
-        new SecureRandom().nextBytes(bytes);
+        RANDOM.nextBytes(bytes);
         return bytes;
     }
 

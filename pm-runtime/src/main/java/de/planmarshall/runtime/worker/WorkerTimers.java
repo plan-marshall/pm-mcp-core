@@ -56,6 +56,7 @@ public interface WorkerTimers {
      * @return the timers of one supervisor
      * @throws NullPointerException if the clock is {@code null}
      */
+    @SuppressWarnings("java:S2095") // The executor's lifetime is the supervisor's: the returned timers own it and close() shuts it down at the drain.
     static WorkerTimers system(InstantSource clock) {
         Objects.requireNonNull(clock, "clock");
         var executor = Executors.newSingleThreadScheduledExecutor(runnable -> {
