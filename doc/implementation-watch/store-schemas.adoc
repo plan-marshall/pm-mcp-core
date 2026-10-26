@@ -786,3 +786,19 @@ an archived epic's `epics/<epic_id>/`, the logs of ended work, read reports) of 
 and goes only by the operator's cleanup. Matched controls: a row one day younger than the key is kept, and an open
 finding of any age is kept.
 Source:: design review.
+
+[#PM-WATCH-STORE-57]
+=== PM-WATCH-STORE-57: A finding's location is checked at the commit it was raised at
+
+Anchor:: link:../specification/store-schemas/03-findings-and-review-records.adoc#located-finding-grounding[Store Schemas § Located Finding Grounding]
+Hazard:: The check reads the working tree instead of the git object of `raised_at_head`, so a finding filed before a
+later edit is refused, or a finding on a file the writer deleted after review passes; or a line count is taken with
+another line-ending rule than the one the finding was cited under, refusing the last line; or a finding without a
+`file_path` (a plan-level observation) is refused as unlocated.
+Guard:: Scenario over a plan whose review task files three findings: one on an existing line at `raised_at_head`, one
+on a path absent at that commit, and one on the line after the file's last; only the first is filed, the other two are
+refused with `invalid_link_args` naming them, and a `security` `ingress` on an absent path is refused the same way.
+Matched controls: a finding on a file deleted in the working tree after `raised_at_head` is filed, a file ending without
+a newline accepts its last line, and a finding without `file_path` is filed.
+Source:: Article analysis `mantis` of plan-marshall-documentation (Mantis's review rule that a path, symbol and line must
+exist before a finding is kept).

@@ -1,0 +1,28 @@
+= Security audit calibration, located finding grounding and the code scanning provider
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `security-audit-and-code-scanning`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 10 (the items _Implement the code analysis provider `github-code-scanning` in `pm-provider-github`_, _Refuse a model-filed finding whose file does not exist at its `raised_at_head`_, and _Implement the security audit calibration_)
+Where:: pm-core package `core.findings` (the `Finding` record with `submitted_severity` and `security`, its codec, and the grounding check at filing); pm-workflow package `workflow.finalize` (the facts of `finalize.security-audit`, the cap from `security_severity_caps`, and the `security_guard_removed` finding of the self-review); `pm-provider-github` (the adapter `github-code-scanning`, both variants)
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* *The finding record.* `submitted_severity` and the nested `security` record (`ingress`, `attacker_position`, `privileges_required`, `evidence_level`, `cap_rule`) in `Finding` and its codec, required for `security_audit` and null for every other source; `FindingSchemaParityTest.componentsInSchemaOrder` re-enabled.
+* *Located finding grounding.* The refusal at filing of a model-filed finding whose file does not exist at `raised_at_head` or whose line lies beyond that file's end, read from the git object of that commit, a `security.ingress` checked the same way.
+* *The security audit calibration.* `test_reproduced` accepted only with a build job of the plan's run; the cap from the declaration `security_severity_caps` of `phase-6-finalize` with its compiled bounds; the threat model `.marshall/config/threat-model.adoc` and the security history (bounded, remainder counted, an unreadable archive named) in the task's facts; the `security_guard_removed` finding from a removed-guard candidate whose lines an earlier security fix added.
+* *The code scanning provider.* `github-code-scanning` behind the code-analysis contract of `pm-core`: the configured `tools`, the status rules (a configured tool without an analysis of the head commit `undecidable`, never `not_run`), the issues the pull request adds with their severity mapping and screening, and dismissals only for alerts the plan's pull request raised.
+
+== Trace
+
+Requirements stay in `plan-marshall-documentation`; the specification sections and watch documents are those of this repository. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-9[PM-WF-9], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-13[PM-WF-13]
+* Specification: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#code-scanning-provider[Phase Workflows § Code Scanning Alerts]; link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#security-audit-calibration[§ Security Audit Calibration]; link:../specification/store-schemas/03-findings-and-review-records.adoc#located-finding-grounding[Store Schemas § Located Finding Grounding]
+* Watch: link:../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-120[PM-WATCH-PHASE-120], link:../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-121[PM-WATCH-PHASE-121], link:../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-57[PM-WATCH-STORE-57]
+
+== Done When
+
+`FindingSchemaParityTest` runs without `@Disabled` and passes; the guards of the three watch items pass with their matched controls; a recorded code-scanning fixture of two tools yields `undecidable` for the tool without an analysis of the head commit and one dismissal for a refuted alert the pull request raised.

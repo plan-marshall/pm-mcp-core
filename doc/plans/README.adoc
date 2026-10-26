@@ -272,6 +272,12 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |`open`
 |link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:domain-extensions-and-architecture.adoc[`domain-extensions-and-architecture`]; link:re-planning.adoc[`re-planning`] (the `finalize.replan` call and the triggers it consumes)
 |Milestone 10
+
+|link:security-audit-and-code-scanning.adoc[`security-audit-and-code-scanning`]
+|The security audit's calibration (ingress, calibration facts, severity cap, threat model, security history, removed security guards), the grounding of a located finding at filing, and the code analysis provider `github-code-scanning`
+|`open`
+|link:finalize-pipeline-and-merge.adoc[`finalize-pipeline-and-merge`]
+|Milestone 10
 |===
 
 The work packages of the other repositories: link:../../../pm-mcp-clients/doc/plans/README.adoc[`pm-mcp-clients`] and link:../../../plan-marshall-mcp/doc/plans/README.adoc[`plan-marshall-mcp`].

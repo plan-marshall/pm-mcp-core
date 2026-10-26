@@ -24,6 +24,7 @@ Every repository checkout of an enrolled project contains a `.marshall/` directo
 │   │   ├── workflow.json                # Plan workflow policy, optional finalize step lanes
 │   │   ├── domains.json                 # Overrides of the derived domain detection
 │   │   ├── build-map.json               # Seeded file-to-build route table
+│   │   ├── threat-model.adoc            # Optional threat model the security audit reads (Phase Workflows § Security Audit Calibration)
 │   │   └── *.pmwf                       # Only the units the team placed or changed; absent units resolve to the machine, then the default
 │   ├── recipes/                         # The project's recipes (git-tracked): each descriptor with its workflow <id>.pmwf
 │   ├── skills/                          # Project skill directory: team extension skills (git-tracked, MCP Tools § Skill Extensions)

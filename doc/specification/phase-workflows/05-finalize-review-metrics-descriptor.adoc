@@ -282,6 +282,48 @@ Before the operator merges, the pull request says what would be hard to undo and
 2. *Reach*: the modules with a path in the realized footprint and the modules that depend on them directly, both from the change map's crawl at `HEAD` (<<change-map>>), as two counts and the module names up to `20`; with a map that is `partial` or `indeterminate` the reach is named as not computed, never as empty.
 3. *Rendering*: the server-owned section `## Merge Danger` of the pull-request body, rendered with the other server sections (xref:04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Step Catalogue], `create-pr`), and the same lists in the landing record. The section blocks nothing.
 
+[#code-scanning-provider]
+== Code Scanning Alerts as a Code Analysis Provider
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-9[PM-WF-9: Composite Wait States & Short-Circuit Failure Handling]_
+
+_Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-120[PM-WATCH-PHASE-120]_
+
+GitHub code scanning holds the results of every tool that uploads SARIF to it: CodeQL, Semgrep, and model-driven review pipelines that must run outside the operator's machine, in an isolated CI job or virtual machine with credentials of their own. PM-MCP reads those results; it never runs such a tool. The adapter `github-code-scanning` of `pm-provider-github` implements the code-analysis contract of `pm-core` (link:../../../../plan-marshall-documentation/doc/specification/module-structure.adoc[Module Structure, Code analysis]) and is polled by `default:analysis-roundtrip` like every code analysis provider.
+
+1. *Configuration*: `project.json` `integrations.github-code-scanning` with `tools`, the non-empty list of SARIF tool names whose alerts count; an alert of another tool is ignored. The adapter uses the effective variant and credential of the `github` integration (native REST or `gh api`), so it needs no credential of its own.
+2. *Status* (`analysis.status`, target the pull request and its head commit): `running` while a configured tool has no analysis of the head commit and the head's CI is not complete; `findings` when an issue of step 3 is open; `passed` when every configured tool has an analysis of the head commit and no issue is open; `undecidable`, naming the tool, when the head's CI completed and a configured tool uploaded no analysis of the head commit, when an analysis reports errors, or when code scanning is not enabled for the repository. The adapter never reports `not_run`: a configured tool that did not report is never read as clean.
+3. *Issues* (`analysis.issues`): the open alerts of the configured tools on the pull request that the base branch does not have. Each is a finding `source: analysis` of provider `github-code-scanning`: `rule_id` is `<tool>/<rule id>`, `file_path` and `line` those of the alert's most recent instance, `severity` mapped from the alert's security severity (`critical` to `critical`, `high` to `major`, `medium` to `minor`, `low` to `info`), else from the rule's level (`error` to `major`, `warning` to `minor`, `note` to `info`), and `external.issue_key` the alert number. The alert's message and its rule's help are external text, screened before any model receives them (<<_comment_ingestion,Comment Ingestion>> applies the same screening). GitHub keys an alert on the tool's fingerprint of the result, so a re-run of the tool keeps the alert number and a repeated ingestion files no duplicate.
+4. *Responses*: only a finding resolved `SUPPRESS` is transmitted, as a dismissal carrying the plan id and the reason: `claim_refuted` as `false positive`; `rule_exception`, `generated_code`, and `tool_limitation` as `won't fix`; `duplicate` is not transmitted. A dismissal closes the alert for the whole repository, so the responder dismisses only an alert whose first instance lies on the plan's pull request; an alert that the base branch also has is never in the issue set of step 3. A `FIX` transmits nothing: the alert closes when the tool's next analysis no longer reports it.
+5. *Severity as Reported*: the findings of this provider enter `remediation.analysis` and are waivable as `findings:github-code-scanning`; the security calibration (<<security-audit-calibration>>) caps the findings of the plan's own security review and leaves a tool's mapped severity as it is.
+
+[#security-audit-calibration]
+== Security Audit Calibration: Ingress, Severity Caps & History
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-13[PM-WF-13: Finalize Step Ordering Bands, Verdict Currency & Pre-Merge Barrier]_
+
+_Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-121[PM-WATCH-PHASE-121]_
+
+The security audit (xref:04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[catalogue row `7`]) is a model's review whose findings are never waivable, so an inflated severity costs a loop-back and a finding without a path to it costs a fix of nothing. The following rules keep its findings grounded, cap their severity from facts the server checks, and give the review the project's own security history.
+
+1. *Scope*: a finding names a weakness that attacker-controlled data reaches, and carries `security.ingress`, the file and line where that data enters, checked like the finding's own location (link:../store-schemas/03-findings-and-review-records.adoc#located-finding-grounding[Store Schemas § Located Finding Grounding]). The review does not report misuse that needs an actor the system already trusts and no path from untrusted input, missing defence in depth without such a path, exhaustion of a resource unless the threat model marks the asset's availability critical, or hygiene without an exploit path. An intrinsically weak construct (a broken hash used for a security purpose, a secret in the source) is a finding without a caller.
+2. *Calibration Facts*: with each finding the task submits `attacker_position`, `privileges_required`, and `evidence_level`. `test_reproduced` is accepted only with `evidence.ref` naming a build job of the plan's run whose failing test reproduces the weakness; otherwise the server records `reasoned`.
+3. *Severity Caps*: at filing the server sets `severity` to the lowest of the submitted severity and every cap whose condition holds, writes the rule of the lowest cap into `security.cap_rule`, and keeps the submitted value in `submitted_severity`. The cap table is the declaration `security_severity_caps` of the finalize phase unit `phase-6-finalize` (link:../workflow-dsl/02-units-jobs-decisions.adoc#unit-declarations[Workflow DSL § Unit Declarations]); its shipped value is the table that passed the calibration of `review-security`:
++
+[cols="2,1",options="header"]
+|===
+|Condition |Highest severity
+
+|`evidence_level: reasoned` |`major`
+|`privileges_required: low` |`major`
+|`privileges_required: high` |`minor`
+|`attacker_position: adjacent` or `local` |`major`
+|`attacker_position: trusted_operator` |`minor`
+|===
++
+Compiled bounds: a cap never raises a severity, a condition names only fields and values of the `security` object, and a cap is a value of the severity enumeration; a project's unit may lower, raise, or remove a cap within these bounds.
+4. *Threat Model*: the team may keep `.marshall/config/threat-model.adoc`: the trust boundaries with their entry points, the exposure of each deployed component (`exposed`, `internal`, `privileged`), and the assets with their availability tier (`critical`, `standard`, `low`). The task receives it when present; absent, its facts state `threat_model: absent`, and the review takes every component as exposed.
+5. *Security History*: without a model, the server gives the task, for the files of the plan footprint, the `security_audit` findings of the project's archived plans resolved `fixed` on those files (summary, file, line, plan, and fix commit), newest first, at most `20` with the remainder counted; an archive that cannot be read is named in the facts, never rendered as no history.
+6. *Removed Security Guards*: when a removed-guard candidate of the pre-submission self-review (link:../domain-extensions/05-recipes-and-extension-points.adoc#self-review-surfacer[Domain Extensions § Removed Guards]) has removed lines that the fix commit of such an earlier finding added (git blame at the plan's base commit), the server files it as a blocking `self_review` finding of type `security_guard_removed`, naming the earlier finding and its plan, with the earlier finding's severity; it is triaged like a security finding, never waivable, and a plan that removes the guard on purpose answers it with `FIX` or with `SUPPRESS` on refuting evidence.
+
 == Java `FinalizeStepDescriptor` Record Schema & Static Checks
 
 *Status: IN PROGRESS.* Every built-in, bundle, or project-local finalize step is represented in `pm-workflow` by the immutable record link:../../../pm-workflow/src/main/java/de/planmarshall/workflow/finalize/FinalizeStepDescriptor.java[`FinalizeStepDescriptor`] with its nested types `Lane`, `LaneClass`, `InputScope`, and `ConfigurableKey` and its order constants (link:../../../pm-workflow/doc/developer/workflow-finalize.adoc[Finalize Pipeline Developer Guide]); `pm-workflow` holds no table of the default steps, whose roster is part of the assembly.
