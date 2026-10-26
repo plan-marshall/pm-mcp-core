@@ -1,0 +1,56 @@
+= ADR 004: The grading run offers through ports, not through a worker runtime
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-26
+
+== Context
+
+A grading offers every item of a role's topics to the configuration it grades and scores the answers. The specification
+says the items go through the task protocol, and the check of the judge runs as tasks of the judge role. In this
+repository, however, `runtime.worker` is a library with no production caller yet: the supervisor is built but nothing
+wires the task protocol to it. A grading package that depended on the worker runtime would be untestable without a
+running harness, and would duplicate the launch contract.
+
+== Decision
+
+`core.role.qualification` defines two ports and no worker:
+
+* `GradingHarness.answer(Offered)` offers one item in one form and run, and answers with the submitted answer, its
+  tokens and its duration, or empty when the task closed without an answer.
+* `JudgeScorer.score(JudgePrompt)` sends a rubric answer to the judge and answers with its structured score, or empty
+  when the judge task closed `lost`.
+
+`ItemCheckout` answers whether a commit of the project's repository is present, so an item of the project can be graded
+at its origin commit. The grading engine itself — `RoleGrader` in `workflow.model` — runs the instrument check, offers
+the items, scores them, computes the topics, the baseline and the warm-fresh gap, and writes the record. The scripted
+harness and judge of the tests are implementations of the two ports.
+
+== Alternatives Considered
+
+* *Wire the grading directly to `WorkerSupervisor`.* Refused: the supervisor has no production caller, its launch
+  contract is the worker-launch package's, and a grading package must be testable without a harness.
+* *Put the grading engine in `core.role`.* Refused: offering an item as a task and calling the model caller is the model
+  caller's domain and belongs in `workflow.model` (ADR `workflow-model/002`); `core.role` owns the record and its rules.
+* *Skip the judge instrument check until the worker runtime is wired.* Refused: the refusal `judge_unchecked` is a
+  precondition of a grading, and the check is a pure function of the judge's answers, which a scripted judge provides.
+
+== Consequences
+
+* The assembly in `plan-marshall-mcp` supplies the two ports from the task protocol; until then a grading runs over a
+  scripted harness only, like the supervisor library itself.
+* The launch contract (checkout, job-private worktree, zero-tool isolation) is the adapter's obligation; the engine only
+  names where an item must run (`Checkout`).
+* A lost answer or judge task leaves the item ungraded in the record, and a record with an ungraded item qualifies no
+  form.
+
+== Source
+
+Work package `role-qualification` (`doc/plans/role-qualification.adoc`), specification
+`doc/specification/model-work/01-roles-and-configuration.adoc` § Grading and § Judge Instrument Check, and the open
+question of the re-grounding record: how the grading run reaches workers while `WorkerSupervisor` has no caller.

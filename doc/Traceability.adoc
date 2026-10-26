@@ -1190,6 +1190,17 @@ Verified by (the verify-not-resolve pipeline: a job's working directory outside 
 
 Documentation: link:../pm-runtime/doc/developer/runtime-job.adoc[Developer Guide § Job Verification (`runtime.job`)]
 
+[#PM-TEST-6]
+=== PM-TEST-6: Model Verification Corpus & Qualification Fixtures
+
+link:../../plan-marshall-documentation/doc/requirements/12-testing.adoc#PM-TEST-6[PM-TEST-6]
+
+Implementation: link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/RoleTopics.java[RoleTopics] (the topics of a role from the items' `role` field: the own and generic items, only `draft` and `confirmed` ones, and the `judge/` topic grades no role), link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/ConstantBaseline.java[ConstantBaseline], link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/Scoring.java[Scoring], link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/JudgeCheck.java[JudgeCheck]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/RoleTopicsTest.java[RoleTopicsTest], link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/ConstantBaselineTest.java[ConstantBaselineTest] (the constant answerer, the matched control, the too-uniform topic), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/ScoringTest.java[ScoringTest], link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/RoleGraderTest.java[RoleGraderTest] (a fixture corpus with a scripted harness and judge; the screener's five runs per item)
+
+Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Developer Guide] (§ Role Qualification)
+
 == link:../../plan-marshall-documentation/doc/requirements/13-client-profiles.adoc[Client Profiles]
 
 [#PM-CLIENT-2]
@@ -1825,3 +1836,21 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/corpus/HuggingFaceSourc
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/corpus/LfsBatchClientTest.java[LfsBatchClientTest] (the LFS download against a mock web server)
 
 Documentation: link:../pm-core/doc/developer/core-role-corpus.adoc[Corpus Sources Developer Guide] (§ Formats, § Fetch and Import, § Testing for the group and the contamination note), link:../pm-core/doc/adr/core-role-corpus/007-group-and-contamination-written-literally.adoc[ADR 007 of `core.role.corpus`], link:../pm-providers/pm-provider-git/doc/developer/provider-git.adoc[Cache Repository Operations Developer Guide], link:../pm-runtime/doc/developer/runtime-corpus.adoc[Corpus Source Fetch Developer Guide]
+
+The role qualification (the grading of a role's configuration, the record, its invalidation, the constant baseline, the judge instrument check and the conservative fallback of an unqualified role):
+
+Implementation: link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/QualificationRecord.java[QualificationRecord],
+link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/QualificationRecordCodec.java[QualificationRecordCodec],
+link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/QualificationRecordStore.java[QualificationRecordStore],
+link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/QualificationCheck.java[QualificationCheck],
+link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/RoleTopics.java[RoleTopics],
+link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/ConstantBaseline.java[ConstantBaseline],
+link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/Scoring.java[Scoring],
+link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/JudgeCheck.java[JudgeCheck],
+link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/JudgeInstrumentCheck.java[JudgeInstrumentCheck],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/RoleGrader.java[RoleGrader],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/RecordedQualification.java[RecordedQualification]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationCheckTest.java[QualificationCheckTest] (a record whose `generic` topic reaches the level and whose `own` topic does not is not valid, and neither is the reverse; a record without a topic of the corpus is not valid; every topic at the level is valid; the level is read at every check; the warm downgrade), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/ConstantBaselineTest.java[ConstantBaselineTest] (eight of ten equal references at 80 percent at an 80 percent level do not qualify, the matched control nine of ten does, ten equal references are too uniform), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/RoleTopicsTest.java[RoleTopicsTest] (the topics by the items' `role` field, the review statuses, the zero-tool and judgment roles), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/ScoringTest.java[ScoringTest], link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/JudgeCheckTest.java[JudgeCheckTest] (the oracle and blind accuracies, the lost judge task, the stale record), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationRecordCodecTest.java[QualificationRecordCodecTest], link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationRecordStoreTest.java[QualificationRecordStoreTest], link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/RoleGraderTest.java[RoleGraderTest] (a complete corpus writes the record with its tokens, a failed import writes no valid record, a partial one names its missed sources, the judge refusals, the screener's five runs and its catch rate, the checkout at the origin commit and `current` when the commit is missing, the re-grading of only the ungraded items), link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/RecordedQualificationTest.java[RecordedQualificationTest] (a changed level applies to an existing record, the warm downgrade, a stale digest), link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/ModelCallerTest.java[ModelCallerTest] (an unqualified role closes `role_unqualified` and the judge and the steward skip Qualify)
+
+Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Developer Guide] (§ Role Qualification), link:../pm-workflow/doc/developer/workflow-model.adoc[The One Model Caller Developer Guide] (§ The Grading Run and the Qualification Lookup), link:../pm-core/doc/adr/core-role/003-qualification-measurements-decided-at-every-check.adoc[ADR core-role/003], link:../pm-core/doc/adr/core-role/004-grading-through-ports-not-a-worker-runtime.adoc[ADR core-role/004], link:../pm-workflow/doc/adr/workflow-model/002-the-grading-run-in-workflow-model.adoc[ADR workflow-model/002]

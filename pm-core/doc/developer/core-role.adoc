@@ -168,6 +168,61 @@ The table has no `session_first_not_permitted`; `RoleValidationReason` deliberat
 value broke a rule, and a detail. `RoleCatalog` turns a refusal into `RoleResolution.Undefined` — the consumer's
 "undefined" is a value, not an exception.
 
+== Role Qualification
+
+Package `de.planmarshall.core.role.qualification` holds the measurements of a grading and the rules that decide whether
+they qualify a role (Model Work § Role Qualification; Store Schemas § Role Qualification Record). It knows nothing about
+workers: a grading offers its items through the `GradingHarness` port and its rubric answers through the `JudgeScorer`
+port, and the run that uses them is
+link:../../../pm-workflow/doc/developer/workflow-model.adoc[`workflow.model`'s `RoleGrader`].
+
+`QualificationRecord` is the value of one grading: the role, the qualification digest it is bound to, the graded
+`configuration` (harness, harness major.minor, model, effort, tools, class and skill digests), the corpus revision, the
+missed sources of a partial import, the measurements per form (`fresh`, and `warm` for every role that is not
+`zero_tool`), the warm-fresh gap, the ungraded count and every item's run with its answer, score, tokens, duration and
+`checkout`. `QualificationRecordCodec` is its one wire shape; `QualificationRecordStore` writes the project set's
+`qualification/<role>.json` by atomic rename under the store's lock, and a lookup reads the project set before the set of
+the artifact (`QualificationRecords.firstOf`). `JudgeCheck` and `JudgeCheckStore` do the same for
+`qualification/judge-check.json`.
+
+`RoleTopics` gives a role its topics from the corpus items' `role` field: `own` and `generic` for a writer or read-only
+role, `own` alone for a `zero_tool` role, `generic` alone for a judgment role, and no topic at all for a `zero_tool` role
+without items of its own. Only `draft` and `confirmed` items count, and the `judge/` topic grades no role.
+
+[TIP]
+====
+The record stores measurements, never a pass flag. `QualificationCheck` decides at every check, against the project's
+current `agreement_level` and `allowed_gap`, which form the record qualifies. A changed level therefore applies to every
+existing record at once.
+====
+
+`QualificationCheck` refuses (or downgrades) a record for these reasons:
+
+[cols="2,4"]
+|===
+|Code |Meaning
+
+|`no_topics` |the role has no corpus topic, so it cannot qualify
+|`stale_digest` |the record is bound to another qualification digest
+|`stale_corpus` |the record was graded on another corpus revision
+|`ungraded_items` |an item's judge task closed `lost`, so the record qualifies no form
+|`catch_rate_below_level` |the screener's suspicious items are caught less often than the agreement level
+|`missing_fresh_form`, `missing_warm_form` |the record does not hold the form
+|`missing_topic` |the record holds no result for a topic of the role's corpus
+|`below_agreement_level` |a topic is below the project's level
+|`below_constant_baseline` |a topic does not exceed its constant baseline by the compiled margin `10`
+|`too_uniform` |a topic's baseline plus the margin exceeds `100`; the corpus needs items of other references
+|`warm_fresh_gap_exceeded` |the warm-fresh gap exceeds the project's allowed gap (the role still qualifies fresh)
+|===
+
+`ConstantBaseline` computes the constant baseline of a topic: for every option key of its `exact_choice` items, the
+percent of the graded items whose reference is that key, the largest being the baseline. A rubric item sits in the
+denominator and never in a numerator. `Scoring` scores a closed item against its reference and accepted alternatives (a
+control is right only when it reports nothing) and decides whether a rubric score reaches the item's pass threshold.
+`JudgeInstrumentCheck` runs the judge twice per judge-topic item — oracle and blind, with the reference withheld from the
+blind prompt — and records the two accuracies and the baseline; `JudgeCheck.Verdict.of` passes only when the oracle
+exceeds the baseline and the blind accuracy by the margin and nothing is unscored.
+
 == Invariants and Failure Modes
 
 * A role set, an assignment and an override are operator files. Never add a code path that reads them from the repository.
@@ -185,10 +240,15 @@ precedence, the invalid higher artifact, the name check, the superseded refusal)
 by row, the reason set and the steward control), `RoleEffectiveConfigurationTest` (the levels, the fresh read, the
 steward, the catalogue precedence), `RoleDigestTest` (the digest table), `EffectiveRoleFactsTest` (the resumability cut,
 the context-budget and idle fallbacks, the off-track defaults), `ShippedRolesTest` (the classpath reader and the reserved
-file).
+file), `QualificationCheckTest` (the validity matrix, the level change, the baseline and the warm downgrade),
+`ConstantBaselineTest`, `RoleTopicsTest`, `ScoringTest`, `JudgeCheckTest` (the oracle and blind accuracies, the lost
+judge task, the stale record), `QualificationRecordCodecTest` and `QualificationRecordStoreTest`.
 
 == Related
 
 * link:core-profile.adoc[Client Profiles Developer Guide] — the harness and its profile.
 * link:../adr/core-role/001-role-sets-and-the-effective-configuration.adoc[ADR core-role/001]
 * link:../adr/core-role/002-two-digests-over-the-effective-values.adoc[ADR core-role/002]
+* link:../adr/core-role/003-qualification-measurements-decided-at-every-check.adoc[ADR core-role/003]
+* link:../adr/core-role/004-grading-through-ports-not-a-worker-runtime.adoc[ADR core-role/004]
+* link:../../../pm-workflow/doc/developer/workflow-model.adoc[The One Model Caller (`workflow.model`) Developer Guide]

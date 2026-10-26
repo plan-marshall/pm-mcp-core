@@ -72,6 +72,42 @@ classes without a second registration; a set on the use can, and a unit that reg
 compiled mapping in `RoleUse.classesOf` is the table for the shipped kinds. See
 link:../adr/workflow-model/001-model-caller-and-classes-at-use.adoc[ADR workflow-model/001].
 
+== The Grading Run and the Qualification Lookup
+
+`RoleGrader` is the run that grades one role's configuration (Model Work § Grading; § Judge Instrument Check). It is the
+one place that turns a corpus into a qualification record, and it uses the ports `core.role` declares:
+`GradingHarness` (one item offered in one form and run), `JudgeScorer` (a rubric answer sent to the judge), `ItemCheckout`
+(whether a commit of the project's repository is present), `QualificationRecords` and `JudgeChecks`.
+
+`grade(GradingPlan, GradingConsent)` acts in this order:
+
+. *Consent*: a declined offer returns `Declined(owed)` and writes nothing; the setup and `pm-operator roles qualify` own
+  the offer, its expected tokens (`GradingOffer`, a compiled estimate) and the owed record.
+. *Import*: a failed corpus import refuses `corpus_import_failed`; no role is qualified on it. A partial import is graded
+  and its missed sources are named in the record.
+. *Independence*: a judge whose model is the graded model or a declared sibling refuses `scorer_not_independent`.
+. *Instrument check*: a valid check record for the judge's qualification digest and the corpus revision is reused;
+  otherwise `JudgeInstrumentCheck` runs and writes the project set's `judge-check.json`, and a check without a verdict or
+  one that does not pass refuses `judge_unchecked` before any item is offered.
+. *Topics and forms*: the role's topics come from the corpus items' `role` field. Every item is offered fresh and, unless
+  the role is `zero_tool`, warm; the screener's profile offers each item five times. An item of the project's repository
+  whose commit is present runs at that commit (`Checkout.ITEM_COMMIT`); a missing commit runs in the checkout
+  (`Checkout.CURRENT`).
+. *Scoring*: a closed answer is scored deterministically; a rubric answer goes to the judge. A lost answer or judge task
+  leaves the item ungraded.
+. *Assembly*: per form and topic the agreement, the constant baseline and the item count; the warm-fresh gap as the
+  largest over the topics; the form's tokens as the sum (unmeasured when an item's are). The record is written by
+  `QualificationRecordStore` and returned as `Graded`.
+
+A lost item is not re-offered blindly: the next run of the same digest and corpus revision reuses every graded result
+and re-grades only the ungraded ones — a recorded answer by a new judge task, an item without an answer by a new offer.
+
+`RecordedQualification` is the production `QualificationLookup` the model caller already takes. It reads the record from
+the project set first and then from the set of the artifact, reads the project's qualification settings at every call,
+and returns the form the record qualifies — `warm` when both forms meet the levels, `fresh` for a warm artifact whose
+warm form does not (`form_downgraded`), and empty when it qualifies no form, which closes the task `role_unqualified` and
+lets its state take the conservative fallback.
+
 == Invariants and Failure Modes
 
 * A task the caller closes without an attempt carries exactly one of `role_undefined`, `class_mismatch`,
@@ -87,9 +123,13 @@ link:../adr/workflow-model/001-model-caller-and-classes-at-use.adoc[ADR workflow
 
 `ModelCallerTest` (the order, the four closure reasons, the form downgrade, the judge and steward skipping Qualify, the
 class mismatch, the unavailable role), `RoleCompositionTest` (`role_undefined`, `class_mismatch`, the matched controls of
-the shipped kinds and a consultation).
+the shipped kinds and a consultation), `RoleGraderTest` (the record and its tokens, the consent, the import verdicts, the
+judge check and its reuse, the scorer independence, the screener's runs, the checkout, the lost items and the re-grading
+of only the ungraded ones), `RecordedQualificationTest` (the levels at every check, the warm downgrade and the stale
+record).
 
 == Related
 
 * link:../../../pm-core/doc/developer/core-role.adoc[Role Artifacts, Role Sets and the Effective Configuration Developer Guide]
 * link:../adr/workflow-model/001-model-caller-and-classes-at-use.adoc[ADR workflow-model/001]
+* link:../adr/workflow-model/002-the-grading-run-in-workflow-model.adoc[ADR workflow-model/002]

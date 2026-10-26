@@ -1,0 +1,55 @@
+= ADR 002: The grading run lives in `workflow.model`, the record in `core.role`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-26
+
+== Context
+
+The re-grounding record of the work package leaves the home of the grading run open: `core.role` or `workflow.model`.
+The specification gives `core.role` the records and their rules, and `workflow.model` the model caller only; a grading
+offers corpus items as tasks of a role and calls the judge through the model caller, which is the model caller's domain.
+
+== Decision
+
+The split follows the two packages' purposes:
+
+* `core.role.qualification` owns the values and rules: `QualificationRecord` and its codec, the record store, the topics
+  of a role, the constant baseline, the scoring of a closed item, the judge check record and instrument check, and
+  `QualificationCheck`, which decides which form a record qualifies.
+* `workflow.model` owns the run: `RoleGrader` (consent, import verdict, judge independence and instrument check, the
+  fresh and warm forms, the screener's repeated runs, the checkout, the record assembly) and
+  `RecordedQualification`, the production `QualificationLookup` the model caller already takes.
+
+The ports `GradingHarness`, `JudgeScorer`, `ItemCheckout`, `QualificationRecords` and `JudgeChecks` live with the values
+they produce; the run implements their use.
+
+== Alternatives Considered
+
+* *Everything in `core.role`.* Refused: the grading is a model-calling flow; keeping it in the foundation would make
+  `core` know about task offers, which is the workflow engine's job.
+* *Everything in `workflow.model`.* Refused: the record schema, the validity rules and the constant baseline are store
+  and role semantics that the CLI, the setup state machine and any later consumer need without the workflow engine.
+* *A third package `workflow.qualification`.* Refused: the package table names `workflow.model` for the model caller,
+  and a second package for one run adds a surface without a concept of its own.
+
+== Consequences
+
+* The assembly wires `RoleGrader` with the two task ports and the record stores; `RecordedQualification` is the lookup
+  `ModelCaller` takes, so an unqualified role closes `role_unqualified` and its state takes the conservative fallback.
+* The corpus and the project repository are inputs of the run, so the shipped corpus revision binds the record without
+  the workflow package reading the corpus itself.
+* Tests: `RoleGraderTest` and `RecordedQualificationTest` here; `QualificationCheckTest`, `ConstantBaselineTest`,
+  `RoleTopicsTest`, `ScoringTest`, `JudgeCheckTest`, `QualificationRecordCodecTest` and `QualificationRecordStoreTest`
+  in `pm-core`.
+
+== Source
+
+Work package `role-qualification` (`doc/plans/role-qualification.adoc`), specification
+`doc/specification/model-work/01-roles-and-configuration.adoc` § Role Qualification and § Qualification Records, and the
+open question of the re-grounding record of 2026-10-25.
