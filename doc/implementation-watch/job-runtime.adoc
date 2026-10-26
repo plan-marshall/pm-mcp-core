@@ -215,6 +215,28 @@ its harness, the home of another harness, the data directory of another worker, 
 fail; a `build` job writes its project's daemon store and fails to write that of another project.
 Source:: design review.
 
+[#PM-WATCH-JOB-38]
+=== PM-WATCH-JOB-38: A worker reads only its listed read set
+
+Anchor:: link:../specification/job-runtime/02-confinement-and-environment.adoc#worker-read-set[Job Runtime § Worker Read Set],
+link:../specification/client-profiles/01-profile-schema.adoc#headless-readable-paths[Client Profiles § Readable Paths],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-5[PM-SEC-5]
+Hazard:: Two ways round. A read set that still holds a rule on `/`, the home directory, or a grant that contains a
+credential location (an installation prefix that resolves to the home directory, a toolchain cache such as `~/.gradle`
+that holds `gradle.properties`) lets a worker's shell read an SSH key or a forge login and hand it to its model,
+without any network of its own. A read set that misses a file the harness needs makes the harness fail, or run on
+without it; a harness that skips its unreadable settings runs without the deny rules of its bundle.
+Guard:: On Linux with Landlock and on macOS, a worker fixture reads decoy files placed at `~/.ssh/id_ed25519`,
+`~/.aws/credentials`, `~/.config/gh/hosts.yml`, and `~/.netrc`, a file of another enrolled project without a grant,
+and a new file directly in the home directory, and each read fails with a permission error; a fixture whose harness
+executable lies in `~/bin` gets `~/bin` and not the home directory; a declared cache `~/.gradle` is absent from a
+worker's sets and present in a `build` job's. Positive control: the same worker reads its project root and worktree,
+the system locations, its harness's installation, every bundle-managed file of its harness, its declared readable
+paths, and another project's root while its plan holds a read grant. Profile validation refuses a readable or
+writable path that is the home directory or holds a credential location. Matched control: a `build` job of the same
+project still reads a file directly in the home directory.
+Source:: design review; doc/articles/abliterated-models-backdoor.adoc (plan-marshall-documentation).
+
 [#PM-WATCH-JOB-28]
 === PM-WATCH-JOB-28: Nothing the daemon reads or trusts lies in a job's write set
 
