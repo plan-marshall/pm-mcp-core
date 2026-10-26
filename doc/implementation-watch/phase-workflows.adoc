@@ -1838,3 +1838,21 @@ a plan that deletes a validation added by the fix commit of an archived `securit
 deleting a guard no security fix added stays a removed-guard candidate for `review-code`.
 Source:: Article analysis `mantis` of plan-marshall-documentation (Mantis's calibration rubric with caps where the most
 restrictive wins and a cap never raises; its lineage of earlier fixes).
+
+[#PM-WATCH-PHASE-122]
+=== PM-WATCH-PHASE-122: Hidden characters in a plan's added lines never reach the base branch unseen
+
+Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#added-line-scan[Phase Workflows § Added-Line Scan]
+Hazard:: The scan reads the working tree or the whole file instead of the lines added against `base_ref`, so an
+unchanged legacy line blocks every plan, or a line added by a finalize fix after Phase 6 entry is never scanned; or the
+emoji exception is matched by code point alone, so a lone zero-width joiner or variation selector passes; or the rule
+table runs in a plan that read no untrusted text and floods every skill change with findings.
+Guard:: Scenario over a plan whose writer adds one line with a tag-block code point and one with a right-to-left
+override, and whose finalize fix adds a third with a zero-width space after Phase 6 entry: three blocking
+`hidden_characters` findings, the merge refused until each is fixed or waived. Matched controls: an existing line
+with such a character that the plan does not touch is not reported; `\uE0001` spelled in source, an emoji with
+`U+FE0F`, and a byte-order mark at offset 0 are not hits; in a plan without untrusted text the rule table does not run
+(`rule_table_ran: false`) over an added skill line that addresses a model, and in a plan with an issue source the same
+line is one non-blocking `model_instruction` finding.
+Source:: Article analysis `context-collapse` of plan-marshall-documentation (an instruction hidden in a Word document
+copied by the model into each document it drafts, which then carries it on).
