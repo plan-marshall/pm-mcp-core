@@ -22,15 +22,38 @@ import de.planmarshall.core.service.LockManager;
  * <p>
  * The store never creates the operator's file: the project's onboarding writes it, and this store changes the one
  * member that bounds role qualification. A write is one short transaction on the project's local-configuration lock:
- * it reads the document, replaces the qualification block, increments the document's {@code revision} and writes the
- * document back, so every other member the operator set survives unchanged.
+ * it reads the document, checks that the caller's revision is the one the document holds, replaces the qualification
+ * block, increments the document's {@code revision} and writes the document back, so every other member the operator
+ * set survives unchanged and a change of another writer is never overwritten. A write against an older revision is
+ * refused with a {@link StoreRefusal} of outcome {@link StoreRefusal.Outcome#CONFLICT conflict}.
  *
  * @since 0.1
  */
 public final class QualificationSettingsStore {
 
+    /** The format version of the operator's local configuration document that is read and written. */
+    public static final int FORMAT_VERSION = 1;
+
+    /** The revision a document that does not exist reads as. */
+    private static final long NO_DOCUMENT = 0L;
+
     private final AtomicStoreFile storeFile;
     private final LockManager lockManager;
+
+    /**
+     * What a read of the settings found: the settings and the revision the document carries.
+     *
+     * @param settings the settings; the compiled defaults where the project set none
+     * @param revision the {@code revision} of the document; {@value #NO_DOCUMENT} when it does not exist
+     * @since 0.1
+     */
+    public record Snapshot(QualificationSettings settings, long revision) {
+
+        /** @throws NullPointerException if the settings are {@code null} */
+        public Snapshot {
+            Objects.requireNonNull(settings, "settings");
+        }
+    }
 
     /**
      * @param storeFile   the local-configuration file with the key of the local-configuration lock
@@ -48,32 +71,41 @@ public final class QualificationSettingsStore {
     }
 
     /**
-     * Reads the settings without a lock.
+     * Reads the settings and the document's revision without a lock.
      *
-     * @return the settings; the compiled defaults where the project set none
+     * @return the settings and the revision; the compiled defaults and {@value #NO_DOCUMENT} if the document does not
+     *         exist
      * @throws StoreRefusal         if the document is unreadable
      * @throws UncheckedIOException if the document exists and cannot be read
      */
-    public QualificationSettings read() {
+    public Snapshot read() {
         return StoreSnapshot.read(storeFile.store()).content()
                 .map(document -> QualificationSettingsCodec.read(storeFile.store(), document))
-                .orElseGet(QualificationSettings::defaults);
+                .map(read -> new Snapshot(read.settings(), read.revision()))
+                .orElseGet(() -> new Snapshot(QualificationSettings.defaults(), NO_DOCUMENT));
     }
 
     /**
      * Replaces the settings in one transaction on the lock of the document and increments its revision.
      *
      * @param settings the settings
-     * @throws StoreRefusal           if the document is unreadable, of another format version, or absent
+     * @param revision the revision the caller read
+     * @throws StoreRefusal           as {@link StoreRefusal.Outcome#CONFLICT conflict} if the document holds another
+     *                                revision than {@code revision}; if the document is unreadable, of another format
+     *                                version, or absent
      * @throws UncheckedIOException   if the document cannot be read or written
      * @throws InternalFaultException if the lock of the document must not be acquired by the transaction
      */
-    public void write(QualificationSettings settings) {
+    public void write(QualificationSettings settings, long revision) {
         Objects.requireNonNull(settings, "settings");
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(storeFile.lockKey());
             var document = storeFile.read(transaction)
-                    .orElseThrow(() -> StoreRefusal.absent(storeFile.store(), 1));
+                    .orElseThrow(() -> StoreRefusal.absent(storeFile.store(), FORMAT_VERSION));
+            var current = QualificationSettingsCodec.read(storeFile.store(), document).revision();
+            if (current != revision) {
+                throw StoreRefusal.conflict(storeFile.store(), revision, current);
+            }
             storeFile.write(transaction, QualificationSettingsCodec.write(storeFile.store(), document, settings));
         }
     }

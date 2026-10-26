@@ -70,7 +70,12 @@ public final class StoreRefusal extends RuntimeException {
          * An enrolment that the runtime refuses to sign or to use because a value violates the enrolment rules
          * (PM-EXEC-1).
          */
-        ENROLMENT_INVALID("enrolment_invalid");
+        ENROLMENT_INVALID("enrolment_invalid"),
+        /**
+         * The document changed since the caller read it: a write against another revision than the current one is
+         * refused instead of overwriting the change of another writer (Store Schemas § Operator Local Configuration).
+         */
+        CONFLICT("conflict");
 
         private final String code;
 
@@ -187,6 +192,21 @@ public final class StoreRefusal extends RuntimeException {
         LockKey.identifier(Objects.requireNonNull(projectId, PROJECT_ID), PROJECT_ID);
         return new StoreRefusal(Outcome.ENROLMENT_INVALID, file, NO_VERSION, ProjectEnrolment.FORMAT_VERSION,
                 Objects.requireNonNull(reason, "reason"), null);
+    }
+
+    /**
+     * The refusal of a write against a revision that is not the current one: the document changed since the caller
+     * read it, and the write would overwrite that change.
+     *
+     * @param file     the refused document
+     * @param expected the revision the caller read
+     * @param current  the revision the document holds
+     * @return the refusal as {@link Outcome#CONFLICT}
+     */
+    public static StoreRefusal conflict(Path file, long expected, long current) {
+        return new StoreRefusal(Outcome.CONFLICT, Objects.requireNonNull(file, "file"), NO_VERSION,
+                QualificationSettingsStore.FORMAT_VERSION,
+                "the write names revision %d, the document holds %d".formatted(expected, current), null);
     }
 
     /** @return why the content was refused */

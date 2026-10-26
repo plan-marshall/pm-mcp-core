@@ -12,6 +12,7 @@ package de.planmarshall.core.store;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -20,10 +21,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -46,19 +50,25 @@ import de.planmarshall.core.store.MetricsRow.SpendClass;
 
 /**
  * The metrics store (Store Schemas § Metrics &amp; Quality Report): the row of a task and of a worker's idle turns,
- * written and read back with every column, and the end of the attempt it copies.
+ * written through the scope's transaction and read back with every column, the end of the attempt it copies, and the
+ * partition of the rows over the scopes it serves.
  */
 @DisplayName("Metrics store")
 class MetricsStoreTest {
 
     private static final Instant RECORDED_AT = Instant.parse("2026-10-22T10:00:00Z");
     private static final String JOB_ID = "l-0123456789abcdef";
+    private static final String PROJECT = "pm-mcp-core";
+    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-22T12:00:00Z"), ZoneOffset.UTC);
 
     @TempDir
     Path base;
 
+    private JournalScope scope;
     private Path file;
     private MetricsStore store;
+    private RecordingLockManager locks;
+    private RecordingAuditSink audit;
 
     private static HarnessUsage usage() {
         return new HarnessUsage(Measurement.measured(1200), Measurement.measured(340), Measurement.measured(5000),
@@ -78,9 +88,41 @@ class MetricsStoreTest {
 
     @BeforeEach
     void createStore() throws IOException {
-        file = Files.createDirectories(base.resolve("plans").resolve("some-plan")).resolve("metrics.json");
-        store = new MetricsStore(new AtomicStoreFile(file, LockKey.plan(base, "some-plan", "some-plan")),
-                new RecordingLockManager());
+        scope = JournalScope.plan(base, PROJECT, "some-plan");
+        Files.createDirectories(scope.journalFile().getParent());
+        file = scope.resolve(MetricsStore.FILE_NAME);
+        store = new MetricsStore(scope);
+        locks = new RecordingLockManager();
+        audit = new RecordingAuditSink();
+    }
+
+    /** Opens the scope's transaction, hands it to the write and commits it. */
+    private void commit(Consumer<ScopeTransaction> write) {
+        commit(scope, write);
+    }
+
+    private void commit(JournalScope targetScope, Consumer<ScopeTransaction> write) {
+        try (var transaction = locks.openTransaction()) {
+            transaction.acquire(targetScope.lockKey());
+            var scopeTransaction = ScopeTransaction.open(transaction, targetScope, audit, CLOCK);
+            write.accept(scopeTransaction);
+            scopeTransaction.commit();
+        }
+    }
+
+    private void append(MetricsRow row) {
+        commit(transaction -> store.append(transaction, row));
+    }
+
+    private void append(WorkerIdleRow row) {
+        commit(transaction -> store.append(transaction, row));
+    }
+
+    private ScopeIntegrity.Verification verify(String relativePath) {
+        try (var transaction = locks.openTransaction()) {
+            transaction.acquire(scope.lockKey());
+            return ScopeIntegrity.verify(transaction, scope, relativePath, audit);
+        }
     }
 
     @Nested
@@ -92,7 +134,7 @@ class MetricsStoreTest {
         void roundTrip() {
             var row = row("qt-0123456789abcdef", usage());
 
-            store.append(row);
+            append(row);
 
             var read = store.snapshot().taskRows().getFirst();
             assertAll(
@@ -114,7 +156,7 @@ class MetricsStoreTest {
             var usage = pointers.read(JsonDocument.parse(
                     "{\"input\":1,\"output\":2}".getBytes(UTF_8), "turn"));
 
-            store.append(row("qt-0123456789abcdef", usage));
+            append(row("qt-0123456789abcdef", usage));
 
             var read = store.snapshot().taskRows().getFirst();
             assertAll(
@@ -131,7 +173,7 @@ class MetricsStoreTest {
                     .withYieldReason(MetricsRow.YieldReason.QUESTION).withPhase(null).withEnvelopeId("envelope-3")
                     .withEffort(null).withConsultationOf("qt-0123456789abcdee");
 
-            store.append(row);
+            append(row);
 
             assertEquals(row, store.snapshot().taskRows().getFirst());
         }
@@ -139,10 +181,127 @@ class MetricsStoreTest {
         @Test
         @DisplayName("a second row for the same task and attempt is refused")
         void duplicate() {
-            store.append(row("qt-0123456789abcdef", usage()));
+            append(row("qt-0123456789abcdef", usage()));
             var second = row("qt-0123456789abcdef", usage());
 
-            assertThrows(IllegalArgumentException.class, () -> store.append(second));
+            assertThrows(IllegalArgumentException.class, () -> append(second));
+        }
+    }
+
+    @Nested
+    @DisplayName("the scope transaction")
+    class ScopeTransactionWrite {
+
+        @Test
+        @DisplayName("an appended row has a sidecar entry, as every store of the scope's transactions")
+        void sidecarEntry() throws IOException {
+            append(row("qt-0123456789abcdef", usage()));
+
+            var digest = DigestSidecar.load(scope.sidecarFile()).digest(MetricsStore.FILE_NAME);
+
+            assertAll(
+                    () -> assertEquals(Optional.of(StoreDigest.of(Files.readAllBytes(file))), digest),
+                    () -> assertFalse(Files.exists(scope.journalFile()), "the journal is closed"));
+        }
+
+        @Test
+        @DisplayName("an out-of-band edit of the store is a Mismatch of the integrity check")
+        void outOfBandEdit() throws IOException {
+            append(row("qt-0123456789abcdef", usage()));
+            var recorded = DigestSidecar.load(scope.sidecarFile()).digest(MetricsStore.FILE_NAME).orElseThrow();
+            var edited = Files.readAllBytes(file);
+            edited[edited.length - 2] = ' ';
+            Files.write(file, edited);
+
+            var outcome = verify(MetricsStore.FILE_NAME);
+
+            assertEquals(new ScopeIntegrity.Mismatch(MetricsStore.FILE_NAME, recorded,
+                    Optional.of(StoreDigest.of(edited))), outcome);
+        }
+
+        @Test
+        @DisplayName("a transaction of another scope is refused")
+        void otherScope() throws IOException {
+            var other = JournalScope.plan(base, PROJECT, "another-plan");
+            Files.createDirectories(other.journalFile().getParent());
+
+            assertThrows(IllegalArgumentException.class, () -> {
+                try (var transaction = locks.openTransaction()) {
+                    transaction.acquire(other.lockKey());
+                    var scopeTransaction = ScopeTransaction.open(transaction, other, audit, CLOCK);
+                    store.append(scopeTransaction, row("qt-0123456789abcdef", usage()));
+                }
+            });
+        }
+    }
+
+    @Nested
+    @DisplayName("the row's partition over the scopes")
+    class Partition {
+
+        @Test
+        @DisplayName("the epic store holds a task row with no phase and refuses one with a phase")
+        void epicTaskRow() throws IOException {
+            var epic = JournalScope.epic(base, PROJECT, "some-epic");
+            Files.createDirectories(epic.journalFile().getParent());
+            var epicStore = new MetricsStore(epic);
+            var withoutPhase = row("qt-0123456789abcdef", usage()).withPhase(null);
+
+            commit(epic, transaction -> epicStore.append(transaction, withoutPhase));
+            assertThrows(IllegalArgumentException.class, () -> commit(epic,
+                    transaction -> epicStore.append(transaction, row("qt-0123456789abcdee", usage()))));
+
+            assertAll(
+                    () -> assertEquals(withoutPhase, epicStore.snapshot().taskRows().getFirst()),
+                    () -> assertEquals("metrics.json", epicStore.storePath()));
+        }
+
+        @Test
+        @DisplayName("the workspace store holds a task row with no phase and refuses one with a phase")
+        void workspaceTaskRow() throws IOException {
+            var workspace = JournalScope.workspace(base, PROJECT);
+            Files.createDirectories(workspace.journalFile().getParent());
+            var workspaceStore = new MetricsStore(workspace);
+            var withoutPhase = row("qt-0123456789abcdef", usage()).withPhase(null);
+
+            commit(workspace, transaction -> workspaceStore.append(transaction, withoutPhase));
+            assertThrows(IllegalArgumentException.class,
+                    () -> commit(workspace, transaction -> workspaceStore.append(transaction,
+                            row("qt-0123456789abcdee", usage()))));
+
+            assertAll(
+                    () -> assertEquals(withoutPhase, workspaceStore.snapshot().taskRows().getFirst()),
+                    () -> assertEquals("workspace/metrics.json", workspaceStore.storePath()));
+        }
+
+        @Test
+        @DisplayName("only the workspace store holds a worker-idle row")
+        void workerIdleRow() {
+            var idle = WorkerIdleRow.builder().jobId(JOB_ID).role("writer").harness("opencode")
+                    .harnessVersion("1.2.3").model("deepseek-v4.1-flash").usage(usage()).idleWakeups(3)
+                    .recordedAt(RECORDED_AT).build();
+            var epic = JournalScope.epic(base, PROJECT, "some-epic");
+            var workspace = JournalScope.workspace(base, PROJECT);
+
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class, () -> append(idle)),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> commit(epic, transaction -> new MetricsStore(epic).append(transaction, idle))));
+        }
+
+        @Test
+        @DisplayName("the workspace store accepts a worker-idle row")
+        void workspaceIdleRow() throws IOException {
+            var workspace = JournalScope.workspace(base, PROJECT);
+            Files.createDirectories(workspace.journalFile().getParent());
+            var workspaceStore = new MetricsStore(workspace);
+            var idle = WorkerIdleRow.builder().jobId(JOB_ID).role("writer").harness("opencode")
+                    .harnessVersion("1.2.3").model("deepseek-v4.1-flash").usage(usage()).idleWakeups(3)
+                    .recordedAt(RECORDED_AT).build();
+
+            commit(workspace, transaction -> workspaceStore.append(transaction, idle));
+
+            assertEquals(idle, workspaceStore.snapshot().idleRows().getFirst());
         }
     }
 
@@ -160,7 +319,7 @@ class MetricsStoreTest {
         void copiesEveryValue(AttemptEnd end, String wireName) {
             var row = row("qt-0123456789abcdef", usage()).withAttemptEnd(end);
 
-            store.append(row);
+            append(row);
 
             assertAll(
                     () -> assertEquals(end, store.snapshot().taskRows().getFirst().attemptEnd()),
@@ -173,7 +332,7 @@ class MetricsStoreTest {
             var refused = MetricsRow.refused("qt-0123456789abcdef", "writer", Phase.PHASE_5_EXECUTE,
                     Outcome.LOST, SpendClass.UNMEASURED, Population.MODEL_TASK, RECORDED_AT);
 
-            store.append(refused);
+            append(refused);
 
             var read = store.snapshot().taskRows().getFirst();
             assertAll(
@@ -191,14 +350,17 @@ class MetricsStoreTest {
 
         @Test
         @DisplayName("round-trips a worker-idle row")
-        void idleRow() {
+        void idleRow() throws IOException {
+            var workspace = JournalScope.workspace(base, PROJECT);
+            Files.createDirectories(workspace.journalFile().getParent());
+            var workspaceStore = new MetricsStore(workspace);
             var idle = WorkerIdleRow.builder().jobId(JOB_ID).role("writer").harness("opencode")
                     .harnessVersion("1.2.3").model("deepseek-v4.1-flash").usage(usage()).idleWakeups(3)
                     .recordedAt(RECORDED_AT).build();
 
-            store.append(idle);
+            commit(workspace, transaction -> workspaceStore.append(transaction, idle));
 
-            assertEquals(idle, store.snapshot().idleRows().getFirst());
+            assertEquals(idle, workspaceStore.snapshot().idleRows().getFirst());
         }
 
         @Test
@@ -208,7 +370,7 @@ class MetricsStoreTest {
                     + "\"deliberate\":false,\"duration_ms\":1200,\"started_at\":\"2026-10-22T09:00:00Z\"}";
             Files.writeString(file, "{\"format_version\":1,\"rows\":[" + waitRow + "]}", UTF_8);
 
-            store.append(row("qt-0123456789abcdef", usage()));
+            append(row("qt-0123456789abcdef", usage()));
 
             var document = store.snapshot();
             assertAll(
@@ -338,12 +500,21 @@ class MetricsStoreTest {
     class Construction {
 
         @Test
-        @DisplayName("a lock that is not the lock of a scope is refused")
-        void otherLockLevel() {
-            var storeFile = new AtomicStoreFile(file, LockKey.buildSlots(base));
-            var locks = new RecordingLockManager();
+        @DisplayName("the workspace store is the workspace's metrics.json")
+        void workspacePath() {
+            var workspace = JournalScope.workspace(base, PROJECT);
 
-            assertThrows(IllegalArgumentException.class, () -> new MetricsStore(storeFile, locks));
+            assertAll(
+                    () -> assertEquals("workspace/metrics.json", new MetricsStore(workspace).storePath()),
+                    () -> assertEquals(workspace.resolve("workspace/metrics.json"),
+                            new MetricsStore(workspace).store()));
+        }
+
+        @Test
+        @DisplayName("the lesson store has no metrics store")
+        void lessonStore() {
+            assertThrows(IllegalArgumentException.class,
+                    () -> new MetricsStore(JournalScope.lessons(base, PROJECT)));
         }
     }
 }

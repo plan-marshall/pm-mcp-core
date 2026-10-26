@@ -990,7 +990,10 @@ from the five token components, never parsed
 `metrics.json`, their codec and the store. The codec keeps a row of another kind (`wait`, `phase_close`, `served_read`)
 as the raw JSON text it was read with and re-emits it token by token in the same shape (the task rows first, then the
 idle rows, then the foreign ones); the store refuses a second row for the same task and
-attempt, or a second idle row for the same worker.
+attempt, or a second idle row for the same worker. The store takes the `JournalScope` of its scope and writes through
+`ScopeTransaction.replace`, so `metrics.json` is journaled and covered by the scope's digest sidecar; its row partition
+follows the scope: a plan's file carries task rows with their `phase`, the epic and workspace files only task rows with
+`phase: null`, and only the workspace file the worker-idle rows of the project's warm workers (ADR 044).
 `BuildTimings`, `BuildTimingsCodec`, `BuildTimingsStore`:: The learned budgets `build-timings.json` of a project: per
 budget key the clean, poisoned and cold baselines, the one-shot escalation and the instant of the last observation.
 `observe` feeds the max-biased blend `floor(0.8 * max(L, d) + 0.2 * min(L, d))` into the baseline of the run's kind and
@@ -999,19 +1002,25 @@ clears the escalation; `escalate` sets `E = max(t, min(2 * t, C))` for a timed-o
 learned value scaled by `1.25`, else the role floor — never below the role's `budget_floor_seconds`, whose compiled
 minimum is `60`. The fixed probe budgets are unchanged (`runtime.job.ProbeBudget`).
 `ChangeLedgerRecord`, `ChangeLedgerCodec`, `ChangeLedger`:: One line of a `change-ledger.jsonl`: a
-`worktree_sha`-stamped build, change, job, task-diff or baseline-red row. The ledger appends through `JsonlStoreFile`
-under the lock of its scope and never rewrites a line; a digest of `unavailable` carries how the git invocation failed
-and never satisfies a freshness gate.
+`worktree_sha`-stamped build, change, job, task-diff or baseline-red row. The ledger takes the `JournalScope` of its
+scope and appends through `ScopeTransaction.append`, which repairs a torn tail and draws the digest entry of the scope,
+so a line is journaled with the other stores of the same decision and never rewritten; a digest of `unavailable`
+carries how the git invocation failed and never satisfies a freshness gate (ADR 044).
 `QualificationSettings`, `QualificationSettingsCodec`, `QualificationSettingsStore`:: The operator's
 `settings.qualification` of `local-config.json` — the agreement level, the allowed warm-fresh gap and the two skip flags
-— with the compiled defaults. A write replaces that one member, copies every other member through, increments the
-document's revision and refuses an absent document
-(link:../adr/core-store/043-qualification-settings-replaced-in-place.adoc[ADR 043]).
+— with the compiled defaults. The store reads the settings with the document's `revision`; a write names the revision
+the caller read, replaces that one member, copies every other member through, increments the document's revision and
+refuses an absent document or a revision the document has left behind with `StoreRefusal` outcome `conflict` (ADR 045,
+link:../adr/core-store/043-qualification-settings-replaced-in-place.adoc[ADR 043]).
 
 === Invariants
 
 * *One transaction per decision*: an admission, an append to a ledger, a metrics row and an observation each read and
   write their store in one transaction on its lock, so no second writer comes between the check and the write.
+* *One row partition per scope*: a task row of an epic or the workspace carries no `phase`, a worker-idle row is written
+  only to the workspace, and the store refuses a row of another partition.
+* *A stale revision is refused*: a write of the operator's qualification settings names the revision it read, and a
+  document that has moved on is a `conflict` refusal, never an overwrite.
 * *Unmeasured is never zero*: a usage figure the harness did not report is `unmeasured` with its reason, and the derived
   total of a row with an unmeasured applicable component is `unmeasured`.
 * *Append-only ledgers*: the change ledger only grows; a torn tail is repaired by the JSONL store before the next
@@ -1033,6 +1042,9 @@ document's revision and refuses an absent document
 |A second row for the same task and attempt, or a second idle row for a worker
 |`MetricsStore` throws `IllegalArgumentException`; nothing is written.
 
+|A row outside the partition of the store's scope, or a worker-idle row outside the workspace
+|`MetricsStore` throws `IllegalArgumentException`; nothing is written.
+
 |A stored `total_tokens` disagrees with its components
 |`MetricsCodec` refuses the document as unreadable; nothing is rewritten.
 
@@ -1045,6 +1057,9 @@ document's revision and refuses an absent document
 |The qualification settings are written while `local-config.json` is absent
 |`StoreRefusal.absent` naming the file; the store creates nothing.
 
+|The qualification settings are written against a revision the document has left behind
+|`StoreRefusal` with outcome `conflict` naming the file; nothing is written.
+
 |An unavailable digest without its failure, or a `baseline` on another kind
 |`ChangeLedgerRecord` throws `IllegalArgumentException`; the line is not appended.
 |===
@@ -1052,10 +1067,12 @@ document's revision and refuses an absent document
 Tested by `UsagePointersTest` (each column of a recorded output, a missing figure with its reason, a not-applicable
 component counting zero, an unparsed output), `MetricsStoreTest` (the round trip, a second row of the task refused, the
 end of the attempt for every value of the enum, a refused task's row, the foreign row kept, the inconsistent total
-refused), `BuildTimingsStoreTest` (the first observation, the blend, the escalation and its clearing, a timeout feeding
+refused, the sidecar entry and the out-of-band edit of the store, the row partition of a plan, an epic and the
+workspace), `BuildTimingsStoreTest` (the first observation, the blend, the escalation and its clearing, a timeout feeding
 no baseline), `WorkerBudgetTest` (the first match of the four sources and the floor), `ChangeLedgerTest` (the round trip,
-the unavailable digest, the task-diff and baseline rules, a refused line reported with its number) and
-`QualificationSettingsStoreTest` (the defaults, the block replaced alone, the revision incremented, the absent document
+the unavailable digest, the task-diff and baseline rules, a refused line reported with its number, the sidecar entry and
+the out-of-band edit of the ledger) and `QualificationSettingsStoreTest` (the defaults and the revision, the block
+replaced alone, the revision incremented, a stale revision refused, the absent document refused, a role skipped twice
 refused).
 
 [#_the_store_substrate]
