@@ -76,6 +76,7 @@ A worker chooses the kind that fits the question best; where two fit, the role s
 
 [#decision-declarations]
 === Decision Declarations: Role Artifacts & the Adjudication Unit
+_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-67[PM-WATCH-DISP-67]_
 
 Everything that shapes an automatic decision is configuration that can be read, verified, and changed without a code change, and none of it is an operator key: the *effective configurations* of the listed roles (harness, model, effort, skills; xref:01-roles-and-configuration.adoc#roles[Roles as Configuration Artifacts]) and the *declarations* of the adjudication unit `adjudicate-decisions.pmwf` in force, the project's own unit in `.marshall/config/` (git-tracked, reviewed like code, link:../workflow-dsl/02-units-jobs-decisions.adoc#unit-declarations[Workflow DSL Specification, Unit Declarations]) where the project holds one, else the machine's, else the default unit (link:../workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL Specification, Project-Owned Workflow Units]).
 
@@ -129,8 +130,10 @@ The bounds of the declarations and of the decision declarations, and the shipped
 |A listed role is not defined by the effective role set (absent, or invalid for a reason other than its harness's eligibility or enrolment, xref:01-roles-and-configuration.adoc#role-validation[Validation]), or its class is neither `read_only` nor `zero_tool` on an endpoint of the protocol `system_one` (a judgment role, link:../client-profiles/04-judgment-endpoint.adoc#judgment-endpoint[Client Profiles Specification, Judgment Endpoint]).
 
 |`quorum_not_diverse`
-|Two listed roles of one declaration name the same model, on any harness (model identifiers compared without a `<provider>/` prefix).
+|Two listed roles of one declaration name the same model, on any harness, by their model identity (<<model-identity>>).
 |===
+
+[[model-identity]]*Model Identity*: One model reaches a harness under several identifiers: a router's prefixes (`openrouter/deepseek/deepseek-v4-flash`), a route variant after a colon (`:free`), another case. Two listed roles name the same model when the weights identities their enrolments record are equal (link:../client-profiles/03-endpoint-harness.adoc#weights-identity[Client Profiles Specification, Weights Identity]), or, where either enrolment records none, when their identifiers are equal after removing everything up to the last `/`, removing everything from the first `:` on, and lowering the case. The comparison errs towards refusing: two sizes or tags of one model name (`qwen3:32b`, `qwen3:8b`) count as one model, since a quorum of them shares the blind spots the quorum exists to avoid. The refusal names both roles, both identifiers, and the identity they share.
 
 The choice of a listed model is configuration: the shipped declarations are the configuration that passed the calibration on the release's corpus (<<quorum-calibration>>), and the model a project runs follows from its own calibration, never from a fixed rule.
 

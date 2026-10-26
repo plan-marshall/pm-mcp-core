@@ -145,7 +145,7 @@ The write-ahead job journal, one record per job written at its fixed points (que
     "gate_facts": {
       "type": ["object", "null"],
       "description": "Server-derived gate coverage facts of a build job whose result is a gate result (job-runtime.adoc Gate Honesty Verification, item 2); null for every other job. Only gate_coverage, degraded, and uncovered are rendered.",
-      "required": ["gate_coverage", "degraded", "empty_scope", "structural_limits", "uncovered", "parity_population", "skipped_tests"],
+      "required": ["gate_coverage", "degraded", "empty_scope", "structural_limits", "uncovered", "parity_population", "skipped_tests", "side_state"],
       "additionalProperties": false,
       "properties": {
         "gate_coverage": { "type": "string", "enum": ["COMPLETE", "PARTIAL", "UNKNOWN"] },
@@ -175,6 +175,16 @@ The write-ahead job journal, one record per job written at its fixed points (que
               "test": { "type": "string", "minLength": 1, "maxLength": 512 },
               "reason": { "type": ["string", "null"], "maxLength": 1000, "description": "The skip reason the parser reads; null where the log gives none." }
             }
+          }
+        },
+        "side_state": {
+          "type": "object",
+          "description": "Ignored paths of the plan's worktree outside the compiled artifact pattern table and .marshall/** at a whole-tree gate (job-runtime.adoc Gate Honesty Verification, item 5); recorded only, never rendered, never a degradation. Empty paths and total 0 for a module gate.",
+          "required": ["paths", "total"],
+          "additionalProperties": false,
+          "properties": {
+            "paths": { "type": "array", "maxItems": 100, "items": { "type": "string", "minLength": 1, "maxLength": 1024 } },
+            "total": { "type": "integer", "minimum": 0 }
           }
         },
         "structural_limits": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 }, "description": "Per checked analysis kind its registered limit, or UNKNOWN when none is registered; never omitted." },
