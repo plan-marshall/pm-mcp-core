@@ -233,7 +233,8 @@ so it is never counted; the supervisor consults the guard for a role that has a 
   `WORKER_START_GUARD_HELD` and closes the role's queued and new tasks through `WorkerProtocol.closeUnavailable` as
   `lost` with the reason `role_unavailable`, with their conservative fallback (PM-WORK-6).
 * *Probe* — after `PROBE_BACKOFF` (1,800 seconds) the next start of the role on that harness is admitted as one probe
-  instead of a hold. A probe that failed restarts the backoff; a probe's first call clears the guard.
+  instead of a hold. A probe that failed restarts the backoff; a probe the caller declined before it started restarts
+  it too (`probeDeclined`), so a consumed probe never holds the guard forever; a probe's first call clears the guard.
 * *Clear* — `firstCall(role, harness)` clears the count on the first call of any worker of the role on the harness.
   `clear` does the same when the role's configuration changes or the harness is enrolled again.
 

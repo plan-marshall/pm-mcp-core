@@ -146,11 +146,15 @@ public final class WorkerSupervisor {
             return declineAll(requests, WorkerStartRefusal.ROLE_GUARD_HELD);
         }
         if (!environment.eligibilityGate().admits(role.artifact().name(), role.harness())) {
+            environment.startGuard().probeDeclined(role.artifact().name(), role.harness());
             return declineAll(requests, WorkerStartRefusal.HARNESS_INELIGIBLE);
         }
         var outcomes = new ArrayList<StartOutcome>();
         for (var request : admitted(role, requests)) {
             outcomes.add(startOne(request));
+        }
+        if (outcomes.stream().noneMatch(StartOutcome.Started.class::isInstance)) {
+            environment.startGuard().probeDeclined(role.artifact().name(), role.harness());
         }
         return List.copyOf(outcomes);
     }

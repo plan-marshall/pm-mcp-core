@@ -39,7 +39,7 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  *       {@link WorkerProtocol#closeUnavailable} closes the role's queued and new tasks {@code lost} with the reason
  *       {@code role_unavailable};</li>
  *   <li><em>Probe</em>: after the backoff the next start of the role on that harness is one probe instead of a hold,
- *       and a probe that fails restarts the backoff;</li>
+ *       and a probe that fails or is declined before it starts restarts the backoff;</li>
  *   <li><em>Clear</em>: {@link #firstCall} resets the count on the first call of any worker of the role on the
  *       harness — a probe's first call clears the guard — and {@link #clear} does the same when the role's
  *       configuration changes or the harness is enrolled again.</li>
@@ -114,6 +114,27 @@ public final class StartFailureGuard implements SupervisorEnvironment.StartGuard
     }
 
     /**
+     * Records that the probe {@link #holds} admitted never started: the caller declined it before any worker made its
+     * first call, so neither {@link #firstCall} nor {@link #startFailed} settles it. The backoff restarts from now, so
+     * the guard holds until a later probe is due instead of holding forever.
+     * <p>
+     * A declined start that the runtime refused is a start failure and goes through {@link #startFailed} as well, which
+     * counts it and restarts the same backoff; this method only clears the consumed probe and counts nothing.
+     *
+     * @param role    the role
+     * @param harness the client id of the harness
+     * @throws NullPointerException if a value is {@code null}
+     */
+    public synchronized void probeDeclined(String role, String harness) {
+        var key = new StartFailureState.Key(role, harness);
+        var state = states.get(key);
+        if (state == null || !state.probeInFlight()) {
+            return;
+        }
+        states.put(key, state.withProbeInFlight(false).withProbeDue(clock.instant().plus(PROBE_BACKOFF)));
+    }
+
+    /**
      * {@inheritDoc}
      * <p>
      * The specification requires the clear when the role's configuration changes or the harness is enrolled again; the
@@ -171,7 +192,8 @@ public final class StartFailureGuard implements SupervisorEnvironment.StartGuard
 
     /**
      * Rebuilds the count from the supervisor's generation registry: the generations of one role and harness are read in
-     * start order, every generation that exited before its first call counts one failure, any generation that reached
+     * start order, every generation that exited before its first call — the {@link WorkerLifecycle#START_FAILED} state
+     * the one end path enters for {@link EndCause#START_FAILURE} — counts one failure, any generation that reached
      * another lifecycle state resets the count, and one that is still starting neither counts nor resets. A rebuilt
      * count at or past the hold holds, with its probe due one backoff from now and no failure text, because the
      * registry keeps none.

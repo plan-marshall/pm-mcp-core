@@ -238,6 +238,17 @@ LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate) {
         }
 
         /**
+         * Records that the probe {@link #holds} admitted never started, so the caller declined it before any worker
+         * made its first call. The open guard runs no probe and has nothing to decline.
+         *
+         * @param role    the role
+         * @param harness the client id of the harness
+         */
+        default void probeDeclined(String role, String harness) {
+            // the open guard runs no probe
+        }
+
+        /**
          * @return a guard that holds for no role: the supervisor's behaviour before a guard is wired
          */
         static StartGuard open() {

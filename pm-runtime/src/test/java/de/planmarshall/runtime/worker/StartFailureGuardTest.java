@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.InstantSource;
 import java.util.List;
@@ -25,11 +26,16 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.store.JobId;
+import de.planmarshall.core.store.WorkerState.ContextTokens;
+import de.planmarshall.runtime.launch.LaunchRequest;
 
 /**
  * The start-failure guard (PM-WORK-3, Start-Failure Guard): the count of consecutive start failures, the hold, the
- * reset on a first call, the two clears, the probe and its backoff, and the bounded redacted report.
+ * reset on a first call, the two clears, the probe and its backoff including a declined probe, the rebuild from the
+ * generation registry, and the bounded redacted report.
  */
 @EnableTestLogger
 @DisplayName("Start-failure guard")
@@ -108,6 +114,30 @@ class StartFailureGuardTest {
     }
 
     @Test
+    @DisplayName("a declined probe restarts the backoff instead of holding forever")
+    void aDeclinedProbeRestartsTheBackoff() {
+        var guard = guard();
+        hold(guard);
+        now.set(NOW.plus(StartFailureGuard.PROBE_BACKOFF));
+        var probeAdmitted = !guard.holds(ROLE, HARNESS);
+
+        guard.probeDeclined(ROLE, HARNESS);
+        var heldWhileTheBackoffRuns = guard.holds(ROLE, HARNESS);
+        now.set(NOW.plus(StartFailureGuard.PROBE_BACKOFF.multipliedBy(2)).minusSeconds(1));
+        var stillHeld = guard.holds(ROLE, HARNESS);
+        now.set(NOW.plus(StartFailureGuard.PROBE_BACKOFF.multipliedBy(2)));
+        var nextProbeAdmitted = !guard.holds(ROLE, HARNESS);
+
+        assertAll(
+                () -> assertTrue(probeAdmitted, "the backoff admits the probe"),
+                () -> assertTrue(heldWhileTheBackoffRuns, "a declined probe holds again"),
+                () -> assertTrue(stillHeld, "the restarted backoff is not due yet"),
+                () -> assertTrue(nextProbeAdmitted, "the restarted backoff admits the next probe"),
+                () -> assertEquals(1, closed.size(), "a decline is not a start failure and closes nothing"),
+                () -> assertEquals(3, audits.size(), "a decline counts no failure"));
+    }
+
+    @Test
     @DisplayName("the probe backoff admits one start, and the probe's first call clears the guard")
     void theProbeClearsTheGuard() {
         var guard = guard();
@@ -145,6 +175,30 @@ class StartFailureGuardTest {
                 () -> assertTrue(nextProbeAdmitted, "the restarted backoff admits the next probe"),
                 () -> assertEquals(2, closed.size(), "the hold and the failed probe each close the tasks"),
                 () -> assertEquals(4, audits.size(), "the failed probe is a counted failure too"));
+    }
+
+    @Test
+    @DisplayName("a guard rebuilt from the registry resumes the count of failed start generations")
+    void aRebuildResumesTheCount() {
+        var twoFailures = List.of(generation("l-0000000000000001", WorkerLifecycle.START_FAILED),
+                generation("l-0000000000000002", WorkerLifecycle.START_FAILED));
+        var rebuilt = new StartFailureGuard(PROJECT, () -> twoFailures, protocol, audits::add, clock());
+        var heldBeforeTheThird = rebuilt.holds(ROLE, HARNESS);
+        rebuilt.startFailed(ROLE, HARNESS, FAILURE);
+        var heldOnTheThird = rebuilt.holds(ROLE, HARNESS);
+
+        var atThreshold = new StartFailureGuard(PROJECT,
+                () -> List.of(generation("l-0000000000000003", WorkerLifecycle.START_FAILED),
+                        generation("l-0000000000000004", WorkerLifecycle.START_FAILED),
+                        generation("l-0000000000000005", WorkerLifecycle.START_FAILED)),
+                protocol, audits::add, clock());
+
+        assertAll(
+                () -> assertFalse(heldBeforeTheThird, "two resumed failures do not hold yet"),
+                () -> assertTrue(heldOnTheThird, "the third consecutive failure holds"),
+                () -> assertTrue(atThreshold.holds(ROLE, HARNESS), "three recorded failures hold on the rebuild"),
+                () -> assertEquals(1, closed.size(), "only the hold closes the role's tasks"),
+                () -> assertEquals(1, audits.size(), "the resumed failures are not reported again"));
     }
 
     @Test
@@ -207,6 +261,13 @@ class StartFailureGuardTest {
 
     private StartFailureGuard guard() {
         return new StartFailureGuard(PROJECT, List::of, protocol, audits::add, clock());
+    }
+
+    private static WorkerGeneration generation(String generationId, WorkerLifecycle lifecycle) {
+        return new WorkerGeneration(generationId, ROLE, HARNESS, "a-model", RoleForm.FRESH,
+                LaunchRequest.WorkdirKind.JOB_PRIVATE, null, Path.of("work"), "sha256:" + "0".repeat(64), NOW,
+                JobId.random(JobId.Kind.LLM), new ModelSlots.Lease(generationId, ROLE), lifecycle, null,
+                List.of(), 0L, ContextTokens.UNMEASURED, null);
     }
 
     private InstantSource clock() {
