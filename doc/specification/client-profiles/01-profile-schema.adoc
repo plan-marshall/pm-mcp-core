@@ -354,6 +354,11 @@ A client profile is the one configuration document of a harness: `classpath:/pro
           "items": { "type": "string", "pattern": "^~/[A-Za-z0-9_./-]+$" },
           "description": "Home-relative sub-paths a headless harness must write to run (its login or credential file, caches, the session directory, its own state file), added to the write set of a worker. Never a harness home as a whole and never a settings, skill, or command file that the bundle manifest manages; profile validation refuses such an entry. Empty for a harness whose writes all go to its per-worker data home."
         },
+        "readable_paths": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^~/[A-Za-z0-9_./-]+$" },
+          "description": "Home-relative paths a headless harness must read to run beyond its installation, its writable paths, and the files its bundle manifest manages, added to the read set of a worker (Job Runtime Specification, Worker Read Set). Never the home directory and never an entry that equals, contains, or lies in a credential location; profile validation refuses such an entry. Measured by the paths stage of the profile verification."
+        },
         "data_home": {
           "type": ["object", "null"],
           "description": "Per-worker data home, for a harness whose local state is one per-user store shared by all its processes; null: the harness needs none. The runtime points variable at the worker's own data directory below its job-private directory and copies login_file into it (job-runtime, Per-Worker Data Home).",
@@ -413,7 +418,7 @@ A client profile is the one configuration document of a harness: `classpath:/pro
           "additionalProperties": { "type": "integer", "minimum": 10000 }
         }
       },
-      "required": ["executable", "install_locations", "install_hint", "auth_probe", "models_probe", "weights_probe", "model_tiers", "supported_versions", "update_evidence", "agent_mode", "argv", "mcp_config", "classes", "env", "capabilities", "output", "usage", "events", "endpoints", "writable_paths", "data_home", "tool_result_limit_chars", "resource_tools", "session_residue", "resumability"],
+      "required": ["executable", "install_locations", "install_hint", "auth_probe", "models_probe", "weights_probe", "model_tiers", "supported_versions", "update_evidence", "agent_mode", "argv", "mcp_config", "classes", "env", "capabilities", "output", "usage", "events", "endpoints", "writable_paths", "readable_paths", "data_home", "tool_result_limit_chars", "resource_tools", "session_residue", "resumability"],
       "additionalProperties": false
     },
     "connection": {
@@ -648,6 +653,26 @@ harness (<<harness-scan>>). Values the evaluation did not measure stay _(provisi
 
 |`codex`
 |`~/.codex/auth.json`, `~/.codex/sessions` _(provisional)_
+|Not measured.
+|===
+
+[#headless-readable-paths]
+*Readable paths* (_Implementation watch: link:../../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-38[PM-WATCH-JOB-38]_): `headless.readable_paths` extends only the read set of workers, which is listed and not the whole filesystem (link:../job-runtime/02-confinement-and-environment.adoc#worker-read-set[Job Runtime Specification, Worker Read Set]). It lists what a headless harness must read to run beyond what the read set already grants it: its installation, its writable paths, and the files its bundle manifest manages. Profile validation refuses an entry that is the home directory, or that equals, contains, or lies in a credential location of the compiled list, and applies the same refusal to `headless.writable_paths`. A harness that cannot read a file it needs fails or, worse, runs without it; a harness that silently skips an unreadable settings file would run without the rules that restrict it, which is why the bundle-managed files are granted by the runtime and never left to this list. The compiled entries:
+
+[cols="1,2,4"]
+|===
+|Profile |`headless.readable_paths` |Basis
+
+|`claude`
+|none _(provisional)_
+|Not measured: its installation, writable paths, and bundle-managed files are expected to cover its reads; the `paths` stage reports every read the confinement denied.
+
+|`opencode`
+|none _(provisional)_
+|Not measured, as for `claude`.
+
+|`codex`
+|none _(provisional)_
 |Not measured.
 |===
 
@@ -895,8 +920,8 @@ pm-operator profile remove <client_id> [--project]                              
 |`headless.tool_result_limit_chars`, `resource_tools`
 
 |`paths`
-|Only where the platform confines jobs. Runs the base task with the write set of the draft's `writable_paths` and reports every write the confinement denied and every declared path that was not written.
-|`headless.writable_paths`, `data_home`
+|Only where the platform confines jobs. Runs the base task with the write set of the draft's `writable_paths` and the worker read set with the draft's `readable_paths`, and reports every write and every read the confinement denied and every declared path that was not written or read. Then a task asks the worker to read, through its shell, a decoy file the stage places in the home directory outside the read set; the read must fail and the decoy's content must not appear in the output.
+|`headless.writable_paths`, `readable_paths`, `data_home`
 
 |`resumability`
 |Only for a harness whose draft declares a form. A worker on a probe task asks through the `ask` link after it has read a canary of the probe workspace. *Hold*: the stage answers after one, two, and the longest bounded-wait windows the operator chose, and checks that the same generation continues, applies the answer, and names the canary without reading it again. *Resume*: the worker ends, and after the chosen delays a generation started from `resume.argv` on the session id read from the result continues, applies the answer, and names the canary; a resume of a missing session and of a session older than the chosen limit must fail at once, never hang. Records the usage of every wake-up and resume.
@@ -957,7 +982,7 @@ pm-operator profile remove <client_id> [--project]                              
 * *What ran is tracked exactly*: `tool` names the release and the commit of the `pm-mcpd` that ran the verification, taken from the binary and never from an argument; `harness` names the executable by its name, the exact version its version probe printed, the SHA-256 of the executable file the run started, and every model a stage ran with; `platform` names operating system, architecture, and confinement. The record holds no path, no host name, no user name, no environment value, and no model output.
 * *The record is closed data*: its schema admits no free text. `code` is a value of the closed list of outcome codes of its stage, `figures` holds integers under a closed set of keys (`min_ms`, `max_ms`, `trials`, `chars`, `count`), and the `results` of the stages `events` and `usage` hold, under the closed activity kinds and usage figures, one of `reported`, `missing`, and (for a usage figure) `not_applicable`. The `start_context` of the `usage` stage holds one entry per class and model, each a class of the closed list, a model the record's `harness.models` names, and `tokens` as an integer or `"unmeasured"`. A record with an unknown member, an unknown code, or a string that is not one of its closed forms is refused.
 * *The candidate claims only what was measured*:
-** `worker.eligible` is `true` only when `faults` passed every fault with at least 10 trials on a platform with a confinement (Landlock on Linux, the sandbox profile on macOS) and `egress` passed or recorded `unenforced`; otherwise it is `false`, whatever the draft says. A record with `egress: unenforced` makes the harness eligible only while the operator's acceptance of unenforced egress holds for the machine (see *Runtime check on load* below).
+** `worker.eligible` is `true` only when `faults` passed every fault with at least 10 trials on a platform with a confinement (Landlock on Linux, the sandbox profile on macOS), `paths` passed, and `egress` passed or recorded `unenforced`; otherwise it is `false`, whatever the draft says. A record with `egress: unenforced` makes the harness eligible only while the operator's acceptance of unenforced egress holds for the machine (see *Runtime check on load* below).
 ** `headless.classes.zero_tool` is non-null only when the `classes` stage passed it and `isolation` measured an exclusive configuration with settings control; otherwise `null`.
 ** A `writer` or `read_only` class is non-null when its base task passed and `isolation` measured an exclusive configuration with extension isolation for its launch, with the `tool_set` the stage measured.
 ** `tool_result_limit_chars` is the largest size that passed when a larger one failed, else `null`.

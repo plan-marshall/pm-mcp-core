@@ -24,7 +24,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:job-confinement-and-environment.adoc[`job-confinement-and-environment`]
 |Job confinement and job environment in the daemon
 |`open`
-|link:../../../pm-mcp-clients/doc/plans/exec-read-denied-paths.adoc[`pm-mcp-clients` / `exec-read-denied-paths`]
+|link:../../../pm-mcp-clients/doc/plans/exec-read-denied-paths.adoc[`pm-mcp-clients` / `exec-read-denied-paths`]; link:../../../pm-mcp-clients/doc/plans/exec-listed-read-set.adoc[`pm-mcp-clients` / `exec-listed-read-set`]
 |Milestone 4
 
 |link:supervisor.adoc[`supervisor`]
