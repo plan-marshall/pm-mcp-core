@@ -29,8 +29,10 @@ import de.planmarshall.core.role.RoleClass;
  * {@link #due(Instant)} asks whether a deadline has been crossed, and only a crossed deadline produces a signal.
  * <p>
  * A {@code zero_tool} worker has no MCP connection: it receives no offer and is never silent, so it produces neither an
- * acknowledgement nor a silence signal, and its exit alone decides. A worker that exits before its first call is a
- * start failure, not a loss: {@link #exit(Instant)} answers empty and {@link #startFailure()} says why.
+ * acknowledgement nor a silence signal, and its exit alone decides. An exit before the first call is a start failure for
+ * every other role, not a loss: {@link #exit(Instant)} answers empty and {@link #startFailure()} says why. A
+ * {@code zero_tool} worker makes no call by design, so its exit is always the {@link LossReason#EXIT} loss, whose task
+ * the caller closes — submitted for a valid structured result and lost for every other exit — and never a start failure.
  *
  * @since 0.1
  */
@@ -159,8 +161,10 @@ public final class LossDetection {
     }
 
     /**
-     * The worker's process exited. An exit after the first call is the loss {@link LossReason#EXIT}; an exit before it is
-     * a start failure, which the start-failure guard counts and which answers no loss.
+     * The worker's process exited. For every role but {@code zero_tool} an exit after the first call is the loss
+     * {@link LossReason#EXIT}; an exit before it is a start failure, which the start-failure guard counts and which
+     * answers no loss. A {@code zero_tool} worker makes no call by design, so its exit is always the exit loss and never
+     * a start failure: the caller decides the task from its structured result.
      *
      * @param at the instant the exit was observed
      * @return the loss, or empty when the exit was a start failure
@@ -172,11 +176,11 @@ public final class LossDetection {
         }
         done = true;
         cancel();
-        if (!firstCallMade) {
+        if (!firstCallMade && roleClass != RoleClass.ZERO_TOOL) {
             startFailure = true;
             return Optional.empty();
         }
-        return Optional.of(new LossSignal(LossReason.EXIT, generationId, at, at, true, leasedTask));
+        return Optional.of(new LossSignal(LossReason.EXIT, generationId, at, at, firstCallMade, leasedTask));
     }
 
     /**

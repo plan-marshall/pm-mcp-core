@@ -18,14 +18,14 @@ import de.planmarshall.core.store.WorkerState;
  * plus its silence grace.
  * <p>
  * The reason is one value for the whole report: the job record's worker state carries {@link #endReason()}, and the
- * attempt of the queue task carries {@link #attemptEnd()}. A {@code zero_tool} worker produces none of them — its exit
- * and its budget alone decide ({@link LossDetection}).
+ * attempt of the queue task carries {@link #attemptEnd()}. A {@code zero_tool} worker produces none of the deadline
+ * signals, so its exit alone decides ({@link LossDetection}).
  *
  * @since 0.1
  */
 public enum LossReason {
 
-    /** The worker's process exited after its first call. */
+    /** The worker's process exited after its first call, or the exit of a {@code zero_tool} worker, which makes no call. */
     EXIT("exit", WorkerState.EndReason.EXITED, AttemptEnd.EXITED_WITHOUT_SUBMIT),
 
     /** An offer was not acknowledged within the acknowledgement deadline. */

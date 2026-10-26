@@ -29,8 +29,9 @@ import de.planmarshall.core.role.RoleClass;
 /**
  * The three deadlines of one worker generation (PM-WORK-3, Detection): an acknowledgement and a silence signal fire
  * exactly at their deadline and never a millisecond earlier, an informational acknowledgement and an open wait suppress
- * their signal, an exit before the first call is a start failure, and a {@code zero_tool} worker is exempt from the
- * acknowledgement and silence signals.
+ * their signal, an exit before the first call is a start failure for every role but {@code zero_tool}, whose exit alone
+ * decides and is never a start failure, and a {@code zero_tool} worker is exempt from the acknowledgement and silence
+ * signals.
  */
 @DisplayName("Worker loss detection")
 class WorkerLossDetectionTest {
@@ -182,18 +183,21 @@ class WorkerLossDetectionTest {
     }
 
     @Test
-    @DisplayName("a zero_tool worker produces no acknowledgement or silence signal")
-    void zeroToolIsExempt() {
+    @DisplayName("a zero_tool worker's exit alone decides and is never a start failure")
+    void zeroToolExitIsDecidedByItsResult() {
         var detection = detection(RoleClass.ZERO_TOOL, parameters(OptionalInt.of(ACK_SECONDS), false));
         detection.started(SPAWN);
-        detection.firstCall(SPAWN);
 
         var due = detection.due(SPAWN.plusSeconds(10 * SILENCE_SECONDS));
         var exit = detection.exit(SPAWN.plusSeconds(5));
 
         assertAll(
                 () -> assertTrue(due.isEmpty(), "its exit and its budget alone decide"),
-                () -> assertEquals(LossReason.EXIT, exit.orElseThrow().reason()));
+                () -> assertEquals(LossReason.EXIT, exit.orElseThrow().reason()),
+                () -> assertFalse(exit.orElseThrow().firstCallMade(), "a zero_tool worker makes no call"),
+                () -> assertFalse(detection.startFailure(), "a zero_tool exit is never a start failure"),
+                () -> assertTrue(detection.due(SPAWN.plusSeconds(600)).isEmpty(),
+                        "a settled worker produces no further signal"));
     }
 
     @Test
