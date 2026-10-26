@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
@@ -76,7 +77,7 @@ class LockKeyTest {
     private static List<LockKey> sortedAfterShuffle(List<LockKey> keys) {
         var shuffled = new ArrayList<>(keys);
         Collections.reverse(shuffled);
-        Collections.sort(shuffled);
+        shuffled.sort(Comparator.naturalOrder());
         return shuffled;
     }
 

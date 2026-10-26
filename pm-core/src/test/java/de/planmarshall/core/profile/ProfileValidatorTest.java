@@ -411,8 +411,9 @@ class ProfileValidatorTest {
         @DisplayName("a failing value refuses the profile with its document and pointer")
         void refuses(ProfileFixtures.ProfileFixture fixture, String pointer, String because) {
             var bytes = fixture.bytes();
+            var rules = ProfileRules.none();
             var refusal = assertThrows(ProfileRefusal.class,
-                    () -> ProfileValidator.validate(bytes, DOCUMENT, ProfileRules.none()), because);
+                    () -> ProfileValidator.validate(bytes, DOCUMENT, rules), because);
 
             assertAll(
                     () -> assertEquals(ProfileRefusal.Outcome.PROFILE_INVALID, refusal.outcome(), because),
