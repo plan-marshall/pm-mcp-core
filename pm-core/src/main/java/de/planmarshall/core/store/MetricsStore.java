@@ -59,6 +59,7 @@ public final class MetricsStore {
         this.storePath = switch (scope.type()) {
             case PLAN, EPIC -> FILE_NAME;
             case WORKSPACE -> Path.of(WORKSPACE_DIRECTORY, FILE_NAME).toString();
+            case MACHINE -> FILE_NAME;
             case LESSONS -> throw new IllegalArgumentException("The lesson store has no metrics store");
         };
     }

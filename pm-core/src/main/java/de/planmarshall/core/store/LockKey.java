@@ -184,6 +184,18 @@ public record LockKey(LockLevel level, Path lockFile, String id) implements Comp
     }
 
     /**
+     * The scope lock of the one machine scope, which guards its workflow state store and the stores written in the
+     * same transaction. It stands at the level of the workspace scope lock, the other top-level scope.
+     *
+     * @param base the base directory of the runtime
+     * @return the key of the lock {@code machine/locks/machine.lock}
+     */
+    public static LockKey machineScope(Path base) {
+        return new LockKey(LockLevel.WORKSPACE, canonical(base).resolve(MACHINE).resolve(LOCK_DIRECTORY)
+                .resolve("machine" + LOCK_SUFFIX), MACHINE);
+    }
+
+    /**
      * @param base the base directory of the runtime
      * @return the key of the lock of the build slot leases
      */

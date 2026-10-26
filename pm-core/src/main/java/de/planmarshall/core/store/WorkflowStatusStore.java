@@ -44,6 +44,7 @@ public final class WorkflowStatusStore {
             case PLAN -> "mcp/status.json";
             case EPIC -> "status.json";
             case WORKSPACE -> "workspace/mcp/status.json";
+            case MACHINE -> "mcp/status.json";
             case LESSONS -> throw new IllegalArgumentException("The lesson store has no status document");
         };
     }

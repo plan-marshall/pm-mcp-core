@@ -14,8 +14,8 @@ import java.util.Optional;
 
 /**
  * The type of a scope that keeps a transaction journal (PM-IMPL-7), as the {@code scope_type} of the journal names
- * it. The set is closed. A plan and an epic are named by their id; the workspace scope and the lesson store of a
- * project have none.
+ * it. The set is closed. A plan and an epic are named by their id; the workspace scope, the machine scope and the
+ * lesson store of a project have none.
  * <p>
  * This is the journal's own set; the owning scope of a lease ({@link ScopeType}) is another one.
  *
@@ -29,6 +29,8 @@ public enum JournalScopeType {
     EPIC("epic", true),
     /** The workspace scope of a project: it has no scope id. */
     WORKSPACE("workspace", false),
+    /** The one machine scope: it has no scope id and belongs to no project. */
+    MACHINE("machine", false),
     /** The lesson store of a project: it has no scope id. */
     LESSONS("lessons", false);
 

@@ -189,6 +189,7 @@ public final class QuestionLog {
         this(scope, switch (Objects.requireNonNull(scope, "scope").type()) {
             case PLAN, EPIC -> FILE_NAME;
             case WORKSPACE -> WORKSPACE_DIRECTORY + "/" + FILE_NAME;
+            case MACHINE -> FILE_NAME;
             case LESSONS -> throw new IllegalArgumentException("The lesson store has no question log");
         });
     }
