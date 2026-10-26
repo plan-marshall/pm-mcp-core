@@ -12,14 +12,19 @@ package de.planmarshall.core.store;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -32,8 +37,9 @@ import de.planmarshall.core.store.ChangeLedgerRecord.Outcome;
 import de.planmarshall.core.store.ChangeLedgerRecord.WorktreeShaFailure;
 
 /**
- * The change ledger (Store Schemas § Change Ledger Record): the append-only rows a freshness gate reads, each bound to
- * the working-tree digest it was observed on.
+ * The change ledger (Store Schemas § Change Ledger Record): the append-only rows a freshness gate reads, each carrying
+ * the working-tree digest it was observed on, or the failure of the git invocation that could not measure one, written
+ * through the scope's transaction and covered by its sidecar.
  */
 @DisplayName("Change ledger")
 class ChangeLedgerTest {
@@ -41,19 +47,47 @@ class ChangeLedgerTest {
     private static final Instant RECORDED_AT = Instant.parse("2026-10-22T10:00:00Z");
     private static final String DIGEST = "a".repeat(64);
     private static final String COMMIT = "b".repeat(40);
+    private static final String PROJECT = "pm-mcp-core";
+    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-22T12:00:00Z"), ZoneOffset.UTC);
 
     @TempDir
     Path base;
 
+    private JournalScope scope;
     private Path file;
     private ChangeLedger ledger;
+    private RecordingLockManager locks;
+    private RecordingAuditSink audit;
 
     @BeforeEach
     void createLedger() throws Exception {
-        file = Files.createDirectories(base.resolve("plans").resolve("some-plan")).resolve("change-ledger.jsonl");
-        ledger = new ChangeLedger(new JsonlStoreFile(file, LockKey.plan(base, "pm-mcp-core", "some-plan")),
-                new RecordingLockManager(), _ -> {
-                });
+        scope = JournalScope.plan(base, PROJECT, "some-plan");
+        Files.createDirectories(scope.journalFile().getParent());
+        file = scope.resolve(ChangeLedger.FILE_NAME);
+        ledger = new ChangeLedger(scope);
+        locks = new RecordingLockManager();
+        audit = new RecordingAuditSink();
+    }
+
+    /** Opens the scope's transaction, hands it to the write and commits it. */
+    private void commit(Consumer<ScopeTransaction> write) {
+        try (var transaction = locks.openTransaction()) {
+            transaction.acquire(scope.lockKey());
+            var scopeTransaction = ScopeTransaction.open(transaction, scope, audit, CLOCK);
+            write.accept(scopeTransaction);
+            scopeTransaction.commit();
+        }
+    }
+
+    private void append(ChangeLedgerRecord row) {
+        commit(transaction -> ledger.append(transaction, row));
+    }
+
+    private ScopeIntegrity.Verification verify(String relativePath) {
+        try (var transaction = locks.openTransaction()) {
+            transaction.acquire(scope.lockKey());
+            return ScopeIntegrity.verify(transaction, scope, relativePath, audit);
+        }
     }
 
     private static ChangeLedgerRecord changeRow() {
@@ -76,8 +110,8 @@ class ChangeLedgerTest {
         @Test
         @DisplayName("is appended and read back, in the order of the append")
         void roundTrip() {
-            ledger.append(changeRow());
-            ledger.append(changeRow().toBuilder().changedPaths(List.of("b.txt")).build());
+            append(changeRow());
+            append(changeRow().toBuilder().changedPaths(List.of("b.txt")).build());
 
             var entries = ledger.read();
 
@@ -96,7 +130,7 @@ class ChangeLedgerTest {
 
             var row = ChangeLedgerRecord.builder().kind(Kind.JOB).worktreeSha("unavailable")
                     .worktreeShaVersion(1).worktreeShaFailure(failure).recordedAt(RECORDED_AT).build();
-            ledger.append(row);
+            append(row);
 
             assertEquals(failure, value(ledger.read().getFirst()).worktreeShaFailure());
         }
@@ -108,7 +142,7 @@ class ChangeLedgerTest {
                     .gateKind("quality-gate").outcome(Outcome.SUCCEEDED).durationMs(1200L)
                     .jobId("b-0123456789abcdef").recordedAt(RECORDED_AT).build();
 
-            ledger.append(row);
+            append(row);
 
             assertEquals(row, value(ledger.read().getFirst()));
         }
@@ -123,7 +157,7 @@ class ChangeLedgerTest {
                     .expectResult(ChangeLedgerRecord.ExpectResult.EXPECTED_RED).baseline(baseline)
                     .deliverableId("D1").durationMs(0L).recordedAt(RECORDED_AT).build();
 
-            ledger.append(row);
+            append(row);
 
             assertEquals(row, value(ledger.read().getFirst()));
         }
@@ -134,9 +168,59 @@ class ChangeLedgerTest {
             var row = ChangeLedgerRecord.builder().kind(Kind.TASK_DIFF).worktreeSha(DIGEST).worktreeShaVersion(1)
                     .taskId("TASK-1").changedPaths(List.of("a.txt", "b.txt")).recordedAt(RECORDED_AT).build();
 
-            ledger.append(row);
+            append(row);
 
             assertEquals(row, value(ledger.read().getFirst()));
+        }
+    }
+
+    @Nested
+    @DisplayName("the scope transaction")
+    class ScopeTransactionWrite {
+
+        @Test
+        @DisplayName("an appended line has a sidecar entry, as every store of the scope's transactions")
+        void sidecarEntry() {
+            append(changeRow());
+
+            var digest = DigestSidecar.load(scope.sidecarFile()).digest(ChangeLedger.FILE_NAME);
+
+            assertAll(
+                    () -> assertEquals(Optional.of(StoreDigest.of(Files.readAllBytes(file))), digest),
+                    () -> assertFalse(Files.exists(scope.journalFile()), "the journal is closed"));
+        }
+
+        @Test
+        @DisplayName("an out-of-band edit of the ledger is a Mismatch of the integrity check")
+        void outOfBandEdit() throws Exception {
+            append(changeRow());
+            var recorded = DigestSidecar.load(scope.sidecarFile()).digest(ChangeLedger.FILE_NAME).orElseThrow();
+            var edited = Files.readAllBytes(file);
+            edited[edited.length - 2] = ' ';
+            Files.write(file, edited);
+
+            var outcome = verify(ChangeLedger.FILE_NAME);
+
+            assertEquals(new ScopeIntegrity.Mismatch(ChangeLedger.FILE_NAME, recorded,
+                    Optional.of(StoreDigest.of(edited))), outcome);
+        }
+
+        @Test
+        @DisplayName("a transaction of another scope is refused")
+        void otherScope() throws Exception {
+            var other = JournalScope.plan(base, PROJECT, "another-plan");
+            Files.createDirectories(other.journalFile().getParent());
+
+            assertThrows(IllegalArgumentException.class, () -> appendInTransactionOf(other));
+        }
+
+        /** Appends this ledger's row in a transaction of another scope. */
+        private void appendInTransactionOf(JournalScope other) {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(other.lockKey());
+                var scopeTransaction = ScopeTransaction.open(transaction, other, audit, CLOCK);
+                ledger.append(scopeTransaction, changeRow());
+            }
         }
     }
 
@@ -230,13 +314,22 @@ class ChangeLedgerTest {
     class Construction {
 
         @Test
-        @DisplayName("a lock that is not the lock of a scope is refused")
-        void otherLockLevel() {
-            var storeFile = new JsonlStoreFile(file, LockKey.modelSlots(base));
-            var locks = new RecordingLockManager();
+        @DisplayName("the workspace ledger is the workspace's change-ledger.jsonl")
+        void workspacePath() {
+            var workspace = JournalScope.workspace(base, PROJECT);
 
-            assertThrows(IllegalArgumentException.class, () -> new ChangeLedger(storeFile, locks, _ -> {
-            }));
+            assertAll(
+                    () -> assertEquals("workspace/change-ledger.jsonl", new ChangeLedger(workspace).storePath()),
+                    () -> assertEquals(workspace.resolve("workspace/change-ledger.jsonl"),
+                            new ChangeLedger(workspace).store()));
+        }
+
+        @Test
+        @DisplayName("the lesson store has no change ledger")
+        void lessonStore() {
+            var lessons = JournalScope.lessons(base, PROJECT);
+
+            assertThrows(IllegalArgumentException.class, () -> new ChangeLedger(lessons));
         }
     }
 }

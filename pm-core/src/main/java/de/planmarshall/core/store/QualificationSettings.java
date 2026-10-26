@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.store;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
@@ -43,7 +44,8 @@ boolean skipDecisions) {
 
     /**
      * @throws NullPointerException     if the roles are {@code null}
-     * @throws IllegalArgumentException if a level lies outside {@code 0} to {@code 100} or a role breaks its grammar
+     * @throws IllegalArgumentException if a level lies outside {@code 0} to {@code 100}, a role breaks its grammar, or
+     *                                  a role is skipped twice
      */
     public QualificationSettings {
         skipRoles = List.copyOf(Objects.requireNonNull(skipRoles, "skipRoles"));
@@ -57,6 +59,9 @@ boolean skipDecisions) {
             if (!ROLE.matcher(role).matches()) {
                 throw new IllegalArgumentException("Not a role name: " + role);
             }
+        }
+        if (new HashSet<>(skipRoles).size() != skipRoles.size()) {
+            throw new IllegalArgumentException("A role is skipped twice: " + skipRoles);
         }
     }
 

@@ -1,0 +1,55 @@
+= ADR 045: The Qualification Settings Store Refuses a Stale Revision
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-26
+
+== Context
+
+`store-schemas/12` states the `revision` of the operator files: it is "incremented by every write; a change against an
+older revision is refused with `conflict`". `QualificationSettingsStore` incremented the revision but took no revision
+from the caller, so it could not refuse: two writers that both read revision `n` would both write, and the second would
+overwrite the first although it never saw its change.
+
+The choice was how to carry the revision the caller read and which refusal vocabulary to use for the refusal.
+
+== Decision
+
+* `QualificationSettingsStore.read()` returns a `Snapshot` of the settings and the document's `revision`; a document
+  that does not exist reads as the compiled defaults at revision `0`.
+* `QualificationSettingsStore.write(QualificationSettings, long revision)` compares the revision it is given with the
+  one the document holds under the local-configuration lock, and refuses a mismatch before writing anything.
+* The refusal is a `StoreRefusal` with the new outcome `conflict` (`StoreRefusal.conflict`), the code the specification
+  names, rather than a new refusal type beside the store-refusal vocabulary.
+* A write at the current revision succeeds and increments the revision as before; every other member of the operator's
+  document still survives unchanged.
+
+== Alternatives Considered
+
+1. *A separate `QualificationSettingsRefusal` type.* _Not taken_: `core.store` already has one refusal vocabulary for
+   document-level refusals, and a second one would force every caller to know two.
+2. *Reuse `QuestionRefusal.Conflict`.* _Not taken_: it names a question and its current revision, and a store document
+   is not a question; the code `conflict` is what the two share, not the shape.
+
+== Consequences
+
+* A caller reads the document, changes the settings and writes them back with the revision it read; a concurrent change
+  is refused instead of overwritten, and the caller can re-read and retry.
+* The store's API changes; there is no production caller yet.
+* The new `conflict` outcome is part of the closed store-refusal set, so a consumer that switches over the outcomes has
+  one more case to handle.
+
+== Source
+
+* Plan PLAN-104, deliverable 5
+* link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#machine-config[Store Schemas § Machine
+  Configuration Store] and the operator-file revision rule it states
+* link:043-qualification-settings-replaced-in-place.adoc[ADR 043]
+* `pm-core/src/main/java/de/planmarshall/core/store/QualificationSettingsStore.java`,
+  `pm-core/src/main/java/de/planmarshall/core/store/StoreRefusal.java`,
+  `pm-core/src/test/java/de/planmarshall/core/store/QualificationSettingsStoreTest.java`

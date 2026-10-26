@@ -24,6 +24,11 @@ maven-build:
   maven-profiles-snapshot: ''
   maven-profiles-release: ''
   npm-cache: false
+  # Do not skip the build when a pull request changes only documentation: the schema parity tests of pm-core read
+  # doc/specification/**/*.adoc as their input (ADR doc/adr/007), so a specification-only pull request can break the
+  # build while the skip reports it green (ADR doc/adr/009). The reusable workflow's check-changes job is what the
+  # false disables; see cuioss/cuioss-organization reusable-maven-build.yml input skip-on-docs-only.
+  skip-on-docs-only: false
 
 # The project of the SonarCloud organisation plan-marshall; its Automatic Analysis is off, the CI build analyses.
 sonar:

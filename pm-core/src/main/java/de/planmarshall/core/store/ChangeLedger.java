@@ -10,69 +10,59 @@
 package de.planmarshall.core.store;
 
 import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
-
-import de.planmarshall.core.service.AuditSink;
-import de.planmarshall.core.service.InternalFaultException;
-import de.planmarshall.core.service.LockManager;
 
 /**
  * The writer and reader of a {@code change-ledger.jsonl} (Store Schemas § Change Ledger Record): the append-only ledger
  * of a plan, an epic or the workspace, one {@link ChangeLedgerRecord} per line.
  * <p>
- * A row is never rewritten. An append is one short transaction on the lock of the scope: the append-only store repairs
- * a torn tail, writes the record and forces the file to disk before the lock is released, so a reader sees complete
- * lines only. The ledger carries the {@code worktree_sha} every freshness gate is keyed by, and it preserves the
- * order in which the runtime observed the rows.
+ * A row is never rewritten. An append is never committed on its own: it adds the line as one append target to the
+ * {@link ScopeTransaction} of the caller, which holds the lock of the scope, so the line is journaled, a torn tail is
+ * repaired first, and the digest sidecar of the scope covers the ledger. The ledger carries the {@code worktree_sha}
+ * every freshness gate is keyed by, and it preserves the order in which the runtime observed the rows.
  *
  * @since 0.1
  */
 public final class ChangeLedger {
 
-    private static final Set<LockLevel> SCOPE_LEVELS =
-            EnumSet.of(LockLevel.PLAN, LockLevel.EPIC, LockLevel.WORKSPACE);
+    /** The file name of the change ledger of a plan or an epic scope. */
+    public static final String FILE_NAME = "change-ledger.jsonl";
 
-    private final JsonlStoreFile storeFile;
-    private final LockManager lockManager;
-    private final AuditSink auditSink;
+    private static final String WORKSPACE_DIRECTORY = "workspace";
+
+    private final JournalScope scope;
+    private final String storePath;
 
     /**
-     * @param storeFile   the ledger file with the key of the lock of its scope
-     * @param lockManager the lock manager of the runtime
-     * @param auditSink   where the record of a tail repair is handed over
-     * @throws IllegalArgumentException if the key of the ledger file is not the lock of a plan, an epic or the
-     *                                  workspace
+     * @param scope the plan, epic or workspace scope whose ledger this is
+     * @throws IllegalArgumentException if the scope is the lesson store, which has no change ledger
      */
-    public ChangeLedger(JsonlStoreFile storeFile, LockManager lockManager, AuditSink auditSink) {
-        this.storeFile = Objects.requireNonNull(storeFile, "storeFile");
-        this.lockManager = Objects.requireNonNull(lockManager, "lockManager");
-        this.auditSink = Objects.requireNonNull(auditSink, "auditSink");
-        if (!SCOPE_LEVELS.contains(storeFile.lockKey().level())) {
-            throw new IllegalArgumentException(
-                    "A change ledger is guarded by the lock of its scope: " + storeFile.lockKey().lockFile());
-        }
+    public ChangeLedger(JournalScope scope) {
+        this.scope = Objects.requireNonNull(scope, "scope");
+        this.storePath = switch (scope.type()) {
+            case PLAN, EPIC -> FILE_NAME;
+            case WORKSPACE -> Path.of(WORKSPACE_DIRECTORY, FILE_NAME).toString();
+            case LESSONS -> throw new IllegalArgumentException("The lesson store has no change ledger");
+        };
     }
 
     /**
-     * Appends one record in one transaction on the lock of the ledger.
+     * Adds one record as an append target to a transaction of the scope; it is written when the caller commits the
+     * transaction.
      *
-     * @param row the record
-     * @throws StoreRefusal           if a torn tail cannot be repaired
-     * @throws UncheckedIOException   if the ledger cannot be appended to
-     * @throws InternalFaultException if the lock of the ledger must not be acquired by the transaction
+     * @param transaction an open transaction of this ledger's scope, opened by the caller's lock transaction
+     * @param row         the record
+     * @throws IllegalArgumentException if the transaction belongs to another scope, or the ledger is a target of the
+     *                                  transaction already
+     * @throws IllegalStateException    if the transaction was committed
      */
-    public void append(ChangeLedgerRecord row) {
+    public void append(ScopeTransaction transaction, ChangeLedgerRecord row) {
+        Objects.requireNonNull(transaction, "transaction");
         Objects.requireNonNull(row, "row");
-        var line = new String(ChangeLedgerCodec.write(row), StandardCharsets.UTF_8) + "\n";
-        try (var transaction = lockManager.openTransaction()) {
-            transaction.acquire(storeFile.lockKey());
-            storeFile.append(transaction, line.getBytes(StandardCharsets.UTF_8), auditSink);
-        }
+        WaiverLog.requireOwnScope(transaction, scope, "change ledger");
+        transaction.append(storePath, WaiverLog.line(ChangeLedgerCodec.write(row)));
     }
 
     /**
@@ -83,12 +73,18 @@ public final class ChangeLedger {
      * @throws UncheckedIOException if the ledger exists and cannot be read
      */
     public List<JsonlStoreFile.Entry<ChangeLedgerRecord>> read() {
-        return storeFile.snapshot().decode(ChangeLedgerRecord.FORMAT_VERSION,
-                line -> ChangeLedgerCodec.read(storeFile.store(), line));
+        var file = store();
+        return new JsonlStoreFile(file, scope.lockKey()).snapshot().decode(ChangeLedgerRecord.FORMAT_VERSION,
+                line -> ChangeLedgerCodec.read(file, line));
     }
 
     /** @return the ledger file, absolute and normalized */
     public Path store() {
-        return storeFile.store();
+        return scope.resolve(storePath);
+    }
+
+    /** @return the path of the ledger relative to the path base of its scope, as its journal and sidecar name it */
+    public String storePath() {
+        return storePath;
     }
 }

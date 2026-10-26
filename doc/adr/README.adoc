@@ -25,6 +25,7 @@ link:007-specifications-of-the-engine-in-this-repository.adoc[007 The Specificat
 The repository:
 
 * link:./[`doc/adr/`]: the decisions that concern the whole repository.
+** link:009-no-build-skip-for-a-specification-only-pull-request.adoc[009 No Build Skip for a Specification-Only Pull Request]: every pull request runs the full build, including one that changes only the specification.
 
 `pm-core`:
 

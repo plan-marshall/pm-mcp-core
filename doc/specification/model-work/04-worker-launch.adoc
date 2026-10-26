@@ -111,7 +111,11 @@ spawn, with fate `refused` and a reason, when the harness is not enrolled (`harn
 without the update evidence of its profile (`harness_update_unverified`), its version lies outside the supported range
 (`harness_version_unsupported`), the harness enrolment store `harnesses.json` fails its HMAC check (`harness_tampered`,
 audit `security` record `enrolment_tampered`; `pm-operator enrol-harness <client>` shows path, version, and digest and
-rewrites the file and its sidecar), the prompt cannot be composed (`prompt_composition_failed`,
+rewrites the file and its sidecar), the verified bytes of `harnesses.json` do not read as the store
+(`harness_store_unreadable`: an enrolment entry whose required object member — `events`, `usage_report` with its
+`figures`, a present `weights` — is absent, `null` or not an object is refused instead of read as an empty map;
+`pm-operator enrol-harness <client>` enrols the harness again and rewrites the unreadable store), the prompt cannot be
+composed (`prompt_composition_failed`,
 <<job-prompt>>), or a verify-not-resolve check fails. Each refusal carries the act that resolves it in both clients.
 Remaining: the start-failure guard. For a `zero_tool` role a refusal closes the task `lost` and is not counted
 (xref:03-supervision-and-recycling.adoc#detection[Detection]); for every other role it counts as a start failure of the

@@ -1,0 +1,67 @@
+= ADR 009: No Build Skip for a Specification-Only Pull Request
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-25
+
+== Context
+
+The reusable Maven build workflow of the organisation
+(`cuioss/cuioss-organization/.github/workflows/reusable-maven-build.yml`, pinned at
+`711571432df351d3c5b08d5d50cb6c331f61abb1`, v0.42.0) skips the build when a pull request changes only documentation
+and configuration files. Its `check-changes` job runs `dorny/paths-filter` with `predicate-quantifier: every` over an
+all-negation pattern list, `**/*.adoc` among the ignored paths, and the `build` job then skips when the filtered
+`code` output is `false`. The workflow input `skip-on-docs-only` (default `true`) turns the whole job off;
+`paths-ignore-extra` only adds ignored patterns and cannot remove one.
+
+The schema parity tests of `pm-core` read the `.adoc` specifications of this repository as their input
+(`pm.specification.root`, ADR link:007-specifications-of-the-engine-in-this-repository.adoc[007]): a record's
+components, order and enumerations are compared with the JSON schema blocks of `doc/specification/`. A pull request
+that changes only a specification part therefore can break the build, while the docs-only skip reports it as green.
+That happened twice in four days: #171 broke `FindingSchemaParityTest` and was fixed on a later branch, and #177 added
+`capability_tests` to the `source` enum of `store-schemas/03-findings-and-review-records.adoc` without a matching
+change of `FindingSourceKind`, so `main` was red at `20ce71c8`.
+
+== Decision
+
+`maven-build.skip-on-docs-only` is set to `false` in `.github/project.yml` of this repository. Every pull request runs
+the full reusable Maven build, whatever files it changes; the `check-changes` job is skipped because its own condition
+requires the input to be `true`.
+
+The input and the pinned reusable workflow are named here as read from that workflow at the SHA of
+`.github/workflows/maven.yml`: input `skip-on-docs-only`, type `boolean`, default `true`, consumed by the
+`check-changes` job whose `should-build` output gates `build`, `quarkus-alignment` and `sonar-build`.
+
+== Alternatives Considered
+
+1. *Keep the skip and require the author of a specification change to run the parity tests locally.* Rejected: the
+   skip makes the required check green without the test having run, and the operator's decision of 2026-10-25 is that
+   the build must not depend on a local run no check can observe.
+2. *Add a parity-only job that runs on docs-only pull requests.* Rejected for now: it needs a new workflow file, which
+   the operator has to decide explicitly; the input above closes the hole without a new file.
+
+== Consequences
+
+Every pull request now runs the full build, about eight minutes of CI time, also when it changes only documentation.
+A specification change that breaks a parity test fails the required check before it reaches `main`. The skip stays
+available to other repositories of the organisation; this decision binds only `pm-mcp-core` through its
+`project.yml`.
+
+This pull request itself changes a file that is not `.adoc` (`.github/project.yml`), so its own build runs anyway.
+That the setting also holds for a docs-only pull request can only be observed by the next such pull request and is
+stated in the pull request body as an unverified expectation, not as a measured fact.
+
+== Source
+
+The operator's decision of 2026-10-25; the work package below `doc/plans/` is not one of this repository (this plan has
+no package file), the plan spec is
+`+.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-104-main-green-and-leftovers.md+`. The reusable workflow:
+https://github.com/cuioss/cuioss-organization/blob/711571432df351d3c5b08d5d50cb6c331f61abb1/.github/workflows/reusable-maven-build.yml[`reusable-maven-build.yml` at `71157143`].
+The configuration key is `maven-build.skip-on-docs-only` of `.github/project.yml`; the reason is ADR
+link:007-specifications-of-the-engine-in-this-repository.adoc[007] and the specification part
+`doc/specification/store-schemas/03-findings-and-review-records.adoc`.

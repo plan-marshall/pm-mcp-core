@@ -221,7 +221,7 @@ public final class VerifyNotResolvePipeline {
             case ABSENT -> JobRefusal.of(Reason.NOT_ENROLLED, "the project has no enrolment");
             case ENROLMENT_TAMPERED -> JobRefusal.enrolmentTampered(detail);
             case ENROLMENT_INSECURE -> JobRefusal.of(Reason.ENROLMENT_INSECURE, detail);
-            case UNREADABLE, FORMAT_OUTDATED, FORMAT_NEWER, ENROLMENT_INVALID ->
+            case UNREADABLE, FORMAT_OUTDATED, FORMAT_NEWER, ENROLMENT_INVALID, CONFLICT ->
                 JobRefusal.of(Reason.ENROLMENT_INVALID, detail);
         };
     }

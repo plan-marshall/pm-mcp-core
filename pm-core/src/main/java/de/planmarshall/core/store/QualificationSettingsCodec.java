@@ -54,14 +54,31 @@ public class QualificationSettingsCodec {
     private static final String FIELD_SKIP_DECISIONS = "skip_decisions";
 
     /**
-     * Reads the qualification settings of a local configuration document.
+     * What a read of the document found: the settings of the block and the revision the document carries. Package
+     * private: {@link QualificationSettingsStore.Snapshot} is the public shape, so the store owns the caller-facing
+     * type and its revision semantics.
+     *
+     * @param settings the settings; the defaults where the document sets none
+     * @param revision the {@code revision} of the document
+     * @since 0.1
+     */
+    record Snapshot(QualificationSettings settings, long revision) {
+
+        /** @throws NullPointerException if the settings are {@code null} */
+        public Snapshot {
+            Objects.requireNonNull(settings, FIELD_SETTINGS);
+        }
+    }
+
+    /**
+     * Reads the qualification settings and the revision of a local configuration document.
      *
      * @param file     the document's file, named by a refusal
      * @param document the document, UTF-8 encoded
-     * @return the settings; the defaults where the document sets none
+     * @return the settings and the document's revision
      * @throws StoreRefusal if the document declares another format version or is unreadable
      */
-    public static QualificationSettings read(Path file, byte[] document) {
+    static Snapshot read(Path file, byte[] document) {
         Objects.requireNonNull(file, "file");
         Objects.requireNonNull(document, "document");
         var reader = new DocumentReader(file);
@@ -70,7 +87,8 @@ public class QualificationSettingsCodec {
         } catch (StrictJson.Malformed e) {
             throw StoreRefusal.unreadable(file, 1, String.valueOf(e.getMessage()), e);
         }
-        return reader.settings == null ? QualificationSettings.defaults() : reader.settings;
+        return new Snapshot(reader.settings == null ? QualificationSettings.defaults() : reader.settings,
+                reader.revision);
     }
 
     /**
@@ -103,6 +121,7 @@ public class QualificationSettingsCodec {
 
         private final Path file;
         private QualificationSettings settings;
+        private long revision;
         private byte[] rewritten;
 
         DocumentReader(Path file) {
@@ -162,15 +181,16 @@ public class QualificationSettingsCodec {
             generator.writeNumberField(FIELD_FORMAT_VERSION, 1);
         }
 
-        private static void copyRevision(JsonParser parser, JsonGenerator generator,
+        private void copyRevision(JsonParser parser, JsonGenerator generator,
                 QualificationSettings replacement) throws IOException {
-            var revision = integer(parser, FIELD_REVISION);
+            var documentRevision = integer(parser, FIELD_REVISION);
             if (replacement == null) {
-                generator.writeNumberField(FIELD_REVISION, revision);
+                this.revision = documentRevision;
+                generator.writeNumberField(FIELD_REVISION, documentRevision);
                 return;
             }
             try {
-                generator.writeNumberField(FIELD_REVISION, Math.addExact(revision, 1));
+                generator.writeNumberField(FIELD_REVISION, Math.addExact(documentRevision, 1));
             } catch (ArithmeticException e) {
                 throw unreadable("'revision' cannot be incremented: " + revision, e);
             }

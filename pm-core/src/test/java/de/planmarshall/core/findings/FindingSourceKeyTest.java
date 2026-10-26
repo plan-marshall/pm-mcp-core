@@ -123,10 +123,10 @@ class FindingSourceKeyTest {
     class SourceKinds {
 
         @Test
-        @DisplayName("the source vocabulary is the eleven wire names of the store, each found by its name")
+        @DisplayName("the source vocabulary is the twelve wire names of the store, each found by its name")
         void wireNames() {
             var expected = new String[]{"analysis", "github_pr", "gitlab_mr", "ci", "self_review", "arch_gate",
-                    "compiler", "qgate", "security_audit", "code_review", "dependency_delta"};
+                    "compiler", "qgate", "security_audit", "code_review", "dependency_delta", "capability_tests"};
 
             var actual = Arrays.stream(FindingSourceKind.values()).map(FindingSourceKind::wireName)
                     .toArray(String[]::new);

@@ -1,0 +1,69 @@
+= ADR 044: The Metrics and Change-Ledger Stores Are Written Through the Scope Transaction
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-26
+
+== Context
+
+The digest sidecar of a scope covers every store "each written by a transaction of the scope", and
+`store-schemas/13` names `metrics.json` and the change-ledger JSONL files among them (Store Schemas § Store Digest
+Verification Against Out-of-Band Edits). The stores that already met that rule (`WaiverLog`, `QuestionLog`,
+`WorkflowStatusStore`) take the `JournalScope` of their scope and add their write as a target of the `ScopeTransaction`
+the caller opened under the scope lock.
+
+`MetricsStore` and `ChangeLedger` did not: each was built over a store file and opened its own lock transaction, so
+their writes were atomic and locked but outside the journal and the digest sidecar. `metrics.json` and
+`change-ledger.jsonl` were therefore not covered by the out-of-band-edit check the other stores of the same scope are.
+
+The choice was whether to keep the self-contained writer and add a second integrity mechanism for these two files, or to
+change their shape to the one the other stores already use.
+
+== Decision
+
+`MetricsStore` and `ChangeLedger` take the `JournalScope` of their scope and add their write to the caller's
+`ScopeTransaction`:
+
+* `MetricsStore(JournalScope)` writes `metrics.json` of a plan or an epic and `workspace/metrics.json` of the workspace
+  through `ScopeTransaction.replace`, after reading the document under the caller's lock.
+* `ChangeLedger(JournalScope)` writes `change-ledger.jsonl` of a plan or an epic and `workspace/change-ledger.jsonl` of
+  the workspace through `ScopeTransaction.append`; the append-only repair of a torn tail and the digest entry are the
+  transaction's, so the store no longer takes an `AuditSink` of its own.
+* Each write refuses a transaction of another scope, as the other scope-transaction stores do.
+* The public behaviour of both stores is unchanged: one row per attempt, a second row refused, a foreign row kept
+  verbatim, an appended line never rewritten.
+
+== Alternatives Considered
+
+1. *Keep the self-contained write and verify these two stores by a second digest mechanism.* _Not taken_: it would be a
+   second integrity vocabulary beside the scope sidecar, and the specification says the sidecar covers these stores.
+2. *Let the caller keep the store's own lock and commit the store separately after the transaction.* _Not taken_: the
+   store write and the other writes of the same decision would no longer be one journaled transaction, and a stop
+   between them would leave a half-applied decision the recovery cannot see.
+
+== Consequences
+
+* A row of `metrics.json` or a line of `change-ledger.jsonl` is now journaled with the other stores of its scope and is
+  covered by that scope's digest sidecar; an out-of-band edit is reported by `ScopeIntegrity` like any other store's.
+* The constructor and the append signature change to the scope-transaction shape. There is no production caller yet, so
+  no caller changes.
+* The cross-scope reconciler and the executor's change-ledger writer must pass the scope's transaction when they are
+  wired; that wiring is outside this plan.
+
+== Source
+
+* Plan PLAN-104, deliverables 3 and 4
+* link:../../../../doc/specification/store-schemas/05-metrics-and-quality-report.adoc#metrics-store[Store Schemas § Metrics
+  Store]
+* link:../../../../doc/specification/store-schemas/13-leases-integrity-testing.adoc#store-digest-verification[Store Schemas
+  § Store Digest Verification Against Out-of-Band Edits]
+* link:034-waiver-logs-appended-through-the-scope-transaction.adoc[ADR 034]
+* `pm-core/src/main/java/de/planmarshall/core/store/MetricsStore.java`,
+  `pm-core/src/main/java/de/planmarshall/core/store/ChangeLedger.java`,
+  `pm-core/src/test/java/de/planmarshall/core/store/MetricsStoreTest.java`,
+  `pm-core/src/test/java/de/planmarshall/core/store/ChangeLedgerTest.java`
