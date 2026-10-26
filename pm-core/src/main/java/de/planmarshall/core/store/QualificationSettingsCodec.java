@@ -66,7 +66,7 @@ public class QualificationSettingsCodec {
 
         /** @throws NullPointerException if the settings are {@code null} */
         public Snapshot {
-            Objects.requireNonNull(settings, "settings");
+            Objects.requireNonNull(settings, FIELD_SETTINGS);
         }
     }
 
@@ -183,14 +183,14 @@ public class QualificationSettingsCodec {
 
         private void copyRevision(JsonParser parser, JsonGenerator generator,
                 QualificationSettings replacement) throws IOException {
-            var revision = integer(parser, FIELD_REVISION);
+            var documentRevision = integer(parser, FIELD_REVISION);
             if (replacement == null) {
-                this.revision = revision;
-                generator.writeNumberField(FIELD_REVISION, revision);
+                this.revision = documentRevision;
+                generator.writeNumberField(FIELD_REVISION, documentRevision);
                 return;
             }
             try {
-                generator.writeNumberField(FIELD_REVISION, Math.addExact(revision, 1));
+                generator.writeNumberField(FIELD_REVISION, Math.addExact(documentRevision, 1));
             } catch (ArithmeticException e) {
                 throw unreadable("'revision' cannot be incremented: " + revision, e);
             }

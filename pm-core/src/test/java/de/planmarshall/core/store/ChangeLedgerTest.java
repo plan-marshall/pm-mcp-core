@@ -180,7 +180,7 @@ class ChangeLedgerTest {
 
         @Test
         @DisplayName("an appended line has a sidecar entry, as every store of the scope's transactions")
-        void sidecarEntry() throws Exception {
+        void sidecarEntry() {
             append(changeRow());
 
             var digest = DigestSidecar.load(scope.sidecarFile()).digest(ChangeLedger.FILE_NAME);
@@ -211,13 +211,16 @@ class ChangeLedgerTest {
             var other = JournalScope.plan(base, PROJECT, "another-plan");
             Files.createDirectories(other.journalFile().getParent());
 
-            assertThrows(IllegalArgumentException.class, () -> {
-                try (var transaction = locks.openTransaction()) {
-                    transaction.acquire(other.lockKey());
-                    var scopeTransaction = ScopeTransaction.open(transaction, other, audit, CLOCK);
-                    ledger.append(scopeTransaction, changeRow());
-                }
-            });
+            assertThrows(IllegalArgumentException.class, () -> appendInTransactionOf(other));
+        }
+
+        /** Appends this ledger's row in a transaction of another scope. */
+        private void appendInTransactionOf(JournalScope other) {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(other.lockKey());
+                var scopeTransaction = ScopeTransaction.open(transaction, other, audit, CLOCK);
+                ledger.append(scopeTransaction, changeRow());
+            }
         }
     }
 
@@ -324,8 +327,9 @@ class ChangeLedgerTest {
         @Test
         @DisplayName("the lesson store has no change ledger")
         void lessonStore() {
-            assertThrows(IllegalArgumentException.class,
-                    () -> new ChangeLedger(JournalScope.lessons(base, PROJECT)));
+            var lessons = JournalScope.lessons(base, PROJECT);
+
+            assertThrows(IllegalArgumentException.class, () -> new ChangeLedger(lessons));
         }
     }
 }

@@ -115,8 +115,9 @@ class QualificationSettingsStoreTest {
         Files.writeString(file, DOCUMENT, UTF_8);
         var current = store.read();
         var replacement = new QualificationSettings(70, 1, List.of(), false);
+        var staleRevision = current.revision() - 1;
 
-        var refusal = assertThrows(StoreRefusal.class, () -> store.write(replacement, current.revision() - 1));
+        var refusal = assertThrows(StoreRefusal.class, () -> store.write(replacement, staleRevision));
 
         assertAll(
                 () -> assertEquals(StoreRefusal.Outcome.CONFLICT, refusal.outcome()),

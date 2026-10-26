@@ -194,7 +194,7 @@ class MetricsStoreTest {
 
         @Test
         @DisplayName("an appended row has a sidecar entry, as every store of the scope's transactions")
-        void sidecarEntry() throws Exception {
+        void sidecarEntry() {
             append(row("qt-0123456789abcdef", usage()));
 
             var digest = DigestSidecar.load(scope.sidecarFile()).digest(MetricsStore.FILE_NAME);
@@ -225,13 +225,16 @@ class MetricsStoreTest {
             var other = JournalScope.plan(base, PROJECT, "another-plan");
             Files.createDirectories(other.journalFile().getParent());
 
-            assertThrows(IllegalArgumentException.class, () -> {
-                try (var transaction = locks.openTransaction()) {
-                    transaction.acquire(other.lockKey());
-                    var scopeTransaction = ScopeTransaction.open(transaction, other, audit, CLOCK);
-                    store.append(scopeTransaction, row("qt-0123456789abcdef", usage()));
-                }
-            });
+            assertThrows(IllegalArgumentException.class, () -> appendInTransactionOf(other));
+        }
+
+        /** Appends this store's row in a transaction of another scope. */
+        private void appendInTransactionOf(JournalScope other) {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(other.lockKey());
+                var scopeTransaction = ScopeTransaction.open(transaction, other, audit, CLOCK);
+                store.append(scopeTransaction, row("qt-0123456789abcdef", usage()));
+            }
         }
     }
 
@@ -512,8 +515,9 @@ class MetricsStoreTest {
         @Test
         @DisplayName("the lesson store has no metrics store")
         void lessonStore() {
-            assertThrows(IllegalArgumentException.class,
-                    () -> new MetricsStore(JournalScope.lessons(base, PROJECT)));
+            var lessons = JournalScope.lessons(base, PROJECT);
+
+            assertThrows(IllegalArgumentException.class, () -> new MetricsStore(lessons));
         }
     }
 }

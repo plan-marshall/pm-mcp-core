@@ -43,7 +43,7 @@ public final class ChangeLedger {
         this.scope = Objects.requireNonNull(scope, "scope");
         this.storePath = switch (scope.type()) {
             case PLAN, EPIC -> FILE_NAME;
-            case WORKSPACE -> WORKSPACE_DIRECTORY + "/" + FILE_NAME;
+            case WORKSPACE -> Path.of(WORKSPACE_DIRECTORY, FILE_NAME).toString();
             case LESSONS -> throw new IllegalArgumentException("The lesson store has no change ledger");
         };
     }

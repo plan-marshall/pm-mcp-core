@@ -967,8 +967,10 @@ _Requirements: link:{docs}/Requirements.adoc#PM-WF-14[PM-WF-14], link:{docs}/Req
 
 The work package `slots-usage-and-budgets` added the stores of the machine model slots, of the metrics rows, of the
 learned budgets and the change ledger, and the writer of the operator's qualification settings. Each is read and
-written strictly in `format_version` 1 over `StrictJson`, refuses what it cannot read as a `StoreRefusal` naming the
-file, and is written in one short transaction on the lock of its store. The schemas are in
+written strictly in `format_version` 1 over `StrictJson` and refuses what it cannot read as a `StoreRefusal` naming the
+file. A store that owns its write transaction writes in one short transaction on the lock of its store; `MetricsStore`
+and `ChangeLedger` instead stage their write in the caller's locked `ScopeTransaction`, so the scope's journal and
+digest sidecar cover them. The schemas are in
 link:{spec}/store-schemas/13-leases-integrity-testing.adoc#machine-lease-stores[Store Schemas § Machine Lease Stores],
 link:{spec}/store-schemas/05-metrics-and-quality-report.adoc#metrics-store[Store Schemas § Metrics & Quality Report],
 link:{spec}/store-schemas/09-derived-facts-and-build-timings.adoc#build-timings-store[Store Schemas § Build Timings
@@ -1015,8 +1017,9 @@ link:../adr/core-store/043-qualification-settings-replaced-in-place.adoc[ADR 043
 
 === Invariants
 
-* *One transaction per decision*: an admission, an append to a ledger, a metrics row and an observation each read and
-  write their store in one transaction on its lock, so no second writer comes between the check and the write.
+* *One transaction per decision*: an admission and an observation each read and write their store in one transaction
+  on its lock. A metrics row and a ledger append are staged in the caller-owned `ScopeTransaction`, which holds the
+  scope lock, so no second writer comes between the check and the write.
 * *One row partition per scope*: a task row of an epic or the workspace carries no `phase`, a worker-idle row is written
   only to the workspace, and the store refuses a row of another partition.
 * *A stale revision is refused*: a write of the operator's qualification settings names the revision it read, and a
@@ -1619,3 +1622,7 @@ parity check the specification has run ahead of is `@Disabled` with the work pac
   keeps three-valued usage figures and derives its total; a row of another kind is kept verbatim.
 * link:../adr/core-store/043-qualification-settings-replaced-in-place.adoc[ADR 043]: the qualification settings are
   replaced in place in the operator's `local-config.json`, which keeps every other member and the incremented revision.
+* link:../adr/core-store/044-metrics-and-change-ledger-through-the-scope-transaction.adoc[ADR 044]: `MetricsStore` and
+  `ChangeLedger` write through the caller's `ScopeTransaction`, so the scope's digest sidecar covers both files.
+* link:../adr/core-store/045-qualification-settings-refuse-a-stale-revision.adoc[ADR 045]: a write of the qualification
+  settings names the revision it read, and a stale revision is refused as `conflict`.
