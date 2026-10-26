@@ -77,12 +77,12 @@ class StoreRefusalTest {
     }
 
     @Test
-    @DisplayName("the outcomes are exactly the four of the reader contract and the three of the enrolment")
+    @DisplayName("the outcomes are exactly the four of the reader contract, the three of the enrolment and the conflict")
     void closedOutcomes() {
         var codes = Stream.of(Outcome.values()).map(Outcome::code).toList();
 
         assertEquals(List.of("absent", "unreadable", "format_outdated", "format_newer", "enrolment_tampered",
-                "enrolment_insecure", "enrolment_invalid"), codes);
+                "enrolment_insecure", "enrolment_invalid", "conflict"), codes);
     }
 
     /**
