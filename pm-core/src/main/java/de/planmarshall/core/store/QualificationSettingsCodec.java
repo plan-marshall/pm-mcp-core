@@ -78,7 +78,7 @@ public class QualificationSettingsCodec {
      * @return the settings and the document's revision
      * @throws StoreRefusal if the document declares another format version or is unreadable
      */
-    public static Snapshot read(Path file, byte[] document) {
+    static Snapshot read(Path file, byte[] document) {
         Objects.requireNonNull(file, "file");
         Objects.requireNonNull(document, "document");
         var reader = new DocumentReader(file);
