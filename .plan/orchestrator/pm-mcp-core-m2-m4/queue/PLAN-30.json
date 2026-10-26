@@ -2,9 +2,9 @@
   "id": "PLAN-30",
   "slug": "supervisor",
   "workstream": "WS-04",
-  "status": "running",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "status": "shipped",
+  "plan_marshall_plan_id": "plan-30-supervisor",
+  "pr": "#190",
+  "landing": "landings/PLAN-30.md",
   "seq": 30
 }
