@@ -31,7 +31,7 @@ Defect archetypes, real-corpus fixtures and verification hints that guard the sp
 
 |link:implementation-watch/model-work.adoc[Model Work]
 |`DISP`
-|62
+|63
 |link:specification/model-work.adoc[Model Work Specification]
 
 |link:implementation-watch/domain-extensions.adoc[Domain Extensions]
@@ -51,7 +51,7 @@ Defect archetypes, real-corpus fixtures and verification hints that guard the sp
 
 |link:implementation-watch/job-runtime.adoc[Job Runtime]
 |`JOB`
-|35
+|36
 |link:specification/job-runtime.adoc[Job Runtime Specification]
 
 |link:implementation-watch/client-profiles.adoc[Client Profiles]

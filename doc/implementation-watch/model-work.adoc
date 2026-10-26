@@ -1036,3 +1036,17 @@ the finding's version before the decision and the file at the record's `head_sha
 `evidence-incomplete`, never replaced; grading of that item runs in a worktree at its origin commit, and an item
 whose commit is missing records `checkout: current`.
 Source:: Article analysis `agentic-graph-engineering` of plan-marshall-documentation.
+
+[#PM-WATCH-DISP-67]
+=== PM-WATCH-DISP-67: Two routes to one model are one voter
+
+Anchor:: link:../specification/model-work/10-decision-quorum.adoc#decision-declarations[Model Work § Decision Declarations]
+(its Model Identity)
+Hazard:: The diversity check compares the identifiers as the role artifacts spell them, or strips only one prefix, so
+`openrouter/deepseek/deepseek-v4-flash` and `deepseek-v4-flash:free` pass as two models and a quorum of one model's
+weights decides without the operator.
+Guard:: Table test of the refusal `quorum_not_diverse`: a router prefix of one and of two segments, a `:free` variant,
+a difference in case, and two tags of one local model name are each refused; two roles whose enrolments record equal
+weights identities under different names are refused; matched control: two different models on one harness, and the
+same identifier stem from two vendors' distinct models whose weights identities differ, are accepted.
+Source:: Repository analysis `codeaf` of plan-marshall-documentation.
