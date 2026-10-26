@@ -68,7 +68,7 @@ class HarnessStartSpacingTest {
 
     @Test
     @DisplayName("the wait is capped at the compiled bound")
-    void theWaitIsCapped() {
+    void theWaitIsCapped() throws InterruptedException {
         var spacing = new HarnessStartSpacing(Duration.ofMillis(150));
         spacing.awaitTurn(CLIENT);
 
@@ -87,7 +87,7 @@ class HarnessStartSpacingTest {
 
     @Test
     @DisplayName("a start after the previous exit proceeds at once")
-    void aStartAfterTheExitProceedsAtOnce() {
+    void aStartAfterTheExitProceedsAtOnce() throws InterruptedException {
         var spacing = new HarnessStartSpacing(Duration.ofSeconds(5));
         spacing.awaitTurn(CLIENT);
         spacing.ended(CLIENT);
@@ -101,7 +101,7 @@ class HarnessStartSpacingTest {
 
     @Test
     @DisplayName("a collision that exits before its first call counts for the guard")
-    void aCollisionCountsForTheGuard() {
+    void aCollisionCountsForTheGuard() throws InterruptedException {
         var spacing = new HarnessStartSpacing(Duration.ofMillis(50));
         var events = new CopyOnWriteArrayList<AuditEvent>();
         var guard = new StartFailureGuard("sample-project", List::of, new SilentProtocol(), events::add,
