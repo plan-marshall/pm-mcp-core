@@ -55,15 +55,15 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/project-onboarding-unit.adoc` § What, Trace, Done When on `origin/main` at `4617865` (8 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/project-onboarding-unit.adoc last touched by c281f6c7; 8 What bullets, Trace and Done When equal the spec Deliverables 1-8
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/project-onboarding-unit.adoc unchanged since 88ec9c70; 8 What bullets equal D1 to D8
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-42 (`operator-wait-and-machine-scope`); PLAN-46 (`machine-onboarding-unit`)) — read at `doc/plans/project-onboarding-unit.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: README.adoc at HEAD: project-onboarding-unit open, depends on PLAN-42 and PLAN-46 only; row unchanged by 4617865..HEAD
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open, depends only on operator-wait-and-machine-scope and machine-onboarding-unit; no README hunk touches it
 - OBSERVED: the enrolment store, lifecycle gate and integrity shipped with PLAN-11 (#30): `core.store` (`EnrolmentStore`, `ProjectEnrolment`, `LifecycleGate`) and the new package `runtime.enrolment` — directory listing at 99971f3 on 2026-10-21
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: EnrolmentStore, ProjectEnrolment, LifecycleGate exist in pm-core core/store and pm-runtime runtime/enrolment holds Enrolments.enrol(ProjectEnrolment, boolean pilot), EnrolmentCheck, EnrolmentHmac; all added by 50109697 (#30)
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: core/store has EnrolmentStore, ProjectEnrolment, LifecycleGate; runtime/enrolment has Enrolments, EnrolmentCheck, EnrolmentHmac, HarnessesSidecarCheck; #185 and #190 touched only runtime-enrolment ADR 006 there
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: One named path is misattributed: pm-runtime runtime/workspace holds only WorkspaceConfinement and its package-info and the module-structure row say it is the path-confinement entry (PM-SEC-2), not the projects of the machine; the explorer store and consents belong to pm-core store per the module-structure pm-core row. core/config and workflow/setup are package-info only as claimed and the 9 OBSERVED paths exist
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: still wrong: runtime/workspace holds only WorkspaceConfinement and package-info; core/config and workflow/setup are package-info only; workflow/unit is loaders only; no consents.json or explorer.json code
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Row open at HEAD; package file unchanged since c281f6c7; open-PR list not re-read; dependencies PLAN-42 and PLAN-46 still open
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: row open, not blocked; both dependency rows still in the index; no open PR names it
 
 ## Expected Surface
 
@@ -92,6 +92,38 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/store-schemas/12-machine-stores.adoc` — specification part; the implemented sections deleted
 - HYPOTHESIS: `pm-workflow/doc/developer/workflow-setup.adoc` — to be created; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - HYPOTHESIS: `pm-core/doc/developer/core-config.adoc` — to be created; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/job/` — `ProbeCandidate` already has `Kind.SCRIPT` and a `CheckoutRoot` working directory (probe jobs for checkout scripts, D3 and D4); consumed, extended only if needed; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `doc/specification/model-work/01-roles-and-configuration.adoc` — the screener repeated runs (#189) change the expected tokens shown before `model_cost` consent (D6); trace only; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc` — the code scanning provider (#186) makes the provider list of D5 open-ended; trace only; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 5: 4 corroborated, 1 contradicted (re-scoped by this section), 0 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claim 3: still wrong as at `88ec9c70`: `runtime/workspace` holds only `WorkspaceConfinement` and `package-info`; `core/config` and `workflow/setup` are package-info only; `workflow/unit` is loaders only; no `consents.json` or `explorer.json` code.
+
+### Surface
+
+- Added to the Expected Surface above: `runtime/job/`, `model-work/01`, `phase-workflows/05`.
+- wrong: `pm-runtime/.../runtime/workspace/` is a path-confinement entry, not "the projects of the machine"; a new package is needed. `pm-workflow/.../workflow/unit/` is loaders only (the onboarding unit is default-unit content of `plan-marshall-mcp`, which holds no `.pmwf` yet). `pm-core/doc/adr/core-store/` is annotated "new directory if absent"; it exists (next 046). The guides `core-store.adoc`, `workflow-unit.adoc`, `runtime-enrolment.adoc`, `runtime-workspace.adoc` exist (extend); `core-config.adoc` and `workflow-setup.adoc` are absent; the ADR directories `runtime-workspace` and `runtime-web` do not exist.
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- **#181 (`7f1d6a99`) — Store Schemas 08 § Project Values over Machine Values and the local-config schema: a new operator-owned key `diagrams.format` (`text` or `mermaid`).** The table's bullet says `project.operator` shows every operator aspect, but **D7's enumerated list (copied from State Catalogue 15, line 89) omits it** and no onboarding state writes it (`language.choose` writes only `language.interface` and `language.model`); Store Schemas 12 gives the machine-config member the default `text`. D7 and its Done-when ("an accepted proposal records nothing, a changed value is recorded") must either include `diagrams.format` or state its exclusion: a spec correction of State Catalogue 15 or Store Schemas 08 is needed either way (a documentation decision).
+- #185 — Store Schemas 11 § Unreadable Store: `harness_store_unreadable` refuses every worker launch of a `harnesses.json` whose entries lack required members; recovery is a new enrolment of the named client that drops other clients' entries; touches no D1 to D8 sentence.
+- #186 — Phase Workflows 05: the provider `github-code-scanning` with `project.json integrations.github-code-scanning.tools` (non-empty, a team value), reusing the github integration's variant and credential; State Catalogue 06 (`setup.select-providers`) is not updated, so D5 gains no behaviour but the provider list is open-ended. #189 — screener repeated runs: the expected tokens of D6 grow for that topic (`role-qualification`'s number). #187 — the worker read set: probes keep the open read set; enrolment `host_tools[].executable_path` becomes a worker read grant.
+
+### Shipped or superseded since the last grounding
+
+- #185: `QualificationSettingsStore` reads and writes `local-config.json` `settings.qualification` with `Snapshot(settings, revision)`, refuses a stale revision with `StoreRefusal.Outcome.CONFLICT`, never creates the file ("the project's onboarding writes it") and copies other members through; `StoreRefusal.conflict` carries only revision numbers, so D7's "conflict and the current value" needs a re-read on top. ADR numbers: `core-store` 046, `runtime-worker` 010.
+
+### Open questions for the outline
+
+- `diagrams.format` in `project.operator` (above); does `setup.select-providers` offer `github-code-scanning` and its `tools` list; the earlier questions stand (`ci.whoami` has no module, the git detection seam without JGit in `pm-runtime`, which store API joins the consent write and the enrolment write at `project.enrol`, the quorum/skip_decisions split with `decision-quorum-and-calibration`).
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

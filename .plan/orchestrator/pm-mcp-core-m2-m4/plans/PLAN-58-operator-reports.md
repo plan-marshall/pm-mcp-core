@@ -57,13 +57,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/operator-reports.adoc` § What, Trace, Done When on `origin/main` at `4617865` (10 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/operator-reports.adoc has 10 What bullets; last touched 72aec5cb (#111); not touched by the seven spec PRs
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/operator-reports.adoc unchanged since 88ec9c70; 10 What bullets
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-42 (`operator-wait-and-machine-scope`); PLAN-51 (`plan-and-epic-control`) (the plan's outcomes, its end, and its holds); PLAN-77 (`epic-resource-and-release`) (the end of an epic, the release of a project); PLAN-57 (`epic-auto`); PLAN-47 (`decision-engine`); PLAN-76 (`start-source-intake`) (a screened source flagged); PLAN-61 (`token-usage`); PLAN-66 (`worker-activity`) (`task.off_track`)) — read at `doc/plans/operator-reports.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: README row operator-reports open with the eight listed dependencies (operator-wait-and-machine-scope, plan-and-epic-control, epic-resource-and-release, epic-auto, decision-engine, start-source-intake, token-usage, worker-activity), all rows exist; queue PLAN-58 staged
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open with the same eight dependencies, all open rows
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Labelled hypothesis. core/store/ and workflow/engine/ exist; no report code: git grep of report_id, reports.jsonl, report.sent, plan.started finds nothing in src; no LockKey for state/reports.jsonl in LockKey, LockLevel, LockOrder
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: no report code at f4a1bd07 (report_id, reports.jsonl, report.sent not found; only StalledScopeDetector.HOLD_RELEASED); no report lock key
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Row open; no branch on origin names the package; open-PR list not read (no gh)
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: row open; no open PR; #185 and #190 delivered no report code
 
 ## Expected Surface
 
@@ -84,6 +84,35 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/model-work/09-completion-usage-and-spend.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/01-format-and-session-log.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/12-machine-stores.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/LockKey.java` — the report journal's own leaf lock has no key yet; read, extended; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/LockLevel.java` — lock levels of the report journal; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/LockOrder.java` — lock order of the report journal; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/StalledScopeDetector.java` — the existing `plan.hold_released` announce seam (D4); added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 4: 3 corroborated, 0 contradicted, 1 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`). Nothing in #185 to #192 falsifies a Deliverable or a Done-when sentence.
+
+### Surface
+
+- Added to the Expected Surface above: `LockKey`, `LockLevel`, `LockOrder`, `StalledScopeDetector`.
+- wrong: `pm-runtime/.../runtime/` is not a package and holds no endpoint class (routes are `pm-mcp-server`, the subject texts are `pm-api` in `pm-mcp-clients`).
+- Landed footprint: `core/store/` was touched by #185 (`ChangeLedger`, `MetricsStore` through `ScopeTransaction`, `QualificationSettings*`, `StoreRefusal`) and #190 (`JobRecordStore.writeWorker`, `WorkerState`, `WorkerStateCodec`); the report journal needs its own leaf lock and is not a `ScopeTransaction` store: nothing landed gives it a lock key or a record class.
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #181 (`7f1d6a99`) — Phase Workflows 05 § Change Map: the map in the completion report now also exists as positioned layout data for the web app (Workflow DSL 07 § Positioned Layout, bounded at 200 nodes, `PM-WATCH-DSL-38`); the open question of who builds the completion report's change map and own calls (D8 omits both) widens, and the layout endpoints have no engine package. `diagrams.format` is a setting for model-written text and does not touch the completion report.
+- #187, #190 — Client Profiles 01: § Tokens, Not Money and the Navigation Figures this spec reads are untouched. #190 — Model Work 09: only the `PM-WATCH-DISP-43` reference dropped. The start-failure guard's report goes to the runtime status and the audit (`worker_start_failed`), not the report catalogue (16 kinds, unchanged).
+
+### Shipped or superseded since the last grounding
+
+- #190: `AuditEvent.workerStartFailed` and the supervisor; the `task.off_track` actions come from `worker-activity` (open) and `AgentStartedDetector` has no caller. #185's `CONFLICT` outcome is not needed by a read-only report journal.
+
+### Open questions for the outline
+
+- Who builds the completion report's own calls and change map; which package provides the report journal's lock key and the home of the route logic (`pm-mcp-server`, outside this repository); no Adjacent line names `pm-api` or `pm-mcp-server`.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

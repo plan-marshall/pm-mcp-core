@@ -58,13 +58,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/runtime-control.adoc` § What, Trace, Done When on `origin/main` at `4617865` (8 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/runtime-control.adoc last touched 72aec5cb and unchanged at HEAD; 8 What bullets equal the Deliverables
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/runtime-control.adoc not in git log 88ec9c70..f4a1bd07; 8 What bullets equal D1 to D8
 - OBSERVED: the package file and its index row (`blocked`; depends on PLAN-30 (`supervisor`); PLAN-28 (`task-queue-and-protocol`); PLAN-46 (`machine-onboarding-unit`) (the consent store); the operator's answer to the open question of the registry credential, for the update check and the fetch (no work package)) — read at `doc/plans/runtime-control.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: README row at HEAD: blocked; depends supervisor; machine-onboarding-unit (consent store); the registry-credential question; task-queue-and-protocol dropped (PLAN-28 shipped #160 2709d289); the question is still open at documentation origin/main doc/discussions/open-questions.adoc#registry-credential
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: index row blocked, depends only on machine-onboarding-unit (consent store) and the registry credential question; PLAN-28 and PLAN-30 are shipped; the question is still open in the documentation open-questions
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: runtime.start already hosts the drain (RuntimeDrain; DrainParticipant; DrainTimeout; JobDrainParticipant) so that path is right; the operator endpoints are assembly code (RuntimeDrain javadoc: the assembly calls drain on the stop endpoint) and pm-core has no consent type or check_updates (PLAN-46 builds it); the 5 OBSERVED paths exist
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: runtime/start paths exist (RuntimeDrain, DrainParticipant, JobDrainParticipant); no consent type or check_updates code, no EX_TEMPFAIL
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: row blocked at HEAD (registry credential question open; supervisor and consent store unbuilt); no commit names runtime-control; open-PR list not re-read
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row blocked; registry question open; machine-onboarding-unit open; no open PR names runtime-control
 
 ## Expected Surface
 
@@ -80,6 +80,36 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/store-schemas/12-machine-stores.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/timeouts/02-runtime-leases-operator-web.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/implementation-watch/runtime-lifecycle.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/` — `WorkerDrainParticipant` is the drain participant for workers (D3 stop now: force end and fence); added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `doc/specification/credentials-and-enrolment/03-audit-and-outbound-https.adoc` — § Closed List of Outbound Calls (#188) binds the update check; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 4: 2 corroborated, 1 contradicted (re-scoped by this section), 1 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claim 1: the index row is `blocked` and depends only on `machine-onboarding-unit` (the consent store) and the registry-credential question (still open at documentation `doc/discussions/open-questions.adoc:14`); PLAN-28 and PLAN-30 are shipped.
+
+### Surface
+
+- Added to the Expected Surface above: `runtime/worker/` and `credentials-and-enrolment/03`.
+- wrong: `pm-runtime/doc/adr/runtime-start/` and `pm-core/doc/adr/core-store/` are annotated "new directory if absent"; both exist (next 016 and 046).
+- wrong: the operator endpoints (`/api/v1/operator/runtime/*`) are assembly code in `pm-mcp-server`, not `runtime.start`.
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #188 (`854a7c7a`) — Credentials and Enrolment 03 § Closed List of Outbound Calls (`closed-outbound-list`): a required static architecture rule (no class outside `cui-http`'s `HttpHandler` and the JGit connection factory opens a socket) and an integration test with a positive control; `check_updates` on must record exactly one connection, to the registry origin. A new test requirement tied to D6; no watch item and no package owns it. Add a deliverable or name the owner at the outline.
+
+### Shipped or superseded since the last grounding
+
+- `WorkerDrainParticipant` (#190): `stopAdmitting`, end idle, `awaitQuiet`, `terminateRemaining` (force end, fence, `killed`), all through `WorkerEnding`. `WorkerSupervisor.stopAdmitting` is one-way: no resume and no withdraw in `DrainParticipant`, so D4 needs a new seam; `RuntimeDrain` is still one-shot with a constructor-fixed timeout.
+
+### Open questions for the outline
+
+- Registry credential and release form (operator); a cancellable or shortenable `RuntimeDrain` for stop-now and withdraw; which test owns the `check_updates` positive control of #188; where the exit-75 path lives.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

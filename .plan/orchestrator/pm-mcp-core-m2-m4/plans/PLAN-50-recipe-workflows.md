@@ -50,13 +50,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/recipe-workflows.adoc` § What, Trace, Done When on `origin/main` at `4617865` (3 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: git diff 88ec9c70..8233fffc shows no change to doc/plans (recipe-workflows.adoc and README.adoc untouched); #177 and #179 touched no package-file text
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/recipe-workflows.adoc unchanged; 3 What bullets and Done When equal D1 to D3
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-43 (`phase-sub-workflows`); PLAN-48 (`start-from-clients`)) — read at `doc/plans/recipe-workflows.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: doc/plans/README.adoc untouched since 88ec9c70 (rows recipe-workflows open; phase-sub-workflows and start-from-clients still listed); ledger queue diff holds only PLAN-30/31/32 so queue/PLAN-50 is as in the first pass
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open, depends on phase-sub-workflows and start-from-clients, both rows still listed
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: labelled hypothesis; git diff shows no change in pm-core pm-workflow pm-runtime; pm-core/src/main/java/de/planmarshall/core/recipe holds only package-info.java at HEAD; core-recipe.adoc and its ADR directory still to be created; phase-workflows/01 (an OBSERVED surface path) exists and was edited by #177 only in capability/proportion text outside recipe content
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: workflow/plan (30 files), workflow/unit (7), core/recipe package-info only; recipe loaders still absent
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: the first-pass grounding (README row open; simplify-recipe/recipe_override removal and EMPTY_HARVEST already shipped; next workflow-dsl ADR 009) is code and index state and neither moved (no diff in pm-* or doc/plans or doc/adr)
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: shipped state intact: composition-rules.json has 13 rules none keyed on recipe_id; UnitType.RECIPE, CompositionEvent.EMPTY_HARVEST exist; workflow-dsl ADRs end at 008
 
 ## Expected Surface
 
@@ -75,6 +75,26 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/workflow-dsl/09-plan-instance.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/unit/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `pm-workflow/doc/developer/workflow-unit.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 4: 3 corroborated, 0 contradicted, 1 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`). **No surface path was added or found wrong and no landed change touches recipe content.**
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #184 and #186 — Domain Extensions 05 § Pre-Submission Self-Review Surfacer (the item Consumers Outside the Footprint, `PM-WATCH-EXT-39`; Removed Guards gains a security-finding sentence): not recipe content; it must be left when the implemented recipe sections of the file are deleted; no Deliverable changes.
+- #189 — State Catalogue 09 source units and Phase Workflows 01 line 290: `source-lesson` screening; a request-scoped recipe gathers sources like a plan (D3), so it inherits it without a text change. #177 and #192 — Phase Workflows 01 Proportion, Capability Specs, Builder Check: not recipe content.
+- No overlap with `security-audit-and-code-scanning`: the bundled `recipe-security-audit` (`plan-marshall-mcp` content) reuses the shared finalize unit whose `security_severity_caps` declaration (Workflow DSL 02:326) is that package's.
+
+### Shipped or superseded since the last grounding
+
+- None. ADR numbers: `workflow-plan` next 018, `workflow-unit` next 007, `workflow-dsl` next 009, `core-recipe` 001 (a new directory). Dependencies: PLAN-43 and PLAN-48 open.
+
+### Open questions for the outline
+
+- Which copy of the Phase 1 and 3 default units loses the recipe states (outside this repository; only `unit-fixtures/defaults` here); where the recipe loaders (machine and project) live in `workflow/unit`.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

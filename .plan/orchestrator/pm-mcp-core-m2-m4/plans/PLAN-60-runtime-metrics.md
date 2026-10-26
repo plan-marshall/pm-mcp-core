@@ -58,13 +58,13 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/runtime-metrics.adoc` § What, Trace, Done When on `origin/main` at `4617865` (6 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/runtime-metrics.adoc at HEAD has 6 What bullets, unchanged since 98ce971c (empty diff since 4617865).
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/runtime-metrics.adoc not in git log 88ec9c70..f4a1bd07; 6 What bullets equal D1 to D6
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-30 (`supervisor`); PLAN-28 (`task-queue-and-protocol`); PLAN-31 (`slots-usage-and-budgets`); PLAN-61 (`token-usage`); PLAN-51 (`plan-and-epic-control`) (held and paused)) — read at `doc/plans/runtime-metrics.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: README row runtime-metrics at HEAD depends on supervisor, token-usage, plan-and-epic-control (held and paused) only; PLAN-28 task-queue shipped (#160 2709d289) and PLAN-31 slots shipped (#164 88ec9c70) and left the row. The stale metrics-library entry is not in the row.
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: index row open, depends only on token-usage and plan-and-epic-control; supervisor (#190), task-queue (#160) and slots (#164) are shipped; the spec lists five
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Hypothesis (verify-at-outline). 12 observed paths exist at HEAD. core/metrics/ does not exist; pm-runtime/pom.xml carries no micrometer dependency yet.
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: core/metrics does not exist; no micrometer in any module POM; runtime/web holds listener state only
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, that the parent POM manages `micrometer-core`, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Row open. Parent pm-mcp-parent 0.1.1 imports io.quarkus:quarkus-bom (version.quarkus from cui-quarkus-parent 1.7.7) and every quarkus-bom pom in ~/.m2 checked (3.39.3, 3.40.1) manages io.micrometer:micrometer-core (1.17.1 in 3.40.1), so the version is managed through the imported BOM, not the parent's own list. PLAN-28 and PLAN-31 shipped. Use cases not re-read.
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open; pm-mcp-parent imports quarkus-bom whose pom contains micrometer-core; token-usage and plan-and-epic-control still open; no open PR names runtime-metrics
 
 ## Expected Surface
 
@@ -97,6 +97,39 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/ModelSlotScheduler.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/queue/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/task/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/` — the recording site for `work.workers` (`WorkerSupervisor.generations`); no metrics hook exists there yet; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/` — `MetricsStore` and `ChangeLedger` write through `ScopeTransaction` (#185); `WorkerState`, `WorkerStateCodec`, `JobRecordStore.writeWorker` (#190); added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-core/doc/adr/core-store/` — next free number 046; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/Traceability.adoc` — written by every plan; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 4: 2 corroborated, 1 contradicted (re-scoped by this section), 1 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claim 1: the index row is open and depends only on `token-usage` and `plan-and-epic-control`; `supervisor` (#190), `task-queue-and-protocol` (#160) and `slots-usage-and-budgets` (#164) are shipped, so the spec's five dependencies are two.
+
+### Surface
+
+- Added to the Expected Surface above: `runtime/worker/`, `core/store/`, the `core-store` ADR directory, `doc/Traceability.adoc`.
+- wrong: `pm-runtime/.../runtime/web/` holds listener state only; the endpoints and the stream are `pm-mcp-server` routes.
+- wrong: `pm-core/doc/developer/core-metrics.adoc` and `pm-core/doc/adr/core-metrics/` do not exist (new, as annotated); `core/metrics` does not exist; no module POM carries micrometer.
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #190 — Model Work 09 § Worker Result & Usage Parsing: only the `PM-WATCH-DISP-43` pointer removed; the token-figure rules are unchanged; no effect on `models.*`. Client Profiles 01 (#187, #190): `headless.readable_paths`, the `paths` eligibility condition and the load check; § Tokens, Not Money is untouched.
+- #185 (code) — `MetricsStore` is built over `JournalScope` and appends in the caller's `ScopeTransaction`; any recording in a task-row or attempt transaction must use the scope transaction.
+
+### Shipped or superseded since the last grounding
+
+- #190: the supervisor and the job record's `worker` block are the worker source of `work.workers`; no `MeterRegistry` or metric name exists anywhere.
+
+### Open questions for the outline
+
+- Owner of the `pm-mcp-server` routes, the stream, the OpenMetrics text and the native-build evidence (no `plan-marshall-mcp` package); the documentation pull request for the `core.metrics` row and the `micrometer-core` dependency (not assigned by the Adjacent clause); whether `runtime.worker` gets metric hooks or only the assembly records from `WorkerCalls`.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

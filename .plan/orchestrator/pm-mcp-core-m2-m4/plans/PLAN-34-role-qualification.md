@@ -16,7 +16,7 @@ workstream: WS-05
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R15, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R15, R17, R18.
 
 Plan parameters (the values the rules ask for):
 
@@ -38,7 +38,7 @@ The bullets of `doc/plans/role-qualification.adoc` § What, in its words (regene
 5. The corpus itself and its validation by the build are `plan-marshall-mcp` / `qualification-corpus-in-the-build`.
 6. Agreement per topic: the record keeps per form and per topic (`own` and `generic`, defined by the corpus items' `role` field) the agreement and the item count in `topics` (`topicResult`), never a pooled agreement; `warm_fresh_gap` is the largest over the topics of the fresh minus the warm agreement, and the own items of the review roles include planted defects at their correct severity, among them a defect that every criterion and every test accepts but that a constraint `CN-<n>` of the intent record rules out. A record is valid, in the fresh form, only when every topic of the record reaches the project's `qualification.agreement_level` (read at every check, so a changed level applies to existing records) and the record holds a result for each of those topics; a role whose `generic` topic reaches it and whose `own` topic does not is not valid, and neither is the reverse; a role without items of its own is valid on the `generic` topic alone, and a `zero_tool` role without items of its own has no topics and cannot qualify (Model Work § Corpus Topics of a Role; § Qualification Records; Store Schemas § Role Qualification Record; § Operator Local Configuration; Implementation Watch § Model Work).
 
-**Done when** (the package's own acceptance): A changed member of the digest invalidates the record, a changed role assignment or plan override included; an unqualified role takes its conservative fallback; a grading run over a fixture corpus with a scripted harness writes the specified record with `total_tokens`; a grading over a failed import writes no valid record, and one over a partial import names its missed sources. A record whose `generic` topic reaches the level and whose `own` topic does not is not valid, and neither is the reverse; a record that lacks a topic of the corpus is not valid; a record whose every topic reaches the level is valid; a role without items of its own is valid on the `generic` topic alone, and a `zero_tool` role without items of its own cannot qualify; `warm_fresh_gap` is the largest over the topics of the fresh minus the warm agreement; each topic's item count is recorded beside its agreement, and a changed agreement level applies to an existing record at its next check without re-grading; the review roles' own items include a defect that every criterion and every test accepts but a constraint `CN-<n>` rules out, and an answer that grades such a plan clean disagrees with the reference. **Sonar:** the SonarCloud search of the pull request (`pullRequest=<N>&resolved=false`) lists no open issue other than one dismissed with its reason, and its quality gate is green, before the pull request is reported ready.
+**Done when** (the package's own acceptance): A changed member of the digest invalidates the record, a changed role assignment or plan override included; an unqualified role takes its conservative fallback; a grading run over a fixture corpus with a scripted harness writes the specified record with `total_tokens`; a grading over a failed import writes no valid record, and one over a partial import names its missed sources. A record whose `generic` topic reaches the level and whose `own` topic does not is not valid, and neither is the reverse; a record that lacks a topic of the corpus is not valid; a record whose every topic reaches the level is valid; a role without items of its own is valid on the `generic` topic alone, and a `zero_tool` role without items of its own cannot qualify; `warm_fresh_gap` is the largest over the topics of the fresh minus the warm agreement; each topic's item count is recorded beside its agreement, and a changed agreement level applies to an existing record at its next check without re-grading; the review roles' own items include a defect that every criterion and every test accepts but a constraint `CN-<n>` rules out, and an answer that grades such a plan clean disagrees with the reference. **Sonar:** the SonarCloud search of the pull request (`pullRequest=<N>&resolved=false`) lists no open issue other than one dismissed with its reason, and its quality gate is green, before the pull request is reported ready. **Build:** `verify -Ppre-commit` (its rewrites reviewed and committed), then `verify` of every module the plan changes (`pm-core`, `pm-workflow`; where a full run does not finish inside the host's bound, the targeted `-Dtest` runs of the changed classes and the per-module run, each reported in the pull request body), `verify -Pcoverage`, and `verify -Pintegration-tests -pl pm-core -am` are green. **Links:** run the links check (R17) from the main checkout against the documentation checkout at its `origin/main` (`git -C ../plan-marshall-documentation fetch origin main`, then `trace.py` over a checkout of that revision, or fast-forward the sibling first): the checkout of the sibling lags, and a `BROKEN LINKS 1` for `PM-WATCH-GEN-60` is that lag, not a defect of `main`. **Docs-only change:** a specification-only pull request now runs the build (ADR `doc/adr/009`), so a schema change here is checked by the parity tests before it merges.
 
 **Trace starting set** (the requirements, use cases and roadmap live in `../plan-marshall-documentation`; the specifications and watch documents of the engine in this repository, `doc/specification/` and `doc/implementation-watch/`):
 
@@ -53,25 +53,25 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/role-qualification.adoc` § What, Trace, Done When on `origin/main` at `4617865` (6 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: doc/plans/role-qualification.adoc last changed by 44ee549b (#171) after the grounding: What now has 7 bullets (new bullet: constant baseline, judge instrument check, item graded at its origin commit with checkout), bullet 2 now says judge and steward are exempt from qualification and the judge is checked as an instrument, Done When gained the baseline/judge_unchecked/checkout sentence; the spec Deliverables (6 bullets) and Done-when carry the old text
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: doc/plans/role-qualification.adoc unchanged since 44ee549b (#171); it has 7 What bullets (constant baseline, judge instrument check, checkout at origin commit), the spec Deliverables hold 6 and the old Done-when; re-scoped in the Re-grounding Record of 2026-10-26
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-26 (`role-sets-and-model-caller`); PLAN-30 (`supervisor`)) — read at `doc/plans/role-qualification.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: doc/plans/README.adoc at HEAD: row role-qualification is open but Depends on supervisor only; PLAN-26 (role-sets-and-model-caller) shipped as 964f673d (#146)
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: index row role-qualification is open and Depends on nothing at f4a1bd07: PLAN-26 (#146) and PLAN-30 (#190, supervisor.adoc deleted) are shipped
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/` exists and holds `package-info.java` and the subpackage `core/role/corpus/` (25 source files: `CorpusImport`, `CorpusValidator`, `SourceManifest` and their kin, #74 and #80, with its own guide `core-role-corpus.adoc` and ADR directory `core-role-corpus`); the qualification records are new in `core/role/` itself and build on that subpackage rather than beside it — directory listing at 4617865 on 2026-10-22
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: pm-core core/role at HEAD holds package-info.java plus 26 top-level classes from PLAN-26 (RoleDigests, EffectiveRole, RoleCatalog, RoleResolver, RoleSets, ShippedRoles, ...) besides corpus/ (25 files, still true); the part that no qualification record class exists is still true (git grep for topicResult, warm_fresh_gap, missed_sources, constant_baseline finds no Java source)
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: core/role holds package-info plus 26 top-level classes and corpus/ (25 files); no qualification record class exists (no topicResult, warm_fresh_gap, missed_sources, constant_baseline, judge_unchecked in any Java source)
 - OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/model/` exists and holds `package-info.java` today, so the package is greenfield apart from its package description — directory listing at 99971f3 on 2026-10-21
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: pm-workflow workflow/model at HEAD holds 9 classes besides package-info (AvailabilityGuard, CompositionRefusal, ModelCallResult, ModelCaller, ModelJob, ModelQueue, QualificationLookup, RoleComposition, RoleUse) from PLAN-26 #146; it is not greenfield
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: workflow/model holds 9 classes besides package-info (ModelCaller, QualificationLookup, RoleComposition, RoleUse ...) and 3 test classes; not greenfield
 - HYPOTHESIS: part of this package lands in `pm-workflow` package `workflow.model`. This is a guess: the package file names only the module, and no package description of the package table (read 2026-10-10) covers the subject. The same kind of guess was refuted twice for PLAN-03, which landed in `core.store` and a new package `runtime.workspace` after an operator answer. Expect to ask the operator for the package home at refine — confirm/refute at `../plan-marshall-documentation/doc/specification/module-structure.adoc` § the package table of `pm-workflow` (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis. module-structure.adoc (documentation origin/main, which lags) gives workflow.model as the one model caller and core.role as holder of the qualification records; the QualificationLookup port lives in workflow.model but no source names a home for the grading run, so the guess is neither settled nor refuted
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: module-structure gives core.role the records and workflow.model the model caller; no source names the home of the grading run
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line of the package file, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis verify-at-outline; the 7 OBSERVED surface paths all exist at HEAD (README, role-qualification.adoc, both watch files, model-work/01, store-schemas/16, core/role)
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis verify-at-outline; all OBSERVED surface paths exist, the surface was incomplete (see Re-grounding Record of 2026-10-26)
 - OBSERVED: each module that logs has one holder with its own test, which refuses an identifier used twice and one outside the range of its level (INFO 1-99, WARN 100-199, ERROR 200-299): `CoreLogMessages` (5 records), `RuntimeLogMessages` (81), `WorkflowLogMessages` (5); `PmMcpLogMessages` is deleted — read on main at 238c823 on 2026-10-16
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: count of static final LogRecord at HEAD: CoreLogMessages 5 and WorkflowLogMessages 5 match, RuntimeLogMessages is 83 not 81 (PLAN-29/PLAN-31 added records); PmMcpLogMessages is still absent from all Java sources
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: LogRecord count at f4a1bd07: CoreLogMessages 5, WorkflowLogMessages 5 match, RuntimeLogMessages is 89 (PLAN-30 added six); PmMcpLogMessages still absent
 - HYPOTHESIS: the package adds INFO, WARN or ERROR messages; its module's log holder is deliberately NOT in the Expected Surface: a record is appended at the next free identifier and a collision is resolved on rebase, as the operator decided for the shared holder on 2026-10-09 and kept for the per-module holders on 2026-10-13 — confirm/refute the need at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis about future log records; verify-at-outline
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis about future log records; the next free identifier is taken at write time
 - HYPOTHESIS: the package makes no HTTP call, so the two HTTP constraints bind only if the trace matrix shows one — confirm/refute at the specification sections of the trace starting set (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis about a future package; no grading source exists at HEAD to read (the corpus import fetch interfaces SourceRepository and LfsObjectSource are in core.role.corpus, not in grading)
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis; no grading source exists, the only HTTP in the corpus path is HuggingFaceSourceRepository over cui-http, not grading
 - Verify-first clause: before scoping, read the roadmap item this package serves for what the code already covers, list the open pull requests for one that names `role-qualification`, and check in `doc/plans/README.adoc` that every dependency is `done`; a refutation of any claim above loops back to re-scope.
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: procedure: the open-PR list is not reachable read-only; row role-qualification is open at HEAD and its dependency supervisor is still listed (PLAN-30 running); claims 0 to 3 and 6 are refuted so the clause's own loop-back to re-scope is triggered
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: procedure; the row is open and Depends on nothing so the package is ready; the open-PR list is not readable read-only; the loop-back is already triggered by claims 0 to 3
 
 ## Expected Surface
 
@@ -92,6 +92,48 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `doc/specification/filesystem-layout/03-project-store.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `doc/specification/store-schemas/08-project-configuration-local.adoc` — § Operator Local Configuration (`qualification.agreement_level`) is in the trace and the file was not in the surface; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/corpus/` — the grading reads the corpus items through `CorpusImport` and `CorpusValidator` (guide `core-role-corpus.adoc`); read, extended only if the grading needs an accessor; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-core/doc/developer/core-store.adoc` — the record is written to the project set through the `ScopeTransaction`/`StoreRefusal` seam (ADR `core-store/044` and `045`); extended if the write path changes; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-core/doc/adr/core-store/` — next free number 046; added by the re-grounding of 2026-10-26
+- HYPOTHESIS: `doc/LogMessages.adoc` — one row per log record the package adds (R12); added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07` (the specification pull requests #181, #184, #186 to #189, #191 and #192 and the code plans #185 PLAN-104 and #190 PLAN-30 have landed since the pass of `88ec9c70`). This section is the **latest** reading; the section of 2026-10-25 and the section "Shipped since the re-grounding" below it stay as the audit record, and **where they differ, this section is the later reading**. Every statement about the repository was read at the cited place by a read-only leaf and spot-checked.
+
+- Claims re-read: 10: 0 corroborated, 5 contradicted (re-scoped by this section), 5 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claims 0 to 3 stand as in the earlier section (package file at 7 bullets, row open with no dependency, `core/role` with 26 classes besides `corpus/`, `workflow/model` with 9 classes and 3 test classes); nothing moved since.
+- Claim 6: `RuntimeLogMessages` now holds **89** records (PLAN-30 added six); the other two holders are unchanged (5 and 5).
+
+### Surface
+
+- Added to the Expected Surface above: `doc/specification/store-schemas/08-project-configuration-local.adoc`, `pm-core/.../core/role/corpus/`, `pm-core/doc/developer/core-store.adoc`, `pm-core/doc/adr/core-store/`, `doc/LogMessages.adoc`.
+- wrong: `pm-workflow/src/test/java/de/planmarshall/workflow/model/` is annotated new directory; it exists with `ModelCallerTest`, `ModelFixtures`, `RoleCompositionTest`; path stays, annotation wrong.
+- wrong: `pm-core/doc/adr/core-role/` and `pm-workflow/doc/adr/workflow-model/` are annotated "new directory if absent"; both exist (`core-role` 001 to 002, `workflow-model` 001); the next numbers are `core-role/003` and `workflow-model/002`.
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #189 (`1c9f366d`) — Model Work 01 § Grading (anchor `screener-repeated-runs`): the screener's topic is graded with every item offered **5 times** (the compiled count), each in a fresh worker; the catch rate over the `suspicious` items must also reach the agreement level, and the record keeps per item its runs and misses. **No package file, Deliverable, Done-when sentence or watch item names it**; the roadmap carries it. Add a deliverable or name an owner at the outline; the orchestrator does not guess an owner.
+- #185 (`71a15338`) — `core/store`: `QualificationSettingsStore` refuses a stale revision with `StoreRefusal.Outcome.CONFLICT` (ADR `core-store/045`) and `QualificationSettings` refuses a role skipped twice; the record write follows this seam.
+- #181 (`7f1d6a99`) — `workflow-dsl/07` gained § Positioned Layout (the `#role-grading` anchor moved, unchanged); no effect on a Deliverable.
+- #190 (`f4a1bd07`) — `implementation-watch/model-work.adoc` lost `PM-WATCH-DISP-33`, `-43`, `-55` (58 lines); `PM-WATCH-DISP-48`, `-64`, `-65`, `-66` are present (lines 20, 942, 955, 969). `store-schemas.adoc` gained `PM-WATCH-STORE-57` and `-58` (#186, #189): unrelated.
+- The Deliverables and Done-when above still read the 6-bullet package text; the 7-bullet text (constant baseline per topic with the margin, the judge instrument check with `judge_unchecked`, the item graded at its origin commit with `checkout`) is carried by the section of 2026-10-25 below and is binding at the outline.
+
+### Shipped or superseded since the last grounding
+
+- Both dependencies shipped (PLAN-26 #146, PLAN-30 #190); the index row reads _Depends on: nothing_.
+- #190: `runtime.worker` is a library with no production caller, so a grading run has no worker runtime wired yet (the `pm-mcp-server` wiring is owed in `plan-marshall-mcp`); still unbuilt in this repository: grading, the record, `topicResult`, `warm_fresh_gap`, `missed_sources`, `constant_baseline`, the judge check.
+- ADR numbers taken: `core-store` next 046, `core-role` 003, `workflow-model` 002.
+
+### Open questions for the outline
+
+- Home of the grading run (offering corpus items as tasks, writing `roles/qualification/<role>.json`): `core.role` or `workflow.model`.
+- Who owns the screener repeated-runs and catch-rate rule (#189), and whether `PM-WATCH-DISP-66`'s corpus-export half stays with `decision-quorum-and-calibration`.
+- How the grading run reaches workers while `WorkerSupervisor` has no caller.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 
@@ -124,6 +166,16 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 
 - partly fixed by PLAN-26 (#146 964f673d) and PLAN-31 (#164 88ec9c70): core.role RoleDigests.qualification (effective harness, harness_version major.minor, model, effort, tools, class, skill digests, weights_identity) and EffectiveRole.qualificationDigest(); workflow.model QualificationLookup port and ModelCaller Qualify step (role_unqualified, form_downgraded, judge and steward skip it); core.store QualificationSettings, QualificationSettingsCodec, QualificationSettingsStore (agreement_level, allowed_gap, skip lists). Still unbuilt: grading, the record, topicResult, warm_fresh_gap, missed_sources, constant_baseline, judge check (no such symbol in any source)
 
+### Shipped since the re-grounding (read 2026-10-26, HEAD `f4a1bd07`)
+
+Added by the orchestrator at the emit, not re-stamped (the claims above keep their `checked_at: 88ec9c70`; the lane re-reads them at its outline, as the Verify-first clause says).
+
+- **Both dependencies are shipped:** PLAN-26 (#146) and PLAN-30 `supervisor` (#190 `f4a1bd07`); the index row of `role-qualification` now reads _Depends on: nothing_. Nothing is running in the epic.
+- **#190 (PLAN-30)** added `runtime.worker` (`WorkerSupervisor`, `ProfileWorkerEligibility`, `LossDetection` and kin; a library with no production caller), `pm-core` `WorkerState`/`WorkerStateCodec` in `core/store/`, `WorkerParameters` in `core/profile/`, and `runtime-worker/001` to `009` ADRs. It touches none of this plan's declared files except `doc/implementation-watch/model-work.adoc` (58 lines of covered items deleted: check that `PM-WATCH-DISP-48`, `-64`, `-65` and `-66`, which the trace names, are still there — they are, at lines 20, 942, 955 and 969 on `main`) and `doc/plans/README.adoc`.
+- **#185 (PLAN-104)** changed `core.store` where this plan reads it: `QualificationSettingsStore` now refuses a stale revision with `StoreRefusal.Outcome.CONFLICT` (ADR `core-store/045`) and `QualificationSettings` refuses a role skipped twice; the next free ADR numbers are `core-store/046`, `core-role/003` and `workflow-model/002`. Records this plan writes to the project set go through the same store seam; read both before designing the write.
+- **Specification changes to declared files since `88ec9c70`:** `workflow-dsl/07-loop-back-diagrams-verification.adoc` (#181, the positioned layout of a unit; unrelated to role grading, but it makes this plan's claims on that file stale), `model-work/01-roles-and-configuration.adoc` (#189, one line) and `implementation-watch/store-schemas.adoc` (#186 and #189, items added). `doc/plans/role-qualification.adoc` is unchanged since #171.
+- **Surface still shared with other staged plans:** `core/store/` with PLAN-66, 42, 71 and 60; `core/role/` with PLAN-66. None runs; the operator chose to emit this plan alone, so there is no collision to resolve, and a later plan that starts reads the landed result.
+
 ### Open questions for the outline
 
 - Deliverable 2 lists the digest members without the model weights identity, which RoleDigests.qualification and Model Work 01 Invalidated already include, and does not say the digest and the Qualify lookup are shipped by PLAN-26; a plan could rebuild them
@@ -131,15 +183,15 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-26 (`role-sets-and-model-caller`); PLAN-30 (`supervisor`)
-- Blocks: PLAN-55 (`chat`); PLAN-61 (`token-usage`)
-- Overlaps with: PLAN-26 (`role-sets-and-model-caller`) in `core.role`, `workflow.model`; every plan through `doc/plans/README.adoc`; the plans of the same module through its log holder, which is not a declared surface
+- Depends on: PLAN-26 (`role-sets-and-model-caller`, #146) and PLAN-30 (`supervisor`, #190), both shipped; nothing else
+- Blocks: PLAN-55 (`chat`); PLAN-61 (`token-usage`); PLAN-97 (by the orchestrator's queue)
+- Overlaps with: nothing running (emitted alone on 2026-10-26, no plan is `running`); PLAN-26 (shipped) in `core.role`, `workflow.model`; PLAN-66 in `core/role/` and `core/store/`, not started; every plan through `doc/plans/README.adoc`; the plans of the same module through its log holder, which is not a declared surface
 - Adjacent to: the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` and the client contract `pm-api` in `pm-mcp-clients`, which stay untouched — a change there is a pull request in that repository; and `plan-marshall-documentation`, where only a requirement correction or a change of `cross-cutting.adoc` or of a specification that lives there goes, in a pull request there
 
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-34-role-qualification.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-34-role-qualification.md
 ```
 
 ## Write-Boundary

@@ -55,19 +55,19 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/supervision-scenarios.adoc` § What, Trace, Done When on `origin/main` at `4617865` (7 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/supervision-scenarios.adoc last touched 72aec5cb and unchanged at HEAD; its 7 What bullets equal the Deliverables
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/supervision-scenarios.adoc not in git log 88ec9c70..f4a1bd07; its 7 What bullets equal D1 to D7 and the Done-when
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-30 (`supervisor`); PLAN-32 (`consultation`); PLAN-66 (`worker-activity`); PLAN-73 (`question-continuation`)) — read at `doc/plans/supervision-scenarios.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: README row at HEAD: open; depends supervisor; worker-activity; question-continuation only; consultation was dropped because PLAN-32 shipped (e27d616f #169; pm-workflow/.../consult/ConsultationService.java; doc/plans/consultation.adoc deleted)
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: index row open and depends only on worker-activity and question-continuation; supervisor (#190) and consultation (#169) are shipped, rows and files gone; the spec still lists four dependencies
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line of the package file, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: Where (pm-workflow test scope) and Serves (Milestone 4) cannot hold D6 and D7: the conformance harness is module pm-conformance of plan-marshall-mcp (out of band; live model; roadmap Milestone 12 item at documentation origin/main) whose package de.planmarshall.conformance holds only Verdict; Attribution; EnforcementClass; pm-workflow depends on pm-core alone; the other 7 OBSERVED paths exist (dev doc workflow-scenario.adoc and ADR dir workflow-scenario already exist)
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: D6 and D7 cannot be pm-workflow test scope: pm-conformance is a plan-marshall-mcp module; #190's real-supervisor scenarios sit in pm-runtime; workflow-scenario ADR dir exists (001 to 006)
 - OBSERVED: each module that logs has one holder with its own test, which refuses an identifier used twice and one outside the range of its level (INFO 1-99, WARN 100-199, ERROR 200-299): `CoreLogMessages` (5 records), `RuntimeLogMessages` (81), `WorkflowLogMessages` (5); `PmMcpLogMessages` is deleted — read on main at 238c823 on 2026-10-16
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: RuntimeLogMessages has 83 records at HEAD (81 at 4617865; +2 by #172); Core 5 and Workflow 5 hold; PmMcpLogMessages is absent; each holder has its own test
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: RuntimeLogMessages now holds 89 records (+6 by #190); Core 5 and Workflow 5 hold, each holder has its test; PmMcpLogMessages absent
 - HYPOTHESIS: the package adds no INFO, WARN or ERROR message: it is test scope only (its `Where` line says test scope and its Expected Surface names no `src/main` path), so it touches no log holder; should the trace matrix show production code that logs, the record goes into the holder of its module at the next free identifier as the operator decided on 2026-10-13 — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis for the outline; test-scope-only holds only if the supervisor faults are simulated in pm-workflow (the real supervisor is pm-runtime runtime.worker which pm-workflow cannot depend on)
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: verify-at-outline: test-scope-only holds for simulated faults only; the real supervisor is pm-runtime and pm-workflow cannot depend on it
 - HYPOTHESIS: the package makes no HTTP call, so the two HTTP constraints bind only if the trace matrix shows one — confirm/refute at the specification sections of the trace starting set (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis for the outline; today ScenarioReplayRunner runs WorkflowEngine in process with no HTTP; D6 runs a live model so the answer depends on where D6 lands
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: verify-at-outline: ScenarioReplayRunner still runs in process; D6 runs a live model, so it depends on where D6 lands
 - Verify-first clause: before scoping, read the roadmap item this package serves for what the code already covers, list the open pull requests for one that names `supervision-scenarios`, and check in `doc/plans/README.adoc` that every dependency is `done`; a refutation of any claim above loops back to re-scope.
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: row supervision-scenarios open at HEAD; dependencies not done: supervisor (PLAN-30 is running in worktree plan-30-supervisor; not on main); worker-activity; question-continuation open; open-PR list not re-read
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open; worker-activity and question-continuation still listed, so not ready; the other dependencies shipped; no open PR names it (only #71 is open)
 
 ## Expected Surface
 
@@ -80,6 +80,40 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - OBSERVED: `doc/implementation-watch/workflow-dsl.adoc` — watch document; the covered items deleted
 - OBSERVED: `doc/specification/model-work/03-supervision-and-recycling.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc` — specification part; the implemented sections deleted
+- HYPOTHESIS: `pm-runtime/src/test/java/de/planmarshall/runtime/worker/` — only if D1's scenarios are meant to run the real supervisor; `SupervisorScenarioTest` (#190) already covers ack, silence, exit, the consultation hold, the start-failure guard, pause at once, idle recycling and `agent_started`; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `doc/Traceability.adoc` — the `PM-TEST-4` lines, written by every plan; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 7: 2 corroborated, 3 contradicted (re-scoped by this section), 2 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claim 1: the index row is open and depends only on `worker-activity` and `question-continuation`; `supervisor` (#190) and `consultation` (#169) are shipped, so the spec's four dependencies are two.
+- Claim 2: D6 and D7 cannot be `pm-workflow` test scope: `pm-conformance` is a `plan-marshall-mcp` module (its `origin/main` holds only `Attribution`, `EnforcementClass`, `Verdict`, `package-info`), and the supervisor-level scenarios of #190 sit in `pm-runtime`. Where and Serves (Milestone 12) were already wrong at `88ec9c70`.
+- Claim 3: `RuntimeLogMessages` holds 89 records (+6 by #190).
+
+### Surface
+
+- Added to the Expected Surface above: the `pm-runtime` worker test directory (conditional) and `doc/Traceability.adoc`.
+- wrong: `pm-workflow/doc/adr/workflow-scenario/` is annotated "new directory if absent"; it exists (001 to 006, next 007).
+- wrong: D6 and D7 live in `plan-marshall-mcp` `pm-conformance`, not in the surface above.
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #190 (`f4a1bd07`) — Model Work 03 § Supervisor, Detection, Recycling, Ending, Start-Failure Guard: the implemented text is deleted and replaced by pointers to `doc/Traceability.adoc` and the `runtime-worker` guide; the `agent_started` row of the off-track table is gone; § A Worker Off Track "Verified by scenarios" is kept. The fault, recycling, guard, consultation and pause-at-once scenarios now exist at supervisor level in `pm-runtime` (`SupervisorScenarioTest`): **an overlap with D1 and D3**, to decide at the outline. `PM-WATCH-DISP-33`, `-43`, `-55` deleted; `DISP-55`'s guard ("a consulting worker is never recycled as idle") is covered by that test.
+- #181 (`7f1d6a99`) — `workflow-dsl/07` § Positioned Layout and `PM-WATCH-DSL-37`, `-38` (present at workflow-dsl.adoc:544, 558) sit before the Build-Time Drift Gate; the scenario sections are untouched.
+
+### Shipped or superseded since the last grounding
+
+- PLAN-32's `ConsultationService` (#169) exists; no scenario in `workflow.scenario` uses it yet. `ScenarioScript.REFUSED` still maps `worker_wait` and `worker_do` to the shipped `task-queue-and-protocol` (stale) and refuses the fault directives as `supervision-scenarios`; `operator_do` is in the spec's directive list and absent from the scenario directory.
+- Dependencies: PLAN-30, PLAN-32 shipped; PLAN-66 and PLAN-73 open.
+
+### Open questions for the outline
+
+- Home of D6 and D7 (no `plan-marshall-mcp` package names the conformance harness); which package adds `operator_do` and `operator_cli` (suite scenarios 5, 11, 16); whether D1's worker-fault scenarios run in `pm-workflow` (simulated) or reuse the `pm-runtime` supervisor tests; whether the stale `REFUSED` text is this plan's to fix.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

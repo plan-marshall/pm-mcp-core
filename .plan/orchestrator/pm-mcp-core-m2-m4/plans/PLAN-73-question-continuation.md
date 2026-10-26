@@ -57,11 +57,11 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/question-continuation.adoc` § What, Trace, Done When on `origin/main` at `4617865` (10 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: doc/plans/question-continuation.adoc changed by 964f673d (#146): the questions member of the role artifact now links Model Work Role Artifact Schema instead of role-sets-and-model-caller (shipped); the spec Deliverable 9 still names role-sets-and-model-caller, and Deliverable 1 says nothing exists, which HEAD refutes (see applicability)
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: D1 says workflow.task, workflow.question, runtime.worker and runtime.launch hold only package-info: runtime.worker has 34 files (#190), runtime.launch has WorkerLaunch, LaunchComposer, HeadlessBlock, workflow.task has TaskProtocol; only workflow/question and workflow/hypermedia remain package-info; D9 names role-sets-and-model-caller for the questions member while the package file links Model Work Role Artifact Schema
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line, the class names of § What and the specification parts the package links, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis verify-at-outline; see surface rows for what exists and what is missing
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: the paths exist except the workflow/question tests, developer guide and ADR directory; ADR directories exist for core-profile, core-queue, core-role, runtime-launch, runtime-worker, workflow-dsl, workflow-task
 - Verify-first clause: before scoping, list the open pull requests for one that names `question-continuation`, check in `doc/plans/README.adoc` that no package it depends on is still listed, and read the roadmap item this package serves for what the code already covers; a refutation of any claim above loops back to re-scope.
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: procedure; README at HEAD lists question-continuation as open depending on supervisor and question-loop-verification only; PLAN-28, PLAN-29, PLAN-26 shipped; open PRs not reachable
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: procedure: index row open, depends only on plan-marshall-mcp question-loop-verification (open); no open PR names question-continuation
 
 ## Expected Surface
 
@@ -116,6 +116,38 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/engine/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/hypermedia/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerCalls.java` — the hold, answer-acknowledgement and resume entries extend this inbound port; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerProtocol.java` — the outbound port the assembly adapts; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/Traceability.adoc` — written by every plan; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 3: 0 corroborated, 1 contradicted (re-scoped by this section), 2 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claim 0: D1's "nothing of it exists; `workflow.task`, `workflow.question`, `runtime.worker` and `runtime.launch` hold only package-info" is false: `runtime.worker` holds 34 files and 21 tests (#190), `runtime.launch` holds `WorkerLaunch`, `LaunchComposer`, `HeadlessBlock`, `workflow.task` holds `TaskProtocol`; only `workflow/question` and `workflow/hypermedia` remain package-info; `ask fresh` is not in the parser or the AST. D9 names `role-sets-and-model-caller` for the `questions` member; the package file now links Model Work § Role Artifact Schema.
+
+### Surface
+
+- Added to the Expected Surface above: `WorkerCalls`, `WorkerProtocol`, `doc/Traceability.adoc`.
+- wrong: `pm-runtime/src/main/java/.../runtime/worker/` and its test directory are annotated package-info only / new; they hold 34 and 21 files. The guide `runtime-worker.adoc` and ADRs `runtime-worker/001` to `009` exist (next 010); the ADR directories of `core-profile`, `core-queue`, `core-role`, `runtime-launch`, `workflow-task`, `workflow-dsl` exist (`workflow-dsl` next 009). Only the `workflow/question` tests, `workflow-question.adoc` and `adr/workflow-question/` are genuinely new.
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- **#190 (`f4a1bd07`) deleted the sentence this plan's D7 depends on:** Model Work 03 § Recycling Warm Workers is gone, including "a worker holding its task for an answer that reaches the budget ends its hold: the task is suspended where it may resume, else it falls back, and the worker is recycled"; a grep for "ends its hold" finds 0 hits and Model Work 06 has no token-budget text, yet D7's third clause still requires it. `WorkerRecycling` only recycles a `HOLDING` generation at the budget (`:143-148`); ending the hold is not built. The rule must live somewhere in the specification again: the orchestrator does not rewrite the specification, so this is an operator or documentation decision.
+- #190 — Model Work 03 § Detection: "Missing answer acknowledgement" kept verbatim (D7's source); "Silence" reworded: a held wait is an open call and suppresses the signal, the answer re-arms it. `PM-WATCH-DISP-55` deleted (the guard "wait_again to a holding generation is no idle wake-up", implemented in `WorkerRecycling`); `PM-WATCH-DISP-28` present (model-work.adoc:395).
+
+### Shipped or superseded since the last grounding
+
+- #160: queue statuses `AWAITING_ANSWER` and `SUSPENDED`, `Continuation`, `TaskProtocol.suspend`, `WaitAgain("awaiting_answer")`. #146 and #172: `RoleArtifact.questionBounds`, `ProfileValidator.resumability`, `HeadlessBlock.resumeArgv`, `LaunchComposer` resume slot. #190: `WorkerLifecycle.HOLDING`, lease-aware idle, `LossDetection.offered`/`acknowledged` (the ack re-arm), `WorkerStartRequest.resumeSessionId`. Not built: `ask fresh`, hold/ack/`facts.answers`, the question bound, the fallback logic, the `continuation` mark in `MetricsRow`, the `resumability` stage runner, hold and answer entries in `WorkerCalls`.
+- Dependencies: PLAN-28, PLAN-30, PLAN-29, PLAN-26 shipped; `plan-marshall-mcp` `question-loop-verification` open.
+
+### Open questions for the outline
+
+- `WorkerStartRequest` refuses `resumeSessionId` for a fresh-form role ("a resumed generation is a warm worker's") while the Continuation text and D4 do not limit resume to warm roles; where the budget-while-holding rule now lives in the specification; whether `WorkerCalls` gains hold and ack entries or the answer ack reuses `offered`/`acknowledged`; **the supervision loop has no owner** (this plan's Where line gives `runtime.worker` "the hold, the losses of a continuing worker"): the orchestrator does not decide it.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

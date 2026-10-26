@@ -54,19 +54,19 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: no work package builds this: none of the package files under `doc/plans/` names `own_calls`, `Own Calls`, `own-call`, and the index has no row for `own-calls` — `grep` of `doc/plans/` and `ls doc/plans/own-calls.adoc` at `4617865`
-  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc: doc/plans/own-calls.adoc exists and README.adoc lines 216-225 hold the row own-calls (blocked); doc/plans untouched since 88ec9c70
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: doc/plans/own-calls.adoc exists (7 What bullets), row blocked, Milestone 9; unchanged since 88ec9c70
 - OBSERVED: the specification this plan builds exists and carries the anchors it names — `doc/specification/phase-workflows/03-q-gate-and-execute.adoc`, `doc/implementation-watch/phase-workflows.adoc`, `doc/specification/hypermedia-format/02-link-grammar.adoc`
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: anchors phase-workflows/03 #own-calls and hypermedia-format/02 and model-work/11 and state-catalogue/10 are untouched; the watch file gained only PM-WATCH-PHASE-118 and -119 appended and PM-WATCH-PHASE-113 still stands at line 1690
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: anchors re-read at f4a1bd07: phase-workflows/03 own-calls, hypermedia-format/02, model-work/11 execute.own-call, state-catalogue/10 unchanged since 8233fffc; PM-WATCH-PHASE-113 at phase-workflows.adoc:1694
 - OBSERVED: the dependencies named below are queue rows of this ledger (PLAN-96, PLAN-47, PLAN-43); `PLAN-96` is the plan that writes the package file and the index row
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: queue/PLAN-96 shipped (#143) and the ledger diff 88ec9c70..8233fffc touches only queue/PLAN-30 31 32 so the rows of PLAN-47 PLAN-43 PLAN-96 are as in the first pass
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: PLAN-96 shipped (#143); decision-engine (PLAN-47) and phase-sub-workflows (PLAN-43) open; the task envelope and Task Diff Record have no work package
 - OBSERVED: the packages this one waits on have no work package — the index and the package files under `doc/plans/` build none of `Task Diff Record`, `plan task envelope`; the index will keep this package `blocked` on them
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: workflow/envelope still package-info only at HEAD; no Task Diff Record or plan task envelope package in the README or doc/plans (untouched); ChangeLedgerRecord.Kind.TASK_DIFF unchanged (no pm-core diff)
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: workflow/envelope and workflow/decision are package-info only; no package builds the task envelope or Task Diff Record; ChangeLedgerRecord.Kind.TASK_DIFF exists
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line and the specification parts — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc: workflow/task is untouched (14 files with TaskProtocol.submit) and workflow/decision is still package-info only; the surface text stays false as the first pass found
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: workflow/task holds 13 classes plus package-info (TaskProtocol, TaskRefusal ...), no own_calls; pm-workflow/doc/adr/workflow-task has 001 to 004; SchemaRegistry.defaults lists 6 schemas, no own-call
 - HYPOTHESIS: the milestone in the `Serves` line and the edges of the `Dependencies` section are the orchestrator's reading of the roadmap and of the specification, not an operator decision — confirm/refute at `doc/plans/README.adoc` and the roadmap items of `plan-marshall-documentation` (verify-at-outline)
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: roadmap and README row grounding is outside the #177/#179 diff; roadmap in plan-marshall-documentation not re-read in this pass
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row Milestone 9; roadmap own-calls item under Milestone 9; dependency edges match the row
 - Verify-first clause: before scoping, check that PLAN-96 has landed (the package file and the index row exist), that the packages this one depends on are done or in flight, and list the open pull requests for one that names the package; a refutation loops back to re-scope.
-  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc: PLAN-96 landed (#143) and the package file and the index row exist; doc/plans untouched; open-PR list not re-read
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: package file and row exist (#143); PLAN-47 and PLAN-43 open and the envelope has no package, so the plan is not ready (row blocked)
 
 ## Expected Surface
 
@@ -83,6 +83,42 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/implementation-watch/phase-workflows.adoc` — PM-WATCH-PHASE-113 retired with the package
 - OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/SchemaRegistry.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/LinkSchema.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-core/doc/adr/core-store/` — next free number 046; the decision record is written in the submit transaction through the `ScopeTransaction` seam (ADR `core-store/044`); added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `pm-core/doc/developer/core-store.adoc` — extended with the decision record write; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/specification/phase-workflows/03-q-gate-and-execute.adoc` — the submit link and own calls; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/specification/state-catalogue/10-entity-units.adoc` — the submit link in the entity units; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 7: 4 corroborated, 3 contradicted (re-scoped by this section), 0 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claim 0 and 6: `doc/plans/own-calls.adoc` exists (7 What bullets equal the 7 Deliverables by count), row `blocked`, Milestone 9; PLAN-47 and PLAN-43 are open and the task envelope and Task Diff Record have no package, so the plan is not ready.
+- Claim 4: `workflow/task` holds 13 classes (`TaskProtocol`, `TaskRefusal` ...), no `own_calls`; `pm-workflow/doc/adr/workflow-task` holds 001 to 004 (next 005) and `workflow-task.adoc` exists; `SchemaRegistry.defaults` lists 6 schemas, no own-call.
+
+### Surface
+
+- Added to the Expected Surface above: `core-store` ADR directory and guide, `phase-workflows/03` and `state-catalogue/10`.
+- wrong: `pm-workflow/.../workflow/task/` is annotated "package-info.java only"; it holds 13 classes.
+- wrong: `pm-workflow/doc/adr/workflow-task/` is annotated "new directory"; it exists (001 to 004).
+- wrong: `doc/plans/own-calls.adoc` is annotated HYPOTHESIS "written by PLAN-96"; it exists.
+- wrong: `pm-core/.../core/store/` is annotated "the decision record"; no decision record exists (owner: decision-engine, PLAN-47); `store/` holds `ChangeLedgerRecord` (`TASK_DIFF`), `ScopeTransaction`, `StoreRefusal`.
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- None to the named files: #181 touched `workflow-dsl/07` but left the Shortcut Marker text unchanged; #186, #189, #191, #192 do not mention own calls (watch `PM-WATCH-PHASE-120` to `-123` were appended, unrelated).
+
+### Shipped or superseded since the last grounding
+
+- PLAN-104 (#185): `ScopeTransaction`-based appends, the seam for "recorded in the transaction that accepts the submit". #190: none. The task envelope, the Task Diff Record input, the decision record and the own-call schema do not exist.
+- Dependencies: PLAN-96 shipped; PLAN-47 and PLAN-43 open; the envelope and Task Diff Record have no package (the index agrees).
+
+### Open questions for the outline
+
+- Where the named schema `own-call` is registered (`SchemaRegistry` in `pm-workflow` and `LinkSchema` in `pm-runtime` vs the `pm-core` Where line); who owns the task envelope and the Task Diff Record.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

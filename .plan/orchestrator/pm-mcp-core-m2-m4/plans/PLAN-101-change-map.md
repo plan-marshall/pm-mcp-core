@@ -55,19 +55,19 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: no work package builds this: none of the package files under `doc/plans/` names `Change Map`, `change-map`, `change_map`, and the index has no row for `change-map` — `grep` of `doc/plans/` and `ls doc/plans/change-map.adoc` at `4617865`
-  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc: doc/plans/change-map.adoc exists (ls-tree at 8233fffc) and README row change-map (line 222) is blocked; the claim of no package file and no row is false
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: doc/plans/change-map.adoc exists (8 What bullets), row blocked, Milestone 10; unchanged
 - OBSERVED: the specification this plan builds exists and carries the anchors it names — `doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc`, `doc/implementation-watch/phase-workflows.adoc`
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: re-read at 8233fffc: phase-workflows/05 still carries #dependency-delta (line 239) and #change-map (line 263; moved by #177 inserting the Capability Test Guard at 251) and PM-WATCH-PHASE-114 is still at implementation-watch/phase-workflows.adoc line 1708; 118 and 119 were appended after it
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: phase-workflows/05 dependency-delta and change-map anchors present (moved by #177, #186, #189, #191); PM-WATCH-PHASE-114 at phase-workflows.adoc:1712, text unchanged
 - OBSERVED: the dependencies named below are queue rows of this ledger (PLAN-96, PLAN-100, PLAN-43); `PLAN-96` is the plan that writes the package file and the index row
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: queue files PLAN-96.json PLAN-100.json PLAN-43.json exist in the ledger queue dir; PLAN-96 shipped (#143)
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: PLAN-96 shipped (#143); PLAN-100 and PLAN-43 open rows; queue files exist in the ledger
 - OBSERVED: the packages this one waits on have no work package — the index and the package files under `doc/plans/` build none of `Dependency Delta`, `module discovery`, `build-file dependency parser`; the index will keep this package `blocked` on them
-  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc: doc/plans/domain-extensions-and-architecture.adoc and finalize-pipeline-and-merge.adoc exist (ls-tree at 8233fffc) and the change-map README row depends on both; #177 adds a Capability Test Guard to the same 05 part but doc/plans names neither capability_test nor verified_by
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: domain-extensions-and-architecture.adoc and finalize-pipeline-and-merge.adoc exist (index rows open); code absent: core/discovery is package-info only, no change_map symbol in main Java
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line and the specification parts — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: hypothesis verify-at-outline; workflow/finalize holds FinalizePipelineValidator FinalizeStepDescriptor PipelineRule PipelineViolation and core/discovery is package-info only; no change_map ChangeMap or edges_partial symbol in main java
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis; workflow/finalize holds FinalizePipelineValidator, FinalizeStepDescriptor, PipelineRule, PipelineViolation; workflow/diagram holds the renderers
 - HYPOTHESIS: the milestone in the `Serves` line and the edges of the `Dependencies` section are the orchestrator's reading of the roadmap and of the specification, not an operator decision — confirm/refute at `doc/plans/README.adoc` and the roadmap items of `plan-marshall-documentation` (verify-at-outline)
-  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc: README change-map row (line 222) depends on own-calls phase-sub-workflows domain-extensions-and-architecture finalize-pipeline-and-merge while the spec Dependencies section still lists PLAN-96 PLAN-100 PLAN-43 only; Milestone 10 item holds
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: milestone holds (10); the index row depends on own-calls, phase-sub-workflows, domain-extensions-and-architecture and finalize-pipeline-and-merge while the spec lists three and parks the packages as no work package
 - Verify-first clause: before scoping, check that PLAN-96 has landed (the package file and the index row exist), that the packages this one depends on are done or in flight, and list the open pull requests for one that names the package; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: package file and row exist and are not in the diff; no PR branch re-read
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: package file and row exist; PLAN-96 landed; dependencies not done so the plan is not ready; the open-PR list is not readable
 
 ## Expected Surface
 
@@ -82,6 +82,40 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - HYPOTHESIS: `pm-core/doc/developer/core-discovery.adoc` — to be created; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `doc/specification/phase-workflows/04-finalize-step-bands.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc` — § Positioned Layout (#181) lays out the change map as data for the web app; no package owns it; read; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/diagram/` — the generator the Positioned Layout belongs to (`de.planmarshall.workflow.diagram`); read; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/implementation-watch/workflow-dsl.adoc` — `PM-WATCH-DSL-37` and `-38` (positioned layout); added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**. The plan stays **parked**.
+
+- Claims re-read: 7: 3 corroborated, 3 contradicted (re-scoped by this section), 1 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claim 0: `doc/plans/change-map.adoc` exists (8 What bullets, row `blocked`, Milestone 10), unchanged.
+- Claim 3: `domain-extensions-and-architecture.adoc` (module discovery and parser) and `finalize-pipeline-and-merge.adoc` (Dependency Delta Check) exist (index rows open); code is absent (`core/discovery` is package-info only; no `change_map`, `ChangeMap` or `edges_partial` symbol in main Java).
+- Claim 5: the milestone holds (10); the edges do not: the index row depends on `own-calls`, `phase-sub-workflows`, `domain-extensions-and-architecture` and `finalize-pipeline-and-merge`, the spec lists three and parks the packages as "no work package"; Deliverable 8's Left-out names only "(Milestone 10, no work package)" while the package file links both.
+
+### Surface
+
+- Added to the Expected Surface above: `workflow-dsl/07`, `workflow/diagram/`, the workflow-dsl watch.
+- wrong: `doc/plans/change-map.adoc` is annotated HYPOTHESIS "written by PLAN-96"; it exists.
+- wrong: `pm-core/.../core/discovery/` is "package-info only" (still true), but the `base_ref` crawl needs a git read seam that `pm-core` cannot implement (no JGit dependency allowed); `pm-provider-git` is in the surface from the earlier pass.
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- **#181 (`7f1d6a99`) — Phase Workflows 05 § Change Map item 3 Rendering (one sentence) and Workflow DSL 07 § Positioned Layout (anchor `diagram-layout`; watch `PM-WATCH-DSL-37`, `-38`):** for the web app the same boxes and edges are laid out as data and drawn in place of the text diagram: nodes with `kept`/`added`/`removed` edges, a removed or replaced coordinate as a label line, layered with back edges, an advance-width table, golden files, `too_large` above 200 nodes; part of the generator in `de.planmarshall.workflow.diagram`. **Not in the Deliverables or the Done-when; no work package mentions layout.** Add a deliverable or name the owner.
+- #189 — Phase Workflows 05 § Added-Line Scan (Pre-Merge) (anchor `added-line-scan`, `PM-WATCH-PHASE-122`): a sibling pre-merge check reading added lines from git objects at `base_ref` and `HEAD`, its result `added_lines` in the finalize facts beside `change_map`; it must reuse the same git-object read seam. #191 — item 4 Credential-Shaped Values (reads each commit of `base_ref..HEAD`) and the Outbound Text check (`credential_shaped_text`, `PM-WATCH-PHASE-123`): more users of the git-object read seam; no effect on the `change_map` result. #186 — Code Scanning Alerts as a Code Analysis Provider (`PM-WATCH-PHASE-120`) and Security Audit Calibration (`-121`): not the change map. #192: Phase Workflows 01 only.
+
+### Shipped or superseded since the last grounding
+
+- None of the change map; #185 and #190 touch nothing here. `FindingSourceKind` already has `ADDED_LINES` and `CAPABILITY_TESTS` (finding kinds only). Dependencies: PLAN-96 shipped; PLAN-100, PLAN-43 and the two packages open. `PM-WATCH-PHASE-114` present (phase-workflows.adoc:1712).
+
+### Open questions for the outline
+
+- **Who builds the positioned layout of the change map** (this plan, a diagram package or the web client plan); **who owns the git-object read seam** shared by the change map, the Capability Test Guard and the Added-Line Scan; the owner of Merge Danger Reach (earlier pass) is still unnamed.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

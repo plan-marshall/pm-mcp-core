@@ -54,21 +54,21 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/plan-and-epic-control.adoc` § What, Trace, Done When on `origin/main` at `4617865` (7 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: doc/plans/plan-and-epic-control.adoc not in the 88ec9c70..8233fffc diff; its 7 What bullets equal Deliverables 1-7
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/plan-and-epic-control.adoc not in git log 88ec9c70..f4a1bd07; 7 What bullets equal D1 to D7
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-42 (`operator-wait-and-machine-scope`); PLAN-46 (`machine-onboarding-unit`); PLAN-45 (`project-onboarding-unit`); PLAN-28 (`task-queue-and-protocol`); PLAN-30 (`supervisor`)) — read at `doc/plans/plan-and-epic-control.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc: README.adoc rows 132-136 show plan-and-epic-control open and dependent on operator-wait-and-machine-scope machine-onboarding-unit project-onboarding-unit supervisor only; PLAN-28 task-queue-and-protocol is gone from the row (shipped #160); spec still lists PLAN-28 in Depends on
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: index row open, depends only on operator-wait-and-machine-scope, machine-onboarding-unit, project-onboarding-unit; PLAN-28 (#160) and PLAN-30 (#190) are shipped; the spec still lists five
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line of the package file and the class-level surfaces of the former specs, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
-  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: hypothesis settled at the trace matrix; no pm-* source changed since 88ec9c70; the substrate paths the first pass listed (workflow/task plan epic and core/queue runtime/start) still exist and workflow/epic is package-info only
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: all listed paths exist; runtime/web holds only Der, WebListenerConflictException, WebState, WebTls (endpoints are assembly routes); workflow/epic is package-info only
 - OBSERVED: each module that logs has one holder with its own test, which refuses an identifier used twice and one outside the range of its level (INFO 1-99, WARN 100-199, ERROR 200-299): `CoreLogMessages` (5 records), `RuntimeLogMessages` (81), `WorkflowLogMessages` (5) — `static final LogRecord` counted on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc: Runtime holder holds 83 records not 81 (#172 added HARNESS_SELF_UPDATE_ACCEPTED and WORKER_LAUNCH_REFUSED); Core 5 and Workflow 5 as claimed; no Java change since 88ec9c70
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: RuntimeLogMessages has 89 records at f4a1bd07 (83 at 88ec9c70); Core 5 and Workflow 5 hold
 - HYPOTHESIS: the package adds INFO, WARN or ERROR messages; its module's log holder is deliberately NOT in the Expected Surface: a record is appended at the next free identifier and a collision is resolved on rebase, as the operator decided for the shared holder on 2026-10-09 and kept for the per-module holders on 2026-10-13 — confirm/refute the need at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: hypothesis verify-at-outline; nothing in source to read (no act_not_available plan_ended or plan.aborted symbol in main java at 8233fffc)
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: verify-at-outline: no act_not_available, plan_ended, activity.changed or operator_command symbol in any main source
 - HYPOTHESIS: whether the package makes an HTTP call is decided at the specification sections of the trace starting set; the two HTTP constraints bind only if the trace matrix shows one, and only in `pm-runtime` or a provider module — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: hypothesis verify-at-outline; no HTTP caller implied by code at HEAD
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: verify-at-outline: no new HTTP caller in code
 - OBSERVED: the specification and watch parts of the Expected Surface changed since the claims were last grounded at `c281f6c` only as listed in the verdict — `git diff --numstat c281f6c..4617865`; the executing plan re-reads them at its branch point
-  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc: parts of the declared surface changed after 4617865 (state-catalogue/01 and store-schemas/10 per first pass); #177 adds only the finalize.architecture-refresh row of state-catalogue/04 (line 132) which is not Plan Terminal States or Cancelling and Abandoning Archive; runtime-lifecycle/02 store-schemas/14 workflow-dsl/09 untouched by #177 and #179
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: more changed than listed: store-schemas/10 (#188 gate_facts.side_state, #189 lesson derived_from_untrusted) and state-catalogue/09 (#189 source-lesson screen states); the sections this plan implements are untouched
 - Verify-first clause: before scoping, read the roadmap item this package serves for what the code already covers, list the open pull requests for one that names `plan-and-epic-control`, and check in `doc/plans/README.adoc` that every dependency is `done`; a refutation of any claim above loops back to re-scope.
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: index row open and four dependencies still listed as open rows (supervisor spec row still open); package file not in the diff; open-PR list not re-read
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open with three open dependency rows; no open PR names it
 
 ## Expected Surface
 
@@ -99,6 +99,40 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/store-schemas/04-epic-and-change-ledger.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `doc/specification/filesystem-layout/03-project-store.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `doc/implementation-watch/runtime-lifecycle.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/` — D2's pause now builds on `WorkerCalls.planPaused`, `EndCause.PAUSE_AT_ONCE` and `WorkerEnding`; no implementer of `WorkerCalls` exists; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `doc/Traceability.adoc` — written by every plan; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 8: 2 corroborated, 3 contradicted (re-scoped by this section), 3 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claim 1: the index row is open and depends only on `operator-wait-and-machine-scope`, `machine-onboarding-unit`, `project-onboarding-unit`; PLAN-28 (#160) and PLAN-30 (#190) are shipped, so the spec's five dependencies are three.
+- Claim 3: `RuntimeLogMessages` holds 89 records (+6 by #190).
+- Claim 6: more changed than the spec parts list: `store-schemas/10` (#188 `gate_facts.side_state`, #189 lesson `derived_from_untrusted`) and `state-catalogue/09` (#189 `source-lesson` screen states); the sections this plan implements (Holds and Their Acts, `lesson-claim`, Plan Terminal States, runtime-lifecycle/02, store-schemas/04 and 14, workflow-dsl/09, model-work/08, filesystem-layout/03) are untouched.
+
+### Surface
+
+- Added to the Expected Surface above: `runtime/worker/` (the pause end path) and `doc/Traceability.adoc`.
+- wrong: `pm-core/doc/adr/core-store/`, `pm-workflow/doc/adr/workflow-engine/` and `pm-runtime/doc/adr/runtime-start/` are annotated "new directory if absent"; all exist (next numbers 046, 013, 016).
+- wrong: `pm-runtime/.../runtime/web/` holds listener state only (`Der`, `WebListenerConflictException`, `WebState`, `WebTls`); the operator endpoints are `pm-mcp-server` routes.
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #189 — Store Schemas 10 § Lesson Record and State Catalogue 09 § Source Units: `derived_from_untrusted` and a `source-lesson` screen path; `lesson-claim` (D3, the release on every end without landing) is unchanged; D3 stays `start-source-intake`'s.
+- #190 — Model Work 03 § Ending a Worker: the "pause at once ends workers by force, task queued again uncounted" text is deleted as implemented in `runtime.worker`; D2's `now` keeps its own text in runtime-lifecycle/02.
+- #188 — Store Schemas 10 `gate_facts.side_state`: not this plan's.
+
+### Shipped or superseded since the last grounding
+
+- #185: `ScopeTransaction` stores (ADR `core-store/044`) and `StoreRefusal.Outcome.CONFLICT` (ADR 045): a precedent for D4's `conflict` refusal and a base for D5's inbox record in the act's transaction. #190: the supervisor end path. #160: `PlanPause`, `TaskProtocol.pausePlan`, `ActivityJournal`. Not built: activity, endpoints, archive, the epic inbox and queue-row writer.
+
+### Open questions for the outline
+
+- Owner of the writer for the epic inbox record and the epic queue row (none exists); whether D3's claimed-lesson release is a no-op until `start-source-intake` lands; whether settings `conflict` reuses `StoreRefusal.Outcome.CONFLICT`; where the hold records and activity are persisted.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

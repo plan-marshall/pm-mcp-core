@@ -66,15 +66,15 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/worker-activity.adoc` § What, Trace, Done When on `origin/main` at `4617865` (9 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/worker-activity.adoc unchanged since 72aec5cb; 9 What bullets equal the spec Deliverables.
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: the package file changed in f4a1bd07: D5's final reference (supervisor) now links the runtime.worker developer guide; the other 8 bullets are byte-equal; the spec D5 still says supervisor
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-30 (`supervisor`); PLAN-28 (`task-queue-and-protocol`)) — read at `doc/plans/worker-activity.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: README rows lines 36-40: worker-activity is open but now depends on supervisor only; PLAN-28 task-queue-and-protocol shipped (#160) and left the table.
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: index row open, depends on nothing; the spec lists PLAN-30 (#190) and PLAN-28 (#160), both shipped
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line and the class names of § What, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: The activity journal is in pm-core/.../core/queue/ (ActivityJournal, ActivityEntry, ActivityEntryCodec, #160), not core/store/; runtime/worker/ is package-info only and has no test dir; pm-runtime/doc/developer/runtime-worker.adoc and the three ADR dirs do not exist (new).
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: the activity journal is in pm-core core/queue (ActivityJournal, ActivityEntry, ActivityEntryCodec), not core/store; runtime/worker holds 34 files and 21 tests with developer guide and ADRs 001 to 009; runtime/web is listener state only
 - Verify-first clause: before scoping, list the open pull requests for one that names `worker-activity`, check in `doc/plans/README.adoc` that every dependency is `done`, and read the roadmap item this package serves for what the code already covers; a refutation of any claim above loops back to re-scope.
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Row is open, depends on supervisor (open); package file last changed in 72aec5cb as recorded; open-PR list not re-read.
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open with no dependencies; no open PR names worker-activity
 - OBSERVED: the specification parts above carry the added content — `turn.stop_reason` in the `turn` object of `client-profiles/01-profile-schema.adoc` (the pointer member) and the enum `end_turn`, `tool_use`, `max_tokens`, `refusal`, `other`, `null` in `store-schemas/16-task-queue.adoc` — read at `4617865`
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: turn.stop_reason is in client-profiles/01 (lines 337 and following) and enum end_turn,tool_use,max_tokens,refusal,other,null in store-schemas/16 line 201 at HEAD; ProfileValidator.events already validates the stop_reason pointer and ActivityEntry.StopReason carries the same values.
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: stop_reason: client-profiles/01 and store-schemas/16; ActivityEntry.StopReason and ProfileValidator handle it
 
 ## Expected Surface
 
@@ -106,6 +106,47 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `doc/specification/model-work/09-completion-usage-and-spend.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-core/doc/adr/core-queue/` — next free number 007; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `pm-workflow/doc/developer/workflow-task.adoc` — extended with the off-track entry points; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-workflow/doc/adr/workflow-task/` — next free number 005; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-runtime/doc/developer/runtime-launch.adoc` — extended; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-runtime/doc/adr/runtime-launch/` — next free number 006; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/job/` — output capture (`JobLog`, `SubprocessJobRunner`) is the nearest reader of a worker's stream; not read in detail; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/Traceability.adoc` — written by every plan; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 5: 2 corroborated, 3 contradicted (re-scoped by this section), 0 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claim 0: the package file changed in #190: D5's closing reference `(supervisor)` now links the `runtime.worker` developer guide (no semantic change); the other eight bullets are byte-equal.
+- Claim 1: the index row is open and depends on nothing; PLAN-30 (#190) and PLAN-28 (#160) are shipped.
+- Claim 2: the activity journal is in `pm-core/.../core/queue/` (`ActivityJournal`, `ActivityEntry`, `ActivityEntryCodec`), **not** `core/store`; `runtime/worker` holds 34 files and 21 tests with the guide and ADRs 001 to 009; `runtime/web` is listener state only.
+
+### Surface
+
+- Added to the Expected Surface above: the `core-queue` ADR directory, the `workflow-task` guide and ADR directory, the `runtime-launch` guide and ADR directory, `runtime/job/`, `doc/Traceability.adoc`.
+- wrong: `pm-core/.../core/store/` — the journal is in `core/queue`; `core/store` only gained `WorkerState`, `WorkerStateCodec`, `JobRecordStore.writeWorker`.
+- wrong: `pm-runtime/.../runtime/worker/` is annotated as greenfield; it holds the supervisor (the stream reader and the off-track ingress are still absent).
+- wrong: `pm-runtime/doc/developer/runtime-worker.adoc` and `pm-runtime/doc/adr/runtime-worker/` are annotated "created or extended / new directory"; both exist (ADRs 001 to 009, next 010); `pm-core/doc/adr/core-profile/` exists (next 006).
+- wrong: `pm-runtime/.../runtime/web/` is listener state only; the activity endpoints and the stream are assembly routes.
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #190 — Model Work 03 § A Worker Off Track: the `agent_started` row of the signal table is deleted as implemented (detector, threshold 1, action `restart`); the remaining section (four signals, thresholds, "evaluated at every activity entry", actions, `task.off_track`) is unchanged, so D4 is unchanged. **D5 is already built**: the detector plus `TaskProtocol.agentStarted` (#160); only the assembly adapter of `WorkerProtocol` remains.
+- #190 — Client Profiles 01 § Profile Verification: `worker.eligible` also requires the `paths` stage; the load check is `ProfileWorkerEligibility`; `PM-WATCH-CLIENT-13` deleted; D7's `events` stage is unaffected.
+- #187 — `headless.readable_paths` is a new required member; `ProfileValidator` knows no `readable_paths`, so edits to `headless.events` in `core.profile` keep the schema block and its parity in step (the code side is `job-confinement-and-environment`'s).
+
+### Shipped or superseded since the last grounding
+
+- #160: `ActivityJournal` (5000 bound, leaf lock), `TaskProtocol.offTrack` (once per attempt) and `agentStarted`. #172: `HarnessEnrolment.events`. #146: role-artifact off-track thresholds that may only be lowered. `EndCause.OFF_TRACK` exists as the end path, **but no caller exists for the four activity signals or for `yield`/`restart`**. Not built: stream mapping, signal computation, endpoints, navigation figures, residency bytes, the `events` stage computation, masking, archive.
+
+### Open questions for the outline
+
+- **The supervision loop has no owner, and this plan is the nearest candidate** (its Where line gives `pm-runtime` the stream mapping and the server's actions); the orchestrator does not decide it. Which transaction evaluates the signals (`ActivityJournal` appends under its own leaf lock, ADR `core-queue/006`); owner of the masker; the ingress for the four signals and for `yield`/`restart` into the supervisor; the home of the stream reader; the guide table (`runtime-worker.adoc:179`) says `OFF_TRACK` does not spend a re-offer while `EndCause.OFF_TRACK` does.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

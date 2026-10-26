@@ -56,21 +56,21 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/start-from-clients.adoc` § What, Trace, Done When on `origin/main` at `4617865` (9 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: git diff --stat 88ec9c70..8233fffc over doc/plans pm-core pm-workflow pm-runtime pm-providers is empty; doc/plans/start-from-clients.adoc untouched so its 9 What bullets still equal Deliverables 1-9
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/start-from-clients.adoc unchanged since 88ec9c70; 9 What bullets and Done When equal D1 to D9 and the Done-when
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-42 (`operator-wait-and-machine-scope`); PLAN-46 (`machine-onboarding-unit`); PLAN-45 (`project-onboarding-unit`); PLAN-76 (`start-source-intake`) (coupling: its rate limits, documents copy or move, source directory and move at creation, screening, failing closed, and claimed lesson build on the setup gate, the sources as a list, and the other sources built here; recorded on this edge, not as a reverse dependency)) — read at `doc/plans/start-from-clients.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: doc/plans/README.adoc row start-from-clients (line 102-106) is open and depends on operator-wait-and-machine-scope machine-onboarding-unit project-onboarding-unit start-source-intake with the coupling note; README not in the 88ec9c70..8233fffc diff
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open, depends on operator-wait-and-machine-scope, machine-onboarding-unit, project-onboarding-unit, start-source-intake; all four package files exist
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line of the package file and the class-level surfaces of the former specs, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: no pm-* source or doc/plans change since 88ec9c70 so the first pass path reading holds (pm-workflow workflow/unit verify primitive ast engine and pm-core core/store exist; session-unit.pmwf fixture exists)
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: all listed paths exist at f4a1bd07 (unit/ 7 files, verify/, primitive/ package-info only, ast/, engine/, core/store)
 - OBSERVED: each module that logs has one holder with its own test, which refuses an identifier used twice and one outside the range of its level (INFO 1-99, WARN 100-199, ERROR 200-299): `CoreLogMessages` (5 records), `RuntimeLogMessages` (81), `WorkflowLogMessages` (5) — `static final LogRecord` counted on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: no Java change since 88ec9c70 so the three holders and their tests are as the first pass counted (Core 5 Workflow 5 Runtime 83); the spec text 81 is stale but the claim is the existence of holder plus uniqueness and range tests
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: holders and range/unique tests exist; Core 5, Workflow 5, Runtime 89 at f4a1bd07 (the 81 in the text is stale, the claim holds)
 - HYPOTHESIS: the package adds INFO, WARN or ERROR messages; its module's log holder is deliberately NOT in the Expected Surface: a record is appended at the next free identifier and a collision is resolved on rebase, as the operator decided for the shared holder on 2026-10-09 and kept for the per-module holders on 2026-10-13 — confirm/refute the need at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: hypothesis verify-at-outline; no source changed since 88ec9c70 and whether the package adds log records is decided by the trace matrix
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis about log need; no bootstrap or source code exists to settle it
 - HYPOTHESIS: whether the package makes an HTTP call is decided at the specification sections of the trace starting set; the two HTTP constraints bind only if the trace matrix shows one, and only in `pm-runtime` or a provider module — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: no ci.* class or outbound HTTP code exists (git grep of main java finds none; pm-provider-ci deleted by #156); source-issue fetch is the CI contract provider side with no work package
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: trace-matrix hypothesis: state-catalogue/09 source-issue.fetch is a bounded ci.issue-view via the forge provider; no ci.* operation exists at HEAD and no work package builds it
 - OBSERVED: the specification and watch parts of the Expected Surface changed since the claims were last grounded at `c281f6c` only as listed in the verdict — `git diff --numstat c281f6c..4617865`; the executing plan re-reads them at its branch point
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: the pinned range c281f6c..4617865 still reproduces; since then #177 touched phase-workflows/01 only in The Intent Record and Capability Specs (lines 440-466) outside Plan Source Contracts (261-307) and #179 touched 04; store-schemas/10 model-work/08 state-catalogue/09 store-schemas/08 workflow-dsl/02 not touched by #177 or #179
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: range c281f6c..4617865 reproduces; parts changed after 4617865 are recorded in the Re-grounding Record of 2026-10-26
 - Verify-first clause: before scoping, read the roadmap item this package serves for what the code already covers, list the open pull requests for one that names `start-from-clients`, and check in `doc/plans/README.adoc` that every dependency is `done`; a refutation of any claim above loops back to re-scope.
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: README row open with the same four dependencies and the package file not in the diff; open-PR list not re-read (no read-only route)
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open with the same four dependencies; package file unchanged; open-PR list is only #71
 
 ## Expected Surface
 
@@ -97,6 +97,34 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `pm-core/doc/developer/core-spi.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/ast/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/engine/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/spi/OutcomeClass.java` — D2 names the `STEPPED_OUT` wording and the session removal; only `core-spi.adoc` was on the surface; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/QualificationSettingsStore.java` — already owns `local-config.json` (`settings.qualification`, revision and `CONFLICT`, ADR `core-store/045`); `epic.parallelization_scope` is a new member of the same document and must not clobber it; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/StoreRefusal.java` — the `CONFLICT` outcome and `conflict(file, expected, current)`; added by the re-grounding of 2026-10-26
+- HYPOTHESIS: `pm-workflow/doc/developer/workflow-primitive.adoc` — package `primitive` changed and no developer file exists yet (new); added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 8: 5 corroborated, 0 contradicted, 3 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`). Nothing is contradicted; the spec equals its unchanged package file.
+
+### Surface
+
+- Added to the Expected Surface above: `OutcomeClass`, `QualificationSettingsStore`, `StoreRefusal`, the `workflow-primitive` guide. Also read: the verifier fixtures `session-link-forbidden.pmwf` and `session-link-transitive.pmwf` under `pm-workflow/src/test/resources/verify/refused/` that D2 names.
+- No annotation is wrong: every path exists; `primitive/` is package-info only.
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- **#189 (`1c9f366d`) — State Catalogue 09 § Source Units (`source-lesson` rows, `state-source.screen`, `.flagged`, `.unscreened`), Phase Workflows 01 § Plan Source Contracts (line 290) and Store Schemas 10 § Lesson Record:** a lesson with `derived_from_untrusted` passes the level-1 validator, is stored marked untrusted and goes outcome `stored_untrusted` → `source-lesson.screen`; the lesson front matter requires `derived_from_untrusted`. D5's lesson text (resolve, premise, use/retire/remove) does not mention it and `start-source-intake.adoc` names no lesson screening: **the owner is unstated** (this plan or `start-source-intake`).
+- #181 — Store Schemas 08: `diagrams.format` beside `epic.parallelization_scope`; no effect on D8, keep it when deleting implemented text. #186 — Workflow DSL 02: `security_severity_caps`; not the clients-only section. #177, #179, #192 — Phase Workflows 01 Builder Check, Proportion, Capability Specs: outside Plan Source Contracts; no effect.
+
+### Shipped or superseded since the last grounding
+
+- #185: `QualificationSettings*` write `local-config.json` under the local-configuration lock with revision refusal `CONFLICT`; no general `local-config` codec exists (`core/config` is package-info only), so `epic.parallelization_scope` and `settings.qualification` must coexist in one document. No pending-entry, lesson-store, `ci.issue-view` or bootstrap code landed; `PendingEntryRecord.Bootstrap` still has one raw member `source`; `VerificationRule.SESSION_DRIVEN_LINKS(10)` (`VerificationRule.java:98`) and `WorkflowValidator.checkSessionDrivenLinks` are still present.
+
+### Open questions for the outline
+
+- Owner of the lesson store (reader, writer, retire verb, claim, remedy, `derived_from_untrusted`) and of `source-lesson.screen/.flagged/.unscreened` and the `stored_untrusted` outcome (this plan or `start-source-intake`); `ci.issue-view` has no provider implementation or work package (the same blocker as `forgejo-provider`); where default units live (`plan-marshall-mcp`); one owner of the verifier rule `SESSION_DRIVEN_LINKS` between PLAN-42 and this plan (R15).
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

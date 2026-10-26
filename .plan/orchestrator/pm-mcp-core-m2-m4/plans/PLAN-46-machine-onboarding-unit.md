@@ -61,17 +61,17 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/machine-onboarding-unit.adoc` § What, Trace, Done When on `origin/main` at `4617865` (11 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/machine-onboarding-unit.adoc has 11 What bullets; last touched 3d4baf7d (#131); not touched by the seven spec PRs
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/machine-onboarding-unit.adoc unchanged since 88ec9c70; 11 What bullets
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-42 (`operator-wait-and-machine-scope`); PLAN-61 (`token-usage`) (the usage record of the verification)) — read at `doc/plans/machine-onboarding-unit.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: README row machine-onboarding-unit open, depends on operator-wait-and-machine-scope and token-usage (both rows exist, open); queue PLAN-46 staged
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open, depends on operator-wait-and-machine-scope and token-usage; token-usage open (now depends only on role-qualification)
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Labelled hypothesis. core/config/ is package-info only; core/role/ already holds the read side (ModelCatalogue, RoleAssignments, StewardConfiguration, MachineConfiguration, RoleEnvironment) from #146; no consents.json, no onboarding or settings code anywhere
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: landed code touched only core/store, core/profile, runtime/worker, runtime/log, runtime/job (one case); core/config still package-info only; no consents, onboarding or settings code
 - OBSERVED: no production class of `plan-marshall-mcp` at `38bd66d` calls `CredentialStoreChoice.record`, and `CredentialStoreChoice.record(LockManager, String, Store)` exists in `pm-runtime` — `grep -rn 'CredentialStoreChoice.*record\|\.record(' pm-mcp-server/src/main` finds nothing; `pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreChoice.java` line 457
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: CredentialStoreChoice.record(LockManager, String, Store) at pm-runtime credentials/CredentialStoreChoice.java line 457; git grep of .record( in plan-marshall-mcp origin/main (38bd66d, local ref not refetched) pm-mcp-server/src/main is empty; no caller in pm-core, pm-workflow, pm-runtime outside the class
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: CredentialStoreChoice.record(LockManager, String, Store) at pm-runtime credentials/CredentialStoreChoice.java:457; the assembly only reads recorded() and activeStore()
 - OBSERVED: the operator verb that records the store already exists in `pm-mcp-clients` and no repository serves its path — `pm-operator/src/main/java/de/planmarshall/operator/ConfigCommand.java` line 634 (`POST /api/v1/config/credentials`) at `735713b`; `git grep config/credentials` finds a hit only in that file and its test, none in this repository, `plan-marshall-mcp` or `plan-marshall-documentation`
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: pm-mcp-clients origin/main 9379836 pm-operator ConfigCommand.java line 634 posts /api/v1/config/credentials; hits only there and in ConfigCommandTest; none in pm-mcp-core source or docs, plan-marshall-mcp origin/main, plan-marshall-documentation origin/main
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: pm-mcp-clients origin/main: pm-operator ConfigCommand posts /api/v1/config/credentials with a test; no hit in pm-mcp-core, plan-marshall-mcp or the documentation
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Row is open (not blocked). Packages it restructures partly shipped since: plan-instance alignment #107/#131, role sets #146, worker launch and harness enrolment #172, slots #164 (see applicability)
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open, not blocked; no open PR names it; restructured packages as stated plus #185 and #190
 
 ## Expected Surface
 
@@ -98,6 +98,36 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `doc/specification/store-schemas/11-enrolment-store.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `doc/implementation-watch/client-profiles.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/` — `ProbeWorkspace`, `DecoyServers`, `VerifyingBinaryCheck` for the unknown-harness verification (D4), `ProfileWorkerEligibility` as the gate that reads its record; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `pm-core/doc/developer/core-profile.adoc` — package guide of the touched `core.profile`; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-runtime/doc/developer/runtime-worker.adoc` — package guide of the touched `runtime.worker`; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/ProfileValidator.java` — `readable_paths` and the credential rule; shared with the open package `job-confinement-and-environment`; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 6: 5 corroborated, 0 contradicted, 1 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`).
+
+### Surface
+
+- Added to the Expected Surface above: `runtime/worker/`, the `core-profile` and `runtime-worker` guides, `ProfileValidator`.
+- wrong: `pm-runtime/.../runtime/` — the root is not a package; the named areas are `launch/`, `job/`, `credentials/` and now `worker/`; the unit sub-workflows are not in `pm-workflow/unit` (loaders only). `pm-core/doc/adr/core-store/` is annotated "new directory if absent"; it exists (next 046).
+- Landed footprint over the declared directories: `core/store/` was touched (#185 `ChangeLedger`, `MetricsStore`, `QualificationSettings*`, `StoreRefusal` `CONFLICT`; #190 `JobRecordStore.writeWorker`, `WorkerState`, `WorkerStateCodec`), `core/profile/` (#190 `VerificationRecord.Tool`, `WorkerParameters`), `runtime/worker/` (new), `runtime/log` (PM_RUNTIME-36..38, 140..142), `runtime/job` (one case); `workflow/unit`, `workflow/plan`, `core/role`, `core/config` untouched.
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- **#187 (`f287eb50`) — Client Profiles 01 § Readable Paths and § Profile Verification, Job Runtime 02 § Worker Read Set: the headless profile schema now REQUIRES `headless.readable_paths`** (home-relative, never the home directory or a credential location; the compiled lists of claude, opencode, codex are none and provisional), and a new `paths` stage runs the base task with the worker read set and the draft's `readable_paths`: the task must fail to read a decoy placed in the home directory; `worker.eligible` needs `paths` passed. D4's "the draft is validated as a profile" and its stage list therefore change: `ProfileValidator` does not know `readable_paths` (`job-confinement-and-environment` owns that), and `ProbeWorkspace` does not build a decoy-in-home control. **Which job kind carries the `paths` stage is unspecified** (D4 says verification runs as `probe` jobs, which keep the open read set).
+- #185 — Store Schemas 11 § Unreadable Store: a `harnesses.json` whose entries lack `events`, `usage_report.figures` or `weights` is refused `harness_store_unreadable`; the harness list of D4 must show the refusal instead of reading an empty map, and enrolling several harnesses in a scan must not lose entries.
+- #181 — Store Schemas 12: the machine-config member `diagrams.format` (default `text`) is a new member D2 and D3 must keep; no aspect writes it. #189 — screener repeated runs: affects the roles aspect's qualification display only. #190 — `PM-WATCH-CLIENT-13` deleted; `ProfileWorkerEligibility` consults the record before every start; `PM-WATCH-CLIENT-16` present (client-profiles.adoc:194).
+
+### Shipped or superseded since the last grounding
+
+- #190 builds the supervisor and its gate (`EligibilityRefusal` reasons `RECORD_ABSENT`, `OTHER_PLATFORM`, `CLAIM_STAGE_ABSENT`, `STAGE_FAILED`, `STAGE_NOT_RUN`) and the three verification controls (ADR `runtime-worker/007`): infrastructure D4 builds on; **the stage runner is still missing**. #185 gives the revision/`CONFLICT` pattern D9 needs; `StoreRefusal.conflict` has no current-value field. R12: the plan parameters list only `WorkflowLogMessages` and `CoreLogMessages` although the Where line names `pm-runtime` (`RuntimeLogMessages`, 89 records).
+
+### Open questions for the outline
+
+- Where and by whom `readable_paths` is validated and the decoy-in-home `paths` control built; **whether to add `job-confinement-and-environment` (open, a package file whose spec PLAN-27 shipped) as a dependency**; whether `settings.choose` or the language aspect records `diagrams.format`; the earlier questions stand (`ci.whoami`, default units' home).
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

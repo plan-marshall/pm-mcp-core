@@ -60,13 +60,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/token-usage.adoc` § What, Trace, Done When on `origin/main` at `4617865` (12 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: doc/plans/token-usage.adoc untouched since 88ec9c70 (last change acb5bba9); the 12 What bullets are the Deliverables
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: 12 What bullets and Done-when equal the package file; the Trace Watch bullet does not: #190 removed PM-WATCH-CLIENT-13 from doc/plans/token-usage.adoc, the spec still lists it
 - OBSERVED: the package file and its index row (`open`; depends on PLAN-31 (`slots-usage-and-budgets`); PLAN-34 (`role-qualification`)) — read at `doc/plans/token-usage.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: contradicted | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: unchanged at 8233fffc: README row token-usage (line 162) is open and depends on role-qualification only; PLAN-31 shipped as 88ec9c70 (#164); README untouched since
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: index row token-usage depends on role-qualification only (open); PLAN-31 shipped as 88ec9c70 and is no longer named
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: hypothesis verify-at-outline; no source change under pm-core, pm-workflow or pm-runtime since 88ec9c70 so the first pass reading of the surface stands
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: all 21 Expected Surface paths exist; core.role holds no qualification record, calibration record or judge-check type; HarnessEnrolment.UsageReport has no start_context
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: unverifiable | checked_at: 8233fffcaf64e1605fa4fe1b0912ac06f44bb428 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: unchanged at 8233fffc: verification procedure; row open; open PRs not readable here (no gh); PLAN-31 shipped the usage rows so the new column and new field wording is re-scoped by the Re-grounding Record
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: procedure: row open; role-qualification still open; open PRs not readable
 
 ## Expected Surface
 
@@ -93,6 +93,39 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/store-schemas/05-metrics-and-quality-report.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/16-task-queue.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/11-enrolment-store.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-core/doc/developer/core-role.adoc` — D3 changes `core.role` and R06 names its developer file; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `pm-core/doc/adr/core-role/` — next free number 003; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 4: 0 corroborated, 2 contradicted (re-scoped by this section), 2 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claim 0: the 12 What bullets and the Done-when equal the package file, but its Trace Watch bullet does not: #190 removed the `PM-WATCH-CLIENT-13` link from `doc/plans/token-usage.adoc`; this spec's Trace still lists it (the item is deleted).
+- Claim 1: the index row `token-usage` depends on `role-qualification` only (open); PLAN-31 shipped as `88ec9c70` and is no longer named.
+
+### Surface
+
+- Added to the Expected Surface above: the `core-role` guide and ADR directory.
+- wrong: `pm-core/doc/adr/core-store/`, `pm-runtime/doc/adr/runtime-launch/`, `pm-core/doc/adr/core-profile/` are annotated "new directory if absent"; all exist (next 046, 006, 006).
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #190 — `PM-WATCH-CLIENT-13` and `PM-WATCH-DISP-43` ("the token budget reads the per-turn context, never a run total") deleted. D9's "token budget by which the supervisor recycles" is now implemented in `runtime.worker.WorkerRecycling` (reads the latest-turn context only, `WorkerGeneration.contextTokens()`); the unified figure must not change what it reads. `VerificationRecord` gains `Tool(version, commit)`.
+- #187 — Client Profiles 01: required `headless.readable_paths` and the `paths` stage in eligibility; the stage list is launch, ..., paths, faults, usage; D10's "after faults" still holds.
+- #185 — Store Schemas 11 § Unreadable Store: the enrolment's `usage_report` with a `figures` object must be present, else `harness_store_unreadable`; D10's usage stage writes exactly that member (and `start_context`). #186, #189, #191 added Added-Line Scan, Code Scanning Alerts and Security Audit Calibration to Phase Workflows 05 beside Metric Aggregates (named whole by the Trace): leave the new sections.
+
+### Shipped or superseded since the last grounding
+
+- PLAN-31 (earlier, still true): `HarnessUsage` with five components plus the derived total, `UsagePointers.reasoning`, `MetricsCodec` members. #185: `MetricsStore` writes through `ScopeTransaction` and refuses a task row with `phase` in epic or workspace files and an idle row outside the workspace; coverage aggregates per epic must respect it. D9 is satisfied by absence (`workflow/spend` is package-info only).
+- Dependencies: PLAN-31 shipped (`88ec9c70`); PLAN-34 `role-qualification` open.
+
+### Open questions for the outline
+
+- Owner of `headless.long_context_thresholds`; Planning Weight and Caller-Drift Rate in Phase Workflows 05; order and ownership of the token members of the qualification, calibration and judge-check records versus `role-qualification`.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

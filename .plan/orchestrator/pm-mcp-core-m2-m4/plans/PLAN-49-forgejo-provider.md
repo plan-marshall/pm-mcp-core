@@ -54,15 +54,15 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/forgejo-provider.adoc` § What, Trace, Done When on `origin/main` at `4617865` (3 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/forgejo-provider.adoc last touched by 28d04ef6; 3 What bullets, Trace and Done When equal the spec Deliverables 1-3
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/forgejo-provider.adoc unchanged since 88ec9c70; 3 What bullets and Done When equal D1 to D3
 - OBSERVED: the package file and its index row (`blocked`; depends on the CI contract of `pm-provider-ci` (no work package)) — read at `doc/plans/forgejo-provider.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: README.adoc line 108-112 at HEAD: forgejo-provider blocked, depends on 'the CI contract of pm-provider-ci (no work package)'; but no pm-provider-ci module exists at HEAD (deleted by #156 3672829a) so the named dependency has no module either
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row blocked on the CI contract of pm-provider-ci (no work package); the module pm-provider-ci does not exist at f4a1bd07 (pm-providers/pom.xml modules: git, http, github, gitlab, sonar)
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: contradicted | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: ProjectEnrolment.java:309-321 enum Provider is 'a CLI provider whose compiled verification an enrolment may replace' (GIT, GH, GLAB) so it is not the closed list of integrations and forgejo has no CLI variant; ProviderNeutralityArchTest forbids a pm-core member named forgejo; KNOWN_PREFIXES is in pm-core/src/test/.../log/CoreLogMessagesTest.java (R12), not in pm-providers/pom.xml; pm-provider-forgejo cannot depend on pm-provider-ci (absent). The 7 OBSERVED paths exist
+  - verdict: contradicted | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: yes | evidence: still wrong: ProjectEnrolment.Provider is GIT/GH/GLAB CLI providers only; no pm-provider-ci to depend on; the root enforcer allows a provider only pm-core and pm-provider-http; doc/developer/provider-forgejo.adoc is the wrong place (provider guides live per module)
 - OBSERVED: the Module Structure Specification at plan-marshall-documentation `b8c61b3` lists `pm-provider-forgejo` as depending on `pm-provider-ci`, `pm-provider-http` and `pm-core`, and `pm-provider-http` as the shared HTTP base module — `doc/specification/module-structure.adoc` § module tree, § `pm-provider-forgejo`, § Dependency Rules
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: plan-marshall-documentation origin/main 385430d module-structure.adoc lines 117, 168-171, 185, 586, 605 read as claimed and the file is unchanged since 273171d, but the implementing source differs: pm-provider-ci does not exist, pm-provider-github/gitlab/sonar poms depend on pm-provider-http and pm-core only, pm-provider-http exists (#156)
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: documentation origin/main module-structure.adoc still lists pm-provider-forgejo depending on pm-provider-ci; the implementing poms depend on pm-provider-http and pm-core only
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Row is still blocked in the index at HEAD, consistent with the spec's parked note; package file unchanged since 28d04ef6; open-PR list not re-read
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row still blocked; package file unchanged; open-PR list is only #71
 
 ## Expected Surface
 
@@ -83,6 +83,42 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `pm-core/src/test/java/de/planmarshall/core/log/CoreLogMessagesTest.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `pm-providers/README.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - HYPOTHESIS: `doc/developer/provider-forgejo.adoc` — to be created; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-providers/README.adoc` — exists; the new module is added to it; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/log/CoreLogMessagesTest.java` — `KNOWN_PREFIXES` gains `PM_PROVIDER_FORGEJO`; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/LogMessages.adoc` — one row per log record the provider adds; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/Traceability.adoc` — every package adds its lines; added by the re-grounding of 2026-10-26
+- HYPOTHESIS: `pm-providers/pm-provider-forgejo/README.adoc` — module README (per module, as the github, gitlab, sonar, git and http providers have it); new; added by the re-grounding of 2026-10-26
+- HYPOTHESIS: `pm-providers/pm-provider-forgejo/doc/developer/provider-forgejo.adoc` — the provider guide lives per module, not under a root `doc/developer/`; new; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**. The plan stays **parked**.
+
+- Claims re-read: 5: 4 corroborated, 1 contradicted (re-scoped by this section), 0 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`).
+
+### Premises corrected (contradicted at HEAD, re-scoped here)
+
+- Claim 2: still wrong: `ProjectEnrolment.Provider` is the `GIT`/`GH`/`GLAB` CLI providers only; there is no `pm-provider-ci` to depend on (the directory holds only untracked IDE files and `target`; `pm-providers/pom.xml` lists git, http, github, gitlab, sonar; removed by #156); the root enforcer (`pom.xml` lines 255 to 276, `BuildGuardsIT`) allows a provider only `pm-core` and `pm-provider-http` among the product modules; `doc/developer/provider-forgejo.adoc` is the wrong place.
+
+### Surface
+
+- Added to the Expected Surface above: `pm-providers/README.adoc`, `CoreLogMessagesTest`, `doc/LogMessages.adoc`, `doc/Traceability.adoc`, the module README and developer guide of the new module.
+- wrong: `pm-providers/pm-provider-forgejo/pom.xml` must **not** depend on `pm-provider-ci` (it does not exist and the dependency would fail the build); the root POM adds the module to `dependencyManagement` as #156 did.
+- Correction to the first pass: `ProviderNeutralityArchTest.PROVIDER_NAMES` is github, gitlab, sonar, codeql (line 59), so it does **not** literally forbid "forgejo"; ADR `core-findings/002` states the rule for provider identities generally.
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #185, #189 — `FindingSourceKind` gains `ADDED_LINES` and `CAPABILITY_TESTS` (Store Schemas 03:116, 13 values): server-side pre-merge checks only; there is still no value for Forgejo reviews and the exemption of `ProviderNeutralityArchTest` is still exactly `GITHUB_PR`/`GITLAB_MR`.
+- #186 — Store Schemas 03 (`submitted_severity`, `security`, Located Finding Grounding) and Phase Workflows 05 Code Scanning Alerts: the code analysis provider `github-code-scanning` lives in `pm-provider-github` with `project.json integrations.github-code-scanning`; Store Schemas 07 `integrations` still lists `sonar` only (`additionalProperties: false`), so that spec is ahead of its schema. No Forgejo requirement added or removed. **Collision surface with the new package `security-audit-and-code-scanning`:** `core.findings` (`Finding`, `FindingSourceKind`, `FindingSchemaParityTest`), `pm-provider-github`, the `integrations` closed list, `pm-providers/README.adoc`: if this plan adds a review source kind it edits the same enum and test: sequence them.
+- #188 — Credentials and Enrolment 03 § Closed List of Outbound Calls: the Forgejo client and the `/api/v1/version` probe must go through `cui-http` `HttpHandler` (a static architecture rule; configured CI hosts are on the list); D2 and D3 already say origin-pinned base, now testable. #191 — Phase Workflows 05 outbound text: every title, body and comment sent to a provider (`ci.issue-comment` included) passes the credential-shaped check in the server (`credential_shaped_text` refusal): not adapter work. #181 — `diagrams.format` only.
+
+### Shipped or superseded since the last grounding
+
+- None for Forgejo. `pm-provider-http` (#156) is in place; no `ci.*` contract or registry exists anywhere (git grep empty). The documentation `module-structure.adoc` still lists `pm-provider-forgejo` depending on `pm-provider-ci` (lines 117 and 168), so the correction the Parked note expected from PLAN-86 did not happen. ADR numbers: `core-findings` next 003.
+
+### Open questions for the outline
+
+- The source value for Forgejo pull-request reviews (a new `FindingSourceKind` constant or none; the exemption and test change); who builds the CI contract and registry and whether provider modules may depend on a `pm-provider-ci` again (the enforcer rule, CLAUDE.md, `module-structure.adoc`); whether `project.json integrations` gets `forgejo` and `github-code-scanning` keys.
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 

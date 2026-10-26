@@ -2,10 +2,10 @@
   "id": "PLAN-104",
   "slug": "main-green-and-leftovers",
   "workstream": "WS-06",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-104-main-green-and-leftovers",
+  "pr": "#185",
+  "landing": "landings/PLAN-104.md",
   "seq": 104
 }

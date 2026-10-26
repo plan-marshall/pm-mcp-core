@@ -60,13 +60,13 @@ None beyond the standing rules named in the First Instruction above.
 ## Claim Labels
 
 - OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/cleanup.adoc` § What, Trace, Done When on `origin/main` at `4617865` (10 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/cleanup.adoc unchanged since c6da0e20; 10 What bullets equal the spec Deliverables.
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/cleanup.adoc unchanged; 10 What bullets and Done When equal D1 to D10
 - OBSERVED: the package file and its index row (`blocked`; depends on PLAN-42 (`operator-wait-and-machine-scope`); PLAN-58 (`operator-reports`); PLAN-51 (`plan-and-epic-control`) (the archives of plans); PLAN-77 (`epic-resource-and-release`) (the archives of epics, the release; the unenrolment); PLAN-55 (`chat`) (ended work, read-only); PLAN-60 (`runtime-metrics`) (the token figures kept); PLAN-46 (`machine-onboarding-unit`) (the machine's settings); PLAN-45 (`project-onboarding-unit`) (the project's values)) — read at `doc/plans/cleanup.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: README rows lines 192-196: cleanup is blocked with the same 8 dependencies, all still rows of the table.
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row blocked with the same eight dependencies, all still listed rows
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
-  - verdict: unverifiable | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Hypothesis; the 12 OBSERVED paths exist at HEAD and runtime/start, core/store, runtime/web exist, but runtime/start already holds a periodic sweep and the surface misses related code (see surface block).
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: paths exist (runtime/start 34 files incl. PeriodicSweep, PendingEntryRecordsSweep; core/store); no cleanup code, no journal, tombstone or sweep verb
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 88ec9c7092b3f9676171cc31bc3df0d5305832f0 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: Row cleanup is still blocked at HEAD and the package file last changed in c6da0e20; use cases and open-PR list not re-read.
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: row still blocked; package file unchanged
 
 ## Expected Surface
 
@@ -95,6 +95,35 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/job/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/config/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
 - OBSERVED: `doc/specification/runtime-lifecycle/03-runtime-metrics.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/MetricsStore.java` — now `ScopeTransaction`-based and append and snapshot only; deleting a plan's or the workspace's metrics rows needs a new delete path in the transaction; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/QualificationSettingsStore.java` — the documents `local-config.json` and `machine-config.json` that carry the cleanup members follow its revision and `CONFLICT` rule (ADR `core-store/045`); added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/StoreRefusal.java` — the `CONFLICT` outcome; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/PeriodicSweep.java` — the only sweep that still removes pending entries by age (`PENDING_ENTRY_MAX_AGE` 86400); the spec requires evidence (started or abandoned); added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/PendingEntryRecordsSweep.java` — the sweep step in question; added by the re-grounding of 2026-10-26
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**. The plan stays **parked**.
+
+- Claims re-read: 4: 3 corroborated, 0 contradicted, 1 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`). Nothing is contradicted.
+
+### Surface
+
+- Added to the Expected Surface above: `MetricsStore`, `QualificationSettingsStore`, `StoreRefusal`, `PeriodicSweep`, `PendingEntryRecordsSweep`. No annotation is wrong (`runtime-start.adoc` and `adr/runtime-start` exist: "new directory if absent" is moot).
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #185 and #190 — Store Schemas 11 § Unreadable Store (`harness_store_unreadable`, replacing `PM-WATCH-DISP-33`): about the harness enrolment, not the project unenrolment; no Deliverable change. #181 — Store Schemas 08 and 12 `diagrams.format` beside the cleanup members (08:152): keep when deleting implemented text.
+- **#186 — Phase Workflows 05 § Security Audit Calibration item 5:** the security history reads `security_audit` findings of **archived** plans (an unreadable archive is named in the facts, never "no history"); this plan replaces `archive/<plan_id>/` by a tombstone `deleted.json`, and **whether a tombstone counts as unreadable (named) or as deleted is unstated in both specifications**: one point of overlap with `security-audit-and-code-scanning`, to clarify or sequence; otherwise independent.
+
+### Shipped or superseded since the last grounding
+
+- #185: `MetricsStore` and `ChangeLedger` through `ScopeTransaction` (ADR `core-store/044`), the settings revision refusal (ADR 045); next `core-store` ADR 046. #190: `runtime/worker`, `JobRecordStore.writeWorker`; `ProbeWorkspace` is a temp directory below the JVM tmp directory outside `PM_MCP_BASE`, not a store residue. Unchanged: no writer sets `ProjectStoreIdentity.unenrolledAt`; `AuditEvent` has no waiver event; `PeriodicSweep` runs hourly with `PendingEntryRecordsSweep`, `StaleLeaseSweep`, `AuditRotation` only.
+- The index row is `blocked` with the same eight dependencies, all open (the `runtime-metrics` row no longer depends on `supervisor`).
+
+### Open questions for the outline
+
+- The pending-entry sweep must be replaced by evidence-based removal; `waiver_waived` has no writer; the tombstone against the security history and the removed-guard reads; a metrics-row delete path in `MetricsStore`; where the worker logs ("logs of ended work") live (not yet fixed by the worker package).
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 
