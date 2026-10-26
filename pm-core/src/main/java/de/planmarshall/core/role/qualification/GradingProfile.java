@@ -10,9 +10,9 @@
 package de.planmarshall.core.role.qualification;
 
 /**
- * How often each item of a role's topic is offered (Model Work § Grading, Screener Repeated Runs). The set is closed:
- * the screener's injected items are offered five times, each in a fresh worker, because one caught run says little about
- * the next; every other role is graded once per item and form.
+ * How often each item of a role's topic is offered (Model Work § Grading, Screener Repeated Runs). The count is the
+ * caller's; the grading run raises it to the compiled {@link #SCREENER_RUNS} for a corpus whose own items carry
+ * {@code suspicious} references, so the repeated-runs rule is not switched off by a profile.
  *
  * @param runsPerItem how often each item of a topic is offered, at least one
  * @since 0.1

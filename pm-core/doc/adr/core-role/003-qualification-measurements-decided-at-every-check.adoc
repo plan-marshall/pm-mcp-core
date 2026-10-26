@@ -29,8 +29,8 @@ with its answer.
 
 * the digest must equal the role's current qualification digest, the corpus revision the shipped one, and the record
   must have no ungraded item;
-* the record must hold a result for every topic the role's corpus defines (`RoleTopics`: `own`, `generic`, both, or —
-  a judgment role — `generic` alone);
+* the record must hold a result for every topic the role's corpus defines (`RoleTopics`: `own` and `generic` for a
+  writer or read-only role, `own` alone for a `zero_tool` role);
 * every topic's agreement must reach the project's current `agreement_level` and exceed the topic's recorded
   `constant_baseline` by the compiled `10`; a baseline whose sum with the margin exceeds `100` names the topic too
   uniform and invalidates it;
@@ -61,7 +61,9 @@ The levels are read from `QualificationSettingsStore` at every lookup (`Recorded
 
 == Source
 
-Work package `role-qualification` (`doc/plans/role-qualification.adoc`), specification
+Work package `role-qualification`
+(link:https://github.com/plan-marshall/pm-mcp-core/blob/9ef3e7e8/doc/plans/role-qualification.adoc[package file at the
+base commit]), specification
 `doc/specification/model-work/01-roles-and-configuration.adoc` § Qualification Records, § Constant Baseline and
 § Corpus Topics of a Role, `doc/specification/store-schemas/16-task-queue.adoc#qualification-record` and
 `doc/specification/store-schemas/08-project-configuration-local.adoc#local-config`.

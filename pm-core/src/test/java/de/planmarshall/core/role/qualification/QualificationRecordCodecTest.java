@@ -111,6 +111,17 @@ class QualificationRecordCodecTest {
                 List.of()));
     }
 
+    @Test
+    @DisplayName("the ungraded count is the number of ungraded items, never a separate claim")
+    void ungradedCountDerived() {
+        var graded = QualificationFixtures.recordWithBaseline(java.util.Map.of(Topic.OWN, new BigDecimal("90")),
+                new BigDecimal("10"));
+
+        assertThrows(IllegalArgumentException.class, () -> new QualificationRecord(graded.role(),
+                graded.qualificationDigest(), graded.configuration(), graded.corpusRevision(),
+                graded.missedSources(), graded.forms(), null, 1, graded.gradedAt(), List.of()));
+    }
+
     private String text() {
         return new String(QualificationRecordCodec.write(fullRecord()), StandardCharsets.UTF_8);
     }

@@ -184,7 +184,7 @@ public final class RoleGrader {
                     results.addAll(reused);
                     continue;
                 }
-                for (var run = 1; run <= plan.profile().runsPerItem(); run++) {
+                for (var run = 1; run <= GradingOffer.runs(plan); run++) {
                     results.add(offer(plan, item, form, checkout, run));
                 }
             }
@@ -207,7 +207,7 @@ public final class RoleGrader {
         var judged = scorer.score(prompt(item, answer.answer()));
         var grade = judged.map(score -> Grade.scored(score.score())).orElseGet(Grade::ungraded);
         var tokens = judged.map(score -> answer.totalTokens().plus(score.totalTokens()))
-                .orElse(TokenTotal.unmeasured());
+                .orElse(answer.totalTokens());
         var duration = judged.map(score -> answer.durationMs() + score.durationMs())
                 .orElse(answer.durationMs());
         return new QualificationRecord.ItemResult(item.id(), form, checkout, JsonNode.string(answer.answer()), grade,
@@ -318,9 +318,10 @@ public final class RoleGrader {
             var measured = entry.getValue().agreement().subtract(warmTopic.agreement());
             gap = gap == null || measured.compareTo(gap) > 0 ? measured : gap;
         }
-        return gap == null ? null : gap.stripTrailingZeros().scale() < 0
-                ? gap.setScale(0)
-                : gap.stripTrailingZeros();
+        if (gap == null) {
+            return BigDecimal.ZERO;
+        }
+        return gap.stripTrailingZeros().scale() < 0 ? gap.setScale(0) : gap.stripTrailingZeros();
     }
 
     private static int ungraded(List<QualificationRecord.ItemResult> results) {

@@ -73,19 +73,6 @@ class RoleTopicsTest {
     }
 
     @Test
-    @DisplayName("a judgment role is graded on the decision/question items alone")
-    void judgment() {
-        var items = List.of(
-                item("decision/question/one", "architecture", ImportedItem.ReviewStatus.CONFIRMED),
-                item("review/own", ROLE, ImportedItem.ReviewStatus.CONFIRMED));
-
-        var topics = RoleTopics.judgment(items);
-
-        assertEquals(Set.of(Topic.GENERIC), topics.topics());
-        assertEquals(1, RoleTopics.judgmentItems(items).size());
-    }
-
-    @Test
     @DisplayName("the topic items keep the corpus order and each item once")
     void topicItems() {
         var first = item("review/first", ROLE, ImportedItem.ReviewStatus.CONFIRMED);

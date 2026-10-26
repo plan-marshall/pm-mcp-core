@@ -40,6 +40,13 @@ public sealed interface GradingOutcome {
      * @since 0.1
      */
     record Declined(boolean owed) implements GradingOutcome {
+
+        /** @throws IllegalArgumentException if the decline is not owed, which it always is */
+        public Declined {
+            if (!owed) {
+                throw new IllegalArgumentException("A declined grading is recorded as owed");
+            }
+        }
     }
 
     /**

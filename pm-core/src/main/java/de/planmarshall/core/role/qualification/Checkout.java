@@ -25,7 +25,11 @@ public enum Checkout {
     /** An item run in the project checkout, because it names no commit of the project or that commit is missing. */
     CURRENT("current"),
 
-    /** An item with context files of the corpus, run in an empty job-private working directory with them in-band. */
+    /**
+     * An item with context files of the corpus, run in an empty job-private working directory with them in-band. The
+     * imported corpus item of this repository's corpus format carries no {@code input.context}; the value is reserved
+     * for the corpus item format and produced once the corpus reader carries the member.
+     */
     CORPUS_CONTEXT("corpus_context");
 
     private final String wireName;

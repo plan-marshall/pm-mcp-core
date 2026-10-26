@@ -144,6 +144,16 @@ class JudgeCheckTest {
     }
 
     @Test
+    @DisplayName("an oracle exactly at the baseline plus the margin passes, like the topic bound")
+    void equalityPasses() {
+        var record = new JudgeCheck.Record("a".repeat(64), QualificationFixtures.HARNESS,
+                QualificationFixtures.JUDGE_MODEL, CORPUS, new BigDecimal("60"), BigDecimal.ZERO,
+                new BigDecimal("50"), 0, NOW, List.of());
+
+        assertTrue(JudgeCheck.Verdict.of(record, "a".repeat(64), CORPUS).passes());
+    }
+
+    @Test
     @DisplayName("a changed judge digest or corpus revision leaves no valid record")
     void staleRecord() {
         var record = new Runner(JudgeCheckTest::followsReference).run();

@@ -222,10 +222,10 @@ public final class JudgeCheck {
                 reasons.add("unscored");
             }
             var margin = BigDecimal.valueOf(MARGIN);
-            if (record.oracleAccuracy().compareTo(record.constantBaseline().add(margin)) <= 0) {
+            if (record.oracleAccuracy().compareTo(record.constantBaseline().add(margin)) < 0) {
                 reasons.add("oracle_not_above_baseline");
             }
-            if (record.oracleAccuracy().compareTo(record.blindAccuracy().add(margin)) <= 0) {
+            if (record.oracleAccuracy().compareTo(record.blindAccuracy().add(margin)) < 0) {
                 reasons.add("oracle_not_above_blind");
             }
             return new Verdict(reasons.isEmpty(), reasons);

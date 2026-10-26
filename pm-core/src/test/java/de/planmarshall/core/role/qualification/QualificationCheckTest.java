@@ -155,12 +155,27 @@ class QualificationCheckTest {
     }
 
     @Test
+    @DisplayName("a record that names another role is not valid for this one")
+    void staleRole() {
+        var record = QualificationFixtures.record(Map.of(Topic.OWN, NINETY, Topic.GENERIC, NINETY));
+
+        var verdict = check(QualificationFixtures.bothTopics()).check("another-role", record,
+                QualificationFixtures.DIGEST, QualificationFixtures.CORPUS_REVISION, RoleForm.FRESH);
+
+        assertAll(
+                () -> assertFalse(verdict.qualified()),
+                () -> assertTrue(codes(verdict).contains(Code.STALE_ROLE)));
+    }
+
+    @Test
     @DisplayName("a record with an ungraded item qualifies no form")
     void ungradedItem() {
         var graded = QualificationFixtures.record(Map.of(Topic.OWN, NINETY, Topic.GENERIC, NINETY));
+        var ungraded = new QualificationRecord.ItemResult("review/ungraded", RoleForm.FRESH, Checkout.CURRENT,
+                de.planmarshall.core.profile.JsonNode.nullValue(), Grade.ungraded(), TokenTotal.measured(10), 5L);
         var record = new QualificationRecord(graded.role(), graded.qualificationDigest(),
                 graded.configuration(), graded.corpusRevision(), graded.missedSources(), graded.forms(), null, 1,
-                graded.gradedAt(), List.of());
+                graded.gradedAt(), List.of(ungraded));
 
         var verdict = check(QualificationFixtures.bothTopics()).check(QualificationFixtures.ROLE, record,
                 QualificationFixtures.DIGEST, QualificationFixtures.CORPUS_REVISION, RoleForm.FRESH);

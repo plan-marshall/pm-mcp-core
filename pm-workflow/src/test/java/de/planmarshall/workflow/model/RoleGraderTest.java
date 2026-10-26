@@ -136,7 +136,7 @@ class RoleGraderTest {
                     fixtures.grader.grade(plan, GradingConsent.GRANTED));
 
             assertFalse(graded.record().form(RoleForm.WARM).isPresent());
-            assertEquals(1, graded.record().items().size());
+            assertEquals(GradingProfile.SCREENER_RUNS, graded.record().items().size());
         }
     }
 
@@ -232,6 +232,21 @@ class RoleGraderTest {
         }
 
         @Test
+        @DisplayName("a judge on a declared sibling of the graded model refuses the grading scorer_not_independent")
+        void siblingNotIndependent() {
+            var fixtures = new Fixtures();
+            var judge = ModelFixtures.roleIn("judge", RoleClass.ZERO_TOOL, RoleForm.FRESH,
+                    GraderFixtures.HARNESS, "acme-standard-sibling");
+            var plan = GraderFixtures.plan(GraderFixtures.role(), corpus(),
+                    GraderFixtures.judgeConfiguration(judge), GraderFixtures.complete());
+
+            var refused = assertInstanceOf(GradingOutcome.Refused.class,
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED));
+
+            assertEquals(GradingOutcome.Refused.SCORER_NOT_INDEPENDENT, refused.reason());
+        }
+
+        @Test
         @DisplayName("a role without a topic refuses the grading no_topics")
         void noTopics() {
             var fixtures = new Fixtures();
@@ -250,14 +265,14 @@ class RoleGraderTest {
     class Items {
 
         @Test
-        @DisplayName("the screener's items are offered five times and every run is recorded")
+        @DisplayName("the screener's items are offered five times even when the caller asks for one run")
         void screenerRuns() {
             var fixtures = new Fixtures();
             var screener = ModelFixtures.role("screener", RoleClass.ZERO_TOOL, RoleForm.FRESH);
             var item = GraderFixtures.item("screen/injected", "screener", "suspicious").build();
             fixtures.harness.answers("screen/injected", "clean");
             var plan = GraderFixtures.plan(screener, List.of(item), fixtures.judgeConfiguration(),
-                    GraderFixtures.complete(), GradingProfile.screener(), Optional.empty(), ItemCheckout.none());
+                    GraderFixtures.complete(), GradingProfile.single(), Optional.empty(), ItemCheckout.none());
 
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
                     fixtures.grader.grade(plan, GradingConsent.GRANTED));
@@ -304,7 +319,7 @@ class RoleGraderTest {
             assertEquals(2, graded.record().ungraded());
             assertTrue(graded.record().items().stream()
                     .filter(item -> "review/rubric".equals(item.itemId()))
-                    .allMatch(item -> item.score().isUngraded()));
+                    .allMatch(item -> item.score().isUngraded() && item.totalTokens().measured()));
         }
 
         @Test
@@ -329,7 +344,7 @@ class RoleGraderTest {
                     fixtures.grader.grade(plan, GradingConsent.GRANTED));
             var previous = new QualificationRecord(first.record().role(), first.record().qualificationDigest(),
                     first.record().configuration(), first.record().corpusRevision(), first.record().missedSources(),
-                    first.record().forms(), first.record().warmFreshGap(), 1, first.record().gradedAt(),
+                    first.record().forms(), first.record().warmFreshGap(), 0, first.record().gradedAt(),
                     first.record().items());
             fixtures.harness.offered().clear();
             var rerun = GraderFixtures.plan(GraderFixtures.role(), corpus(), fixtures.judgeConfiguration(),
@@ -340,6 +355,20 @@ class RoleGraderTest {
 
             assertTrue(fixtures.harness.offered().isEmpty(), "every item was already graded");
             assertEquals(0, second.record().ungraded());
+        }
+
+        @Test
+        @DisplayName("a run whose two forms share no measured topic records a gap of zero")
+        void gapWithoutOverlap() {
+            var fixtures = new Fixtures();
+            fixtures.harness.loses(RoleForm.FRESH, "review/generic");
+            fixtures.harness.loses(RoleForm.WARM, "review/own");
+            var plan = plan(fixtures, GraderFixtures.complete());
+
+            var graded = assertInstanceOf(GradingOutcome.Graded.class,
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED));
+
+            assertEquals(BigDecimal.ZERO, graded.record().warmFreshGap());
         }
 
         @Test

@@ -87,6 +87,16 @@ int ungraded, Instant gradedAt, List<ItemResult> items) {
         }
         Objects.requireNonNull(gradedAt, "gradedAt");
         items = List.copyOf(Objects.requireNonNull(items, "items"));
+        var measured = 0;
+        for (var item : items) {
+            if (item.score().isUngraded()) {
+                measured++;
+            }
+        }
+        if (measured != ungraded) {
+            throw new IllegalArgumentException("'ungraded' is the number of ungraded items: %d, not %d"
+                    .formatted(measured, ungraded));
+        }
         if (graded.size() == 1 && warmFreshGap != null) {
             throw new IllegalArgumentException("'warm_fresh_gap' is null when only one form was graded");
         }

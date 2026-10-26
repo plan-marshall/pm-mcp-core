@@ -41,9 +41,10 @@ public record JudgeConfiguration(EffectiveRole role, Set<String> siblings, List<
 
     /**
      * @param graded the graded configuration
-     * @return {@code true} if the judge's model is the graded model or one of its declared siblings
+     * @return {@code true} if the judge's model is neither the graded model nor one of the graded model's declared
+     *         siblings at the default configuration
      */
     public boolean independentOf(EffectiveRole graded) {
-        return !role.model().equals(graded.model()) && !siblings.contains(graded.model());
+        return !role.model().equals(graded.model()) && !siblings.contains(role.model());
     }
 }

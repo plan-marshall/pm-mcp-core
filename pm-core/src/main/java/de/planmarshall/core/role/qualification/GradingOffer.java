@@ -57,7 +57,7 @@ int judgeItems, long expectedTokens) {
     public static long expectedTokens(GradingPlan plan) {
         Objects.requireNonNull(plan, "plan");
         var forms = forms(plan);
-        var offered = (long) items(plan) * forms.size() * plan.profile().runsPerItem();
+        var offered = (long) items(plan) * forms.size() * runs(plan);
         return offered * ExpectedTokens.PER_ITEM
                 + (long) plan.judge().items().size() * 2L * ExpectedTokens.PER_JUDGE;
     }
@@ -70,7 +70,21 @@ int judgeItems, long expectedTokens) {
         Objects.requireNonNull(plan, "plan");
         var topics = new ArrayList<>(roleTopics(plan).topics());
         return new GradingOffer(plan.role().artifact().name(), topics, items(plan), forms(plan),
-                plan.profile().runsPerItem(), plan.judge().items().size(), expectedTokens(plan));
+                runs(plan), plan.judge().items().size(), expectedTokens(plan));
+    }
+
+    /**
+     * The runs of each item. The screener's suspicious items are offered the compiled five times, whatever the caller's
+     * profile says, so the repeated-runs rule cannot be switched off by a profile.
+     *
+     * @param plan a grading plan
+     * @return how often each item of the run is offered, at least one
+     */
+    public static int runs(GradingPlan plan) {
+        var screener = plan.items().stream()
+                .anyMatch(item -> RoleTopics.counts(item) && QualificationCheck.SUSPICIOUS.equals(item.target().answer()));
+        var requested = plan.profile().runsPerItem();
+        return screener ? Math.max(requested, GradingProfile.SCREENER_RUNS) : requested;
     }
 
     private static List<RoleForm> forms(GradingPlan plan) {

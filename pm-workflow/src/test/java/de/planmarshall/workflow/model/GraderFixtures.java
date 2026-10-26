@@ -278,6 +278,7 @@ final class GraderFixtures {
         private final Map<String, String> answers = new LinkedHashMap<>();
         private final Map<String, String> formAnswers = new LinkedHashMap<>();
         private final Set<String> lost = new HashSet<>();
+        private final Set<String> lostInForm = new HashSet<>();
         private long tokens = 1_000;
 
         Harness answers(String itemId, String answer) {
@@ -295,6 +296,11 @@ final class GraderFixtures {
             return this;
         }
 
+        Harness loses(RoleForm form, String itemId) {
+            lostInForm.add(form.wireName() + "/" + itemId);
+            return this;
+        }
+
         Harness tokens(long tokens) {
             this.tokens = tokens;
             return this;
@@ -307,10 +313,11 @@ final class GraderFixtures {
         @Override
         public Optional<GradedAnswer> answer(Offered request) {
             offered.add(request);
-            if (lost.contains(request.item().id())) {
+            var key = request.form().wireName() + "/" + request.item().id();
+            if (lost.contains(request.item().id()) || lostInForm.contains(key)) {
                 return Optional.empty();
             }
-            var answer = formAnswers.getOrDefault(request.form().wireName() + "/" + request.item().id(),
+            var answer = formAnswers.getOrDefault(key,
                     answers.getOrDefault(request.item().id(), request.item().target().answer() == null
                             ? "the defect is found"
                             : request.item().target().answer()));

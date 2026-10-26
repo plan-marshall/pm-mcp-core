@@ -232,7 +232,6 @@ The harness, model, and effort of a worker come only from its role's effective v
 
 [#default-roles]
 === Default Role Set
-_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-48[PM-WATCH-DISP-48]_
 
 The shipped set defines every role the default workflow units name, the two quorum roles the quorum declarations of the default adjudication unit list among them, the grading judge `judge` (<<grading>>), the interpreting role `interpret` (xref:06-envelopes-questions-deadlines.adoc#own-words[Answers in the Operator's Own Words]), and the machine's advisor `steward` (<<steward-role>>). Every default role runs `fresh`, with `count` `2` (`screener` and `enrich` `4`). The column `Floor s` is the artifact's `budget_floor_seconds`; the column `Group` is the role's group, by which the clients group the roles in every view of the assignment. A role runs `warm` in the shipped set only where its qualification record shows the warm form within the allowed gap (<<qualification-records>>); the shipped set has no such role.
 
@@ -329,7 +328,6 @@ The corpus is its own part plus the items generated from public datasets. A data
 
 [#qualification-records]
 === Qualification Records
-_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-48[PM-WATCH-DISP-48]_
 
 A qualification record is `<set>/qualification/<role>.json`. Every record the operator makes (the grading of the project setup and of `pm-operator roles qualify`) is written to the project set, `<PM_MCP_BASE>/projects/<project_id>/roles/qualification/<role>.json`, whichever set holds the role's effective artifact and whichever level sets its effective harness, model, and effort, because the grading measures the configuration as that project runs it; the shipped set holds the release's records, and the machine set holds none. A record is looked up in the project set first, then in the set of the artifact (for a shipped artifact, the shipped record). Its schema and members are owned by the link:../store-schemas/16-task-queue.adoc#qualification-record[Store Schemas Specification, Role Qualification Record].
 
@@ -340,7 +338,6 @@ A qualification record is `<set>/qualification/<role>.json`. Every record the op
 
 [#constant-baseline]
 === Constant Baseline
-_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-64[PM-WATCH-DISP-64]_
 
 An agreement says nothing until it is compared with what a configuration that ignores the question would reach. The *constant baseline* of a topic is the agreement of the best constant answerer: for every option key of the topic's `exact_choice` items, the percent of the topic's graded items whose reference is that key (an item graded otherwise counts as not agreeing); the largest of these is the topic's `constant_baseline`, recorded in the qualification record beside its agreement. A topic qualifies only when its agreement also exceeds its constant baseline by at least the *qualification margin*, a compiled `10` percentage points, whatever agreement level the operator sets. A topic whose constant baseline plus the margin exceeds `100` cannot qualify any configuration; both clients name it as a topic whose references are too uniform to tell a configuration from a constant answer, so the corpus needs items of other references, never a lower margin. The same baseline bounds quorum calibration (link:10-decision-quorum.adoc#quorum-calibration[Ask or Quorum, Quorum Calibration]) and the judge instrument check (<<judge-instrument-check>>).
 
@@ -380,7 +377,6 @@ _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-
 
 [#judge-instrument-check]
 === Judge Instrument Check
-_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-65[PM-WATCH-DISP-65]_
 
 A grading is only as good as its judge, so before a judge configuration grades a rubric item, the server checks that it can tell a right answer from a wrong one because of the reference:
 

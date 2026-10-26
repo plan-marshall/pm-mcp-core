@@ -133,7 +133,7 @@ added beside it only where the harness reports one, so an enrolment that starts 
 Both digests are 64 lower-case hexadecimal digits, because the configuration digest and the record's
 `qualification_digest` carry that pattern.
 
-*Pitfall (the hazard of `PM-WATCH-DISP-48`, now carried here).* A digest bound to too many members makes a role fall to
+*Pitfall (carried here from the qualification watch).* A digest bound to too many members makes a role fall to
 its conservative fallback for an edit the grading never measured; one bound to too few stays valid after the model or a
 skill changed. The rule: a change of `count`, `recycling`, `budget_floor_seconds`, `context_budget_tokens`, `questions`,
 `off_track` or `form` changes the configuration digest and keeps the qualification digest; a change of `description`
@@ -186,8 +186,8 @@ the artifact (`QualificationRecords.firstOf`). `JudgeCheck` and `JudgeCheckStore
 `qualification/judge-check.json`.
 
 `RoleTopics` gives a role its topics from the corpus items' `role` field: `own` and `generic` for a writer or read-only
-role, `own` alone for a `zero_tool` role, `generic` alone for a judgment role, and no topic at all for a `zero_tool` role
-without items of its own. Only `draft` and `confirmed` items count, and the `judge/` topic grades no role.
+role, and `own` alone for a `zero_tool` role. Only `draft` and `confirmed` items count, and the `judge/` topic grades no
+role.
 
 [TIP]
 ====

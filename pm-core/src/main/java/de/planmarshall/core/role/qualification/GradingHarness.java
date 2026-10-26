@@ -19,6 +19,11 @@ import de.planmarshall.core.role.corpus.ImportedItem;
  * The port through which a grading run offers one item to the configuration it grades (Model Work § Grading): the task
  * protocol of the role's configuration implements it. The run never starts a worker itself, so the grading engine stays
  * independent of the harness's launch contract.
+ * <p>
+ * The adapter owns the launch contract the run cannot see: it runs an item in the granted {@link Checkout}, it runs the
+ * warm form with one supervised worker taking the offered items in order and never shares a worker across items whose
+ * {@code contamination} notes name each other, and it serves the zero-tool role's item in the server-fixed prompt. It
+ * also answers whether a commit of the project's repository is present, through {@link ItemCheckout}.
  *
  * @since 0.1
  */

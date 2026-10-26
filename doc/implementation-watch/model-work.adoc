@@ -917,6 +917,19 @@ Guard:: Static check over the compiled `epic.pmwf` and every project-owned epic 
 (they do not start) and the epic continues with the next work; matched control: a `submitted` task commits the ledger.
 Source:: design review.
 
+[#PM-WATCH-DISP-66]
+=== PM-WATCH-DISP-66: An exported item sees only what was knowable at the decision
+
+Anchor:: link:../specification/model-work/11-decision-records.adoc#corpus-export[Model Work § Corpus Export]
+Hazard:: The export quotes the current version of a store record or file named as evidence, so the item carries the fix
+made after the decision and its reference answer is visible in its input.
+Guard:: Scenario: a decision whose evidence finding was resolved and whose file was changed after the decision exports
+the finding's version before the decision and the file at the record's `head_sha`; a missing old version is tagged
+`evidence-incomplete`, never replaced.
+Source:: Article analysis `agentic-graph-engineering` of plan-marshall-documentation. The grading half (an item of the
+project's repository graded at its origin commit, `checkout: current` when the commit is missing) landed with the
+`role-qualification` package; the export half stays with `decision-quorum-and-calibration`.
+
 [#PM-WATCH-DISP-67]
 === PM-WATCH-DISP-67: Two routes to one model are one voter
 

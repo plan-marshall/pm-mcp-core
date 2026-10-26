@@ -29,19 +29,4 @@ public interface JudgeChecks {
      * @param record the check record of the run
      */
     void write(JudgeCheck.Record record);
-
-    /** @return a store that holds no record, so every grading runs the check first */
-    static JudgeChecks none() {
-        return new JudgeChecks() {
-            @Override
-            public Optional<JudgeCheck.Record> lookup() {
-                return Optional.empty();
-            }
-
-            @Override
-            public void write(JudgeCheck.Record record) {
-                throw new UnsupportedOperationException("This judge check store holds no record");
-            }
-        };
-    }
 }

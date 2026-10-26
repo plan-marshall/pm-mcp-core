@@ -81,6 +81,9 @@ public record QualificationCheck(RoleTopics topics, List<ImportedItem> items, Qu
             return Verdict.refused(List.of(Reason.of(Code.NO_TOPICS, "the role has no corpus topic")));
         }
         var common = new ArrayList<Reason>();
+        if (!record.role().equals(role)) {
+            common.add(Reason.of(Code.STALE_ROLE, "the record names the role " + record.role()));
+        }
         if (!record.qualificationDigest().equals(digest)) {
             common.add(Reason.of(Code.STALE_DIGEST, "the record is bound to another qualification digest"));
         }
@@ -282,6 +285,8 @@ public record QualificationCheck(RoleTopics topics, List<ImportedItem> items, Qu
         NO_TOPICS("no_topics"),
         /** The record is bound to another qualification digest. */
         STALE_DIGEST("stale_digest"),
+        /** The record names another role than the one it was looked up for. */
+        STALE_ROLE("stale_role"),
         /** The record was graded on another corpus revision. */
         STALE_CORPUS("stale_corpus"),
         /** The record has an item whose judge task closed lost. */

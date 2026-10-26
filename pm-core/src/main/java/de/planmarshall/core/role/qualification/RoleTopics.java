@@ -43,9 +43,6 @@ public record RoleTopics(Set<Topic> topics) {
     /** The item topic of the judge instrument check, which grades no role. */
     public static final String JUDGE_TOPIC = "judge";
 
-    /** The item topic a judgment role is graded on. */
-    public static final String DECISION_QUESTION_TOPIC = "decision/question";
-
     /**
      * @throws NullPointerException if the topics are {@code null}
      */
@@ -60,7 +57,7 @@ public record RoleTopics(Set<Topic> topics) {
      * @param items the items of the corpus
      * @return the topics the role's record must hold
      */
-    public static RoleTopics of(String role, List<ImportedItem> items) {
+    private static RoleTopics of(String role, List<ImportedItem> items) {
         Objects.requireNonNull(role, "role");
         Objects.requireNonNull(items, "items");
         var topics = EnumSet.noneOf(Topic.class);
@@ -87,19 +84,6 @@ public record RoleTopics(Set<Topic> topics) {
             topics.add(Topic.OWN);
         }
         if (roleClass != RoleClass.ZERO_TOOL && all.contains(Topic.GENERIC)) {
-            topics.add(Topic.GENERIC);
-        }
-        return new RoleTopics(topics);
-    }
-
-    /**
-     * @param items the items of the corpus
-     * @return the topic of a judgment role: the {@code decision/question} items, alone
-     */
-    public static RoleTopics judgment(List<ImportedItem> items) {
-        Objects.requireNonNull(items, "items");
-        var topics = EnumSet.noneOf(Topic.class);
-        if (counted(items, item -> DECISION_QUESTION_TOPIC.equals(item.topic()))) {
             topics.add(Topic.GENERIC);
         }
         return new RoleTopics(topics);
@@ -156,15 +140,6 @@ public record RoleTopics(Set<Topic> topics) {
         return selected(items, topic == Topic.GENERIC
                 ? item -> GENERIC_ROLE.equals(item.role())
                 : item -> role.equals(item.role()));
-    }
-
-    /**
-     * @param items the items of the corpus
-     * @return the counted {@code decision/question} items a judgment role is graded on
-     */
-    public static List<ImportedItem> judgmentItems(List<ImportedItem> items) {
-        Objects.requireNonNull(items, "items");
-        return selected(items, item -> DECISION_QUESTION_TOPIC.equals(item.topic()));
     }
 
     private static List<ImportedItem> selected(List<ImportedItem> items, Predicate<ImportedItem> membership) {
