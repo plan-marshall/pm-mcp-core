@@ -80,6 +80,11 @@ class WorkerEndingTest {
         var write = fixture.stateWriter.writes.getFirst();
         assertEquals(1, fixture.stateWriter.writes.size());
         assertTrue(terminal.lifecycle().terminal());
+        assertEquals(switch (cause) {
+            case START_FAILURE -> WorkerLifecycle.START_FAILED;
+            case LOST -> WorkerLifecycle.LOST;
+            default -> WorkerLifecycle.ENDED;
+        }, terminal.lifecycle(), "a failed start reaches its own terminal state");
         assertEquals(cause.terminalState(), write.state(), "the terminal worker state");
         assertEquals(cause.endReason(), write.endReason(), "the end reason");
         assertEquals(cause == EndCause.START_FAILURE, write.startFailure(), "only a start failure is flagged");

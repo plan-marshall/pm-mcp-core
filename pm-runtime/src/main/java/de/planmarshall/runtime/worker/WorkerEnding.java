@@ -172,6 +172,9 @@ public final class WorkerEnding {
         if (cause.terminalState() == WorkerState.State.LOST) {
             return generation.advanceTo(WorkerLifecycle.LOST);
         }
+        if (cause == EndCause.START_FAILURE) {
+            return generation.advanceTo(WorkerLifecycle.ENDING).advanceTo(WorkerLifecycle.START_FAILED);
+        }
         return generation.advanceTo(WorkerLifecycle.ENDING).advanceTo(WorkerLifecycle.ENDED);
     }
 

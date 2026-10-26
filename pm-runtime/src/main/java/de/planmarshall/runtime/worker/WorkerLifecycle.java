@@ -69,7 +69,7 @@ public enum WorkerLifecycle {
             EXECUTING, Set.of(CONSULTING, WAITING, ENDING, LOST),
             CONSULTING, Set.of(EXECUTING, HOLDING, WAITING, ENDING, LOST),
             HOLDING, Set.of(EXECUTING, ENDING, LOST),
-            ENDING, Set.of(ENDED, LOST));
+            ENDING, Set.of(ENDED, START_FAILED, LOST));
 
     private final WorkerState.State recordState;
 
