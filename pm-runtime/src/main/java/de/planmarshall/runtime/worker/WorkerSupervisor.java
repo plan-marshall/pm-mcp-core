@@ -191,6 +191,22 @@ public final class WorkerSupervisor {
         notifyAll();
     }
 
+    /**
+     * Retires the failed generations of one role on one harness from the registry, so a start-failure guard rebuilt from
+     * the registry does not recreate a hold that was cleared. Only the terminal {@link WorkerLifecycle#START_FAILED}
+     * generations of that role and harness are removed; every other generation stays.
+     *
+     * @param role    the role
+     * @param harness the client id of the harness
+     * @throws NullPointerException if a value is {@code null}
+     */
+    public synchronized void forgetStartFailures(String role, String harness) {
+        Objects.requireNonNull(role, "role");
+        Objects.requireNonNull(harness, "harness");
+        generations.values().removeIf(generation -> generation.lifecycle() == WorkerLifecycle.START_FAILED
+                && generation.role().equals(role) && generation.harness().equals(harness));
+    }
+
     /** Stops admitting starts, as the runtime drain requires; a start after this one starts nothing. */
     public synchronized void stopAdmitting() {
         admitting = false;
@@ -252,6 +268,7 @@ public final class WorkerSupervisor {
         var block = HeadlessBlock.of(environment.profile());
         var slot = environment.slots().claim(generationId, role.artifact().name());
         if (slot.isEmpty()) {
+            environment.slots().withdraw(generationId);
             return new StartOutcome.Declined(WorkerStartRefusal.NO_MODEL_SLOT);
         }
         var verification = environment.harnessVerifier().verify(role.harness(), block);

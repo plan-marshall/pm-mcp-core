@@ -11,6 +11,7 @@ package de.planmarshall.runtime.worker;
 
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Where the executable of a process is read (PM-WORK-7, {@code agent_started}): the absolute path of the file the
@@ -79,6 +80,20 @@ public interface ProcessExecutables {
      * @throws IllegalArgumentException if the PID is below 1
      */
     Reading read(long pid);
+
+    /**
+     * Reads only the executable path of a process, without digesting the file: the detection pass asks this first, so a
+     * harness binary is hashed only when its path can be the enrolled one. The default answers through {@link #read(long)}
+     * for a reader that has no cheaper path.
+     *
+     * @param pid the PID of the process, from 1
+     * @return the executable path the operating system reports, absolute and normalized; empty when it reports none
+     * @throws IllegalArgumentException if the PID is below 1
+     */
+    default Optional<Path> path(long pid) {
+        return read(pid) instanceof Found(ProcessExecutable executable)
+                ? Optional.of(executable.path()) : Optional.empty();
+    }
 
     /**
      * @return the reader of the operating system this runtime runs on

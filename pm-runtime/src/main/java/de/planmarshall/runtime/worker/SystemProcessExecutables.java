@@ -76,9 +76,7 @@ public final class SystemProcessExecutables implements ProcessExecutables {
 
     @Override
     public Reading read(long pid) {
-        if (pid < 1 || pid > Integer.MAX_VALUE) {
-            throw new IllegalArgumentException("Not a PID: " + pid);
-        }
+        requirePid(pid);
         var path = paths.of(pid);
         if (path.isEmpty()) {
             return new Absent();
@@ -89,6 +87,24 @@ public final class SystemProcessExecutables implements ProcessExecutables {
             return new NotRegular(absolute);
         }
         return new Found(new ProcessExecutable(pid, absolute, ProcessExecutable.DIGEST_PREFIX + sha256.get()));
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * A process whose executable path is read but not digested is ordinary in a detection pass: only a path that can be
+     * the enrolled one is worth the hash of a harness binary.
+     */
+    @Override
+    public Optional<Path> path(long pid) {
+        requirePid(pid);
+        return paths.of(pid).map(path -> path.toAbsolutePath().normalize());
+    }
+
+    private static void requirePid(long pid) {
+        if (pid < 1 || pid > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("Not a PID: " + pid);
+        }
     }
 
     /**

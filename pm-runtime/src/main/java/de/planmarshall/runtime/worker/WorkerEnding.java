@@ -78,7 +78,8 @@ public final class WorkerEnding {
         }
         requests.put(generation.generationId(), new Request(cause, cause.endReason()));
         var at = environment.clock().instant().plus(TerminationProtocol.GRACE_PERIOD);
-        graces.put(generation.generationId(), environment.timers().schedule(at, () -> force(generation, cause)));
+        graces.put(generation.generationId(),
+                environment.timers().schedule(at, () -> forceIfRequested(generation, cause)));
     }
 
     /**
@@ -154,6 +155,20 @@ public final class WorkerEnding {
             successor.run();
         }
         return terminal;
+    }
+
+    /**
+     * Forwards the grace timer's force to the runner, but only while the generation's end is still requested: the timer
+     * action runs on the timer thread, and the worker's exit may have completed the end in the meantime. The monitor is
+     * taken so the check and the effect are one step against the methods that remove the request.
+     *
+     * @param generation the generation whose grace expired
+     * @param cause      why it is being ended
+     */
+    private synchronized void forceIfRequested(WorkerGeneration generation, EndCause cause) {
+        if (requests.containsKey(generation.generationId())) {
+            force(generation, cause);
+        }
     }
 
     private void force(WorkerGeneration generation, EndCause cause) {

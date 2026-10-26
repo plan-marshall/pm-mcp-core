@@ -296,6 +296,8 @@ final class SupervisorTestFixture {
 
         final List<Lease> released = new CopyOnWriteArrayList<>();
 
+        final List<String> withdrawn = new CopyOnWriteArrayList<>();
+
         final List<String> releasedPlans = new CopyOnWriteArrayList<>();
 
         @Override
@@ -306,6 +308,11 @@ final class SupervisorTestFixture {
             var lease = new Lease(generationId, role);
             claimed.add(lease);
             return Optional.of(lease);
+        }
+
+        @Override
+        public void withdraw(String generationId) {
+            withdrawn.add(generationId);
         }
 
         @Override

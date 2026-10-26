@@ -20,6 +20,7 @@ import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.InstantSource;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
@@ -199,6 +200,27 @@ class StartFailureGuardTest {
                 () -> assertTrue(atThreshold.holds(ROLE, HARNESS), "three recorded failures hold on the rebuild"),
                 () -> assertEquals(1, closed.size(), "only the hold closes the role's tasks"),
                 () -> assertEquals(1, audits.size(), "the resumed failures are not reported again"));
+    }
+
+    @Test
+    @DisplayName("a clear retires the failed generations, so a rebuilt guard does not recreate the hold")
+    void aClearSurvivesTheRebuild() {
+        var failed = new ArrayList<>(List.of(
+                generation("l-0000000000000011", WorkerLifecycle.START_FAILED),
+                generation("l-0000000000000012", WorkerLifecycle.START_FAILED),
+                generation("l-0000000000000013", WorkerLifecycle.START_FAILED)));
+        var built = new StartFailureGuard(PROJECT, () -> List.copyOf(failed), protocol, audits::add, clock(),
+                (role, harness) -> failed.removeIf(generation -> generation.lifecycle() == WorkerLifecycle.START_FAILED
+                        && generation.role().equals(role) && generation.harness().equals(harness)));
+        var heldBefore = built.holds(ROLE, HARNESS);
+
+        built.clear(ROLE, HARNESS);
+        var rebuilt = new StartFailureGuard(PROJECT, () -> List.copyOf(failed), protocol, audits::add, clock());
+
+        assertAll(
+                () -> assertTrue(heldBefore, "three recorded failures hold"),
+                () -> assertTrue(failed.isEmpty(), "the clear retires the failed generations"),
+                () -> assertFalse(rebuilt.holds(ROLE, HARNESS), "the rebuilt guard does not recreate the hold"));
     }
 
     @Test

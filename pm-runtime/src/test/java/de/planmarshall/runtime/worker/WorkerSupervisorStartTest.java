@@ -168,7 +168,9 @@ class WorkerSupervisorStartTest {
         assertAll(
                 () -> assertEquals(WorkerStartRefusal.NO_MODEL_SLOT, declined(outcomes)),
                 () -> assertTrue(fixture.starter.starts.isEmpty()),
-                () -> assertTrue(fixture.starter.refusals.isEmpty()));
+                () -> assertTrue(fixture.starter.refusals.isEmpty()),
+                () -> assertEquals(1, fixture.slots.withdrawn.size(),
+                        "the queued entry of the declined start leaves the FIFO"));
     }
 
     @Test

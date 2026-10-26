@@ -201,6 +201,24 @@ class WorkerLossDetectionTest {
     }
 
     @Test
+    @DisplayName("a timer that wakes before its deadline re-arms instead of losing the signal")
+    void anEarlyTimerReArms() {
+        var detection = detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), false));
+        detection.started(SPAWN);
+        detection.offered(TASK, SPAWN);
+
+        timers.runEarly();
+        var firedEarly = List.copyOf(signals);
+        clock.set(SPAWN.plusSeconds(ACK_SECONDS));
+        timers.runDue();
+
+        assertAll(
+                () -> assertTrue(firedEarly.isEmpty(), "an early wake-up reports nothing"),
+                () -> assertEquals(1, signals.size(), "the re-armed timer fires at the deadline"),
+                () -> assertEquals(LossReason.ACK_MISSED, signals.getFirst().reason()));
+    }
+
+    @Test
     @DisplayName("a cancelled detection schedules nothing more")
     void cancelledSchedulesNothing() {
         var detection = detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), false));
@@ -266,6 +284,16 @@ class WorkerLossDetectionTest {
             var now = clock.instant();
             for (var entry : new ArrayList<>(entries)) {
                 if (!entry.cancelled && !entry.at.isAfter(now)) {
+                    entry.cancelled = true;
+                    entry.action.run();
+                }
+            }
+        }
+
+        /** Runs the actions before the clock reaches them, as a timer that woke early does. */
+        void runEarly() {
+            for (var entry : new ArrayList<>(entries)) {
+                if (!entry.cancelled) {
                     entry.cancelled = true;
                     entry.action.run();
                 }

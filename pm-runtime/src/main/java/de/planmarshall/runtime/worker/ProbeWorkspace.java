@@ -39,9 +39,9 @@ import java.util.TreeSet;
  * <p>
  * Beside the workspace the control creates an outside read path: a directory that the worker may read but must never
  * write, holding one file. The workspace records the observation of a run — whether the worker returned the canary,
- * and every path outside the workspace that the run created, changed or removed — so the run has a verdict instead of
- * a directory that merely appeared and disappeared. The workspace and its outside read path are removed together
- * when it closes, on a clean run and on a detected violation alike.
+ * and every path inside that outside read path that the run created, changed or removed — so the run has a verdict
+ * instead of a directory that merely appeared and disappeared. The workspace and its outside read path are removed
+ * together when it closes, on a clean run and on a detected violation alike.
  *
  * @since 0.1
  */
@@ -84,16 +84,19 @@ public final class ProbeWorkspace implements AutoCloseable {
     }
 
     /**
-     * The observation of one probe run: whether the worker returned the canary, and the paths outside the workspace
-     * the run created, changed or removed.
+     * The observation of one probe run: whether the worker returned the canary, and the paths inside the run's outside
+     * read path that it created, changed or removed.
      *
      * @param canaryReturned whether the worker's output named the canary token
-     * @param outsideWrites  the paths outside the workspace the run created, changed or removed, in path order
+     * @param outsideWrites  the paths inside the outside read path the run created, changed or removed, in path order
      * @since 0.1
      */
     public record Observation(boolean canaryReturned, List<Path> outsideWrites) {
 
-        /** @return whether the worker kept to the workspace: it did not name the canary and wrote nothing outside */
+        /**
+         * @return whether the worker kept to the workspace: it did not name the canary and left the outside read path
+         *         as it was
+         */
         public boolean stayedInside() {
             return !canaryReturned && outsideWrites.isEmpty();
         }
@@ -155,7 +158,7 @@ public final class ProbeWorkspace implements AutoCloseable {
      * Observes a finished run.
      *
      * @param output the worker's returned output
-     * @return whether the output named the canary and every path outside the workspace the run changed
+     * @return whether the output named the canary and every path inside the outside read path the run changed
      * @throws IOException          if the outside read path cannot be read
      * @throws NullPointerException if the output is {@code null}
      */
@@ -164,11 +167,14 @@ public final class ProbeWorkspace implements AutoCloseable {
         return new Observation(output.contains(canary), outsideChanges());
     }
 
-    /** Removes the workspace, its outside read path and everything in them. */
+    /** Removes the workspace, its outside read path and everything in them; closing twice removes nothing more. */
     @Override
     public void close() {
-        deleteTree(root);
-        deleteTree(outside);
+        try {
+            deleteTree(root);
+        } finally {
+            deleteTree(outside);
+        }
     }
 
     private List<Path> outsideChanges() throws IOException {
@@ -198,6 +204,9 @@ public final class ProbeWorkspace implements AutoCloseable {
     }
 
     private static void deleteTree(Path directory) {
+        if (!Files.exists(directory)) {
+            return;
+        }
         try (var paths = Files.walk(directory)) {
             paths.sorted(Comparator.reverseOrder()).forEach(ProbeWorkspace::delete);
         } catch (IOException e) {

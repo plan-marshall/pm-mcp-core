@@ -95,7 +95,8 @@ A start is one ordered decision, and each step can decline it. The order is the 
   directory, never more than `count` workers of that form at once. Requests beyond the role's room are not attempted and
   have no outcome.
 . `ModelSlots.claim` — an admission that grants no lease (queued or deferred, including the second writer worker of a
-  plan) declines the start with `NO_MODEL_SLOT`; the task stays queued.
+  plan) declines the start with `NO_MODEL_SLOT` and withdraws the place the claim queued, so a phantom request cannot be
+  admitted later; the task stays queued.
 . `HarnessVerifier.verify` and `LaunchComposer.compose` — a refusal before the spawn is recorded through
   `WorkerStarter.refuseWorker` as the refused job, the claimed slot is released, and the start is declined with
   `LAUNCH_REFUSED`.
@@ -203,9 +204,11 @@ logs `WORKER_GENERATION_RECYCLED` exactly once with its link:{src}/RecycleCause.
   role.recycling.idle_wakeups)` times in a row. The role can only lower the host's bound. A generation holding a lease
   (a consulting worker or one holding for an answer) is not idle: its `wait_again` counts no wake-up.
 * *Token budget* (`TOKEN_BUDGET`) — the context of the generation's latest turn reached the role's token budget. Only
-  the latest turn's context is read, never a run total; an unmeasured context is ignored. A generation that has closed
-  no task yet is recycled only while it holds its task for an answer, because a worker's starting context can exceed a
-  small budget.
+  the latest turn's context is read, never a run total; an unmeasured context is ignored. A generation that still leases
+  a task waits for the task to close, so the recycle lands on the wait after the task rather than in the middle of it;
+  the one exception is a generation that holds its task for an answer, which may be recycled at the budget. A generation
+  that has closed no task yet is recycled only in that hold, because a worker's starting context can exceed a small
+  budget.
 * *Tasks per generation* (`TASKS_PER_GENERATION`) — the generation closed the role's `recycling.tasks_per_generation`.
 * *Configuration changed* (`CONFIGURATION_CHANGED`) — the role's current configuration digest, carried by the wait,
   differs from the digest the generation was started with. This trigger also clears the role's start-failure guard on
@@ -237,11 +240,14 @@ so it is never counted; the supervisor consults the guard for a role that has a 
   declined it, or the start threw before the worker started — restarts it too (`probeDeclined`), so a consumed probe
   never holds the guard forever; a probe's first call clears the guard.
 * *Clear* — `firstCall(role, harness)` clears the count on the first call of any worker of the role on the harness.
-  `clear` does the same when the role's configuration changes or the harness is enrolled again.
+  `clear` does the same when the role's configuration changes or the harness is enrolled again, and retires the role's
+  failed generations from the registry the count is rebuilt from, so a guard constructed later over that registry does
+  not recreate the hold.
 
 The count lives in a link:{src}/StartFailureState.java[`StartFailureState`] per role and harness. It is rebuilt from the
 supervisor's generation registry when the guard is constructed, so a guard built beside a supervisor that already
 started workers resumes the count of the generations that exited before their first call instead of counting from zero.
+`WorkerSupervisor.forgetStartFailures` is the retirement a `clear` performs through the guard's constructor.
 
 link:{src}/HarnessStartSpacing.java[`HarnessStartSpacing`] is the machine-wide spacing of one harness. It is shared by
 every supervisor of the runtime and keys on the harness's client id alone, so it spans all projects. The next start waits
@@ -259,7 +265,8 @@ _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-7[PM-WORK-7], link:{req}/1
 link:{src}/AgentStartedDetector.java[`AgentStartedDetector`] detects that a worker started a second agent. On every pass
 it refreshes the generation's recorded process tree through `ProcessTreeTracker`, reads each member's executable path and
 digest, and compares them with every enrolled harness executable and with the installed operator binary at
-`bin/pm-operator` under the runtime home.
+`bin/pm-operator` under the runtime home. The pass is the supervision loop's call; `WorkerSupervisor` owns the starts,
+and the loop that drives `detect`, `LossDetection` and `WorkerRecycling` is composed outside this package.
 
 The comparison is by path *and* digest, never by name: a binary that carries an enrolled executable's name with other
 content is not the enrolled executable, and a process that runs a program the supervisor never enrolled is not reported.
@@ -299,10 +306,11 @@ No value of a profile is believed because the profile says so:
 
 * A *shipped* profile is trusted — the release compiled its document.
 * A profile that makes *no claim* (`worker.eligible: false` and no `zero_tool` class) passes untouched.
-* A claimed profile makes exactly two claims. `worker.eligible: true` is honoured only when the record carries `faults`
-  and `egress` as `passed`. A non-null `zero_tool` class is honoured only when `classes` and `isolation` passed. Beyond
-  the claim's own stages, every stage the record carries must be `passed`: a record that measured a failure anywhere
-  does not establish the profile's claims.
+* A claimed profile makes up to three claims. `worker.eligible: true` is honoured only when the record carries `faults`
+  and `egress` as `passed`. A non-null `zero_tool` class is honoured only when `classes` and `isolation` passed. An
+  `enforced` tool set on `writer` or `read_only` is honoured only when the record measured the `classes` stage that
+  establishes it. Beyond the claim's own stages, every stage the record carries must be `passed`: a record that measured
+  a failure anywhere does not establish the profile's claims.
 * The gate refuses a claimed profile with `RECORD_ABSENT`, `OTHER_PLATFORM`, `CLAIM_STAGE_ABSENT`, `STAGE_FAILED` or
   `STAGE_NOT_RUN`. The stages the claim rests on are examined first, so the refusal names the stage that decided the
   claim where one exists. link:{src}/EligibilityRefusal.java[`EligibilityRefusal`] carries the closed reason, the stage
@@ -331,18 +339,23 @@ directory below the JVM's temporary directory with mode `0700`, outside `<PM_MCP
 and the only project root in the probe worker's write set. It carries the run's canary — an unpredictable token generated
 afresh for every workspace and written to `canary.txt`; a worker that names it has left its own configuration. Beside the
 workspace the control creates an outside read path (`pm-mcp-probe-outside-*` with `outside.txt`) that the worker may read
-but must never write. `observe(output)` returns `Observation(canaryReturned, outsideWrites)`; `stayedInside()` is true
-only when the output named no canary and the run created, changed or removed nothing outside. The workspace and its
-outside path are removed together on close, on a clean run and on a detected violation alike.
+but must never write. `observe(output)` returns `Observation(canaryReturned, outsideWrites)`; `outsideWrites` names the
+paths inside that outside read path the run created, changed or removed, not every path of the machine outside the
+workspace. `stayedInside()` is true only when the output named no canary and that path was left as it was. The workspace
+and its outside path are removed together on close, on a clean run and on a detected violation alike; a second close
+removes nothing more.
 link:{src}/DecoyServers.java[`DecoyServers`]:: The loopback-only decoy MCP server and decoy model endpoint of one run.
-Each binds `127.0.0.1` on an ephemeral port — `/mcp` and `/models` — and records the requests a worker made of it as
-`METHOD path`; `touched()` is true when a worker reached it. The servers never leave loopback, so a decoy cannot be
+Each binds `127.0.0.1` on an ephemeral port, answers every path — the MCP decoy `/mcp`, the endpoint decoy `/models`,
+and every other path a worker's configuration names, such as `/v1/messages` — and records the requests a worker made of
+it as `METHOD path`; `touched()` is true when a worker reached it. The servers never leave loopback, so a decoy cannot be
 reached from the network. A worker that lists or calls a decoy tool, or that sends a request to the decoy endpoint, has
 left its own configuration.
 link:{src}/VerifyingBinaryCheck.java[`VerifyingBinaryCheck`]:: The verifying-binary control of the load-time check. It
 runs the installed binary with the fixed argument vector `--version`, never with an argument taken from the record, and
 waits at most ten seconds. The output is read as the version and the commit, and only an exact match of both is accepted.
 A binary that answers nothing or answers with fewer than two fields is `Unreadable`; a different build is `Mismatch`.
+The control belongs to the verification that writes the record, not to the start path: the eligibility gate reads the
+record and does not run the binary on every start (ADR 006).
 
 The controls are ADR 007's (built in `runtime.worker`, no separate watch item). The workspace's isolation and the decoy
 hits are what the verification's `isolation` and `classes` stages record.
@@ -361,9 +374,11 @@ the `SubprocessJobRunner` adapter, the `JobTokenStore`, the `SkillSource`, the e
   landed start, `refuseWorker` the landed refusal, and `cancel` the landed termination call, so the supervisor calls
   exactly the landed paths and a test can record the composed `WorkerStart` and `WorkerStart.Refusal` without a spawn.
 * `SupervisorEnvironment.WorkerStateWriter` — the terminal-state writer over `JobRecordStore`. It parses the generation
-  id as a job id, requires the job to be of kind `LLM`, reads the current worker block through `WorkerStateCodec`, and
-  writes `withState`, `withStateAt`, `withEndReason` and `withStartFailure` back through the one `writeWorker` point in
-  one lock transaction. The supervisor and the transport never each parse the block.
+  id as a job id, requires the job to be of kind `LLM`, takes the queue lock, reads the current worker block through
+  `WorkerStateCodec`, and writes the terminal state back through the one `writeWorker` point in the same lock
+  transaction. The state, its instant, the end reason, the start-failure flag and the cleared task are built in one
+  construction, because the block refuses a terminal state whose end reason is still absent and a leased task in a state
+  that holds none. The supervisor and the transport never each parse the block.
 * `WorkerProtocol` — the module-boundary contract to the task protocol. `pm-runtime` may not reference `pm-workflow`, so
   the assembly `pm-mcp-server` adapts `de.planmarshall.workflow.task.TaskProtocol` to this interface. The protocol stays
   the owner of the fences, the re-offers and the `agent_started` security record: the supervisor reports the fact and
@@ -374,9 +389,11 @@ beside the supervisor (`StartFailureGuard`, `ProfileWorkerEligibility`); their `
 admit every role, which is the supervisor's behaviour before they are wired.
 
 `ModelSlots` is the adapter over the landed `runtime.launch.ModelSlotScheduler`. `claim` maps `Granted` to a lease and
-both `Queued` and `Deferred` to no lease, so a queued request keeps its FIFO place and a plan's second writer worker
-declines the start instead of waiting. `release`, `nextWaitingRole` and `releasePlan` carry the rest of the scheduler's
-surface into the supervisor; the scheduler's admission transaction is the single decision.
+both `Queued` and `Deferred` to no lease, so a queued request keeps its FIFO place until the start decides and a plan's
+second writer worker declines the start instead of waiting. A start that gets no lease withdraws the place its claim
+queued (`withdraw`, the scheduler's removal by job id), so no phantom entry outlives the generation that never started.
+`release`, `nextWaitingRole` and `releasePlan` carry the rest of the scheduler's surface into the supervisor; the
+scheduler's admission transaction is the single decision.
 
 `WorkerCalls` is the supervisor's inbound API, consumed by the assembly's transport. It hands over a heartbeat, an opened
 wait with the role's current configuration digest, a completed turn with its context size, a closed task, a plan paused
@@ -462,7 +479,8 @@ record and the re-offer.
 
 |No model slot is free, or the plan's writer holds it
 |`ModelSlots.claim` returns no lease
-|Declines with `NO_MODEL_SLOT`; the task stays queued and the FIFO place is kept.
+|Declines with `NO_MODEL_SLOT` and withdraws the queued entry, so no phantom request is admitted later; the task stays
+queued.
 
 |The role's guard holds
 |`StartGuard.holds`
@@ -470,7 +488,9 @@ record and the re-offer.
 
 |The harness is ineligible
 |`EligibilityGate.admits`
-|Declines with `HARNESS_INELIGIBLE`; the task stays queued and the refusal names the reason, stage and client id.
+|Declines with `HARNESS_INELIGIBLE`; the task stays queued. The predicate's refusal (reason, stage and client id) is
+available from `ProfileWorkerEligibility.verdict()` for a report; the start path's declining outcome carries the reason
+code alone.
 
 |A warm worker reached a recycle trigger
 |`WorkerRecycling`

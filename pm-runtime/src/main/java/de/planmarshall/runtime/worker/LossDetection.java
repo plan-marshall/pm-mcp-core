@@ -253,12 +253,24 @@ public final class LossDetection {
                 .ifPresent(deadline -> timer = timers.schedule(deadline, this::fire));
     }
 
+    /**
+     * Runs on the timer thread: decides under the monitor whether a deadline is actually due, so an acknowledgement or
+     * an exit that lands between the look and the effect still wins, and re-arms the timer when the action ran before
+     * its deadline (a timer may wake early). The consumer is called outside the monitor, so it never runs under the
+     * detector's lock.
+     */
     private void fire() {
-        due(clock.instant()).ifPresent(signal -> {
+        Optional<LossSignal> signal;
+        synchronized (this) {
+            signal = due(clock.instant());
+            if (signal.isEmpty()) {
+                reschedule();
+                return;
+            }
             done = true;
             cancel();
-            onLost.accept(signal);
-        });
+        }
+        onLost.accept(signal.get());
     }
 
     private void cancel() {

@@ -25,8 +25,9 @@ worker package, or in the job record the job runner already writes.
 revoked its job token and released its model slot, so a reader of the record never sees a terminal state whose slot is
 still held.
 
-The writer records the state, the transition instant, the end reason and whether the exit was a start failure. The
-in-memory `WorkerGeneration` remains the supervisor's working value; it is not the durable record.
+The writer records the state, the transition instant, the end reason and whether the exit was a start failure, and clears
+the leased task in the same construction, because a terminal state holds no task. The in-memory `WorkerGeneration`
+remains the supervisor's working value; it is not the durable record.
 
 == Alternatives Considered
 

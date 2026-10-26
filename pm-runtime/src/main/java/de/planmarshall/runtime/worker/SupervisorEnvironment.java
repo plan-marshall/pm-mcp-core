@@ -20,6 +20,7 @@ import de.planmarshall.core.service.JobRunner;
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.JobRecordStore;
+import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.WorkerState;
 import de.planmarshall.core.store.WorkerStateCodec;
@@ -161,9 +162,10 @@ LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate) {
 
     /**
      * Where the terminal state of a worker generation is written (PM-WORK-3, Job Record): the worker block is read from
-     * the record the generation's job id names, its state, state instant and end reason are replaced, and the record is
-     * written back through the one worker write point. The production adapter is {@link #over(Path, String,
-     * LockManager)}; a test supplies a writer that records the write without a store.
+     * the record the generation's job id names, its state, state instant, end reason and start-failure flag are replaced
+     * in one construction and its leased task cleared, and the record is written back through the one worker write
+     * point under the queue lock. The production adapter is {@link #over(Path, String, LockManager)}; a test supplies a
+     * writer that records the write without a store.
      *
      * @since 0.1
      */
@@ -196,6 +198,7 @@ LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate) {
                         .orElseThrow(() -> new IllegalArgumentException("Not a job id: " + generationId));
                 var store = JobRecordStore.ofProject(base, projectId);
                 try (var transaction = locks.openTransaction()) {
+                    transaction.acquire(LockKey.queue(base, projectId));
                     var jobRecord = store.read(jobId)
                             .orElseThrow(() -> new IllegalStateException("The job record of %s is absent"
                                     .formatted(generationId)));
@@ -203,11 +206,32 @@ LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate) {
                         throw new IllegalStateException("The job %s is not a worker".formatted(generationId));
                     }
                     var current = WorkerStateCodec.read(store.recordPath(jobId), jobRecord.worker());
-                    store.writeWorker(transaction, jobId, current.withState(state).withStateAt(at)
-                            .withEndReason(endReason).withStartFailure(startFailure));
+                    store.writeWorker(transaction, jobId, terminal(current, state, at, endReason, startFailure));
                 }
             };
         }
+    }
+
+    /**
+     * Builds the terminal worker state in one construction. The record's canonical constructor refuses a terminal state
+     * whose end reason is still absent and a leased task in a state that holds none, so the state, its instant, the end
+     * reason, the start failure and the cleared task must reach it together; a chain of {@code @With} calls would
+     * validate every intermediate value and throw before the last one ran.
+     *
+     * @param current      the worker state the record carries
+     * @param state        the terminal worker state
+     * @param at           the instant of the transition
+     * @param endReason    why the worker ended
+     * @param startFailure whether the worker exited before its first call
+     * @return the terminal state, with the leased task cleared
+     * @throws NullPointerException     if a component is {@code null}
+     * @throws IllegalArgumentException if the combination breaks a rule of the worker block
+     */
+    static WorkerState terminal(WorkerState current, WorkerState.State state, Instant at,
+            WorkerState.EndReason endReason, boolean startFailure) {
+        Objects.requireNonNull(current, "current");
+        return current.toBuilder().state(state).stateAt(at).endReason(endReason).startFailure(startFailure).task(null)
+                .build();
     }
 
     /**

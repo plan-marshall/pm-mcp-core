@@ -70,8 +70,8 @@ public interface WorkerTimers {
             public Cancellable schedule(Instant at, Runnable action) {
                 Objects.requireNonNull(at, "at");
                 Objects.requireNonNull(action, "action");
-                var delay = Math.max(0L, Duration.between(clock.instant(), at).toMillis());
-                var future = executor.schedule(action, delay, TimeUnit.MILLISECONDS);
+                var delay = Math.max(0L, Duration.between(clock.instant(), at).toNanos());
+                var future = executor.schedule(action, delay, TimeUnit.NANOSECONDS);
                 return () -> future.cancel(false);
             }
 

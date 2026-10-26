@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.worker;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -91,6 +92,16 @@ class ProbeWorkspaceTest {
         assertAll(
                 () -> assertFalse(Files.exists(root), "the workspace is gone"),
                 () -> assertFalse(Files.exists(outside), "the outside path is gone"));
+    }
+
+    @Test
+    @DisplayName("closing twice removes nothing more and does not throw")
+    void closeIsIdempotent(@TempDir Path parent) throws Exception {
+        var workspace = ProbeWorkspace.create(parent);
+
+        workspace.close();
+
+        assertDoesNotThrow(workspace::close, "a second close finds both paths gone");
     }
 
     @Test

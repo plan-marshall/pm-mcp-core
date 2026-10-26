@@ -26,9 +26,9 @@ The question was how the detector reads time and how it is woken at a deadline.
 closes or clears a deadline. `due(Instant)` is the pure predicate: it answers a signal only when a deadline lies at or
 before the instant asked about, so no timer can end a worker earlier than the specification says.
 
-The production `WorkerTimers.system(clock)` measures its delays from the same injected clock; a test supplies
-`VirtualClock`, which implements both `InstantSource` and `WorkerTimers` and fires a due timer when the scenario moves
-the clock.
+The production `WorkerTimers.system(clock)` measures its delays from the same injected clock, in nanoseconds, so a
+deadline carried by an instant with sub-millisecond precision is not shortened; a test supplies `VirtualClock`, which
+implements both `InstantSource` and `WorkerTimers` and fires a due timer when the scenario moves the clock.
 
 == Alternatives Considered
 
@@ -47,6 +47,8 @@ the clock.
   adding a `System.currentTimeMillis()` call.
 * The timer fires at the deadline and `due` re-checks it, so a timer that runs late still reports the deadline it
   crossed rather than the delayed instant.
+* A timer that wakes before its deadline re-arms at that deadline instead of losing the signal, and the check and the
+  effect run under the detector's monitor, so an acknowledgement or an exit that lands at the same instant wins.
 
 == Source
 

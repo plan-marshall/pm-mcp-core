@@ -154,12 +154,16 @@ class WorkerRecyclingTest {
     void startContextRecyclesOnlyAfterTheFirstTask() {
         var executing = warm().withLifecycle(WorkerLifecycle.EXECUTING).withLeasedTask(FIRST_TASK)
                 .withContextTokens(ContextTokens.measured(TOKEN_BUDGET * 20L));
+        var afterClose = executing.withLifecycle(WorkerLifecycle.WAITING).withLeasedTask(null)
+                .withServedTasks(List.of(FIRST_TASK));
 
         assertAll(
                 () -> assertTrue(recycling.afterTurnCompleted(executing).isEmpty(),
                         "the context a worker starts with is no reason to end its first task"),
-                () -> assertEquals(Optional.of(RecycleCause.TOKEN_BUDGET), recycling.afterTurnCompleted(
-                        executing.withLifecycle(WorkerLifecycle.WAITING).withServedTasks(List.of(FIRST_TASK)))));
+                () -> assertTrue(recycling.afterTurnCompleted(executing.withServedTasks(List.of(FIRST_TASK))).isEmpty(),
+                        "a task the worker still leases is not recycled at the budget"),
+                () -> assertEquals(Optional.of(RecycleCause.TOKEN_BUDGET), recycling.afterTurnCompleted(afterClose),
+                        "the closed task ends the lease, so the budget recycles the next wait"));
     }
 
     @Test

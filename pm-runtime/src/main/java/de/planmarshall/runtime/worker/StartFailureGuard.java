@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 import de.planmarshall.core.service.AuditEvent;
@@ -46,9 +47,10 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * </ul>
  * The count is kept per supervisor in a {@link StartFailureState} per role and harness, rebuilt from the supervisor's
  * generation registry when the guard is constructed, so a guard built beside a supervisor that already started workers
- * resumes the count of the generations that exited before their first call instead of counting from zero. The guard
- * reads the instant of the probe backoff from the injected clock and logs its counted failures and its holds through
- * {@code WORKER_START_FAILED} and {@code WORKER_START_GUARD_HELD}.
+ * resumes the count of the generations that exited before their first call instead of counting from zero. {@link #clear}
+ * retires those failed generations from the registry, so a later guard over the same registry does not recreate a hold
+ * the clear removed. The guard reads the instant of the probe backoff from the injected clock and logs its counted
+ * failures and its holds through {@code WORKER_START_FAILED} and {@code WORKER_START_GUARD_HELD}.
  *
  * @since 0.1
  */
@@ -74,6 +76,8 @@ public final class StartFailureGuard implements SupervisorEnvironment.StartGuard
 
     private final Map<StartFailureState.Key, StartFailureState> states = new HashMap<>();
 
+    private final BiConsumer<String, String> retireFailures;
+
     /**
      * @param projectId   the project whose starts the report names
      * @param generations the supervisor's registered generations, in start order, which the count is rebuilt from
@@ -84,11 +88,29 @@ public final class StartFailureGuard implements SupervisorEnvironment.StartGuard
      */
     public StartFailureGuard(String projectId, Supplier<List<WorkerGeneration>> generations, WorkerProtocol protocol,
             AuditSink audit, InstantSource clock) {
+        this(projectId, generations, protocol, audit, clock, (role, harness) -> {
+            // a guard over a registry it cannot retire from: the clear resets this instance only
+        });
+    }
+
+    /**
+     * @param projectId      the project whose starts the report names
+     * @param generations    the supervisor's registered generations, in start order, which the count is rebuilt from
+     * @param protocol       the module-boundary contract that closes the role's tasks when the guard holds
+     * @param audit          where the report of a counted failure is handed over
+     * @param clock          the clock of the probe backoff
+     * @param retireFailures retires the role's failed generations from the registry, so a guard rebuilt from that
+     *                       registry does not recreate a hold that {@link #clear} removed
+     * @throws NullPointerException if a collaborator is {@code null}
+     */
+    public StartFailureGuard(String projectId, Supplier<List<WorkerGeneration>> generations, WorkerProtocol protocol,
+            AuditSink audit, InstantSource clock, BiConsumer<String, String> retireFailures) {
         this.projectId = Objects.requireNonNull(projectId, "projectId");
         this.generations = Objects.requireNonNull(generations, "generations");
         this.protocol = Objects.requireNonNull(protocol, "protocol");
         this.audit = Objects.requireNonNull(audit, "audit");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.retireFailures = Objects.requireNonNull(retireFailures, "retireFailures");
         rebuild();
     }
 
@@ -139,11 +161,16 @@ public final class StartFailureGuard implements SupervisorEnvironment.StartGuard
      * {@inheritDoc}
      * <p>
      * The specification requires the clear when the role's configuration changes or the harness is enrolled again; the
-     * next start of the role on that harness is then admitted as if no start had failed.
+     * next start of the role on that harness is then admitted as if no start had failed. The failed generations are
+     * retired from the registry the count is rebuilt from, so a guard constructed later over that registry does not
+     * recreate the hold the clear removed.
      */
     @Override
     public synchronized void clear(String role, String harness) {
+        Objects.requireNonNull(role, "role");
+        Objects.requireNonNull(harness, "harness");
         states.remove(new StartFailureState.Key(role, harness));
+        retireFailures.accept(role, harness);
     }
 
     /**
@@ -169,9 +196,10 @@ public final class StartFailureGuard implements SupervisorEnvironment.StartGuard
      *
      * @param role    the role whose start failed
      * @param harness the client id of the harness the start failed on
-     * @param logTail the failed worker's own error text, which the report bounds and redacts
+     * @param logTail the failed worker's own error text, which the report bounds and redacts; {@code null} or blank
+     *                reports {@link StartFailureReport#NO_OUTPUT}
      * @return the bounded, redacted report of this failure, which the assembly hands to its clients
-     * @throws NullPointerException if a value is {@code null}
+     * @throws NullPointerException if the role or the harness is {@code null}
      */
     public synchronized StartFailureReport startFailed(String role, String harness, String logTail) {
         var key = new StartFailureState.Key(role, harness);

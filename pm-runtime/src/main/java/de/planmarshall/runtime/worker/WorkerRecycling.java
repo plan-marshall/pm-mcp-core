@@ -37,9 +37,9 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
  * The decision reads the facts the supervisor records on the {@link WorkerGeneration} — its form, its lease, its idle
  * wake-ups, the context of its latest turn and the tasks it closed — and the recycling bounds of its role. A fresh
  * generation is never recycled: it ends after its one task. The token budget reads the context of the latest turn only
- * (never a run total) and recycles a generation only after it closed at least one task, unless it holds its task for an
- * answer. The host's {@code worker.idle_wakeups} bounds the idle trigger and the role's
- * {@code recycling.idle_wakeups} can only lower it.
+ * (never a run total) and recycles a generation only after it closed at least one task and only once it no longer
+ * leases a task, unless it holds its task for an answer. The host's {@code worker.idle_wakeups} bounds the idle trigger
+ * and the role's {@code recycling.idle_wakeups} can only lower it.
  *
  * @since 0.1
  */
@@ -119,6 +119,7 @@ public final class WorkerRecycling {
 
     /**
      * Decides the token budget after a turn. The context of the generation's latest turn is the only size read; a
+     * generation that still holds a leased task waits for that task to close, unless it holds it for an answer. A
      * generation that closed no task yet is recycled only while it holds its task for an answer, because the context a
      * worker starts with can exceed a small budget.
      *
@@ -137,6 +138,9 @@ public final class WorkerRecycling {
         }
         var context = generation.contextTokens();
         if (context.unmeasured() || context.tokens() < bounds.get().tokenBudget()) {
+            return Optional.empty();
+        }
+        if (generation.leasedTask() != null && generation.lifecycle() != WorkerLifecycle.HOLDING) {
             return Optional.empty();
         }
         if (generation.servedTasks().isEmpty() && generation.lifecycle() != WorkerLifecycle.HOLDING) {

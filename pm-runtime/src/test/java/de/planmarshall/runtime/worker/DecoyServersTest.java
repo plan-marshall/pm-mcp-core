@@ -48,6 +48,20 @@ class DecoyServersTest {
     }
 
     @Test
+    @DisplayName("a request to a path the decoy was not told about is recorded too")
+    void anUnlistedPathIsRecorded() throws Exception {
+        try (var decoys = DecoyServers.start()) {
+            var response = get(decoys.endpoint().uri().resolve("v1/messages"));
+
+            assertAll(
+                    () -> assertEquals(200, response.statusCode(), "the decoy answers every path"),
+                    () -> assertTrue(decoys.endpoint().touched(), "the unlisted path is a hit"),
+                    () -> assertEquals(List.of("GET /v1/messages"), decoys.endpoint().hits(), "the path is recorded"),
+                    () -> assertFalse(decoys.mcp().touched(), "the other decoy is untouched"));
+        }
+    }
+
+    @Test
     @DisplayName("an untouched decoy records no hit")
     void anUntouchedDecoyRecordsNoHit() throws Exception {
         try (var decoys = DecoyServers.start()) {

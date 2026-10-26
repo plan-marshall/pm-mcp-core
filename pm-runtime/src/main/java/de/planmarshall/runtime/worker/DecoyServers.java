@@ -88,7 +88,7 @@ public final class DecoyServers implements AutoCloseable {
      * @throws IOException if a decoy cannot bind its loopback port
      */
     public static DecoyServers start() throws IOException {
-        return new DecoyServers(server("/mcp"), server("/models"));
+        return new DecoyServers(server(), server());
     }
 
     /** @return the decoy MCP server */
@@ -108,10 +108,15 @@ public final class DecoyServers implements AutoCloseable {
         endpoint.close();
     }
 
-    private static Server server(String path) throws IOException {
+    /**
+     * A decoy answers every path, not only the endpoint it stands for: a worker that reaches it calls the path its own
+     * configuration names ({@code /v1/messages}, {@code /chat/completions} and so on), and every one of those requests
+     * is a hit.
+     */
+    private static Server server() throws IOException {
         var address = new InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0);
         var decoy = new Server(HttpServer.create(address, 0));
-        decoy.httpServer.createContext(path, exchange -> {
+        decoy.httpServer.createContext("/", exchange -> {
             decoy.hits.add(exchange.getRequestMethod() + " " + exchange.getRequestURI().getPath());
             var body = "{\"decoy\":true}".getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");

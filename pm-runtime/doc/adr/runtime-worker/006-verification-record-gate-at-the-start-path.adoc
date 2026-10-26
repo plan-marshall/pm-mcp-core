@@ -11,11 +11,11 @@ Accepted
 
 == Context
 
-A machine or project profile makes two claims the runtime must not take on faith: `worker.eligible: true` and a non-null
-`headless.classes.zero_tool`. The profile verification writes a verification record beside the profile, and the runtime
-check on load must refuse a claim the record does not establish for the platform the runtime runs on. The loader
-validates the document, binds the record by digest and sidecar, and carries the record on the loaded profile, but the
-load-time stage and platform gate was left open.
+A machine or project profile makes up to three claims the runtime must not take on faith: `worker.eligible: true`, a
+non-null `headless.classes.zero_tool`, and an `enforced` tool set on `writer` or `read_only`. The profile verification
+writes a verification record beside the profile, and the runtime check on load must refuse a claim the record does not
+establish for the platform the runtime runs on. The loader validates the document, binds the record by digest and
+sidecar, and carries the record on the loaded profile, but the load-time stage and platform gate was left open.
 
 The question was where the gate lives — at load, at the launch path, or in the supervisor's start decision — and what it
 decides.
@@ -29,8 +29,14 @@ when any recorded stage is not `passed`. The stages the claim rests on are exami
 stage that decided the claim where one exists.
 
 The refusal is a value, not a boolean: `EligibilityRefusal` carries the closed reason, the stage that decided it (or
-`null`), and the profile's client id. The supervisor records the reason rather than a bare ineligible verdict. The gate
-is a `SupervisorEnvironment.EligibilityGate` of the supervisor, so a test supplies its own.
+`null`), and the profile's client id, and `ProfileWorkerEligibility.verdict()` exposes it. The supervisor's start path
+reads only `EligibilityGate.admits(role, harness)` and declines with `WorkerStartRefusal.HARNESS_INELIGIBLE`; the
+reason, stage and client id stay available to a report that asks the gate's verdict. The gate is a
+`SupervisorEnvironment.EligibilityGate` of the supervisor, so a test supplies its own.
+
+The verifying-binary control is not part of this gate: it runs the installed binary, which a pure platform-and-record
+predicate must not do, and it belongs to the verification that writes the record (ADR 007). The gate reads the record's
+`tool` member as part of the record it was given; the start path does not re-run the binary check on every start.
 
 The egress-acceptance half of the specification is deliberately not here: whether the operator accepts unenforced egress
 is a machine-level decision the egress owner holds, and this gate only requires the record's `egress` stage to be
@@ -40,8 +46,9 @@ is a machine-level decision the egress owner holds, and this gate only requires 
 
 1. *Gate at profile load.* _Not taken_: the load path of a machine profile is also used for detection and rendering,
    which must work without the gate, and the watch item places the gate in the launch path.
-2. *Return a bare boolean.* _Not taken_: a declined start must name why, and a boolean discards the stage and reason
-   the operator and the audit need.
+2. *Return only a boolean from the predicate.* _Not taken_: the predicate answers a verdict that carries the reason,
+   the stage and the client id; `admits` is the start path's convenience read of it, and a report asks `verdict()` so no
+   information is lost from the decision.
 3. *Require only the claimed stages.* _Not taken_: a record that measured a failure anywhere does not establish the
    profile's claims; a stage outside the claim that failed is still evidence the profile was not verified cleanly.
 

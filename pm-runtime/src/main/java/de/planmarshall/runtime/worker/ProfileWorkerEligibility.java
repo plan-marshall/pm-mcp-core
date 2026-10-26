@@ -93,7 +93,8 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
      * <p>
      * The gate decides from the profile's claims alone: the role and the harness are the caller's names for the worker
      * it wants to start, and the profile the gate holds is already the effective one of that harness. The refusal it
-     * finds is available from {@link #verdict()}, so the caller records the reason rather than a bare boolean.
+     * finds is available from {@link #verdict()}; the start path reads only {@code admits}, and a report asks the verdict
+     * for the reason, the stage and the client id.
      */
     @Override
     public boolean admits(String role, String harness) {

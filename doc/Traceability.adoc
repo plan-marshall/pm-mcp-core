@@ -1247,10 +1247,10 @@ link:../pm-core/doc/adr/core-profile/004-bundle-managed-paths-as-installation-da
 
 Implementation (the load-time gate and the three verification controls, as far as the library module `pm-runtime`
 carries them and not yet wired into the runtime `pm-mcpd`: the pure predicate the supervisor consults before every
-start, which honours a shipped profile and honours a machine or project profile's `worker.eligible: true` or non-null
-`zero_tool` only when the record's stages passed on the runtime's platform, and refuses a record written on another
-platform with the reason and the stage that decided it; and the probe workspace, the decoy servers and the
-verifying-binary check the record's stages attest): link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/ProfileWorkerEligibility.java[ProfileWorkerEligibility],
+start, which honours a shipped profile and honours a machine or project profile's `worker.eligible: true`, non-null
+`zero_tool` or an `enforced` tool set only when the record's stages passed on the runtime's platform, and refuses a record
+written on another platform with the reason and the stage that decided it; and the probe workspace, the decoy servers and
+the verifying-binary check the record's stages attest): link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/ProfileWorkerEligibility.java[ProfileWorkerEligibility],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/EligibilityVerdict.java[EligibilityVerdict],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/EligibilityRefusal.java[EligibilityRefusal],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/RuntimePlatform.java[RuntimePlatform],

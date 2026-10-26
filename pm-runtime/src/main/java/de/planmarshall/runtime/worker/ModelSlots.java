@@ -25,8 +25,10 @@ import de.planmarshall.runtime.launch.ModelSlotScheduler;
  * <p>
  * The three outcomes of an admission map onto the interface as follows: {@code Granted} is the {@link Lease},
  * {@code Queued} is no lease while the request keeps its place in the FIFO, and {@code Deferred} — the plan already has
- * a writer worker — is no lease as well, so the supervisor declines the start without waiting. A caller that asks for
- * the same generation twice is answered with its place, exactly as the scheduler answers a repeated request.
+ * a writer worker — is no lease as well, so the supervisor declines the start without waiting. Because the supervisor
+ * creates the generation id per attempt, a declined start {@link #withdraw(String) withdraws} the place it asked for, so
+ * a queued request never outlives the start that declined it; a caller that asks for the same generation twice is
+ * answered with its place, exactly as the scheduler answers a repeated request.
  *
  * @since 0.1
  */
@@ -58,6 +60,15 @@ public interface ModelSlots {
      * @return the slot the worker holds, or empty when it waits or is deferred; the caller starts no worker then
      */
     Optional<Lease> claim(String generationId, String role);
+
+    /**
+     * Withdraws the place of a generation that never started: a request the scheduler queued leaves the FIFO, so it can
+     * neither be admitted later for a worker that does not exist nor defer a later writer of its plan. A generation that
+     * holds no place is unaffected.
+     *
+     * @param generationId the worker generation whose start declined
+     */
+    void withdraw(String generationId);
 
     /**
      * Releases the slot of a settled worker and admits the workers the release makes room for.
@@ -110,6 +121,12 @@ public interface ModelSlots {
                     case ModelSlotScheduler.Queued _ -> Optional.empty();
                     case ModelSlotScheduler.Deferred _ -> Optional.empty();
                 };
+            }
+
+            @Override
+            public void withdraw(String generationId) {
+                Objects.requireNonNull(generationId, "generationId");
+                scheduler.release(generationId);
             }
 
             @Override

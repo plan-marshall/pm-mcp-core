@@ -11,21 +11,22 @@ Accepted
 
 == Context
 
-The task protocol carries an `agent_started` signal: the worker reports that the agent process of its harness started,
-with the queue task and the attempt it serves. A worker that reports a start cannot be trusted to say *what* started:
-the isolation and classes stages of the profile verification place decoy instructions, a decoy MCP server and decoy
-plugins where a worker that followed them would start something other than its harness. A signal that named only a PID
-or a bare executable name would prove nothing about the bytes that ran.
+The task protocol carries an `agent_started` signal: a second agent process was started inside the worker's process
+tree. The signal names the queue task and the attempt it serves. A worker that started one cannot be trusted to say
+*what* started: the isolation and classes stages of the profile verification place decoy instructions, a decoy MCP
+server and decoy plugins where a worker that followed them would start something other than its harness. A signal that
+named only a PID or a bare executable name would prove nothing about the bytes that ran.
 
 The question was what the signal reads to establish that the process is the enrolled harness.
 
 == Decision
 
 `agent_started` reads the executable path and the executable's digest from the process tree of the worker, and
-`AgentStartedDetector` compares that identity with the harness enrolment. `ProcessExecutable` and `ProcessExecutables`
-resolve the executable of a process (the production resolver is `SystemProcessExecutables`), and the detector reports a
-started agent only when the executable belongs to the worker's own process tree and its digest matches the enrolled
-executable.
+`AgentStartedDetector` compares that identity with the harness enrolment and with the installed operator binary at
+`bin/pm-operator` under the runtime home. `ProcessExecutable` and `ProcessExecutables` resolve the executable of a
+process (the production resolver is `SystemProcessExecutables`), and the detector reports a started agent only when a
+process of the worker's own tree runs the enrolled executable or the operator binary, by path and digest. It reads the
+process's path first and hashes the file only for a path that can match.
 
 The signal carries the resolved path and digest to the protocol adapter; the supervisor records it through
 `WorkerProtocol.agentStarted`.
@@ -40,12 +41,16 @@ The signal carries the resolved path and digest to the protocol adapter; the sup
 
 == Consequences
 
-* A start is accepted only when the executable path and digest match the enrolment, so a decoy process is not recorded
-  as the harness.
+* A process is reported only when its executable path and digest match an enrolment or the operator binary, so a decoy
+  process is not recorded as the harness.
+* A match raises `agent_started` through `WorkerProtocol.agentStarted` and ends the generation through `WorkerEnding`
+  with `EndCause.OFF_TRACK`, so the attempt ends `off_track` and its task is offered again as a new attempt within its
+  re-offer budget.
+* A process whose path and digest match neither an enrolment nor the operator binary is silent: the detector reports
+  nothing, logs nothing and ends nothing. A harness that re-execs a different binary after its first call is therefore
+  not a signal of its own; the detector reports the bytes it can match to an enrolment, never a mismatch.
 * The resolver is a seam: the production `SystemProcessExecutables` reads the OS process tree, and a test supplies its
   own executable so the comparison is exercised on every host.
-* A harness that re-execs a different binary after its first call is not the enrolled harness; the signal reports the
-  mismatch instead of assuming the spawn's identity.
 
 == Source
 
