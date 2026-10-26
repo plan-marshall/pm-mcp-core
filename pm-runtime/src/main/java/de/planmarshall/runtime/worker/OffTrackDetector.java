@@ -59,11 +59,11 @@ public final class OffTrackDetector {
         evaluate(RoleArtifact.OffTrackSignal.REPEATING, ofAttempt, role, alreadyRaised, found);
         evaluate(RoleArtifact.OffTrackSignal.NO_PROGRESS, ofAttempt, role, alreadyRaised, found);
         if (predictedCostTokens != null && predictedCostTokens > 0) {
-            evaluate(RoleArtifact.OffTrackSignal.OVER_SIZE, ofAttempt, role, alreadyRaised, found,
+            evaluate(RoleArtifact.OffTrackSignal.OVER_SIZE, role, alreadyRaised, found,
                     spentTokens(ofAttempt) / predictedCostTokens);
         }
         if (unplannedChanges >= 0) {
-            evaluate(RoleArtifact.OffTrackSignal.OUTSIDE_FOOTPRINT, ofAttempt, role, alreadyRaised, found,
+            evaluate(RoleArtifact.OffTrackSignal.OUTSIDE_FOOTPRINT, role, alreadyRaised, found,
                     unplannedChanges);
         }
         return List.copyOf(found);
@@ -71,10 +71,10 @@ public final class OffTrackDetector {
 
     private void evaluate(RoleArtifact.OffTrackSignal signal, List<ActivityEntry> entries, RoleArtifact role,
             Set<RoleArtifact.OffTrackSignal> alreadyRaised, List<ActivitySignal> found) {
-        evaluate(signal, entries, role, alreadyRaised, found, measurement(signal, entries));
+        evaluate(signal, role, alreadyRaised, found, measurement(signal, entries));
     }
 
-    private void evaluate(RoleArtifact.OffTrackSignal signal, List<ActivityEntry> entries, RoleArtifact role,
+    private void evaluate(RoleArtifact.OffTrackSignal signal, RoleArtifact role,
             Set<RoleArtifact.OffTrackSignal> alreadyRaised, List<ActivitySignal> found, double measurement) {
         if (alreadyRaised.contains(signal) || measurement < 0) {
             return;
@@ -153,7 +153,7 @@ public final class OffTrackDetector {
             }
             total += totalTokens(entry.usage());
         }
-        return total;
+        return (double) total;
     }
 
     private static long totalTokens(String usage) {

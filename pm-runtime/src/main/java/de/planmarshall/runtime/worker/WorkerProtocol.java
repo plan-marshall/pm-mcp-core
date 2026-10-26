@@ -46,6 +46,18 @@ public interface WorkerProtocol {
      * {@code signals[]} and as a {@code signal} entry of the activity journal, and takes its action (Model Work § A
      * Worker Off Track).
      *
+     * @param report the signal and the facts the protocol records
+     * @implSpec the assembly adapter must override this; a protocol that does not is refused rather than silently
+     *           dropping the signal.
+     */
+    default void offTrack(OffTrackReport report) {
+        throw new UnsupportedOperationException(
+                "The assembly adapter of WorkerProtocol must record the off-track signal " + report.signal());
+    }
+
+    /**
+     * One activity-derived off-track signal as the runtime reports it.
+     *
      * @param generationId the worker's generation
      * @param queueTaskId  the queue task the generation holds
      * @param attempt      the attempt of that task
@@ -55,13 +67,10 @@ public interface WorkerProtocol {
      * @param measurement  the measured value
      * @param threshold    the threshold in force
      * @param at           the instant the signal was raised
-     * @implSpec the assembly adapter must override this; a protocol that does not is refused rather than silently
-     *           dropping the signal.
+     * @since 0.1
      */
-    default void offTrack(String generationId, String queueTaskId, int attempt, String signal, String action,
-            double measurement, double threshold, Instant at) {
-        throw new UnsupportedOperationException(
-                "The assembly adapter of WorkerProtocol must record the off-track signal " + signal);
+    record OffTrackReport(String generationId, String queueTaskId, int attempt, String signal, String action,
+    double measurement, double threshold, Instant at) {
     }
 
     /**

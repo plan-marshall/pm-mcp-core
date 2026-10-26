@@ -29,10 +29,10 @@ import java.util.Objects;
 public record Figure(String name, Double value, long population, String sentinel) {
 
     /** The population of the figure cannot be read. */
-    public static final String INDETERMINATE = "indeterminate";
+    public static final String SENTINEL_INDETERMINATE = "indeterminate";
 
     /** The harness reports no data for the figure. */
-    public static final String UNMEASURED = "unmeasured";
+    public static final String SENTINEL_UNMEASURED = "unmeasured";
 
     /**
      * @throws NullPointerException     if the name is {@code null}
@@ -44,7 +44,7 @@ public record Figure(String name, Double value, long population, String sentinel
             if (value == null || !Double.isFinite(value) || value < 0 || population < 1) {
                 throw new IllegalArgumentException("A measured figure has a finite value and a population");
             }
-        } else if (!INDETERMINATE.equals(sentinel) && !UNMEASURED.equals(sentinel)) {
+        } else if (!SENTINEL_INDETERMINATE.equals(sentinel) && !SENTINEL_UNMEASURED.equals(sentinel)) {
             throw new IllegalArgumentException("Not a figure sentinel: " + sentinel);
         } else if (value != null || population != 0) {
             throw new IllegalArgumentException("A sentinel figure carries neither a value nor a population");
@@ -66,7 +66,7 @@ public record Figure(String name, Double value, long population, String sentinel
      * @return the figure whose population cannot be read
      */
     public static Figure indeterminate(String name) {
-        return new Figure(name, null, 0, INDETERMINATE);
+        return new Figure(name, null, 0, SENTINEL_INDETERMINATE);
     }
 
     /**
@@ -74,7 +74,7 @@ public record Figure(String name, Double value, long population, String sentinel
      * @return the figure the harness reports no data for
      */
     public static Figure unmeasured(String name) {
-        return new Figure(name, null, 0, UNMEASURED);
+        return new Figure(name, null, 0, SENTINEL_UNMEASURED);
     }
 
     /** @return whether the figure is measured */

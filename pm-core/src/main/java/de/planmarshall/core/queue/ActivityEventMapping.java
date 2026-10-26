@@ -66,14 +66,10 @@ public record ActivityEventMapping(String kindPointer, Map<ActivityEntry.Kind, K
                 () -> new IllegalArgumentException("The events block has no kinds"));
         var mapped = new LinkedHashMap<ActivityEntry.Kind, KindMapping>();
         for (var kind : ActivityEntry.Kind.values()) {
-            if (kind.source() != ActivityEntry.Source.HARNESS) {
-                continue;
-            }
             var declaration = kinds.member(kind.wireName()).orElse(null);
-            if (declaration == null || declaration.isNull()) {
-                continue;
+            if (kind.source() == ActivityEntry.Source.HARNESS && declaration != null && !declaration.isNull()) {
+                mapped.put(kind, kindMapping(kind, declaration));
             }
-            mapped.put(kind, kindMapping(kind, declaration));
         }
         return new ActivityEventMapping(kindPointer, mapped);
     }

@@ -73,8 +73,8 @@ class NavigationFiguresTest {
                 VOCABULARY, List.of(), Map.of());
 
         assertAll(
-                () -> assertEquals(Figure.UNMEASURED, figures.cacheReadShare().sentinel()),
-                () -> assertEquals(Figure.UNMEASURED, notApplicable.cacheReadShare().sentinel()),
+                () -> assertEquals(Figure.SENTINEL_UNMEASURED, figures.cacheReadShare().sentinel()),
+                () -> assertEquals(Figure.SENTINEL_UNMEASURED, notApplicable.cacheReadShare().sentinel()),
                 () -> assertFalse(figures.cacheReadShare().isMeasured()));
     }
 
@@ -96,9 +96,9 @@ class NavigationFiguresTest {
         var figures = NavigationFigures.derive(List.of(), VOCABULARY, List.of(), Map.of());
 
         assertAll(
-                () -> assertEquals(Figure.INDETERMINATE, figures.revisits().sentinel()),
-                () -> assertEquals(Figure.INDETERMINATE, figures.languageServerUse().sentinel()),
-                () -> assertEquals(Figure.INDETERMINATE, figures.fallbackToReadRate().sentinel()));
+                () -> assertEquals(Figure.SENTINEL_INDETERMINATE, figures.revisits().sentinel()),
+                () -> assertEquals(Figure.SENTINEL_INDETERMINATE, figures.languageServerUse().sentinel()),
+                () -> assertEquals(Figure.SENTINEL_INDETERMINATE, figures.fallbackToReadRate().sentinel()));
     }
 
     @Test
@@ -156,8 +156,8 @@ class NavigationFiguresTest {
                 () -> assertThrows(IllegalArgumentException.class, () -> new Figure("f", null, 1, null)),
                 () -> assertThrows(IllegalArgumentException.class, () -> new Figure("f", 1.0, 0, "other")),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new Figure("f", 1.0, 1, Figure.INDETERMINATE)),
+                        () -> new Figure("f", 1.0, 1, Figure.SENTINEL_INDETERMINATE)),
                 () -> assertTrue(Figure.measured("f", 0.5, 2).isMeasured()),
-                () -> assertEquals(Figure.UNMEASURED, Figure.unmeasured("f").sentinel()));
+                () -> assertEquals(Figure.SENTINEL_UNMEASURED, Figure.unmeasured("f").sentinel()));
     }
 }

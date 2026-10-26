@@ -63,14 +63,9 @@ public final class HarnessEventVerification {
                 .map(ActivityEventMapper.Mapped::kind).toList();
         var results = new LinkedHashMap<String, String>();
         for (var kind : ActivityEntry.Kind.values()) {
-            if (kind.source() != ActivityEntry.Source.HARNESS) {
-                continue;
+            if (kind.source() == ActivityEntry.Source.HARNESS && mapping.kinds().containsKey(kind)) {
+                results.put(kind.wireName(), seen.contains(kind) ? REPORTED : MISSING);
             }
-            var declared = mapping.kinds().containsKey(kind);
-            if (!declared) {
-                continue;
-            }
-            results.put(kind.wireName(), seen.contains(kind) ? REPORTED : MISSING);
         }
         var passed = results.values().stream().noneMatch(MISSING::equals);
         return new Result(passed, results);

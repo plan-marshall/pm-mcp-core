@@ -131,8 +131,7 @@ class HarnessStartSpacingTest {
         }
 
         @Override
-        public void offTrack(String generationId, String queueTaskId, int attempt, String signal, String action,
-                double measurement, double threshold, Instant at) {
+        public void offTrack(OffTrackReport report) {
             // spacing raises no activity signal
         }
 

@@ -109,8 +109,9 @@ class ActivityRecorderTest {
         var recorder = new ActivityRecorder(journal, tasks, protocol, new OffTrackDetector(),
                 InstantSource.fixed(AT));
 
+        var entry = toolCall("x", "y");
         assertThrows(IllegalStateException.class,
-                () -> recorder.append(TASK, GENERATION, toolCall("x", "y")));
+                () -> recorder.append(TASK, GENERATION, entry));
         assertTrue(journal.entries(TASK).isEmpty());
         assertTrue(protocol.signals.isEmpty());
     }
@@ -132,9 +133,9 @@ class ActivityRecorderTest {
         }
 
         @Override
-        public void offTrack(String generationId, String queueTaskId, int attempt, String signal, String action,
-                double measurement, double threshold, Instant at) {
-            signals.add(new Reported(signal, action, measurement, threshold, attempt));
+        public void offTrack(OffTrackReport report) {
+            signals.add(new Reported(report.signal(), report.action(), report.measurement(), report.threshold(),
+                    report.attempt()));
         }
 
         @Override

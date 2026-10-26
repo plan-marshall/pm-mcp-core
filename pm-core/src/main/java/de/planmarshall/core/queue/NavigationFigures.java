@@ -42,6 +42,9 @@ import de.planmarshall.core.role.RoleSkill;
 public record NavigationFigures(Figure cacheReadShare, Figure revisits, Figure languageServerUse,
 Figure fallbackToReadRate, List<SkillResidency> residency) {
 
+    /** The name of the revisits figure. */
+    private static final String REVISITS = "revisits";
+
     /** Copies the residency list. */
     public NavigationFigures {
         Objects.requireNonNull(cacheReadShare, "cacheReadShare");
@@ -75,24 +78,32 @@ Figure fallbackToReadRate, List<SkillResidency> residency) {
         long context = 0;
         var turns = 0;
         for (var entry : entries) {
-            if (entry.kind() != ActivityEntry.Kind.TURN || entry.usage() == null) {
-                continue;
+            var share = cacheShareOf(entry);
+            if (share.isPresent()) {
+                cacheRead += share.get()[0];
+                context += share.get()[1];
+                turns++;
             }
-            var usage = usage(entry.usage());
-            var input = measured(usage, "input_tokens");
-            var read = reportedInteger(usage, "cache_read");
-            var creation = measured(usage, "cache_creation");
-            if (input.isEmpty() || read.isEmpty() || creation.isEmpty()) {
-                continue;
-            }
-            cacheRead += read.get();
-            context += input.get() + read.get() + creation.get();
-            turns++;
         }
         if (turns == 0 || context == 0) {
             return Figure.unmeasured("cache_read_share");
         }
         return Figure.measured("cache_read_share", (double) cacheRead / context, turns);
+    }
+
+    /** @return the cache reads and the context tokens of one turn, or empty when the turn is no full measurement */
+    private static Optional<long[]> cacheShareOf(ActivityEntry entry) {
+        if (entry.kind() != ActivityEntry.Kind.TURN || entry.usage() == null) {
+            return Optional.empty();
+        }
+        var usage = usage(entry.usage());
+        var input = measured(usage, "input_tokens");
+        var read = reportedInteger(usage, "cache_read");
+        var creation = measured(usage, "cache_creation");
+        if (input.isEmpty() || read.isEmpty() || creation.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new long[] {read.get(), input.get() + read.get() + creation.get()});
     }
 
     /** The reads of a file already read earlier in the task over all its reads. */
@@ -101,18 +112,21 @@ Figure fallbackToReadRate, List<SkillResidency> residency) {
         var reads = 0;
         var revisited = 0;
         for (var entry : entries) {
-            if (entry.kind() != ActivityEntry.Kind.TOOL_CALL || entry.tool() == null
-                    || entry.tool().target() == null
-                    || !vocabulary.fileReadTools().contains(entry.tool().name())) {
-                continue;
-            }
-            reads++;
-            if (!seen.add(entry.tool().target())) {
-                revisited++;
+            if (isReadOfAFile(entry, vocabulary)) {
+                reads++;
+                if (!seen.add(entry.tool().target())) {
+                    revisited++;
+                }
             }
         }
-        return reads == 0 ? Figure.indeterminate("revisits")
-                : Figure.measured("revisits", (double) revisited / reads, reads);
+        return reads == 0 ? Figure.indeterminate(REVISITS)
+                : Figure.measured(REVISITS, (double) revisited / reads, reads);
+    }
+
+    private static boolean isReadOfAFile(ActivityEntry entry, NavigationVocabulary vocabulary) {
+        return entry.kind() == ActivityEntry.Kind.TOOL_CALL && entry.tool() != null
+                && entry.tool().target() != null
+                && vocabulary.fileReadTools().contains(entry.tool().name());
     }
 
     /** {@code pm_lsp} reads over {@code pm_lsp} reads plus the harness's own search calls. */
@@ -130,18 +144,10 @@ Figure fallbackToReadRate, List<SkillResidency> residency) {
         var followed = 0;
         for (var index = 0; index < entries.size(); index++) {
             var entry = entries.get(index);
-            if (!isLookup(entry, vocabulary)) {
-                continue;
-            }
-            lookups++;
-            for (var later = index + 1; later < entries.size(); later++) {
-                var candidate = entries.get(later);
-                if (candidate.kind() == ActivityEntry.Kind.TOOL_CALL && candidate.tool() != null
-                        && candidate.tool().target() != null
-                        && vocabulary.wholeFileReadTools().contains(candidate.tool().name())
-                        && candidate.tool().target().equals(entry.tool().target())) {
+            if (isLookup(entry, vocabulary)) {
+                lookups++;
+                if (followedByWholeFileRead(entries, index, entry, vocabulary)) {
                     followed++;
-                    break;
                 }
             }
         }
@@ -149,23 +155,29 @@ Figure fallbackToReadRate, List<SkillResidency> residency) {
                 : Figure.measured("fallback_to_read_rate", (double) followed / lookups, lookups);
     }
 
+    private static boolean followedByWholeFileRead(List<ActivityEntry> entries, int index, ActivityEntry lookup,
+            NavigationVocabulary vocabulary) {
+        for (var later = index + 1; later < entries.size(); later++) {
+            var candidate = entries.get(later);
+            if (candidate.kind() == ActivityEntry.Kind.TOOL_CALL && candidate.tool() != null
+                    && candidate.tool().target() != null
+                    && vocabulary.wholeFileReadTools().contains(candidate.tool().name())
+                    && candidate.tool().target().equals(lookup.tool().target())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Per required skill the bytes delivered in-band and the sections read on demand. */
     static List<SkillResidency> residency(List<ActivityEntry> entries, NavigationVocabulary vocabulary,
             List<RoleSkill> required, Map<String, Long> inBandBytes) {
         var sectionsBySkill = new LinkedHashMap<String, List<String>>();
         for (var entry : entries) {
-            if (entry.kind() != ActivityEntry.Kind.TOOL_CALL || entry.tool() == null
-                    || !vocabulary.skillTool().equals(entry.tool().name()) || entry.tool().target() == null) {
-                continue;
+            var skillRead = skillRead(entry, vocabulary);
+            if (skillRead != null) {
+                sectionsBySkill.computeIfAbsent(skillRead[0], ignored -> new ArrayList<>()).add(skillRead[1]);
             }
-            var target = entry.tool().target();
-            var separator = target.indexOf('#');
-            var uri = separator < 0 ? target : target.substring(0, separator);
-            var section = separator < 0 ? "" : target.substring(separator + 1);
-            if (section.isEmpty()) {
-                continue;
-            }
-            sectionsBySkill.computeIfAbsent(uri, ignored -> new ArrayList<>()).add(section);
         }
         var residency = new ArrayList<SkillResidency>();
         for (var skill : required) {
@@ -174,6 +186,18 @@ Figure fallbackToReadRate, List<SkillResidency> residency) {
                     sections));
         }
         return List.copyOf(residency);
+    }
+
+    /** @return the skill URI and the section of one on-demand read, or {@code null} for any other entry */
+    private static String[] skillRead(ActivityEntry entry, NavigationVocabulary vocabulary) {
+        if (entry.kind() != ActivityEntry.Kind.TOOL_CALL || entry.tool() == null
+                || !vocabulary.skillTool().equals(entry.tool().name()) || entry.tool().target() == null) {
+            return null;
+        }
+        var target = entry.tool().target();
+        var separator = target.indexOf('#');
+        var section = separator < 0 ? "" : target.substring(separator + 1);
+        return section.isEmpty() ? null : new String[] {target.substring(0, separator), section};
     }
 
     private static List<ActivityEntry> lookups(List<ActivityEntry> entries, NavigationVocabulary vocabulary) {

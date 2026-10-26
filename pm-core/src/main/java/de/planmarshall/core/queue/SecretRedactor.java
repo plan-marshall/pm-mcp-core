@@ -33,8 +33,8 @@ public final class SecretRedactor {
     /** The text that replaces a redacted value. */
     public static final String REDACTED = "[redacted]";
 
-    private static final String ASSIGNMENT_LABEL = "(?i)\\b(password|passwd|passphrase|secret|token|api[_-]?key"
-            + "|access[_-]?key|private[_-]?key|auth)\\b(\\s*[:=]\\s*[\"']?)";
+    private static final String ASSIGNMENT_LABEL = "(?i)\\b(pass(?:word|wd|phrase)|secret|token"
+            + "|(?:api|access|private)[_-]?key|auth)\\b(\\s*[:=]\\s*[\"']?)";
 
     private static final Pattern AUTH_HEADER = Pattern.compile(
             "(?i)\\b(authorization)\\b(\\s*[:=]\\s*)((?i:bearer|basic|token)\\s+)?([^\\s\"',;]{4,})");
@@ -42,10 +42,10 @@ public final class SecretRedactor {
     private static final Pattern ASSIGNMENT = Pattern.compile(
             ASSIGNMENT_LABEL + "([^\\s\"',;]{4,})");
 
-    private static final Pattern BEARER = Pattern.compile("(?i)\\b(bearer\\s+)([A-Za-z0-9._~+/=-]{8,})");
+    private static final Pattern BEARER = Pattern.compile("(?i)\\b(bearer\\s+)([\\w.~+/=-]{8,})");
 
     private static final Pattern TOKEN_SHAPE = Pattern.compile(
-            "\\b(?:sk|ghp|gho|ghu|ghs|ghr|github_pat|xox[abprs])[-_][A-Za-z0-9_-]{12,}");
+            "\\b(?:sk|ghp|gho|ghu|ghs|ghr|github_pat|xox[abprs])[-_][\\w-]{12,}");
 
     private static final List<Pattern> REPLACEMENTS = List.of(TOKEN_SHAPE);
 

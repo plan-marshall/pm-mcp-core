@@ -44,6 +44,12 @@ public final class ActivityEventMapper {
     private static final List<String> USAGE_KEYS = List.of("input_tokens", "output_tokens", "cache_read",
             "cache_creation", "reasoning");
 
+    /** The sentinel of a usage component the harness does not report. */
+    private static final String UNMEASURED = "unmeasured";
+
+    /** The sentinel of a usage component the harness has no such figure for. */
+    private static final String NOT_APPLICABLE = "not_applicable";
+
     private final ActivityEventMapping mapping;
     private final Map<String, String> usagePointers;
 
@@ -133,9 +139,10 @@ public final class ActivityEventMapper {
         if (size < 0 || size > Integer.MAX_VALUE) {
             return Optional.empty();
         }
-        var failed = declaration.isErrorPointer() == null
-                ? false
-                : resolve(root, declaration.isErrorPointer()).flatMap(JsonNode::booleanValue).orElse(false);
+        var failed = false;
+        if (declaration.isErrorPointer() != null) {
+            failed = resolve(root, declaration.isErrorPointer()).flatMap(JsonNode::booleanValue).orElse(false);
+        }
         return Optional.of(new Mapped(ActivityEntry.Kind.TOOL_RESULT, null, false, null,
                 new ActivityEntry.Result((int) size, failed), null, null, null));
     }
@@ -166,18 +173,20 @@ public final class ActivityEventMapper {
         var members = new LinkedHashMap<String, JsonNode>();
         for (var key : USAGE_KEYS) {
             var pointer = usagePointers.get(key);
-            if (pointer == null) {
-                members.put(key, JsonNode.string("unmeasured"));
-            } else if ("not_applicable".equals(pointer)) {
-                members.put(key, JsonNode.string("not_applicable"));
-            } else {
-                var value = resolve(root, pointer).orElse(null);
-                members.put(key, value == null || value.isNull()
-                        ? JsonNode.string("unmeasured")
-                        : value.isInteger() ? value : JsonNode.string("unmeasured"));
-            }
+            members.put(key, usageComponent(root, pointer));
         }
         return CanonicalJson.write(JsonNode.object(members));
+    }
+
+    private static JsonNode usageComponent(JsonNode root, String pointer) {
+        if (pointer == null) {
+            return JsonNode.string(UNMEASURED);
+        }
+        if (NOT_APPLICABLE.equals(pointer)) {
+            return JsonNode.string(NOT_APPLICABLE);
+        }
+        var value = resolve(root, pointer).orElse(null);
+        return value != null && value.isInteger() ? value : JsonNode.string(UNMEASURED);
     }
 
     /**
@@ -205,29 +214,28 @@ public final class ActivityEventMapper {
         var current = root;
         for (var raw : pointer.substring(1).split("/", -1)) {
             var token = raw.replace("~1", "/").replace("~0", "~");
-            if (current.isObject()) {
-                var next = current.member(token).orElse(null);
-                if (next == null) {
-                    return Optional.empty();
-                }
-                current = next;
-            } else if (current.isArray()) {
-                int index;
-                try {
-                    index = Integer.parseInt(token);
-                } catch (NumberFormatException _) {
-                    return Optional.empty();
-                }
-                var elements = current.elements();
-                if (index < 0 || index >= elements.size()) {
-                    return Optional.empty();
-                }
-                current = elements.get(index);
-            } else {
+            current = child(current, token).orElse(null);
+            if (current == null) {
                 return Optional.empty();
             }
         }
         return Optional.of(current);
+    }
+
+    private static Optional<JsonNode> child(JsonNode node, String token) {
+        if (node.isObject()) {
+            return node.member(token);
+        }
+        if (!node.isArray()) {
+            return Optional.empty();
+        }
+        try {
+            var index = Integer.parseInt(token);
+            var elements = node.elements();
+            return index < 0 || index >= elements.size() ? Optional.empty() : Optional.of(elements.get(index));
+        } catch (NumberFormatException _) {
+            return Optional.empty();
+        }
     }
 
     /**

@@ -360,8 +360,7 @@ final class SupervisorTestFixture {
         }
 
         @Override
-        public void offTrack(String generationId, String queueTaskId, int attempt, String signal, String action,
-                double measurement, double threshold, Instant at) {
+        public void offTrack(OffTrackReport report) {
             order.add("off_track");
         }
 
