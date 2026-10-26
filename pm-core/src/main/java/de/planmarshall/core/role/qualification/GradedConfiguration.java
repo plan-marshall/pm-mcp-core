@@ -41,8 +41,8 @@ public record GradedConfiguration(String harness, String harnessVersion, String 
 List<String> tools, RoleClass roleClass, Map<String, String> skillDigests) {
 
     private static final Pattern HARNESS_NAME = Pattern.compile("[a-z][a-z0-9-]{1,31}");
-    private static final Pattern VERSION = Pattern.compile("[0-9]+\\.[0-9]+");
-    private static final Pattern DIGEST = Pattern.compile("[0-9a-f]{64}");
+    private static final Pattern VERSION = Pattern.compile("\\d+\\.\\d+");
+    private static final Pattern DIGEST = Pattern.compile("[\\da-f]{64}");
 
     /**
      * @throws IllegalArgumentException if a value is outside the record's format

@@ -85,7 +85,8 @@ class QualificationValueTest {
         assertFalse(Grade.ungraded().judgedRight());
         assertTrue(Grade.ungraded().isUngraded());
         assertEquals(new BigDecimal("0.6"), Grade.scored(new BigDecimal("0.6")).score());
-        assertThrows(IllegalArgumentException.class, () -> new Grade(new BigDecimal("-0.1")));
+        var negative = new BigDecimal("-0.1");
+        assertThrows(IllegalArgumentException.class, () -> new Grade(negative));
     }
 
     @Test
@@ -98,16 +99,21 @@ class QualificationValueTest {
         assertEquals(QualificationFixtures.VERSION, configuration.harnessVersion());
         assertEquals(RoleClass.WRITER, configuration.roleClass());
         assertEquals(1, configuration.skillDigests().size());
+        var noTools = List.<String>of();
+        var noDigests = Map.<String, String>of();
+        var notADigest = Map.of("skill://pm/role/x/SKILL.md", "not-a-digest");
+        var otherSkill = Map.of("other/x", "a".repeat(64));
+
         assertThrows(IllegalArgumentException.class, () -> new GradedConfiguration("Bad Harness", "1.4", "m", null,
-                List.of(), RoleClass.WRITER, Map.of()));
+                noTools, RoleClass.WRITER, noDigests));
         assertThrows(IllegalArgumentException.class, () -> new GradedConfiguration("acme", "1.4.2", "m", null,
-                List.of(), RoleClass.WRITER, Map.of()));
+                noTools, RoleClass.WRITER, noDigests));
         assertThrows(IllegalArgumentException.class, () -> new GradedConfiguration("acme", "1.4", "", null,
-                List.of(), RoleClass.WRITER, Map.of()));
+                noTools, RoleClass.WRITER, noDigests));
         assertThrows(IllegalArgumentException.class, () -> new GradedConfiguration("acme", "1.4", "m", null,
-                List.of(), RoleClass.WRITER, Map.of("skill://pm/role/x/SKILL.md", "not-a-digest")));
+                noTools, RoleClass.WRITER, notADigest));
         assertThrows(IllegalArgumentException.class, () -> new GradedConfiguration("acme", "1.4", "m", null,
-                List.of(), RoleClass.WRITER, Map.of("other/x", "a".repeat(64))));
+                noTools, RoleClass.WRITER, otherSkill));
     }
 
     private static JudgeConfiguration judge() {
@@ -123,11 +129,16 @@ class QualificationValueTest {
     @DisplayName("the plan refuses an empty corpus revision and the offer refuses an empty form list")
     void planAndOffer() {
         var judge = judge();
-        assertThrows(IllegalArgumentException.class, () -> new GradingPlan(QualificationFixtures.role("implement",
-                        RoleClass.WRITER, RoleForm.FRESH), List.of(), new ImportResult(List.of(), List.of()), "",
-                URI.create("https://example.org/x"), GradingProfile.single(), judge, ItemCheckout.none(),
-                Optional.empty()));
-        assertThrows(IllegalArgumentException.class, () -> new GradingOffer("implement", List.of(), 0, List.of(),
+        var role = QualificationFixtures.role("implement", RoleClass.WRITER, RoleForm.FRESH);
+        var noSources = new ImportResult(List.of(), List.of());
+        var repository = URI.create("https://example.org/x");
+        var noPrevious = Optional.<QualificationRecord>empty();
+        var noForms = List.<RoleForm>of();
+        var noTopics = List.<Topic>of();
+
+        assertThrows(IllegalArgumentException.class, () -> new GradingPlan(role, List.of(), noSources, "",
+                repository, GradingProfile.single(), judge, ItemCheckout.none(), noPrevious));
+        assertThrows(IllegalArgumentException.class, () -> new GradingOffer("implement", noTopics, 0, noForms,
                 1, 0, 0));
         assertEquals(5, GradingProfile.screener().runsPerItem());
         assertTrue(GradingProfile.screener().repeated());
@@ -165,12 +176,18 @@ class QualificationValueTest {
     @Test
     @DisplayName("the record values refuse a form without a topic, a topic without items and an item without an id")
     void recordGuards() {
-        assertThrows(IllegalArgumentException.class, () -> new QualificationRecord.FormResult(Map.of(), 0,
-                TokenTotal.measured(1), 0));
-        assertThrows(IllegalArgumentException.class, () -> new TopicResult(new BigDecimal("90"), BigDecimal.ZERO, 0));
-        assertThrows(IllegalArgumentException.class, () -> new TopicResult(new BigDecimal("101"), BigDecimal.ZERO, 1));
+        var noTopics = Map.<Topic, QualificationRecord.TopicResult>of();
+        var one = TokenTotal.measured(1);
+        var ninety = new BigDecimal("90");
+        var overHundred = new BigDecimal("101");
+        var zero = BigDecimal.ZERO;
+
+        assertThrows(IllegalArgumentException.class, () -> new QualificationRecord.FormResult(noTopics, 0,
+                one, 0));
+        assertThrows(IllegalArgumentException.class, () -> new TopicResult(ninety, zero, 0));
+        assertThrows(IllegalArgumentException.class, () -> new TopicResult(overHundred, zero, 1));
         assertThrows(IllegalArgumentException.class, () -> new ItemResult("", RoleForm.FRESH, Checkout.CURRENT,
-                JsonNode.nullValue(), Grade.of(true), TokenTotal.measured(1), 0L));
+                JsonNode.nullValue(), Grade.of(true), one, 0L));
     }
 
     @Test
