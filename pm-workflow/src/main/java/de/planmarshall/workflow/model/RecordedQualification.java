@@ -69,12 +69,12 @@ public final class RecordedQualification implements QualificationLookup {
         Objects.requireNonNull(roleName, "roleName");
         Objects.requireNonNull(qualificationDigest, "qualificationDigest");
         Objects.requireNonNull(artifactForm, "artifactForm");
-        var record = records.lookup(roleName).orElse(null);
-        if (record == null) {
+        var entry = records.lookup(roleName).orElse(null);
+        if (entry == null) {
             return Optional.empty();
         }
         var level = settings.read().settings();
         var check = new QualificationCheck(topics.apply(roleName), corpus.get(), level);
-        return check.check(roleName, record, qualificationDigest, corpusRevision, artifactForm).qualifiedForm();
+        return check.check(roleName, entry, qualificationDigest, corpusRevision, artifactForm).qualifiedForm();
     }
 }

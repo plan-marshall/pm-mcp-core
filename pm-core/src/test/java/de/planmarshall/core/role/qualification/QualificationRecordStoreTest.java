@@ -40,15 +40,15 @@ class QualificationRecordStoreTest {
 
     @Test
     @DisplayName("a written record is read back from the role set")
-    void writeAndRead() throws Exception {
+    void writeAndRead() {
         var store = store();
-        var record = QualificationFixtures.recordWithBaseline(Map.of(Topic.OWN, new BigDecimal("90")),
+        var entry = QualificationFixtures.recordWithBaseline(Map.of(Topic.OWN, new BigDecimal("90")),
                 new BigDecimal("10"));
 
-        store.write(record);
+        store.write(entry);
 
         assertTrue(Files.exists(base.resolve("projects/pm-mcp-core/roles/qualification/review-code.json")));
-        assertEquals(Optional.of(record), store.lookup("review-code"));
+        assertEquals(Optional.of(entry), store.lookup("review-code"));
     }
 
     @Test
@@ -60,17 +60,20 @@ class QualificationRecordStoreTest {
     @Test
     @DisplayName("a role name outside its grammar is refused before it reaches a path")
     void roleGrammar() {
-        assertThrows(IllegalArgumentException.class, () -> store().file("../escape"));
+        var store = store();
+
+        assertThrows(IllegalArgumentException.class, () -> store.file("../escape"));
     }
 
     @Test
     @DisplayName("an unreadable record is refused, never answered as an absent one")
     void unreadable() throws Exception {
+        var store = store();
         var file = directory().resolve("review-code.json");
         Files.createDirectories(directory());
         Files.writeString(file, "{\"format_version\":1}", UTF_8);
 
-        assertThrows(StoreRefusal.class, () -> store().lookup("review-code"));
+        assertThrows(StoreRefusal.class, () -> store.lookup("review-code"));
     }
 
     @Test
@@ -81,7 +84,7 @@ class QualificationRecordStoreTest {
                 new BigDecimal("10"));
         project.write(projectRecord);
         QualificationRecords shipped = role -> "review-code".equals(role)
-                ? Optional.of(QualificationFixtures.record(Map.of(Topic.OWN, new BigDecimal("70"))))
+                ? Optional.of(QualificationFixtures.qualification(Map.of(Topic.OWN, new BigDecimal("70"))))
                 : Optional.empty();
 
         var lookup = QualificationRecords.firstOf(project, shipped);
@@ -94,14 +97,14 @@ class QualificationRecordStoreTest {
     @DisplayName("the judge check record is written beside the role records")
     void judgeCheck() {
         var checks = new JudgeCheckStore(directory(), lock(base), QualificationFixtures.locks());
-        var record = new JudgeCheck.Record("a".repeat(64), QualificationFixtures.HARNESS,
+        var entry = new JudgeCheck.Record("a".repeat(64), QualificationFixtures.HARNESS,
                 QualificationFixtures.JUDGE_MODEL, QualificationFixtures.CORPUS_REVISION, new BigDecimal("100"),
                 BigDecimal.ZERO, new BigDecimal("50"), 0, QualificationFixtures.GRADED_AT, List.of());
 
-        checks.write(record);
+        checks.write(entry);
 
         assertEquals(JudgeCheckStore.FILE_NAME, checks.file().getFileName().toString());
-        assertEquals(Optional.of(record), checks.lookup());
+        assertEquals(Optional.of(entry), checks.lookup());
         assertTrue(Files.exists(directory().resolve("judge-check.json")));
     }
 

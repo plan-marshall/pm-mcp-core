@@ -30,6 +30,9 @@ public record Grade(BigDecimal score) {
     /** The score of an answer that is entirely wrong. */
     public static final BigDecimal WRONG = BigDecimal.ZERO;
 
+    /** The one word a record writes for an ungraded score. */
+    public static final String UNGRADED_MARK = "ungraded";
+
     /**
      * @throws IllegalArgumentException if the score lies outside {@code 0} to {@code 1}
      */
@@ -66,7 +69,7 @@ public record Grade(BigDecimal score) {
     }
 
     /** @return {@code true} if a judge would count the answer as judged right */
-    public boolean right() {
+    public boolean judgedRight() {
         return score != null && score.compareTo(RIGHT_FROM) >= 0;
     }
 }

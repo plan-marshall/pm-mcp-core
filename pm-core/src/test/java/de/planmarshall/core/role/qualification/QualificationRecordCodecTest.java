@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.profile.JsonNode;
@@ -41,13 +42,13 @@ class QualificationRecordCodecTest {
     @Test
     @DisplayName("a record round-trips through its canonical text")
     void roundTrip() {
-        var record = fullRecord();
+        var entry = fullRecord();
 
-        var document = QualificationRecordCodec.write(record);
+        var document = QualificationRecordCodec.write(entry);
         var read = QualificationRecordCodec.read(directory.resolve("review-code.json"), document);
 
         assertAll(
-                () -> assertEquals(record, read),
+                () -> assertEquals(entry, read),
                 () -> assertEquals(new String(document, StandardCharsets.UTF_8),
                         new String(QualificationRecordCodec.write(read), StandardCharsets.UTF_8)));
     }
@@ -85,10 +86,9 @@ class QualificationRecordCodecTest {
                         text().replace("\"checkout\":\"current\"", "\"checkout\":\"elsewhere\"")));
 
         for (var entry : cases.entrySet()) {
-            var document = entry.getValue();
+            var bytes = entry.getValue().getBytes(StandardCharsets.UTF_8);
             var refused = assertThrows(StoreRefusal.class,
-                    () -> QualificationRecordCodec.read(file, document.getBytes(StandardCharsets.UTF_8)),
-                    entry.getKey());
+                    () -> QualificationRecordCodec.read(file, bytes), entry.getKey());
             assertEquals(file, refused.file());
         }
     }
@@ -96,7 +96,7 @@ class QualificationRecordCodecTest {
     @Test
     @DisplayName("a record without the fresh form is refused at construction")
     void freshRequired() {
-        assertThrows(IllegalArgumentException.class, () -> new QualificationRecord(
+        assertRefused(() -> new QualificationRecord(
                 "review-code", "a".repeat(64), QualificationFixtures.configuration(), "corpus-7", List.of(),
                 Map.of(), null, 0, QualificationFixtures.GRADED_AT, List.of()));
     }
@@ -105,19 +105,23 @@ class QualificationRecordCodecTest {
     @DisplayName("a gap without both forms is refused at construction")
     void gapNeedsBothForms() {
         var fresh = QualificationFixtures.form(Map.of(Topic.OWN, new BigDecimal("90")), 10);
-        assertThrows(IllegalArgumentException.class, () -> new QualificationRecord(
+        assertRefused(() -> new QualificationRecord(
                 "review-code", "a".repeat(64), QualificationFixtures.configuration(), "corpus-7", List.of(),
                 Map.of(RoleForm.FRESH, fresh), BigDecimal.ONE, 0, QualificationFixtures.GRADED_AT,
                 List.of()));
     }
 
+    private static void assertRefused(Executable executable) {
+        assertThrows(IllegalArgumentException.class, executable);
+    }
+
     @Test
     @DisplayName("the ungraded count is the number of ungraded items, never a separate claim")
     void ungradedCountDerived() {
-        var graded = QualificationFixtures.recordWithBaseline(java.util.Map.of(Topic.OWN, new BigDecimal("90")),
+        var graded = QualificationFixtures.recordWithBaseline(Map.of(Topic.OWN, new BigDecimal("90")),
                 new BigDecimal("10"));
 
-        assertThrows(IllegalArgumentException.class, () -> new QualificationRecord(graded.role(),
+        assertRefused(() -> new QualificationRecord(graded.role(),
                 graded.qualificationDigest(), graded.configuration(), graded.corpusRevision(),
                 graded.missedSources(), graded.forms(), null, 1, graded.gradedAt(), List.of()));
     }
@@ -156,9 +160,9 @@ class QualificationRecordCodecTest {
     @Test
     @DisplayName("the record's topic accessor finds the fresh topic result")
     void topicAccessor() {
-        var record = fullRecord();
+        var entry = fullRecord();
 
-        assertEquals(new BigDecimal("90"), record.topic(Topic.OWN).orElseThrow().agreement());
-        assertEquals(2, record.offered());
+        assertEquals(new BigDecimal("90"), entry.topic(Topic.OWN).orElseThrow().agreement());
+        assertEquals(2, entry.offered());
     }
 }

@@ -126,8 +126,8 @@ public final class RoleGrader {
         if (judgeRefusal.isPresent()) {
             return judgeRefusal.get();
         }
-        var previous = plan.previous().filter(record -> record.qualificationDigest().equals(role.qualificationDigest())
-                && record.corpusRevision().equals(plan.corpusRevision()));
+        var previous = plan.previous().filter(entry -> entry.qualificationDigest().equals(role.qualificationDigest())
+                && entry.corpusRevision().equals(plan.corpusRevision()));
         var results = new ArrayList<QualificationRecord.ItemResult>();
         var forms = new EnumMap<RoleForm, QualificationRecord.FormResult>(RoleForm.class);
         for (var form : forms(plan)) {
@@ -141,11 +141,11 @@ public final class RoleGrader {
             forms.put(form, formResult.get());
             results.addAll(formResults);
         }
-        var record = new QualificationRecord(name, role.qualificationDigest(), GradedConfiguration.of(role),
+        var entry = new QualificationRecord(name, role.qualificationDigest(), GradedConfiguration.of(role),
                 plan.corpusRevision(), missedSources(plan), forms, warmFreshGap(forms), ungraded(results),
                 clock.instant(), results);
-        records.write(record);
-        return new GradingOutcome.Graded(record);
+        records.write(entry);
+        return new GradingOutcome.Graded(entry);
     }
 
     private List<RoleForm> forms(GradingPlan plan) {
@@ -164,9 +164,9 @@ public final class RoleGrader {
             return Optional.of(refused(GradingOutcome.Refused.JUDGE_UNCHECKED,
                     "the corpus holds no judge item to check the judge with"));
         }
-        var record = instrumentCheck.run(judge, plan.judge().items(), plan.corpusRevision());
-        judgeChecks.write(record);
-        var checked = JudgeCheck.Verdict.of(record, digest, plan.corpusRevision());
+        var checkRecord = instrumentCheck.run(judge, plan.judge().items(), plan.corpusRevision());
+        judgeChecks.write(checkRecord);
+        var checked = JudgeCheck.Verdict.of(checkRecord, digest, plan.corpusRevision());
         if (checked.passes()) {
             return Optional.empty();
         }
@@ -179,21 +179,20 @@ public final class RoleGrader {
         for (var topic : topics.topics()) {
             for (var item : RoleTopics.items(plan.items(), topic, plan.role().artifact().name())) {
                 var checkout = checkout(plan, item);
-                var reused = previous.map(record -> reuse(record, item, form, checkout)).orElse(List.of());
+                var reused = previous.map(entry -> reuse(entry, item, form, checkout)).orElse(List.of());
                 if (!reused.isEmpty()) {
                     results.addAll(reused);
                     continue;
                 }
                 for (var run = 1; run <= GradingOffer.runs(plan); run++) {
-                    results.add(offer(plan, item, form, checkout, run));
+                    results.add(offer(item, form, checkout, run));
                 }
             }
         }
         return results;
     }
 
-    private QualificationRecord.ItemResult offer(GradingPlan plan, ImportedItem item, RoleForm form,
-            Checkout checkout, int run) {
+    private QualificationRecord.ItemResult offer(ImportedItem item, RoleForm form, Checkout checkout, int run) {
         var answered = harness.answer(new GradingHarness.Offered(item, form, checkout, run));
         if (answered.isEmpty()) {
             return new QualificationRecord.ItemResult(item.id(), form, checkout, JsonNode.nullValue(),
@@ -228,29 +227,37 @@ public final class RoleGrader {
         }
         var reused = new ArrayList<QualificationRecord.ItemResult>();
         for (var result : prior) {
-            if (!result.score().isUngraded()) {
-                reused.add(result);
-                continue;
-            }
-            var text = result.answer().text().orElse(null);
-            if (text == null) {
+            var reGraded = reGrade(item, form, checkout, result);
+            if (reGraded.isEmpty()) {
                 return List.of();
             }
-            var judged = Scoring.judged(item) ? scorer.score(prompt(item, text)) : Optional.<JudgeScorer.JudgeScore>empty();
-            if (judged.isEmpty()) {
-                if (Scoring.judged(item)) {
-                    reused.add(result);
-                    continue;
-                }
-                reused.add(new QualificationRecord.ItemResult(item.id(), form, checkout, result.answer(),
-                        Scoring.closed(item, text), result.totalTokens(), result.durationMs()));
-                continue;
-            }
-            reused.add(new QualificationRecord.ItemResult(item.id(), form, checkout, result.answer(),
-                    Grade.scored(judged.get().score()), result.totalTokens().plus(judged.get().totalTokens()),
-                    result.durationMs()));
+            reused.add(reGraded.get());
         }
         return reused;
+    }
+
+    /**
+     * @return the reused or re-graded run; empty when the run has no answer and must be offered again
+     */
+    private Optional<QualificationRecord.ItemResult> reGrade(ImportedItem item, RoleForm form, Checkout checkout,
+            QualificationRecord.ItemResult result) {
+        if (!result.score().isUngraded()) {
+            return Optional.of(result);
+        }
+        var text = result.answer().text().orElse(null);
+        if (text == null) {
+            return Optional.empty();
+        }
+        var judged = Scoring.judged(item) ? scorer.score(prompt(item, text)) : Optional.<JudgeScorer.JudgeScore>empty();
+        if (judged.isEmpty()) {
+            return Optional.of(Scoring.judged(item)
+                    ? result
+                    : new QualificationRecord.ItemResult(item.id(), form, checkout, result.answer(),
+                    Scoring.closed(item, text), result.totalTokens(), result.durationMs()));
+        }
+        return Optional.of(new QualificationRecord.ItemResult(item.id(), form, checkout, result.answer(),
+                Grade.scored(judged.get().score()), result.totalTokens().plus(judged.get().totalTokens()),
+                result.durationMs()));
     }
 
     private Optional<QualificationRecord.FormResult> formResult(GradingPlan plan, RoleTopics topics,
@@ -300,7 +307,7 @@ public final class RoleGrader {
         if (item == null || result.score().isUngraded()) {
             return false;
         }
-        return Scoring.judged(item) ? Scoring.right(item, result.score().score()) : result.score().right();
+        return Scoring.judged(item) ? Scoring.right(item, result.score().score()) : result.score().judgedRight();
     }
 
     private static BigDecimal warmFreshGap(Map<RoleForm, QualificationRecord.FormResult> forms) {

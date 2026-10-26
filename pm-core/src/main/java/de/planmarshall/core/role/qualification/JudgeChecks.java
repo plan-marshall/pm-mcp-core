@@ -28,5 +28,5 @@ public interface JudgeChecks {
     /**
      * @param record the check record of the run
      */
-    void write(JudgeCheck.Record record);
+    void write(JudgeCheck.Record entry);
 }

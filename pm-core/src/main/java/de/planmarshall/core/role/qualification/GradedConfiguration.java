@@ -40,7 +40,7 @@ import de.planmarshall.core.role.RoleSkill;
 public record GradedConfiguration(String harness, String harnessVersion, String model, String effort,
 List<String> tools, RoleClass roleClass, Map<String, String> skillDigests) {
 
-    private static final Pattern HARNESS = Pattern.compile("[a-z][a-z0-9-]{1,31}");
+    private static final Pattern HARNESS_NAME = Pattern.compile("[a-z][a-z0-9-]{1,31}");
     private static final Pattern VERSION = Pattern.compile("[0-9]+\\.[0-9]+");
     private static final Pattern DIGEST = Pattern.compile("[0-9a-f]{64}");
 
@@ -48,7 +48,7 @@ List<String> tools, RoleClass roleClass, Map<String, String> skillDigests) {
      * @throws IllegalArgumentException if a value is outside the record's format
      */
     public GradedConfiguration {
-        require(harness, HARNESS, "harness");
+        require(harness, HARNESS_NAME, "harness");
         require(harnessVersion, VERSION, "harness_version");
         Objects.requireNonNull(model, "model");
         if (model.isEmpty()) {

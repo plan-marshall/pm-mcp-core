@@ -36,9 +36,9 @@ public interface QualificationRecords {
         var ordered = List.of(sources);
         return role -> {
             for (var source : ordered) {
-                var record = source.lookup(role);
-                if (record.isPresent()) {
-                    return record;
+                var found = source.lookup(role);
+                if (found.isPresent()) {
+                    return found;
                 }
             }
             return Optional.empty();

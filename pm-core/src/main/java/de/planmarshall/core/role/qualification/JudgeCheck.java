@@ -209,23 +209,23 @@ public final class JudgeCheck {
          * @param corpusRevision  the shipped corpus revision
          * @return the verdict
          */
-        public static Verdict of(Record record, String digest, String corpusRevision) {
-            Objects.requireNonNull(record, "record");
+        public static Verdict of(Record entry, String digest, String corpusRevision) {
+            Objects.requireNonNull(entry, "entry");
             var reasons = new ArrayList<String>();
-            if (!record.qualificationDigest().equals(digest)) {
+            if (!entry.qualificationDigest().equals(digest)) {
                 reasons.add("stale_digest");
             }
-            if (!record.corpusRevision().equals(corpusRevision)) {
+            if (!entry.corpusRevision().equals(corpusRevision)) {
                 reasons.add("stale_corpus");
             }
-            if (record.unscored() > 0) {
+            if (entry.unscored() > 0) {
                 reasons.add("unscored");
             }
             var margin = BigDecimal.valueOf(MARGIN);
-            if (record.oracleAccuracy().compareTo(record.constantBaseline().add(margin)) < 0) {
+            if (entry.oracleAccuracy().compareTo(entry.constantBaseline().add(margin)) < 0) {
                 reasons.add("oracle_not_above_baseline");
             }
-            if (record.oracleAccuracy().compareTo(record.blindAccuracy().add(margin)) < 0) {
+            if (entry.oracleAccuracy().compareTo(entry.blindAccuracy().add(margin)) < 0) {
                 reasons.add("oracle_not_above_blind");
             }
             return new Verdict(reasons.isEmpty(), reasons);

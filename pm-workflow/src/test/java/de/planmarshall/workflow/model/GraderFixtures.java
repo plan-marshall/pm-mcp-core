@@ -75,25 +75,20 @@ final class GraderFixtures {
 
     /** @return a lock manager that takes no operating-system lock */
     static LockManager locks() {
-        return new LockManager() {
+        return () -> new LockTransaction() {
             @Override
-            public LockTransaction openTransaction() {
-                return new LockTransaction() {
-                    @Override
-                    public void acquire(LockKey key) {
-                        // nothing to take
-                    }
+            public void acquire(LockKey key) {
+                // nothing to take
+            }
 
-                    @Override
-                    public boolean holds(LockKey key) {
-                        return true;
-                    }
+            @Override
+            public boolean holds(LockKey key) {
+                return true;
+            }
 
-                    @Override
-                    public void close() {
-                        // nothing to release
-                    }
-                };
+            @Override
+            public void close() {
+                // nothing to release
             }
         };
     }
@@ -251,7 +246,7 @@ final class GraderFixtures {
      * @param agreements the agreement of each topic
      * @return a record of the fixture role that needs a judge check
      */
-    static QualificationRecord record(Map<Topic, BigDecimal> agreements) {
+    static QualificationRecord qualification(Map<Topic, BigDecimal> agreements) {
         var topics = new LinkedHashMap<Topic,
                 QualificationRecord.TopicResult>();
         agreements.forEach((topic, agreement) -> topics.put(topic,
@@ -352,11 +347,11 @@ final class GraderFixtures {
     /** The judge check store of the tests, in memory. */
     static final class JudgeCheckMemory implements JudgeChecks {
 
-        private JudgeCheck.Record record;
+        private JudgeCheck.Record stored;
         private int writes;
 
-        JudgeCheckMemory holds(JudgeCheck.Record record) {
-            this.record = record;
+        JudgeCheckMemory holds(JudgeCheck.Record entry) {
+            this.stored = entry;
             return this;
         }
 
@@ -366,12 +361,12 @@ final class GraderFixtures {
 
         @Override
         public Optional<JudgeCheck.Record> lookup() {
-            return Optional.ofNullable(record);
+            return Optional.ofNullable(stored);
         }
 
         @Override
-        public void write(JudgeCheck.Record record) {
-            this.record = record;
+        public void write(JudgeCheck.Record entry) {
+            this.stored = entry;
             writes++;
         }
     }

@@ -67,8 +67,8 @@ public final class JudgeCheckStore implements JudgeChecks {
      * @throws InternalFaultException if the lock must not be acquired by the transaction
      */
     @Override
-    public void write(JudgeCheck.Record record) {
-        Objects.requireNonNull(record, "record");
+    public void write(JudgeCheck.Record entry) {
+        Objects.requireNonNull(entry, "entry");
         try {
             Files.createDirectories(file.getParent());
         } catch (IOException e) {
@@ -76,7 +76,7 @@ public final class JudgeCheckStore implements JudgeChecks {
         }
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(lockKey);
-            new AtomicStoreFile(file, lockKey).write(transaction, JudgeCheckCodec.write(record));
+            new AtomicStoreFile(file, lockKey).write(transaction, JudgeCheckCodec.write(entry));
         }
     }
 

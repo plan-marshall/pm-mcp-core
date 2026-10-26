@@ -60,25 +60,20 @@ final class QualificationFixtures {
 
     /** @return a lock manager that records nothing and takes no lock */
     static LockManager locks() {
-        return new LockManager() {
+        return () -> new LockTransaction() {
             @Override
-            public LockTransaction openTransaction() {
-                return new LockTransaction() {
-                    @Override
-                    public void acquire(LockKey key) {
-                        // nothing to take
-                    }
+            public void acquire(LockKey key) {
+                // nothing to take
+            }
 
-                    @Override
-                    public boolean holds(LockKey key) {
-                        return true;
-                    }
+            @Override
+            public boolean holds(LockKey key) {
+                return true;
+            }
 
-                    @Override
-                    public void close() {
-                        // nothing to release
-                    }
-                };
+            @Override
+            public void close() {
+                // nothing to release
             }
         };
     }
@@ -183,8 +178,8 @@ final class QualificationFixtures {
      * @param agreements the fresh agreement of each topic
      * @return a record measured on those topics, bound to the fixture digest and revision
      */
-    static QualificationRecord record(Map<Topic, BigDecimal> agreements) {
-        return record(agreements, Map.of(), BigDecimal.ZERO);
+    static QualificationRecord qualification(Map<Topic, BigDecimal> agreements) {
+        return qualification(agreements, Map.of(), BigDecimal.ZERO);
     }
 
     /**
@@ -193,7 +188,7 @@ final class QualificationFixtures {
      * @param gap             the warm-fresh gap
      * @return the record
      */
-    static QualificationRecord record(Map<Topic, BigDecimal> freshAgreements,
+    static QualificationRecord qualification(Map<Topic, BigDecimal> freshAgreements,
             Map<Topic, BigDecimal> warmAgreements, BigDecimal gap) {
         var forms = new LinkedHashMap<RoleForm, QualificationRecord.FormResult>();
         forms.put(RoleForm.FRESH, form(freshAgreements, 10));

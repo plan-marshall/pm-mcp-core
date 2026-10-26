@@ -70,10 +70,10 @@ public record QualificationCheck(RoleTopics topics, List<ImportedItem> items, Qu
      * @param artifactForm   the form the role's artifact declares
      * @return the form the record qualifies, with the reasons it qualifies no form when it qualifies none
      */
-    public Verdict check(String role, QualificationRecord record, String digest, String corpusRevision,
+    public Verdict check(String role, QualificationRecord entry, String digest, String corpusRevision,
             RoleForm artifactForm) {
         Objects.requireNonNull(role, "role");
-        Objects.requireNonNull(record, "record");
+        Objects.requireNonNull(entry, "entry");
         Objects.requireNonNull(digest, "digest");
         Objects.requireNonNull(corpusRevision, "corpusRevision");
         Objects.requireNonNull(artifactForm, "artifactForm");
@@ -81,20 +81,20 @@ public record QualificationCheck(RoleTopics topics, List<ImportedItem> items, Qu
             return Verdict.refused(List.of(Reason.of(Code.NO_TOPICS, "the role has no corpus topic")));
         }
         var common = new ArrayList<Reason>();
-        if (!record.role().equals(role)) {
-            common.add(Reason.of(Code.STALE_ROLE, "the record names the role " + record.role()));
+        if (!entry.role().equals(role)) {
+            common.add(Reason.of(Code.STALE_ROLE, "the record names the role " + entry.role()));
         }
-        if (!record.qualificationDigest().equals(digest)) {
+        if (!entry.qualificationDigest().equals(digest)) {
             common.add(Reason.of(Code.STALE_DIGEST, "the record is bound to another qualification digest"));
         }
-        if (!record.corpusRevision().equals(corpusRevision)) {
+        if (!entry.corpusRevision().equals(corpusRevision)) {
             common.add(Reason.of(Code.STALE_CORPUS, "the record was graded on corpus revision "
-                    + record.corpusRevision()));
+                    + entry.corpusRevision()));
         }
-        if (record.ungraded() > 0) {
-            common.add(Reason.of(Code.UNGRADED_ITEMS, "the record has %d ungraded item(s)".formatted(record.ungraded())));
+        if (entry.ungraded() > 0) {
+            common.add(Reason.of(Code.UNGRADED_ITEMS, "the record has %d ungraded item(s)".formatted(entry.ungraded())));
         }
-        var catchRate = catchRate(role, record, RoleForm.FRESH);
+        var catchRate = catchRate(entry, RoleForm.FRESH);
         if (catchRate != null && catchRate.compareTo(BigDecimal.valueOf(settings.agreementLevel())) < 0) {
             common.add(Reason.of(Code.CATCH_RATE_BELOW_LEVEL, "the screener's catch rate %s is below the level %d"
                     .formatted(catchRate, settings.agreementLevel())));
@@ -103,15 +103,15 @@ public record QualificationCheck(RoleTopics topics, List<ImportedItem> items, Qu
             return Verdict.refused(common);
         }
         var freshReasons = new ArrayList<Reason>();
-        if (!form(record, RoleForm.FRESH, freshReasons)) {
+        if (!form(entry, RoleForm.FRESH, freshReasons)) {
             return Verdict.refused(freshReasons);
         }
         if (artifactForm == RoleForm.FRESH) {
             return Verdict.qualified(RoleForm.FRESH);
         }
         var warmReasons = new ArrayList<Reason>();
-        if (form(record, RoleForm.WARM, warmReasons)) {
-            var gap = record.warmFreshGap();
+        if (form(entry, RoleForm.WARM, warmReasons)) {
+            var gap = entry.warmFreshGap();
             if (gap == null || gap.compareTo(BigDecimal.valueOf(settings.allowedGap())) > 0) {
                 warmReasons.add(Reason.of(Code.WARM_GAP_EXCEEDED,
                         "the warm-fresh gap %s exceeds the allowed %d".formatted(gap, settings.allowedGap())));
@@ -124,14 +124,13 @@ public record QualificationCheck(RoleTopics topics, List<ImportedItem> items, Qu
     }
 
     /**
-     * @param role the role name
-     * @param record the record
+     * @param entry the record
      * @param form the form
      * @return the share of the runs of the {@code suspicious} items answered {@code suspicious}; {@code null} when the
      *         role's corpus has no such item or the form was not graded
      */
-    public BigDecimal catchRate(String role, QualificationRecord record, RoleForm form) {
-        var result = record.form(form).orElse(null);
+    public BigDecimal catchRate(QualificationRecord entry, RoleForm form) {
+        var result = entry.form(form).orElse(null);
         if (result == null) {
             return null;
         }
@@ -146,7 +145,7 @@ public record QualificationCheck(RoleTopics topics, List<ImportedItem> items, Qu
         }
         var runs = 0;
         var caught = 0;
-        for (var item : record.items()) {
+        for (var item : entry.items()) {
             if (item.form() != form || !suspicious.containsKey(item.itemId()) || item.score().isUngraded()) {
                 continue;
             }
@@ -166,8 +165,8 @@ public record QualificationCheck(RoleTopics topics, List<ImportedItem> items, Qu
      * @param reasons the reasons to add to
      * @return {@code true} if the form holds every topic and every topic qualifies
      */
-    private boolean form(QualificationRecord record, RoleForm form, List<Reason> reasons) {
-        var result = record.form(form).orElse(null);
+    private boolean form(QualificationRecord entry, RoleForm form, List<Reason> reasons) {
+        var result = entry.form(form).orElse(null);
         if (result == null) {
             reasons.add(Reason.of(form == RoleForm.WARM ? Code.MISSING_WARM_FORM : Code.MISSING_FRESH_FORM,
                     "the record holds no %s form".formatted(form.wireName())));

@@ -61,6 +61,12 @@ import de.planmarshall.core.store.StrictJson;
 @UtilityClass
 public class QualificationRecordCodec {
 
+    /** The member that carries the format version. */
+    static final String FORMAT_VERSION = "format_version";
+
+    /** The one word an item's score writes instead of a score. */
+    static final String UNGRADED = "ungraded";
+
     private static final String ROLE = "role";
     private static final String QUALIFICATION_DIGEST = "qualification_digest";
     private static final String CONFIGURATION = "configuration";
@@ -68,7 +74,6 @@ public class QualificationRecordCodec {
     private static final String MISSED_SOURCES = "missed_sources";
     private static final String FORMS = "forms";
     private static final String WARM_FRESH_GAP = "warm_fresh_gap";
-    private static final String UNGRADED = "ungraded";
     private static final String GRADED_AT = "graded_at";
     private static final String ITEMS = "items";
 
@@ -95,7 +100,7 @@ public class QualificationRecordCodec {
     private static final String SCORE = "score";
 
     /** The members of a record, in the order of its schema. */
-    static final List<String> MEMBERS = List.of("format_version", ROLE, QUALIFICATION_DIGEST, CONFIGURATION,
+    static final List<String> MEMBERS = List.of(FORMAT_VERSION, ROLE, QUALIFICATION_DIGEST, CONFIGURATION,
             CORPUS_REVISION, MISSED_SOURCES, FORMS, WARM_FRESH_GAP, UNGRADED, GRADED_AT, ITEMS);
 
     /** The members of the configuration block, in the order of its schema. */
@@ -113,12 +118,12 @@ public class QualificationRecordCodec {
             DURATION_MS);
 
     /**
-     * @param record a qualification record
+     * @param entry a qualification record
      * @return the document, in its one canonical text
      */
-    public static byte[] write(QualificationRecord record) {
-        Objects.requireNonNull(record, "record");
-        return CanonicalJson.write(document(record)).getBytes(StandardCharsets.UTF_8);
+    public static byte[] write(QualificationRecord entry) {
+        Objects.requireNonNull(entry, "entry");
+        return CanonicalJson.write(document(entry)).getBytes(StandardCharsets.UTF_8);
     }
 
     /**
@@ -150,7 +155,7 @@ public class QualificationRecordCodec {
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {
-                case "format_version" -> version(parser, field);
+                case FORMAT_VERSION -> version(parser, field);
                 case ROLE -> role = string(parser, field);
                 case QUALIFICATION_DIGEST -> digest = string(parser, field);
                 case CONFIGURATION -> configuration = readConfiguration(parser);
@@ -192,8 +197,7 @@ public class QualificationRecordCodec {
                 case EFFORT -> effort = nullableString(parser, field);
                 case TOOLS -> tools = stringList(parser, field);
                 case CLASS -> roleClass = closed(parser, field, RoleClass::fromWireName);
-                case SKILL_DIGESTS -> skillDigests = StrictJson.map(parser, field,
-                        (value, name) -> string(value, name));
+                case SKILL_DIGESTS -> skillDigests = StrictJson.map(parser, field, StrictJson::string);
                 default -> throw undeclared(field);
             }
         }
@@ -315,7 +319,7 @@ public class QualificationRecordCodec {
     private static Grade readGrade(JsonParser parser, String field) throws IOException {
         if (parser.currentToken() == JsonToken.VALUE_STRING) {
             var text = string(parser, field);
-            if ("ungraded".equals(text)) {
+            if (UNGRADED.equals(text)) {
                 return Grade.ungraded();
             }
             throw unreadable("'%s' is a score or 'ungraded': %s".formatted(field, text));
@@ -326,10 +330,10 @@ public class QualificationRecordCodec {
     private static TokenTotal readTokens(JsonParser parser, String field) throws IOException {
         if (parser.currentToken() == JsonToken.VALUE_STRING) {
             var text = string(parser, field);
-            if (TokenTotal.UNMEASURED.equals(text)) {
+            if (TokenTotal.UNMEASURED_MARK.equals(text)) {
                 return TokenTotal.unmeasured();
             }
-            throw unreadable("'%s' is a count or '%s': %s".formatted(field, TokenTotal.UNMEASURED, text));
+            throw unreadable("'%s' is a count or '%s': %s".formatted(field, TokenTotal.UNMEASURED_MARK, text));
         }
         var value = integer(parser, field);
         if (value < 1) {
@@ -416,23 +420,23 @@ public class QualificationRecordCodec {
                 .orElseThrow(() -> unreadable("'%s' has the undeclared value '%s'".formatted(field, field)));
     }
 
-    private static JsonNode document(QualificationRecord record) {
+    private static JsonNode document(QualificationRecord entry) {
         var members = new LinkedHashMap<String, JsonNode>();
-        members.put("format_version", JsonNode.integer(QualificationRecord.FORMAT_VERSION));
-        members.put(ROLE, JsonNode.string(record.role()));
-        members.put(QUALIFICATION_DIGEST, JsonNode.string(record.qualificationDigest()));
-        members.put(CONFIGURATION, configuration(record.configuration()));
-        members.put(CORPUS_REVISION, JsonNode.string(record.corpusRevision()));
-        members.put(MISSED_SOURCES, JsonNode.array(record.missedSources().stream().map(JsonNode::string).toList()));
+        members.put(FORMAT_VERSION, JsonNode.integer(QualificationRecord.FORMAT_VERSION));
+        members.put(ROLE, JsonNode.string(entry.role()));
+        members.put(QUALIFICATION_DIGEST, JsonNode.string(entry.qualificationDigest()));
+        members.put(CONFIGURATION, configuration(entry.configuration()));
+        members.put(CORPUS_REVISION, JsonNode.string(entry.corpusRevision()));
+        members.put(MISSED_SOURCES, JsonNode.array(entry.missedSources().stream().map(JsonNode::string).toList()));
         var forms = new LinkedHashMap<String, JsonNode>();
-        record.forms().forEach((form, result) -> forms.put(form.wireName(), form(result)));
+        entry.forms().forEach((form, result) -> forms.put(form.wireName(), form(result)));
         members.put(FORMS, JsonNode.object(forms));
-        members.put(WARM_FRESH_GAP, record.warmFreshGap() == null
+        members.put(WARM_FRESH_GAP, entry.warmFreshGap() == null
                 ? JsonNode.nullValue()
-                : JsonNode.decimal(record.warmFreshGap()));
-        members.put(UNGRADED, JsonNode.integer(record.ungraded()));
-        members.put(GRADED_AT, JsonNode.string(record.gradedAt().toString()));
-        members.put(ITEMS, JsonNode.array(record.items().stream().map(QualificationRecordCodec::item).toList()));
+                : JsonNode.decimal(entry.warmFreshGap()));
+        members.put(UNGRADED, JsonNode.integer(entry.ungraded()));
+        members.put(GRADED_AT, JsonNode.string(entry.gradedAt().toString()));
+        members.put(ITEMS, JsonNode.array(entry.items().stream().map(QualificationRecordCodec::item).toList()));
         return JsonNode.object(members);
     }
 
@@ -477,7 +481,7 @@ public class QualificationRecordCodec {
         members.put(FORM, JsonNode.string(result.form().wireName()));
         members.put(CHECKOUT, JsonNode.string(result.checkout().wireName()));
         members.put(ANSWER, result.answer());
-        members.put(SCORE, result.score().isUngraded() ? JsonNode.string("ungraded")
+        members.put(SCORE, result.score().isUngraded() ? JsonNode.string(UNGRADED)
                 : JsonNode.decimal(result.score().score()));
         members.put(TOTAL_TOKENS, tokens(result.totalTokens()));
         members.put(DURATION_MS, result.durationMs() == null
@@ -487,6 +491,6 @@ public class QualificationRecordCodec {
     }
 
     private static JsonNode tokens(TokenTotal total) {
-        return total.measured() ? JsonNode.integer(total.tokens()) : JsonNode.string(TokenTotal.UNMEASURED);
+        return total.measured() ? JsonNode.integer(total.tokens()) : JsonNode.string(TokenTotal.UNMEASURED_MARK);
     }
 }

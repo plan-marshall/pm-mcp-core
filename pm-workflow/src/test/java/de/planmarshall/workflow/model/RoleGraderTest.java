@@ -71,17 +71,17 @@ class RoleGraderTest {
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
                     fixtures.grader.grade(plan, GradingConsent.GRANTED));
 
-            var record = graded.record();
-            assertEquals(GraderFixtures.ROLE, record.role());
-            assertEquals(plan.role().qualificationDigest(), record.qualificationDigest());
-            assertEquals(GraderFixtures.CORPUS_REVISION, record.corpusRevision());
-            assertEquals(List.of(), record.missedSources());
-            assertEquals(0, record.ungraded());
-            var fresh = record.form(RoleForm.FRESH).orElseThrow();
+            var entry = graded.entry();
+            assertEquals(GraderFixtures.ROLE, entry.role());
+            assertEquals(plan.role().qualificationDigest(), entry.qualificationDigest());
+            assertEquals(GraderFixtures.CORPUS_REVISION, entry.corpusRevision());
+            assertEquals(List.of(), entry.missedSources());
+            assertEquals(0, entry.ungraded());
+            var fresh = entry.form(RoleForm.FRESH).orElseThrow();
             assertEquals(new BigDecimal("100"), fresh.topics().get(Topic.OWN).agreement());
             assertEquals(1, fresh.topics().get(Topic.OWN).items());
             assertEquals(TokenTotal.measured(2_000), fresh.totalTokens());
-            assertEquals(List.of(RoleForm.FRESH, RoleForm.WARM), List.copyOf(record.forms().keySet()));
+            assertEquals(List.of(RoleForm.FRESH, RoleForm.WARM), List.copyOf(entry.forms().keySet()));
         }
 
         @Test
@@ -120,7 +120,7 @@ class RoleGraderTest {
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
                     fixtures.grader.grade(plan, GradingConsent.GRANTED));
 
-            assertEquals(new BigDecimal("100"), graded.record().warmFreshGap());
+            assertEquals(new BigDecimal("100"), graded.entry().warmFreshGap());
         }
 
         @Test
@@ -135,8 +135,8 @@ class RoleGraderTest {
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
                     fixtures.grader.grade(plan, GradingConsent.GRANTED));
 
-            assertFalse(graded.record().form(RoleForm.WARM).isPresent());
-            assertEquals(GradingProfile.SCREENER_RUNS, graded.record().items().size());
+            assertFalse(graded.entry().form(RoleForm.WARM).isPresent());
+            assertEquals(GradingProfile.SCREENER_RUNS, graded.entry().items().size());
         }
     }
 
@@ -181,7 +181,7 @@ class RoleGraderTest {
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
                     fixtures.grader.grade(plan, GradingConsent.GRANTED));
 
-            assertEquals(List.of("papers"), graded.record().missedSources());
+            assertEquals(List.of("papers"), graded.entry().missedSources());
         }
 
         @Test
@@ -278,7 +278,7 @@ class RoleGraderTest {
                     fixtures.grader.grade(plan, GradingConsent.GRANTED));
 
             assertEquals(GradingProfile.SCREENER_RUNS, fixtures.harness.offered().size());
-            assertEquals(GradingProfile.SCREENER_RUNS, graded.record().items().size());
+            assertEquals(GradingProfile.SCREENER_RUNS, graded.entry().items().size());
             assertEquals(5, fixtures.harness.offered().stream().map(GradingHarness.Offered::run).distinct().count());
         }
 
@@ -297,7 +297,7 @@ class RoleGraderTest {
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
                     fixtures.grader.grade(plan, GradingConsent.GRANTED));
 
-            var fresh = graded.record().items().stream().filter(item -> item.form() == RoleForm.FRESH).toList();
+            var fresh = graded.entry().items().stream().filter(item -> item.form() == RoleForm.FRESH).toList();
             assertEquals(Checkout.ITEM_COMMIT, fresh.getFirst().checkout());
             assertEquals(Checkout.CURRENT, fresh.get(1).checkout());
         }
@@ -316,8 +316,8 @@ class RoleGraderTest {
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
                     fixtures.grader.grade(plan, GradingConsent.GRANTED));
 
-            assertEquals(2, graded.record().ungraded());
-            assertTrue(graded.record().items().stream()
+            assertEquals(2, graded.entry().ungraded());
+            assertTrue(graded.entry().items().stream()
                     .filter(item -> "review/rubric".equals(item.itemId()))
                     .allMatch(item -> item.score().isUngraded() && item.totalTokens().measured()));
         }
@@ -332,7 +332,7 @@ class RoleGraderTest {
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
                     fixtures.grader.grade(plan, GradingConsent.GRANTED));
 
-            assertEquals(2, graded.record().ungraded());
+            assertEquals(2, graded.entry().ungraded());
         }
 
         @Test
@@ -342,10 +342,10 @@ class RoleGraderTest {
             var plan = plan(fixtures, GraderFixtures.complete());
             var first = assertInstanceOf(GradingOutcome.Graded.class,
                     fixtures.grader.grade(plan, GradingConsent.GRANTED));
-            var previous = new QualificationRecord(first.record().role(), first.record().qualificationDigest(),
-                    first.record().configuration(), first.record().corpusRevision(), first.record().missedSources(),
-                    first.record().forms(), first.record().warmFreshGap(), 0, first.record().gradedAt(),
-                    first.record().items());
+            var previous = new QualificationRecord(first.entry().role(), first.entry().qualificationDigest(),
+                    first.entry().configuration(), first.entry().corpusRevision(), first.entry().missedSources(),
+                    first.entry().forms(), first.entry().warmFreshGap(), 0, first.entry().gradedAt(),
+                    first.entry().items());
             fixtures.harness.offered().clear();
             var rerun = GraderFixtures.plan(GraderFixtures.role(), corpus(), fixtures.judgeConfiguration(),
                     GraderFixtures.complete(), GradingProfile.single(), Optional.of(previous), ItemCheckout.none());
@@ -354,7 +354,7 @@ class RoleGraderTest {
                     fixtures.grader.grade(rerun, GradingConsent.GRANTED));
 
             assertTrue(fixtures.harness.offered().isEmpty(), "every item was already graded");
-            assertEquals(0, second.record().ungraded());
+            assertEquals(0, second.entry().ungraded());
         }
 
         @Test
@@ -368,7 +368,7 @@ class RoleGraderTest {
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
                     fixtures.grader.grade(plan, GradingConsent.GRANTED));
 
-            assertEquals(BigDecimal.ZERO, graded.record().warmFreshGap());
+            assertEquals(BigDecimal.ZERO, graded.entry().warmFreshGap());
         }
 
         @Test
@@ -377,7 +377,7 @@ class RoleGraderTest {
             var fixtures = new Fixtures();
             var otherRole = ModelFixtures.roleIn(GraderFixtures.ROLE, RoleClass.READ_ONLY, RoleForm.FRESH,
                     GraderFixtures.HARNESS, "acme-other");
-            var previous = GraderFixtures.record(Map.of(Topic.OWN, BigDecimal.valueOf(100)));
+            var previous = GraderFixtures.qualification(Map.of(Topic.OWN, BigDecimal.valueOf(100)));
 
             var rerun = GraderFixtures.plan(otherRole, corpus(), fixtures.judgeConfiguration(),
                     GraderFixtures.complete(), GradingProfile.single(), Optional.of(previous), ItemCheckout.none());
@@ -386,7 +386,7 @@ class RoleGraderTest {
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
                     fixtures.grader.grade(rerun, GradingConsent.GRANTED));
             assertEquals(4, fixtures.harness.offered().size());
-            assertEquals(4, graded.record().offered());
+            assertEquals(4, graded.entry().offered());
         }
     }
 

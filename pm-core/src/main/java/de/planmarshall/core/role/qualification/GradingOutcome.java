@@ -22,14 +22,14 @@ public sealed interface GradingOutcome {
     /**
      * A grading that ran and wrote its record.
      *
-     * @param record the measurements it wrote
+     * @param entry the measurements it wrote
      * @since 0.1
      */
-    record Graded(QualificationRecord record) implements GradingOutcome {
+    record Graded(QualificationRecord entry) implements GradingOutcome {
 
         /** @throws NullPointerException if the record is {@code null} */
         public Graded {
-            Objects.requireNonNull(record, "record");
+            Objects.requireNonNull(entry, "entry");
         }
     }
 

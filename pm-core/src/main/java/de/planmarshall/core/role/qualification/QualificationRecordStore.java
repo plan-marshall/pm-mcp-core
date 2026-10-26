@@ -75,9 +75,9 @@ public final class QualificationRecordStore implements QualificationRecords {
      * @throws UncheckedIOException   if the record cannot be written
      * @throws InternalFaultException if the lock must not be acquired by the transaction
      */
-    public void write(QualificationRecord record) {
-        Objects.requireNonNull(record, "record");
-        var file = file(record.role());
+    public void write(QualificationRecord entry) {
+        Objects.requireNonNull(entry, "entry");
+        var file = file(entry.role());
         try {
             Files.createDirectories(directory);
         } catch (IOException e) {
@@ -85,7 +85,7 @@ public final class QualificationRecordStore implements QualificationRecords {
         }
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(lockKey);
-            new AtomicStoreFile(file, lockKey).write(transaction, QualificationRecordCodec.write(record));
+            new AtomicStoreFile(file, lockKey).write(transaction, QualificationRecordCodec.write(entry));
         }
     }
 

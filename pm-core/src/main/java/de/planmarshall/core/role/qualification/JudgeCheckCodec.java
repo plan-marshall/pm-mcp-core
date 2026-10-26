@@ -50,6 +50,9 @@ import de.planmarshall.core.store.StrictJson;
 @UtilityClass
 public class JudgeCheckCodec {
 
+    /** The member that carries the format version. */
+    static final String FORMAT_VERSION = "format_version";
+
     private static final String QUALIFICATION_DIGEST = "qualification_digest";
     private static final String HARNESS = "harness";
     private static final String MODEL = "model";
@@ -69,7 +72,7 @@ public class JudgeCheckCodec {
     private static final String DURATION_MS = "duration_ms";
 
     /** The members of a judge check record, in the order of its schema. */
-    static final List<String> MEMBERS = List.of("format_version", QUALIFICATION_DIGEST, HARNESS, MODEL, CORPUS_REVISION,
+    static final List<String> MEMBERS = List.of(FORMAT_VERSION, QUALIFICATION_DIGEST, HARNESS, MODEL, CORPUS_REVISION,
             ORACLE_ACCURACY, BLIND_ACCURACY, CONSTANT_BASELINE, UNSCORED, CHECKED_AT, ITEMS);
 
     /** The members of an item score, in the order of its schema. */
@@ -77,12 +80,12 @@ public class JudgeCheckCodec {
             DURATION_MS);
 
     /**
-     * @param record a judge check record
+     * @param entry a judge check record
      * @return the document, in its one canonical text
      */
-    public static byte[] write(JudgeCheck.Record record) {
-        Objects.requireNonNull(record, "record");
-        return CanonicalJson.write(document(record)).getBytes(StandardCharsets.UTF_8);
+    public static byte[] write(JudgeCheck.Record entry) {
+        Objects.requireNonNull(entry, "entry");
+        return CanonicalJson.write(document(entry)).getBytes(StandardCharsets.UTF_8);
     }
 
     /**
@@ -94,7 +97,8 @@ public class JudgeCheckCodec {
     public static JudgeCheck.Record read(Path file, byte[] document) {
         Objects.requireNonNull(file, "file");
         Objects.requireNonNull(document, "document");
-        return StrictJson.read(file, document, JudgeCheck.FORMAT_VERSION, parser -> readRecord(parser));
+        return StrictJson.read(file, document, JudgeCheck.FORMAT_VERSION,
+                JudgeCheckCodec::readRecord);
     }
 
     private static JudgeCheck.Record readRecord(JsonParser parser) throws IOException {
@@ -113,7 +117,7 @@ public class JudgeCheckCodec {
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {
-                case "format_version" -> version(parser, field);
+                case FORMAT_VERSION -> version(parser, field);
                 case QUALIFICATION_DIGEST -> digest = string(parser, field);
                 case HARNESS -> harness = string(parser, field);
                 case MODEL -> model = string(parser, field);
@@ -169,7 +173,7 @@ public class JudgeCheckCodec {
     private static Grade grade(JsonParser parser, String field) throws IOException {
         if (parser.currentToken() == JsonToken.VALUE_STRING) {
             var text = string(parser, field);
-            if ("unscored".equals(text)) {
+            if (UNSCORED.equals(text)) {
                 return Grade.ungraded();
             }
             throw unreadable("'%s' is a score or 'unscored': %s".formatted(field, text));
@@ -180,10 +184,10 @@ public class JudgeCheckCodec {
     private static TokenTotal tokens(JsonParser parser, String field) throws IOException {
         if (parser.currentToken() == JsonToken.VALUE_STRING) {
             var text = string(parser, field);
-            if (TokenTotal.UNMEASURED.equals(text)) {
+            if (TokenTotal.UNMEASURED_MARK.equals(text)) {
                 return TokenTotal.unmeasured();
             }
-            throw unreadable("'%s' is a count or '%s': %s".formatted(field, TokenTotal.UNMEASURED, text));
+            throw unreadable("'%s' is a count or '%s': %s".formatted(field, TokenTotal.UNMEASURED_MARK, text));
         }
         var value = integer(parser, field);
         if (value < 1) {
@@ -222,19 +226,19 @@ public class JudgeCheckCodec {
                 .orElseThrow(() -> unreadable("'%s' has the undeclared value '%s'".formatted(field, wireName)));
     }
 
-    private static JsonNode document(JudgeCheck.Record record) {
+    private static JsonNode document(JudgeCheck.Record entry) {
         var members = new LinkedHashMap<String, JsonNode>();
-        members.put("format_version", JsonNode.integer(JudgeCheck.FORMAT_VERSION));
-        members.put(QUALIFICATION_DIGEST, JsonNode.string(record.qualificationDigest()));
-        members.put(HARNESS, JsonNode.string(record.harness()));
-        members.put(MODEL, JsonNode.string(record.model()));
-        members.put(CORPUS_REVISION, JsonNode.string(record.corpusRevision()));
-        members.put(ORACLE_ACCURACY, JsonNode.decimal(record.oracleAccuracy()));
-        members.put(BLIND_ACCURACY, JsonNode.decimal(record.blindAccuracy()));
-        members.put(CONSTANT_BASELINE, JsonNode.decimal(record.constantBaseline()));
-        members.put(UNSCORED, JsonNode.integer(record.unscored()));
-        members.put(CHECKED_AT, JsonNode.string(record.checkedAt().toString()));
-        members.put(ITEMS, JsonNode.array(record.items().stream().map(JudgeCheckCodec::item).toList()));
+        members.put(FORMAT_VERSION, JsonNode.integer(JudgeCheck.FORMAT_VERSION));
+        members.put(QUALIFICATION_DIGEST, JsonNode.string(entry.qualificationDigest()));
+        members.put(HARNESS, JsonNode.string(entry.harness()));
+        members.put(MODEL, JsonNode.string(entry.model()));
+        members.put(CORPUS_REVISION, JsonNode.string(entry.corpusRevision()));
+        members.put(ORACLE_ACCURACY, JsonNode.decimal(entry.oracleAccuracy()));
+        members.put(BLIND_ACCURACY, JsonNode.decimal(entry.blindAccuracy()));
+        members.put(CONSTANT_BASELINE, JsonNode.decimal(entry.constantBaseline()));
+        members.put(UNSCORED, JsonNode.integer(entry.unscored()));
+        members.put(CHECKED_AT, JsonNode.string(entry.checkedAt().toString()));
+        members.put(ITEMS, JsonNode.array(entry.items().stream().map(JudgeCheckCodec::item).toList()));
         return JsonNode.object(members);
     }
 
@@ -246,7 +250,7 @@ public class JudgeCheckCodec {
         members.put(BLIND_SCORE, grade(score.blindScore()));
         members.put(TOTAL_TOKENS, score.totalTokens().measured()
                 ? JsonNode.integer(score.totalTokens().tokens())
-                : JsonNode.string(TokenTotal.UNMEASURED));
+                : JsonNode.string(TokenTotal.UNMEASURED_MARK));
         members.put(DURATION_MS, score.durationMs() == null
                 ? JsonNode.nullValue()
                 : JsonNode.integer(score.durationMs()));
@@ -254,6 +258,6 @@ public class JudgeCheckCodec {
     }
 
     private static JsonNode grade(Grade grade) {
-        return grade.isUngraded() ? JsonNode.string("unscored") : JsonNode.decimal(grade.score());
+        return grade.isUngraded() ? JsonNode.string(UNSCORED) : JsonNode.decimal(grade.score());
     }
 }

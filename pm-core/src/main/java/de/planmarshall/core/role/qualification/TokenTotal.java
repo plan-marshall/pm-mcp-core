@@ -19,7 +19,7 @@ package de.planmarshall.core.role.qualification;
 public record TokenTotal(Long tokens) {
 
     /** The one word a record writes for an unmeasured count. */
-    public static final String UNMEASURED = "unmeasured";
+    public static final String UNMEASURED_MARK = "unmeasured";
 
     /**
      * @throws IllegalArgumentException if the count is not positive

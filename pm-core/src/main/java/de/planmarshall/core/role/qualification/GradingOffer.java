@@ -59,7 +59,7 @@ int judgeItems, long expectedTokens) {
         var forms = forms(plan);
         var offered = (long) items(plan) * forms.size() * runs(plan);
         return offered * ExpectedTokens.PER_ITEM
-                + (long) plan.judge().items().size() * 2L * ExpectedTokens.PER_JUDGE;
+                + plan.judge().items().size() * 2L * ExpectedTokens.PER_JUDGE;
     }
 
     /**

@@ -35,9 +35,9 @@ class ScoringTest {
         var item = QualificationFixtures.item("review/clean-plan", QualificationFixtures.ROLE, "clean").build();
 
         assertAll(
-                () -> assertTrue(Scoring.closed(item, "clean").right()),
-                () -> assertFalse(Scoring.closed(item, "defective").right()),
-                () -> assertTrue(Scoring.closed(item, " clean ").right()));
+                () -> assertTrue(Scoring.closed(item, "clean").judgedRight()),
+                () -> assertFalse(Scoring.closed(item, "defective").judgedRight()),
+                () -> assertTrue(Scoring.closed(item, " clean ").judgedRight()));
     }
 
     @Test
@@ -54,8 +54,8 @@ class ScoringTest {
                 new ImportedItem.Review(ImportedItem.ReviewStatus.CONFIRMED, "operator", null, null), null, "canary");
 
         assertAll(
-                () -> assertTrue(Scoring.closed(item, "").right()),
-                () -> assertFalse(Scoring.closed(item, "a defect").right()));
+                () -> assertTrue(Scoring.closed(item, "").judgedRight()),
+                () -> assertFalse(Scoring.closed(item, "a defect").judgedRight()));
     }
 
     @Test

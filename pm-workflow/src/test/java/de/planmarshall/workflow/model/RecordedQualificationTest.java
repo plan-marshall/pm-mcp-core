@@ -50,9 +50,6 @@ import de.planmarshall.core.store.QualificationSettingsStore;
 @DisplayName("Recorded qualification")
 class RecordedQualificationTest {
 
-    private static final BigDecimal EIGHTY = new BigDecimal("80");
-    private static final BigDecimal NINETY = new BigDecimal("90");
-
     @TempDir
     Path base;
 
@@ -68,11 +65,11 @@ class RecordedQualificationTest {
     @Test
     @DisplayName("a changed agreement level applies to an existing record without re-grading")
     void changedLevelApplies() {
-        var record = fresh(85, 85);
+        var qualification = fresh(85, 85);
 
-        var atEighty = lookup(80, 5, record, List.of())
+        var atEighty = lookup(80, 5, qualification, List.of())
                 .qualifiedForm(GraderFixtures.ROLE, digest(), RoleForm.FRESH);
-        var atNinety = lookup(90, 5, record, List.of())
+        var atNinety = lookup(90, 5, qualification, List.of())
                 .qualifiedForm(GraderFixtures.ROLE, digest(), RoleForm.FRESH);
 
         assertEquals(Optional.of(RoleForm.FRESH), atEighty);
@@ -123,9 +120,9 @@ class RecordedQualificationTest {
         assertTrue(lookup.qualifiedForm(GraderFixtures.ROLE, digest(), RoleForm.FRESH).isPresent());
     }
 
-    private RecordedQualification lookup(int level, int gap, QualificationRecord record, List<ImportedItem> items) {
+    private RecordedQualification lookup(int level, int gap, QualificationRecord entry, List<ImportedItem> items) {
         var store = GraderFixtures.store(directory());
-        store.write(record);
+        store.write(entry);
         return new RecordedQualification(QualificationRecords.firstOf(store), settings(level, gap),
                 () -> items.isEmpty() ? corpus() : items, this::topics, GraderFixtures.CORPUS_REVISION);
     }
@@ -164,18 +161,18 @@ class RecordedQualificationTest {
     }
 
     private static QualificationRecord fresh(int ownAgreement, int genericAgreement) {
-        return record(Map.of(Topic.OWN, BigDecimal.valueOf(ownAgreement),
+        return qualification(Map.of(Topic.OWN, BigDecimal.valueOf(ownAgreement),
                 Topic.GENERIC, BigDecimal.valueOf(genericAgreement)), Map.of(), null);
     }
 
     private static QualificationRecord warm(int freshAgreement, int warmAgreement, int gap) {
-        return record(Map.of(Topic.OWN, BigDecimal.valueOf(freshAgreement),
+        return qualification(Map.of(Topic.OWN, BigDecimal.valueOf(freshAgreement),
                         Topic.GENERIC, BigDecimal.valueOf(freshAgreement)),
                 Map.of(Topic.OWN, BigDecimal.valueOf(warmAgreement),
                         Topic.GENERIC, BigDecimal.valueOf(warmAgreement)), BigDecimal.valueOf(gap));
     }
 
-    private static QualificationRecord record(Map<Topic, BigDecimal> freshAgreements,
+    private static QualificationRecord qualification(Map<Topic, BigDecimal> freshAgreements,
             Map<Topic, BigDecimal> warmAgreements, BigDecimal gap) {
         var forms = new LinkedHashMap<RoleForm, QualificationRecord.FormResult>();
         forms.put(RoleForm.FRESH, form(freshAgreements));

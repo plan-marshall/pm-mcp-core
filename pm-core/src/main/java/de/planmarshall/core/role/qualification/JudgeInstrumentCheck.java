@@ -77,10 +77,10 @@ public final class JudgeInstrumentCheck {
             scored++;
             var oracleGrade = Grade.scored(oracle.get().score());
             var blindGrade = Grade.scored(blind.get().score());
-            if (oracleGrade.right() == (item.label() == JudgeCheck.Label.RIGHT)) {
+            if (oracleGrade.judgedRight() == (item.label() == JudgeCheck.Label.RIGHT)) {
                 oracleRight++;
             }
-            if (blindGrade.right() == (item.label() == JudgeCheck.Label.RIGHT)) {
+            if (blindGrade.judgedRight() == (item.label() == JudgeCheck.Label.RIGHT)) {
                 blindRight++;
             }
             scores.add(new JudgeCheck.ItemScore(item.itemId(), item.label(), oracleGrade, blindGrade,
