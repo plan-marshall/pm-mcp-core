@@ -166,7 +166,7 @@ Declared in `recipe.pmwf` (`scope subworkflow`, compiled only), called by `start
 [#state-catalogue-source]
 === Source Units
 
-A source unit (`scope subworkflow`, compiled only) gathers, stores, and checks one source of a start before any scope exists; its exit contract is `done {source record | none}` (`none`: nothing added, for example a retired lesson) or `stepped_out` (the operator's _remove_, the implicit `step_out` of its operator waits; for `source-epic-row`, which the server runs without an operator, the server step-out of `source-epic-row.refused`). The server gathers every source; a model works with a source only once it is stored, and an external one only once it is screened. *One order for every external source* (an issue, a pull request): a bounded job fetches it, the deterministic level-1 validator cleans its text (every change reported), it is stored in the source directory marked untrusted and unscreened, and then the screener reads the stored copy, one `batch-v1` batch built from the stored files per firing; the verdict is written into the manifest (link:../model-work/07-untrusted-text-screening.adoc#screen-stored[Model Work Specification, Screened Once Stored]). The screening fails closed: a screener that fails, or a role `screener` without a qualified configuration, leaves the source unscreened with the cause, and no model reads it until it is screened again or the operator accepts it explicitly as untrusted, recorded with its reason like an accepted flagged source. What is on this machine (the operator's description, documents the operator chose, a lesson, the local changes, an epic's row) is trusted and never screened (link:../model-work/07-untrusted-text-screening.adoc#local-trusted[Model Work Specification, What Is on This Machine Is Trusted]). A source is never changed once stored. A new way to start is one more source unit and one more link of `start.sources`.
+A source unit (`scope subworkflow`, compiled only) gathers, stores, and checks one source of a start before any scope exists; its exit contract is `done {source record | none}` (`none`: nothing added, for example a retired lesson) or `stepped_out` (the operator's _remove_, the implicit `step_out` of its operator waits; for `source-epic-row`, which the server runs without an operator, the server step-out of `source-epic-row.refused`). The server gathers every source; a model works with a source only once it is stored, and an external one only once it is screened. *One order for every external source* (an issue, a pull request): a bounded job fetches it, the deterministic level-1 validator cleans its text (every change reported), it is stored in the source directory marked untrusted and unscreened, and then the screener reads the stored copy, one `batch-v1` batch built from the stored files per firing; the verdict is written into the manifest (link:../model-work/07-untrusted-text-screening.adoc#screen-stored[Model Work Specification, Screened Once Stored]). The screening fails closed: a screener that fails, or a role `screener` without a qualified configuration, leaves the source unscreened with the cause, and no model reads it until it is screened again or the operator accepts it explicitly as untrusted, recorded with its reason like an accepted flagged source. What is on this machine (the operator's description, documents the operator chose, a lesson not derived from untrusted text, the local changes, an epic's row) is trusted and never screened; a lesson derived from untrusted text takes the screening after it is stored, like an external source (link:../model-work/07-untrusted-text-screening.adoc#local-trusted[Model Work Specification, What Is on This Machine Is Trusted]). A source is never changed once stored. A new way to start is one more source unit and one more link of `start.sources`.
 
 [[documents-source]]*Documents* (`source-documents`, source kind `documents`): the operator picks files or a directory of the checkout or of the operator's home directory, the checkout's files first: the web app through a listing of the server confined to those two roots, the terminal client by paths resolved against its working directory. The listing, a move, and the choice of documents outside the checkout are accepted only from the terminal client and from a browser on the loopback listener, never from a device on the network. The server checks each (a regular file, readable, within the compiled bounds of size and count, no link followed out of a chosen directory; refusals `not_found`, `not_readable`, `too_large`, `outside_allowed`) and copies or moves them into `sources/documents/<n>/`, a directory with its tree, recording each with where it came from, its size, and its digest. Copy or move follows the machine key `sources.documents_mode` (`copy`, `move`, or `ask`, by default `ask`; link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas Specification, Machine Configuration Store]); with `ask` the choice is an operator wait with _copy_ preselected, whose _always_ stores the answer as the machine's value. A copy is not managed: nothing keeps it and its original in step. A move deletes a file outside git where it was and removes a file git tracks from git by the short landing `git.land-removal`, started once the source is stored and running on while the work starts (xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-short-landings[Short Landings]); a move is the only deletion of the operator's files the runtime makes, and only on the operator's choice.
 
@@ -300,8 +300,8 @@ A source unit (`scope subworkflow`, compiled only) gathers, stores, and checks o
 |— (`entry`)
 |`auto`
 |`source-lesson.resolve` (`valid`); `source-lesson.premise` (`use`).
-|The lesson stored as `lesson-<id>.md` in the source directory; it is claimed for the plan when `start.create` creates it.
-|`stored` -> `source-lesson.done`.
+|The lesson stored as `lesson-<id>.md` in the source directory; it is claimed for the plan when `start.create` creates it. A lesson with `derived_from_untrusted` passes the level-1 validator first (every change reported) and is stored marked untrusted and unscreened (link:../model-work/07-untrusted-text-screening.adoc#local-trusted[Model Work Specification, What Is on This Machine Is Trusted]).
+|`stored` -> `source-lesson.done`; `stored_untrusted` (the lesson is `derived_from_untrusted`) -> `source-lesson.screen`.
 |link:../store-schemas/10-job-and-lesson-records.adoc#lesson-claim[Store Schemas Specification, A Claimed Lesson Ends with the Landing]
 
 |[[state-source-local-changes.preview]]`source-local-changes.preview`
@@ -336,15 +336,15 @@ A source unit (`scope subworkflow`, compiled only) gathers, stores, and checks o
 |`bound` -> `source-epic-row.done`; `row_unknown`, `row_not_launchable`, `spec_unreadable` -> `source-epic-row.refused`.
 |link:../model-work/08-epic-coordination.adoc#server-started-plans[Model Work Specification, Server-Started Plans]
 
-|[[state-source.screen]]`source-<kind>.screen` (`source-issue`, `source-pr`)
+|[[state-source.screen]]`source-<kind>.screen` (`source-issue`, `source-pr`, `source-lesson`)
 |— (`entry`)
 |`job`
-|The unit's store state (`stored`); `source-<kind>.unscreened` (`retry`).
+|The unit's store state (`stored`; `stored_untrusted` for `source-lesson`); `source-<kind>.unscreened` (`retry`).
 |`job llm screen role screener each screen.batch-parts` over the stored items without a cached verdict (one screener task per batch part, one part unless the batch exceeds the screening split bound; a fully cached batch settles at once), zero tools, in the empty `cwd/` subdirectory of its job-private directory; fail-closed. The verdict is written into the manifest.
 |`clean` -> `source-<kind>.done`; `suspicious` -> `source-<kind>.flagged`; `lost` (the screener failed, its launch was refused, or no configuration of `screener` qualifies) -> `source-<kind>.unscreened`.
 |link:../model-work/07-untrusted-text-screening.adoc#screener[Model Work Specification, Screener Job]
 
-|[[state-source.flagged]]`source-<kind>.flagged` (`source-issue`, `source-pr`)
+|[[state-source.flagged]]`source-<kind>.flagged` (`source-issue`, `source-pr`, `source-lesson`)
 |— (`entry`)
 |`operator_wait`
 |`source-<kind>.screen` (`suspicious`).
@@ -352,7 +352,7 @@ A source unit (`scope subworkflow`, compiled only) gathers, stores, and checks o
 |`accept` -> `source-<kind>.done`.
 |link:../model-work/07-untrusted-text-screening.adoc#two-level-guard[Model Work Specification, Two-Level Guard for External Text]
 
-|[[state-source.unscreened]]`source-<kind>.unscreened` (`source-issue`, `source-pr`)
+|[[state-source.unscreened]]`source-<kind>.unscreened` (`source-issue`, `source-pr`, `source-lesson`)
 |— (`entry`)
 |`operator_wait`
 |`source-<kind>.screen` (`lost`).

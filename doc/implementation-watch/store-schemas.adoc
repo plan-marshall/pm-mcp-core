@@ -802,3 +802,20 @@ Matched controls: a finding on a file deleted in the working tree after `raised_
 a newline accepts its last line, and a finding without `file_path` is filed.
 Source:: Article analysis `mantis` of plan-marshall-documentation (Mantis's review rule that a path, symbol and line must
 exist before a finding is kept).
+
+[#PM-WATCH-STORE-58]
+=== PM-WATCH-STORE-58: A lesson written from untrusted text stays marked, and a start screens it
+
+Anchor:: link:../specification/store-schemas/10-job-and-lesson-records.adoc#lesson-record[Store Schemas § Lesson Record]
+(Derived from Untrusted Text), link:../specification/model-work/07-untrusted-text-screening.adoc#local-trusted[Model Work § What Is on This Machine Is Trusted]
+Hazard:: The flag is taken from the lesson's `sources[]` kinds instead of from what the writing task's facts actually
+delivered, so a lesson written from a plan whose review comments were screened `clean` is trusted; or a revision, a
+merge, or a body replaced by the lesson review recomputes the flag and turns it back to `false`; or `source-lesson`
+stores a flagged lesson as trusted and a model reads it before the screener.
+Guard:: Scenario over a plan whose findings store holds one `github_pr` comment screened `clean`: its `lessons-capture`
+writes a lesson with `derived_from_untrusted: true`; a body revision by the lesson review that reads no untrusted text
+keeps it `true`; a merge of a flagged and an unflagged lesson is `true`; choosing it at a start passes level 1 and
+the screener, and with a screener verdict `suspicious` the start waits in `source-lesson.flagged`. Matched controls:
+a lesson of a plan whose facts held no untrusted text is `false` and stored without screening.
+Source:: Article analysis `context-collapse` of plan-marshall-documentation (Copilot memory written from a summarized
+web page and reused in every later session).

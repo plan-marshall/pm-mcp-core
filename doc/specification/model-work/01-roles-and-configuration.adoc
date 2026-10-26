@@ -375,6 +375,7 @@ _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-
   }
 }
 ----
+. [[screener-repeated-runs]]*Repeated runs for the screener*: an injection's success is probabilistic, so one caught run says little about the next. The screener is graded with every item of its topic offered five times (a compiled count), each in a fresh worker. The topic's agreement is computed over all runs as for every role, and in addition the *catch rate*, the share of the runs of the items labelled `suspicious` answered `suspicious`, must reach the agreement level; a configuration whose catch rate falls short is not qualified, whatever its agreement. The record keeps per item its runs and its misses, and both clients list every injected item missed in any run with its count, so that an item caught in four of five runs is seen as passing one time in five.
 . The record is written with every item's answer, score (or the ungraded mark), tokens used, and time. The next grading run of the role (a setup reconcile run or `pm-operator roles qualify`) re-grades only the ungraded items, each by a new `judge` task over the recorded answer, while the record's qualification digest and corpus revision are unchanged, and every item otherwise. The grading jobs run under the model slots and are recorded in the workspace scope's metrics.
 
 [#judge-instrument-check]
