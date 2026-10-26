@@ -156,14 +156,20 @@ final class SupervisorTestFixture {
 
     /** @return a role of the fixture harness with the given class, form and count */
     EffectiveRole role(RoleClass roleClass, RoleForm form, int count) {
+        return role(roleClass, form, count, Map.of());
+    }
+
+    /** @return a role of the fixture harness with the given class, form, count and off-track settings */
+    EffectiveRole role(RoleClass roleClass, RoleForm form, int count,
+            Map<RoleArtifact.OffTrackSignal, RoleArtifact.OffTrackSetting> offTrack) {
         var recycling = form == RoleForm.WARM ? new RoleArtifact.Recycling(null, 20000, null) : null;
         var tools = roleClass == RoleClass.ZERO_TOOL ? List.<String>of() : List.of("read_file", "pm_state", "pm_do");
         var artifact = new RoleArtifact(1, "implementer", "the implementer", roleClass, tools, CLIENT,
                 "claude-sonnet-4", new EffortValue("high"), form, count, List.of(ROLE_SKILL), recycling, 60, null,
-                new RoleArtifact.Questions(0, 0), Map.of());
+                new RoleArtifact.Questions(0, 0), offTrack);
         var resolved = List.of(new RoleSkill(ROLE_SKILL, skills().resolve(ROLE_SKILL).orElseThrow().digest()));
         return new EffectiveRole(artifact, CLIENT, "claude-sonnet-4", new EffortValue("high"), resolved, "1.5",
-                Optional.empty(), new RoleArtifact.Questions(0, 0), Map.of(), 400_000, 3);
+                Optional.empty(), new RoleArtifact.Questions(0, 0), offTrack, 400_000, 3);
     }
 
     /** @return the contract envelope of one fresh task */
@@ -278,12 +284,14 @@ final class SupervisorTestFixture {
         }
     }
 
-    /** The task protocol boundary, which records the fence and whether the token was already revoked. */
+    /** The task protocol boundary, which records the fence, the started agent and whether the token was already revoked. */
     final class RecordingProtocol implements WorkerProtocol {
 
         final List<String> fences = new CopyOnWriteArrayList<>();
 
         final List<Boolean> revokedAtFence = new CopyOnWriteArrayList<>();
+
+        final List<AgentStarted> startedAgents = new CopyOnWriteArrayList<>();
 
         @Override
         public void fence(String generationId) {
@@ -294,13 +302,25 @@ final class SupervisorTestFixture {
 
         @Override
         public void agentStarted(String generationId, String queueTaskId, int attempt, String executable, Instant at) {
-            // detection is another step's contract
+            startedAgents.add(new AgentStarted(generationId, queueTaskId, attempt, executable, at));            order.add("agent_started");
         }
 
         @Override
         public void closeUnavailable(String role, String harness) {
             // the guard is another step's contract
         }
+    }
+
+    /**
+     * One reported {@code agent_started} signal.
+     *
+     * @param generationId the worker's generation
+     * @param queueTaskId  the queue task the generation holds
+     * @param attempt      the attempt of that task
+     * @param executable   the executable's path
+     * @param at           the instant the process started
+     */
+    record AgentStarted(String generationId, String queueTaskId, int attempt, String executable, Instant at) {
     }
 
     /** The terminal-state writer, recording the write and whether the slot was released before it. */
