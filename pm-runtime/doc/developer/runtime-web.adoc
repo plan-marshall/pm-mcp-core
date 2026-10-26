@@ -69,7 +69,8 @@ that disconnects without notice leaves nothing behind.
 
 The cursor is the `seq` the client last saw. A bounded journal never reuses a `seq`, so a cursor stays valid and a gap
 in the sequence shows what gave way. `ActivityLinks.of(task)` and `ActivityLinks.ofLeaf(tasks)` spell
-`pm://task/{queue_task_id}/activity`, the same target the task resource uses, for the plan's process to name per leaf.
+`pm://task/{queue_task_id}/activity`; the assembly attaches the entries to the process resource, which names a leaf's
+tasks with that target (the task resource and the process route are the assembly's).
 
 == The State
 

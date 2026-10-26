@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.worker;
 
 import java.time.InstantSource;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Objects;
@@ -18,6 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import de.planmarshall.core.queue.ActivityEntry;
 import de.planmarshall.core.queue.ActivityJournal;
+import de.planmarshall.core.queue.SecretRedactor;
 import de.planmarshall.core.role.RoleArtifact;
 
 /**
@@ -73,27 +75,35 @@ public final class ActivityRecorder {
                 () -> new IllegalStateException("The activity names no open task: " + queueTaskId));
         var at = clock.instant();
         var written = new ActivityEntry[1];
+        var detected = new ArrayList<ActivitySignal>();
+        var key = queueTaskId + "#" + facts.attempt();
         journal.appendNext(queueTaskId, seq -> {
             written[0] = builder.seq(seq).attempt(facts.attempt()).at(at).build();
             return written[0];
+        }, entries -> {
+            var raised = EnumSet.noneOf(RoleArtifact.OffTrackSignal.class);
+            raised.addAll(facts.alreadyRaised());
+            raised.addAll(OffTrackDetector.raisedOf(entries, facts.attempt()));
+            raised.addAll(reported.getOrDefault(key, Set.of()));
+            detected.addAll(detector.detect(facts.attempt(), entries, facts.role(), raised,
+                    facts.predictedCostTokens(), facts.unplannedChanges()));
         });
-        evaluate(queueTaskId, generationId, facts);
-        return written[0];
-    }
-
-    private void evaluate(String queueTaskId, String generationId, WorkerTaskActivity.TaskActivity facts) {
-        var entries = journal.entries(queueTaskId);
-        var key = queueTaskId + "#" + facts.attempt();
-        var raised = EnumSet.noneOf(RoleArtifact.OffTrackSignal.class);
-        raised.addAll(facts.alreadyRaised());
-        raised.addAll(OffTrackDetector.raisedOf(entries, facts.attempt()));
-        raised.addAll(reported.getOrDefault(key, Set.of()));
-        for (var signal : detector.detect(facts.attempt(), entries, facts.role(), raised,
-                facts.predictedCostTokens(), facts.unplannedChanges())) {
+        for (var signal : detected) {
             protocol.offTrack(generationId, queueTaskId, facts.attempt(), signal.signal().wireName(),
                     signal.action().wireName(), signal.measurement(), signal.threshold(), clock.instant());
             reported.computeIfAbsent(key, ignored -> EnumSet.noneOf(RoleArtifact.OffTrackSignal.class))
                     .add(signal.signal());
         }
+        return SecretRedactor.redact(written[0]);
+    }
+
+    /**
+     * Forgets the signals reported for a task whose attempt ended, so a successor attempt and a long-lived runtime do
+     * not accumulate entries.
+     *
+     * @param queueTaskId the task
+     */
+    public void forget(String queueTaskId) {
+        reported.keySet().removeIf(key -> key.startsWith(queueTaskId + "#"));
     }
 }

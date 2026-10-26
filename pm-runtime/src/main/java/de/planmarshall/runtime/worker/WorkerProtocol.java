@@ -55,9 +55,14 @@ public interface WorkerProtocol {
      * @param measurement  the measured value
      * @param threshold    the threshold in force
      * @param at           the instant the signal was raised
+     * @implSpec the assembly adapter must override this; a protocol that does not is refused rather than silently
+     *           dropping the signal.
      */
-    void offTrack(String generationId, String queueTaskId, int attempt, String signal, String action,
-            double measurement, double threshold, Instant at);
+    default void offTrack(String generationId, String queueTaskId, int attempt, String signal, String action,
+            double measurement, double threshold, Instant at) {
+        throw new UnsupportedOperationException(
+                "The assembly adapter of WorkerProtocol must record the off-track signal " + signal);
+    }
 
     /**
      * Closes the queued tasks of one role on one harness as lost with the reason {@code role_unavailable}, with their

@@ -68,9 +68,13 @@ class NavigationFiguresTest {
         var figures = NavigationFigures.derive(List.of(
                         turn("{\"input_tokens\":40,\"cache_read\":\"unmeasured\",\"cache_creation\":0}")),
                 VOCABULARY, List.of(), Map.of());
+        var notApplicable = NavigationFigures.derive(List.of(
+                        turn("{\"input_tokens\":40,\"cache_read\":\"not_applicable\",\"cache_creation\":0}")),
+                VOCABULARY, List.of(), Map.of());
 
         assertAll(
                 () -> assertEquals(Figure.UNMEASURED, figures.cacheReadShare().sentinel()),
+                () -> assertEquals(Figure.UNMEASURED, notApplicable.cacheReadShare().sentinel()),
                 () -> assertFalse(figures.cacheReadShare().isMeasured()));
     }
 

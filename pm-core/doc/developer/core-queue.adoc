@@ -68,15 +68,14 @@ never a server entry; a journal whose excess lies in server entries alone keeps 
 cut. It masks the entry it writes and offers `archiveInto(task, directory)` and `delete(task)` for the plan's archive
 and its cleanup (link:../adr/core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR 008]).
 
-`ActivityEventMapping`, `ActivityEventMapper` and `SecretRedactor`::
-The projection of the profile's `headless.events` block and the masking of what the journal writes. The projection is
-read once per launch and the mapper turns one output line into one activity entry; the mapping is never read from the
-profile on the stream path (link:../adr/core-queue/007-the-events-mapping-is-projected.adoc[ADR 007]).
-
-`Figure`, `NavigationVocabulary`, `SkillResidency` and `NavigationFigures`::
-The navigation figures derived from a task's activity beside its tokens: the cache-read share, the revisits, the
-language-server use and the fallback-to-read rate, each with its population, plus the residency of each required skill.
-A figure whose population cannot be read is `indeterminate`, and a harness that reports no cache reads is `unmeasured`
+`ActivityEventMapping`, `SecretRedactor` and the navigation figures::
+The projection of the profile's `headless.events` block (`ActivityEventMapping`), the redaction of what the journal
+writes (`SecretRedactor`) and the figures derived from a task's activity beside its tokens (`Figure`,
+`NavigationVocabulary`, `SkillResidency`, `NavigationFigures`). The line mapper `ActivityEventMapper` itself lives in
+`pm-runtime` (`runtime.worker`) and reads the projection; the mapping is never read from the profile on the stream path
+(link:../adr/core-queue/007-the-events-mapping-is-projected.adoc[ADR 007]) and the journal redacts at its write boundary
+(link:../adr/core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR 008]). Each figure carries its population
+or the `indeterminate`/`unmeasured` sentinel
 (link:../adr/core-queue/009-a-navigation-figure-carries-its-population.adoc[ADR 009]).
 
 == How to use and extend it

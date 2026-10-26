@@ -85,6 +85,7 @@ public final class WorkerActivityPump {
                 .end(end.wireName())
                 .unmappedLines(unmapped));
         unmapped = 0;
+        recorder.forget(queueTaskId);
         return written;
     }
 

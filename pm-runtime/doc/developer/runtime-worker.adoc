@@ -528,9 +528,10 @@ offset of the worker's `JobLog`, maps the complete lines the log gained, appends
 the `attempt_end` entry with the count of unmatched lines when the attempt ends
 (link:../adr/runtime-worker/011-the-stream-reader-is-a-pump-over-the-job-log.adoc[ADR 011]).
 
-link:{src}/ActivityRecorder.java[`ActivityRecorder`] is the one write path into the journal of the task's scope. It
-appends under the journal's leaf lock and then evaluates the off-track signals of the attempt, reporting each to
-`WorkerProtocol.offTrack` (link:../adr/runtime-worker/010-the-activity-recorder-evaluates-signals-at-the-entry.adoc[ADR
+link:{src}/ActivityRecorder.java[`ActivityRecorder`] is the harness-side write path into the journal of the task's
+scope: the journal hands it the attempt's entries inside its own transaction, it evaluates the off-track signals there,
+and it reports each to `WorkerProtocol.offTrack` after the lock (the task protocol writes its own server entries,
+including the `signal` entry) (link:../adr/runtime-worker/010-the-activity-recorder-evaluates-signals-at-the-entry.adoc[ADR
 010]).
 
 link:{src}/OffTrackDetector.java[`OffTrackDetector`] computes the four activity signals from the journal:

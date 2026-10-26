@@ -80,7 +80,7 @@ Figure fallbackToReadRate, List<SkillResidency> residency) {
             }
             var usage = usage(entry.usage());
             var input = measured(usage, "input_tokens");
-            var read = measured(usage, "cache_read");
+            var read = reportedInteger(usage, "cache_read");
             var creation = measured(usage, "cache_creation");
             if (input.isEmpty() || read.isEmpty() || creation.isEmpty()) {
                 continue;
@@ -205,6 +205,16 @@ Figure fallbackToReadRate, List<SkillResidency> residency) {
             return Optional.of(0L);
         }
         return Optional.empty();
+    }
+
+    /**
+     * Reads a cache column: {@code not_applicable} is the harness reporting no cache reads, which makes the share
+     * {@code unmeasured} rather than a measured zero (Model Work § Navigation Figures).
+     */
+    private static Optional<Long> reportedInteger(JsonNode usage, String key) {
+        var value = usage.member(key).orElse(null);
+        return value == null || value.isNull() || !value.isInteger() ? Optional.empty()
+                : Optional.of(value.integerValue().orElse(0));
     }
 
     private static JsonNode usage(String raw) {

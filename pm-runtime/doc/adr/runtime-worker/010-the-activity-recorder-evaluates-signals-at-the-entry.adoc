@@ -18,11 +18,13 @@ queue lock. The runtime must compute the signals; the workflow's task protocol o
 
 == Decision
 
-`ActivityRecorder` is the one write path: it appends the entry under the journal's leaf lock, then reads the attempt's
-entries and asks `OffTrackDetector` for the signals that hold, and reports each to the `WorkerProtocol` boundary. The
-protocol stays the owner of the queue record's `signals[]`, the journal's `signal` entry, the action and the re-offer.
-The recorder keeps the signals it reported per task and attempt, so a second entry of the same attempt does not report
-the same signal again; the protocol's own once-per-attempt check is the second guard.
+`ActivityRecorder` is the one write path: the journal hands it the attempt's entries, the new one included, inside its
+own leaf-lock transaction and the recorder asks `OffTrackDetector` for the signals that hold there; the signals are
+reported to the `WorkerProtocol` boundary after the lock is released, because the protocol takes the queue lock and the
+two locks are never nested. The protocol stays the owner of the queue record's `signals[]`, the journal's `signal`
+entry, the action and the re-offer. The recorder keeps the signals it reported per task and attempt, so a second entry
+of the same attempt does not report the same signal again; the protocol's own once-per-attempt check is the second
+guard. A throwing evaluation writes no entry.
 
 An unmeasurable signal is not evaluated: `over_size` without a predicted cost, and `outside_footprint` outside an
 envelope task, both come from `WorkerTaskActivity` as absent, never as a fabricated zero.

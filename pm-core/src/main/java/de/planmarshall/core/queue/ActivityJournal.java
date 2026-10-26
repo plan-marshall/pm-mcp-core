@@ -167,8 +167,26 @@ public final class ActivityJournal {
      * @throws java.io.UncheckedIOException if the journal cannot be read or written
      */
     public void appendNext(String queueTaskId, IntFunction<ActivityEntry> entry) {
+        appendNext(queueTaskId, entry, entries -> {
+        });
+    }
+
+    /**
+     * Appends one entry whose sequence the journal assigns under its leaf lock and hands the attempt's entries, the new
+     * one included, to an observer inside that lock — the transaction that appends the entry, where Model Work § A
+     * Worker Off Track evaluates the off-track signals. The observer runs before the write: a throwing observer writes
+     * nothing.
+     *
+     * @param queueTaskId the task whose journal receives the entry
+     * @param entry       builds the entry from its assigned sequence
+     * @param observer    reads the entries of the journal as they stand with the new one
+     * @throws java.io.UncheckedIOException if the journal cannot be read or written
+     */
+    public void appendNext(String queueTaskId, IntFunction<ActivityEntry> entry,
+            java.util.function.Consumer<List<ActivityEntry>> observer) {
         var file = journalPath(queueTaskId);
         Objects.requireNonNull(entry, ENTRY_LABEL);
+        Objects.requireNonNull(observer, "observer");
         try {
             Files.createDirectories(file.getParent());
         } catch (IOException e) {
@@ -185,9 +203,10 @@ public final class ActivityJournal {
                         "The next entry of the journal has the seq %d, not %d".formatted(expected, built.seq()));
             }
             built = SecretRedactor.redact(built);
-            truncateTornTail(file);
             var entries = new ArrayList<>(current);
             entries.add(built);
+            observer.accept(List.copyOf(entries));
+            truncateTornTail(file);
             if (entries.size() > maxEntries) {
                 rewrite(file, compact(entries));
             } else {
@@ -239,7 +258,9 @@ public final class ActivityJournal {
         }
         var target = Objects.requireNonNull(targetDirectory, "targetDirectory")
                 .toAbsolutePath().normalize().resolve(file.getFileName());
-        try {
+        var key = new LockKey(LockLevel.LEAF, lockFile(file), queueTaskId);
+        try (var transaction = lockManager.openTransaction()) {
+            transaction.acquire(key);
             Files.createDirectories(target.getParent());
             Files.copy(file, target, StandardCopyOption.REPLACE_EXISTING);
             return Optional.of(target);
@@ -256,7 +277,12 @@ public final class ActivityJournal {
      */
     public void delete(String queueTaskId) {
         var file = journalPath(queueTaskId);
-        try {
+        if (!Files.exists(file) && !Files.exists(lockFile(file))) {
+            return;
+        }
+        var key = new LockKey(LockLevel.LEAF, lockFile(file), queueTaskId);
+        try (var transaction = lockManager.openTransaction()) {
+            transaction.acquire(key);
             Files.deleteIfExists(file);
             Files.deleteIfExists(lockFile(file));
         } catch (IOException e) {
