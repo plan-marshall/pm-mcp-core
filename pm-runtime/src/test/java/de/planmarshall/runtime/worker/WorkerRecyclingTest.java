@@ -41,7 +41,8 @@ import de.planmarshall.runtime.worker.WorkerSupervisor.StartOutcome;
  * The recycling decision of warm workers (PM-WORK-3, Recycling Warm Workers): a wait answer of a generation holding a
  * lease is no idle wake-up and its matched control is recycled, the token budget reads the latest turn's context and
  * never a run total and never before the first closed task, the tasks per generation and a changed configuration digest
- * recycle after the task, the idle yield frees a slot for another role, and every recycle logs once with its cause.
+ * recycle after the task, a changed digest clears the guard even when the task bound recycles in the same call, the idle
+ * yield frees a slot for another role, and every recycle logs once with its cause.
  */
 @EnableTestLogger
 @DisplayName("Worker recycling")
@@ -197,6 +198,21 @@ class WorkerRecyclingTest {
                 () -> assertTrue(recycling.afterTaskClosed(closed.withServedTasks(List.of()),
                                 closed.configurationDigest()).isEmpty(),
                         "a generation that closed no task reached no bound"));
+    }
+
+    @Test
+    @DisplayName("a changed configuration clears the guard even when the generation reached its tasks")
+    void aChangedConfigurationClearsTheGuardAtTheTaskBound() {
+        recycling = recycling(new RoleArtifact.Recycling(null, TOKEN_BUDGET, 1));
+        var closed = warm().withLifecycle(WorkerLifecycle.WAITING).withServedTasks(List.of(FIRST_TASK));
+
+        var cause = recycling.afterTaskClosed(closed, CHANGED_DIGEST);
+
+        assertAll(
+                () -> assertEquals(Optional.of(RecycleCause.TASKS_PER_GENERATION), cause,
+                        "the task bound still recycles the generation"),
+                () -> assertEquals(List.of("implementer@claude"), guard.cleared,
+                        "the changed configuration clears the guard in the same recycle"));
     }
 
     @Test

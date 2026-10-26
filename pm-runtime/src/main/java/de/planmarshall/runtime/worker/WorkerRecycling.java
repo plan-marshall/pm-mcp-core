@@ -145,7 +145,7 @@ public final class WorkerRecycling {
     /**
      * Decides the triggers a closed task settles: the role's tasks per generation, and a role configuration digest that
      * differs from the one the generation was started with. A changed configuration also clears the start-failure guard
-     * of the role on its harness.
+     * of the role on its harness, whether or not the tasks-per-generation trigger recycles in the same call.
      *
      * @param generation the generation whose task closed
      * @param roleDigest the role's current configuration digest, as the wait carried it; {@code null} when the caller
@@ -158,13 +158,16 @@ public final class WorkerRecycling {
         if (generation.terminal() || generation.form() != RoleForm.WARM) {
             return Optional.empty();
         }
+        var configurationChanged = roleDigest != null && !roleDigest.equals(generation.configurationDigest());
+        if (configurationChanged) {
+            environment.startGuard().clear(generation.role(), generation.harness());
+        }
         var bounds = bounds(generation.role());
         if (bounds.isPresent() && bounds.get().tasksPerGeneration() != null
                 && generation.servedTasks().size() >= bounds.get().tasksPerGeneration()) {
             return recycle(generation, RecycleCause.TASKS_PER_GENERATION);
         }
-        if (roleDigest != null && !roleDigest.equals(generation.configurationDigest())) {
-            environment.startGuard().clear(generation.role(), generation.harness());
+        if (configurationChanged) {
             return recycle(generation, RecycleCause.CONFIGURATION_CHANGED);
         }
         return Optional.empty();
