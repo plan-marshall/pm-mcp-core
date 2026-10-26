@@ -43,6 +43,5 @@ the process resource and the task resource name the same target.
 
 == Source
 
-Work package `worker-activity`; link:../../../../doc/specification/store-schemas/16-task-queue.adoc#activity-journal[Store
-Schemas § Activity Journal], link:../../../../doc/specification/runtime-model/01-processes-and-transport.adoc#process-resource[Runtime
-& Interaction Model § The Plan's Process as a Structure].
+Work package `worker-activity`; Store Schemas § Activity Journal, and Runtime & Interaction Model § The Plan's Process as
+a Structure (the process resource) of the plan-marshall documentation.

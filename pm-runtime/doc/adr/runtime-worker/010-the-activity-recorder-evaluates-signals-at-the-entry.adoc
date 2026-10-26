@@ -49,5 +49,5 @@ envelope task, both come from `WorkerTaskActivity` as absent, never as a fabrica
 
 Work package `worker-activity`; link:../../../../doc/specification/model-work/03-supervision-and-recycling.adoc#worker-off-track[Model
 Work § A Worker Off Track], link:../../../../doc/specification/model-work/04-worker-launch.adoc#worker-output[Model Work
-§ Output Read While the Worker Runs], link:../../../pm-core/doc/adr/core-queue/006-the-journal-lock-is-a-sibling-file.adoc[core-queue
+§ Output Read While the Worker Runs], link:../../../../pm-core/doc/adr/core-queue/006-the-journal-lock-is-a-sibling-file.adoc[core-queue
 ADR 006].
