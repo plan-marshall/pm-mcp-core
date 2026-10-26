@@ -37,8 +37,9 @@ import de.planmarshall.core.store.ChangeLedgerRecord.Outcome;
 import de.planmarshall.core.store.ChangeLedgerRecord.WorktreeShaFailure;
 
 /**
- * The change ledger (Store Schemas § Change Ledger Record): the append-only rows a freshness gate reads, each bound to
- * the working-tree digest it was observed on, written through the scope's transaction and covered by its sidecar.
+ * The change ledger (Store Schemas § Change Ledger Record): the append-only rows a freshness gate reads, each carrying
+ * the working-tree digest it was observed on, or the failure of the git invocation that could not measure one, written
+ * through the scope's transaction and covered by its sidecar.
  */
 @DisplayName("Change ledger")
 class ChangeLedgerTest {

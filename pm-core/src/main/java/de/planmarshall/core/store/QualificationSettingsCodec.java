@@ -54,13 +54,15 @@ public class QualificationSettingsCodec {
     private static final String FIELD_SKIP_DECISIONS = "skip_decisions";
 
     /**
-     * What a read of the document found: the settings of the block and the revision the document carries.
+     * What a read of the document found: the settings of the block and the revision the document carries. Package
+     * private: {@link QualificationSettingsStore.Snapshot} is the public shape, so the store owns the caller-facing
+     * type and its revision semantics.
      *
      * @param settings the settings; the defaults where the document sets none
      * @param revision the {@code revision} of the document
      * @since 0.1
      */
-    public record Snapshot(QualificationSettings settings, long revision) {
+    record Snapshot(QualificationSettings settings, long revision) {
 
         /** @throws NullPointerException if the settings are {@code null} */
         public Snapshot {
