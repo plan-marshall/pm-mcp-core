@@ -184,7 +184,7 @@ public final class ActivityJournal {
                 throw new IllegalArgumentException(
                         "The next entry of the journal has the seq %d, not %d".formatted(expected, built.seq()));
             }
-            built = SecretMasker.mask(built);
+            built = SecretRedactor.redact(built);
             truncateTornTail(file);
             var entries = new ArrayList<>(current);
             entries.add(built);

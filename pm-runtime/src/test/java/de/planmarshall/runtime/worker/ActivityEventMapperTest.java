@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -47,7 +48,7 @@ class ActivityEventMapperTest {
     private static final Map<String, String> USAGE = usagePointers();
 
     private static Map<String, String> usagePointers() {
-        var pointers = new java.util.LinkedHashMap<String, String>();
+        var pointers = new LinkedHashMap<String, String>();
         pointers.put("input_tokens", "/usage/input_tokens");
         pointers.put("output_tokens", "/usage/output_tokens");
         pointers.put("cache_read", "/usage/cache_read_input_tokens");

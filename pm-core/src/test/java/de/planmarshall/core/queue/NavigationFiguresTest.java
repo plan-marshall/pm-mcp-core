@@ -52,8 +52,8 @@ class NavigationFiguresTest {
     @DisplayName("the cache-read share divides the cache reads by the context tokens")
     void cacheReadShare() {
         var figures = NavigationFigures.derive(List.of(
-                turn("{\"input_tokens\":40,\"cache_read\":60,\"cache_creation\":0}"),
-                turn("{\"input_tokens\":10,\"cache_read\":10,\"cache_creation\":10}")),
+                        turn("{\"input_tokens\":40,\"cache_read\":60,\"cache_creation\":0}"),
+                        turn("{\"input_tokens\":10,\"cache_read\":10,\"cache_creation\":10}")),
                 VOCABULARY, List.of(), Map.of());
 
         assertAll(
@@ -66,7 +66,7 @@ class NavigationFiguresTest {
     @DisplayName("a harness that reports no cache reads is unmeasured, never zero")
     void cacheReadUnmeasured() {
         var figures = NavigationFigures.derive(List.of(
-                turn("{\"input_tokens\":40,\"cache_read\":\"unmeasured\",\"cache_creation\":0}")),
+                        turn("{\"input_tokens\":40,\"cache_read\":\"unmeasured\",\"cache_creation\":0}")),
                 VOCABULARY, List.of(), Map.of());
 
         assertAll(
@@ -101,7 +101,7 @@ class NavigationFiguresTest {
     @DisplayName("the language-server share counts its reads among all code lookups")
     void languageServerUse() {
         var figures = NavigationFigures.derive(List.of(
-                call(1, "pm_lsp", "A.java"), call(2, "pm_lsp", "B.java"), call(3, "search_code", "C")),
+                        call(1, "pm_lsp", "A.java"), call(2, "pm_lsp", "B.java"), call(3, "search_code", "C")),
                 VOCABULARY, List.of(), Map.of());
 
         assertAll(
@@ -129,9 +129,9 @@ class NavigationFiguresTest {
         var required = List.of(new RoleSkill("skill://pm/implementation/SKILL.md", "a".repeat(64)),
                 new RoleSkill("skill://pm/testing/SKILL.md", "b".repeat(64)));
         var figures = NavigationFigures.derive(List.of(
-                call(1, "pm_skill", "skill://pm/implementation/SKILL.md#anchor-one"),
-                call(2, "pm_skill", "skill://pm/implementation/SKILL.md#anchor-two"),
-                call(3, "pm_skill", "skill://pm/implementation/SKILL.md")),
+                        call(1, "pm_skill", "skill://pm/implementation/SKILL.md#anchor-one"),
+                        call(2, "pm_skill", "skill://pm/implementation/SKILL.md#anchor-two"),
+                        call(3, "pm_skill", "skill://pm/implementation/SKILL.md")),
                 VOCABULARY, required,
                 Map.of("skill://pm/implementation/SKILL.md", 4096L));
 

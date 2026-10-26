@@ -64,7 +64,7 @@ class HarnessEventVerificationTest {
         assertAll(
                 () -> assertTrue(result.passed()),
                 () -> assertEquals(Map.of("text", "reported", "tool_call", "reported",
-                        "tool_result", "reported", "file_changed", "reported", "turn", "reported"),
+                                "tool_result", "reported", "file_changed", "reported", "turn", "reported"),
                         result.kinds()),
                 () -> assertTrue(result.missing().isEmpty()));
     }

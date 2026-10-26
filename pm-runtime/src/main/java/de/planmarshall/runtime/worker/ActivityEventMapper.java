@@ -153,7 +153,7 @@ public final class ActivityEventMapper {
         var stopReason = declaration.stopReasonPointer() == null
                 ? null
                 : resolve(root, declaration.stopReasonPointer()).flatMap(JsonNode::text)
-                        .map(ActivityEventMapper::stopReason).orElse(null);
+                .map(ActivityEventMapper::stopReason).orElse(null);
         return Optional.of(new Mapped(ActivityEntry.Kind.TURN, null, false, null, null, null,
                 stopReason, usage(root)));
     }

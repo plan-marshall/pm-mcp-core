@@ -41,7 +41,7 @@ class ActivityJournalMaskingTest {
                 .at(QueueFixtures.AT)
                 .build());
 
-        assertEquals("api_key=" + SecretMasker.REDACTED, journal.entries(TASK).getFirst().text());
+        assertEquals("api_key=" + SecretRedactor.REDACTED, journal.entries(TASK).getFirst().text());
     }
 
     @Test

@@ -15,22 +15,22 @@ import java.util.regex.Pattern;
 
 /**
  * Masks a secret-shaped value before an activity entry is written (Store Schemas § Activity Journal: every text and
- * target is masked like every job log).
+ * target is masked like every job log; Job Runtime § Pipeline and Subprocesses names the component `SecretRedactor`).
  * <p>
- * The masker is deliberately narrow, because a false positive costs a piece of the operator's evidence while a false
+ * The redactor is deliberately narrow, because a false positive costs a piece of the operator's evidence while a false
  * negative writes a credential to a store: it replaces the value of an explicit credential-shaped assignment (a
  * password, token, secret, API key or authorization header) and a bearer value, and it leaves every other text alone.
  * A hash, a commit id, a path and a prose sentence that merely contains the word {@code token} are not secrets and stay
  * readable.
  * <p>
  * The replacement keeps the label so the reader knows what was removed: {@code "Authorization: Bearer …"} becomes
- * {@code "Authorization: Bearer [redacted]"}. The masker is idempotent: masking masked text changes nothing.
+ * {@code "Authorization: Bearer [redacted]"}. The redactor is idempotent: redacting redacted text changes nothing.
  *
  * @since 0.1
  */
-public final class SecretMasker {
+public final class SecretRedactor {
 
-    /** The text that replaces a masked value. */
+    /** The text that replaces a redacted value. */
     public static final String REDACTED = "[redacted]";
 
     private static final String ASSIGNMENT_LABEL = "(?i)\\b(password|passwd|passphrase|secret|token|api[_-]?key"
@@ -49,14 +49,14 @@ public final class SecretMasker {
 
     private static final List<Pattern> REPLACEMENTS = List.of(TOKEN_SHAPE);
 
-    private SecretMasker() {
+    private SecretRedactor() {
     }
 
     /**
      * @param value a text or a target about to be written
      * @return the value with every secret-shaped part replaced by {@link #REDACTED}; {@code null} stays {@code null}
      */
-    public static String mask(String value) {
+    public static String redactText(String value) {
         if (value == null || value.isEmpty()) {
             return value;
         }
@@ -71,18 +71,18 @@ public final class SecretMasker {
 
     /**
      * @param entry an activity entry as the runtime read it
-     * @return the entry with its text, tool target and link target masked
+     * @return the entry with its text, tool target and link target redacted
      */
-    public static ActivityEntry mask(ActivityEntry entry) {
+    public static ActivityEntry redact(ActivityEntry entry) {
         var masked = entry;
         if (entry.text() != null) {
-            masked = masked.withText(mask(entry.text()));
+            masked = masked.withText(redactText(entry.text()));
         }
         if (entry.tool() != null && entry.tool().target() != null) {
-            masked = masked.withTool(new ActivityEntry.Tool(entry.tool().name(), mask(entry.tool().target())));
+            masked = masked.withTool(new ActivityEntry.Tool(entry.tool().name(), redactText(entry.tool().target())));
         }
         if (entry.link() != null && entry.link().target() != null) {
-            masked = masked.withLink(new ActivityEntry.Link(entry.link().rel(), mask(entry.link().target())));
+            masked = masked.withLink(new ActivityEntry.Link(entry.link().rel(), redactText(entry.link().target())));
         }
         return masked;
     }
