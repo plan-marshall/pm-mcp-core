@@ -193,7 +193,7 @@ final class FixtureHarness {
     }
 
     private static void print(String line) {
-        System.out.println(line);
+        /*~~(TODO: Use CuiLogger. Suppress: // cui-rewrite:disable CuiLoggerStandardsRecipe)~~>*/System.out.println(line);
         System.out.flush();
     }
 
@@ -207,7 +207,7 @@ final class FixtureHarness {
 
     private static void read(Process process, BlockingQueue<String> lines) {
         try (var reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                     new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 lines.add(line);

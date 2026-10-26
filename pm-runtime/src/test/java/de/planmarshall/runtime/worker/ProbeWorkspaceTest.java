@@ -58,7 +58,7 @@ class ProbeWorkspaceTest {
                     () -> assertEquals(parent, workspace.outsideRoot().getParent(),
                             "the outside path lies beside the workspace"),
                     () -> assertTrue(workspace.outsideRoot().getFileName().toString()
-                            .startsWith(ProbeWorkspace.OUTSIDE_DIRECTORY_PREFIX),
+                                    .startsWith(ProbeWorkspace.OUTSIDE_DIRECTORY_PREFIX),
                             "the outside path carries its own prefix"),
                     () -> assertTrue(Files.isReadable(workspace.outsideRoot().resolve(ProbeWorkspace.OUTSIDE_FILE)),
                             "the outside read path is readable"));

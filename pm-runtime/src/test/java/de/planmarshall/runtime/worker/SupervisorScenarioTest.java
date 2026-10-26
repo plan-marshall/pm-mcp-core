@@ -300,7 +300,7 @@ class SupervisorScenarioTest {
                 SupervisorEnvironment.EligibilityGate.open());
         var executable = realExecutable();
         try (var harness = FixtureHarness.start(base, List.of("--output", "ready", "--child",
-                executable.toString(), "--hold"))) {
+                     executable.toString(), "--hold"))) {
             assertEquals("ready", harness.awaitLine(AWAIT));
             var childPid = Long.parseLong(harness.awaitLine(AWAIT).substring(FixtureHarness.CHILD_MARKER.length()));
             var ending = new WorkerEnding(environment, () -> false, () -> {
@@ -335,7 +335,7 @@ class SupervisorScenarioTest {
                 SupervisorEnvironment.EligibilityGate.open());
         var executable = realExecutable();
         try (var harness = FixtureHarness.start(base, List.of("--output", "ready", "--child",
-                executable.toString(), "--hold"))) {
+                     executable.toString(), "--hold"))) {
             assertEquals("ready", harness.awaitLine(AWAIT));
             var childPid = Long.parseLong(harness.awaitLine(AWAIT).substring(FixtureHarness.CHILD_MARKER.length()));
             var ending = new WorkerEnding(environment, () -> false, () -> {
