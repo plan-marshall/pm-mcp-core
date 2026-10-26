@@ -39,7 +39,7 @@ Rationale not recorded beyond reusing the format the specification names.
 == Consequences
 
 * The later harness enrolment store reuses the check for its own verification.
-* `PM-WATCH-DISP-33` stays open: the verification before every worker spawn is not implemented.
+* The verification before every worker spawn is implemented by `runtime.launch` (link:../../developer/runtime-launch.adoc[Worker Launch Developer Guide]), so nothing of this decision is left open.
 
 == Source
 

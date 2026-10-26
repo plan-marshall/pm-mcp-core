@@ -53,8 +53,6 @@ The three controls live in `runtime.worker`:
 * Plan PLAN-30, deliverable 13; PLAN-30 deliverable 11 built the controls
 * link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#profile-verification[Client Profiles §
   Profile Verification]
-* link:../../../../doc/implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-13[Implementation Watch §
-  PM-WATCH-CLIENT-13]
 * `pm-runtime/src/main/java/de/planmarshall/runtime/worker/ProbeWorkspace.java`,
   `pm-runtime/src/main/java/de/planmarshall/runtime/worker/DecoyServers.java`,
   `pm-runtime/src/main/java/de/planmarshall/runtime/worker/VerifyingBinaryCheck.java`

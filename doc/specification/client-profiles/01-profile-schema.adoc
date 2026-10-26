@@ -839,7 +839,7 @@ link:../../../pm-core/doc/developer/core-profile.adoc[Client Profiles Developer 
 [#profile-verification]
 === Profile Verification
 
-_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-13[PM-WATCH-CLIENT-13], link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-16[PM-WATCH-CLIENT-16]_
+_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-16[PM-WATCH-CLIENT-16]_
 
 `pm-operator profile verify <client_id>` tests a harness on this machine and emits its profile. It is the only way a profile comes into being: the shipped profiles are its output on the release's reference machines, and the values of the link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc[Evaluation Reference] are its measurements.
 
@@ -986,8 +986,8 @@ link:../../../pm-core/doc/developer/core-profile.adoc[Client Profiles Developer 
 *Claims.* No value of a profile is believed because the profile says so: `worker.eligible`, a runnable `zero_tool`
 class and an `enforced` tool set count only with the stages of the bound record `passed` on the runtime's platform
 (<<profile-verification>>). The profile loader carries the record, its platform and its stages with the loaded profile;
-the check on load is not implemented in this package, belongs to the launch path (`worker-launch`, not yet decided
-there), and is open (link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-13[PM-WATCH-CLIENT-13]).
+`ProfileWorkerEligibility` in `runtime.worker` consults it before every start and refuses an ineligible profile
+(link:../../../pm-runtime/doc/developer/runtime-worker.adoc[runtime.worker Developer Guide]).
 
 [#profile-override-hierarchy]
 === Profile Override Hierarchy

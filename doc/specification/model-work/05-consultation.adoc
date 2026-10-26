@@ -42,7 +42,6 @@ The consultation task goes through the model caller (xref:01-roles-and-configura
 
 [#consult-answer]
 === The Answer through the Next Wait
-_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-55[PM-WATCH-DISP-55]_
 
 The asker waits in `pm_wait`, held within its bounded wait with progress frames where its host needs them, and receives `wait_again` at the end of each window while the consultation is open; the held wait is an open call, so a consulting worker is never silent (xref:03-supervision-and-recycling.adoc#detection[Detection]).
 

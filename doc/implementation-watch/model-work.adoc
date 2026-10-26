@@ -158,20 +158,6 @@ fresh worker; matched control: an offer with no change between the two tasks car
 carries no list.
 Source:: analysis of Eclipse Theia (doc/articles/theia.adoc in plan-marshall-documentation).
 
-[#PM-WATCH-DISP-43]
-=== PM-WATCH-DISP-43: The token budget reads the per-turn context, never a run total
-
-Anchor:: link:../specification/model-work/03-supervision-and-recycling.adoc#recycling[Model Work § Recycling Warm Workers],
-link:../specification/model-work/09-completion-usage-and-spend.adoc#job-result-schema[§ Worker Result & Usage Parsing],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3]
-Hazard:: A run-total usage record (the sum over all turns of a warm worker) was read as its context size, which grows
-with every turn although the context does not, and recycled workers far too early.
-Guard:: Parser fixture per harness with several turns: the context of a warm worker is the input, cache-read, and
-cache-creation tokens of its latest turn; a run-total record never changes it; a worker recycles on `token_budget`
-only after its generation closed at least one task, even when its start context exceeds the budget; matched control:
-a worker whose latest turn exceeds the budget is answered `end` at its next `pm_wait`, never in the middle of a task.
-Source:: harness-as-worker evaluation (doc/specification/evaluation.adoc).
-
 [#PM-WATCH-DISP-44]
 === PM-WATCH-DISP-44: A new generation or a changed skill re-delivers the skills; a compaction is left to the shim
 
@@ -187,18 +173,6 @@ control: without a new generation or a changed digest the next offer carries onl
 every launch prompt of a `writer` or `read_only` worker starts with the shim paragraph, which makes the worker read
 a skill named by URI after a compaction; no server path reads a host marker for a clear or a compaction.
 Source:: harness-as-worker evaluation (doc/specification/evaluation.adoc).
-
-[#PM-WATCH-DISP-55]
-=== PM-WATCH-DISP-55: A consulting worker is never recycled as idle
-
-Anchor:: link:../specification/model-work/05-consultation.adoc#consult-answer[Model Work § The Answer through the Next Wait]
-Hazard:: A worker that waits for a consultation answer receives `wait_again` at the end of every window; counted as
-idle wake-ups, they recycle the worker mid-task, so its task is offered again and the consultation answer reaches a
-successor or is lost.
-Guard:: Scenario test with a consultation that stays open for more windows than the role's idle wake-up limit: the
-asking worker is not recycled, its idle counter stays unchanged, and the answer is delivered to the asking generation
-exactly once; matched control: a worker without a lease that receives as many `wait_again` answers is recycled as idle.
-Source:: design review.
 
 [#PM-WATCH-DISP-56]
 === PM-WATCH-DISP-56: A repeated submit after the close is stale, not a scope violation
@@ -583,38 +557,6 @@ worker holds its slot while idle until its idle recycle, and a task of another r
 longest-idle warm worker without a lease; a worker's budget starts at spawn and its slot wait is recorded apart as
 `queued_ms`; a stale slot left by a killed daemon is reaped in the next admission transaction.
 Source:: design review.
-
-[#PM-WATCH-DISP-33]
-=== PM-WATCH-DISP-33: A harness update is accepted only inside the supported version range
-
-Anchor:: link:../specification/model-work/04-worker-launch.adoc#harness-selection[Model Work § Harness Eligibility & Launch Refusals],
-link:../specification/store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas § Harness Enrolment Store],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-1[PM-EXEC-1]
-Hazard:: Harness CLIs update themselves: a runtime that pins the enrolled digest refuses every worker after an
-update, and one that accepts any digest runs an unvetted executable or an argument template the new version no longer
-understands.
-Guard:: Fixture harness executable replaced between two spawns: a version inside `headless.supported_versions` is
-accepted, the file and its HMAC sidecar are rewritten under `harnesses.lock` in the accepting transaction, and an
-`operator` audit record `harness_updated`
-names both versions and digests; a version outside the range and an unenrolled harness refuse the launch before
-spawn (fate `refused`, `harness_version_unsupported`, `harness_not_enrolled`), each refusal counts as a start failure
-of the role on that harness, and after the compiled count the start-failure guard holds, the role's tasks close
-`role_unavailable` and take their conservative fallback, and `pm-operator status` names `pm-operator enrol-harness`;
-a tampered `harnesses.json` (HMAC mismatch) refuses the launch with `harness_tampered` and the audit `security`
-record `enrolment_tampered`, counted the same way and naming `pm-operator enrol-harness <client>`, no scope is
-paused, and that verb
-re-baselines the file and its sidecar with the named client only after showing path, version, and digest (the
-entries of other clients are dropped, and their jobs are refused `harness_not_enrolled` until each is enrolled
-again); the enrolment record holds path,
-version, and digest only, and neither it, the credential store, nor the worker's environment carries a harness
-authentication value (the harness runs on its own login, and one that is not logged in fails its start).
-Source:: design review.
-
-Implemented (the self-update and refusal half): the re-digest, the evidence check, the accepted self-update with
-`harness_updated` and the refusals `harness_not_enrolled`, `harness_update_unverified`,
-`harness_version_unsupported`, `harness_tampered` and `harness_store_unreadable`
-(link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide]). Remaining: the
-start-failure guard, which is `supervisor`'s (PLAN-30).
 
 [#PM-WATCH-DISP-34]
 === PM-WATCH-DISP-34: The host bundle stays inert inside a worker
