@@ -21,7 +21,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.List;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -36,7 +35,7 @@ class DecoyServersTest {
 
     @Test
     @DisplayName("a request to the decoy MCP server is recorded on it alone")
-    void aMcpHitIsRecorded() throws IOException, InterruptedException {
+    void aMcpHitIsRecorded() throws Exception {
         try (var decoys = DecoyServers.start()) {
             var response = get(decoys.mcp().uri().resolve("mcp"));
 
@@ -50,7 +49,7 @@ class DecoyServersTest {
 
     @Test
     @DisplayName("an untouched decoy records no hit")
-    void anUntouchedDecoyRecordsNoHit() throws IOException {
+    void anUntouchedDecoyRecordsNoHit() throws Exception {
         try (var decoys = DecoyServers.start()) {
             assertAll(
                     () -> assertFalse(decoys.mcp().touched(), "the MCP decoy saw nothing"),
@@ -62,7 +61,7 @@ class DecoyServersTest {
 
     @Test
     @DisplayName("both decoys stay on loopback and listen on distinct ports")
-    void bothStayOnLoopback() throws IOException {
+    void bothStayOnLoopback() throws Exception {
         try (var decoys = DecoyServers.start()) {
             assertAll(
                     () -> assertTrue(decoys.mcp().port() > 0, "the MCP decoy bound a port"),
@@ -77,7 +76,7 @@ class DecoyServersTest {
 
     @Test
     @DisplayName("a request to the decoy endpoint is recorded on the endpoint only")
-    void anEndpointHitIsRecorded() throws IOException, InterruptedException {
+    void anEndpointHitIsRecorded() throws Exception {
         try (var decoys = DecoyServers.start()) {
             var response = get(decoys.endpoint().uri().resolve("models"));
 

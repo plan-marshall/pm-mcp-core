@@ -14,12 +14,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Optional;
-
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -51,7 +49,7 @@ class SystemProcessExecutablesTest {
                 () -> assertTrue(executable.path().isAbsolute(), "the path is absolute"),
                 () -> assertTrue(Files.isRegularFile(executable.path()), "the path is a regular file"),
                 () -> assertEquals(ProcessExecutable.DIGEST_PREFIX
-                                + HarnessVerifier.digestExecutable(executable.path()).orElseThrow(),
+                        + HarnessVerifier.digestExecutable(executable.path()).orElseThrow(),
                         executable.digest(), "the digest is the file's"),
                 () -> assertEquals(HarnessVerifier.digestExecutable(executable.path()).orElseThrow(),
                         executable.sha256(), "the sha256 is the digest without its prefix"));
@@ -59,7 +57,7 @@ class SystemProcessExecutablesTest {
 
     @Test
     @DisplayName("the Linux branch reads the kernel's own link of the process")
-    void theLinuxBranchReadsTheProcLink() throws IOException {
+    void theLinuxBranchReadsTheProcLink() throws Exception {
         Assumptions.assumeTrue(onLinux(), "the /proc link exists on Linux only");
         var reading = new SystemProcessExecutables().read(CURRENT_PID);
 
@@ -77,7 +75,7 @@ class SystemProcessExecutablesTest {
 
     @Test
     @DisplayName("an executable that is not a regular file yields not-regular")
-    void aDeletedExecutableYieldsNotRegular() throws IOException {
+    void aDeletedExecutableYieldsNotRegular() throws Exception {
         var deleted = Files.createTempFile(base, "deleted", ".bin");
         Files.delete(deleted);
         var reader = new SystemProcessExecutables(pid -> Optional.of(deleted), HarnessVerifier::digestExecutable);

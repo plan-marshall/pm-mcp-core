@@ -41,7 +41,7 @@ import java.util.OptionalInt;
  * @since 0.1
  */
 public record WorkerParameters(boolean eligible, OptionalInt ackDeadlineSeconds, boolean ackInformational,
-        int silenceGraceSeconds, int idleWakeups, int boundedWaitSeconds, boolean progressResetsTimeout) {
+int silenceGraceSeconds, int idleWakeups, int boundedWaitSeconds, boolean progressResetsTimeout) {
 
     /** The suffix of a profile document, as a refusal names it. */
     private static final String PROFILE_SUFFIX = ".json";

@@ -192,6 +192,7 @@ class JobRecordSchemaParityTest {
     private static Map<?, ?> member(String name) {
         return SpecificationDocument.object(properties.get(name));
     }
+
     private static List<String> keys(Map<?, ?> object) {
         return names(SpecificationDocument.object(object.get("properties")).keySet());
     }

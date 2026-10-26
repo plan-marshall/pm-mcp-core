@@ -71,7 +71,7 @@ class WorkerSupervisorStartTest {
 
     @Test
     @DisplayName("a warm role starts one worker per working directory and none without queued work")
-    void warmStartsOnePerDirectory() throws IOException {
+    void warmStartsOnePerDirectory() throws Exception {
         var role = fixture.role(RoleClass.WRITER, RoleForm.WARM, 3);
         var other = Files.createDirectories(base.resolve("other-worktree"));
         var supervisor = supervisor(OPEN_GUARD, OPEN_GATE);

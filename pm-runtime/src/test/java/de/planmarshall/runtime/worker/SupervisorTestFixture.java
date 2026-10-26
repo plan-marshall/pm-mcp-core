@@ -21,11 +21,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
 import de.planmarshall.core.profile.JsonDocument;
+import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.profile.LoadedProfile;
 import de.planmarshall.core.profile.ProfileSetKind;
 import de.planmarshall.core.role.EffectiveRole;
@@ -46,6 +46,7 @@ import de.planmarshall.runtime.launch.HarnessEnrolmentStore;
 import de.planmarshall.runtime.launch.HarnessVerifier;
 import de.planmarshall.runtime.launch.JobTokenStore;
 import de.planmarshall.runtime.launch.LaunchComposer;
+import de.planmarshall.runtime.launch.LaunchRequest;
 import de.planmarshall.runtime.launch.LinkParameter;
 import de.planmarshall.runtime.launch.LinkSchema;
 import de.planmarshall.runtime.launch.PromptComposer;
@@ -176,19 +177,19 @@ final class SupervisorTestFixture {
     ContractEnvelope envelope() {
         return ContractEnvelope.of("plan", PLAN, "plan",
                 List.of(new LinkSchema("submit", List.of(new LinkParameter("outline", "text", null)))),
-                de.planmarshall.core.profile.JsonNode.object(Map.of()));
+                JsonNode.object(Map.of()));
     }
 
     /** @return a fresh start request in a plan worktree with the fixture envelope */
     WorkerStartRequest freshRequest(EffectiveRole role) {
-        return new WorkerStartRequest(role, de.planmarshall.runtime.launch.LaunchRequest.WorkdirKind.PLAN_WORKTREE,
+        return new WorkerStartRequest(role, LaunchRequest.WorkdirKind.PLAN_WORKTREE,
                 PLAN, workdir, envelope(), false, List.of(STATE_SKILL), List.of(DOMAIN_SKILL), "",
                 Optional.empty());
     }
 
     /** @return a warm start request in the given plan worktree */
     WorkerStartRequest warmRequest(EffectiveRole role, Path directory) {
-        return new WorkerStartRequest(role, de.planmarshall.runtime.launch.LaunchRequest.WorkdirKind.PLAN_WORKTREE,
+        return new WorkerStartRequest(role, LaunchRequest.WorkdirKind.PLAN_WORKTREE,
                 PLAN, directory, null, false, List.of(), List.of(), "", Optional.empty());
     }
 
@@ -302,7 +303,8 @@ final class SupervisorTestFixture {
 
         @Override
         public void agentStarted(String generationId, String queueTaskId, int attempt, String executable, Instant at) {
-            startedAgents.add(new AgentStarted(generationId, queueTaskId, attempt, executable, at));            order.add("agent_started");
+            startedAgents.add(new AgentStarted(generationId, queueTaskId, attempt, executable, at));
+            order.add("agent_started");
         }
 
         @Override
@@ -348,7 +350,7 @@ final class SupervisorTestFixture {
      * @param slotReleased  whether the model slot was released before this write
      */
     record Write(String generationId, WorkerState.State state, Instant at, WorkerState.EndReason endReason,
-            boolean startFailure, boolean slotReleased) {
+    boolean startFailure, boolean slotReleased) {
     }
 
     private static final String USER = System.getProperty("user.name");

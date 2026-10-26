@@ -15,13 +15,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.Set;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -38,7 +36,7 @@ class ProbeWorkspaceTest {
 
     @Test
     @DisplayName("a fresh workspace carries a canary under a 0700 root")
-    void freshWorkspaceCarriesACanary(@TempDir Path parent) throws IOException {
+    void freshWorkspaceCarriesACanary(@TempDir Path parent) throws Exception {
         try (var workspace = ProbeWorkspace.create(parent)) {
             assertAll(
                     () -> assertTrue(Files.isDirectory(workspace.root()), "the root is a directory"),
@@ -60,7 +58,7 @@ class ProbeWorkspaceTest {
 
     @Test
     @DisplayName("two workspaces never share a canary")
-    void canariesAreFresh(@TempDir Path parent) throws IOException {
+    void canariesAreFresh(@TempDir Path parent) throws Exception {
         try (var one = ProbeWorkspace.create(parent); var two = ProbeWorkspace.create(parent)) {
             assertAll(
                     () -> assertNotEquals(one.canary(), two.canary(), "each run gets its own token"),
@@ -70,7 +68,7 @@ class ProbeWorkspaceTest {
 
     @Test
     @DisplayName("close removes the workspace and everything in it")
-    void closeRemovesTheTree(@TempDir Path parent) throws IOException {
+    void closeRemovesTheTree(@TempDir Path parent) throws Exception {
         var workspace = ProbeWorkspace.create(parent);
         var root = workspace.root();
         Files.createDirectories(root.resolve("nested"));

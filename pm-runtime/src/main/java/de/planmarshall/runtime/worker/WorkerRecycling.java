@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.worker;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -17,8 +18,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
-
-import de.cuioss.tools.logging.CuiLogger;
 
 import de.planmarshall.core.profile.WorkerParameters;
 import de.planmarshall.core.role.RoleArtifact;

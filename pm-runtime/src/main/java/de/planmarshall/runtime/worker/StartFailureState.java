@@ -11,7 +11,6 @@ package de.planmarshall.runtime.worker;
 
 import java.time.Instant;
 import java.util.Objects;
-
 import lombok.With;
 
 /**
@@ -35,7 +34,7 @@ import lombok.With;
  */
 @With
 public record StartFailureState(int consecutiveFailures, boolean held, Instant probeDue, boolean probeInFlight,
-        String lastFailure) {
+String lastFailure) {
 
     /** The state of a role and harness that counted no failure: open, with nothing due. */
     public static final StartFailureState OPEN = new StartFailureState(0, false, null, false, null);

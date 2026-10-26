@@ -13,13 +13,11 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.OptionalInt;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -54,7 +52,7 @@ class SupervisorScenarioTest {
 
     @Test
     @DisplayName("the acknowledgement signal fires at its deadline and settles after")
-    void acknowledgementAtTheDeadline() throws IOException {
+    void acknowledgementAtTheDeadline() throws Exception {
         var harness = FixtureHarness.create(base);
         var detection = harness.detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), false));
         detection.started(NOW);
@@ -78,7 +76,7 @@ class SupervisorScenarioTest {
 
     @Test
     @DisplayName("the silence signal fires at its deadline and settles after")
-    void silenceAtTheDeadline() throws IOException {
+    void silenceAtTheDeadline() throws Exception {
         var harness = FixtureHarness.create(base);
         var detection = harness.detection(RoleClass.WRITER, parameters(OptionalInt.empty(), false));
         detection.started(NOW);
@@ -101,7 +99,7 @@ class SupervisorScenarioTest {
 
     @Test
     @DisplayName("a held consultation suppresses the silence until the scripted answer closes it")
-    void aConsultationSuppressesSilence() throws IOException {
+    void aConsultationSuppressesSilence() throws Exception {
         var harness = FixtureHarness.create(base);
         harness.script("answer: continue");
         var detection = harness.detection(RoleClass.WRITER, parameters(OptionalInt.empty(), false));
@@ -123,7 +121,7 @@ class SupervisorScenarioTest {
 
     @Test
     @DisplayName("a resumed generation reads the scripted stream and is recorded by the harness")
-    void aResumedGenerationIsScripted() throws IOException {
+    void aResumedGenerationIsScripted() throws Exception {
         var harness = FixtureHarness.create(base);
         harness.script("resume: session-42");
         var role = harness.fixture().role(RoleClass.WRITER, RoleForm.FRESH, 1);

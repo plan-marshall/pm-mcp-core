@@ -38,8 +38,8 @@ import de.planmarshall.runtime.launch.LaunchRequest;
  * @since 0.1
  */
 public record WorkerStartRequest(EffectiveRole role, LaunchRequest.WorkdirKind workdirKind, String planId, Path workdir,
-        ContractEnvelope envelope, boolean writesFreeText, List<String> stateSkills, List<String> domainSkills,
-        String zeroToolPrompt, Optional<String> resumeSessionId) {
+ContractEnvelope envelope, boolean writesFreeText, List<String> stateSkills, List<String> domainSkills,
+String zeroToolPrompt, Optional<String> resumeSessionId) {
 
     /**
      * @throws NullPointerException     if a required component is {@code null}

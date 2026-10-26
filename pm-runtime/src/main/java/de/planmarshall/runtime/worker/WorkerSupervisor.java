@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.worker;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -20,8 +21,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-
-import de.cuioss.tools.logging.CuiLogger;
 
 import de.planmarshall.core.profile.CanonicalJson;
 import de.planmarshall.core.role.EffectiveRole;
@@ -270,7 +269,9 @@ public final class WorkerSupervisor {
                 case JobRunner.StartResult.Started started -> Optional.of(started.jobId());
                 case JobRunner.StartResult.Refused _ -> Optional.empty();
             };
-        } catch (RuntimeException failure) {
+        }
+        /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
+        catch (RuntimeException failure) {
             environment.slots().release(lease);
             throw failure;
         }

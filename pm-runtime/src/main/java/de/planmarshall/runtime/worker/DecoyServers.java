@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.worker;
 
+import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -16,8 +17,6 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-
-import com.sun.net.httpserver.HttpServer;
 
 /**
  * The loopback-only decoy servers of one profile verification run (PM-CLIENT-5, Profile Verification): a decoy MCP

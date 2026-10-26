@@ -25,7 +25,7 @@ import java.util.Objects;
  * @since 0.1
  */
 public record LossSignal(LossReason reason, String generationId, Instant measuredAt, Instant deadline,
-        boolean firstCallMade, String leasedTask) {
+boolean firstCallMade, String leasedTask) {
 
     /**
      * @throws NullPointerException     if a required component is {@code null}

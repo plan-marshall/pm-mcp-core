@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.worker;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -18,8 +19,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
-
-import de.cuioss.tools.logging.CuiLogger;
 
 import de.planmarshall.runtime.job.ProcessGroupSignals;
 import de.planmarshall.runtime.job.ProcessTreeTracker;

@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.worker;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.time.Duration;
 import java.time.InstantSource;
 import java.util.HashMap;
@@ -16,8 +17,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
-
-import de.cuioss.tools.logging.CuiLogger;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;

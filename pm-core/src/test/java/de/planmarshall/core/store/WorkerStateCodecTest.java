@@ -167,7 +167,8 @@ class WorkerStateCodecTest {
 
         @Test
         @DisplayName("the members are written through the canonical writer, sorted by their names")
-        void canonicalOrder() {            var text = WorkerStateCodec.write(full());
+        void canonicalOrder() {
+            var text = WorkerStateCodec.write(full());
             var positions = WorkerStateCodec.MEMBERS.stream().sorted()
                     .map(member -> text.indexOf("\"" + member + "\":")).toList();
 

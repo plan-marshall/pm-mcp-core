@@ -13,7 +13,6 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
-
 import lombok.With;
 
 import de.planmarshall.core.role.RoleForm;
@@ -52,10 +51,10 @@ import de.planmarshall.runtime.launch.LaunchRequest;
  */
 @With
 public record WorkerGeneration(String generationId, String role, String harness, String model, RoleForm form,
-        LaunchRequest.WorkdirKind workdirKind, String planId, Path workdir, String configurationDigest,
-        Instant startedAt, JobId jobId, ModelSlots.Lease slot, WorkerLifecycle lifecycle, String leasedTask,
-        List<String> servedTasks, long idleWakeups, WorkerState.ContextTokens contextTokens,
-        WorkerState.WorktreeMark worktreeMark) {
+LaunchRequest.WorkdirKind workdirKind, String planId, Path workdir, String configurationDigest,
+Instant startedAt, JobId jobId, ModelSlots.Lease slot, WorkerLifecycle lifecycle, String leasedTask,
+List<String> servedTasks, long idleWakeups, WorkerState.ContextTokens contextTokens,
+WorkerState.WorktreeMark worktreeMark) {
 
     /**
      * @throws NullPointerException     if a required component is {@code null}

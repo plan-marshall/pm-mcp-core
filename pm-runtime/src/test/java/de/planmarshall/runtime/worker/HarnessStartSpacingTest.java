@@ -41,7 +41,7 @@ class HarnessStartSpacingTest {
 
     @Test
     @DisplayName("a second start waits until the previous worker made its first call")
-    void aSecondStartWaitsForTheFirstCall() throws InterruptedException {
+    void aSecondStartWaitsForTheFirstCall() throws Exception {
         var spacing = new HarnessStartSpacing(Duration.ofSeconds(5));
         spacing.awaitTurn(CLIENT);
         var released = new CountDownLatch(1);
@@ -68,7 +68,7 @@ class HarnessStartSpacingTest {
 
     @Test
     @DisplayName("the wait is capped at the compiled bound")
-    void theWaitIsCapped() throws InterruptedException {
+    void theWaitIsCapped() throws Exception {
         var spacing = new HarnessStartSpacing(Duration.ofMillis(150));
         spacing.awaitTurn(CLIENT);
 
@@ -77,7 +77,7 @@ class HarnessStartSpacingTest {
         var waited = Duration.ofNanos(System.nanoTime() - started);
 
         assertAll(
-                () -> assertEquals(Duration.ofSeconds(30), HarnessStartSpacing.SPACING_BOUND,
+                () -> assertEquals(HarnessStartSpacing.SPACING_BOUND, Duration.ofSeconds(30),
                         "the compiled bound is the specification's 30 s"),
                 () -> assertTrue(waited.compareTo(Duration.ofMillis(100)) >= 0,
                         "the wait runs to its bound: " + waited),
@@ -87,7 +87,7 @@ class HarnessStartSpacingTest {
 
     @Test
     @DisplayName("a start after the previous exit proceeds at once")
-    void aStartAfterTheExitProceedsAtOnce() throws InterruptedException {
+    void aStartAfterTheExitProceedsAtOnce() throws Exception {
         var spacing = new HarnessStartSpacing(Duration.ofSeconds(5));
         spacing.awaitTurn(CLIENT);
         spacing.ended(CLIENT);
@@ -101,7 +101,7 @@ class HarnessStartSpacingTest {
 
     @Test
     @DisplayName("a collision that exits before its first call counts for the guard")
-    void aCollisionCountsForTheGuard() throws InterruptedException {
+    void aCollisionCountsForTheGuard() throws Exception {
         var spacing = new HarnessStartSpacing(Duration.ofMillis(50));
         var events = new CopyOnWriteArrayList<AuditEvent>();
         var guard = new StartFailureGuard("sample-project", List::of, new SilentProtocol(), events::add,

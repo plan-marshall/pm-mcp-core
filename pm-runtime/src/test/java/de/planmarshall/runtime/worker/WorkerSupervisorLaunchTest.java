@@ -23,11 +23,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.planmarshall.core.role.EffectiveRole;
 import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.store.JobRecord;
 import de.planmarshall.runtime.job.WorkerStart;
 import de.planmarshall.runtime.launch.HeadlessBlock;
+import de.planmarshall.runtime.launch.SkillSource;
 import de.planmarshall.runtime.worker.WorkerSupervisor.StartOutcome;
 
 /**
@@ -73,7 +75,7 @@ class WorkerSupervisorLaunchTest {
                 () -> assertTrue(launch.prompt().text().contains("## Contract envelope"),
                         "a fresh worker's prompt carries its one task's envelope"),
                 () -> assertTrue(launch.deliveredSkills().stream()
-                        .anyMatch(skill -> SupervisorTestFixture.ROLE_SKILL.equals(skill.uri())),
+                                .anyMatch(skill -> SupervisorTestFixture.ROLE_SKILL.equals(skill.uri())),
                         "the role skill is delivered in-band"));
     }
 
@@ -81,7 +83,7 @@ class WorkerSupervisorLaunchTest {
     @DisplayName("a failed composition is recorded as prompt_composition_failed through the refusal path")
     void compositionFailureIsRecorded() {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
-        var brokenSkills = (de.planmarshall.runtime.launch.SkillSource) uri -> Optional.empty();
+        var brokenSkills = (SkillSource) uri -> Optional.empty();
         var supervisor = new WorkerSupervisor(fixture.environment(OPEN_GUARD, OPEN_GATE, brokenSkills));
 
         var outcomes = supervisor.start(List.of(fixture.freshRequest(role)));
@@ -129,7 +131,7 @@ class WorkerSupervisorLaunchTest {
                 () -> assertEquals(WorkerLifecycle.STARTING, generation.lifecycle()));
     }
 
-    private List<StartOutcome> start(de.planmarshall.core.role.EffectiveRole role) {
+    private List<StartOutcome> start(EffectiveRole role) {
         return new WorkerSupervisor(fixture.environment(OPEN_GUARD, OPEN_GATE))
                 .start(List.of(fixture.freshRequest(role)));
     }

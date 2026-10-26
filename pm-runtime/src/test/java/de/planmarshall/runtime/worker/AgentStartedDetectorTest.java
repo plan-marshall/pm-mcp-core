@@ -13,6 +13,9 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.juli.LogAsserts;
+import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,10 +23,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
-import de.cuioss.test.juli.LogAsserts;
-import de.cuioss.test.juli.TestLogLevel;
-import de.cuioss.test.juli.junit5.EnableTestLogger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -76,7 +75,7 @@ class AgentStartedDetectorTest {
 
     @Test
     @DisplayName("the first process of the tree that runs an enrolled executable raises the signal once")
-    void theEnrolledMatchRaisesTheSignalOnce() throws IOException {
+    void theEnrolledMatchRaisesTheSignalOnce() throws Exception {
         var environment = environment();
         var generation = generation(environment);
         var ending = ending(environment);
@@ -109,7 +108,7 @@ class AgentStartedDetectorTest {
 
     @Test
     @DisplayName("an impostor of the enrolled name with another digest does not match")
-    void anImpostorOfAnotherDigestDoesNotMatch() throws IOException {
+    void anImpostorOfAnotherDigestDoesNotMatch() throws Exception {
         var environment = environment();
         var generation = generation(environment);
         var ending = ending(environment);
@@ -129,7 +128,7 @@ class AgentStartedDetectorTest {
 
     @Test
     @DisplayName("the installed operator binary matches by path and digest")
-    void theOperatorBinaryMatches() throws IOException {
+    void theOperatorBinaryMatches() throws Exception {
         var operator = operatorBinary();
         var environment = environment();
         var generation = generation(environment);
@@ -148,7 +147,7 @@ class AgentStartedDetectorTest {
 
     @Test
     @DisplayName("the operator binary at another digest does not match")
-    void theOperatorBinaryOfAnotherDigestDoesNotMatch() throws IOException {
+    void theOperatorBinaryOfAnotherDigestDoesNotMatch() throws Exception {
         var operator = operatorBinary();
         var environment = environment();
         var generation = generation(environment);
@@ -168,7 +167,7 @@ class AgentStartedDetectorTest {
 
     @Test
     @DisplayName("a role artifact's own off-track action and threshold change neither value")
-    void theActionAndThresholdStayFixed() throws IOException {
+    void theActionAndThresholdStayFixed() throws Exception {
         var lowered = Map.of(RoleArtifact.OffTrackSignal.REPEATING,
                 new RoleArtifact.OffTrackSetting(1.0, RoleArtifact.OffTrackAction.SHOW),
                 RoleArtifact.OffTrackSignal.NO_PROGRESS,
@@ -193,7 +192,7 @@ class AgentStartedDetectorTest {
 
     @Test
     @DisplayName("a tree of ordinary processes raises no signal")
-    void anOrdinaryTreeRaisesNoSignal() throws IOException {
+    void anOrdinaryTreeRaisesNoSignal() throws Exception {
         var environment = environment();
         var generation = generation(environment);
         var ending = ending(environment);

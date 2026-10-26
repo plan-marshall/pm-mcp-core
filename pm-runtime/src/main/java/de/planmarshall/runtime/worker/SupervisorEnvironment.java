@@ -69,10 +69,10 @@ import de.planmarshall.runtime.launch.SkillSource;
  * @since 0.1
  */
 public record SupervisorEnvironment(String projectId, ProjectEnrolment enrolment, Path base, Path home,
-        Path runtimeHome, Path relaySocket, String shimParagraph, SkillSource skills, LoadedProfile profile,
-        HarnessVerifier harnessVerifier, LaunchComposer composer, WorkerStarter starter, WorkerStateWriter stateWriter,
-        JobTokenStore jobTokens, ModelSlots slots, WorkerProtocol protocol, AuditSink audit, InstantSource clock, WorkerTimers timers,
-        LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate) {
+Path runtimeHome, Path relaySocket, String shimParagraph, SkillSource skills, LoadedProfile profile,
+HarnessVerifier harnessVerifier, LaunchComposer composer, WorkerStarter starter, WorkerStateWriter stateWriter,
+JobTokenStore jobTokens, ModelSlots slots, WorkerProtocol protocol, AuditSink audit, InstantSource clock, WorkerTimers timers,
+LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate) {
 
     /**
      * @throws NullPointerException if a required component is {@code null}

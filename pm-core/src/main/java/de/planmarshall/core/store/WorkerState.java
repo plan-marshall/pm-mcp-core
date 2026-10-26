@@ -71,11 +71,11 @@ import lombok.With;
 @With
 @Builder(toBuilder = true)
 public record WorkerState(String role, String configurationDigest, RoleClass roleClass, Form form, String harness,
-        String harnessVersion, String model, String effort, String effortNarrowedFrom, JobId generationId,
-        Workdir workdir, String promptDigest, String jobTokenSha256, Instant connectedAt, State state,
-        Instant stateAt, String task, List<String> servedTasks, WorktreeMark worktreeMark, long idleWakeups,
-        ContextTokens contextTokens, List<DeliveredSkill> deliveredSkills, EndReason endReason,
-        boolean startFailure, String harnessError) {
+String harnessVersion, String model, String effort, String effortNarrowedFrom, JobId generationId,
+Workdir workdir, String promptDigest, String jobTokenSha256, Instant connectedAt, State state,
+Instant stateAt, String task, List<String> servedTasks, WorktreeMark worktreeMark, long idleWakeups,
+ContextTokens contextTokens, List<DeliveredSkill> deliveredSkills, EndReason endReason,
+boolean startFailure, String harnessError) {
 
     /** The longest model name the schema admits. */
     public static final int MAX_MODEL = 128;

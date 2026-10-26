@@ -116,7 +116,7 @@ class WorkerRecyclingTest {
 
     @Test
     @DisplayName("a lower role idle bound recycles earlier and a higher one never raises the host's")
-    void roleIdleBoundOnlyLowersTheHostValue() throws IOException {
+    void roleIdleBoundOnlyLowersTheHostValue() throws Exception {
         recycling = recycling(new RoleArtifact.Recycling(1, TOKEN_BUDGET, null));
         var generation = warm().withLifecycle(WorkerLifecycle.WAITING);
 
@@ -195,7 +195,7 @@ class WorkerRecyclingTest {
                 () -> assertEquals(Optional.of(RecycleCause.TASKS_PER_GENERATION),
                         recycling.afterTaskClosed(closed, closed.configurationDigest())),
                 () -> assertTrue(recycling.afterTaskClosed(closed.withServedTasks(List.of()),
-                        closed.configurationDigest()).isEmpty(),
+                                closed.configurationDigest()).isEmpty(),
                         "a generation that closed no task reached no bound"));
     }
 
