@@ -87,7 +87,8 @@ state remediation-qgate.waiver-wait
     phase inherit
     composite_job test.waiver-wait
         waived -> remediation-qgate.waived
-        expired -> remediation-qgate.exhausted
+        raised -> remediation-qgate.budget-check
+        declined -> remediation-qgate.exhausted
 
 state remediation-qgate.resolved terminal resolved success
     phase inherit

@@ -14,10 +14,10 @@ start verify.entry
 
 state verify.entry
     phase verify
-    question clarification
-        answered -> verify.done
+    question review
+        approve -> verify.done
             completes test:step as done
-        assumed -> verify.decide
+        revise -> verify.decide
 
 state verify.decide
     phase verify

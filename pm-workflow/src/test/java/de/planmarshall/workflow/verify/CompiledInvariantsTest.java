@@ -671,7 +671,7 @@ class CompiledInvariantsTest {
                         ADJUDICATION_FILE, "lost -> adjudicate.escalated", "lost -> adjudicate.decided",
                         "lost -> adjudicate.decided"),
                 change(InvariantId.INV_INIT_1, "an init question returns elsewhere than init.classify", INIT_FILE,
-                        "returned -> init.classify", "returned -> init.stamp", "returned -> init.stamp"),
+                        "answered -> init.classify", "answered -> init.stamp", "answered -> init.stamp"),
                 change(InvariantId.INV_INIT_2, "the light lane skips outline.light-regate", OUTLINE_FILE,
                         "done -> outline.light-regate", "done -> outline.gate", "state outline.gate"),
                 change(InvariantId.INV_REFINE_1, "the deep path leaves refine without refine.analyze", REFINE_FILE,

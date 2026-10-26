@@ -17,7 +17,6 @@ state verify.entry
     question clarification
         answered -> verify.done
         answered -> verify.done
-        assumed -> verify.done
 
 state verify.done terminal done success
     phase verify

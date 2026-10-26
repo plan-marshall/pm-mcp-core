@@ -36,11 +36,11 @@ class AstVocabularyTest {
     }
 
     @Test
-    @DisplayName("the scopes are the five of the language")
+    @DisplayName("the scopes are the six of the language")
     void scopes() {
         var names = Arrays.stream(WorkflowScope.values()).map(Enum::name).toList();
 
-        assertEquals(List.of("PLAN", "EPIC", "WORKSPACE", "ENTITY", "SUBWORKFLOW"), names);
+        assertEquals(List.of("PLAN", "EPIC", "WORKSPACE", "MACHINE", "ENTITY", "SUBWORKFLOW"), names);
     }
 
     @Test

@@ -274,18 +274,10 @@ class WorkflowValidatorTest {
                     VerificationRule.STEP_COMPLETION, "cycle-measure-archive-commit-path.pmwf"),
             new Check("Rule 9: the exhaustion transition of an ATTEMPT_CAP leaves every cycle through its state",
                     VerificationRule.STEP_COMPLETION, "cycle-measure-attempt-cap.pmwf"),
-            new Check("Rule 10: a plan or epic unit holds no resting link state",
-                    VerificationRule.SESSION_DRIVEN_LINKS, "session-link-forbidden.pmwf"),
-            new Check("Rule 10: a plan or epic unit declares no link on a question state",
-                    VerificationRule.SESSION_DRIVEN_LINKS, "session-question-links.pmwf"),
-            new Check("Rule 10: no sub-workflow a plan or epic unit reaches by calls holds a resting link",
-                    VerificationRule.SESSION_DRIVEN_LINKS, "session-link-transitive.pmwf"),
+            new Check("Rule 10: a worker unit declares no resting link state",
+                    VerificationRule.OPERATOR_LINKS_APART, "operator-link-in-worker.pmwf"),
             new Check("Rule 11a: an engine-chained cycle carries a cycle measure",
                     VerificationRule.CYCLE_AWAITED_EVENT, "cycle-measure-missing.pmwf"),
-            new Check("Rule 11b: a resting cycle traverses a link that awaits an event",
-                    VerificationRule.CYCLE_AWAITED_EVENT, "cycle-noop-without-event.pmwf"),
-            new Check("Rule 11b: a question state's declared link is judged by its primitive like any link",
-                    VerificationRule.CYCLE_AWAITED_EVENT, "question-link-no-awaited-event.pmwf"),
             new Check("Rule 12: the engine-owned relations consult and abort are never declared",
                     VerificationRule.LINK_COMPATIBILITY, "link-engine-owned.pmwf"),
             new Check("Rule 12: the form of a link is one its relation admits",
@@ -1000,32 +992,6 @@ class WorkflowValidatorTest {
     class CycleAwaitedEvent {
 
         @Test
-        @DisplayName("Should refuse a resting-link cycle whose traversed links await no event")
-        void shouldRefuseNoopLoopWithoutEvent() {
-            var definition = unit("subworkflow", """
-                    state verify.entry
-                        phase inherit
-                        skill pm/verify/start
-                        link next proceed ()
-                            do test.proceed
-                                done -> verify.entry
-                        link submit finish [submit] (note: text[1..80], comment: text)
-                            do test.choose
-                                chosen -> verify.done
-                                declined -> verify.done
-                    """ + DONE_TERMINAL);
-
-            var found = violations(definition);
-
-            assertEquals(1, found.size(), found::toString);
-            var violation = found.getFirst();
-            assertAll(() -> assertEquals(VerificationRule.CYCLE_AWAITED_EVENT, violation.rule()),
-                    () -> assertEquals("verify.entry", violation.stateId()),
-                    () -> assertEquals("the cycle 'verify.entry -> verify.entry' has no awaited event",
-                            violation.message()));
-        }
-
-        @Test
         @DisplayName("Should pass a cycle whose traversed link submits to the operator")
         void shouldPassSubmitLinkWithEvent() {
             var definition = unit("subworkflow", """
@@ -1156,7 +1122,7 @@ class WorkflowValidatorTest {
             var stateAndRule = found.stream().map(violation -> violation.stateId() + " " + violation.rule()).toList();
             assertEquals(List.of("verify.entry PRIMITIVE_BINDING", "verify.orphan REACHABILITY",
                             "verify.orphan EXIT_PATH", "verify.orphan LINK_ID_UNIQUE",
-                            "verify.orphan CYCLE_AWAITED_EVENT", "verify.retired RELEASED_STATE"),
+                            "verify.retired RELEASED_STATE"),
                     stateAndRule);
         }
 

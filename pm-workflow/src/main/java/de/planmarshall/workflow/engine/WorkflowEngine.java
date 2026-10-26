@@ -121,7 +121,8 @@ public final class WorkflowEngine {
             Map.entry("completed", "completed"),
             Map.entry("aborted", "aborted"),
             Map.entry("epic", "epic"),
-            Map.entry("workspace", "workspace"));
+            Map.entry("workspace", "workspace"),
+            Map.entry("machine", "machine"));
 
     private final WorkflowDefinition unit;
     private final Map<String, WorkflowDefinition> units;
@@ -473,7 +474,7 @@ public final class WorkflowEngine {
 
     private AwaitedEvent awaitedEventOf(StateBehavior behavior) {
         return switch (behavior) {
-            case StateBehavior.InteractiveLinks _ -> AwaitedEvent.MODEL_SUBMIT;
+            case StateBehavior.InteractiveLinks _ -> AwaitedEvent.OPERATOR_ACT;
             case StateBehavior.JobStep job -> job.composite() ? primitiveOf(job.primitiveId()).awaitedEvent()
                     : AwaitedEvent.JOB_SETTLED;
             case StateBehavior.ModelJob _ -> AwaitedEvent.TASK_SETTLED;

@@ -125,7 +125,7 @@ public final class WorkflowCatalog {
                 switch (caller.scope()) {
                     case PLAN -> reachesPlanUnit = true;
                     case SUBWORKFLOW -> queue.add(caller.id());
-                    case EPIC, WORKSPACE, ENTITY -> {
+                    case EPIC, WORKSPACE, MACHINE, ENTITY -> {
                         return false;
                     }
                 }

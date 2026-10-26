@@ -211,10 +211,7 @@ final class InstancePruner {
             case StateBehavior.JobStep job -> transitions.addAll(job.transitions());
             case StateBehavior.ModelJob job -> transitions.addAll(job.transitions());
             case StateBehavior.SubWorkflowCall call -> transitions.addAll(call.transitions());
-            case StateBehavior.QuestionWait question -> {
-                transitions.addAll(question.transitions());
-                question.links().forEach(link -> transitions.addAll(link.transitions()));
-            }
+            case StateBehavior.QuestionWait question -> transitions.addAll(question.transitions());
             case StateBehavior.TerminalState _ -> {
                 // a terminal state has no transition
             }
@@ -280,9 +277,8 @@ final class InstancePruner {
                 yield new StateBehavior.SubWorkflowCall(call.subWorkflowId(), call.entry(), bindings,
                         transitions(call.transitions(), removed));
             }
-            case StateBehavior.QuestionWait(var questionClass, var transitions, var links) ->
-                new StateBehavior.QuestionWait(questionClass, transitions(transitions, removed),
-                        links(state.id(), links, selection));
+            case StateBehavior.QuestionWait(var questionClass, var transitions) ->
+                new StateBehavior.QuestionWait(questionClass, transitions(transitions, removed));
             case StateBehavior.TerminalState terminal -> terminal;
         };
         return new StateNode(state.id(), state.phase(), state.terminalOutcome(), state.skillPath(),
@@ -417,9 +413,9 @@ final class InstancePruner {
             }
             var declared = switch (state.behavior()) {
                 case StateBehavior.InteractiveLinks(var stateLinks) -> stateLinks;
-                case StateBehavior.QuestionWait question -> question.links();
                 case StateBehavior.AutoStep _, StateBehavior.JobStep _, StateBehavior.ModelJob _,
-                    StateBehavior.SubWorkflowCall _, StateBehavior.TerminalState _ -> List.<LinkSpec>of();
+                    StateBehavior.QuestionWait _, StateBehavior.SubWorkflowCall _, StateBehavior.TerminalState _ ->
+                    List.<LinkSpec>of();
             };
             return declared.stream().anyMatch(link -> link.idPattern().equals(linkId));
         }

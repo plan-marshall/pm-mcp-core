@@ -29,8 +29,6 @@ state init.clarify
     phase init
     question init
         answered -> init.classify
-        assumed -> init.classify
-        returned -> init.classify
 
 state init.stamp
     phase init

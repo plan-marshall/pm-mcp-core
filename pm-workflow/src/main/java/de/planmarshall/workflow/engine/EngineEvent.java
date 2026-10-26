@@ -99,7 +99,8 @@ public sealed interface EngineEvent
     }
 
     /**
-     * A question record was resolved, on any channel or by its deadline.
+     * A question record was resolved: an answer from either client, a withdrawal by the server, or the end of its
+     * scope.
      *
      * @param questionId the question, {@code ^Q-[0-9]{3,6}$}
      * @param outcome    the closed resolution outcome of its class

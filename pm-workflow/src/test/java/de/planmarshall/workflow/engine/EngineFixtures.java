@@ -139,7 +139,6 @@ final class EngineFixtures {
                 phase execute
                 question clarification
                     answered -> execute.backoff
-                    assumed -> handed_back
 
             state execute.backoff
                 phase execute

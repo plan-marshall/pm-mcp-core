@@ -105,11 +105,11 @@ class RegistriesAndRecordsTest {
     @Test
     @DisplayName("QuestionClass should support record components and null validation")
     void questionClass() {
-        var qc = new QuestionClass("init", Set.of("answered", "assumed"));
+        var qc = new QuestionClass("init", Set.of("answered"));
         var outcomes = Set.of("a");
         assertAll(
                 () -> assertEquals("init", qc.name()),
-                () -> assertEquals(Set.of("answered", "assumed"), qc.outcomes()),
+                () -> assertEquals(Set.of("answered"), qc.outcomes()),
                 () -> assertThrows(NullPointerException.class, () -> new QuestionClass(null, outcomes)),
                 () -> assertThrows(NullPointerException.class, () -> new QuestionClass("q", null))
         );
@@ -130,12 +130,12 @@ class RegistriesAndRecordsTest {
         );
 
         assertAll(
-                () -> assertEquals(Set.of("answered", "assumed", "returned"), defaults.find("init").orElseThrow().outcomes()),
-                () -> assertEquals(Set.of("answered", "assumed"), defaults.find("clarification").orElseThrow().outcomes()),
-                () -> assertEquals(Set.of("approve", "revise", "returned"), defaults.find("review").orElseThrow().outcomes()),
-                () -> assertEquals(Set.of("answered", "assumed"), defaults.find("task").orElseThrow().outcomes()),
-                () -> assertEquals(Set.of("answered", "assumed"), defaults.find("setup").orElseThrow().outcomes()),
-                () -> assertEquals(Set.of("answered", "assumed"), defaults.find("ask").orElseThrow().outcomes())
+                () -> assertEquals(Set.of("answered"), defaults.find("init").orElseThrow().outcomes()),
+                () -> assertEquals(Set.of("answered"), defaults.find("clarification").orElseThrow().outcomes()),
+                () -> assertEquals(Set.of("approve", "revise"), defaults.find("review").orElseThrow().outcomes()),
+                () -> assertEquals(Set.of("answered"), defaults.find("task").orElseThrow().outcomes()),
+                () -> assertEquals(Set.of("answered"), defaults.find("setup").orElseThrow().outcomes()),
+                () -> assertEquals(Set.of("answered"), defaults.find("ask").orElseThrow().outcomes())
         );
 
         var custom = new QuestionClass("custom", Set.of("yes", "no"));

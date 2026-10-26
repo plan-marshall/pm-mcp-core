@@ -80,10 +80,6 @@ state review.ask
     phase review
     question clarification
         answered -> review.entry
-        assumed -> diagram.done
-    link next skip_wait ()
-        do diagram.proceed
-            done -> diagram.done
 
 state diagram.done terminal done success
     phase inherit
