@@ -13,8 +13,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.Instant;
-import java.time.InstantSource;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +28,7 @@ import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.profile.LoadedProfile;
 import de.planmarshall.core.profile.ProfileSetKind;
+import de.planmarshall.core.profile.WorkerParameters;
 import de.planmarshall.core.role.EffectiveRole;
 import de.planmarshall.core.role.EffortValue;
 import de.planmarshall.core.role.RoleArtifact;
@@ -79,6 +80,9 @@ final class SupervisorTestFixture {
 
     static final String DOMAIN_SKILL = "skill://pm/ext/domain-java/SKILL.md";
 
+    /** The generation a bare loss detector names. */
+    static final String GENERATION = "l-0123456789abcdef";
+
     final Path base;
 
     final Path workdir;
@@ -97,6 +101,8 @@ final class SupervisorTestFixture {
 
     final List<String> order = new CopyOnWriteArrayList<>();
 
+    final List<LossSignal> signals = new CopyOnWriteArrayList<>();
+
     final ProjectEnrolment enrolment;
 
     final LoadedProfile profile;
@@ -104,11 +110,11 @@ final class SupervisorTestFixture {
     /** Whether the fixture harness is enrolled; a test that wants a refused launch turns it off. */
     boolean enrol = true;
 
-    /** The timers of the environment; a test that drives a deadline replaces them. */
-    WorkerTimers timers = (at, action) -> () -> {
-    };
+    /** The virtual clock every deadline is measured against; a scenario moves it explicitly. */
+    final VirtualClock clock = new VirtualClock(NOW);
 
-    private final InstantSource clock = InstantSource.fixed(NOW);
+    /** The timers of the environment; a scenario drives them through the same virtual clock. */
+    WorkerTimers timers = clock;
 
     SupervisorTestFixture(Path base) throws IOException {
         this.base = base;
@@ -191,6 +197,37 @@ final class SupervisorTestFixture {
     WorkerStartRequest warmRequest(EffectiveRole role, Path directory) {
         return new WorkerStartRequest(role, LaunchRequest.WorkdirKind.PLAN_WORKTREE,
                 PLAN, directory, null, false, List.of(), List.of(), "", Optional.empty());
+    }
+
+    /** @return a supervisor over the fixture environment with an open guard and gate */
+    WorkerSupervisor supervisor() {
+        return supervisor(SupervisorEnvironment.StartGuard.open(), SupervisorEnvironment.EligibilityGate.open());
+    }
+
+    /**
+     * @param guard the start-failure guard the supervisor consults
+     * @param gate  the verification-record gate the supervisor consults
+     * @return a supervisor over the fixture environment
+     */
+    WorkerSupervisor supervisor(SupervisorEnvironment.StartGuard guard,
+            SupervisorEnvironment.EligibilityGate gate) {
+        return new WorkerSupervisor(environment(guard, gate));
+    }
+
+    /**
+     * @param roleClass  the class of the role
+     * @param parameters the harness's worker values
+     * @return a loss detector over the virtual clock and the fixture's signal sink
+     */
+    LossDetection detection(RoleClass roleClass, WorkerParameters parameters) {
+        return new LossDetection(GENERATION, roleClass, parameters, clock, clock, signals::add);
+    }
+
+    /**
+     * @param duration the time to move the virtual clock forward
+     */
+    void advance(Duration duration) {
+        clock.advance(duration);
     }
 
     /** @return the skills the launch prompt reads */
@@ -294,6 +331,8 @@ final class SupervisorTestFixture {
 
         final List<AgentStarted> startedAgents = new CopyOnWriteArrayList<>();
 
+        final List<String> closedUnavailable = new CopyOnWriteArrayList<>();
+
         @Override
         public void fence(String generationId) {
             fences.add(generationId);
@@ -309,7 +348,7 @@ final class SupervisorTestFixture {
 
         @Override
         public void closeUnavailable(String role, String harness) {
-            // the guard is another step's contract
+            closedUnavailable.add(role + "/" + harness);
         }
     }
 
