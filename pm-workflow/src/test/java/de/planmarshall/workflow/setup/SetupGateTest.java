@@ -121,6 +121,17 @@ class SetupGateTest {
     }
 
     @Test
+    @DisplayName("Should refuse an act whose step is unknown, and one with no step list at all")
+    void unknownStepAndMissingListAreRefused() {
+        var withList = MachineOnboarding.fromStatus(machineStatus("onboard.harnesses", "\"first_run\""));
+        var withoutList = MachineOnboarding.fromStatus(machineStatusWithoutSteps("onboard.mode", "\"first_run\""));
+
+        assertAll(
+                () -> assertInstanceOf(SetupGate.Refused.class, SetupGate.decideStep("typo", withList)),
+                () -> assertInstanceOf(SetupGate.Refused.class, SetupGate.decideStep("language", withoutList)));
+    }
+
+    @Test
     @DisplayName("Should stay open during a later reconfigure run of one aspect")
     void reconfigureRunStaysOpen() {
         var onboarding = MachineOnboarding.fromStatus(machineStatus("language.choose", "\"reconfigure\""));
@@ -142,12 +153,22 @@ class SetupGateTest {
         assertThrows(IllegalArgumentException.class, () -> MachineOnboarding.fromStatus(plan));
     }
 
+    private static WorkflowStatus machineStatusWithoutSteps(String state, String onboardRun) {
+        return status(state, onboardRun, null);
+    }
+
     private static WorkflowStatus machineStatus(String state, String onboardRun) {
+        return status(state, onboardRun, STEPS);
+    }
+
+    private static WorkflowStatus status(String state, String onboardRun, String steps) {
         var retained = new LinkedHashMap<String, String>();
         if (onboardRun != null) {
             retained.put("onboard_run", onboardRun);
         }
-        retained.put("onboard_steps", STEPS);
+        if (steps != null) {
+            retained.put("onboard_steps", steps);
+        }
         return WorkflowStatus.builder()
                 .scopeType(JournalScopeType.MACHINE)
                 .phase("machine")

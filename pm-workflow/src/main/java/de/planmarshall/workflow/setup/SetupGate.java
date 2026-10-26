@@ -124,9 +124,10 @@ public final class SetupGate {
     public static Decision decideStep(String neededStep, MachineOnboarding onboarding) {
         Objects.requireNonNull(neededStep, "neededStep");
         Objects.requireNonNull(onboarding, "onboarding");
-        if (onboarding.firstRunCompleted() || !onboarding.pendingSteps().contains(neededStep)) {
+        if (onboarding.firstRunCompleted() || onboarding.completedSteps().contains(neededStep)) {
             return ADMITTED;
         }
-        return new Refused(ONBOARDING_INCOMPLETE, CONFLICT, neededStep, CLIENTS);
+        var missing = onboarding.pendingSteps().contains(neededStep) ? neededStep : onboarding.missingStep();
+        return new Refused(ONBOARDING_INCOMPLETE, CONFLICT, missing, CLIENTS);
     }
 }

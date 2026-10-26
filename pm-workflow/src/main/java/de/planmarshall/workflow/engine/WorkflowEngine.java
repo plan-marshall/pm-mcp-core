@@ -399,8 +399,8 @@ public final class WorkflowEngine {
 
     /**
      * Leaves the current sub-workflow through its step-out: exactly one frame unwinds, and the calling state routes the
-     * outcome {@value #STEPPED_OUT}. This is the implicit {@code step_out} of a resting link state of a session-driven
-     * sub-workflow.
+     * outcome {@value #STEPPED_OUT}. This is the implicit {@code step_out} of a resting link state of an operator wait
+     * in a sub-workflow.
      *
      * @param status the status of a scope inside a sub-workflow
      * @return the step the caller's routing of the step-out ends in

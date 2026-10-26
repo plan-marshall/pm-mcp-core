@@ -11,9 +11,12 @@ package de.planmarshall.workflow.setup;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import de.planmarshall.core.store.StrictJson;
 import de.planmarshall.core.store.WorkflowStatus;
@@ -35,7 +38,8 @@ import de.planmarshall.core.store.WorkflowStatus;
  *                          incomplete
  * @since 0.1
  */
-public record MachineOnboarding(boolean firstRunCompleted, String state, List<String> pendingSteps) {
+public record MachineOnboarding(boolean firstRunCompleted, String state, List<String> pendingSteps,
+        Set<String> completedSteps) {
 
     /** The resting state of the machine unit: the onboarding's first run is complete here. */
     public static final String RESTING_STATE = "onboard.completed";
@@ -44,18 +48,23 @@ public record MachineOnboarding(boolean firstRunCompleted, String state, List<St
     private static final String ONBOARD_STEPS = "onboard_steps";
     private static final String RECONFIGURE = "\"reconfigure\"";
     private static final String DONE = "done";
+    private static final String SKIPPED = "skipped";
+    private static final Set<String> STEP_STATES = Set.of("open", DONE, SKIPPED);
     private static final String STEP = "step";
     private static final String STEP_STATE = "state";
 
     /**
      * @param firstRunCompleted whether the first run completed
      * @param state             the current state of the machine scope
-     * @param pendingSteps      the steps that are not done
-     * @throws NullPointerException if the state is {@code null}
+     * @param pendingSteps      the steps that are neither done nor skipped
+     * @param completedSteps    the steps that are done or skipped
+     * @throws NullPointerException     if the state is {@code null}
+     * @throws IllegalArgumentException if the first run is incomplete and no pending step is named
      */
     public MachineOnboarding {
         Objects.requireNonNull(state, "state");
         pendingSteps = List.copyOf(pendingSteps);
+        completedSteps = Set.copyOf(completedSteps);
         if (!firstRunCompleted && pendingSteps.isEmpty()) {
             throw new IllegalArgumentException(
                     "An incomplete machine onboarding names at least one pending step");
@@ -81,15 +90,18 @@ public record MachineOnboarding(boolean firstRunCompleted, String state, List<St
         var completed = RESTING_STATE.equals(status.state()) || reconfigure;
         var steps = readSteps(status.retained().get(ONBOARD_STEPS));
         var pending = new ArrayList<String>();
+        var completedSteps = new LinkedHashSet<String>();
         for (var step : steps) {
-            if (!DONE.equals(step.state()) && !pending.contains(step.step())) {
+            if (DONE.equals(step.state()) || SKIPPED.equals(step.state())) {
+                completedSteps.add(step.step());
+            } else if (!pending.contains(step.step())) {
                 pending.add(step.step());
             }
         }
         if (!completed && pending.isEmpty()) {
             pending.add(status.state());
         }
-        return new MachineOnboarding(completed, status.state(), pending);
+        return new MachineOnboarding(completed, status.state(), pending, completedSteps);
     }
 
     /**
@@ -121,9 +133,10 @@ public record MachineOnboarding(boolean firstRunCompleted, String state, List<St
                     var name = parser.currentName();
                     parser.nextToken();
                     switch (name) {
-                        case STEP -> step = parser.getText();
-                        case STEP_STATE -> state = parser.getText();
-                        default -> parser.skipChildren();
+                        case STEP -> step = requireText(parser, STEP, raw);
+                        case STEP_STATE -> state = requireState(parser, raw);
+                        default -> throw new IllegalArgumentException(
+                                "A step of 'onboard_steps' names only its step and its state: " + name);
                     }
                 }
                 if (step == null || state == null) {
@@ -142,6 +155,23 @@ public record MachineOnboarding(boolean firstRunCompleted, String state, List<St
             throw new IllegalArgumentException("'onboard_steps' is not JSON: " + e.getMessage(), e);
         }
         return steps;
+    }
+
+    private static String requireText(JsonParser parser, String name, String raw)
+            throws IOException {
+        if (parser.currentToken() != JsonToken.VALUE_STRING) {
+            throw new IllegalArgumentException("'%s' of a step is a string: %s".formatted(name, raw));
+        }
+        return parser.getText();
+    }
+
+    private static String requireState(JsonParser parser, String raw) throws IOException {
+        var state = requireText(parser, STEP_STATE, raw);
+        if (!STEP_STATES.contains(state)) {
+            throw new IllegalArgumentException("A step's state is one of %s, not '%s': %s"
+                    .formatted(STEP_STATES, state, raw));
+        }
+        return state;
     }
 
     /**

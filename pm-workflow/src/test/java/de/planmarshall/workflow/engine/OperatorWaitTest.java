@@ -78,6 +78,9 @@ class OperatorWaitTest {
         assertThrows(IllegalArgumentException.class,
                 () -> engine.advance(status, new EngineEvent.OperatorAct("execute.wait", "unknown")),
                 "only a link the state offers is accepted");
+        assertThrows(IllegalArgumentException.class,
+                () -> engine.advance(status, new EngineEvent.OperatorAct("execute.build", "proceed")),
+                "only the waiting state accepts its operator's act");
 
         var acted = assertInstanceOf(EngineStep.Resting.class,
                 engine.advance(status, new EngineEvent.OperatorAct("execute.wait", "proceed")));

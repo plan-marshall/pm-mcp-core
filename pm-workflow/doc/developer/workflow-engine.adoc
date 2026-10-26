@@ -306,8 +306,8 @@ record is resolved with the same outcome.
 
 |`link` (operator wait)
 |Nothing is bound: no task is opened, no job is started, and no worker and no model slot is held.
-|No engine event; the operator's act through one of its links, or an engine-owned transition that ends the scope. The
-wait is `OPERATOR_ACT`, so nothing decides it by time.
+|`OperatorAct(stateId, linkId)` for the state; the engine runs the link's primitive and routes its outcome. No other
+engine event is accepted, so nothing decides the wait by time.
 |===
 
 A resting link state is an operator wait in every unit and every scope (link:../../../doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL § Waiting for the Operator]). Its `restingWait` carries `OPERATOR_ACT`; a `TimeElapsed` or any other engine event is refused, and the status stays as it is. A question state, by contrast, declares no link, and its own resolution edges await the answer.

@@ -1084,10 +1084,9 @@ link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-8[PM-SEC-8]
 
 Implementation (the language and verifier side of a consent state: a consent is an operator wait of the same form as
 every other — its links `yes`, `yes_remember` and `no` are declared links of a resting link state and so are operator
-links only, never rendered in a model-facing representation (the local-API rendering is the clients' work); `no` records
-nothing and leaves the scope in the consent state; the verifier refuses a declared link clause in a unit a worker acts
-in, so no model reaches an operator act. The consent kinds, their store and the operator's acts are
-`machine-onboarding-unit`'s): link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/StateBehavior.java[StateBehavior],
+links only, never rendered in a model-facing representation (the local-API rendering is the clients' work); the
+verifier refuses a declared link clause in a unit a worker acts in, so no model reaches an operator act. The consent
+kinds, their store and the operator's acts are `machine-onboarding-unit`'s): link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/StateBehavior.java[StateBehavior],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java[WorkflowValidator],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/VerificationRule.java[VerificationRule],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/RestingWait.java[RestingWait]

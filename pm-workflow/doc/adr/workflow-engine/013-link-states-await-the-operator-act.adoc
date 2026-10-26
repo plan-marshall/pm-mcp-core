@@ -7,7 +7,7 @@ Accepted.
 
 == Date
 
-2026-10-27
+2026-10-26
 
 == Context
 
@@ -21,21 +21,23 @@ Operator], items 2 to 4 and 8).
 == Decision
 
 `AwaitedEvent` gains `OPERATOR_ACT` and `WorkflowEngine.awaitedEventOf` maps a resting link state to it. `RestingWait`
-accepts no engine event for it, so a `TimeElapsed` or any other event offered to an operator wait is refused and the
-status stays as it is. The state binds no job and opens no task, so an operator wait holds no worker and no model slot.
-`EngineEvent.QuestionResolved` no longer names a deadline.
+accepts an `EngineEvent.OperatorAct(stateId, linkId)` for its own state and nothing else; a `TimeElapsed` or any other
+engine event offered to an operator wait is refused and the status stays as it is. The state binds no job and opens no
+task, so an operator wait holds no worker and no model slot. `EngineEvent.QuestionResolved` no longer names a deadline.
 
 == Alternatives Considered
 
-A new `EngineEvent.OperatorAct` was refused: the operator's acts arrive over the local API, not as engine events, and a
-synthetic event would give the engine a second way to end a wait. Keeping `MODEL_SUBMIT` was refused: it names the model
-as the actor of a link only the operator may follow.
+Letting every engine event through was refused: it would end an operator wait by time or by a model's event. Keeping
+`MODEL_SUBMIT` was refused: it names the model as the actor of a link only the operator may follow. An operator act
+without an event type was refused: the act is a submission the engine routes like any other, and a second way into the
+engine would be untested.
 
 == Consequences
 
 An operator wait is visible as `waiting_for_operator` and never as stalled; the run state stays in the store across a
-restart. A future operator act that resumes a wait goes through the operator channel and the state's own routing, not
-through `advance(status, event)`.
+restart. The act names the link the operator followed and runs its primitive; a link with free parameters needs a binder
+that reads the operator's submission, which the runtime supplies where it applies the act. The act an engine-owned
+transition that ends the scope needs no engine event.
 
 == Source
 

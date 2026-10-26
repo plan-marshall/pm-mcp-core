@@ -15,6 +15,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.nio.file.Path;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -57,6 +60,34 @@ class MachineScopeStoreTest {
                 () -> assertEquals(BASE.resolve("machine/change-ledger.jsonl"), new ChangeLedger(machine).store()),
                 () -> assertEquals(BASE.resolve("machine/metrics.json"), new MetricsStore(machine).store()),
                 () -> assertEquals(BASE.resolve("machine/questions.jsonl"), new QuestionLog(machine).store()));
+    }
+
+    @Test
+    @DisplayName("Should write and read the machine status with its onboarding members")
+    void statusDocument() {
+        var status = WorkflowStatus.builder()
+                .scopeType(JournalScopeType.MACHINE)
+                .phase("machine")
+                .state("onboard.completed")
+                .callStack(List.of())
+                .policyCounters(Map.of())
+                .waiverRequests(List.of())
+                .retryCounters(RetryCounters.empty())
+                .activeJobs(Map.of())
+                .activeTasks(Map.of())
+                .updatedAt(Instant.parse("2026-10-26T10:00:00Z"))
+                .retained(Map.of("onboard_run", "\"reconfigure\"", "onboard_steps",
+                        "[{\"step\": \"language\", \"state\": \"done\"}]"))
+                .build();
+
+        var read = WorkflowStatusCodec.read(Path.of("status.json"), WorkflowStatusCodec.write(status));
+
+        assertAll(
+                () -> assertEquals(JournalScopeType.MACHINE, read.scopeType()),
+                () -> assertEquals("machine", read.phase()),
+                () -> assertEquals("\"reconfigure\"", read.retained().get("onboard_run")),
+                () -> assertEquals("[{\"step\": \"language\", \"state\": \"done\"}]",
+                        read.retained().get("onboard_steps")));
     }
 
     @Test
