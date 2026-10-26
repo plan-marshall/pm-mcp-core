@@ -316,6 +316,12 @@ class StartFailureGuardTest {
         }
 
         @Override
+        public void offTrack(String generationId, String queueTaskId, int attempt, String signal, String action,
+                double measurement, double threshold, Instant at) {
+            // the guard raises no activity signal
+        }
+
+        @Override
         public void closeUnavailable(String role, String harness) {
             closed.add(role + "/" + harness);
         }
