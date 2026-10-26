@@ -135,9 +135,12 @@ class QualificationValueTest {
         var noPrevious = Optional.<QualificationRecord>empty();
         var noForms = List.<RoleForm>of();
         var noTopics = List.<Topic>of();
+        var noItems = List.<ImportedItem>of();
+        var single = GradingProfile.single();
+        var inCheckout = ItemCheckout.none();
 
-        assertThrows(IllegalArgumentException.class, () -> new GradingPlan(role, List.of(), noSources, "",
-                repository, GradingProfile.single(), judge, ItemCheckout.none(), noPrevious));
+        assertThrows(IllegalArgumentException.class, () -> new GradingPlan(role, noItems, noSources, "",
+                repository, single, judge, inCheckout, noPrevious));
         assertThrows(IllegalArgumentException.class, () -> new GradingOffer("implement", noTopics, 0, noForms,
                 1, 0, 0));
         assertEquals(5, GradingProfile.screener().runsPerItem());
@@ -181,13 +184,15 @@ class QualificationValueTest {
         var ninety = new BigDecimal("90");
         var overHundred = new BigDecimal("101");
         var zero = BigDecimal.ZERO;
+        var noAnswer = JsonNode.nullValue();
+        var right = Grade.of(true);
 
         assertThrows(IllegalArgumentException.class, () -> new QualificationRecord.FormResult(noTopics, 0,
                 one, 0));
         assertThrows(IllegalArgumentException.class, () -> new TopicResult(ninety, zero, 0));
         assertThrows(IllegalArgumentException.class, () -> new TopicResult(overHundred, zero, 1));
         assertThrows(IllegalArgumentException.class, () -> new ItemResult("", RoleForm.FRESH, Checkout.CURRENT,
-                JsonNode.nullValue(), Grade.of(true), one, 0L));
+                noAnswer, right, one, 0L));
     }
 
     @Test

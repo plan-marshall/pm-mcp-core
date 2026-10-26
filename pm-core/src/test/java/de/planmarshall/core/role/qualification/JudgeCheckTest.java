@@ -158,9 +158,14 @@ class JudgeCheckTest {
     @Test
     @DisplayName("a judge check record without an item is refused")
     void itemsRequired() {
-        assertThrows(IllegalArgumentException.class, () -> new JudgeCheck.Record("a".repeat(64),
-                QualificationFixtures.HARNESS, QualificationFixtures.JUDGE_MODEL, CORPUS, new BigDecimal("60"),
-                BigDecimal.ZERO, new BigDecimal("50"), 0, NOW, List.of()));
+        var digest = "a".repeat(64);
+        var oracle = new BigDecimal("60");
+        var baseline = new BigDecimal("50");
+        var noItems = List.<JudgeCheck.ItemScore>of();
+
+        assertThrows(IllegalArgumentException.class, () -> new JudgeCheck.Record(digest,
+                QualificationFixtures.HARNESS, QualificationFixtures.JUDGE_MODEL, CORPUS, oracle,
+                BigDecimal.ZERO, baseline, 0, NOW, noItems));
     }
 
     @Test
