@@ -47,7 +47,9 @@ public enum FindingSourceKind {
     /** The server's pre-merge dependency delta check. */
     DEPENDENCY_DELTA("dependency_delta"),
     /** The server's pre-merge capability test guard. */
-    CAPABILITY_TESTS("capability_tests");
+    CAPABILITY_TESTS("capability_tests"),
+    /** The server's pre-merge added-line scan. */
+    ADDED_LINES("added_lines");
 
     private final String wireName;
 
