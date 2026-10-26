@@ -1,0 +1,56 @@
+= ADR 008: Lease-Aware Idle and Idle Yields
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-26
+
+== Context
+
+A warm worker serves the tasks of its working directory and waits between them. While it waits it holds its model slot:
+the slot is admitted for the whole generation, not for one task, so releasing it on every idle would re-admit it on
+every task and would let another worker take the slot the warm worker is about to use. A worker that idles indefinitely
+would then hold a slot no task uses, and another plan's worker, queued for a slot, would wait behind it.
+
+The question was how the idle state is accounted and when an idle warm worker yields.
+
+== Decision
+
+Idle is lease-aware: a warm worker keeps its model slot for its whole generation, idle or not, and the supervisor counts
+the consecutive bounded waits that ended without a task (`idleWakeups`). The idle accounting is bounded by the harness's
+`worker.idle_wakeups`, and an idle worker that reaches the bound yields: it ends with the recycle cause that names the
+idle bound, and its slot is released through the end path, which lets the queued worker of another plan be admitted.
+
+A `zero_tool` worker receives no offer and its idle state is that of a worker with no queue; it is not counted as an
+idle wake-up of a serving role.
+
+== Alternatives Considered
+
+1. *Release the slot on every idle and re-admit on every task.* _Not taken_: re-admission would race the queued workers
+   on every task, and a warm worker's whole point is to hold its slot between tasks.
+2. *Never yield an idle warm worker.* _Not taken_: a plan that stops sending tasks would hold a slot forever and starve
+   the other plans.
+3. *Count idle from wall-clock time rather than bounded wakes.* _Not taken_: the waits are the worker's own unit, and a
+   wall-clock bound would fire between two waits and end a worker that was about to be offered a task.
+
+== Consequences
+
+* A warm worker holds its slot while it waits, and the one-writer admission of the model slots is not re-decided per
+  task.
+* An idle worker yields at the configured bound, so a slot always returns to the queue.
+* The idle count is a value of the generation, so a later decision about idle sees the same count the supervisor used.
+
+== Source
+
+* Plan PLAN-30, deliverable 13
+* link:../../../../doc/specification/model-work/04-worker-launch.adoc#model-slots[Model Work § Model Slots & One Writer
+  per Plan]
+* link:../runtime-launch/005-model-slot-admission-in-one-store-transaction.adoc[ADR `runtime.launch` 005: Model-Slot
+  Admission in One Store Transaction]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerRecycling.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerGeneration.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/worker/ModelSlots.java`

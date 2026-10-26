@@ -1,0 +1,57 @@
+= ADR 005: `agent_started` Reads the Executable Path and Digest
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-26
+
+== Context
+
+The task protocol carries an `agent_started` signal: the worker reports that the agent process of its harness started,
+with the queue task and the attempt it serves. A worker that reports a start cannot be trusted to say *what* started:
+the isolation and classes stages of the profile verification place decoy instructions, a decoy MCP server and decoy
+plugins where a worker that followed them would start something other than its harness. A signal that named only a PID
+or a bare executable name would prove nothing about the bytes that ran.
+
+The question was what the signal reads to establish that the process is the enrolled harness.
+
+== Decision
+
+`agent_started` reads the executable path and the executable's digest from the process tree of the worker, and
+`AgentStartedDetector` compares that identity with the harness enrolment. `ProcessExecutable` and `ProcessExecutables`
+resolve the executable of a process (the production resolver is `SystemProcessExecutables`), and the detector reports a
+started agent only when the executable belongs to the worker's own process tree and its digest matches the enrolled
+executable.
+
+The signal carries the resolved path and digest to the protocol adapter; the supervisor records it through
+`WorkerProtocol.agentStarted`.
+
+== Alternatives Considered
+
+1. *Trust the harness's own statement of what it started.* _Not taken_: the statement is exactly what a decoy would
+   produce, and the control exists to test that the harness cannot be made to start a decoy.
+2. *Read only the PID.* _Not taken_: a PID identifies a process, not the bytes it runs; a replaced binary keeps the
+   PID.
+3. *Read only the executable name.* _Not taken_: a decoy can carry the same name at another path.
+
+== Consequences
+
+* A start is accepted only when the executable path and digest match the enrolment, so a decoy process is not recorded
+  as the harness.
+* The resolver is a seam: the production `SystemProcessExecutables` reads the OS process tree, and a test supplies its
+  own executable so the comparison is exercised on every host.
+* A harness that re-execs a different binary after its first call is not the enrolled harness; the signal reports the
+  mismatch instead of assuming the spawn's identity.
+
+== Source
+
+* Plan PLAN-30, deliverable 13
+* link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#profile-verification[Client Profiles §
+  Profile Verification] (the isolation and classes stages)
+* `pm-runtime/src/main/java/de/planmarshall/runtime/worker/AgentStartedDetector.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/worker/ProcessExecutable.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/worker/ProcessExecutables.java`

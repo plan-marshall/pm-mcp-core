@@ -1,0 +1,136 @@
+= Worker Supervision (`runtime.worker`)
+:toc: left
+:toclevels: 2
+:nofooter:
+
+link:../../README.adoc[`pm-runtime`] » Worker Supervision
+
+== What the package is for
+
+`de.planmarshall.runtime.worker` is the supervisor of the worker processes: it decides when a worker starts, keeps the
+worker alive while it serves its task, detects the deadlines it misses, ends it, recycles a warm worker, and drains the
+workers of a project when the runtime stops. It owns one worker generation per running process and never starts a
+process itself:
+it composes the start through `runtime.launch` and hands it to the job runner, which owns the process.
+
+The package serves PM-WORK-3 (Supervision & Recycling), PM-WF-14 (Task Envelopes, Model Slots & Usage per Task) and
+PM-CLIENT-5 (Profile Verification); its start path enforces PM-SEC-8 (Consent Before Acting) through the
+verification-record eligibility gate, and its controls follow PM-TEST-4 (the fault matrix).
+
+The decisions of the package are recorded in `pm-runtime/doc/adr/runtime-worker/`:
+
+* xref:../adr/runtime-worker/001-one-supervisor-per-project-and-role.adoc[ADR 001: One Supervisor per Project and Role]
+* xref:../adr/runtime-worker/002-landed-contracts-and-the-protocol-adapter.adoc[ADR 002: Landed Launch Contracts and the
+  Protocol Adapter]
+* xref:../adr/runtime-worker/003-worker-state-written-into-the-job-record.adoc[ADR 003: Worker State Written into the
+  Job Record]
+* xref:../adr/runtime-worker/004-deadlines-from-an-injected-clock-and-timer.adoc[ADR 004: Deadlines from an Injected
+  Clock and Timer]
+* xref:../adr/runtime-worker/005-agent-started-reads-executable-path-and-digest.adoc[ADR 005: `agent_started` Reads the
+  Executable Path and Digest]
+* xref:../adr/runtime-worker/006-verification-record-gate-at-the-start-path.adoc[ADR 006: The Verification-Record Gate
+  at the Start Path]
+* xref:../adr/runtime-worker/007-verification-controls-built-in-runtime-worker.adoc[ADR 007: The Profile-Verification
+  Controls Built in `runtime.worker`]
+* xref:../adr/runtime-worker/008-lease-aware-idle-and-idle-yields.adoc[ADR 008: Lease-Aware Idle and Idle Yields]
+* xref:../adr/runtime-worker/009-transport-notifications-and-the-protocol-adapter.adoc[ADR 009: Transport Notifications
+  and the Protocol Adapter]
+
+== Main types
+
+`WorkerSupervisor`::
+The supervisor of one project and role. It starts the workers a request asks for, as far as the role's form, its
+`count`, the start-failure guard, the eligibility gate and the model slots admit them, and it keeps each started
+generation in a value map. Starts are serialized, so two callers never start the role's workers beyond its count.
+
+`SupervisorEnvironment`::
+The collaborators and installation values of the project: the enrolment, the launch composer, the harness verifier, the
+worker starter, the state writer, the job tokens, the model slots, the protocol, the audit sink, the clock, the timers,
+the lock manager, the start guard and the eligibility gate. It also declares the `StartGuard` and `EligibilityGate`
+seams the start path consults.
+
+`WorkerGeneration`::
+One worker generation of a supervisor: the immutable facts it was started with and the state the supervision advances
+as it serves tasks. Equality is by `generationId` alone, so two snapshots of one generation are the same generation.
+
+`WorkerLifecycle`::
+The closed lifecycle state of a generation. A transition is checked, and the supervisor writes the successor value
+through the `@With` methods, so a caller never observes half a transition.
+
+`WorkerStartRequest`::
+What a caller asks the supervisor to start: the effective role, the working-directory kind, the plan id, the working
+directory, the contract envelope of a fresh worker, and the task and domain skills of the launch.
+
+`StartFailureGuard`::
+The count of consecutive start failures of a role on a harness, the hold after the compiled threshold, the reset on a
+first call, the two clears and the bounded probe backoff. It closes the role's tasks when it holds.
+
+`HarnessStartSpacing`::
+The machine-wide spacing of the starts of one harness. The next start waits until the previous worker of the harness
+made its first call or ended, at most the compiled bound; past the bound the next start proceeds.
+
+`LossDetection`::
+The three deadlines of one generation: the exit the watcher observed, the missing acknowledgement of an offer, and
+silence past the bounded wait plus the host's silence grace. Every value comes from the worker parameters and the
+injected clock; the detector arms one timer at the earliest open deadline.
+
+`WorkerEnding`, `WorkerRecycling`, `WorkerDrainParticipant`::
+The end path, the warm-worker recycling and the drain participation. The end path fences a late call, revokes the job
+token, releases the model slot, writes the terminal state into the job record, and hands the terminal fact to the
+recycling and drain decisions in one order.
+
+`WorkerCalls` and `WorkerProtocol`::
+The calls a worker makes on the runtime and the module-boundary adapter that carries the supervisor's own
+notifications. `WorkerProtocol` is the seam: `runtime.worker` never depends on the transport module directly.
+
+`ModelSlots`::
+The adapter over the landed `runtime.launch.ModelSlotScheduler`. It claims, releases and reports the model slots of the
+machine; the scheduler's admission transaction is the single decision, and the adapter carries it into the supervisor.
+
+`ProfileWorkerEligibility`, `EligibilityVerdict`, `EligibilityRefusal`::
+The pure predicate the supervisor consults before every start. A shipped profile is honoured; a machine or project
+profile is honoured only when the verification record establishes its claims on the platform the runtime runs on.
+
+`RuntimePlatform`::
+The operating system and architecture of the runtime, in the vocabulary a verification record writes, so the gate can
+compare a record's platform with the machine it would be honoured on.
+
+`ProbeWorkspace`, `DecoyServers`, `VerifyingBinaryCheck`::
+The controls of the profile verification. `ProbeWorkspace` creates the fresh temporary workspace and its canary;
+`DecoyServers` runs the loopback-only decoy MCP server and the decoy model endpoint; `VerifyingBinaryCheck` asks the
+installed binary with a fixed argument vector and compares its version and commit with the record.
+
+== The start path
+
+A start is one ordered decision, and each step can decline it:
+
+. the start-failure guard, which holds when a role on a harness failed too often;
+. the verification-record gate, which refuses a claimed profile whose record does not establish the claim;
+. the role's form and `count`, which bound how many workers the request may start;
+. the model slots, whose admission transaction grants or queues the start;
+. the launch composition and the harness verification; a launch the runtime refuses is recorded as the refused job and
+  returns its slot.
+
+A declined start is reported as a `WorkerSupervisor.StartOutcome.Declined` carrying a `WorkerStartRefusal`, so the
+caller records why rather than a bare boolean.
+
+== Deadlines and the clock
+
+Every deadline is measured against an injected `InstantSource`, and every timer is an injected `WorkerTimers` handle. A
+deadline fires at its instant and never earlier: `LossDetection.due` returns a signal only when a deadline lies at or
+before the instant it is asked about. A held wait is an open call and suppresses the silence signal; the answer
+re-arms it. A `zero_tool` worker has no MCP connection and produces neither an acknowledgement nor a silence signal.
+
+== Threading
+
+`WorkerSupervisor` is synchronized on its own state; the timers run off the calling thread but deliver into the
+supervisor under the same lock. The clock and the timers are the only time sources, so a test moves the clock and the
+deadlines move with it. Nothing in the package sleeps.
+
+== Tests
+
+`SupervisorTestFixture` builds the real launch contracts over a temporary base and records the composed starts, the
+ends, the slots, the terminal writes and the audit events. `VirtualClock` implements both `InstantSource` and
+`WorkerTimers` and fires a due timer when a scenario moves the clock; `FixtureHarness` wires the fixture to that clock
+and exposes the loss signals and a scripted stream. `SupervisorScenarioTest` drives the deadlines at deadline−1, at the
+deadline and after it, and reads the scripted answer for a consultation and a resume, so no scenario sleeps.

@@ -1,0 +1,60 @@
+= ADR 007: The Profile-Verification Controls Built in `runtime.worker`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-26
+
+== Context
+
+The profile verification's stages need three controls the runtime had not implemented: a fresh probe workspace with a
+canary, loopback-only decoy servers, and a verifier that compares the installed binary's version and commit with the
+verification record. PM-WATCH-CLIENT-13 recorded them as the verification's own and left them to the launch path, which
+is `runtime.worker`. The stages run as jobs of the runtime with a probe workspace outside `<PM_MCP_BASE>`, and a probe
+worker is confined like every other job.
+
+The question was where the controls live and how far each reaches.
+
+== Decision
+
+The three controls live in `runtime.worker`:
+
+* `ProbeWorkspace` creates the fresh temporary workspace (`pm-mcp-probe-<run_id>/`, mode `0700` where the filesystem has
+  POSIX permissions) and its canary: an unpredictable token written to `canary.txt`. The token is generated afresh for
+  every workspace, and `close` removes the tree.
+* `DecoyServers` runs the decoy MCP server and the decoy model endpoint, each bound to `127.0.0.1` on an ephemeral port,
+  and records the requests a worker made of it. The servers never leave loopback.
+* `VerifyingBinaryCheck` asks the installed binary with the fixed argument vector `--version` and accepts only the
+  record's own version and commit. No value of the record becomes an argument, because the record is untrusted input.
+
+== Alternatives Considered
+
+1. *Put the controls in `profile-loader`.* _Not taken_: the loader reads and validates documents; the controls run
+   processes and open sockets, which is the launch path's work.
+2. *Give the controls their own module.* _Not taken_: they run in the supervisor's processes and share its platform and
+   error model, and a module boundary would add a crossing without a second consumer.
+3. *Let `VerifyingBinaryCheck` take the argv from the record.* _Not taken_: the record is untrusted, and an argv it
+   supplied would be a command the record chose.
+
+== Consequences
+
+* A probe run has one workspace, one canary, two loopback decoys and one fixed-argv binary check, all owned by the
+  package that runs the probe worker.
+* The canary is unpredictable per run, so a worker that names it has reached beyond its own workspace.
+* The binary check refuses a record made by another build of the tool, and an unreadable binary refuses rather than
+  passing.
+
+== Source
+
+* Plan PLAN-30, deliverable 13; PLAN-30 deliverable 11 built the controls
+* link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#profile-verification[Client Profiles §
+  Profile Verification]
+* link:../../../../doc/implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-13[Implementation Watch §
+  PM-WATCH-CLIENT-13]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/worker/ProbeWorkspace.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/worker/DecoyServers.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/worker/VerifyingBinaryCheck.java`
