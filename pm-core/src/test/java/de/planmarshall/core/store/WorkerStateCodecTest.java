@@ -260,7 +260,7 @@ class WorkerStateCodecTest {
             var foreignGeneration = base().generationId(new JobId("b-00000000000000ff"));
 
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> foreignGeneration.build()),
+                    () -> assertThrows(IllegalArgumentException.class, foreignGeneration::build),
                     () -> assertTrue(refusal.getMessage().contains("generation_id"), refusal.getMessage()));
         }
     }
@@ -276,9 +276,9 @@ class WorkerStateCodecTest {
             var reasonBeforeEnd = base().state(State.WAITING).endReason(EndReason.TASK_DONE);
 
             assertAll(
-                    () -> assertTrue(assertThrows(IllegalArgumentException.class, () -> terminalWithoutReason.build())
+                    () -> assertTrue(assertThrows(IllegalArgumentException.class, terminalWithoutReason::build)
                             .getMessage().contains("end_reason")),
-                    () -> assertTrue(assertThrows(IllegalArgumentException.class, () -> reasonBeforeEnd.build())
+                    () -> assertTrue(assertThrows(IllegalArgumentException.class, reasonBeforeEnd::build)
                             .getMessage().contains("end_reason")));
         }
 
@@ -287,7 +287,7 @@ class WorkerStateCodecTest {
         void taskWithoutLease() {
             var stateWithoutLease = base().task("qt-0000000000000003");
 
-            var failure = assertThrows(IllegalArgumentException.class, () -> stateWithoutLease.build());
+            var failure = assertThrows(IllegalArgumentException.class, stateWithoutLease::build);
 
             assertTrue(failure.getMessage().contains("leased"), failure.getMessage());
         }
@@ -297,7 +297,7 @@ class WorkerStateCodecTest {
         void beforeConnection() {
             var stateBeforeConnection = base().stateAt(CONNECTED_AT.minusSeconds(1));
 
-            var failure = assertThrows(IllegalArgumentException.class, () -> stateBeforeConnection.build());
+            var failure = assertThrows(IllegalArgumentException.class, stateBeforeConnection::build);
 
             assertTrue(failure.getMessage().contains("state_at"), failure.getMessage());
         }
@@ -310,9 +310,9 @@ class WorkerStateCodecTest {
                     .startFailure(true);
 
             assertAll(
-                    () -> assertTrue(assertThrows(IllegalArgumentException.class, () -> errorWithoutFailure.build())
+                    () -> assertTrue(assertThrows(IllegalArgumentException.class, errorWithoutFailure::build)
                             .getMessage().contains("harness_error")),
-                    () -> assertTrue(assertThrows(IllegalArgumentException.class, () -> failureWithoutError.build())
+                    () -> assertTrue(assertThrows(IllegalArgumentException.class, failureWithoutError::build)
                             .getMessage().contains("first call")));
         }
 
@@ -321,7 +321,7 @@ class WorkerStateCodecTest {
         void narrowWithoutEffort() {
             var narrowedWithoutEffort = base().effortNarrowedFrom("xhigh");
 
-            assertThrows(IllegalArgumentException.class, () -> narrowedWithoutEffort.build());
+            assertThrows(IllegalArgumentException.class, narrowedWithoutEffort::build);
         }
 
         @Test
@@ -329,7 +329,7 @@ class WorkerStateCodecTest {
         void zeroToolToken() {
             var zeroToolWithoutToken = base().roleClass(RoleClass.ZERO_TOOL);
 
-            assertThrows(IllegalArgumentException.class, () -> zeroToolWithoutToken.build());
+            assertThrows(IllegalArgumentException.class, zeroToolWithoutToken::build);
         }
     }
 }
