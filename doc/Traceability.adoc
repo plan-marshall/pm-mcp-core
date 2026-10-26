@@ -1814,7 +1814,7 @@ link:../pm-workflow/doc/adr/workflow-consult/004-the-consultation-task-refuses-t
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6]
 
-Implementation (in part: the corpus sources, the import of their items fetched at the pinned commits with its result, the group and the contamination note an overlay row gives its items literally, and the validation of the corpus in Java; the grading, the qualification records and their invalidation, the fallback of unqualified roles, the calibration, and the validation of the corpus in the build of the release are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/CorpusImport.java[CorpusImport],
+Implementation (in part: the corpus sources, the import of their items fetched at the pinned commits with its result, the group and the contamination note an overlay row gives its items literally, and the validation of the corpus in Java; the calibration and the validation of the corpus in the build of the release are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/CorpusImport.java[CorpusImport],
 link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/ImportResult.java[ImportResult],
 link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/CorpusValidator.java[CorpusValidator],
 link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/SourceManifest.java[SourceManifest],

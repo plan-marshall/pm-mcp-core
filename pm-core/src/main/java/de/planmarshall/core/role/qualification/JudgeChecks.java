@@ -13,8 +13,9 @@ import java.util.Optional;
 
 /**
  * The judge check record a grading reads before it offers a rubric item (Model Work § Judge Instrument Check): the
- * project set's {@code qualification/judge-check.json}. A lookup that finds no record, or one bound to another judge
- * configuration or corpus revision, answers empty and the grading runs the check first.
+ * project set's {@code qualification/judge-check.json}. A lookup that finds no record answers empty and the grading runs
+ * the check first. A lookup does not test the record against the current judge digest or corpus revision; the caller
+ * applies {@link JudgeCheck.Verdict#of} and runs the check again when the verdict does not pass.
  *
  * @since 0.1
  */

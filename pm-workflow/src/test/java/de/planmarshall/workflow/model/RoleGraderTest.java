@@ -358,7 +358,7 @@ class RoleGraderTest {
         }
 
         @Test
-        @DisplayName("a run whose two forms share no measured topic records a gap of zero")
+        @DisplayName("a form without a measured topic of the other form measures its agreement as zero")
         void gapWithoutOverlap() {
             var fixtures = new Fixtures();
             fixtures.harness.loses(RoleForm.FRESH, "review/generic");
@@ -368,7 +368,7 @@ class RoleGraderTest {
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
                     fixtures.grader.grade(plan, GradingConsent.GRANTED));
 
-            assertEquals(BigDecimal.ZERO, graded.entry().warmFreshGap());
+            assertEquals(new BigDecimal("100"), graded.entry().warmFreshGap());
         }
 
         @Test

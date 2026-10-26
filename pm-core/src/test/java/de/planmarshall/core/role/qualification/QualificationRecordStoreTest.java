@@ -97,9 +97,11 @@ class QualificationRecordStoreTest {
     @DisplayName("the judge check record is written beside the role records")
     void judgeCheck() {
         var checks = new JudgeCheckStore(directory(), lock(base), QualificationFixtures.locks());
+        var scored = new JudgeCheck.ItemScore("judge/right", JudgeCheck.Label.RIGHT, Grade.of(true),
+                Grade.of(false), TokenTotal.measured(100), 10L);
         var entry = new JudgeCheck.Record("a".repeat(64), QualificationFixtures.HARNESS,
                 QualificationFixtures.JUDGE_MODEL, QualificationFixtures.CORPUS_REVISION, new BigDecimal("100"),
-                BigDecimal.ZERO, new BigDecimal("50"), 0, QualificationFixtures.GRADED_AT, List.of());
+                BigDecimal.ZERO, new BigDecimal("50"), 0, QualificationFixtures.GRADED_AT, List.of(scored));
 
         checks.write(entry);
 

@@ -182,6 +182,9 @@ public final class RoleGrader {
                 var reused = previous.map(entry -> reuse(entry, item, form, checkout)).orElse(List.of());
                 if (!reused.isEmpty()) {
                     results.addAll(reused);
+                    for (var run = reused.size() + 1; run <= GradingOffer.runs(plan); run++) {
+                        results.add(offer(item, form, checkout, run));
+                    }
                     continue;
                 }
                 for (var run = 1; run <= GradingOffer.runs(plan); run++) {
@@ -319,10 +322,8 @@ public final class RoleGrader {
         BigDecimal gap = null;
         for (var entry : fresh.topics().entrySet()) {
             var warmTopic = warm.topics().get(entry.getKey());
-            if (warmTopic == null) {
-                continue;
-            }
-            var measured = entry.getValue().agreement().subtract(warmTopic.agreement());
+            var warmAgreement = warmTopic == null ? BigDecimal.ZERO : warmTopic.agreement();
+            var measured = entry.getValue().agreement().subtract(warmAgreement);
             gap = gap == null || measured.compareTo(gap) > 0 ? measured : gap;
         }
         if (gap == null) {

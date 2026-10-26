@@ -85,6 +85,9 @@ public final class JudgeCheck {
             }
             Objects.requireNonNull(checkedAt, "checkedAt");
             items = List.copyOf(Objects.requireNonNull(items, "items"));
+            if (items.isEmpty()) {
+                throw new IllegalArgumentException("A judge check record scores at least one item");
+            }
         }
 
         private static void require(BigDecimal value, String field) {

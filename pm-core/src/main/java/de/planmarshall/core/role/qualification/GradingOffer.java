@@ -81,8 +81,10 @@ int judgeItems, long expectedTokens) {
      * @return how often each item of the run is offered, at least one
      */
     public static int runs(GradingPlan plan) {
-        var screener = plan.items().stream()
-                .anyMatch(item -> RoleTopics.counts(item) && QualificationCheck.SUSPICIOUS.equals(item.target().answer()));
+        var name = plan.role().artifact().name();
+        var screener = roleTopics(plan).topics().stream()
+                .flatMap(topic -> RoleTopics.items(plan.items(), topic, name).stream())
+                .anyMatch(item -> QualificationCheck.SUSPICIOUS.equals(item.target().answer()));
         var requested = plan.profile().runsPerItem();
         return screener ? Math.max(requested, GradingProfile.SCREENER_RUNS) : requested;
     }

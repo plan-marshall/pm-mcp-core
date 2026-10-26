@@ -146,11 +146,21 @@ class JudgeCheckTest {
     @Test
     @DisplayName("an oracle exactly at the baseline plus the margin passes, like the topic bound")
     void equalityPasses() {
+        var scored = new JudgeCheck.ItemScore("judge/right", JudgeCheck.Label.RIGHT, Grade.of(true),
+                Grade.of(false), TokenTotal.measured(100), 10L);
         var checkRecord = new JudgeCheck.Record("a".repeat(64), QualificationFixtures.HARNESS,
                 QualificationFixtures.JUDGE_MODEL, CORPUS, new BigDecimal("60"), BigDecimal.ZERO,
-                new BigDecimal("50"), 0, NOW, List.of());
+                new BigDecimal("50"), 0, NOW, List.of(scored));
 
         assertTrue(JudgeCheck.Verdict.of(checkRecord, "a".repeat(64), CORPUS).passes());
+    }
+
+    @Test
+    @DisplayName("a judge check record without an item is refused")
+    void itemsRequired() {
+        assertThrows(IllegalArgumentException.class, () -> new JudgeCheck.Record("a".repeat(64),
+                QualificationFixtures.HARNESS, QualificationFixtures.JUDGE_MODEL, CORPUS, new BigDecimal("60"),
+                BigDecimal.ZERO, new BigDecimal("50"), 0, NOW, List.of()));
     }
 
     @Test
