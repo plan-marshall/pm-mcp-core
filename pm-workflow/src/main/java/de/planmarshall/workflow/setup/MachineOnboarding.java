@@ -39,7 +39,7 @@ import de.planmarshall.core.store.WorkflowStatus;
  * @since 0.1
  */
 public record MachineOnboarding(boolean firstRunCompleted, String state, List<String> pendingSteps,
-        Set<String> completedSteps) {
+Set<String> completedSteps) {
 
     /** The resting state of the machine unit: the onboarding's first run is complete here. */
     public static final String RESTING_STATE = "onboard.completed";
