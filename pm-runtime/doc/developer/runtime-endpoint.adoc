@@ -29,6 +29,7 @@ Specification: `doc/specification/client-profiles/03-endpoint-harness.adoc`. Des
 The validated values of an endpoint profile: the serving program and its identity probe, the endpoint block with its
 request settings, the model tiers and the weights probe.
 
+[[the-request]]
 `EndpointRequest`::
 Composes the one request of a task: the launch prompt of a `zero_tool` worker as the system message, the task input as
 the user message, the model of the role's effective configuration, streaming explicitly off, the role's result schema as
