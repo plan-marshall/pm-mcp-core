@@ -45,6 +45,10 @@ class OperatorWaitTest {
                     do test.proceed
                         done -> execute.build
                         failed -> handed_back
+                link submit choose [submit] (note: text[1..80])
+                    do test.note
+                        done -> execute.build
+                        failed -> handed_back
 
             state execute.build
                 phase execute
@@ -85,6 +89,12 @@ class OperatorWaitTest {
         var otherState = new EngineEvent.OperatorAct("execute.build", "proceed");
         assertThrows(IllegalArgumentException.class, () -> engine.advance(status, otherState),
                 "only the waiting state accepts its operator's act");
+        var missingParameters = new EngineEvent.OperatorAct("execute.wait", "choose");
+        assertThrows(IllegalArgumentException.class, () -> engine.advance(status, missingParameters),
+                "a link with free parameters needs its submission");
+        var surplusParameters = new EngineEvent.OperatorAct("execute.wait", "proceed", Map.of("note", "go"));
+        assertThrows(IllegalArgumentException.class, () -> engine.advance(status, surplusParameters),
+                "a link without free parameters accepts none");
 
         var acted = assertInstanceOf(EngineStep.Resting.class,
                 engine.advance(status, new EngineEvent.OperatorAct("execute.wait", "proceed")));
@@ -123,14 +133,14 @@ class OperatorWaitTest {
             @Override
             public Record bind(Primitive<?, ?> primitive,
                     WorkflowStatus status) {
-                return new EngineFixtures.NoParams();
+                return bindParameters(primitive, Map.of());
             }
 
             @Override
             public Record bind(Primitive<?, ?> primitive,
                     WorkflowStatus status, Map<String, String> parameters) {
                 seen.add(parameters);
-                return new EngineFixtures.NoParams();
+                return bindParameters(primitive, parameters);
             }
         };
         var engine = new WorkflowEngine(unit, WorkflowCatalog.empty(),
@@ -138,8 +148,15 @@ class OperatorWaitTest {
         var status = assertInstanceOf(EngineStep.Resting.class,
                 engine.start(JournalScopeType.PLAN, "waiting-plan")).status();
 
-        engine.advance(status, new EngineEvent.OperatorAct("execute.wait", "proceed", Map.of("note", "go")));
+        engine.advance(status, new EngineEvent.OperatorAct("execute.wait", "choose", Map.of("note", "go")));
 
         assertEquals(List.of(Map.of("note", "go")), seen);
+        assertEquals(List.of("go"), fixtures.note.notes);
+    }
+
+    private static Record bindParameters(Primitive<?, ?> primitive, Map<String, String> parameters) {
+        return "test.note".equals(primitive.id())
+                ? new EngineFixtures.NoteParams(parameters.getOrDefault("note", ""))
+                : new EngineFixtures.NoParams();
     }
 }

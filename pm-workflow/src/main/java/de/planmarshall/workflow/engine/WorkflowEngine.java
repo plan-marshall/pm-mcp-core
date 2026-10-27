@@ -44,6 +44,7 @@ import de.planmarshall.workflow.ast.CallFrame;
 import de.planmarshall.workflow.ast.LinkAction;
 import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.OutcomeTransition;
+import de.planmarshall.workflow.ast.ParamSpec;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
@@ -182,6 +183,11 @@ public final class WorkflowEngine {
          * @return the parameter record, an instance of {@link Primitive#parameterType()}
          */
         default Record bind(Primitive<?, ?> primitive, WorkflowStatus status, Map<String, String> parameters) {
+            if (!parameters.isEmpty()) {
+                throw new UnsupportedOperationException(
+                        "the binder of '%s' accepts no operator link parameters; install a parameter-aware binder"
+                                .formatted(primitive.id()));
+            }
             return bind(primitive, status);
         }
     }
@@ -529,11 +535,20 @@ public final class WorkflowEngine {
                 () -> fault(Reason.UNRESOLVED_NAME, "the primitive '%s' is not registered", primitiveId));
     }
 
-    /** The link of an operator wait the operator's act names. */
+    /** The link of an operator wait the operator's act names, with its submitted parameters checked against its free parameters. */
     private static LinkSpec linkOf(StateBehavior.InteractiveLinks links, EngineEvent.OperatorAct act) {
-        return links.links().stream().filter(link -> link.idPattern().equals(act.linkId())).findFirst()
+        var link = links.links().stream().filter(candidate -> candidate.idPattern().equals(act.linkId())).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(
                         "the operator wait '%s' offers no link '%s'".formatted(act.stateId(), act.linkId())));
+        if (link.freeParams().isEmpty() && !act.parameters().isEmpty()) {
+            throw new IllegalArgumentException("the link '%s' declares no parameters, but the act submits %s"
+                    .formatted(link.idPattern(), act.parameters().keySet()));
+        }
+        if (!link.freeParams().isEmpty() && act.parameters().isEmpty()) {
+            throw new IllegalArgumentException("the link '%s' requires its free parameters %s".formatted(
+                    link.idPattern(), link.freeParams().stream().map(ParamSpec::name).toList()));
+        }
+        return link;
     }
 
     /** The primitive a link runs; {@code do <primitive_id>} is the only link action. */
