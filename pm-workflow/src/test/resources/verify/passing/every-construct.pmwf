@@ -156,17 +156,13 @@ state verify.consume
 state verify.ask
     phase inherit
     question clarification
-        answered -> verify.entry
-        assumed -> verify.askflow
-    link next skip_wait ()
-        do test.proceed
-            done -> verify.done
+        answered -> verify.askflow
 
 state verify.askflow
     phase inherit
-    question ask
-        answered -> epic.next-work
-        assumed -> verify.skipped
+    question review
+        approve -> epic.next-work
+        revise -> verify.skipped
 
 state epic.next-work
     phase inherit

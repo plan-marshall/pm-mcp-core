@@ -1,0 +1,48 @@
+= ADR 032: Operator links and model links apart
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-27
+
+== Context
+
+Rule 10 used to admit a resting link state only in a session-driven unit and to refuse it in a plan or an epic
+(link:011-rule-10-transitive-callees.adoc[ADR 011]). The target language makes a declared `link`
+clause an operator link in every unit and every scope, and a model acts only through the links of its task entity and
+the implicit worker links
+(link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST
+Verification Rules], Rule 10). A question state declares no link at all.
+
+== Decision
+
+The rule is `OPERATOR_LINKS_APART`. Every unit and scope may declare a resting link state. A worker unit — the unit
+`worker-task` and the entity unit of every registered entity kind — declares no link clause, because its links are
+rendered from the entity kind; a sub-workflow a worker unit reaches by a call declares none either. The
+`QuestionWait` behaviour loses its `links` component, and the parser refuses a `link` clause after a question body with
+`STRUCTURE`.
+
+== Alternatives Considered
+
+Keeping the session-driven restriction was refused: it removes the operator wait from every plan and epic, the scopes
+whose decisions need it. Identifying worker units by the unit type `task` alone was refused: a synthetic task-typed
+sub-workflow that no kind names is not a unit a worker acts in. Keeping question links for the step-out was refused:
+the specification gives the question state no link of its own.
+
+== Consequences
+
+A plan, an epic, a workspace, a machine unit and a sub-workflow may all wait for the operator through declared links. A
+link clause in a worker unit fails verification with the state and the unit. Rule 11b counts a declared link of an
+operator wait as `OPERATOR_ACT`; in a worker unit it counts the link's form and primitive.
+
+== Source
+
+Pull request of the work package `operator-wait-and-machine-scope`; specification
+link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST
+Verification Rules], Rule 10, and
+link:../../../../doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL § Waiting for the
+Operator].

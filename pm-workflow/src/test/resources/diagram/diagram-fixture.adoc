@@ -23,8 +23,8 @@
 |`review`
 |`awaiting_user`
 |`review.entry`, `build.commit`
-|links `skip_wait`; outcomes `answered`, `assumed`
-|`review.entry`, `diagram.done`
+|outcomes `answered`
+|`review.entry`
 |
 |===
 
@@ -64,14 +64,6 @@
 |-
 |-
 |yes
-
-|`review.ask`
-|`next`
-|`skip_wait`
-|`noop`
-|-
-|-
-|no
 |===
 
 .Phase `review`: outcomes
@@ -113,16 +105,6 @@
 |`answered`
 |-
 |`review.entry`
-
-|`review.ask`
-|`assumed`
-|-
-|`diagram.done`
-
-|`review.ask`
-|`done` via `skip_wait`
-|-
-|`diagram.done`
 |===
 
 .Phase `build`: states
@@ -264,7 +246,7 @@
 |`diagram.done`
 |`inherit`
 |`terminal`
-|`build.commit`, `review.ask`
+|`build.commit`
 |reports `done` (`success`)
 |-
 |

@@ -24,7 +24,8 @@ import de.planmarshall.core.store.WorkflowStatus;
  * entities of the state: {@code active_job} and {@code active_jobs} for a job or composite job state,
  * {@code active_tasks} for a task state. An event that does not match the wait is refused, and the status stays as
  * it is ({@link #accepts(EngineEvent)}). A question state waits for the resolution of its record, which the engine
- * reads through the question port; a link state waits for a model's link and accepts no engine event.
+ * reads through the question port; an operator wait (a resting link state) awaits the operator's act and accepts only
+ * an {@link EngineEvent.OperatorAct} for its state, so nothing but an act of the operator ends it.
  *
  * @param stateId      the resting state
  * @param awaitedEvent the event kind the state waits for
@@ -74,6 +75,8 @@ public record RestingWait(String stateId, AwaitedEvent awaitedEvent, Set<String>
             case EngineEvent.TasksSettled(var outcomes, _) ->
                 awaitedEvent == AwaitedEvent.TASK_SETTLED && outcomes.keySet().equals(taskEntities);
             case EngineEvent.QuestionResolved _ -> awaitedEvent == AwaitedEvent.QUESTION_ANSWER;
+            case EngineEvent.OperatorAct(var actedState, _, _) ->
+                awaitedEvent == AwaitedEvent.OPERATOR_ACT && stateId.equals(actedState);
             case EngineEvent.TimeElapsed _ -> awaitedEvent == AwaitedEvent.TIME;
         };
     }

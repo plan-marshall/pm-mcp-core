@@ -83,8 +83,6 @@ class WorkflowStatusSchemaParityTest {
         assertEquals(expected, wireNames());
     }
 
-    @Disabled("the specification added the machine phase; "
-            + "re-enabled by the work package operator-wait-and-machine-scope")
     @Test
     @DisplayName("the phases of the status are the values of the phase enum of the schema")
     void phasesEqualSchema() {
@@ -94,8 +92,6 @@ class WorkflowStatusSchemaParityTest {
         assertEquals(WorkflowStatus.PHASES, expected);
     }
 
-    @Disabled("the specification added the machine scope; "
-            + "re-enabled by the work package operator-wait-and-machine-scope")
     @Test
     @DisplayName("the scope types of the codec are the values of the scope_type enum of the schema")
     void scopeTypesEqualSchema() {

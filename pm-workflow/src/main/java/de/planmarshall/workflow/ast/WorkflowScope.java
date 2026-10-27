@@ -21,6 +21,8 @@ public enum WorkflowScope {
     EPIC,
     /** The workspace. */
     WORKSPACE,
+    /** The one machine scope. */
+    MACHINE,
     /** An entity. */
     ENTITY,
     /** A unit that is called from another unit. */

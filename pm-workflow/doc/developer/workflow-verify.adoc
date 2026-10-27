@@ -7,7 +7,7 @@
 
 Package `de.planmarshall.workflow.verify` implements the static AST verifier and the transition fuzzer for the Workflow Domain-Specific Language (Workflow DSL) of Plan Marshall (PM-IMPL-5, PM-TEST-3).
 The static verifier inspects a parsed `WorkflowDefinition` and its transition graph ahead of execution and reports every violation of the static verification rules it checks.
-A unit has one of the scopes of `WorkflowScope`: `plan`, `epic`, `workspace`, `entity` and `subworkflow`.
+A unit has one of the scopes of `WorkflowScope`: `plan`, `epic`, `workspace`, `machine`, `entity` and `subworkflow`.
 Among the checks are the interface rules and the type check, which compare a unit with the type, the entries and the exits its frontmatter declares (<<interface-rules>>).
 The package also holds the compiled invariants every project-owned unit satisfies and the compiled bounds of the declarations a unit may change (<<_compiled_invariants>>); the loader of the project-owned units in `workflow.unit` runs both.
 
@@ -87,7 +87,7 @@ The cases that need it are the `light` exit of `init.ready` in a `deep` version,
 * `REACHABILITY`: every state is reachable from the start state or from at least one entry-bound state (interface rule 4); the abort terminals `plan.aborted` and `epic.aborted` count as reachable.
 * `ABORT_TERMINAL_TARGETING`: no transition targets `plan.aborted`; `epic.aborted` is targeted only by `abort_landed` of `epic.next-work`, and by at most one transition.
 * `TARGET_NOT_RESERVED`: no transition targets a condition kind or a state id ending in `.blocked`, `.footprint-violation` or `.config-drift`.
-* `EXIT_PATH`: in a `workspace` unit every non-terminal state has a path back to its starting point; in every other unit every state has a path to a terminal state or to an implicit exit (the `step_out` of a link state of a sub-workflow, and the default `lost` route of a `job llm` state that declares no `lost`, only where Rule 2 admits that default: `UnitGraph.hasImplicitExit`, link:../adr/workflow-verify/025-rule-2-lost-in-plan-only-sub-workflows.adoc[ADR 025]).
+* `EXIT_PATH`: in a `workspace` unit every non-terminal state has a path back to its starting point; in a `machine` unit every state has a path back to the resting state `onboard.completed`, which the unit declares; in every other unit every state has a path to a terminal state or to an implicit exit (the `step_out` of a link state of a sub-workflow, and the default `lost` route of a `job llm` state that declares no `lost`, only where Rule 2 admits that default: `UnitGraph.hasImplicitExit`, link:../adr/workflow-verify/025-rule-2-lost-in-plan-only-sub-workflows.adoc[ADR 025]).
 * `LINK_ID_UNIQUE`: the link identifiers of a state are unique, and no declared link repeats an implicit one (`ack`, `consult:<role>`, `answer:<question_id>`, and `step_out` on a link state of a sub-workflow).
 * `INTERFACE_START_OR_ENTRIES`, `INTERFACE_STOP_POINTS_OR_EXITS`, `INTERFACE_EXIT_REACHED`: interface rules 1, 2 and 4 (<<interface-rules>>).
 
@@ -137,16 +137,17 @@ Seams: that the guarded field is a boolean or optional field of the callee's res
 
 Seam (ADR 002): whether a `lost` or `infeasible` route that completes a step `skipped` is the declared conservative route of an optional step; the AST declares neither.
 
-=== Rule 10: Links Only Where a Model Acts
+=== Rule 10: Operator Links and Model Links Apart
 
-* `SESSION_DRIVEN_LINKS`: a `plan` or `epic` unit holds no resting link state and no declared link on a question state, and no sub-workflow it reaches by calls, at any depth, holds one (link:../adr/workflow-verify/011-rule-10-transitive-callees.adoc[ADR 011]).
+* `OPERATOR_LINKS_APART`: a declared `link` clause is an operator link, admitted in every unit and every scope; a worker unit — `worker-task` and the entity unit of every registered entity kind — declares none, because a model acts only through the links of its task entity, and no sub-workflow a worker unit reaches by a call declares one either.
+* A question state declares no link at all; the parser refuses a `link` clause in its body.
 
 === Rule 11: Cycles
 
 `CYCLE_AWAITED_EVENT` (link:../adr/workflow-verify/003-rule-11b-per-link-awaited-event.adoc[ADR 003]):
 
 * *11a*: a cycle of `auto` and `call` states only carries an `auto` primitive whose cycle measure is not `NONE`.
-* *11b*: every other cycle has an edge that awaits an event: any edge out of a `job`, `composite_job` or `job llm` state; the edges of a question state's own resolution outcomes; an edge of a declared link, of a link state or of a question state alike, when the link is a `submit` link or its primitive declares an awaited event; an edge out of an `auto` state whose primitive declares one.
+* *11b*: every other cycle has an edge that awaits an event: any edge out of a `job`, `composite_job` or `job llm` state; the edges of a question state's own resolution outcomes; an edge of a declared link of an operator wait, which awaits `OPERATOR_ACT`; in a worker unit, an edge of a `submit` link or of a link whose primitive declares an awaited event; an edge out of an `auto` state whose primitive declares one.
 
 Seam (link:../adr/workflow-verify/001-static-verifier-remaining-rules.adoc[ADR 001]): the cycles are those of the unit's own transition graph, and a `call` state on a cycle counts as engine-chained and as awaiting no event; the callee is not entered. A measure declared by a state inside the callee does not count for the 11a measure of a cycle through the call, nor does an event a state inside the callee awaits count for 11b. A cycle that lies wholly inside a sub-workflow is judged when that sub-workflow is verified.
 
@@ -221,11 +222,11 @@ Interface rule 2 keeps the terminals and the declared exits in agreement within 
 
 === The Type Rows as Checked
 
-`TYPE_FITS` reads the rows of link:workflow-ast.adoc#unit-types[Workflow AST § Unit Types]: `workflow` with scope `plan` or `epic`, `recipe` and `instance` with scope `plan`, each without entries and exits; `subworkflow` with entries and exits; `system` started (scope `workspace` or `entity`, no entries, no exits) or called (scope `subworkflow`, entries and exits); `task` with scope `subworkflow` or `entity`, no entries and one or more exits.
+`TYPE_FITS` reads the rows of link:workflow-ast.adoc#unit-types[Workflow AST § Unit Types]: `workflow` with scope `plan` or `epic`, `recipe` and `instance` with scope `plan`, each without entries and exits; `subworkflow` with entries and exits; `system` started (scope `workspace`, `machine` or `entity`, no entries, no exits) or called (scope `subworkflow`, entries and exits); `task` with scope `subworkflow` or `entity`, no entries and one or more exits.
 
 The tree marks neither a landing variant nor the adjudication unit, so both exceptions are recognised by name: a landing variant by the id prefix `landing.` (no exit, no terminal, and no `INTERFACE_CALLED_UNIT` violation for its missing exit), the adjudication unit by the id `adjudicate.decisions` (the `subworkflow` without entries).
 
-Not checked, and left in the specification: the row of the machine unit, type `system` with scope `machine`, and the machine unit as a resident unit of rule 2, because the tree has no `machine` scope yet (link:../../../doc/specification/workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL § Machine Scope]); both follow with link:../../../doc/plans/operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`].
+The machine unit is a resident unit: type `system`, scope `machine`, started, no entries and no exits, no terminal, resting in `onboard.completed`; `EXIT_PATH` checks that every state returns to it (link:../../../doc/specification/workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL § Machine Scope]).
 
 == Compiled Invariants
 
@@ -380,4 +381,4 @@ QuestionClassRegistry customQuestions = QuestionClassRegistry.defaults()
 
 * Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-5[PM-WF-5], link:../../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-4[PM-WORK-4], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-1[PM-WF-1], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-25[PM-WF-25], link:../../../../plan-marshall-documentation/doc/requirements/12-testing.adoc#PM-TEST-3[PM-TEST-3]
 * Specification: link:../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules], link:../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Project-Owned Workflow Units & Compiled Invariants], link:../../../doc/specification/workflow-dsl/08-remediation-units.adoc#remediation-invariants[Workflow DSL § Compiled Invariants of Remediation Units]
-* Decisions: `pm-workflow/doc/adr/workflow-verify/` ADRs 001 to 030; the declaration schemas of the axis variants in link:../adr/workflow-verify/028-axis-variant-declarations-as-enum-values.adoc[ADR 028], `INV-INIT-2` per lane in link:../adr/workflow-verify/029-inv-init-2-per-lane-with-a-lane-input.adoc[ADR 029], the lane entry ids in link:../adr/workflow-verify/030-lane-entry-ids-in-one-holder.adoc[ADR 030], the outcomes settled by a prune in link:../adr/workflow-plan/016-pruned-merge-gate-settles-in-the-engine.adoc[ADR workflow-plan 016]; the interface rules and the type check in link:../adr/workflow-verify/026-interface-rules-within-rules-3-and-6.adoc[ADR 026], `INV-GEN-1` over type and interface in link:../adr/workflow-verify/027-inv-gen-1-compares-type-and-interface.adoc[ADR 027]
+* Decisions: `pm-workflow/doc/adr/workflow-verify/` ADRs 001 to 032; the declaration schemas of the axis variants in link:../adr/workflow-verify/028-axis-variant-declarations-as-enum-values.adoc[ADR 028], `INV-INIT-2` per lane in link:../adr/workflow-verify/029-inv-init-2-per-lane-with-a-lane-input.adoc[ADR 029], the lane entry ids in link:../adr/workflow-verify/030-lane-entry-ids-in-one-holder.adoc[ADR 030], the resident machine unit in link:../adr/workflow-verify/031-the-machine-unit-is-resident.adoc[ADR 031], the operator links in link:../adr/workflow-verify/032-operator-links-and-model-links-apart.adoc[ADR 032], the outcomes settled by a prune in link:../adr/workflow-plan/016-pruned-merge-gate-settles-in-the-engine.adoc[ADR workflow-plan 016]; the interface rules and the type check in link:../adr/workflow-verify/026-interface-rules-within-rules-3-and-6.adoc[ADR 026], `INV-GEN-1` over type and interface in link:../adr/workflow-verify/027-inv-gen-1-compares-type-and-interface.adoc[ADR 027]

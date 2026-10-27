@@ -1,0 +1,1 @@
+Decomposed 2026-10-27: 3 staged plans, scope 2. NEXT: run /plan-orchestrator next slug=question-loop-corrections (expect PLAN-01 and PLAN-02, file-disjoint). PLAN-03 waits for PLAN-01 and PLAN-02 and the operator's run budget. A finding asking to hold PLAN-73 (question-continuation) was sent to the inbox of pm-mcp-core-m2-m4 (question-loop-corrections-001).

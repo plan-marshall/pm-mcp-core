@@ -1,0 +1,44 @@
+= ADR 031: The machine unit is resident
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-27
+
+== Context
+
+The machine scope runs the compiled unit `onboarding.pmwf` for as long as the installation lives
+(link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL § Machine Scope]). Unlike a
+plan or an epic it never ends, so it declares no terminal; like the workspace unit it must return from every state to
+its resting state. The verifier's Rule 3 knew only the workspace's back-to-start rule and required a terminal everywhere
+else, and the unit-type table had no row for the `machine` scope.
+
+== Decision
+
+`WorkflowScope` gains `MACHINE`, and the `system` row admits it as a started unit with no entries and no exits. The
+machine unit is exempt from the terminal requirement, and `EXIT_PATH` checks the resident shape instead: the unit
+declares the resting state `onboard.completed`, and every state has a path back to it. `WorkflowEngine.PHASES` maps the
+DSL phase `machine` to the store's `machine`, and `WorkflowStatus.PHASES` carries that value.
+
+== Alternatives Considered
+
+A terminal reached after the onboarding was refused: the machine scope must live on, and a terminal would make the
+scope ended and unaddressable. A separate verifier rule was refused: the resident shape is Rule 3's own graph property,
+as it already is for the workspace unit.
+
+== Consequences
+
+A machine unit that loses `onboard.completed`, or a state that cannot return to it, fails verification with `EXIT_PATH`.
+The resident unit has no exit, so it is never called and no `step_out` applies to it. A later scope with a long-lived
+resident unit follows the same shape.
+
+== Source
+
+Pull request of the work package `operator-wait-and-machine-scope`; specification
+link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL § Machine Scope], item 7 and
+link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST
+Verification Rules], Rule 3.

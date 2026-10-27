@@ -36,7 +36,7 @@ public final class ChangeLedger {
     private final String storePath;
 
     /**
-     * @param scope the plan, epic or workspace scope whose ledger this is
+     * @param scope the plan, epic, workspace or machine scope whose ledger this is
      * @throws IllegalArgumentException if the scope is the lesson store, which has no change ledger
      */
     public ChangeLedger(JournalScope scope) {
@@ -44,6 +44,7 @@ public final class ChangeLedger {
         this.storePath = switch (scope.type()) {
             case PLAN, EPIC -> FILE_NAME;
             case WORKSPACE -> Path.of(WORKSPACE_DIRECTORY, FILE_NAME).toString();
+            case MACHINE -> FILE_NAME;
             case LESSONS -> throw new IllegalArgumentException("The lesson store has no change ledger");
         };
     }
