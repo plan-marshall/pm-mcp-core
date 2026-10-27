@@ -1,0 +1,47 @@
+= ADR 013: A resting link state awaits the operator's act
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-27
+
+== Context
+
+The engine derived the wait of a resting link state as `MODEL_SUBMIT` and accepted no engine event for it
+(link:002-every-wait-is-an-engine-event.adoc[ADR 002]). The target language makes a declared `link` clause an operator
+link in every unit and scope, and an operator wait awaits `OPERATOR_ACT` and nothing else; nothing in it is decided by
+the passing of time
+(link:../../../../doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL § Waiting for the
+Operator], items 2 to 4 and 8).
+
+== Decision
+
+`AwaitedEvent` gains `OPERATOR_ACT` and `WorkflowEngine.awaitedEventOf` maps a resting link state to it. `RestingWait`
+accepts an `EngineEvent.OperatorAct(stateId, linkId)` for its own state and nothing else; a `TimeElapsed` or any other
+engine event offered to an operator wait is refused and the status stays as it is. The state binds no job and opens no
+task, so an operator wait holds no worker and no model slot. `EngineEvent.QuestionResolved` no longer names a deadline.
+
+== Alternatives Considered
+
+Letting every engine event through was refused: it would end an operator wait by time or by a model's event. Keeping
+`MODEL_SUBMIT` was refused: it names the model as the actor of a link only the operator may follow. An operator act
+without an event type was refused: the act is a submission the engine routes like any other, and a second way into the
+engine would be untested.
+
+== Consequences
+
+An operator wait is visible as `waiting_for_operator` and never as stalled; the run state stays in the store across a
+restart. The act names the link the operator followed and runs its primitive; a link with free parameters needs a binder
+that reads the operator's submission, which the runtime supplies where it applies the act. An engine-owned transition
+that ends the scope needs no engine event.
+
+== Source
+
+Pull request of the work package `operator-wait-and-machine-scope`; specification
+link:../../../../doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL § Waiting for the
+Operator] and link:../../../../doc/specification/workflow-dsl/05-primitives.adoc#primitive-spi-contract[Workflow DSL §
+Primitive SPI Contract].

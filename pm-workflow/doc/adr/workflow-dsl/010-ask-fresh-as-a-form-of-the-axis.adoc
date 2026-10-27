@@ -1,4 +1,4 @@
-= ADR 009: `ask fresh` is a form of the asking axis, not a second flag
+= ADR 010: `ask fresh` is a form of the asking axis, not a second flag
 :nofooter:
 
 == Status

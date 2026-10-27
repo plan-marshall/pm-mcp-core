@@ -82,6 +82,12 @@ the positional vocabularies stay usable (`link retry retry [noop]` parses). What
 the identifier length bounds, every verification rule, the merge of a multi-file unit and the refusal of an `instance`
 line in a project unit.
 
+A state whose body starts with `question <class>` routes the class's closed resolution outcomes and declares no `link`
+clause; a link after it is refused `STRUCTURE` ("expected a state but found 'link'"). Every state whose body starts with
+a `link` clause is a resting link state, an operator wait in every unit and every scope
+(link:../../../doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL § Waiting for the Operator]).
+The `scope` keyword admits `plan`, `epic`, `workspace`, `machine`, `entity` and `subworkflow`.
+
 [#instance-header]
 === The Instance Header
 
@@ -325,7 +331,7 @@ decides whether the server may continue the task after its question (`allowsCont
 `ask` link and orders the server never to continue the task, which `workflow.question` decides together with the role's
 bounds and the harness. On a `role each` state both forms are refused by the verifier through the same check. An
 `instance-unit.pmwf`-style fixture with both forms is `dsl/valid/ask-fresh-unit.pmwf`, and the printer writes the form's
-own text (link:../adr/workflow-dsl/009-ask-fresh-as-a-form-of-the-axis.adoc[ADR 009]).
+own text (link:../adr/workflow-dsl/010-ask-fresh-as-a-form-of-the-axis.adoc[ADR 010]).
 
 
 == The Printer and the Round Trip
@@ -419,6 +425,8 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
   as a call value, and nothing else of the grammar changes.
 * link:../adr/workflow-dsl/007-refused-characters-and-frontmatter-bounds.adoc[ADR 007]: the frontmatter refuses format,
   line and paragraph separators, is bounded at 200 lines, and a refusal echoes at most 80 characters.
-* link:../adr/workflow-dsl/009-ask-fresh-as-a-form-of-the-axis.adoc[ADR 009]: the asking axis is one `AskForm` value
+* link:../adr/workflow-dsl/008-required-icon-field.adoc[ADR 008]: every unit declares the required `icon` key.
+* link:../adr/workflow-dsl/009-question-states-declare-no-links.adoc[ADR 009]: a question state declares no `link`
+  clause, and the parser refuses one.
+* link:../adr/workflow-dsl/010-ask-fresh-as-a-form-of-the-axis.adoc[ADR 010]: the asking axis is one `AskForm` value
   (`none`, `ask`, `ask fresh`), and `ask fresh` is refused on a `role each` state exactly as `ask` is.
-

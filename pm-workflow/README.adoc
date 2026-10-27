@@ -56,6 +56,7 @@ The commands for the whole repository are in `CLAUDE.md`.
 * link:doc/developer/workflow-finalize.adoc[Finalize Steps (`workflow.finalize`)]
 * link:doc/developer/workflow-log.adoc[Log Messages (`workflow.log`)]
 * link:doc/developer/workflow-scenario.adoc[Scenario Replay Harness (`workflow.scenario`)]
+* link:doc/developer/workflow-setup.adoc[Setup Gate (`workflow.setup`)]
 * link:doc/developer/workflow-unit.adoc[Workflow Unit Loaders (`workflow.unit`)]
 * link:doc/developer/workflow-verify.adoc[Workflow Verification (`workflow.verify`)]
 
@@ -67,6 +68,7 @@ The commands for the whole repository are in `CLAUDE.md`.
 * link:doc/adr/workflow-engine/[`doc/adr/workflow-engine/`]: the interpreter of the state machine.
 * link:doc/adr/workflow-finalize/[`doc/adr/workflow-finalize/`]: the finalize step descriptor and the pipeline checks.
 * link:doc/adr/workflow-scenario/[`doc/adr/workflow-scenario/`]: the scenario replay harness.
+* link:doc/adr/workflow-setup/[`doc/adr/workflow-setup/`]: the setup gate the machine's onboarding decides.
 * link:doc/adr/workflow-unit/[`doc/adr/workflow-unit/`]: the loaders of the default and the project-owned units.
 * link:doc/adr/workflow-verify/[`doc/adr/workflow-verify/`]: the static verifier, the fuzzer, the compiled invariants and the declaration bounds.
 

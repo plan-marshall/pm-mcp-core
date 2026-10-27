@@ -1,4 +1,4 @@
-= ADR 046: A metrics row names the continuation form its usage belongs to
+= ADR 047: A metrics row names its continuation form
 :nofooter:
 
 == Status
