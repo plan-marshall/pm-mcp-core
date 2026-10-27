@@ -1,0 +1,69 @@
+= ADR 003: A qualification record stores measurements and is decided at every check
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-26
+
+== Context
+
+A qualification record must not carry a pass flag. The operator sets the agreement level and the allowed warm-fresh gap
+in `local-config.json`, and a changed level has to apply to a record that already exists without a second grading. The
+store schema (`store-schemas/16#qualification-record`) therefore holds measurements only: per form and per topic the
+agreement and the item count, per form the tokens and the time, the warm-fresh gap, and every item's answer, score,
+tokens and time.
+
+Two properties are not members of the schema but follow from the specification: a topic qualifies only when its
+agreement also exceeds its *constant baseline* by the compiled margin `10`, and the screener's *catch rate* over its
+suspicious items must reach the agreement level. The baseline can be recomputed from the recorded items and their
+references; the catch rate can be recomputed from the recorded answers, because the record keeps every run of an item
+with its answer.
+
+== Decision
+
+`QualificationCheck` decides, on each call, which form the record qualifies:
+
+* the digest must equal the role's current qualification digest, the corpus revision the shipped one, and the record
+  must have no ungraded item;
+* the record must hold a result for every topic the role's corpus defines (`RoleTopics`: `own` and `generic` for a
+  writer or read-only role, `own` alone for a `zero_tool` role);
+* every topic's agreement must reach the project's current `agreement_level` and exceed the topic's recorded
+  `constant_baseline` by the compiled `10`; a baseline whose sum with the margin exceeds `100` names the topic too
+  uniform and invalidates it;
+* the warm form qualifies only when its topics meet the same bounds and the recorded warm-fresh gap is at most the
+  project's current `allowed_gap`; otherwise a warm artifact is run fresh (`form_downgraded`);
+* the screener's catch rate — the share of the recorded runs of its `suspicious`-referenced items answered
+  `suspicious` — must reach the agreement level. It is computed from the record's item answers and the corpus items at
+  every check, so a changed level applies to it too and no schema member is needed.
+
+The levels are read from `QualificationSettingsStore` at every lookup (`RecordedQualification`), never cached.
+
+== Alternatives Considered
+
+* *Store a pass flag and the pass-time levels.* Refused: the schema is closed, and the specification requires that a
+  changed level apply to existing records at once.
+* *Add a `catch_rate` member to the record.* Refused: the record schema is owned by the store specification and holds
+  no such member. The recorded answers already determine the rate, and deriving it keeps the measurements authoritative.
+* *Use the pooled agreement across topics.* Refused: the specification says a topic reaches the level on its own items
+  only, and the generic items never cover the role's own items.
+
+== Consequences
+
+* The lookup must be given the effective corpus and the role's topic set; both are cheap reads of the shipped corpus.
+* A record with every item ungraded cannot satisfy the schema's one-topic-with-one-item minimum. A grading whose whole
+  form is ungraded is refused `no_graded_items` instead of writing a record the schema cannot hold (see
+  `PM-WATCH-DISP-58`, still open for the item score of a task that ends without an answer).
+* A changed margin or level needs no re-grading, only the next check.
+
+== Source
+
+Work package `role-qualification`
+(link:https://github.com/plan-marshall/pm-mcp-core/blob/9ef3e7e8/doc/plans/role-qualification.adoc[package file at the
+base commit]), specification
+`doc/specification/model-work/01-roles-and-configuration.adoc` § Qualification Records, § Constant Baseline and
+§ Corpus Topics of a Role, `doc/specification/store-schemas/16-task-queue.adoc#qualification-record` and
+`doc/specification/store-schemas/08-project-configuration-local.adoc#local-config`.

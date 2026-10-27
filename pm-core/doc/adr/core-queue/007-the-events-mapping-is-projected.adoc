@@ -1,0 +1,55 @@
+= ADR 007: The Events Mapping Is Projected, Not Read at the Stream
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-26
+
+== Context
+
+Store Schemas § Activity Journal and Client Profiles § What a Worker Does require the runtime to map each line of a
+worker's output stream through the `headless.events` pointers of the harness's client profile. The profile is a closed
+document owned by `core.profile`; the runtime reads a worker's stream while the worker runs, on the hot path of every
+line. Reading the profile document there would put the document's shape, its version and its validation into the stream
+reader, and the profile verification would read the mapping a second way.
+
+== Decision
+
+`core.queue.ActivityEventMapping` is the one projection of the `headless.events` block: `of(JsonNode)` reads the kind
+pointer and the pointers of each of the five harness kinds. `HeadlessBlock.of` projects it once when a role's launch is
+composed, beside the usage pointers. The runtime maps a line through `ActivityEventMapper`, which reads only the
+projected pointers, and the profile verification maps a recorded output through the same mapper
+(`HarnessEventVerification`). No other code reads `headless.events`.
+
+A line whose kind pointer names no mapped kind, that is not a JSON object, or whose kind's required field is absent or
+of the wrong JSON type matches no mapping and is counted. A mapped line is mapped whole: no half entry reaches the
+journal.
+
+== Alternatives Considered
+
+1. *Read the profile document in the stream reader.*
+   _Rejected_: it repeats the document's shape and its validation in a second consumer, and it makes the stream reader
+   depend on a profile version it does not own.
+2. *A second closed enum for the activity kinds.*
+   _Rejected_: `ActivityEntry.Kind` is already the closed list of the schema; a second enum would diverge.
+3. *Validate the events block in the projection again.*
+   _Rejected_: `ProfileValidator` checks the shape at load; the projection refuses a document it did not admit, and the
+   verification stage catches a mapping that does not resolve.
+
+== Consequences
+
+* The stream reader is a pure function of the line and the projection.
+* A profile with a wrong pointer is refused by `ProfileValidator` before any worker starts; a mapping that resolves to
+  nothing is reported `missing` by the `events` stage.
+* `HeadlessBlock` now carries two more members, the usage pointers and the events mapping, which every launch path
+  projects once.
+
+== Source
+
+Work package `worker-activity`; link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#worker-activity[Client
+Profiles § What a Worker Does], link:../../../../doc/specification/model-work/04-worker-launch.adoc#worker-output[Model
+Work § Output Read While the Worker Runs].

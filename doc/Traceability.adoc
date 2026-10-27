@@ -928,6 +928,21 @@ Documentation: link:../pm-runtime/doc/developer/runtime-credentials.adoc[Develop
 
 == link:../../plan-marshall-documentation/doc/requirements/08-security.adoc[Security]
 
+[#PM-SEC-1]
+=== PM-SEC-1: Two-Boundary Security Model & Untrusted Content Containment
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1]
+
+Implementation (the activity journal's share of the containment: every text and target is redacted at the journal's
+write boundary, and the activity is served as plain entries that no model reads as instructions): link:../pm-core/src/main/java/de/planmarshall/core/queue/SecretRedactor.java[SecretRedactor],
+link:../pm-core/src/main/java/de/planmarshall/core/queue/ActivityJournal.java[ActivityJournal],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/web/ActivityService.java[ActivityService]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/queue/SecretRedactorTest.java[SecretRedactorTest] (a credential-shaped assignment, a bearer value and a provider token masked; prose, a path and a commit id kept)
+
+Documentation: link:../pm-core/doc/developer/core-queue.adoc[Task Queue Developer Guide] (§ Invariants and failure modes),
+link:../pm-core/doc/adr/core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR core-queue/008]
+
 [#PM-SEC-2]
 === PM-SEC-2: Workspace Confinement & Path Traversal Prevention
 
@@ -1253,6 +1268,17 @@ link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-5[PM-TEST-5
 Verified by (the verify-not-resolve pipeline: a job's working directory outside the tree, through a symbolic link escape, or by `..` refused with `path_traversal_rejected`; a tampered build wrapper or pinned file, an un-enrolled or changed host tool, and unapproved arguments refused, each with its positive control; a tampered enrolment file refused with `enrolment_tampered`; the refusal as the job outcome `refused`, the other project's jobs, and the other vectors are not implemented yet): link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/VerifyNotResolveAdversarialTest.java[VerifyNotResolveAdversarialTest]
 
 Documentation: link:../pm-runtime/doc/developer/runtime-job.adoc[Developer Guide § Job Verification (`runtime.job`)]
+
+[#PM-TEST-6]
+=== PM-TEST-6: Model Verification Corpus & Qualification Fixtures
+
+link:../../plan-marshall-documentation/doc/requirements/12-testing.adoc#PM-TEST-6[PM-TEST-6]
+
+Implementation: link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/RoleTopics.java[RoleTopics] (the topics of a role from the items' `role` field: the own and generic items, only `draft` and `confirmed` ones, and the `judge/` topic grades no role), link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/ConstantBaseline.java[ConstantBaseline], link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/Scoring.java[Scoring], link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/JudgeCheck.java[JudgeCheck]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/RoleTopicsTest.java[RoleTopicsTest], link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/ConstantBaselineTest.java[ConstantBaselineTest] (the constant answerer, the matched control, the too-uniform topic), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/ScoringTest.java[ScoringTest], link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/RoleGraderTest.java[RoleGraderTest] (a fixture corpus with a scripted harness and judge; the screener's five runs per item)
+
+Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Developer Guide] (§ Role Qualification)
 
 == link:../../plan-marshall-documentation/doc/requirements/13-client-profiles.adoc[Client Profiles]
 
@@ -1867,7 +1893,7 @@ link:../pm-workflow/doc/adr/workflow-consult/004-the-consultation-task-refuses-t
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6]
 
-Implementation (in part: the corpus sources, the import of their items fetched at the pinned commits with its result, the group and the contamination note an overlay row gives its items literally, and the validation of the corpus in Java; the grading, the qualification records and their invalidation, the fallback of unqualified roles, the calibration, and the validation of the corpus in the build of the release are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/CorpusImport.java[CorpusImport],
+Implementation (in part: the corpus sources, the import of their items fetched at the pinned commits with its result, the group and the contamination note an overlay row gives its items literally, and the validation of the corpus in Java; the calibration and the validation of the corpus in the build of the release are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/CorpusImport.java[CorpusImport],
 link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/ImportResult.java[ImportResult],
 link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/CorpusValidator.java[CorpusValidator],
 link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/SourceManifest.java[SourceManifest],
@@ -1889,3 +1915,78 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/corpus/HuggingFaceSourc
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/corpus/LfsBatchClientTest.java[LfsBatchClientTest] (the LFS download against a mock web server)
 
 Documentation: link:../pm-core/doc/developer/core-role-corpus.adoc[Corpus Sources Developer Guide] (§ Formats, § Fetch and Import, § Testing for the group and the contamination note), link:../pm-core/doc/adr/core-role-corpus/007-group-and-contamination-written-literally.adoc[ADR 007 of `core.role.corpus`], link:../pm-providers/pm-provider-git/doc/developer/provider-git.adoc[Cache Repository Operations Developer Guide], link:../pm-runtime/doc/developer/runtime-corpus.adoc[Corpus Source Fetch Developer Guide]
+
+The role qualification (the grading of a role's configuration, the record, its invalidation, the constant baseline, the judge instrument check and the conservative fallback of an unqualified role):
+
+Implementation: link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/QualificationRecord.java[QualificationRecord],
+link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/QualificationRecordCodec.java[QualificationRecordCodec],
+link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/QualificationRecordStore.java[QualificationRecordStore],
+link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/QualificationCheck.java[QualificationCheck],
+link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/RoleTopics.java[RoleTopics],
+link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/ConstantBaseline.java[ConstantBaseline],
+link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/Scoring.java[Scoring],
+link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/JudgeCheck.java[JudgeCheck],
+link:../pm-core/src/main/java/de/planmarshall/core/role/qualification/JudgeInstrumentCheck.java[JudgeInstrumentCheck],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/RoleGrader.java[RoleGrader],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/RecordedQualification.java[RecordedQualification]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationCheckTest.java[QualificationCheckTest] (a record whose `generic` topic reaches the level and whose `own` topic does not is not valid, and neither is the reverse; a record without a topic of the corpus is not valid; every topic at the level is valid; the level is read at every check; the warm downgrade), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/ConstantBaselineTest.java[ConstantBaselineTest] (eight of ten equal references at 80 percent at an 80 percent level do not qualify, the matched control nine of ten does, ten equal references are too uniform), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/RoleTopicsTest.java[RoleTopicsTest] (the topics by the items' `role` field, the review statuses, the zero-tool and judgment roles), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/ScoringTest.java[ScoringTest], link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/JudgeCheckTest.java[JudgeCheckTest] (the oracle and blind accuracies, the lost judge task, the stale record), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationRecordCodecTest.java[QualificationRecordCodecTest], link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationRecordStoreTest.java[QualificationRecordStoreTest], link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/RoleGraderTest.java[RoleGraderTest] (a complete corpus writes the record with its tokens, a failed import writes no valid record, a partial one names its missed sources, the judge refusals, the screener's five runs and its catch rate, the checkout at the origin commit and `current` when the commit is missing, the re-grading of only the ungraded items), link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/RecordedQualificationTest.java[RecordedQualificationTest] (a changed level applies to an existing record, the warm downgrade, a stale digest), link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/ModelCallerTest.java[ModelCallerTest] (an unqualified role closes `role_unqualified` and the judge and the steward skip Qualify)
+
+Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Developer Guide] (§ Role Qualification), link:../pm-workflow/doc/developer/workflow-model.adoc[The One Model Caller Developer Guide] (§ The Grading Run and the Qualification Lookup), link:../pm-core/doc/adr/core-role/003-qualification-measurements-decided-at-every-check.adoc[ADR core-role/003], link:../pm-core/doc/adr/core-role/004-grading-through-ports-not-a-worker-runtime.adoc[ADR core-role/004], link:../pm-workflow/doc/adr/workflow-model/002-the-grading-run-in-workflow-model.adoc[ADR workflow-model/002]
+[#PM-WORK-7]
+=== PM-WORK-7: Worker Activity & Off-Track Signals
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-7[PM-WORK-7]
+
+Implementation (the mapping of a worker's output line onto the closed activity kinds through the profile's
+`headless.events`, the reading of a running worker's job log line by line, the activity journal's mask and its archive
+and delete surfaces, the four activity signals with their thresholds and actions, the `agent_started` journal entry, the
+activity page and pull stream, the `events` stage of the profile verification, and the navigation figures with the skill
+residency; the assembly's HTTP routes and the production supervision loop that drives the pump are `pm-mcp-server`'s):
+link:../pm-core/src/main/java/de/planmarshall/core/queue/ActivityEventMapping.java[ActivityEventMapping],
+link:../pm-core/src/main/java/de/planmarshall/core/queue/SecretRedactor.java[SecretRedactor],
+link:../pm-core/src/main/java/de/planmarshall/core/queue/ActivityJournal.java[ActivityJournal],
+link:../pm-core/src/main/java/de/planmarshall/core/queue/NavigationFigures.java[NavigationFigures],
+link:../pm-core/src/main/java/de/planmarshall/core/queue/Figure.java[Figure],
+link:../pm-core/src/main/java/de/planmarshall/core/queue/SkillResidency.java[SkillResidency],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/ActivityEventMapper.java[ActivityEventMapper],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerActivityPump.java[WorkerActivityPump],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/ActivityRecorder.java[ActivityRecorder],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/OffTrackDetector.java[OffTrackDetector],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerTaskActivity.java[WorkerTaskActivity],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/web/ActivityService.java[ActivityService],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEventVerification.java[HarnessEventVerification]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/queue/ActivityEventMappingTest.java[ActivityEventMappingTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/ActivityEventMapperTest.java[ActivityEventMapperTest]
+(a recorded output of the harness written for the test, an unmatched line counted and not shown, and no tool result's
+content or whole argument list kept),
+link:../pm-core/src/test/java/de/planmarshall/core/queue/SecretRedactorTest.java[SecretRedactorTest],
+link:../pm-core/src/test/java/de/planmarshall/core/queue/ActivityJournalMaskingTest.java[ActivityJournalMaskingTest]
+(the journal masked, bounded and archived with its plan and deleted with it),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerActivityPumpTest.java[WorkerActivityPumpTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/ActivityRecorderTest.java[ActivityRecorderTest]
+(the stream read while the worker runs, one action per attempt),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/OffTrackDetectorTest.java[OffTrackDetectorTest]
+(each signal at its threshold and not below it, a lowered threshold applied and a raised one refused),
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolReOfferTest.java[TaskProtocolReOfferTest]
+(the `agent_started` journal entry and the off-track signal entry),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/web/ActivityServiceTest.java[ActivityServiceTest]
+(a page from a cursor and a live stream),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessEventVerificationTest.java[HarnessEventVerificationTest]
+(each kind `reported` or `missing`, and a mapping that does not resolve failing the stage),
+link:../pm-core/src/test/java/de/planmarshall/core/queue/NavigationFiguresTest.java[NavigationFiguresTest]
+(each figure with its population or sentinel, a partial read never a fallback, and the residency per skill)
+
+Documentation: link:../pm-core/doc/developer/core-queue.adoc[Task Queue Developer Guide],
+link:../pm-runtime/doc/developer/runtime-worker.adoc[Worker Supervision Developer Guide] (§ Activity, the Signals and the
+Navigation Figures), link:../pm-runtime/doc/developer/runtime-web.adoc[Web Access Developer Guide] (§ The Activity
+Service), link:../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide] (§ The Activity Projection
+and Its Verification),
+link:../pm-core/doc/adr/core-queue/007-the-events-mapping-is-projected.adoc[ADR core-queue/007],
+link:../pm-core/doc/adr/core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR core-queue/008],
+link:../pm-core/doc/adr/core-queue/009-a-navigation-figure-carries-its-population.adoc[ADR core-queue/009],
+link:../pm-runtime/doc/adr/runtime-worker/010-the-activity-recorder-evaluates-signals-at-the-entry.adoc[ADR runtime-worker/010],
+link:../pm-runtime/doc/adr/runtime-worker/011-the-stream-reader-is-a-pump-over-the-job-log.adoc[ADR runtime-worker/011],
+link:../pm-runtime/doc/adr/runtime-launch/006-the-events-stage-maps-a-recorded-output.adoc[ADR runtime-launch/006],
+link:../pm-runtime/doc/adr/runtime-web/001-activity-is-served-from-a-cursor-and-a-pull-stream.adoc[ADR runtime-web/001]

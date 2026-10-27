@@ -131,6 +131,11 @@ class HarnessStartSpacingTest {
         }
 
         @Override
+        public void offTrack(OffTrackReport report) {
+            // spacing raises no activity signal
+        }
+
+        @Override
         public void closeUnavailable(String role, String harness) {
             // the guard's hold is another step's contract
         }

@@ -21,7 +21,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.function.IntFunction;
 import java.util.regex.Pattern;
 
@@ -166,8 +168,26 @@ public final class ActivityJournal {
      * @throws java.io.UncheckedIOException if the journal cannot be read or written
      */
     public void appendNext(String queueTaskId, IntFunction<ActivityEntry> entry) {
+        appendNext(queueTaskId, entry, entries -> {
+        });
+    }
+
+    /**
+     * Appends one entry whose sequence the journal assigns under its leaf lock and hands the attempt's entries, the new
+     * one included, to an observer inside that lock — the transaction that appends the entry, where Model Work § A
+     * Worker Off Track evaluates the off-track signals. The observer runs before the write: a throwing observer writes
+     * nothing.
+     *
+     * @param queueTaskId the task whose journal receives the entry
+     * @param entry       builds the entry from its assigned sequence
+     * @param observer    reads the entries of the journal as they stand with the new one
+     * @throws java.io.UncheckedIOException if the journal cannot be read or written
+     */
+    public void appendNext(String queueTaskId, IntFunction<ActivityEntry> entry,
+            Consumer<List<ActivityEntry>> observer) {
         var file = journalPath(queueTaskId);
         Objects.requireNonNull(entry, ENTRY_LABEL);
+        Objects.requireNonNull(observer, "observer");
         try {
             Files.createDirectories(file.getParent());
         } catch (IOException e) {
@@ -183,9 +203,12 @@ public final class ActivityJournal {
                 throw new IllegalArgumentException(
                         "The next entry of the journal has the seq %d, not %d".formatted(expected, built.seq()));
             }
-            truncateTornTail(file);
+            built = SecretRedactor.redact(built);
+            built = fit(built);
             var entries = new ArrayList<>(current);
             entries.add(built);
+            observer.accept(List.copyOf(entries));
+            truncateTornTail(file);
             if (entries.size() > maxEntries) {
                 rewrite(file, compact(entries));
             } else {
@@ -219,6 +242,78 @@ public final class ActivityJournal {
         } catch (IOException e) {
             throw new UncheckedIOException("Activity journal cannot be read: " + file, e);
         }
+    }
+
+    /**
+     * Copies one task's journal into the archive of a plan, so the activity is kept with the plan it belongs to
+     * (Store Schemas § Activity Journal: kept with the plan).
+     *
+     * @param queueTaskId     the task whose journal is archived
+     * @param targetDirectory the directory that receives the journal
+     * @return the archived file, or empty when the task has no journal
+     * @throws java.io.UncheckedIOException if the copy fails
+     */
+    public Optional<Path> archiveInto(String queueTaskId, Path targetDirectory) {
+        var file = journalPath(queueTaskId);
+        if (!Files.exists(file)) {
+            return Optional.empty();
+        }
+        var target = Objects.requireNonNull(targetDirectory, "targetDirectory")
+                .toAbsolutePath().normalize().resolve(file.getFileName());
+        var key = new LockKey(LockLevel.LEAF, lockFile(file), queueTaskId);
+        try (var transaction = lockManager.openTransaction()) {
+            transaction.acquire(key);
+            Files.createDirectories(target.getParent());
+            Files.copy(file, target, StandardCopyOption.REPLACE_EXISTING);
+            return Optional.of(target);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Activity journal cannot be archived: " + file, e);
+        }
+    }
+
+    /**
+     * Deletes one task's journal and its lock with the plan it belongs to.
+     *
+     * @param queueTaskId the task whose journal is deleted
+     * @throws java.io.UncheckedIOException if a file exists and cannot be deleted
+     */
+    public void delete(String queueTaskId) {
+        var file = journalPath(queueTaskId);
+        if (!Files.exists(file) && !Files.exists(lockFile(file))) {
+            return;
+        }
+        var key = new LockKey(LockLevel.LEAF, lockFile(file), queueTaskId);
+        try (var transaction = lockManager.openTransaction()) {
+            transaction.acquire(key);
+            Files.deleteIfExists(file);
+            Files.deleteIfExists(lockFile(file));
+        } catch (IOException e) {
+            throw new UncheckedIOException("Activity journal cannot be deleted: " + file, e);
+        }
+    }
+
+    /**
+     * Refits an entry after redaction, which can lengthen a value ({@code [redacted]} is longer than a four-character
+     * secret). The bound is the entry's own: a text entry is cut to the compiled bound and marked truncated, and a tool
+     * or link target is cut to its maximum. Without this a masked line at the bound would be refused by the entry's
+     * constructor and wedge the writer.
+     */
+    private static ActivityEntry fit(ActivityEntry entry) {
+        var fitted = entry;
+        if (entry.text() != null && entry.text().codePointCount(0, entry.text().length())
+                > ActivityEntry.TEXT_BOUND) {
+            fitted = fitted.withText(entry.text().substring(0,
+                    entry.text().offsetByCodePoints(0, ActivityEntry.TEXT_BOUND))).withTruncated(true);
+        }
+        if (entry.tool() != null && entry.tool().target() != null && entry.tool().target().length() > 1000) {
+            fitted = fitted.withTool(new ActivityEntry.Tool(entry.tool().name(),
+                    entry.tool().target().substring(0, 1000)));
+        }
+        if (entry.link() != null && entry.link().target() != null && entry.link().target().length() > 128) {
+            fitted = fitted.withLink(new ActivityEntry.Link(entry.link().rel(),
+                    entry.link().target().substring(0, 128)));
+        }
+        return fitted;
     }
 
     private static List<ActivityEntry> read(Path file) throws IOException {

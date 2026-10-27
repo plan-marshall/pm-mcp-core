@@ -1,0 +1,56 @@
+= ADR 010: The Activity Recorder Evaluates the Signals at the Entry
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-26
+
+== Context
+
+Model Work § A Worker Off Track requires the four activity signals to be evaluated at every activity entry, in the
+transaction that appends it, and each signal to hold at most once per attempt and plan task. The journal appends under its
+own leaf lock, outside the queue's transaction (ADR `core-queue/006`), and the task protocol records a signal under the
+queue lock. The runtime must compute the signals; the workflow's task protocol owns the record and the action.
+
+== Decision
+
+`ActivityRecorder` is the harness-side write path into the journal of the task's scope: the journal hands it the
+attempt's entries, the new one included, inside its own leaf-lock transaction and the recorder asks `OffTrackDetector`
+for the signals that hold there; the signals are
+reported to the `WorkerProtocol` boundary after the lock is released, because the protocol takes the queue lock and the
+two locks are never nested. The protocol stays the owner of the queue record's `signals[]`, the journal's `signal`
+entry, the action and the re-offer. The recorder keeps the signals it reported per task and attempt, so a second entry
+of the same attempt does not report the same signal again; the protocol's own once-per-attempt check is the second
+guard. A throwing evaluation writes no entry.
+
+An unmeasurable signal is not evaluated: `over_size` without a predicted cost, and `outside_footprint` outside an
+envelope task, both come from `WorkerTaskActivity` as absent, never as a fabricated zero.
+
+== Alternatives Considered
+
+1. *Evaluate inside `TaskProtocol`.*
+   _Rejected_: the detector is runtime code and the protocol lives in `pm-workflow`, which the runtime may not reference;
+   the boundary already carries the protocol's reports.
+2. *Evaluate in the task protocol's off-track call alone.*
+   _Rejected_: the call happens after the entry is written and after the lock is released; the specification places the
+   evaluation at the entry.
+3. *A background evaluator over the journal.*
+   _Rejected_: it would see an attempt after it ended and could take an action on the next attempt.
+
+== Consequences
+
+* The two locks are not nested: the journal lock is released before the protocol takes the queue lock.
+* A signal is reported once per attempt even if two entries arrive concurrently.
+* The plan task's figures (`predicted_cost_tokens`, unplanned changes) arrive through `WorkerTaskActivity`, which the
+  assembly adapts; the runtime reads no queue record or envelope.
+
+== Source
+
+Work package `worker-activity`; link:../../../../doc/specification/model-work/03-supervision-and-recycling.adoc#worker-off-track[Model
+Work § A Worker Off Track], link:../../../../doc/specification/model-work/04-worker-launch.adoc#worker-output[Model Work
+§ Output Read While the Worker Runs], link:../../../../pm-core/doc/adr/core-queue/006-the-journal-lock-is-a-sibling-file.adoc[core-queue
+ADR 006].

@@ -17,28 +17,6 @@ specification. Item format and lifecycle: link:../ImplementationWatch.adoc[Imple
 
 == Roles, Composition & Qualification
 
-[#PM-WATCH-DISP-48]
-=== PM-WATCH-DISP-48: A qualification record follows the graded members only
-
-Anchor:: link:../specification/model-work/01-roles-and-configuration.adoc#qualification-records[Model Work § Qualification Records],
-link:../specification/model-work/01-roles-and-configuration.adoc#default-roles[§ Default Role Set],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6]
-Hazard:: A record bound to the full artifact digest is invalidated by an edit that changes nothing the grading
-measured (the worker count, the recycling bounds), so the role falls to its conservative fallback for no reason;
-a record bound to too few members stays valid after the model or a skill changed; a role with no passing candidate
-either blocks the release or ships as if it were qualified.
-Guard:: Table test over artifact edits: a change of `count`, `recycling`, `budget_floor_seconds`,
-`context_budget_tokens`, or `form` changes the configuration digest and keeps the record valid; a change of
-`description` changes neither digest; a change of `harness`, the harness major.minor, `model`, `effort`, `tools`, `class`, or a skill digest changes the
-qualification digest and invalidates it, and the role reports unqualified until graded again. A shipped role whose
-candidates all fall below the level ships pinned to its best-measured candidate (the lower cost breaking a tie),
-unqualified, with its record, and the setup run grades it on the machine; the setup run grades only roles without a
-valid record for their qualification digest. A quorum calibration record binds the listed roles' qualification
-digests. Per-topic validity: a record whose `generic` topic reaches the level and whose `own` topic does not is not
-valid, and neither is the reverse; matched control: a record whose every topic reaches the level is valid; a role
-without items of its own is valid on the `generic` topic alone.
-Source:: design review.
-
 [#PM-WATCH-DISP-49]
 === PM-WATCH-DISP-49: A role whose class does not fit its use never runs
 
@@ -939,45 +917,18 @@ Guard:: Static check over the compiled `epic.pmwf` and every project-owned epic 
 (they do not start) and the epic continues with the next work; matched control: a `submitted` task commits the ledger.
 Source:: design review.
 
-[#PM-WATCH-DISP-64]
-=== PM-WATCH-DISP-64: An agreement counts only above what a constant answer reaches
-
-Anchor:: link:../specification/model-work/01-roles-and-configuration.adoc#constant-baseline[Model Work § Constant Baseline]
-Hazard:: The constant baseline is computed over every item of the topic instead of the graded ones, or rubric items
-are counted as agreeing with the constant answer, so the baseline is understated; or the operator's agreement level
-replaces the margin, so a topic whose references are 85 % one option qualifies a configuration that always answers it.
-Guard:: Fixture topic of ten `exact_choice` items, eight with the same reference: a scripted configuration that always
-answers that option reaches 80 % agreement at an 80 % level and does not qualify; matched control: a configuration that
-answers nine of ten right qualifies; a topic of ten equal references is reported too uniform; a quorum declaration
-that always agrees on the most frequent target escalates `calibration_failed`.
-Source:: Article analysis `agentic-graph-engineering` of plan-marshall-documentation.
-
-[#PM-WATCH-DISP-65]
-=== PM-WATCH-DISP-65: The judge is checked as an instrument before it grades
-
-Anchor:: link:../specification/model-work/01-roles-and-configuration.adoc#judge-instrument-check[Model Work § Judge Instrument Check]
-Hazard:: The blind run reuses the oracle prompt with the reference still in its facts, so blind and oracle agree and
-the check measures nothing; or a check with unscored answers is taken as passed; or a changed judge configuration
-keeps the old check record.
-Guard:: Fixture judge topic with a scripted judge: a judge that scores every answer `1` fails (oracle at the baseline),
-a judge that scores right without the reference as well as with it fails (blind within the margin), and a judge that
-follows the reference passes; the blind task's input is asserted to carry no reference; a lost judge task refuses the
-grading `judge_unchecked`; a changed judge model leaves no valid record.
-Source:: Article analysis `agentic-graph-engineering` of plan-marshall-documentation (the article's 7B judge scored 0.57 against a 0.51 constant baseline and was rejected; the 14B model
-scored 0.875 against 0.53).
-
 [#PM-WATCH-DISP-66]
-=== PM-WATCH-DISP-66: An exported item and its grading see only what was knowable at the decision
+=== PM-WATCH-DISP-66: An exported item sees only what was knowable at the decision
 
 Anchor:: link:../specification/model-work/11-decision-records.adoc#corpus-export[Model Work § Corpus Export]
-Hazard:: The export quotes the current version of a store record or file named as evidence, or grading runs an item
-mined from the project in today's checkout, so the item carries the fix made after the decision and its reference
-answer is visible in its input.
+Hazard:: The export quotes the current version of a store record or file named as evidence, so the item carries the fix
+made after the decision and its reference answer is visible in its input.
 Guard:: Scenario: a decision whose evidence finding was resolved and whose file was changed after the decision exports
 the finding's version before the decision and the file at the record's `head_sha`; a missing old version is tagged
-`evidence-incomplete`, never replaced; grading of that item runs in a worktree at its origin commit, and an item
-whose commit is missing records `checkout: current`.
-Source:: Article analysis `agentic-graph-engineering` of plan-marshall-documentation.
+`evidence-incomplete`, never replaced.
+Source:: Article analysis `agentic-graph-engineering` of plan-marshall-documentation. The grading half (an item of the
+project's repository graded at its origin commit, `checkout: current` when the commit is missing) landed with the
+`role-qualification` package; the export half stays with `decision-quorum-and-calibration`.
 
 [#PM-WATCH-DISP-67]
 === PM-WATCH-DISP-67: Two routes to one model are one voter

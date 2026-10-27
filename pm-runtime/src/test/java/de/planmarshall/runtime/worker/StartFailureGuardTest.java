@@ -316,6 +316,11 @@ class StartFailureGuardTest {
         }
 
         @Override
+        public void offTrack(OffTrackReport report) {
+            // the guard raises no activity signal
+        }
+
+        @Override
         public void closeUnavailable(String role, String harness) {
             closed.add(role + "/" + harness);
         }

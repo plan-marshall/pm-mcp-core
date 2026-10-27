@@ -360,6 +360,11 @@ final class SupervisorTestFixture {
         }
 
         @Override
+        public void offTrack(OffTrackReport report) {
+            order.add("off_track");
+        }
+
+        @Override
         public void closeUnavailable(String role, String harness) {
             closedUnavailable.add(role + "/" + harness);
         }

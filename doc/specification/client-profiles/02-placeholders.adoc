@@ -74,6 +74,27 @@ Vocabulary skill templates (`SKILL.md`), the launch prompts of workers, and the 
 
 `{{tool:ask_user}}` names the harness's own tool that asks a human. It is rendered only where a skill tells a worker not to use it: a worker asks only through its task's `ask` links, the server delivers the decision to the operator's clients (link:../model-work/06-envelopes-questions-deadlines.adoc#question-delivery[Model Work Specification, Delivery to the Operator]), and the tool is never in a worker's tool set (`tool_not_permitted`, link:../model-work/01-roles-and-configuration.adoc#role-validation[Model Work Specification, Role Validation]).
 
+[[ask-user-withheld]]Whether the harness keeps its own question tool from a headless worker was measured at smoke scale (link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#results[Evaluation Reference], Q2; link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#host-values[Hosts as Relay Starters and Workers]):
+
+[cols="1,4"]
+|===
+|Profile |Own question tool in a worker
+
+|`claude`
+|`AskUserQuestion` is withheld by `--disallowedTools AskUserQuestion`.
+
+|`opencode`
+|`question` is withheld by the worker's agent, which denies every tool it does not name (`"*": false`); measured on OpenCode 2.1.x.
+
+|`antigravity`
+|`ask_question` cannot be withheld: a worker runs with all its host tools. The workers did not call it in 36 runs; the skill's instruction not to use it is the only measure on this harness.
+
+|`codex`
+|Not measured.
+|===
+
+No host's question tool was called in any run, so what such a tool does in a headless worker was not observed.
+
 `pm_skill` takes no scope argument: the job record of the worker's connection gives the project and its enabled domains (link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/02-service-and-skill-tools.adoc[MCP Tools Specification, Service & Skill Tools]).
 
 === Rendering Invariants
