@@ -33,7 +33,7 @@ public final class SecretRedactor {
     /** The text that replaces a redacted value. */
     public static final String REDACTED = "[redacted]";
 
-    private static final String ASSIGNMENT_LABEL = "(?i)(?<![a-z0-9])(pass(?:word|wd|phrase)|secret|token"
+    private static final String ASSIGNMENT_LABEL = "(?i)(?<![a-z0-9])(pass\\w*|secret|token"
             + "|(?:api|access|private)[_-]?key|auth)\\b(\\s*[:=]\\s*[\"']?)";
 
     private static final Pattern AUTH_HEADER = Pattern.compile(

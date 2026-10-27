@@ -45,6 +45,9 @@ Figure fallbackToReadRate, List<SkillResidency> residency) {
     /** The name of the revisits figure. */
     private static final String REVISITS_FIGURE = "revisits";
 
+    /** The name of the cache-read share figure. */
+    private static final String CACHE_READ_SHARE = "cache_read_share";
+
     /** Copies the residency list. */
     public NavigationFigures {
         Objects.requireNonNull(cacheReadShare, "cacheReadShare");
@@ -94,12 +97,12 @@ Figure fallbackToReadRate, List<SkillResidency> residency) {
             }
         }
         if (turns == 0 || readable == 0) {
-            return Figure.indeterminate("cache_read_share");
+            return Figure.indeterminate(CACHE_READ_SHARE);
         }
         if (counted == 0 || context == 0) {
-            return Figure.unmeasured("cache_read_share");
+            return Figure.unmeasured(CACHE_READ_SHARE);
         }
-        return Figure.measured("cache_read_share", (double) cacheRead / context, counted);
+        return Figure.measured(CACHE_READ_SHARE, (double) cacheRead / context, counted);
     }
 
     /** @return the cache reads and the context tokens of one turn, or empty when the turn is no full measurement */
