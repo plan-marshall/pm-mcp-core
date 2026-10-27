@@ -506,7 +506,7 @@ public final class WorkflowParser {
                 fanOutPrimitiveId = Optional.of(primitiveId(line));
             }
         }
-        var ask = line.consumeIf("ask");
+        var askForm = parseAskForm(line);
         line.expectEnd();
         var consultRoles = new ArrayList<String>();
         while (nextStatementIs(KEYWORD_CONSULT)) {
@@ -516,8 +516,23 @@ public final class WorkflowParser {
             consultRoles.add(roleName(consult));
             consult.expectEnd();
         }
-        return new StateBehavior.ModelJob(entityKind, roleName, fanOutPrimitiveId, rolesPrimitiveId, ask,
+        return new StateBehavior.ModelJob(entityKind, roleName, fanOutPrimitiveId, rolesPrimitiveId, askForm,
                 consultRoles, parseTransitions());
+    }
+
+    /**
+     * Reads the asking axis of a task state: absent, {@code ask}, or {@code ask fresh}. Both forms offer the
+     * {@code ask} link; {@code ask fresh} orders the server never to continue the task after its question (Workflow DSL
+     * § Task States).
+     *
+     * @param line the cursor after the role clauses
+     * @return the form the state declares
+     */
+    private static StateBehavior.AskForm parseAskForm(LineCursor line) {
+        if (!line.consumeIf("ask")) {
+            return StateBehavior.AskForm.NONE;
+        }
+        return line.consumeIf("fresh") ? StateBehavior.AskForm.ASK_FRESH : StateBehavior.AskForm.ASK;
     }
 
     private StateBehavior parseCall() {

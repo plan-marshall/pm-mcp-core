@@ -13,6 +13,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -91,9 +92,45 @@ public sealed interface StateBehavior
     }
 
     /**
-     * {@code job llm <entity_kind> role <role_name> [each <primitive_id>] [ask]} with its {@code consult role}
-     * clauses: a task of the named role for one entity of the kind, or with {@code each} one task per element of the
-     * list that primitive returns; with {@code role each <primitive_id>} (only in the unit
+     * The asking axis of a task state (Workflow DSL § Task States, {@code ask fresh}): whether the state offers the
+     * {@code ask} link at all, and whether a task that asks continues after its question.
+     *
+     * @since 0.1
+     */
+    enum AskForm {
+        /** The state offers no {@code ask} link. */
+        NONE(""),
+        /** The state offers {@code ask}; the task continues where its role and harness allow it. */
+        ASK("ask"),
+        /** The state offers {@code ask fresh}; the task never continues after its question. */
+        ASK_FRESH("ask fresh");
+
+        private final String sourceText;
+
+        AskForm(String sourceText) {
+            this.sourceText = sourceText;
+        }
+
+        /** @return the clause as it is written in a unit, empty for {@link #NONE} */
+        public String sourceText() {
+            return sourceText;
+        }
+
+        /** @return whether the state declares the {@code ask} link in some form */
+        public boolean declaresAsk() {
+            return this != NONE;
+        }
+
+        /** @return whether the declared form lets a task continue after its question where the role and harness allow */
+        public boolean allowsContinuation() {
+            return this == ASK;
+        }
+    }
+
+    /**
+     * {@code job llm <entity_kind> role <role_name> [each <primitive_id>] [ask[ fresh]]} with its {@code consult
+     * role} clauses: a task of the named role for one entity of the kind, or with {@code each} one task per element of
+     * the list that primitive returns; with {@code role each <primitive_id>} (only in the unit
      * {@code adjudicate.decisions}) one task per role that primitive returns. The transitions route the outcomes of the
      * kind's return-evaluation primitive and the reserved {@code lost}.
      *
@@ -101,12 +138,12 @@ public sealed interface StateBehavior
      * @param roleName          the role of the tasks; empty for {@code role each}
      * @param fanOutPrimitiveId the primitive of {@code each}, whose list fans the tasks out
      * @param rolesPrimitiveId  the primitive of {@code role each}, which returns the roles
-     * @param ask               whether the state declares {@code ask}
+     * @param askForm           the asking axis the state declares
      * @param consultRoles      the roles of the {@code consult role} clauses in source order
      * @param transitions       the transitions of the evaluated outcomes
      */
     record ModelJob(String entityKind, Optional<String> roleName, Optional<String> fanOutPrimitiveId,
-    Optional<String> rolesPrimitiveId, boolean ask, List<String> consultRoles,
+    Optional<String> rolesPrimitiveId, AskForm askForm, List<String> consultRoles,
     List<OutcomeTransition> transitions) implements StateBehavior {
 
         /**
@@ -116,13 +153,19 @@ public sealed interface StateBehavior
          * @param roleName          the role of the tasks
          * @param fanOutPrimitiveId the primitive of {@code each}
          * @param rolesPrimitiveId  the primitive of {@code role each}
-         * @param ask               whether the state declares {@code ask}
+         * @param askForm           the asking axis the state declares
          * @param consultRoles      the roles of the {@code consult role} clauses
          * @param transitions       the transitions of the evaluated outcomes
          */
         public ModelJob {
+            Objects.requireNonNull(askForm, "askForm");
             consultRoles = List.copyOf(consultRoles);
             transitions = List.copyOf(transitions);
+        }
+
+        /** @return whether the state declares the {@code ask} link in some form */
+        public boolean ask() {
+            return askForm.declaresAsk();
         }
     }
 

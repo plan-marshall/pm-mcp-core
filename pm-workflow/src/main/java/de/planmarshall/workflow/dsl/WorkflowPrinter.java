@@ -200,8 +200,8 @@ public final class WorkflowPrinter {
         job.roleName().ifPresent(role -> clause.append(' ').append(role));
         job.fanOutPrimitiveId().ifPresent(primitive -> clause.append(" each ").append(primitive));
         job.rolesPrimitiveId().ifPresent(primitive -> clause.append(" each ").append(primitive));
-        if (job.ask()) {
-            clause.append(" ask");
+        if (job.askForm() != StateBehavior.AskForm.NONE) {
+            clause.append(' ').append(job.askForm().sourceText());
         }
         line(1, clause.toString());
         job.consultRoles().forEach(role -> line(1, "consult role " + role));

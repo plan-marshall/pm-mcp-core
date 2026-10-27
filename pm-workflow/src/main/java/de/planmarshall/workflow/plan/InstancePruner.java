@@ -268,7 +268,7 @@ final class InstancePruner {
             case StateBehavior.JobStep(var primitiveId, var composite, var transitions) ->
                 new StateBehavior.JobStep(primitiveId, composite, transitions(transitions, removed));
             case StateBehavior.ModelJob job -> new StateBehavior.ModelJob(job.entityKind(), job.roleName(),
-                    job.fanOutPrimitiveId(), job.rolesPrimitiveId(), job.ask(), job.consultRoles(),
+                    job.fanOutPrimitiveId(), job.rolesPrimitiveId(), job.askForm(), job.consultRoles(),
                     transitions(job.transitions(), removed));
             case StateBehavior.SubWorkflowCall call -> {
                 var bindings = new LinkedHashMap<>(call.paramBindings());

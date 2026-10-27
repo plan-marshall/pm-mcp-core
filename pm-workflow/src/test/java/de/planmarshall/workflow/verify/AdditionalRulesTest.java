@@ -198,6 +198,24 @@ class AdditionalRulesTest {
     }
 
     @Test
+    @DisplayName("ENTITY_KIND_BINDING: ask fresh on a role each state is refused like ask")
+    void entityKindAskFreshOnRoleEach() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    job llm change role each test.list-changes ask fresh
+                        approved -> verify.done
+                        lost -> verify.done
+                """ + DONE_TERMINAL);
+
+        assertEquals(violationsOf(VerificationRule.ENTITY_KIND_BINDING, "verify.entry",
+                "the form 'role each' is admitted only in the unit 'adjudicate.decisions', but found in"
+                        + " 'verify.inline'",
+                "the state 'verify.entry' declares 'ask' on a 'role each' state"),
+                found(def));
+    }
+
+    @Test
     @DisplayName("ROLE_NAME_GRAMMAR: consult role with invalid grammar")
     void roleNameGrammarInvalidConsultRole() {
         var def = unit("plan", """

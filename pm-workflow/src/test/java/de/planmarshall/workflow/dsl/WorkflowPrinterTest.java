@@ -229,9 +229,26 @@ class WorkflowPrinterTest {
         }
 
         @Test
-        @DisplayName("runs over the six valid fixtures")
+        @DisplayName("prints ask fresh as it parses it")
+        void askFresh() {
+            var definition = DslFixtures.parseValid("dsl/valid/ask-fresh-unit.pmwf");
+
+            var printed = WorkflowPrinter.print(definition);
+            var behaviors = definition.states().values().stream()
+                    .filter(state -> state.behavior() instanceof StateBehavior.ModelJob)
+                    .map(state -> ((StateBehavior.ModelJob) state.behavior()).askForm())
+                    .toList();
+
+            assertAll(
+                    () -> assertEquals(List.of(StateBehavior.AskForm.ASK, StateBehavior.AskForm.ASK_FRESH), behaviors),
+                    () -> assertTrue(printed.contains("job llm change role implementer ask fresh")),
+                    () -> assertTrue(printed.contains("job llm change role implementer ask\n")));
+        }
+
+        @Test
+        @DisplayName("runs over the seven valid fixtures")
         void fixturesPresent() {
-            assertEquals(6, validFixtures().size());
+            assertEquals(7, validFixtures().size());
         }
 
         @ParameterizedTest(name = "{0}")
