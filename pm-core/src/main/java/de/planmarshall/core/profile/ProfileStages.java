@@ -38,6 +38,8 @@ public final class ProfileStages {
 
     /** The suffix of a profile document, as a refusal names it. */
     private static final String PROFILE_SUFFIX = ".json";
+    private static final String MEASURED = "measured";
+    private static final String NOT_MEASURED = "not_measured";
 
     private ProfileStages() {
     }
@@ -212,9 +214,9 @@ public final class ProfileStages {
         public List<ValueEntry> values() {
             return List.of(
                     new ValueEntry("/headless/resumability/hold",
-                            hold.measured() ? "measured" : "not_measured"),
+                            hold.measured() ? MEASURED : NOT_MEASURED),
                     new ValueEntry("/headless/resumability/resume",
-                            resume.measured() ? "measured" : "not_measured"));
+                            resume.measured() ? MEASURED : NOT_MEASURED));
         }
     }
 
@@ -234,7 +236,7 @@ public final class ProfileStages {
         public ValueEntry {
             Objects.requireNonNull(pointer, "pointer");
             Objects.requireNonNull(status, "status");
-            if (!"measured".equals(status) && !"not_measured".equals(status)) {
+            if (!MEASURED.equals(status) && !NOT_MEASURED.equals(status)) {
                 throw new IllegalArgumentException("Not a resumability value status: " + status);
             }
         }

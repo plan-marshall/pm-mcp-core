@@ -44,10 +44,10 @@ class QuestionBoundTest {
         var entry = entry("plan-a/execute.build#1");
 
         assertAll(
-                () -> assertTrue(bound.record(entry)),
-                () -> assertTrue(bound.record(entry)),
-                () -> assertTrue(bound.record(entry)),
-                () -> assertFalse(bound.record(entry)),
+                () -> assertTrue(bound.count(entry)),
+                () -> assertTrue(bound.count(entry)),
+                () -> assertTrue(bound.count(entry)),
+                () -> assertFalse(bound.count(entry)),
                 () -> assertFalse(bound.mayOffer(entry)),
                 () -> assertEquals(QuestionBound.MAX_ASKS, bound.asked(entry)),
                 () -> assertEquals(0, bound.remaining(entry)));
@@ -58,13 +58,13 @@ class QuestionBoundTest {
     void reentryContinuesTheEntry() {
         var bound = new QuestionBound();
         var entry = entry("plan-a/execute.build#1");
-        bound.record(entry);
-        bound.record(entry);
+        bound.count(entry);
+        bound.count(entry);
 
         // the re-entry passes the same entry identity: its third question is still offered, the fourth is not
         assertAll(
                 () -> assertTrue(bound.mayOffer(entry)),
-                () -> assertTrue(bound.record(entry)),
+                () -> assertTrue(bound.count(entry)),
                 () -> assertFalse(bound.mayOffer(entry)));
     }
 
@@ -72,9 +72,9 @@ class QuestionBoundTest {
     @DisplayName("a new entry of the same state has its own count")
     void newEntryNewCount() {
         var bound = new QuestionBound();
-        bound.record(entry("plan-a/execute.build#1"));
-        bound.record(entry("plan-a/execute.build#1"));
-        bound.record(entry("plan-a/execute.build#1"));
+        bound.count(entry("plan-a/execute.build#1"));
+        bound.count(entry("plan-a/execute.build#1"));
+        bound.count(entry("plan-a/execute.build#1"));
 
         assertTrue(bound.mayOffer(entry("plan-a/execute.build#2")));
     }
@@ -86,9 +86,9 @@ class QuestionBoundTest {
         var task = planTask("TASK-003");
 
         assertAll(
-                () -> assertTrue(bound.record(task)),
-                () -> assertTrue(bound.record(task)),
-                () -> assertTrue(bound.record(task)),
+                () -> assertTrue(bound.count(task)),
+                () -> assertTrue(bound.count(task)),
+                () -> assertTrue(bound.count(task)),
                 () -> assertFalse(bound.mayOffer(task)));
     }
 
@@ -98,12 +98,12 @@ class QuestionBoundTest {
         var bound = new QuestionBound();
         var entry = entry("plan-a/execute.build#1");
         var task = planTask("TASK-003");
-        bound.record(planTask("TASK-003"));
-        bound.record(planTask("TASK-003"));
-        bound.record(planTask("TASK-003"));
+        bound.count(planTask("TASK-003"));
+        bound.count(planTask("TASK-003"));
+        bound.count(planTask("TASK-003"));
 
         assertAll(
-                () -> assertFalse(bound.record(entry, task)),
+                () -> assertFalse(bound.count(entry, task)),
                 () -> assertEquals(0, bound.asked(entry)),
                 () -> assertTrue(bound.mayOffer(entry("plan-a/execute.build#2"), planTask("TASK-004"))));
     }
@@ -112,7 +112,7 @@ class QuestionBoundTest {
     @DisplayName("the two axes do not share a count")
     void axesAreSeparate() {
         var bound = new QuestionBound();
-        bound.record(entry("plan-a/execute.build#1"));
+        bound.count(entry("plan-a/execute.build#1"));
 
         assertAll(
                 () -> assertEquals(QuestionBound.MAX_ASKS, bound.remaining(planTask("TASK-003"))),

@@ -19,7 +19,7 @@ whose work moves between envelope tasks. The server needs a ledger that survives
 == Decision
 
 `QuestionBound` keeps one count per `Key(axis, id)`, with `STATE_ENTRY` and `PLAN_TASK` as the closed axes and
-`MAX_ASKS = 3` as the compiled bound. `record(stateEntry, planTask)` counts a question on both axes atomically: when
+`MAX_ASKS = 3` as the compiled bound. `count(stateEntry, planTask)` counts a question on both axes atomically: when
 either axis is spent, neither is counted and the answer is `false`, so the server withholds the link without having
 counted a question the worker never asked. The caller supplies the entry identity and passes the same identity on a
 re-entry through `<state>.asked`, which is what makes the bound continue across the re-entry; a new entry of the state

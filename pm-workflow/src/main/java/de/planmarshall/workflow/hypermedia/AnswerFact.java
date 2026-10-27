@@ -43,7 +43,7 @@ String text, Kind kind) {
             "question_text", "branch_key", "label", "text", "kind");
 
     private static final Pattern QUESTION_ID = Pattern.compile("Q-\\d{3,6}");
-    private static final Pattern TASK_ID = Pattern.compile("TASK-[0-9]{3,}");
+    private static final Pattern TASK_ID = Pattern.compile("TASK-\\d{3,}");
     private static final Pattern BRANCH = Pattern.compile("[a-z][a-z0-9_]{1,31}");
     private static final List<String> BRANCH_RESERVED = List.of("value", "own");
 

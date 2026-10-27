@@ -117,8 +117,10 @@ class QuestionContinuationTest {
     @Test
     @DisplayName("a state without an ask link files no question to continue")
     void withoutAsk() {
+        var bounds = bounds(600, 0);
+
         assertThrows(IllegalArgumentException.class,
-                () -> QuestionContinuation.decide(StateBehavior.AskForm.NONE, false, bounds(600, 0), AT));
+                () -> QuestionContinuation.decide(StateBehavior.AskForm.NONE, false, bounds, AT));
     }
 
     @Test

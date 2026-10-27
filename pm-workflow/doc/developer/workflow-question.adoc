@@ -17,7 +17,7 @@ not at all (fallback). Which one it is, and how long it lasts, is decided here a
   assembles the queue record's `continuation` member from the decision and the facts of the suspension (session id,
   digest, worktree head), because those facts are the supervisor's at the moment it suspends the task.
 * `QuestionBound` — the `ask` link's bound: three questions per entry of a state, re-entries through
-  `<state>.asked` continuing the entry, and three per plan task over all its envelope tasks. `record(stateEntry,
+  `<state>.asked` continuing the entry, and three per plan task over all its envelope tasks. `count(stateEntry,
   planTask)` counts on both axes or on neither, so a spent axis withholds the link without counting a question.
 
 == How to use it

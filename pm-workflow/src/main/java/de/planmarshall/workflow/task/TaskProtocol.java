@@ -75,6 +75,9 @@ public final class TaskProtocol {
     private final SkillDelivery skills;
     private final SecurityAudit audit;
     private final JournalProvider journal;
+
+    private static final String ARG_QUEUE_TASK_ID = "queueTaskId";
+
     /** The answers delivered to a holding or suspended task and not yet acknowledged; see {@link #answer}. */
     private final Map<String, DeliveredAnswer> answers = new ConcurrentHashMap<>();
 
@@ -535,7 +538,7 @@ public final class TaskProtocol {
      * @return the instant the answer was delivered to the task, empty when none is waiting
      */
     public Optional<Instant> answerDeliveredAt(String queueTaskId) {
-        var delivered = answers.get(Objects.requireNonNull(queueTaskId, "queueTaskId"));
+        var delivered = answers.get(Objects.requireNonNull(queueTaskId, ARG_QUEUE_TASK_ID));
         return Optional.ofNullable(delivered == null ? null : delivered.deliveredAt());
     }
 
@@ -544,7 +547,7 @@ public final class TaskProtocol {
      * @return the answer delivered to the task and not yet acknowledged, empty when none is waiting
      */
     public Optional<Answers> deliveredAnswers(String queueTaskId) {
-        var delivered = answers.get(Objects.requireNonNull(queueTaskId, "queueTaskId"));
+        var delivered = answers.get(Objects.requireNonNull(queueTaskId, ARG_QUEUE_TASK_ID));
         return Optional.ofNullable(delivered == null ? null : delivered.answers());
     }
 
@@ -613,7 +616,7 @@ public final class TaskProtocol {
      * @return the closed task, empty when the task is not a continuation the server may end
      */
     public Optional<QueueTaskRecord> fallback(String queueTaskId, FallbackReason reason, Instant at) {
-        Objects.requireNonNull(queueTaskId, "queueTaskId");
+        Objects.requireNonNull(queueTaskId, ARG_QUEUE_TASK_ID);
         Objects.requireNonNull(reason, "reason");
         Objects.requireNonNull(at, "at");
         var closed = new AtomicReference<QueueTaskRecord>();

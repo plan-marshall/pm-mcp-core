@@ -111,7 +111,7 @@ public final class QuestionBound {
      * @return {@code true} when the question was within the bound and is now counted; {@code false} when the bound was
      *         already spent and nothing was counted
      */
-    public synchronized boolean record(Key key) {
+    public synchronized boolean count(Key key) {
         Objects.requireNonNull(key, "key");
         var used = asked.getOrDefault(key, 0);
         if (used >= MAX_ASKS) {
@@ -123,18 +123,17 @@ public final class QuestionBound {
 
     /**
      * Counts one question on both axes it belongs to: the state entry the task works under, and the plan task it
-     * serves.
-     *
+     * serves.     *
      * @param stateEntry the state entry
      * @param planTask   the plan task
      * @return whether both axes still offer the link; when either is spent, neither is counted
      */
-    public synchronized boolean record(Key stateEntry, Key planTask) {
+    public synchronized boolean count(Key stateEntry, Key planTask) {
         if (!mayOffer(stateEntry) || !mayOffer(planTask)) {
             return false;
         }
-        record(stateEntry);
-        record(planTask);
+        count(stateEntry);
+        count(planTask);
         return true;
     }
 
