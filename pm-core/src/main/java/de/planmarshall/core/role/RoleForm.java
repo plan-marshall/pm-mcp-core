@@ -9,6 +9,9 @@
  */
 package de.planmarshall.core.role;
 
+import java.util.Arrays;
+import java.util.Optional;
+
 /**
  * The form of a role's workers (PM-WORK-1, Role Artifact Schema): a {@code fresh} role gets one worker per task, which
  * ends after the task; a {@code warm} role gets supervised workers that take task after task and are recycled. A
@@ -32,5 +35,13 @@ public enum RoleForm {
     /** @return the name of the form in a representation */
     public String wireName() {
         return wireName;
+    }
+
+    /**
+     * @param wireName the name of a form in a document
+     * @return the form; empty if the name is not one
+     */
+    public static Optional<RoleForm> fromWireName(String wireName) {
+        return Arrays.stream(values()).filter(form -> form.wireName.equals(wireName)).findFirst();
     }
 }
