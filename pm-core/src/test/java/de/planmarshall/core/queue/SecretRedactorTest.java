@@ -64,6 +64,27 @@ class SecretRedactorTest {
     }
 
     @Test
+    @DisplayName("a quoted key and a camelCase label are redacted")
+    void quotedAndCamelCase() {
+        assertAll(
+                () -> assertEquals("{\"password\": \"" + SecretRedactor.REDACTED + "\"}",
+                        SecretRedactor.redactText("{\"password\": \"hunter22\"}")),
+                () -> assertEquals("authToken=" + SecretRedactor.REDACTED,
+                        SecretRedactor.redactText("authToken=abcd1234")),
+                () -> assertEquals("clientSecret: " + SecretRedactor.REDACTED,
+                        SecretRedactor.redactText("clientSecret: abcd1234")));
+    }
+
+    @Test
+    @DisplayName("ordinary build text that starts with pass is not a credential")
+    void passIsNarrow() {
+        assertAll(
+                () -> assertEquals("passed: 7780", SecretRedactor.redactText("passed: 7780")),
+                () -> assertEquals("passthrough=true", SecretRedactor.redactText("passthrough=true")),
+                () -> assertEquals("passes=1000", SecretRedactor.redactText("passes=1000")));
+    }
+
+    @Test
     @DisplayName("a provider token shape is redacted")
     void tokenShape() {
         assertEquals("the key is " + SecretRedactor.REDACTED,

@@ -33,14 +33,21 @@ public final class SecretRedactor {
     /** The text that replaces a redacted value. */
     public static final String REDACTED = "[redacted]";
 
-    private static final String ASSIGNMENT_LABEL = "(?i)(?<![a-z0-9])(pass\\w*|secret|token"
-            + "|(?:api|access|private)[_-]?key|auth)\\b(\\s*[:=]\\s*[\"']?)";
+    private static final String ASSIGNMENT_LABEL = "(?i)(?<![a-z0-9])"
+            + "(pass(?:[_-]?(?:word|wd|phrase|code|key))?|secret|token"
+            + "|(?:api|access|private)[_-]?key|auth)\\b([\"']?\\s*[:=]\\s*[\"']?)";
 
     private static final Pattern AUTH_HEADER = Pattern.compile(
             "(?i)\\b(authorization)\\b(\\s*[:=]\\s*)((?i:bearer|basic|token)\\s+)?([^\\s\"',;]{4,})");
 
     private static final Pattern ASSIGNMENT = Pattern.compile(
             ASSIGNMENT_LABEL + "([^\\s\"',;]{4,})");
+
+    /** A camelCase credential label, such as {@code authToken=} or {@code clientSecret:}. */
+    private static final Pattern CAMEL_ASSIGNMENT = Pattern.compile(
+            "(?i)(?<![a-z0-9])((?-i:[a-z]+(?=[A-Z]))"
+                    + "(?:secret|token|password|passwd|passphrase|passcode|passkey|api[_-]?key))"
+                    + "\\b([\"']?\\s*[:=]\\s*[\"']?)([^\\s\"',;]{4,})");
 
     private static final Pattern BEARER = Pattern.compile("(?i)\\b(bearer\\s+)([\\w.~+/=-]{8,})");
 
@@ -63,6 +70,7 @@ public final class SecretRedactor {
         var masked = AUTH_HEADER.matcher(value).replaceAll("$1$2$3" + Matcher.quoteReplacement(REDACTED));
         masked = BEARER.matcher(masked).replaceAll("$1" + Matcher.quoteReplacement(REDACTED));
         masked = ASSIGNMENT.matcher(masked).replaceAll("$1$2" + Matcher.quoteReplacement(REDACTED));
+        masked = CAMEL_ASSIGNMENT.matcher(masked).replaceAll("$1$2" + Matcher.quoteReplacement(REDACTED));
         for (var pattern : REPLACEMENTS) {
             masked = pattern.matcher(masked).replaceAll(Matcher.quoteReplacement(REDACTED));
         }
