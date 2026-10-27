@@ -16,7 +16,7 @@ workstream: WS-03
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -71,25 +71,18 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/unit/` — inferred from the `Where` line (the sub-workflow `review`)
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/` — inferred from the `Where` line (the two registers in the ledger)
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/epic/` — the package whose `package-info.java` cites the epic coordination this plan implements (the registers, the review, the watches' re-check); added by cleanup on 2026-10-21
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-unit.adoc` — developer documentation of the package; created or extended (the Standing Constraints require it)
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-unit/` — ADRs of the package's design decisions; new directory if absent
-- HYPOTHESIS: `pm-core/doc/developer/core-store.adoc` — developer documentation of the package; created or extended (the Standing Constraints require it)
-- HYPOTHESIS: `pm-core/doc/adr/core-store/` — ADRs of the package's design decisions; new directory if absent
 - OBSERVED: `doc/plans/epic-review.adoc` — the package file, deleted when the package is done
+- OBSERVED: `doc/specification/model-work/01-roles-and-configuration.adoc` — specification part; the Default Role Set
 - OBSERVED: `doc/specification/model-work/08-epic-coordination.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/model-work/01-roles-and-configuration.adoc` — specification part; the implemented sections deleted (the Default Role Set)
 - OBSERVED: `doc/specification/state-catalogue/06-setup-epic-other.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/state-catalogue/17-epic-decomposition-and-review.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/04-epic-and-change-ledger.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/primitive/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-epic.adoc` — to be created; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-epic/` — to be created; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/ScopeTransaction.java` — the registers are written in the epic ledger write under the `ScopeTransaction` pattern (ADR `core-store/044`); added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/JournalScopeType.java` — the `EPIC` scope; added by the re-grounding of 2026-10-26
+- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/epic/` — registers, the review, the watches' re-check; package-info only
+- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/primitive/` — review.* primitives and epic.recheck-watches; package-info only
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/task/TaskProtocol.java` — repeatable submit register_item (also edited by running PLAN-73)
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolSubmitTest.java` — the register_item submit
+- HYPOTHESIS: `pm-workflow/doc/developer/workflow-epic.adoc` — developer documentation of the package; created
+- HYPOTHESIS: `pm-workflow/doc/adr/workflow-epic/` — ADRs of the package's design decisions; new directory (also created by PLAN-57 and PLAN-77)
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

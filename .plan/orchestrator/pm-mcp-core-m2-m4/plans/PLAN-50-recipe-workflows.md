@@ -16,7 +16,7 @@ workstream: WS-03
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R15, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R15, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -60,21 +60,19 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/plan/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/recipe/` — the recipe descriptor (`core.recipe`, recipes and extension points; `package-info.java` only today; `core.profile` is the client profile loader and is not this package's home) — corrected by cleanup on 2026-10-16
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-plan.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-plan/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-core/doc/developer/core-recipe.adoc` — developer documentation of the package; created (corrected from `core-profile.adoc` by cleanup on 2026-10-16)
-- HYPOTHESIS: `pm-core/doc/adr/core-recipe/` — ADRs of the package's design decisions; new directory (corrected from `core-profile/` by cleanup on 2026-10-16)
 - OBSERVED: `doc/plans/recipe-workflows.adoc` — the package file, deleted when the package is done
-- OBSERVED: `doc/specification/domain-extensions/05-recipes-and-extension-points.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/phase-workflows/01-planning-phases-1-2.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/domain-extensions/05-recipes-and-extension-points.adoc` — keep Agent-File Hygiene item 10 and the Pre-Submission Self-Review Surfacer
+- OBSERVED: `doc/specification/phase-workflows/01-planning-phases-1-2.adoc` — specification part; the recipe sections only
+- OBSERVED: `doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc` — specification part; Recipe Choice
 - OBSERVED: `doc/specification/workflow-dsl/01-grammar.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/workflow-dsl/09-plan-instance.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/unit/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/doc/developer/workflow-unit.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/unit/ProjectUnitLoader.java` — D2: reads .marshall/config only; the machine and project recipe loaders go beside it
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java` — D2: composes the plan whose process is the recipe's workflow (low confidence, mostly shipped)
+- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/recipe/RecipeDescriptor.java` — D2: the recipe descriptor (core.recipe is package-info only today)
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/unit/ProjectUnitLoaderTest.java` — recipe loading from .marshall/recipes
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java` — a recipe's workflow composed, empty_harvest ends it
+- HYPOTHESIS: `pm-core/doc/developer/core-recipe.adoc` — new developer guide
+- HYPOTHESIS: `pm-core/doc/adr/core-recipe/` — new ADR directory (001)
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

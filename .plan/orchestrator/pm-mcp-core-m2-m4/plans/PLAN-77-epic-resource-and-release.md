@@ -16,7 +16,7 @@ workstream: WS-03
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -74,29 +74,25 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/epic/` — epic coordination, next plan, archive check, cancel and the queue and inbox rows; carried from the former spec
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/` — the epic's `terminal_reason`, the release recorded in the enrolment — inferred from the `Where` line
-- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/web/` — the operator endpoints of both clients and their verbs, the epic resource — inferred from the `Where` line; the package name is a guess
-- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/enrolment/` — the release of a project (unenrol); carried from the former spec
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
 - OBSERVED: `doc/plans/epic-resource-and-release.adoc` — the package file, deleted when the package is done
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-epic.adoc` — developer documentation of the package; created or extended
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-epic/` — ADRs of the package's design decisions; new directory if absent
-- HYPOTHESIS: `pm-core/doc/developer/core-store.adoc` — developer documentation of the package; created or extended
-- HYPOTHESIS: `pm-core/doc/adr/core-store/` — ADRs of the package's design decisions; new directory if absent
-- HYPOTHESIS: `pm-runtime/doc/developer/runtime-enrolment.adoc` — developer documentation of the package; created or extended
-- HYPOTHESIS: `pm-runtime/doc/adr/runtime-enrolment/` — ADRs of the package's design decisions; new directory if absent
 - OBSERVED: `doc/specification/credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/filesystem-layout/03-project-store.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/model-work/08-epic-coordination.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/state-catalogue/06-setup-epic-other.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/04-epic-and-change-ledger.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/service/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/queue/QueueTaskRecord.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-epic/` — new directory, still absent (also created by `PLAN-57`); added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/` — the release must end workers (`WorkerEnding`, `EndCause`, `WorkerSupervisor`); neither is wired; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-runtime/doc/adr/runtime-enrolment/` — exists, 7 ADRs, next 008; added by the re-grounding of 2026-10-26
-- OBSERVED: `doc/Traceability.adoc` — every package adds its lines; added by the re-grounding of 2026-10-26
+- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/epic/` — next plan, archive check, cancel; package-info only
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/service/AuditEvent.java` — the release's operator audit record
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/queue/QueueTaskRecord.java` — WITHDRAWN for a task running in an entry at release
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/LifecycleGate.java` — lifecycle_closed while the release runs (may be edited, gate sits at the caller)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/enrolment/Enrolments.java` — the release act; released_at already shipped
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/EndCause.java` — closed set has no release cause
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerEnding.java` — the release must end workers
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerSupervisor.java` — per-plan or per-project end call
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/EnrolmentsTest.java` — release, released start refused, enrol clears it
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/LifecycleGateTest.java` — lifecycle_closed during the release
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerEndingTest.java` — the release end cause
+- HYPOTHESIS: `pm-workflow/doc/developer/workflow-epic.adoc` — developer documentation of the package; created
+- HYPOTHESIS: `pm-workflow/doc/adr/workflow-epic/` — ADRs of the package's design decisions; new directory (also created by PLAN-57)
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

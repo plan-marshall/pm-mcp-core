@@ -16,7 +16,7 @@ workstream: WS-06
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R13, R15, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R13, R15, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -71,17 +71,20 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 
 ## Expected Surface
 
-- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/scenario/` — test scope only
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-scenario.adoc` — developer documentation of the package; created or extended
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-scenario/` — ADRs of the package's design decisions; new directory if absent
 - OBSERVED: `doc/plans/supervision-scenarios.adoc` — the package file, deleted when the package is done
 - OBSERVED: `doc/implementation-watch/model-work.adoc` — watch document; the covered items deleted
 - OBSERVED: `doc/implementation-watch/workflow-dsl.adoc` — watch document; the covered items deleted
 - OBSERVED: `doc/specification/model-work/03-supervision-and-recycling.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc` — specification part; the implemented sections deleted
-- HYPOTHESIS: `pm-runtime/src/test/java/de/planmarshall/runtime/worker/` — only if D1's scenarios are meant to run the real supervisor; `SupervisorScenarioTest` (#190) already covers ack, silence, exit, the consultation hold, the start-failure guard, pause at once, idle recycling and `agent_started`; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `doc/Traceability.adoc` — the `PM-TEST-4` lines, written by every plan; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioScript.java` — D1/D4: the stale REFUSED map (fault directives, worker_wait, worker_do) and the missing operator_do
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioDirective.java` — D1/D4: directives for the faults and operator acts
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioReplayRunner.java` — D1/D4: runs the new directives
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScriptedFixtureWorker.java` — D1/D2: scripted worker faults and output stream
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioScriptTest.java` — asserts REFUSED entries that change
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioReplayRunnerTest.java` — scenario per fault, signal and action
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioDeterminismTest.java` — Done-when: each scenario replayed twice to the same stores
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorScenarioTest.java` — only if D1/D3 run the real supervisor (overlap with its existing fault, guard, consultation and pause-at-once scenarios, decided at the outline)
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/worker/FixtureHarness.java` — D2: the fixture harness whose scripted output stream the off-track scenarios read
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

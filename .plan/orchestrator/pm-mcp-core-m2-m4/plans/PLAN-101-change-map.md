@@ -16,7 +16,7 @@ workstream: WS-03
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R17, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R17, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -71,20 +71,19 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `doc/plans/change-map.adoc` — the package file, written by PLAN-96; deleted when the package is done
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/finalize/` — the finalize steps and their facts
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/discovery/` — the module discovery the crawl reads (`package-info.java` only today)
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-finalize.adoc` — developer documentation, extended
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-finalize/` — ADRs of the package's design decisions
-- OBSERVED: `doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/plans/change-map.adoc` — the package file (exists), deleted when the package is done
+- OBSERVED: `doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc` — Change Map, Dependency Delta Check; leave Added-Line Scan and the other later sections
+- OBSERVED: `doc/specification/phase-workflows/04-finalize-step-bands.adoc` — self-review and create-pr rows carry change map and own calls
+- OBSERVED: `doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc` — Positioned Layout of the change map
 - OBSERVED: `doc/implementation-watch/phase-workflows.adoc` — PM-WATCH-PHASE-114 retired with the package
-- OBSERVED: `pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- HYPOTHESIS: `pm-core/doc/developer/core-discovery.adoc` — to be created; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/phase-workflows/04-finalize-step-bands.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc` — § Positioned Layout (#181) lays out the change map as data for the web app; no package owns it; read; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/diagram/` — the generator the Positioned Layout belongs to (`de.planmarshall.workflow.diagram`); read; added by the re-grounding of 2026-10-26
-- OBSERVED: `doc/implementation-watch/workflow-dsl.adoc` — `PM-WATCH-DSL-37` and `-38` (positioned layout); added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/implementation-watch/workflow-dsl.adoc` — PM-WATCH-DSL-37 and -38 (positioned layout)
+- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/finalize/ChangeMap.java` — the change_map result record (state, modules and edges delta, replaced, cause)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/discovery/` — module discovery the crawl reads; no class nameable yet
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/diagram/` — generator the positioned layout belongs to; no class nameable yet
+- OBSERVED: `pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/GitOperations.java` — contract lacks a tree listing and read at base_ref over git objects
+- OBSERVED: `pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/JGitOperations.java` — JGit implementation of the tree read
+- OBSERVED: `pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/JGitOperationsTest.java` — tree read fixtures
+- HYPOTHESIS: `pm-core/doc/developer/core-discovery.adoc` — developer documentation of the package, to be created
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 
