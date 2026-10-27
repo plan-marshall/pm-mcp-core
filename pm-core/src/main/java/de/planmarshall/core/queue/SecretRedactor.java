@@ -33,21 +33,26 @@ public final class SecretRedactor {
     /** The text that replaces a redacted value. */
     public static final String REDACTED = "[redacted]";
 
-    private static final String ASSIGNMENT_LABEL = "(?i)(?<![a-z0-9])"
-            + "(pass(?:[_-]?(?:word|wd|phrase|code|key))?|secret|token"
-            + "|(?:api|access|private)[_-]?key|auth)\\b([\"']?\\s*[:=]\\s*[\"']?)";
+    private static final String SEPARATOR = "([\"']?\\s*[:=]\\s*[\"']?)";
+
+    private static final String VALUE = "([^\\s\"',;]{4,})";
 
     private static final Pattern AUTH_HEADER = Pattern.compile(
             "(?i)\\b(authorization)\\b(\\s*[:=]\\s*)((?i:bearer|basic|token)\\s+)?([^\\s\"',;]{4,})");
 
-    private static final Pattern ASSIGNMENT = Pattern.compile(
-            ASSIGNMENT_LABEL + "([^\\s\"',;]{4,})");
-
-    /** A camelCase credential label, such as {@code authToken=} or {@code clientSecret:}. */
-    private static final Pattern CAMEL_ASSIGNMENT = Pattern.compile(
-            "(?i)(?<![a-z0-9])((?-i:[a-z]+(?=[A-Z]))"
-                    + "(?:secret|token|password|passwd|passphrase|passcode|passkey|api[_-]?key))"
-                    + "\\b([\"']?\\s*[:=]\\s*[\"']?)([^\\s\"',;]{4,})");
+    /**
+     * The credential labels, one pattern each: a label's own alternation stays small, so neither the regex nor the
+     * reader has to hold a combined 30-branch expression. A label may follow a letter only when it starts a camelCase
+     * word, and may be followed by a closing quote before the separator, as a JSON key is.
+     */
+    private static final List<Pattern> ASSIGNMENTS = List.of(
+            assignment("pass(?:[_-]?(?:word|wd|phrase|code|key))?"),
+            assignment("secret"),
+            assignment("token"),
+            assignment("(?:api|access|private)[_-]?key"),
+            assignment("auth"),
+            assignment("(?-i:[a-z]+(?=[A-Z]))"
+                    + "(?:Secret|Token|Password|Passwd|Passphrase|Passcode|Passkey|ApiKey|AccessKey|PrivateKey)"));
 
     private static final Pattern BEARER = Pattern.compile("(?i)\\b(bearer\\s+)([\\w.~+/=-]{8,})");
 
@@ -55,6 +60,10 @@ public final class SecretRedactor {
             "\\b(?:sk|ghp|gho|ghu|ghs|ghr|github_pat|xox[abprs])[-_][\\w-]{12,}");
 
     private static final List<Pattern> REPLACEMENTS = List.of(TOKEN_SHAPE);
+
+    private static Pattern assignment(String label) {
+        return Pattern.compile("(?i)(?<![a-z0-9])(" + label + ")\\b" + SEPARATOR + VALUE);
+    }
 
     private SecretRedactor() {
     }
@@ -69,8 +78,9 @@ public final class SecretRedactor {
         }
         var masked = AUTH_HEADER.matcher(value).replaceAll("$1$2$3" + Matcher.quoteReplacement(REDACTED));
         masked = BEARER.matcher(masked).replaceAll("$1" + Matcher.quoteReplacement(REDACTED));
-        masked = ASSIGNMENT.matcher(masked).replaceAll("$1$2" + Matcher.quoteReplacement(REDACTED));
-        masked = CAMEL_ASSIGNMENT.matcher(masked).replaceAll("$1$2" + Matcher.quoteReplacement(REDACTED));
+        for (var pattern : ASSIGNMENTS) {
+            masked = pattern.matcher(masked).replaceAll("$1$2" + Matcher.quoteReplacement(REDACTED));
+        }
         for (var pattern : REPLACEMENTS) {
             masked = pattern.matcher(masked).replaceAll(Matcher.quoteReplacement(REDACTED));
         }
