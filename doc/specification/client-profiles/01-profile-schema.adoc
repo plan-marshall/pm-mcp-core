@@ -711,26 +711,26 @@ harness (<<harness-scan>>). Values the evaluation did not measure stay _(provisi
 
 A setting the harness does not apply is not a setting: the verification checks the effect of every key, not its acceptance (_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-17[PM-WATCH-CLIENT-17]_). `claude`, `antigravity`, and `codex` declare `null`.
 
-[[headless-resumability]]*Resumability*: `headless.resumability` says whether a worker of the harness can continue after it asked a question, in which form, and how long (link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work Specification, Continuing after a Question]). `hold` is the worker holding its task in `pm_wait` until the answer and continuing in the same context, up to `max_hold_seconds`; `resume` is the worker ending with its harness session stored and a later generation resuming that session with the answer, through `argv` (with the session id read from the structured result at `session_id`), for sessions up to `max_age_seconds` old. A role uses a form only where its harness declares it and the role artifact asks for it; the harness capability alone never makes a worker wait. Every value comes from the stage `resumability` of the profile verification (<<profile-verification>>), and a form it did not measure is `false` or `null`. Profile validation refuses a `resume` whose `argv` holds `{{session_id}}` not exactly once, and a `resume` on a profile with `session_residue: ephemeral` and no way to launch without the flag. A resumable worker keeps its session files like `session_residue: persisted`, reported in both clients. The shipped values, with the candidate values the question-loop measurement found (link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#results[Evaluation Reference], R1 for the hold, R2 for the resume; the measured values per host in link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#host-values[Evaluation Reference, Hosts as Relay Starters and Workers]):
+[[headless-resumability]]*Resumability*: `headless.resumability` says whether a worker of the harness can continue after it asked a question, in which form, and how long (link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work Specification, Continuing after a Question]). `hold` is the worker holding its task in `pm_wait` until the answer and continuing in the same context, up to `max_hold_seconds`; `resume` is the worker ending with its harness session stored and a later generation resuming that session with the answer, through `argv` (with the session id read from the structured result at `session_id`), for sessions up to `max_age_seconds` old. A role uses a form only where its harness declares it and the role artifact asks for it; the harness capability alone never makes a worker wait. Every value comes from the stage `resumability` of the profile verification (<<profile-verification>>), and a form it did not measure is `false` or `null`. Profile validation refuses a `resume` whose `argv` holds `{{session_id}}` not exactly once, and a `resume` on a profile with `session_residue: ephemeral` and no way to launch without the flag. A resumable worker keeps its session files like `session_residue: persisted`, reported in both clients. The shipped values are below; the candidates the question-loop measurement found for a harness whose stage `resumability` has not run, with the measured figures per host, are rows of the link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#host-values[Evaluation Reference, Hosts as Relay Starters and Workers] (R1 for the hold, R2 for the resume), which only the stage can settle.
 
 [cols="1,1,2,4"]
 |===
 |Profile |`hold` |`resume` |Basis
 
 |`claude`
-|`false` (candidate `true`, `max_hold_seconds` `3600`)
-|`null` (candidate `--resume {{session_id}}`, `/session_id`, `max_age_seconds` `3600`)
-|R1: the same generation continued after holds of 300, 480, 900, 1,800, and 3,600 s in 3 of 3 runs per form, after one window (240 s) in 2 of 3 per form, the third reading the canary again. R2: a resumed session continued after 300 s (also after a restart of the server) and 3,600 s in 3 of 3 runs per form, and the resume of a missing session failed at once. 24 hours were not run.
+|`false`
+|`null`
+|No form declared: the stage `resumability` has not settled one.
 
 |`opencode`
-|`false` (candidate `true`, `max_hold_seconds` `3600`, for 2.x)
-|`null` (candidate `--session {{session_id}}`, the `sessionID` of the output lines, `max_age_seconds` `3600`, for 2.x)
-|Measured on OpenCode 2.1.2 to 2.1.4 with `opencode-go/deepseek-v4.1-flash`, outside the shipped `supported_versions`, so the candidate is one for the verification of 2.x, not for the shipped profile. R1: holds of 300 and 3,600 s continued in 3 of 3 runs per form. R2: a resumed session continued after 300 and 3,600 s, except one warm run after a server restart whose resumed generations made no call (5 of 6); the resume of a missing session started a new session under the named id instead of failing. The workers ran on the operator's own data home; a per-worker data home (<<headless-data-home>>) is removed when the job settles, so a resume needs it kept while the task is suspended, which was not measured.
+|`false`
+|`null`
+|No form declared: the stage `resumability` has not settled one, and OpenCode 2.x is outside the shipped `supported_versions`.
 
 |`antigravity`
-|`false` (candidate `true`, `max_hold_seconds` `3600`)
-|`null` (candidate `--conversation {{session_id}}`, `/conversation_id`, `max_age_seconds` `3600`)
-|R1: holds of 300 and 3,600 s continued in 3 of 3 runs per form; whether the worker read the canary again cannot be seen in its output. R2: a resumed session continued after 300 s (also after a server restart) and 3,600 s in 3 of 3 runs per form; the resume of a missing session warned and started a new conversation instead of failing. The harness is not worker-eligible (<<worker-block>>).
+|`false`
+|`null`
+|No form declared: no stage measured one, and the harness is not worker-eligible (<<worker-block>>).
 
 |`codex`
 |`false`
@@ -738,7 +738,7 @@ A setting the harness does not apply is not a setting: the verification checks t
 |Not measured.
 |===
 
-The candidates are not shipped values. The measurement ran three runs per fixture, host, form, and continuation instead of the twenty of the specified scale, outside the stage `resumability`, so it settles no value of this table; it shows what the stage is expected to find. `max_hold_seconds` and `max_age_seconds` are `3600` because nothing longer was tried: 3,600 s is the schema's upper bound for a hold, and the resume after 24 hours was not run. Under the stage as specified (<<profile-verification>>), OpenCode 2.x and Antigravity fail its check of a missing session, so their `resume` stays `null` until the stage can tell a resume that started a new session from one that continued the stored session (a proposal for the next profile verification; the schema has no field for it).
+No value of this table is settled until the stage `resumability` measures it (<<profile-verification>>). `max_hold_seconds` and `max_age_seconds` are `3600` because 3,600 s is the schema's upper bound for a hold and no longer age is run; whether a resume of a missing session that starts a new session and exits `0` is a refused resume is an open question (link:../../../../plan-marshall-documentation/doc/discussions/open-questions.adoc#refused-resume[Open Questions, A Resume That Starts a New Session]).
 
 *No harness credentials*: `PM-MCP` never stores or exports a harness's authentication, and a profile declares no authentication variable. The harness CLI must already be logged in by its own login, cached under its home; a harness that is not logged in fails its worker's start (link:../model-work/03-supervision-and-recycling.adoc[Model Work Specification, start failures]).
 
@@ -960,7 +960,7 @@ pm-operator profile remove <client_id> [--project]                              
 |`headless.writable_paths`, `readable_paths`, `data_home`
 
 |`resumability`
-|Only for a harness whose draft declares a form. A worker on a probe task asks through the `ask` link after it has read a canary of the probe workspace. *Hold*: the stage answers after one, two, and the longest bounded-wait windows the operator chose, and checks that the same generation continues, applies the answer, and names the canary without reading it again. *Resume*: the worker ends, and after the chosen delays a generation started from `resume.argv` on the session id read from the result continues, applies the answer, and names the canary; a resume of a missing session and of a session older than the chosen limit must fail at once, never hang. A harness whose resume of a missing session starts a new session and exits `0` instead fails this check, as OpenCode 2.x and Antigravity did (link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#results[Evaluation Reference], R2): the server could then not tell a lost session from a continued one (link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work Specification, Resume refused]). On a harness whose output shows no tool call (Antigravity) a re-read of the canary cannot be seen (R1). Records the usage of every wake-up and resume.
+|Only for a harness whose draft declares a form. A worker on a probe task asks through the `ask` link after it has read a canary of the probe workspace. *Hold*: the stage answers after one, two, and the longest bounded-wait windows the operator chose, and checks that the same generation continues, applies the answer, and names the canary without reading it again. *Resume*: the worker ends, and after the chosen delays a generation started from `resume.argv` on the session id read from the result continues, applies the answer, and names the canary; a resume of a missing session and of a session older than the chosen limit must fail at once, never hang. A harness whose resume of a missing session starts a new session and exits `0` instead fails this check (the link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#results[Evaluation Reference], R2, names the harnesses that did): the server could then not tell a lost session from a continued one (link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work Specification, Resume refused]). On a harness whose output shows no tool call a re-read of the canary cannot be seen (link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#results[Evaluation Reference], R1). Records the usage of every wake-up and resume.
 |`headless.resumability`
 
 |`faults`
