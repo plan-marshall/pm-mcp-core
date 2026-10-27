@@ -81,14 +81,18 @@ class ProfileStagesTest {
     @DisplayName("a measured limit outside the profile schema's range is refused")
     void resumabilityRanges() {
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> new ProfileStages.ResumabilityResult(
-                                new ProfileStages.FormMeasurement(true, 3_601),
-                                ProfileStages.FormMeasurement.notMeasured())),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> new ProfileStages.ResumabilityResult(
-                                ProfileStages.FormMeasurement.notMeasured(),
-                                new ProfileStages.FormMeasurement(true, 604_801))));
+                () -> assertThrows(IllegalArgumentException.class, () -> resultWithHold(3_601)),
+                () -> assertThrows(IllegalArgumentException.class, () -> resultWithResume(604_801)));
+    }
+
+    private static void resultWithHold(int seconds) {
+        new ProfileStages.ResumabilityResult(new ProfileStages.FormMeasurement(true, seconds),
+                ProfileStages.FormMeasurement.notMeasured());
+    }
+
+    private static void resultWithResume(int seconds) {
+        new ProfileStages.ResumabilityResult(ProfileStages.FormMeasurement.notMeasured(),
+                new ProfileStages.FormMeasurement(true, seconds));
     }
 
     @Test

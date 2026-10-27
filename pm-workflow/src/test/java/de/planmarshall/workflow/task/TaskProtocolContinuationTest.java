@@ -282,8 +282,7 @@ class TaskProtocolContinuationTest {
                 continuation(ContinuationForm.HOLD, TaskFixtures.AT.plusSeconds(2)), TaskFixtures.AT.plusSeconds(2)))
                 .task();
         var heldB = ((CallResult.Accepted) protocol.hold(
-                TaskFixtures.call(executing(protocol, "qt-0000000000000002", TaskFixtures.SUCCESSOR),
-                        TaskFixtures.SUCCESSOR),
+                TaskFixtures.call(executing(protocol, TaskFixtures.SUCCESSOR), TaskFixtures.SUCCESSOR),
                 continuation(ContinuationForm.HOLD, TaskFixtures.AT.plusSeconds(2)), TaskFixtures.AT.plusSeconds(2)))
                 .task();
 
@@ -297,8 +296,8 @@ class TaskProtocolContinuationTest {
                 () -> assertEquals("qt-0000000000000002", scoped.orElseThrow().queueTaskId()));
     }
 
-    /** A task of the named id offered to, and acknowledged by, the named generation. */
-    private static QueueTaskRecord executing(TaskProtocol protocol, String queueTaskId, String generation) {
+    /** A task offered to, and acknowledged by, the named generation. */
+    private static QueueTaskRecord executing(TaskProtocol protocol, String generation) {
         var offered = TaskFixtures.task(protocol.wait(TaskFixtures.waitFor(generation), TaskFixtures.AT));
         return ((CallResult.Accepted) protocol.acknowledge(TaskFixtures.call(offered, generation),
                 TaskFixtures.AT.plusSeconds(1))).task();
