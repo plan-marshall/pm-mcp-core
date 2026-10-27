@@ -61,9 +61,10 @@ when the three plans have landed and the roadmap item of Milestone 4 can be chec
 
 ## Watches
 
-- `pm-mcp-core-m2-m4` PLAN-73 (`question-continuation`, staged, runbook lane) reads `question-loop-verification` as
-  `done` and its dependencies as met, although no `headless.resumability`, `questions` or bound value was settled. A
-  finding was sent to that epic's inbox on 2026-10-27. — re-check at the landing of PLAN-02, which makes the package
-  depend on `question-loop-follow-up`.
-- The local main checkout of `plan-marshall-mcp` is at `6d9638f` and has not pulled #107 and #108. — re-check before
-  PLAN-02 or PLAN-03 is launched there.
+- `pm-mcp-core-m2-m4` PLAN-73 (`question-continuation`) read `question-loop-verification` as `done` and its
+  dependencies as met, although no `headless.resumability`, `questions` or bound value was settled. A finding was sent to
+  that epic's inbox on 2026-10-27. On the same day the operator reported #73 landed; the ledger shows it `shipped` as
+  #201, titled "partial: library core". — re-check at the landing of PLAN-02, which makes the package depend on
+  `question-loop-follow-up`, what of `question-continuation` remains and which values it implemented.
+- Resolved 2026-10-27: the local main checkout of `plan-marshall-mcp` pulled #107 and #108 and is level with
+  `origin/main` (`3b93248`).
