@@ -3,7 +3,7 @@
   "slug": "endpoint-harness",
   "workstream": "WS-05",
   "status": "staged",
-  "lane": "plan-marshall",
+  "lane": "runbook",
   "plan_marshall_plan_id": "",
   "pr": "",
   "landing": "",
