@@ -199,6 +199,30 @@ class TaskProtocolContinuationTest {
     }
 
     @Test
+    @DisplayName("a restart-like pause keeps a suspended task suspended and offers it to nobody without its answer")
+    void restartKeepsSuspended(@TempDir Path base) {
+        var locks = new TestLocks();
+        var queue = QueueStore.ofProject(base, "project-a", locks);
+        queue.create(TaskFixtures.queued(TASK, TaskFixtures.ROLE).build());
+        var protocol = protocol(queue, locks);
+        var held = ((CallResult.Accepted) protocol.hold(TaskFixtures.call(executing(protocol)),
+                continuation(ContinuationForm.HOLD, TaskFixtures.AT.plusSeconds(2)), TaskFixtures.AT.plusSeconds(2)))
+                .task();
+        protocol.suspend(TaskFixtures.call(held), continuation(ContinuationForm.RESUME, TaskFixtures.AT.plusSeconds(3)),
+                TaskFixtures.AT.plusSeconds(3));
+
+        var endedAttempts = protocol.pausePlan(TaskFixtures.PLAN, TaskFixtures.AT.plusSeconds(4));
+        var afterPause = queue.read(TASK).orElseThrow();
+        var wait = protocol.wait(TaskFixtures.waitFor(TaskFixtures.SUCCESSOR), TaskFixtures.AT.plusSeconds(5));
+
+        assertAll(
+                () -> assertEquals(0, endedAttempts, "a suspended task holds no attempt to end"),
+                () -> assertEquals(Status.SUSPENDED, afterPause.status()),
+                () -> assertNull(afterPause.lease()),
+                () -> assertEquals(new WaitAnswer.WaitAgain("no_task"), wait));
+    }
+
+    @Test
     @DisplayName("an answer to a question no open task holds is delivered to nobody")
     void answerToUnknownQuestion(@TempDir Path base) {
         var locks = new TestLocks();

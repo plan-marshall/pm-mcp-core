@@ -235,6 +235,57 @@ class WorkerLossDetectionTest {
                 () -> assertEquals(TASK, detection.leasedTask(), "the cancellation keeps the observed task"));
     }
 
+    @Test
+    @DisplayName("an answer delivered to a holding generation owes its acknowledgement from the delivery")
+    void answerAcknowledgement() {
+        var detection = detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), false));
+        detection.started(SPAWN);
+        detection.offered(TASK, SPAWN);
+        detection.acknowledged(SPAWN.plusSeconds(1));
+        var delivered = SPAWN.plusSeconds(600);
+
+        detection.answerDelivered(delivered);
+        var deadline = delivered.plusSeconds(ACK_SECONDS);
+
+        assertAll(
+                () -> assertTrue(detection.due(deadline.minusMillis(1)).isEmpty(),
+                        "the offer's deadline is spent; the answer's is the one in force"),
+                () -> assertEquals(LossReason.ACK_MISSED, detection.due(deadline).orElseThrow().reason()),
+                () -> assertEquals(deadline, detection.due(deadline).orElseThrow().deadline()));
+    }
+
+    @Test
+    @DisplayName("an acknowledgement after the answer clears the answer's deadline")
+    void answerAcknowledged() {
+        var detection = detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), false));
+        detection.started(SPAWN);
+        detection.offered(TASK, SPAWN);
+        detection.acknowledged(SPAWN.plusSeconds(1));
+        detection.answerDelivered(SPAWN.plusSeconds(600));
+
+        detection.acknowledged(SPAWN.plusSeconds(602));
+
+        assertAll(
+                () -> assertTrue(detection.due(SPAWN.plusSeconds(610)).isEmpty()),
+                () -> assertEquals(LossReason.SILENCE, detection.due(SPAWN.plusSeconds(700)).orElseThrow().reason()));
+    }
+
+    @Test
+    @DisplayName("an informational acknowledgement leaves the answer's loss to silence")
+    void informationalAnswerAcknowledgement() {
+        var detection = detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), true));
+        detection.started(SPAWN);
+        detection.offered(TASK, SPAWN);
+        detection.acknowledged(SPAWN.plusSeconds(1));
+        detection.answerDelivered(SPAWN.plusSeconds(600));
+
+        assertAll(
+                () -> assertTrue(detection.due(SPAWN.plusSeconds(610)).isEmpty(),
+                        "an informational acknowledgement raises no signal"),
+                () -> assertEquals(LossReason.SILENCE,
+                        detection.due(SPAWN.plusSeconds(600 + SILENCE_SECONDS)).orElseThrow().reason()));
+    }
+
     private LossDetection detection(RoleClass roleClass, WorkerParameters parameters) {
         return new LossDetection(GENERATION, roleClass, parameters, clock, timers, signals::add);
     }
