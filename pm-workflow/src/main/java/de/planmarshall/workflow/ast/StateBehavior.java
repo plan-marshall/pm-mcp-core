@@ -198,25 +198,23 @@ public sealed interface StateBehavior
     }
 
     /**
-     * {@code question <class>}: the state rests on the scope's open question record.
+     * {@code question <class>}: the state rests in the decision unit's operator waits over the scope's open question
+     * record.
      *
      * @param questionClass the question class
      * @param transitions   the transitions of the class's closed resolution outcomes
-     * @param links         further declared links, in session-driven units only
      */
-    record QuestionWait(String questionClass, List<OutcomeTransition> transitions, List<LinkSpec> links)
+    record QuestionWait(String questionClass, List<OutcomeTransition> transitions)
             implements StateBehavior {
 
         /**
-         * Copies the transitions and the links into immutable lists.
+         * Copies the transitions into an immutable list.
          *
          * @param questionClass the question class
          * @param transitions   the transitions of the resolution outcomes
-         * @param links         further declared links
          */
         public QuestionWait {
             transitions = List.copyOf(transitions);
-            links = List.copyOf(links);
         }
     }
 

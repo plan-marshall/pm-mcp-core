@@ -22,6 +22,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
@@ -40,7 +41,7 @@ class InstancePrunerTest {
 
     private static final RuleEffects NOTHING = new RuleEffects(List.of(), List.of());
 
-    /** The text of a question state that offers a link, written for these tests and parsed as a workspace unit. */
+    /** The text of a resting link state with two links, written for these tests and parsed as a workspace unit. */
     private static final String LINK_UNIT = """
             ---
             name: Pruner link fixture
@@ -57,10 +58,10 @@ class InstancePrunerTest {
 
             state setup.wait
                 phase setup
-                question clarification
-                    answered -> setup.left
-                    expired -> setup.left
                 link next skip_wait ()
+                    do setup.skip
+                        done -> setup.left
+                link next keep_going ()
                     do setup.skip
                         done -> setup.left
 
@@ -111,11 +112,12 @@ class InstancePrunerTest {
 
         var pruned = prune(linkTemplate(), new RuleEffects(List.of(link), List.of()), Optional.empty());
 
-        var kept = assertInstanceOf(StateBehavior.QuestionWait.class,
+        var kept = assertInstanceOf(StateBehavior.InteractiveLinks.class,
                 pruned.states().get("setup.wait").behavior());
         assertAll(
                 () -> assertEquals(List.of(link), pruned.pruned(), "the link is listed once"),
-                () -> assertTrue(kept.links().isEmpty(), kept.links()::toString));
+                () -> assertEquals(List.of("keep_going"),
+                        kept.links().stream().map(LinkSpec::idPattern).toList()));
     }
 
     @Test

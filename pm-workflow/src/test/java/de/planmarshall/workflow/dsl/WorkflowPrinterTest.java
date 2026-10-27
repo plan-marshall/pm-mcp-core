@@ -156,10 +156,8 @@ class WorkflowPrinterTest {
             state git.ask
                 phase inherit
                 question review
-                    answered -> git.choose
-                link next skip [noop] ()
-                    do git.skip
-                        done -> git.choose
+                    approve -> git.choose
+                    revise -> git.choose
 
             state git.choose
                 phase inherit

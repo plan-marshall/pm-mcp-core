@@ -49,7 +49,7 @@ class StateKindTest {
                         Map.of(), List.of()), "call"),
                 Arguments.of("call state through a named entry", new StateBehavior.SubWorkflowCall("diagram.callee",
                         Optional.of("review"), Map.of(), List.of()), "call"),
-                Arguments.of("question state", new StateBehavior.QuestionWait("clarification", List.of(), List.of()),
+                Arguments.of("question state", new StateBehavior.QuestionWait("clarification", List.of()),
                         "awaiting_user"),
                 Arguments.of("terminal state", new StateBehavior.TerminalState(), "terminal"));
     }

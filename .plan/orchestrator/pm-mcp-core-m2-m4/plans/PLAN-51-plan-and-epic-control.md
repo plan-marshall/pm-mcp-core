@@ -16,7 +16,7 @@ workstream: WS-03
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -72,35 +72,31 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/engine/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/` — inferred from the `Where` line
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-engine.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-engine/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-core/doc/developer/core-store.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-core/doc/adr/core-store/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
 - OBSERVED: `doc/plans/plan-and-epic-control.adoc` — the package file, deleted when the package is done
 - OBSERVED: `doc/specification/runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/state-catalogue/01-conventions-generic-conditions.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/state-catalogue/04-plan-finalize-terminal.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/store-schemas/10-job-and-lesson-records.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/workflow-dsl/09-plan-instance.adoc` — specification part; the implemented sections deleted
-- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/web/` — the operator endpoints of both clients and their verbs for a plan — inferred from the `Where` line; the package name is a guess
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/task/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/plan/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/epic/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/queue/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/doc/developer/workflow-task.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-core/doc/developer/core-queue.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-runtime/doc/developer/runtime-start.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/model-work/08-epic-coordination.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/store-schemas/04-epic-and-change-ledger.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/filesystem-layout/03-project-store.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/implementation-watch/runtime-lifecycle.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/` — D2's pause now builds on `WorkerCalls.planPaused`, `EndCause.PAUSE_AT_ONCE` and `WorkerEnding`; no implementer of `WorkerCalls` exists; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `doc/Traceability.adoc` — written by every plan; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/specification/state-catalogue/01-conventions-generic-conditions.adoc` — specification part; only Holds and Their Acts is this plan's
+- OBSERVED: `doc/specification/state-catalogue/04-plan-finalize-terminal.adoc` — specification part; plan terminal states, cancelling and abandoning archive
+- OBSERVED: `doc/specification/store-schemas/02-workflow-state-store.adoc` — plan activity (pause) and outcome list gain cancelled/abandoned/released; read by WorkflowStatusSchemaParityTest
+- OBSERVED: `doc/specification/store-schemas/04-epic-and-change-ledger.adoc` — epic inbox record and queue row statuses
+- OBSERVED: `doc/specification/store-schemas/10-job-and-lesson-records.adoc` — only A Claimed Lesson Ends with the Landing is this plan's
+- OBSERVED: `doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc` — specification part; plan overrides
+- OBSERVED: `doc/specification/workflow-dsl/09-plan-instance.adoc` — plan overrides (a plan's settings)
+- OBSERVED: `doc/specification/model-work/08-epic-coordination.adoc` — The Epic Is Told
+- OBSERVED: `doc/specification/filesystem-layout/03-project-store.adoc` — plan archive
+- OBSERVED: `doc/implementation-watch/runtime-lifecycle.adoc` — PM-WATCH-RUN-2
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java` — the plan's activity (running/pausing/paused) and the outcome values in the workflow state
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatusCodec.java` — reads and writes the new activity and outcomes
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/engine/WorkflowEngine.java` — pause points (after_task, after_phase, now) at waits, loop-backs and the rebase-to-merge section
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/task/PlanPause.java` — port that offers no task to a paused plan
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/task/TaskProtocol.java` — pausePlan, no task offered to a paused plan
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java` — composition event override under the position rule (position_not_contained)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/StalledScopeDetector.java` — the stalled hold, plan_stalled and plan.hold_released; paused plan is never stalled
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java` — activity and outcome round trip
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusSchemaParityTest.java` — reads store-schemas/02 (byte-stable blocks)
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/engine/WorkflowEngineTest.java` — each pause point holds where it says
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolOfferTest.java` — a paused plan is offered no task
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java` — override composition and position_not_contained
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/start/StalledScopeDetectorTest.java` — a paused plan is never stalled
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

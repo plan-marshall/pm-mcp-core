@@ -1,0 +1,21 @@
+{
+  "kind": "orchestrator",
+  "title": "Question-loop verification: corrections and follow-up",
+  "phase": "orchestrating",
+  "workstreams": [
+    {
+      "id": "WS-01",
+      "slug": "result-corrections",
+      "status": "active"
+    },
+    {
+      "id": "WS-02",
+      "slug": "follow-up",
+      "status": "active"
+    }
+  ],
+  "metadata": {
+    "parallelization_scope": "2"
+  },
+  "created": "2026-10-27T07:19:07Z"
+}

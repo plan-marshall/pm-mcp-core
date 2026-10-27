@@ -14,8 +14,8 @@ start verify.entry
 
 state verify.entry
     phase verify
-    question clarification
-        answered -> verify.done
+    question review
+        approve -> verify.done
 
 state verify.done terminal done success
     phase verify

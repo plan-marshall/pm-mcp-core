@@ -16,7 +16,7 @@ workstream: WS-03
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -74,33 +74,29 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/unit/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/` — inferred from the `Where` line
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-unit.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-unit/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-verify.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-verify/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-core/doc/developer/core-store.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-core/doc/adr/core-store/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
 - OBSERVED: `doc/plans/start-from-clients.adoc` — the package file, deleted when the package is done
 - OBSERVED: `doc/specification/model-work/08-epic-coordination.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/phase-workflows/01-planning-phases-1-2.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/phase-workflows/01-planning-phases-1-2.adoc` — specification part; § Plan Source Contracts
 - OBSERVED: `doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/store-schemas/08-project-configuration-local.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/store-schemas/10-job-and-lesson-records.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/workflow-dsl/02-units-jobs-decisions.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/primitive/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/src/test/resources/dsl/valid/session-unit.pmwf` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/doc/developer/workflow-engine.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-core/doc/developer/core-spi.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/ast/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/engine/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/spi/OutcomeClass.java` — D2 names the `STEPPED_OUT` wording and the session removal; only `core-spi.adoc` was on the surface; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/QualificationSettingsStore.java` — already owns `local-config.json` (`settings.qualification`, revision and `CONFLICT`, ADR `core-store/045`); `epic.parallelization_scope` is a new member of the same document and must not clobber it; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/StoreRefusal.java` — the `CONFLICT` outcome and `conflict(file, expected, current)`; added by the re-grounding of 2026-10-26
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-primitive.adoc` — package `primitive` changed and no developer file exists yet (new); added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/specification/store-schemas/08-project-configuration-local.adoc` — specification part; keep diagrams.format
+- OBSERVED: `doc/specification/store-schemas/10-job-and-lesson-records.adoc` — specification part; job-record block stays byte-stable
+- OBSERVED: `doc/specification/workflow-dsl/02-units-jobs-decisions.adoc` — specification part; keep security_severity_caps
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/spi/OutcomeClass.java` — D2: the STEPPED_OUT wording and the session removal
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/VerificationRule.java` — D2: SESSION_DRIVEN_LINKS(10) (one owner with PLAN-42, R15)
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java` — D2: checkSessionDrivenLinks
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/QualificationSettingsStore.java` — D8: owns local-config.json; epic.parallelization_scope must not clobber settings.qualification
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/QualificationSettingsCodec.java` — D8: writes the document the new member sits in
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/StoreRefusal.java` — the CONFLICT outcome the write uses
+- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/primitive/` — plan-domain primitives home (package-info only)
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/spi/SpiVocabularyTest.java` — OutcomeClass vocabulary
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/verify/VerificationResultTest.java` — pins SESSION_DRIVEN_LINKS(10)
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/verify/AdditionalRulesTest.java` — SESSION_DRIVEN_LINKS tests
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/verify/WorkflowValidatorTest.java` — session fixtures refused
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/QualificationSettingsStoreTest.java` — coexistence of the two members
+- OBSERVED: `pm-workflow/src/test/resources/dsl/valid/session-unit.pmwf` — D2: session unit fixture goes
+- OBSERVED: `pm-workflow/src/test/resources/verify/refused/session-link-forbidden.pmwf` — D2: named fixture
+- OBSERVED: `pm-workflow/src/test/resources/verify/refused/session-link-transitive.pmwf` — D2: named fixture
+- HYPOTHESIS: `pm-workflow/doc/developer/workflow-primitive.adoc` — new developer guide for the primitive package
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

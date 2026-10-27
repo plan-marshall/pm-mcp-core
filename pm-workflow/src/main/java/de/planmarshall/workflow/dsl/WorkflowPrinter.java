@@ -184,10 +184,9 @@ public final class WorkflowPrinter {
                         + bindings(paramBindings));
                 printTransitions(2, transitions);
             }
-            case StateBehavior.QuestionWait(var questionClass, var transitions, var links) -> {
+            case StateBehavior.QuestionWait(var questionClass, var transitions) -> {
                 line(1, "question " + questionClass);
                 printTransitions(2, transitions);
-                printLinks(links);
             }
             case StateBehavior.TerminalState _ -> {
                 // a terminal state has no body

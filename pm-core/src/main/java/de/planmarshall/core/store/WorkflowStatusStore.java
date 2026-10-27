@@ -15,8 +15,9 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * The workflow state store {@code mcp/status.json} of one plan, epic or workspace scope (PM-ARCH-6: the persisted
- * state machine position; PM-ARCH-4: every run state lives in the store, so a killed run resumes where it stopped).
+ * The workflow state store {@code mcp/status.json} of one plan, epic, workspace or machine scope (PM-ARCH-6: the
+ * persisted state machine position; PM-ARCH-4: every run state lives in the store, so a killed run resumes where it
+ * stopped).
  * <p>
  * A read takes no lock: it reads the store as it is at that moment ({@link StoreSnapshot}), which is the content
  * before or after a write and never a part of one. A store that does not exist is reported as absent, never as an
@@ -35,7 +36,7 @@ public final class WorkflowStatusStore {
     private final String storePath;
 
     /**
-     * @param scope the plan, epic or workspace scope whose status this store holds
+     * @param scope the plan, epic, workspace or machine scope whose status this store holds
      * @throws IllegalArgumentException if the scope is the lesson store, which has no status
      */
     public WorkflowStatusStore(JournalScope scope) {
@@ -44,6 +45,7 @@ public final class WorkflowStatusStore {
             case PLAN -> "mcp/status.json";
             case EPIC -> "status.json";
             case WORKSPACE -> "workspace/mcp/status.json";
+            case MACHINE -> "mcp/status.json";
             case LESSONS -> throw new IllegalArgumentException("The lesson store has no status document");
         };
     }

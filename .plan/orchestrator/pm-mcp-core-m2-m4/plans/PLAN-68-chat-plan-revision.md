@@ -16,7 +16,7 @@ workstream: WS-05
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -64,23 +64,20 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/unit/` — production code
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/` — production code
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-unit.adoc` — developer documentation of the package; created or extended
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-unit/` — ADRs of the package's design decisions; new directory if absent
 - OBSERVED: `doc/plans/chat-plan-revision.adoc` — the package file, deleted when the package is done
+- OBSERVED: `doc/plans/re-planning.adoc` — the package this plan depends on; the typed re-planning record belongs to it; read
+- OBSERVED: `doc/specification/phase-workflows/01-planning-phases-1-2.adoc` — specification part; The Intent Record, A fix is tested
+- OBSERVED: `doc/specification/phase-workflows/07-questions-waivers-operator-influence.adoc` — specification part; Intent Amendments
 - OBSERVED: `doc/specification/phase-workflows/08-dynamic-re-planning.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/state-catalogue.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/state-catalogue/12-re-planning.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/state-catalogue/16-decision.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/store-schemas/17-re-planning.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/phase-workflows/01-planning-phases-1-2.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/store-schemas/06-task-and-references.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/phase-workflows/07-questions-waivers-operator-influence.adoc` — exists at HEAD `8233fffc`; added by the second re-grounding pass of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/store-schemas/02-workflow-state-store.adoc` — exists at HEAD `8233fffc`; added by the second re-grounding pass of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/implementation-watch/phase-workflows.adoc` — exists at HEAD `8233fffc`; added by the second re-grounding pass of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/plans/re-planning.adoc` — the package this plan depends on exists (open, depends on `phase-sub-workflows` and `plan-instance-versions`); the typed re-planning record belongs to it; read; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
+- OBSERVED: `doc/specification/store-schemas/02-workflow-state-store.adoc` — specification part; amendments[].changes
+- OBSERVED: `doc/specification/store-schemas/06-task-and-references.adoc` — specification part; the intent-record store
+- OBSERVED: `doc/specification/store-schemas/17-re-planning.adoc` — specification part; the re-planning record with the chat as decider
+- OBSERVED: `doc/implementation-watch/phase-workflows.adoc` — watch document; guard of the fold path
+- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/primitive/` — chat.apply and replan.apply-revision primitives; package-info only
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionEvent.java` — REPLAN is Trigger.SERVER, but a chat revision is the operator's act (open question, may be edited)
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

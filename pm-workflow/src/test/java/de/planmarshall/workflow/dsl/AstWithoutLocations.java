@@ -98,7 +98,7 @@ final class AstWithoutLocations {
             case StateBehavior.SubWorkflowCall call -> new StateBehavior.SubWorkflowCall(call.subWorkflowId(),
                     call.entry(), call.paramBindings(), transitions(call.transitions()));
             case StateBehavior.QuestionWait question -> new StateBehavior.QuestionWait(question.questionClass(),
-                    transitions(question.transitions()), links(question.links()));
+                    transitions(question.transitions()));
             case StateBehavior.TerminalState terminal -> terminal;
         };
     }

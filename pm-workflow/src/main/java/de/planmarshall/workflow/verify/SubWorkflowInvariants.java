@@ -141,7 +141,7 @@ final class SubWorkflowInvariants {
             case StateBehavior.SubWorkflowCall call -> new StateBehavior.SubWorkflowCall(call.subWorkflowId(),
                     call.entry(), call.paramBindings(), shape(call.transitions()));
             case StateBehavior.QuestionWait question -> new StateBehavior.QuestionWait(question.questionClass(),
-                    shape(question.transitions()), question.links().stream().map(SubWorkflowInvariants::shape).toList());
+                    shape(question.transitions()));
             case StateBehavior.TerminalState terminal -> terminal;
         };
         return new StateNode(state.id(), state.phase(), state.terminalOutcome(), state.skillPath(),

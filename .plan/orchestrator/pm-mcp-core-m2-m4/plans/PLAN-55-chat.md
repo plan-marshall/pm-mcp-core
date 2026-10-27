@@ -16,7 +16,7 @@ workstream: WS-05
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -68,16 +68,6 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/unit/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/web/` — inferred from the `Where` line
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-unit.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-unit/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-core/doc/developer/core-store.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-core/doc/adr/core-store/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-runtime/doc/developer/runtime-web.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-runtime/doc/adr/runtime-web/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
 - OBSERVED: `doc/plans/chat.adoc` — the package file, deleted when the package is done
 - OBSERVED: `doc/specification/model-work/01-roles-and-configuration.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/model-work/06-envelopes-questions-deadlines.adoc` — specification part; the implemented sections deleted
@@ -85,10 +75,13 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/state-catalogue.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/workflow-dsl/02-units-jobs-decisions.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/model/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/state-catalogue/16-decision.adoc` — `decision.chat` is in the chat trace and the file was not in the surface; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `doc/specification/state-catalogue/17-epic-decomposition-and-review.adoc` — `decomposition.chat` and `review.chat`; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc` — start.chat and start-epic.chat; derived-lesson screening
+- OBSERVED: `doc/specification/state-catalogue/16-decision.adoc` — decision.chat
+- OBSERVED: `doc/specification/state-catalogue/17-epic-decomposition-and-review.adoc` — decomposition.chat and review.chat
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/model/ModelCaller.java` — routing to the planning role and the disabled-with-reason offer (D3)
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/model/QualificationLookup.java` — chat offered disabled while no configuration of the routed role qualifies (D3)
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/model/RoleUse.java` — role use of the routed role (D3)
+- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/primitive/` — the chat.* state primitives (package-info only today)
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

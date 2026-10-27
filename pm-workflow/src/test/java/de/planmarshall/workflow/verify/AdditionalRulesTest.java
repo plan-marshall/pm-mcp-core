@@ -400,19 +400,19 @@ class AdditionalRulesTest {
         var def = unit("plan", """
                 state verify.entry
                     phase verify
-                    question clarification
-                        answered -> verify.done
-                        answered -> verify.done
+                    question review
+                        approve -> verify.done
+                        approve -> verify.done
                         bogus -> verify.done
                 """ + DONE_TERMINAL);
 
         assertEquals(violationsOf(VerificationRule.QUESTION_OUTCOMES, "verify.entry",
-                "the question state 'verify.entry' routes the outcome 'answered' of the question class"
-                        + " 'clarification' twice",
+                "the question state 'verify.entry' routes the outcome 'approve' of the question class"
+                        + " 'review' twice",
                 "the question state 'verify.entry' routes the outcome 'bogus', which the question class"
-                        + " 'clarification' does not have",
-                "the question state 'verify.entry' does not route the outcome 'assumed' of the question class"
-                        + " 'clarification'"),
+                        + " 'review' does not have",
+                "the question state 'verify.entry' does not route the outcome 'revise' of the question class"
+                        + " 'review'"),
                 found(def));
     }
 
@@ -510,6 +510,10 @@ class AdditionalRulesTest {
         assertEquals(List.of(
                         new RuleStateMessage(VerificationRule.LEAF_TASK_CONSTRAINT, "verify.entry",
                                 "a worker unit link transition must not enter a model job state"),
+                        new RuleStateMessage(VerificationRule.OPERATOR_LINKS_APART, "verify.entry",
+                                "the resting link state 'verify.entry' declares links in the worker unit 'worker-task'; "
+                                        + "a model acts only through the links of its task entity, never through a "
+                                        + "declared link clause"),
                         new RuleStateMessage(VerificationRule.LEAF_TASK_CONSTRAINT, "verify.model",
                                 "a worker unit must not contain a model job state")),
                 found(workerDef));
@@ -759,11 +763,11 @@ class AdditionalRulesTest {
     @DisplayName("QUESTION_CLASS_BINDING: question class not registered")
     void questionClassUnregistered() {
         var customQuestions = new QuestionClassRegistry(List.of(
-                new QuestionClass("init", Set.of("answered", "assumed", "returned")),
-                new QuestionClass("clarification", Set.of("answered", "assumed")),
-                new QuestionClass("review", Set.of("approve", "revise", "returned")),
-                new QuestionClass("task", Set.of("answered", "assumed")),
-                new QuestionClass("setup", Set.of("answered", "assumed"))));
+                new QuestionClass("init", Set.of("answered")),
+                new QuestionClass("clarification", Set.of("answered")),
+                new QuestionClass("review", Set.of("approve", "revise")),
+                new QuestionClass("task", Set.of("answered")),
+                new QuestionClass("setup", Set.of("answered"))));
         var customVal = new WorkflowValidator(TestPrimitives.registry(), List.of("verify.entry"),
                 TestPrimitives.entityKinds(), customQuestions, SchemaRegistry.defaults(), TestPrimitives.catalog());
 
@@ -772,7 +776,6 @@ class AdditionalRulesTest {
                     phase verify
                     question ask
                         answered -> verify.done
-                        assumed -> verify.done
                 """ + DONE_TERMINAL);
 
         assertEquals(violationsOf(VerificationRule.QUESTION_CLASS_BINDING, "verify.entry",
@@ -781,26 +784,26 @@ class AdditionalRulesTest {
     }
 
     @Test
-    @DisplayName("QUESTION_OUTCOMES: ask class bijection and missing outcome")
+    @DisplayName("QUESTION_OUTCOMES: review class bijection and missing outcome")
     void questionAskOutcomes() {
         var passing = unit("workspace", """
                 state verify.entry
                     phase verify
-                    question ask
-                        answered -> verify.done
-                        assumed -> verify.done
+                    question review
+                        approve -> verify.done
+                        revise -> verify.done
                 """ + DONE_TERMINAL);
         assertEquals(List.of(), violations(passing));
 
         var missing = unit("workspace", """
                 state verify.entry
                     phase verify
-                    question ask
-                        answered -> verify.done
+                    question review
+                        approve -> verify.done
                 """ + DONE_TERMINAL);
         assertEquals(violationsOf(VerificationRule.QUESTION_OUTCOMES, "verify.entry",
-                "the question state 'verify.entry' does not route the outcome 'assumed' of the question class"
-                        + " 'ask'"),
+                "the question state 'verify.entry' does not route the outcome 'revise' of the question class"
+                        + " 'review'"),
                 found(missing));
     }
 
@@ -920,16 +923,16 @@ class AdditionalRulesTest {
         var def = unit("plan", """
                 state verify.entry
                     phase verify
-                    question clarification
-                        answered -> verify.done
+                    question review
+                        approve -> verify.done
                             completes verify:q as done
-                        assumed -> verify.done
+                        revise -> verify.done
                             completes verify:q as done
                 """ + DONE_TERMINAL);
 
         assertEquals(stepCompletion("verify.entry",
-                "the step 'verify:q' is completed on the outcome 'answered', whose class cannot be established",
-                "the step 'verify:q' is completed on the outcome 'assumed', whose class cannot be established"),
+                "the step 'verify:q' is completed on the outcome 'approve', whose class cannot be established",
+                "the step 'verify:q' is completed on the outcome 'revise', whose class cannot be established"),
                 found(def));
     }
 
@@ -1682,78 +1685,76 @@ class AdditionalRulesTest {
     }
 
     @Test
-    @DisplayName("SESSION_DRIVEN_LINKS: a resting link is refused at any depth of a plan unit's calls (ADR 011)")
-    void sessionDrivenLinksTransitive() {
-        var nested = unit("plan", """
+    @DisplayName("OPERATOR_LINKS_APART: an operator wait is admitted in every scope, a worker unit declares no link")
+    void operatorLinksApart() {
+        var plan = unit("plan", """
                 state verify.entry
                     phase verify
-                    call test.links-outer()
-                        done -> verify.done
-                        stepped_out -> plan.return
-
-                state plan.return terminal returned failure
-                    phase verify
+                    link next proceed ()
+                        do test.proceed
+                            done -> verify.done
                 """ + DONE_TERMINAL);
-        assertEquals(List.of(new RuleStateMessage(VerificationRule.SESSION_DRIVEN_LINKS, "verify.entry",
-                        "the sub-workflow 'test.links-inner' reached by the call contains resting links, which are not admitted in a unit of scope PLAN")),
-                found(nested));
+        assertEquals(List.of(), violations(plan));
 
-        var direct = unit("plan", """
+        var epic = unit("epic", """
                 state verify.entry
                     phase verify
-                    call test.links-inner()
-                        done -> verify.done
-                        stepped_out -> plan.return
-
-                state plan.return terminal returned failure
-                    phase verify
+                    link next proceed ()
+                        do test.proceed
+                            done -> verify.done
                 """ + DONE_TERMINAL);
-        assertEquals(List.of(new RuleStateMessage(VerificationRule.SESSION_DRIVEN_LINKS, "verify.entry",
-                        "the sub-workflow 'test.links-inner' reached by the call contains resting links, which are not admitted in a unit of scope PLAN")),
-                found(direct));
+        assertEquals(List.of(), violations(epic));
 
-        var linkFree = unit("plan", """
+        var workspace = unit("workspace", """
                 state verify.entry
                     phase verify
-                    call test.depth3()
-                        done -> verify.done
-                        stepped_out -> plan.return
+                    link next proceed ()
+                        do test.proceed
+                            done -> verify.entry
+                """);
+        assertEquals(List.of(), violations(workspace));
 
-                state plan.return terminal returned failure
+        var worker = VerifyFixtures.parseSource("worker.pmwf", """
+                ---
+                name: worker-task
+                description: The task protocol unit, written with a link for the verifier tests.
+                type: task
+                icon: workflow.default
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                exit: done
+                ---
+                workflow worker-task version 1 format 1
+                scope entity
+                start verify.entry
+
+                state verify.entry
                     phase verify
-                """ + DONE_TERMINAL);
-        assertEquals(List.of(), violations(linkFree));
+                    link next proceed ()
+                        do test.proceed
+                            done -> verify.done
+
+                state verify.done terminal done success
+                    phase verify
+                """);
+        assertEquals(List.of(new RuleStateMessage(VerificationRule.OPERATOR_LINKS_APART, "verify.entry",
+                        "the resting link state 'verify.entry' declares links in the worker unit 'worker-task'; "
+                                + "a model acts only through the links of its task entity, never through a declared link "
+                                + "clause")),
+                found(worker));
     }
 
     @Test
-    @DisplayName("CYCLE_AWAITED_EVENT 11b: a question state's link is judged by its primitive, its own outcomes await the answer")
-    void questionLinkCycle() {
-        var noEvent = unit("workspace", """
+    @DisplayName("CYCLE_AWAITED_EVENT 11b: a question state awaits the answer, so its resolution edge counts")
+    void questionStateAwaitsAnswer() {
+        var looping = unit("workspace", """
                 state verify.entry
                     phase verify
                     question ask
-                        answered -> verify.done
-                        assumed -> verify.done
-                    link next again ()
-                        do test.proceed
-                            done -> verify.entry
-                """ + DONE_TERMINAL);
-        assertEquals(List.of(new RuleStateMessage(VerificationRule.CYCLE_AWAITED_EVENT, "verify.entry",
-                        "the cycle 'verify.entry -> verify.entry' has no awaited event")),
-                found(noEvent));
-
-        var submitting = unit("workspace", """
-                state verify.entry
-                    phase verify
-                    question ask
-                        answered -> verify.done
-                        assumed -> verify.entry
-                    link next choose [submit] (note: text[1..80], comment: text)
-                        do test.choose
-                            chosen -> verify.entry
-                            declined -> verify.done
-                """ + DONE_TERMINAL);
-        assertEquals(List.of(), violations(submitting));
+                        answered -> verify.entry
+                """);
+        assertEquals(List.of(), violations(looping));
     }
 
     @Test

@@ -16,7 +16,7 @@ workstream: WS-04
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R16, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R16, R17, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -44,7 +44,7 @@ The bullets of `doc/plans/token-usage.adoc` § What, in its words (regenerated a
 11. Parsing fixtures: a recorded output of each shipped harness and version (one fresh run, and the turns of a warm worker) is a test fixture with its expected row: the usage is parsed through the profile into each column, the unified figures and the coverage are derived from it; a changed output format of a harness fails its fixture. The fixtures are written for the test from recorded runs, never copied from the content of the product.
 12. The evaluation: the usage measurement of the Evaluation Reference (V7, Gate 13) is repeated for every new harness and harness version before its figures are trusted; until then its profile's usage stays provisional.
 
-**Done when** (the package's own acceptance): Every figure a harness reports lands raw in its row, the cost included, with harness, harness version, model, effort, role, and phase, and no representation or view shows a cost or a price; a fixture profile with a `not_applicable` figure yields measured rows and one with a `null` figure unmeasured rows with their reason; a harness that reports reasoning apart and one that includes it in its output give the same unified figure for the same usage; the unified figures and the coverage of every aggregate come from the one derivation, a total over unmeasured rows marked a floor; each shipped harness and version has its recorded output parsed into its expected row; the verification records per figure `reported`, `not_applicable`, or `missing`, and fails for a pointer that does not resolve; the representations of a running plan and of an epic carry their tokens with split and coverage and no limit, budget line, projection, or comparison with one. **Sonar:** the SonarCloud search of the pull request (`pullRequest=<N>&resolved=false`) lists no open issue other than one dismissed with its reason, and its quality gate is green, before the pull request is reported ready.
+**Done when** (the package's own acceptance): Every figure a harness reports lands raw in its row, the cost included, with harness, harness version, model, effort, role, and phase, and no representation or view shows a cost or a price; a fixture profile with a `not_applicable` figure yields measured rows and one with a `null` figure unmeasured rows with their reason; a harness that reports reasoning apart and one that includes it in its output give the same unified figure for the same usage; the unified figures and the coverage of every aggregate come from the one derivation, a total over unmeasured rows marked a floor; each shipped harness and version has its recorded output parsed into its expected row; the verification records per figure `reported`, `not_applicable`, or `missing`, and fails for a pointer that does not resolve; the representations of a running plan and of an epic carry their tokens with split and coverage and no limit, budget line, projection, or comparison with one. **Sonar:** the SonarCloud search of the pull request (`pullRequest=<N>&resolved=false`) lists no open issue other than one dismissed with its reason, and its quality gate is green, before the pull request is reported ready. **Build:** `verify -Ppre-commit` (its rewrites reviewed and committed), then `verify` of every module the plan changes (`pm-core`, `pm-workflow`, `pm-runtime`; where a full run does not finish inside the host's bound, the targeted `-Dtest` runs of the changed classes and the per-module run, each reported in the pull request body), `verify -Pcoverage`, `verify -Pintegration-tests -pl pm-core -am` and `verify -Pintegration-tests -pl pm-runtime -am` are green. **Links:** run the links check (R17) from the main checkout against the documentation checkout at its `origin/main` (`git -C ../plan-marshall-documentation fetch origin main`, then `trace.py` over a checkout of that revision, or fast-forward the sibling first): a `BROKEN LINKS` count that names `PM-WATCH-CLIENT-13`, `PM-WATCH-DISP-33`, `-43` or `-55` is the sibling's own links to the watch items #190 deleted, not a defect of this change. **Docs-only change:** a specification-only pull request now runs the build (ADR `doc/adr/009`).
 
 **Trace starting set** (the requirements, use cases and roadmap live in `../plan-marshall-documentation`; the specifications and watch documents of the engine in this repository, `doc/specification/` and `doc/implementation-watch/`):
 
@@ -70,31 +70,42 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/profile/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/role/` — Deliverable 3 adds tokens to the qualification and calibration records that `core.role` holds; added by cleanup on 2026-10-16
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- HYPOTHESIS: `pm-core/doc/developer/core-profile.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-core/doc/adr/core-profile/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-core/doc/developer/core-store.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-core/doc/adr/core-store/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-runtime/doc/developer/runtime-launch.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-runtime/doc/adr/runtime-launch/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
 - OBSERVED: `doc/plans/token-usage.adoc` — the package file, deleted when the package is done
 - OBSERVED: `doc/implementation-watch/client-profiles.adoc` — watch document; the covered items deleted
 - OBSERVED: `doc/implementation-watch/model-work.adoc` — watch document; the covered items deleted
 - OBSERVED: `doc/implementation-watch/store-schemas.adoc` — watch document; the covered items deleted
 - OBSERVED: `doc/specification/client-profiles/01-profile-schema.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/model-work/09-completion-usage-and-spend.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc` — specification part; Metric Aggregates only, leave the later sections
 - OBSERVED: `doc/specification/phase-workflows/08-dynamic-re-planning.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/state-catalogue/11-remediation-units-merge-qgate-spend.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/05-metrics-and-quality-report.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/store-schemas/16-task-queue.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/store-schemas/11-enrolment-store.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-core/doc/developer/core-role.adoc` — D3 changes `core.role` and R06 names its developer file; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `pm-core/doc/adr/core-role/` — next free number 003; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/specification/store-schemas/16-task-queue.adoc` — specification part; qualification, calibration and judge check records get tokens with the split
+- OBSERVED: `doc/specification/store-schemas/11-enrolment-store.adoc` — usage_report with start_context
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/ProfileStages.java` — stage usage: per-figure result and start_context
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/ProfileValidator.java` — usage block validation (not_applicable refused for input and output)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/UsagePointers.java` — usage pointers (reasoning, not_applicable)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/HarnessUsage.java` — five components, unified figures and coverage derivation
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/MetricsRow.java` — usage columns, harness_version
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/MetricsCodec.java` — usage members, total_tokens as the unified sum
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/MetricsStore.java` — coverage aggregates must respect the scope-file rules of #185
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/qualification/QualificationRecord.java` — D3 tokens with the split beside total_tokens
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/qualification/QualificationRecordCodec.java` — D3 the split members of the record
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/qualification/TokenTotal.java` — total_tokens figure that gains the unified derivation
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/qualification/JudgeCheck.java` — per-item total_tokens follows the unified derivation (#171)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/qualification/JudgeCheckCodec.java` — per-item total_tokens member of the judge check record
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/HeadlessBlock.java` — reads headless.usage pointers (reasoning, not_applicable)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolment.java` — UsageReport gains start_context
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolmentStore.java` — usage_report members of the enrolment store
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/ActivityEventMapper.java` — parses the five usage components through the pointers
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/profile/ProfileStagesTest.java` — usage stage fixtures
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/profile/ProfileValidatorTest.java` — usage block refusals
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/UsagePointersTest.java` — null and not_applicable figures
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/MetricsStoreTest.java` — rows, unified figures, coverage and floor
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationRecordCodecTest.java` — token split in the record
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/launch/HeadlessBlockTest.java` — usage pointer parsing
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessEnrolmentStoreTest.java` — start_context in usage_report
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/worker/ActivityEventMapperTest.java` — recorded-output parsing fixtures
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 
@@ -173,13 +184,15 @@ Applicability:
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-31 (`slots-usage-and-budgets`); PLAN-34 (`role-qualification`)
-- Blocks: PLAN-46 (`machine-onboarding-unit`); PLAN-58 (`operator-reports`); PLAN-60 (`runtime-metrics`)
+- Depends on: PLAN-31 (`slots-usage-and-budgets`, #164) and PLAN-34 (`role-qualification`, #196), both shipped; nothing else
+- Blocks: PLAN-46 (`machine-onboarding-unit`); PLAN-58 (`operator-reports`); PLAN-60 (`runtime-metrics`); transitively 25 of the open packages (the second largest blocker of the epic after PLAN-42)
+- Runs beside (runbook adaptation 2026-10-27, standing rule R19): PLAN-42 (`operator-wait-and-machine-scope`), PLAN-73 (`question-continuation`) and PLAN-102 (documents, another repository). The Expected Surface above is class level. **Shared with a running plan:** `MetricsStore.java` with PLAN-42 (it adds the `MACHINE` arm to the store's exhaustive switch; one file); with PLAN-73 the adjacent classes `ProfileStages`, `ProfileValidator`, `MetricsRow`, `MetricsCodec` and the specification parts `client-profiles/01`, `store-schemas/05` and `/16` (PLAN-73 adds the `resumability` stage and the `continuation` mark of a metrics row, this plan the `usage` stage figures and the usage columns): a code overlap in neighbouring members, resolved on rebase; re-read the files at the head of `main` and merge the base branch (the lane's step 7) before the merge gate, and take the ADR numbers at write time against `origin/main` (`core-profile` 006, `core-role` 005, `core-store` 046, `runtime-launch` 007). **PLAN-97 shares eleven entries with this plan and is not emitted beside it.**
+- The package file `doc/plans/token-usage.adoc` lost its `PM-WATCH-CLIENT-13` link in #190; the Trace below still lists it: both Re-grounding Records say so, the item is deleted.
 
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-61-token-usage.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-61-token-usage.md
 ```
 
 ## Write-Boundary

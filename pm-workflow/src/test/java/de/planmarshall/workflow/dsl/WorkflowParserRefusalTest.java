@@ -706,7 +706,7 @@ class WorkflowParserRefusalTest {
         void scopeKeywordMessage() {
             var diagnostic = refuse("scope.pmwf", unit(HEADER, "scope team"));
 
-            assertEquals("expected a scope (plan, epic, workspace, entity or subworkflow) but found 'team'",
+            assertEquals("expected a scope (plan, epic, workspace, machine, entity or subworkflow) but found 'team'",
                     diagnostic.message());
         }
 

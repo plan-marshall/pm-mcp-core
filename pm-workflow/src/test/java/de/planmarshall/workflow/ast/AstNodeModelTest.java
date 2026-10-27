@@ -78,7 +78,7 @@ class AstNodeModelTest {
             var job = new StateBehavior.JobStep("p", true, transitions);
             var modelJob = new StateBehavior.ModelJob("task", Optional.of("writer"), Optional.empty(), Optional.empty(),
                     StateBehavior.AskForm.NONE, strings, transitions);
-            var question = new StateBehavior.QuestionWait("decision", transitions, links);
+            var question = new StateBehavior.QuestionWait("decision", transitions);
             var outcome = new OutcomeTransition("done", "end", Optional.empty(), completions, LOCATION);
             var link = new LinkSpec(LinkRelation.NEXT, "go", LinkForm.NOOP, params, Optional.empty(),
                     new LinkAction.ExecutePrimitive("p"), transitions, LOCATION);
@@ -99,7 +99,6 @@ class AstNodeModelTest {
                     () -> assertEquals(List.of("x"), modelJob.consultRoles()),
                     () -> assertEquals(1, modelJob.transitions().size()),
                     () -> assertEquals(1, question.transitions().size()),
-                    () -> assertEquals(List.of(), question.links()),
                     () -> assertEquals(1, outcome.completions().size()),
                     () -> assertEquals(List.of(), link.freeParams()),
                     () -> assertEquals(1, link.transitions().size()));
@@ -338,7 +337,7 @@ class AstNodeModelTest {
                     new StateBehavior.ModelJob("task", Optional.empty(), Optional.empty(), Optional.of("roles"),
                             StateBehavior.AskForm.NONE, List.of(), List.of()),
                     new StateBehavior.SubWorkflowCall("sub", Optional.of("main"), Map.of(), List.of()),
-                    new StateBehavior.QuestionWait("decision", List.of(), List.of()),
+                    new StateBehavior.QuestionWait("decision", List.of()),
                     new StateBehavior.TerminalState());
 
             var kinds = behaviors.stream().map(AstNodeModelTest::kind).toList();

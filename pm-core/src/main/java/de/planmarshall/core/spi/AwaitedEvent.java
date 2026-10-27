@@ -23,6 +23,8 @@ public enum AwaitedEvent {
     TASK_SETTLED,
     /** A waiver record written by the operator: the waiver wait, an integrity resolution. */
     OPERATOR_WAIVER,
+    /** An act of the operator through an operator link of an operator wait. */
+    OPERATOR_ACT,
     /** A submission of the model. */
     MODEL_SUBMIT,
     /** The passing of time. */

@@ -16,7 +16,7 @@ workstream: WS-03
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -75,17 +75,6 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/unit/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/` — Deliverables 4 and 6 name the harness scan, the probes, the provider verification and the credential store (`runtime.credentials`, `runtime.launch`); added by cleanup on 2026-10-16
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/plan/` — Deliverable 10, the plan axes and overrides in the composition; added by cleanup on 2026-10-16
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/role/` — Deliverable 5, the role and steward stores; added by cleanup on 2026-10-16
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/config/` — the machine configuration store (`package-info.java` only today); added by cleanup on 2026-10-16
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-unit.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-unit/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-core/doc/developer/core-store.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-core/doc/adr/core-store/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
 - OBSERVED: `doc/plans/machine-onboarding-unit.adoc` — the package file, deleted when the package is done
 - OBSERVED: `doc/specification/client-profiles/01-profile-schema.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/credentials-and-enrolment/01-provider-credentials.adoc` — specification part; the implemented sections deleted
@@ -93,15 +82,24 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/state-catalogue/14-machine-onboarding.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/state-catalogue/19-onboarding-aspects-models-providers.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/12-machine-stores.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/store-schemas/11-enrolment-store.adoc` — specification part; harness_store_unreadable and start_context shown in the harness list
 - OBSERVED: `doc/specification/workflow-dsl/01-grammar.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/workflow-dsl/09-plan-instance.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/store-schemas/11-enrolment-store.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/implementation-watch/client-profiles.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/` — `ProbeWorkspace`, `DecoyServers`, `VerifyingBinaryCheck` for the unknown-harness verification (D4), `ProfileWorkerEligibility` as the gate that reads its record; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `pm-core/doc/developer/core-profile.adoc` — package guide of the touched `core.profile`; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-runtime/doc/developer/runtime-worker.adoc` — package guide of the touched `runtime.worker`; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/ProfileValidator.java` — `readable_paths` and the credential rule; shared with the open package `job-confinement-and-environment`; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/implementation-watch/client-profiles.adoc` — watch items of the verification (PM-WATCH-CLIENT-16)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/MachineConfiguration.java` — read side shipped (#146), the machine config writers (settings, documents mode, cleanup durations) are missing
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/ModelCatalogue.java` — read side shipped (#146), the catalogue writer is missing (D5)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/RoleAssignments.java` — read side shipped (#146), the operator's role assignment writer is missing (D5)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/ProfileValidator.java` — readable_paths and the credential rule; the draft is validated as a profile (D4); shared with job-confinement-and-environment
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/VerificationRecord.java` — the verification record read for usage coverage and start_context (D4)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/ProbeWorkspace.java` — unknown-harness verification (D4); no decoy-in-home control yet (paths stage)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/DecoyServers.java` — the isolation stage with decoys at the real home directory (D4)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/VerifyingBinaryCheck.java` — verification control used by the unknown-harness verification (D4)
+- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/config/` — the machine configuration store (package-info only today)
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/profile/ProfileValidatorTest.java` — readable_paths rule of the profile validation
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/worker/ProbeWorkspaceTest.java` — verification workspace extended for the paths stage
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/worker/DecoyServersTest.java` — decoys at the real home directory
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/worker/VerifyingBinaryCheckTest.java` — verification control test
+- HYPOTHESIS: `pm-core/doc/developer/core-config.adoc` — to be created; developer guide of the new config package
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

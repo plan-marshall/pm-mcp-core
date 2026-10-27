@@ -16,7 +16,7 @@ workstream: WS-05
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R17, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R17, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -71,31 +71,32 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `doc/plans/endpoint-harness.adoc` — the package file, written by PLAN-96; deleted when the package is done
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/` — the endpoint profile beside the client profile (the client profile loader of PLAN-19, #137, lives there: 17 classes and the package-info; the endpoint profile goes beside it)
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/enrolment/` — the harness enrolment: the executable owner check and the weights identity
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/` — the launch of a task (`package-info.java` only today)
-- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/` — the HTTP adapter of the endpoint harness (new package; the HTTP call belongs to `pm-runtime`, behind an interface `pm-core` declares)
-- HYPOTHESIS: `pm-runtime/doc/developer/runtime-endpoint.adoc` — developer documentation of the new package
-- HYPOTHESIS: `pm-runtime/doc/adr/runtime-endpoint/` — ADRs of the package's design decisions; new directory
+- OBSERVED: `doc/plans/endpoint-harness.adoc` — the package file (exists since #143), deleted when the package is done
 - OBSERVED: `doc/specification/client-profiles/03-endpoint-harness.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/client-profiles/01-profile-schema.adoc` — Profile Sets and Profile Verification sections
+- OBSERVED: `doc/specification/store-schemas/11-enrolment-store.adoc` — Harness Enrolment Store, weights map
 - OBSERVED: `doc/implementation-watch/client-profiles.adoc` — PM-WATCH-CLIENT-14 retired with the package
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/HarnessUsage.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/RoleDigests.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/client-profiles/01-profile-schema.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/store-schemas/11-enrolment-store.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-core/doc/developer/core-profile.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-runtime/doc/developer/runtime-launch.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/ProfileValidator.java` — the endpoint profile's validation is extended here (no `profile_kind`, protocol or locality exists); added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/ProfileStages.java` — the endpoint stages (identity, launch, classes, limits); added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/VerificationRecord.java` — carries `tool` since #190; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolment.java` — the harness enrolment and its weights map live in `runtime.launch`; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolmentStore.java` — the enrolment store, with the `harness_store_unreadable` rule of #185; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessVerifier.java` — `harness_not_enrolled` and `harness_updated` live with the verifier; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-runtime/doc/adr/runtime-launch/` — next free number 006; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-core/doc/adr/core-profile/` — next free number 006; added by the re-grounding of 2026-10-26
-- OBSERVED: `doc/LogMessages.adoc` — one row per log record the package adds (holder `RuntimeLogMessages`, 89 records now, R12); added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/ProfileValidator.java` — endpoint profile validation (profile_kind, locality combinations, answer_reserve_tokens)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/ProfileStages.java` — endpoint stages identity, launch, classes, limits
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/VerificationRecord.java` — verification record of the endpoint stages
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/ProfileLoader.java` — loads a profile document by profile_kind
+- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/profile/EndpointProfile.java` — the endpoint profile record the text names
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/HarnessUsage.java` — answer usage counts, a missing count is unmeasured
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/RoleDigests.java` — weights_identity member of the qualification digest
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolment.java` — enrolment with the weights map
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolmentStore.java` — weights identity recorded beside the model
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessVerifier.java` — harness_not_enrolled and harness_updated, owner check, weights audit
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/LaunchComposer.java` — request composition seam
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/PromptComposer.java` — launch prompt of a zero_tool worker as the system message
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/LaunchRefusal.java` — refusal harness_not_enrolled before the request is sent
+- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/` — new package, HTTP adapter on the loopback interface
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/profile/ProfileValidatorTest.java` — a test per validation refusal
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/profile/ProfileStagesTest.java` — endpoint stage fixtures
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessVerifierTest.java` — owner check, harness_updated on a changed weights identity
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessEnrolmentStoreTest.java` — weights map in the enrolment
+- HYPOTHESIS: `pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/` — new test package, stub endpoint fixtures of PM-WATCH-CLIENT-14
+- HYPOTHESIS: `pm-runtime/doc/developer/runtime-endpoint.adoc` — developer documentation of the new package
+- HYPOTHESIS: `pm-runtime/doc/adr/runtime-endpoint/` — ADRs of the new package, new directory
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

@@ -569,7 +569,7 @@ public final class WorkflowParser {
         }
         line.expectEnd();
         var transitions = parseTransitions();
-        return new StateBehavior.QuestionWait(questionClass.text(), transitions, parseLinks(false));
+        return new StateBehavior.QuestionWait(questionClass.text(), transitions);
     }
 
     private List<LinkSpec> parseLinks(boolean required) {

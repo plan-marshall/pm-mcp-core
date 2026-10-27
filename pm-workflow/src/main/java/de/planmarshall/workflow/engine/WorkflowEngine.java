@@ -41,7 +41,10 @@ import de.planmarshall.core.store.WorkflowStatus.JobEntry;
 import de.planmarshall.core.store.WorkflowStatus.TaskEntry;
 import de.planmarshall.core.store.WorkflowStatusStore;
 import de.planmarshall.workflow.ast.CallFrame;
+import de.planmarshall.workflow.ast.LinkAction;
+import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.OutcomeTransition;
+import de.planmarshall.workflow.ast.ParamSpec;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
@@ -121,7 +124,8 @@ public final class WorkflowEngine {
             Map.entry("completed", "completed"),
             Map.entry("aborted", "aborted"),
             Map.entry("epic", "epic"),
-            Map.entry("workspace", "workspace"));
+            Map.entry("workspace", "workspace"),
+            Map.entry("machine", "machine"));
 
     private final WorkflowDefinition unit;
     private final Map<String, WorkflowDefinition> units;
@@ -166,6 +170,26 @@ public final class WorkflowEngine {
          * @return the parameter record, an instance of {@link Primitive#parameterType()}
          */
         Record bind(Primitive<?, ?> primitive, WorkflowStatus status);
+
+        /**
+         * Binds the parameters of a primitive an operator act runs, with the operator's submission for the link's free
+         * parameters. A binder that reads the submission overrides it; the default ignores it and binds from the status
+         * alone, as every non-operator caller does.
+         *
+         * @param primitive  the primitive the current state runs
+         * @param status     the status of the scope at the state
+         * @param parameters the operator's submission for the link's free parameters, by name; empty for a link without
+         *                   one
+         * @return the parameter record, an instance of {@link Primitive#parameterType()}
+         */
+        default Record bind(Primitive<?, ?> primitive, WorkflowStatus status, Map<String, String> parameters) {
+            if (!parameters.isEmpty()) {
+                throw new UnsupportedOperationException(
+                        "the binder of '%s' accepts no operator link parameters; install a parameter-aware binder"
+                                .formatted(primitive.id()));
+            }
+            return bind(primitive, status);
+        }
     }
 
     /**
@@ -207,7 +231,7 @@ public final class WorkflowEngine {
      * Starts a scope at the unit's start state and chains from there.
      *
      * @param scopeType the type of the scope
-     * @param scopeId   the plan or epic id; {@code null} for the workspace scope
+     * @param scopeId   the plan or epic id; {@code null} for the workspace and the machine scope
      * @return the step the start ends in, with the first status of the scope
      * @throws IllegalArgumentException if the unit declares no start state (a unit with entries is called, never
      *                                  started), the scope does not fit the status store, or the start state inherits
@@ -307,6 +331,9 @@ public final class WorkflowEngine {
                 run.chain(transitionOf(node, modelJob.transitions(), outcome, Map.of()).targetStateId());
             case StateBehavior.QuestionWait question when event instanceof EngineEvent.QuestionResolved resolved ->
                 resolve(run, status, node, question, resolved);
+            case StateBehavior.InteractiveLinks links when event instanceof EngineEvent.OperatorAct act ->
+                run.chain(run.runPrimitive(node, primitiveOf(linkOf(links, act)),
+                        linkOf(links, act).transitions(), act.parameters()));
             default -> throw new IllegalStateException("the state '%s' accepted %s, which it cannot route"
                     .formatted(node.id(), event));
         };
@@ -393,8 +420,8 @@ public final class WorkflowEngine {
 
     /**
      * Leaves the current sub-workflow through its step-out: exactly one frame unwinds, and the calling state routes the
-     * outcome {@value #STEPPED_OUT}. This is the implicit {@code step_out} of a resting link state of a session-driven
-     * sub-workflow.
+     * outcome {@value #STEPPED_OUT}. This is the implicit {@code step_out} of a resting link state of an operator wait
+     * in a sub-workflow.
      *
      * @param status the status of a scope inside a sub-workflow
      * @return the step the caller's routing of the step-out ends in
@@ -473,7 +500,7 @@ public final class WorkflowEngine {
 
     private AwaitedEvent awaitedEventOf(StateBehavior behavior) {
         return switch (behavior) {
-            case StateBehavior.InteractiveLinks _ -> AwaitedEvent.MODEL_SUBMIT;
+            case StateBehavior.InteractiveLinks _ -> AwaitedEvent.OPERATOR_ACT;
             case StateBehavior.JobStep job -> job.composite() ? primitiveOf(job.primitiveId()).awaitedEvent()
                     : AwaitedEvent.JOB_SETTLED;
             case StateBehavior.ModelJob _ -> AwaitedEvent.TASK_SETTLED;
@@ -506,6 +533,27 @@ public final class WorkflowEngine {
     private Primitive<?, ?> primitiveOf(String primitiveId) {
         return registry.find(primitiveId).orElseThrow(
                 () -> fault(Reason.UNRESOLVED_NAME, "the primitive '%s' is not registered", primitiveId));
+    }
+
+    /** The link of an operator wait the operator's act names, with its submitted parameters checked against its free parameters. */
+    private static LinkSpec linkOf(StateBehavior.InteractiveLinks links, EngineEvent.OperatorAct act) {
+        var link = links.links().stream().filter(candidate -> candidate.idPattern().equals(act.linkId())).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "the operator wait '%s' offers no link '%s'".formatted(act.stateId(), act.linkId())));
+        if (link.freeParams().isEmpty() && !act.parameters().isEmpty()) {
+            throw new IllegalArgumentException("the link '%s' declares no parameters, but the act submits %s"
+                    .formatted(link.idPattern(), act.parameters().keySet()));
+        }
+        if (!link.freeParams().isEmpty() && act.parameters().isEmpty()) {
+            throw new IllegalArgumentException("the link '%s' requires its free parameters %s".formatted(
+                    link.idPattern(), link.freeParams().stream().map(ParamSpec::name).toList()));
+        }
+        return link;
+    }
+
+    /** The primitive a link runs; {@code do <primitive_id>} is the only link action. */
+    private static String primitiveOf(LinkSpec link) {
+        return ((LinkAction.ExecutePrimitive) link.action()).primitiveId();
     }
 
     private static String phaseOf(String dslPhase) {
@@ -686,8 +734,20 @@ public final class WorkflowEngine {
          * @return the target of that transition
          */
         String runPrimitive(StateNode node, String primitiveId, List<OutcomeTransition> transitions) {
+            return runPrimitive(node, primitiveId, transitions, Map.of());
+        }
+
+        /**
+         * Runs the primitive of an {@code auto} state, or of a composite job state its event resumes, and selects the
+         * transition of the returned outcome.
+         *
+         * @param operatorParameters the operator's submission for an operator link's free parameters; empty otherwise
+         * @return the target of that transition
+         */
+        String runPrimitive(StateNode node, String primitiveId, List<OutcomeTransition> transitions,
+                Map<String, String> operatorParameters) {
             var primitive = primitiveOf(primitiveId);
-            var parameters = Objects.requireNonNull(binder.bind(primitive, status), "parameters");
+            var parameters = Objects.requireNonNull(binder.bind(primitive, status, operatorParameters), "parameters");
             var scopeId = Optional.ofNullable(status.scopeId());
             WorkflowExecutionContext context = () -> scopeId;
             PrimitiveResult<?> result = execute(primitive, context, parameters);

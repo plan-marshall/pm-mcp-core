@@ -1,0 +1,20 @@
+<!-- GENERATED FILE — never hand-edit. Rendered from this epic's ledger (status.json, resume_anchor.md, queue/*.json) by `orchestrator regenerate-view --slug question-loop-corrections`. On a merge conflict in this file, do not merge it by hand: merge the source files, run `orchestrator regenerate-view --slug question-loop-corrections`, and `git add` the result. -->
+
+# Queue view: Question-loop verification: corrections and follow-up
+
+## START HERE
+
+**Resume anchor**: Decomposed 2026-10-27: 3 staged plans, scope 2. NEXT: run /plan-orchestrator next slug=question-loop-corrections (expect PLAN-01 and PLAN-02, file-disjoint). PLAN-03 waits for PLAN-01 and PLAN-02 and the operator's run budget. A finding asking to hold PLAN-73 (question-continuation) was sent to the inbox of pm-mcp-core-m2-m4 (question-loop-corrections-001).
+**Phase**: orchestrating
+**Queue** (staged, in order):
+1. PLAN-01 (WS-01)
+2. PLAN-02 (WS-02)
+3. PLAN-03 (WS-02)
+
+## Ordered Queue
+
+| # | Plan | Workstream | Status | Surface (expected) | Lane |
+|---|------|------------|--------|--------------------|------|
+| 1 | PLAN-01 | WS-01 | staged | ../plan-marshall-documentation/doc/developer/question-loop-experiment.adoc; ../plan-marshall-documentation/doc/discussions/open-questions.adoc; ../plan-marshall-documentation/doc/specification/evaluation.adoc; doc/specification/client-profiles/01-profile-schema.adoc; doc/specification/client-profiles/02-placeholders.adoc; doc/specification/model-work/01-roles-and-configuration.adoc; doc/specification/model-work/06-envelopes-questions-deadlines.adoc | plan-marshall |
+| 2 | PLAN-02 | WS-02 | staged | ../plan-marshall-mcp/doc/plans/README.adoc; ../plan-marshall-mcp/doc/plans/question-loop-follow-up.adoc; doc/plans/; doc/plans/README.adoc; doc/plans/question-continuation.adoc | plan-marshall |
+| 3 | PLAN-03 | WS-02 | staged | ../plan-marshall-documentation/doc/specification/evaluation.adoc; ../plan-marshall-mcp/doc/plans/question-loop-follow-up.adoc; ../plan-marshall-mcp/pm-e2e/src/test/java/de/planmarshall/e2e/; doc/specification/client-profiles/01-profile-schema.adoc; doc/specification/model-work/01-roles-and-configuration.adoc | plan-marshall |

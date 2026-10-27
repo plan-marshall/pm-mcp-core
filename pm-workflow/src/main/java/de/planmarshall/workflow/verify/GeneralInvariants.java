@@ -244,13 +244,9 @@ final class GeneralInvariants {
             Context.callee(state).filter(WORKER_TASK::equals).ifPresent(callee -> context.reportState(id, state,
                     "the state '%s' calls '%s'".formatted(state.id(), WORKER_TASK)));
             switch (state.behavior()) {
-                case StateBehavior.InteractiveLinks _ -> context.reportState(id, state,
-                        "the state '%s' is a resting link state".formatted(state.id()));
-                case StateBehavior.QuestionWait question when !question.links().isEmpty() -> context.reportState(id,
-                        state, "the question state '%s' declares links".formatted(state.id()));
                 case StateBehavior.ModelJob _ -> conservativeLost(context, state);
                 default -> {
-                    // no model work of its own
+                    // no model work of its own; an operator wait is no model work
                 }
             }
         }

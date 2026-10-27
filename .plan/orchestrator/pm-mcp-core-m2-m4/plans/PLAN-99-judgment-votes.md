@@ -16,7 +16,7 @@ workstream: WS-03
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R17, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R17, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -72,25 +72,22 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `doc/plans/judgment-votes.adoc` — the package file, written by PLAN-96; deleted when the package is done
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/decision/` — the decision quorum and records (`package-info.java` only today)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/` — the role artifacts and the composition check
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/` — the decision and calibration records
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-decision.adoc` — developer documentation of the package; created or extended
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-decision/` — ADRs of the package's design decisions; new directory
-- OBSERVED: `doc/specification/model-work/10-decision-quorum.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/store-schemas/16-task-queue.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/plans/judgment-votes.adoc` — the package file (exists), deleted when the package is done
+- OBSERVED: `doc/specification/model-work/10-decision-quorum.adoc` — Judgment Votes, Quorum Calibration, Model Identity
+- OBSERVED: `doc/specification/store-schemas/16-task-queue.adoc` — Decision Calibration Record, member form
+- OBSERVED: `doc/specification/client-profiles/04-judgment-endpoint.adoc` — class rule of the judgment endpoint
+- OBSERVED: `doc/specification/model-work/01-roles-and-configuration.adoc` — role-composition and role-class-fit
+- OBSERVED: `doc/specification/model-work/11-decision-records.adoc` — rationale_origin, probabilities
+- OBSERVED: `doc/specification/store-schemas/18-decision-records.adoc` — decision record members
 - OBSERVED: `doc/implementation-watch/model-work.adoc` — PM-WATCH-DISP-63 retired with the package
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/model/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/doc/developer/workflow-model.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/doc/adr/workflow-model/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/client-profiles/04-judgment-endpoint.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/model-work/01-roles-and-configuration.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/model-work/11-decision-records.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/store-schemas/18-decision-records.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/corpus/` — grading reads `exact_choice` items (`ImportedItem.Method.EXACT_CHOICE`); read; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/model/` — the class half of the class rule lives here (`RoleUse`, `RoleComposition`); already in the surface, annotation corrected below; added by the re-grounding of 2026-10-26 as a note
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/decision/` — voter of the adjudication; no class nameable yet (package-info only)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/` — members of the decision and calibration record it fills; home unsettled, no class exists
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/model/RoleUse.java` — protocol half of the class rule (system_one vs openai_chat), left to this package by its Javadoc
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/model/RoleComposition.java` — class_mismatch for a text-form kind on a judgment role
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/corpus/ImportedItem.java` — exact_choice grading items (Method.EXACT_CHOICE); read
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/model/RoleCompositionTest.java` — class rule refusals
+- HYPOTHESIS: `pm-workflow/doc/developer/workflow-decision.adoc` — developer documentation of the package, does not exist yet
+- HYPOTHESIS: `pm-workflow/doc/adr/workflow-decision/` — ADRs of the package, new directory
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

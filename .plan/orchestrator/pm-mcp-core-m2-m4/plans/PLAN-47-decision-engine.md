@@ -16,7 +16,7 @@ workstream: WS-03
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -77,27 +77,29 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/engine/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/decision/` — the decision quorum and records (`package-info.java` only today); added by cleanup on 2026-10-16
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/question/` — the question records (`package-info.java` only today); added by cleanup on 2026-10-16
-- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/` — the answer endpoint and the channel `cli`; added by cleanup on 2026-10-16
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-engine.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-engine/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-core/doc/developer/core-store.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-core/doc/adr/core-store/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
 - OBSERVED: `doc/plans/decision-engine.adoc` — the package file, deleted when the package is done
 - OBSERVED: `doc/specification/model-work/06-envelopes-questions-deadlines.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/model-work/10-decision-quorum.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/model-work/10-decision-quorum.adoc` — specification part; keep § Model Identity
+- OBSERVED: `doc/specification/model-work/11-decision-records.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/state-catalogue/16-decision.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/18-decision-records.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/model-work/11-decision-records.adoc` — specification part; the implemented sections deleted (added by cleanup on 2026-10-22: changed by #132 to #134)
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-decision.adoc` — to be created; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-runtime/doc/developer/runtime-question.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-runtime/doc/adr/runtime-question/` — exists (001 to 004), next 005; the plan extends `runtime/question`; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `doc/Traceability.adoc` — every package adds Implementation, Verified by and Documentation lines; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/QuestionRecord.java` — D2/D8: revisions, answer record
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/QuestionRecordCodec.java` — D2/D8: the new record members
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/QuestionLog.java` — D8: first valid answer wins, one transaction
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/QuestionRefusal.java` — D8: invalid_answer and dependency_unanswered beside conflict and already_answered
+- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/DecisionRecord.java` — D2: the decision record with its vote members (rationale_origin, probabilities) and the support per option; none exists at HEAD
+- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/decision/` — decision structure, support derivation (package-info only today)
+- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/question/` — the question side of the decision (package-info only at HEAD)
+- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/engine/` — inferred from the Where line; the text names no class
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/question/QuestionLogRecordReader.java` — D8: open decisions across scopes (the plan extends runtime/question)
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/QuestionRecordRefusalsTest.java` — a test per refusal
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/QuestionLogAnswerRevisionTest.java` — conflict with the current revision, first valid answer wins
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/QuestionRecordCodecTest.java` — vote members round trip
+- HYPOTHESIS: `pm-workflow/doc/developer/workflow-decision.adoc` — new developer guide
+- HYPOTHESIS: `pm-workflow/doc/developer/workflow-question.adoc` — new developer guide (absent; also possible for PLAN-73)
+- HYPOTHESIS: `pm-workflow/doc/adr/workflow-decision/` — new ADR directory
+- HYPOTHESIS: `pm-workflow/doc/adr/workflow-question/` — new ADR directory
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 
