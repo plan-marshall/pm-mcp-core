@@ -28,6 +28,10 @@ import java.util.Set;
  * {@code headless.endpoints}; and the {@code usage} stage records each figure {@code reported},
  * {@code not_applicable} or {@code missing}, compares the figures parsed for the run with the harness's own record
  * field by field, and fails for a declared pointer that does not resolve or a figure that differs.
+ * <p>
+ * The four stages of an endpoint harness — {@code identity}, {@code launch}, {@code classes} and {@code limits} — are
+ * held here too: what each observed, the values it settled ({@link EndpointVerification#values()}) and the status of
+ * each stage ({@link EndpointVerification#stageStatuses()}).
  *
  * @since 0.1
  */
@@ -486,6 +490,7 @@ public final class ProfileStages {
                     new EndpointValue("/identity", endpointStatus(identity.passed())),
                     new EndpointValue("/executable", endpointStatus(identity.passed())),
                     new EndpointValue("/endpoint/models_path", endpointStatus(identity.passed())),
+                    new EndpointValue("/endpoint/models_pointer", endpointStatus(identity.passed())),
                     new EndpointValue("/weights_probe", endpointStatus(identity.probeDeclared())),
                     new EndpointValue("/endpoint/readiness_path", endpointStatus(launch.readiness())),
                     new EndpointValue("/endpoint/result_schema", endpointStatus(launch.passed())),

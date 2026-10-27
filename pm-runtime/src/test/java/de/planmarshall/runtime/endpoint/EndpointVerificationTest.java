@@ -77,7 +77,7 @@ class EndpointVerificationTest {
 
     private EndpointVerification verification() {
         return new EndpointVerification(new EndpointClient(),
-                (host, port) -> SocketOwner.Lookup.found(EndpointFixtures.ENROLLED_EXECUTABLE), new WeightsReader(),
+                (host, port) -> SocketOwner.Lookup.found(EndpointFixtures.executablePath()), new WeightsReader(),
                 (executable, argv, pattern) -> Optional.of("1.0.0"));
     }
 
@@ -90,7 +90,7 @@ class EndpointVerificationTest {
         assertAll(
                 () -> assertFalse(result.refusesDraft()),
                 () -> assertTrue(result.identity().passed()),
-                () -> assertEquals(EndpointFixtures.ENROLLED_EXECUTABLE, result.identity().executablePath()),
+                () -> assertEquals(EndpointFixtures.executablePath(), result.identity().executablePath()),
                 () -> assertEquals("1.0.0", result.identity().version()),
                 () -> assertEquals(List.of("big", "mid", "small"), result.identity().models()),
                 () -> assertEquals("abc", result.identity().weights().get("mid")),
@@ -104,7 +104,33 @@ class EndpointVerificationTest {
                 () -> assertTrue(result.limits().passed()),
                 () -> assertEquals("passed", result.stageStatuses().get("identity")),
                 () -> assertEquals("passed", result.stageStatuses().get("launch")),
-                () -> assertEquals(7, result.values().size()));
+                () -> assertEquals(8, result.values().size()));
+    }
+
+    @Test
+    @DisplayName("an endpoint that refuses a result schema is measured none and still launches")
+    void noneMeasured() {
+        server.setDispatcher(new Dispatcher() {
+            @Override
+            public MockResponse dispatch(RecordedRequest request) {
+                if (request.getTarget().contains("/models")) {
+                    return new MockResponse.Builder().code(200)
+                            .body("{\"models\":[{\"id\":\"big\",\"digest\":\"abc\"},{\"id\":\"mid\",\"digest\":\"abc\"},"
+                                    + "{\"id\":\"small\",\"digest\":\"abc\"}]}").build();
+                }
+                if (request.getBody() != null && request.getBody().utf8().contains("\"response_format\"")) {
+                    return new MockResponse.Builder().code(400).body("{\"error\":\"no schema\"}").build();
+                }
+                return new MockResponse.Builder().code(200).body(ANSWER).build();
+            }
+        });
+
+        var result = verification().verify(EndpointFixtures.profile(base()), "mid", "base task", "task", DECOY, SCHEMA);
+
+        assertAll(
+                () -> assertTrue(result.launch().passed()),
+                () -> assertEquals("none", result.launch().resultSchema()),
+                () -> assertFalse(result.refusesDraft()));
     }
 
     @Test

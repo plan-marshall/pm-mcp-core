@@ -23,9 +23,9 @@
  * ({@link de.planmarshall.runtime.endpoint.EndpointVerification}).
  * <p>
  * Two invariants hold across the package: the runtime never starts, stops or configures the serving program, and no
- * task text is sent before the owner check has found the enrolled program on the port. The answer is always validated
- * by the server ({@link de.planmarshall.runtime.endpoint.AnswerSchema}), never trusted because the endpoint enforces a
- * schema.
+ * task text is sent before the owner check has found the enrolled program on the port (the verification checks once,
+ * before any of its requests). The answer is always validated by the server
+ * ({@link de.planmarshall.runtime.endpoint.AnswerSchema}), never trusted because the endpoint enforces a schema.
  * <p>
  * Specification: {@code doc/specification/client-profiles/03-endpoint-harness.adoc}. Design decisions:
  * {@code pm-runtime/doc/adr/runtime-endpoint/}.

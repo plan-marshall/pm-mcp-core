@@ -32,7 +32,8 @@ import de.planmarshall.core.store.StoreRefusal;
 /**
  * Loads the effective client profile set of a machine and a project (PM-CLIENT-5, Profile Sets).
  * <p>
- * The loader reads the whole documents of the three sets and validates each against the client profile schema and the
+ * The loader reads the whole documents of the three sets and validates each against the schema of its kind — the client
+ * profile schema, or the endpoint profile schema of a document whose {@code profile_kind} is {@code endpoint} — and the
  * hardening rules. The nearest set wins as a whole document and is never merged with another: a project profile of a
  * client id the machine or the shipped set defines replaces that document, a machine profile replaces the shipped one,
  * and a machine profile of a client id the release does not ship adds a harness. The loader names no harness; the
@@ -43,7 +44,9 @@ import de.planmarshall.core.store.StoreRefusal;
  * of the enrolment store. Otherwise the profile is refused {@code profile_unverified} and the profile of the next set
  * stays in force. A record of another build of the enrolled harness, inside the {@code supported_versions} range, marks
  * the profile {@code verified_on_other_build} and launches go on; outside the range the profile is refused
- * {@code harness_version_unsupported}.
+ * {@code harness_version_unsupported}. An endpoint profile declares no range, so a record of another build of its serving
+ * program marks it {@code verified_on_other_build} without a range check, and the launch's owner check still binds it to
+ * the enrolled path and digest.
  * <p>
  * The loader reads the sets and reports the state it found; writing them is the onboarding's
  * ({@code machine-onboarding-unit}). Nothing here repairs, migrates or rewrites a profile or a record.

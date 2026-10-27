@@ -10,8 +10,9 @@
 package de.planmarshall.runtime.endpoint;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -122,18 +123,19 @@ public final class WeightsReader {
         if (argv.isEmpty()) {
             return Optional.empty();
         }
-        ProcessBuilder builder = new ProcessBuilder(argv).redirectErrorStream(true);
+        Path output = null;
         Process process = null;
         try {
-            process = builder.start();
-            String output;
-            try (InputStream stream = process.getInputStream()) {
-                output = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
-            }
+            output = Files.createTempFile("pm-weights-probe-", ".out");
+            process = new ProcessBuilder(argv).redirectErrorStream(true).redirectOutput(output.toFile()).start();
             if (!process.waitFor(PROBE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
                 return Optional.empty();
             }
-            return process.exitValue() == 0 ? Optional.of(output) : Optional.empty();
+            if (process.exitValue() != 0) {
+                return Optional.empty();
+            }
+            return Optional.of(new String(Files.readAllBytes(output), StandardCharsets.UTF_8));
         } catch (IOException _) {
             return Optional.empty();
         } catch (InterruptedException _) {
@@ -143,6 +145,18 @@ public final class WeightsReader {
             if (process != null && process.isAlive()) {
                 process.destroyForcibly();
             }
+            delete(output);
+        }
+    }
+
+    private static void delete(Path file) {
+        if (file == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(file);
+        } catch (IOException _) {
+            // The probe's own output file; a residue of one output is harmless.
         }
     }
 

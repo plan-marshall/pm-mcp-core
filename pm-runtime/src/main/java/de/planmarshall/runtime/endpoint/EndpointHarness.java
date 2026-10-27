@@ -12,6 +12,7 @@ package de.planmarshall.runtime.endpoint;
 import de.cuioss.tools.logging.CuiLogger;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.Objects;
 
 import de.planmarshall.core.profile.EndpointProfile;
@@ -19,6 +20,7 @@ import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.profile.JsonPointer;
 import de.planmarshall.runtime.launch.HarnessEnrolment;
+import de.planmarshall.runtime.launch.HarnessVerifier;
 import de.planmarshall.runtime.launch.LaunchRefusal;
 import de.planmarshall.runtime.log.RuntimeLogMessages;
 
@@ -75,8 +77,15 @@ public final class EndpointHarness {
                     LaunchRefusal.HARNESS_NOT_ENROLLED.resolvingAct(profile.clientId()));
             return EndpointOutcome.refused(EndpointOutcome.Reason.HARNESS_NOT_ENROLLED, detail);
         }
-        var answer = EndpointOutcome.accept(client.post(profile, EndpointClient.CHAT_PATH, request.body()),
-                request.resultSchema() == null ? null : schema);
+        var digest = HarnessVerifier.digestExecutable(Path.of(lookup.executablePath()));
+        if (digest.isEmpty() || !digest.get().equals(enrolled.sha256())) {
+            var detail = "the program on the port is not the build the enrolment recorded";
+            LOGGER.warn(RuntimeLogMessages.WARN.WORKER_LAUNCH_REFUSED, profile.clientId(),
+                    LaunchRefusal.HARNESS_NOT_ENROLLED.code(), detail,
+                    LaunchRefusal.HARNESS_NOT_ENROLLED.resolvingAct(profile.clientId()));
+            return EndpointOutcome.refused(EndpointOutcome.Reason.HARNESS_NOT_ENROLLED, detail);
+        }
+        var answer = EndpointOutcome.accept(client.post(profile, EndpointClient.CHAT_PATH, request.body()), schema);
         if (answer.fate() == EndpointOutcome.Fate.ENDED) {
             LOGGER.warn(RuntimeLogMessages.WARN.ENDPOINT_ATTEMPT_ENDED, request.model(),
                     EndpointClient.shown(endpoint), answer.detail());

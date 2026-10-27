@@ -171,7 +171,7 @@ String askUserTool) {
      */
     private static HarnessProfile endpoint(LoadedProfile profile, JsonNode document) {
         var endpoint = EndpointProfile.of(document);
-        return new HarnessProfile(profile.clientId(), false, false, Set.of(),
+        return new HarnessProfile(profile.clientId(), true, false, Set.of(),
                 Map.of(RoleClass.ZERO_TOOL, ToolSet.ENFORCED), Map.of(), endpoint.modelTiers(),
                 endpoint.endpoint().contextBudgetTokens(), null, new Resumability(false, null, false, null), "");
     }

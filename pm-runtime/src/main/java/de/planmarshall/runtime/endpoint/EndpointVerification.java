@@ -31,13 +31,15 @@ import de.planmarshall.runtime.launch.HarnessVerifier;
  * {@code launch}, {@code classes} and {@code limits}, decided from what the runtime observes and never from the model's
  * statement.
  * <p>
- * The {@code identity} stage runs the version probe, finds the program that owns the listening socket, reads the models
- * listing and, where the profile declares one, the weights identity of every allowed model. The {@code launch} stage
- * checks readiness, sends the base task with streaming off and with the result schema — once with a schema the task text
- * contradicts and once without one — and settles {@code result_schema}. The {@code classes} stage sends a task that asks
- * for a tool call and records whether the endpoint answers with the decoy result the task names
- * ({@code tools_ignored}); the endpoint is never wired to a tool caller on that account. The {@code limits} stage
- * bisects the largest accepted request with the endpoint's own usage figures.
+ * The owner check runs once, before any request: where the program on the port cannot be read, the stages send nothing
+ * and the draft is refused. The {@code identity} stage runs the version probe, reads the models listing and, where the
+ * profile declares one, the weights identity of every allowed model. The {@code launch} stage checks readiness, sends the
+ * base task with streaming off and with the result schema, sends it once without a schema (a refusal is the measurement
+ * {@code none}) and once with a schema the task text contradicts ({@code enforced} when the contradicted schema still
+ * holds the answer, {@code advisory} when it does not). The {@code classes} stage sends a task that asks for a tool call
+ * and records whether the endpoint answers with the decoy result the task names ({@code tools_ignored}); the endpoint is
+ * never wired to a tool caller on that account. The {@code limits} stage bisects the largest accepted request and reports
+ * the endpoint's own usage figure for it.
  *
  * @since 0.1
  */
@@ -89,16 +91,19 @@ public final class EndpointVerification {
      */
     public ProfileStages.EndpointVerification verify(EndpointProfile profile, String model, String baseTask,
             String toolTask, String decoyResult, JsonNode schema) {
-        var identity = identity(profile, model);
-        var launch = launch(profile, model, baseTask, schema);
-        var classes = classes(profile, model, toolTask, decoyResult);
-        var limits = limits(profile, model, baseTask);
-        return new ProfileStages.EndpointVerification(identity, launch, classes, limits);
-    }
-
-    private ProfileStages.EndpointIdentity identity(EndpointProfile profile, String model) {
         var endpoint = URI.create(profile.endpoint().baseUrl());
         var lookup = owner.ownerOf(endpoint.getHost(), endpoint.getPort());
+        var identity = identity(profile, lookup);
+        if (!lookup.isFound()) {
+            return new ProfileStages.EndpointVerification(identity,
+                    new ProfileStages.EndpointLaunch(false, false, "none", false),
+                    new ProfileStages.EndpointClasses(false, false), new ProfileStages.EndpointLimits(false, 0));
+        }
+        return new ProfileStages.EndpointVerification(identity, launch(profile, model, baseTask, schema),
+                classes(profile, model, toolTask, decoyResult), limits(profile, model, baseTask));
+    }
+
+    private ProfileStages.EndpointIdentity identity(EndpointProfile profile, SocketOwner.Lookup lookup) {
         var version = lookup.isFound() ? probe(profile, lookup.executablePath()) : Optional.<String>empty();
         var listing = listing(profile);
         var models = modelIds(listing);
@@ -122,46 +127,45 @@ public final class EndpointVerification {
     private ProfileStages.EndpointLaunch launch(EndpointProfile profile, String model, String baseTask,
             JsonNode schema) {
         var ready = ready(profile);
-        var composed = EndpointRequest.compose(profile, model, "", baseTask, schema);
-        var response = composed.isComposed()
-                ? client.post(profile, EndpointClient.CHAT_PATH, composed.request().body())
-                : new EndpointClient.Response(0, "", EndpointClient.Failure.UNREACHABLE, composed.detail());
-        var outcome = EndpointOutcome.accept(response, schema);
-        var streamingOff = response.failure() == EndpointClient.Failure.NONE && !eventStream(response.body());
+        var answer = content(profile, model, baseTask, schema);
+        if (answer.isEmpty()) {
+            // An endpoint that refuses a result schema is still a launchable endpoint: result_schema is none.
+            answer = content(profile, model, baseTask, null);
+        }
+        var streamingOff = answer.isPresent();
         var measured = measureSchema(profile, model, baseTask);
-        return new ProfileStages.EndpointLaunch(ready && outcome.fate() == EndpointOutcome.Fate.ANSWERED, ready, measured,
-                streamingOff);
-    }
-
-    private static boolean eventStream(String body) {
-        var trimmed = body == null ? "" : body.stripLeading();
-        return trimmed.startsWith("data:") || trimmed.contains("\ndata:");
+        return new ProfileStages.EndpointLaunch(ready && answer.isPresent(), ready, measured, streamingOff);
     }
 
     private ProfileStages.EndpointClasses classes(EndpointProfile profile, String model, String toolTask,
             String decoyResult) {
-        var composed = EndpointRequest.compose(profile, model, "", toolTask, null);
-        if (!composed.isComposed()) {
-            return new ProfileStages.EndpointClasses(false, false);
-        }
-        var response = client.post(profile, EndpointClient.CHAT_PATH, composed.request().bodyWithTools(PROBE_TOOL));
+        var request = new EndpointRequest(model, "", toolTask, null, null,
+                profile.endpoint().answerReserveTokens());
+        var response = client.post(profile, EndpointClient.CHAT_PATH, request.bodyWithTools(PROBE_TOOL));
         var body = response.body();
         var toolCall = body.contains("\"tool_calls\"") || body.contains("\"function_call\"");
         var ignored = decoyResult != null && !decoyResult.isEmpty() && body.contains(decoyResult);
         return new ProfileStages.EndpointClasses(toolCall, ignored);
     }
 
+    /**
+     * Bisects the largest accepted request past the profile's own budget, and reports the endpoint's own figure for it:
+     * the probe is not composed against the budget, because the stage measures that budget.
+     */
     private ProfileStages.EndpointLimits limits(EndpointProfile profile, String model, String baseTask) {
         var low = MINIMUM_CONTEXT_TOKENS;
-        var high = Math.min(MAXIMUM_CONTEXT_TOKENS, Math.max(profile.endpoint().contextTokens() * 2,
-                MINIMUM_CONTEXT_TOKENS));
+        var high = MAXIMUM_CONTEXT_TOKENS;
         var best = 0;
         var probes = 0;
         while (low <= high && probes < MAXIMUM_BISECTION_PROBES) {
             var middle = low + (high - low) / 2;
             probes++;
-            if (accepted(profile, model, filler(baseTask, middle), null)) {
-                best = middle;
+            var request = new EndpointRequest(model, "", filler(baseTask, middle), null, null,
+                    profile.endpoint().answerReserveTokens());
+            var outcome = EndpointOutcome.accept(client.post(profile, EndpointClient.CHAT_PATH, request.body()), null);
+            if (outcome.fate() == EndpointOutcome.Fate.ANSWERED) {
+                var figure = outcome.usage().totalTokens().orElse(middle);
+                best = (int) Math.max(best, Math.max(figure, middle));
                 low = middle + 1;
             } else {
                 high = middle - 1;
@@ -170,24 +174,22 @@ public final class EndpointVerification {
         return new ProfileStages.EndpointLimits(best >= MINIMUM_CONTEXT_TOKENS, best);
     }
 
+    /**
+     * @return the measurement of {@code result_schema}: {@code none} when the endpoint refuses the request without a
+     *         schema, {@code enforced} when the contradicted schema still holds the answer, {@code advisory} otherwise
+     */
     private String measureSchema(EndpointProfile profile, String model, String baseTask) {
+        if (content(profile, model, baseTask, null).isEmpty()) {
+            return "none";
+        }
         var contradicted = JsonNode.object(Map.of("type", JsonNode.string("object"), "required",
                 JsonNode.array(List.of(JsonNode.string(CONTRADICTED_POINTER)))));
-        var composed = EndpointRequest.compose(profile, model, "", baseTask, contradicted);
-        if (!composed.isComposed()) {
+        var answered = content(profile, model, baseTask, contradicted);
+        if (answered.isEmpty()) {
             return "none";
-        }
-        var response = client.post(profile, EndpointClient.CHAT_PATH, composed.request().body());
-        if (response.failure() == EndpointClient.Failure.TIMEOUT
-                || response.failure() == EndpointClient.Failure.UNREACHABLE || !response.successful()) {
-            return "none";
-        }
-        var content = content(response.body());
-        if (content.isEmpty()) {
-            return "advisory";
         }
         try {
-            var document = JsonDocument.parse(content.get().getBytes(StandardCharsets.UTF_8), "answer");
+            var document = JsonDocument.parse(answered.get().getBytes(StandardCharsets.UTF_8), "answer");
             return AnswerSchema.validate(contradicted, document).valid() ? "enforced" : "advisory";
         }
         /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
@@ -196,13 +198,34 @@ public final class EndpointVerification {
         }
     }
 
-    private boolean accepted(EndpointProfile profile, String model, String task, JsonNode schema) {
-        var composed = EndpointRequest.compose(profile, model, "", task, schema);
-        if (!composed.isComposed()) {
-            return false;
+    /**
+     * @return the content of one answer, or empty when the endpoint refused the request, did not answer, or answered
+     *         with something that is not a JSON document
+     */
+    private Optional<String> content(EndpointProfile profile, String model, String task, JsonNode schema) {
+        var request = new EndpointRequest(model, "", task, schema,
+                schema == null ? null : profile.endpoint().resultSchema(), profile.endpoint().answerReserveTokens());
+        var response = client.post(profile, EndpointClient.CHAT_PATH, request.body());
+        if (response.failure() != EndpointClient.Failure.NONE || !response.successful()) {
+            return Optional.empty();
         }
-        return EndpointOutcome.accept(client.post(profile, EndpointClient.CHAT_PATH, composed.request().body()), schema)
-                .fate() == EndpointOutcome.Fate.ANSWERED;
+        try {
+            var document = JsonDocument.parse(response.body().getBytes(StandardCharsets.UTF_8), "answer");
+            var content = document.member("choices").filter(JsonNode::isArray)
+                    .flatMap(choices -> choices.elements().stream().findFirst())
+                    .flatMap(choice -> choice.member("message"))
+                    .flatMap(message -> message.member("content"))
+                    .flatMap(JsonNode::text);
+            if (content.isEmpty() || content.get().isEmpty()) {
+                return Optional.empty();
+            }
+            JsonDocument.parse(content.get().getBytes(StandardCharsets.UTF_8), "content");
+            return content;
+        }
+        /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
+        catch (RuntimeException _) {
+            return Optional.empty();
+        }
     }
 
     private boolean ready(EndpointProfile profile) {
@@ -243,21 +266,6 @@ public final class EndpointVerification {
     private static List<String> allowedModels(EndpointProfile profile, List<String> models) {
         var tiers = new LinkedHashSet<>(profile.modelTiers().values());
         return tiers.isEmpty() ? models : List.copyOf(tiers);
-    }
-
-    private static Optional<String> content(String body) {
-        try {
-            var answer = JsonDocument.parse(body.getBytes(StandardCharsets.UTF_8), "answer");
-            return answer.member("choices").filter(JsonNode::isArray)
-                    .flatMap(choices -> choices.elements().stream().findFirst())
-                    .flatMap(choice -> choice.member("message"))
-                    .flatMap(message -> message.member("content"))
-                    .flatMap(JsonNode::text);
-        }
-        /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
-        catch (RuntimeException _) {
-            return Optional.empty();
-        }
     }
 
     private static String filler(String baseTask, int tokens) {

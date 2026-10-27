@@ -14,7 +14,8 @@ identity of the models and verifies an endpoint draft by the four stages `identi
 
 Two invariants hold across the package. The runtime never starts, stops or configures the serving program — that is the
 operator's. And no task text is sent before the owner check has found the enrolled program on the port: the check runs
-before every request, so another program on the same port receives nothing.
+before every request of a task, and the verification checks once before any of its requests, so another program on the
+same port receives nothing.
 
 The package reads the values of an endpoint profile through `core.profile.EndpointProfile`; it never parses a profile
 document itself. The profile is validated by `core.profile.ProfileValidator` at load time.
@@ -55,7 +56,8 @@ rather than passing it (ADR 003).
 `SocketOwner`::
 Which program owns the listening socket of the base URL. On Linux the lookup reads `/proc/net/tcp`, `/proc/net/tcp6` and
 the file descriptors below `/proc/<pid>/fd`; a platform without such a table, or an owner that cannot be read, fails
-closed (ADR 002).
+closed (ADR 002). The owner check compares the executable's absolute path with the enrolment's and its SHA-256 with the
+digest the enrolment recorded, so another build at the same path is refused too.
 
 `EndpointHarness`::
 One task: the owner check, the request, the acceptance of the answer. It refuses a foreign program `harness_not_enrolled`
@@ -76,10 +78,10 @@ graded again.
 `EndpointVerification`::
 The four stages of the verification of an endpoint draft. `identity` runs the version probe, finds the owner of the
 listening socket, reads the models listing and the weights identities. `launch` checks readiness, sends the base task
-with streaming off and with the result schema, once with a schema the task text contradicts and once without one, and
-settles `result_schema`. `classes` sends a task that asks for a tool call and records `tools_ignored` when the endpoint
-answers with the decoy result the task names. `limits` bisects the largest accepted request with the endpoint's own usage
-figures.
+with streaming off and with the result schema, sends it once without a schema and once with a schema the task text
+contradicts, and settles `result_schema`. `classes` sends a task that asks for a tool call and records `tools_ignored`
+when the endpoint answers with the decoy result the task names. `limits` bisects the largest accepted request and reports
+the endpoint's own usage figure for it. Where the owner cannot be read, the stages send nothing and the draft is refused.
 
 == How the parts work together
 
@@ -114,7 +116,8 @@ keyword of the result-schema subset is added to `AnswerSchema` together with the
 == Invariants and failure modes
 
 - The runtime never starts, stops or configures the serving program.
-- No task text is sent before the owner check passed; a foreign program on the port is `harness_not_enrolled`.
+- No task text is sent before the owner check passed; a foreign program on the port, and another build at the enrolled
+  path, are `harness_not_enrolled`.
 - The server validates every answer, whatever the endpoint's `result_schema` says.
 - The token counts of the answer's `usage` object are recorded per task; a count the answer lacks is `unmeasured`.
 - A model whose weights identity changed is unqualified until it is graded again; the change is audited.

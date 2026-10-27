@@ -23,8 +23,9 @@ The loader had to decide what a record measured on another build of the serving 
 
 An endpoint profile whose enrolment names another version or digest than its verification record is loaded
 `VERIFIED_ON_OTHER_BUILD`, and launches go on; no range is consulted, because the profile declares none. The record still
-binds the profile to its digest and to the executable, and a changed executable is still checked against the profile's
-update evidence by the launch verification.
+binds the profile to its digest and to the executable: the launch's owner check compares the executable's path and its
+SHA-256 with the enrolment, and another build at the enrolled path is refused `harness_not_enrolled` until the operator
+re-enrols it. The profile's update evidence is the enrolment's check, not this loader's.
 
 == Alternatives Considered
 
@@ -35,8 +36,8 @@ declare would be an invention of the loader.
 
 == Consequences
 
-- An endpoint profile's verification survives an update of its serving program inside the same executable path; the
-  update evidence and the digest check still gate the change.
+- An endpoint profile's verification survives an update of its serving program that the enrolment records; a changed
+  digest at the enrolled path is refused `harness_not_enrolled` by the owner check until the operator re-enrols it.
 - A model whose weights identity changed is handled by the weights identity, not by the version range: it is unqualified
   until graded again.
 - A future endpoint schema with a supported range would change this record and the loader branch together.

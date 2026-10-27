@@ -70,6 +70,10 @@ public final class AnswerSchema {
             return Check.refused(pointer,
                     "the result schema uses the unsupported keyword '%s'".formatted(unsupported.get()));
         }
+        var declaredType = schema.member("type").orElse(null);
+        if (declaredType != null && !declaredType.isString() && !declaredType.isArray()) {
+            return Check.refused(pointer, "the result schema's type is neither a string nor an array");
+        }
         if (schema.member("$ref").isPresent()) {
             var reference = schema.member("$ref").flatMap(JsonNode::text).orElse("");
             if (!reference.startsWith("#/")) {
@@ -82,11 +86,9 @@ public final class AnswerSchema {
             }
             return check(root, target, answer, pointer, depth + 1);
         }
-        for (var type : elements(schema, "type")) {
-            var name = type.text().orElse("");
-            if (!typeMatches(name, answer)) {
-                return Check.refused(pointer, "the answer is not of type '%s'".formatted(name));
-            }
+        var types = typeNames(schema);
+        if (!types.isEmpty() && types.stream().noneMatch(name -> typeMatches(name, answer))) {
+            return Check.refused(pointer, "the answer is not of type %s".formatted(types));
         }
         var constant = schema.member("const");
         if (constant.isPresent() && !sameValue(constant.get(), answer)) {
@@ -129,7 +131,11 @@ public final class AnswerSchema {
             }
         }
         var properties = schema.member("properties");
-        var closed = schema.member("additionalProperties").flatMap(JsonNode::booleanValue).orElse(true);
+        var additional = schema.member("additionalProperties").orElse(null);
+        if (additional != null && !additional.isBoolean()) {
+            return Check.refused(pointer, "the result schema's additionalProperties is not a boolean");
+        }
+        var closed = additional == null || additional.booleanValue().orElse(true);
         for (var entry : answer.members().entrySet()) {
             var declared = properties.flatMap(propertiesNode -> propertiesNode.member(entry.getKey()));
             if (declared.isPresent()) {
@@ -193,6 +199,17 @@ public final class AnswerSchema {
 
     private static List<JsonNode> elements(JsonNode schema, String member) {
         return schema.member(member).filter(JsonNode::isArray).map(JsonNode::elements).orElseGet(List::of);
+    }
+
+    private static List<String> typeNames(JsonNode schema) {
+        var value = schema.member("type").orElse(null);
+        if (value == null) {
+            return List.of();
+        }
+        if (value.isString()) {
+            return List.of(value.text().orElse(""));
+        }
+        return value.elements().stream().map(element -> element.text().orElse("")).toList();
     }
 
     private static Integer integer(JsonNode schema, String member) {

@@ -42,12 +42,12 @@ class HarnessProfileEndpointTest {
     }
 
     @Test
-    @DisplayName("an endpoint harness is no worker host and cannot resume")
-    void noHostAndNoResumability() {
+    @DisplayName("an endpoint harness is a worker host that cannot resume")
+    void hostAndNoResumability() {
         var profile = HarnessProfile.of(EndpointProfileFixtures.loaded());
 
         assertAll(
-                () -> assertFalse(profile.eligible()),
+                () -> assertTrue(profile.eligible()),
                 () -> assertFalse(profile.restrictedModelsDeclared()),
                 () -> assertTrue(profile.restrictedModels().isEmpty()),
                 () -> assertFalse(profile.resumability().hold()),

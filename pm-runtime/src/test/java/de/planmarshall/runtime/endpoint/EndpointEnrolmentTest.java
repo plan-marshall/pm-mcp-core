@@ -54,7 +54,7 @@ class EndpointEnrolmentTest {
     private static HarnessEnrolment recorded(Map<String, String> weights) {
         var map = new LinkedHashMap<String, HarnessEnrolment.Weights>();
         weights.forEach((model, identity) -> map.put(model, new HarnessEnrolment.Weights(identity, Instant.EPOCH)));
-        return new HarnessEnrolment("local-runner", Path.of(EndpointFixtures.ENROLLED_EXECUTABLE), "a".repeat(64),
+        return new HarnessEnrolment("local-runner", Path.of(EndpointFixtures.executablePath()), "a".repeat(64),
                 "1.0.0", Instant.EPOCH, Instant.EPOCH,
                 new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED, Map.of()), Map.of(), map);
     }

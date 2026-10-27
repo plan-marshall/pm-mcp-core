@@ -1987,8 +1987,8 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointEnrolm
 identity re-recorded and audited with the model and both identities, an unchanged one left alone)
 
 Documentation: link:../pm-runtime/doc/developer/runtime-endpoint.adoc#weights-identity[Endpoint Harness Developer Guide §
-Weights Identity], link:../pm-runtime/doc/adr/runtime-endpoint/003-answer-validated-against-a-closed-schema-subset.adoc[ADR
-runtime-endpoint/003]
+Weights Identity], link:../pm-core/doc/developer/core-profile.adoc#_endpoint_profiles[Profile Loader and Schema Developer
+Guide § Endpoint profiles]
 
 [#PM-WORK-7]
 === PM-WORK-7: Worker Activity & Off-Track Signals

@@ -47,7 +47,7 @@ endpoint.
   "additionalProperties": false,
   "properties": {
     "profile_kind": { "type": "string", "const": "endpoint" },
-    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "schema_version": { "type": "integer", "const": 1 },
     "client_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
     "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
     "min_daemon_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },

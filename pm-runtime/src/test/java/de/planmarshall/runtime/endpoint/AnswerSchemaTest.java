@@ -81,6 +81,27 @@ class AnswerSchemaTest {
     }
 
     @Test
+    @DisplayName("the string form of type is enforced, not skipped")
+    void stringTypeEnforced() {
+        assertAll(
+                () -> assertFalse(AnswerSchema.validate(parse("{\"type\":\"object\"}"), parse("\"clean\"")).valid()),
+                () -> assertFalse(AnswerSchema.validate(parse("{\"type\":\"string\"}"), parse("1")).valid()),
+                () -> assertTrue(AnswerSchema.validate(parse("{\"type\":\"object\"}"), parse("{}")).valid()),
+                () -> assertTrue(AnswerSchema.validate(parse("{\"type\":[\"object\",\"null\"]}"), parse("null")).valid()));
+    }
+
+    @Test
+    @DisplayName("an additionalProperties given as a schema is refused, never read as open")
+    void schemaAdditionalPropertiesRefused() {
+        var check = AnswerSchema.validate(parse("{\"type\":\"object\",\"additionalProperties\":{\"type\":\"string\"}}"),
+                parse("{\"a\":1}"));
+
+        assertAll(
+                () -> assertFalse(check.valid()),
+                () -> assertTrue(check.detail().contains("additionalProperties")));
+    }
+
+    @Test
     @DisplayName("a local $ref to $defs resolves and is checked")
     void localReference() {
         var schema = parse("{\"$defs\":{\"verdict\":{\"type\":\"string\",\"const\":\"clean\"}},"
