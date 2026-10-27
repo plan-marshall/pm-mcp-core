@@ -10,10 +10,12 @@
 package de.planmarshall.runtime.endpoint;
 
 import de.cuioss.tools.logging.CuiLogger;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.Optional;
 
 import de.planmarshall.core.profile.EndpointProfile;
 import de.planmarshall.core.profile.JsonDocument;
@@ -77,7 +79,7 @@ public final class EndpointHarness {
                     LaunchRefusal.HARNESS_NOT_ENROLLED.resolvingAct(profile.clientId()));
             return EndpointOutcome.refused(EndpointOutcome.Reason.HARNESS_NOT_ENROLLED, detail);
         }
-        var digest = HarnessVerifier.digestExecutable(Path.of(lookup.executablePath()));
+        var digest = executableDigest(lookup.executablePath());
         if (digest.isEmpty() || !digest.get().equals(enrolled.sha256())) {
             var detail = "the program on the port is not the build the enrolment recorded";
             LOGGER.warn(RuntimeLogMessages.WARN.WORKER_LAUNCH_REFUSED, profile.clientId(),
@@ -93,9 +95,16 @@ public final class EndpointHarness {
         return answer;
     }
 
+    private static Optional<String> executableDigest(String executablePath) {
+        try {
+            return HarnessVerifier.digestExecutable(Path.of(executablePath));
+        } catch (UncheckedIOException _) {
+            return Optional.empty();
+        }
+    }
+
     /**
-     * Checks that the endpoint answers its readiness check.
-     *
+     * Checks that the endpoint answers its readiness check.     *
      * @param profile the endpoint profile
      * @return whether it is ready
      */

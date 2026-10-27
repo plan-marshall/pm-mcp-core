@@ -411,7 +411,8 @@ public final class ProfileValidator {
                     pointer + "/answer_reserve_tokens", NAME_ANSWER_RESERVE_TOKENS, 64, Integer.MAX_VALUE);
             if (answerReserve >= contextTokens) {
                 throw invalid(pointer + "/answer_reserve_tokens",
-                        "the answer reserve %d stays below context_tokens %d".formatted(answerReserve, contextTokens));
+                        "the answer reserve %d must stay below context_tokens %d".formatted(answerReserve,
+                                contextTokens));
             }
             integer(required(endpoint, pointer, NAME_REQUEST_TIMEOUT_SECONDS), pointer + "/request_timeout_seconds",
                     NAME_REQUEST_TIMEOUT_SECONDS, 5, 3600);

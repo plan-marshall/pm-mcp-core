@@ -34,12 +34,10 @@ import de.planmarshall.runtime.launch.HarnessVerifier;
  * The owner check runs once, before any request: where the program on the port cannot be read, the stages send nothing
  * and the draft is refused. The {@code identity} stage runs the version probe, reads the models listing and, where the
  * profile declares one, the weights identity of every allowed model. The {@code launch} stage checks readiness, sends the
- * base task with streaming off and with the result schema, sends it once without a schema (a refusal is the measurement
- * {@code none}) and once with a schema the task text contradicts ({@code enforced} when the contradicted schema still
- * holds the answer, {@code advisory} when it does not). The {@code classes} stage sends a task that asks for a tool call
- * and records whether the endpoint answers with the decoy result the task names ({@code tools_ignored}); the endpoint is
- * never wired to a tool caller on that account. The {@code limits} stage bisects the largest accepted request and reports
- * the endpoint's own usage figure for it.
+ * base task with streaming off and with the result schema, and once without a schema. The {@code classes} stage sends a
+ * task that asks for a tool call and records whether the endpoint answers with the decoy result the task names
+ * ({@code tools_ignored}); the endpoint is never wired to a tool caller on that account. The {@code limits} stage bisects
+ * the largest accepted request and reports the endpoint's own usage figure for it.
  *
  * @since 0.1
  */
@@ -94,7 +92,8 @@ public final class EndpointVerification {
         var endpoint = URI.create(profile.endpoint().baseUrl());
         var lookup = owner.ownerOf(endpoint.getHost(), endpoint.getPort());
         var identity = identity(profile, lookup);
-        if (!lookup.isFound()) {
+        if (!ownsTheNamedProgram(profile, lookup)) {
+            // No request leaves the runtime: the program on the port is not the one the draft names.
             return new ProfileStages.EndpointVerification(identity,
                     new ProfileStages.EndpointLaunch(false, false, "none", false),
                     new ProfileStages.EndpointClasses(false, false), new ProfileStages.EndpointLimits(false, 0));
@@ -103,8 +102,21 @@ public final class EndpointVerification {
                 classes(profile, model, toolTask, decoyResult), limits(profile, model, baseTask));
     }
 
+    /**
+     * @return whether the program that owns the socket is the one the draft's {@code executable} names
+     */
+    private static boolean ownsTheNamedProgram(EndpointProfile profile, SocketOwner.Lookup lookup) {
+        if (!lookup.isFound() || profile.executable() == null) {
+            return false;
+        }
+        return Path.of(lookup.executablePath()).getFileName().toString().equals(profile.executable());
+    }
+
     private ProfileStages.EndpointIdentity identity(EndpointProfile profile, SocketOwner.Lookup lookup) {
-        var version = lookup.isFound() ? probe(profile, lookup.executablePath()) : Optional.<String>empty();
+        if (!lookup.isFound()) {
+            return new ProfileStages.EndpointIdentity(false, null, null, List.of(), Map.of());
+        }
+        var version = probe(profile, lookup.executablePath());
         var listing = listing(profile);
         var models = modelIds(listing);
         var identities = new LinkedHashMap<String, String>();
@@ -119,9 +131,9 @@ public final class EndpointVerification {
                 }
             }
         }
-        var passed = lookup.isFound() && version.isPresent() && !models.isEmpty() && weightsSettled;
-        return new ProfileStages.EndpointIdentity(passed, lookup.isFound() ? lookup.executablePath() : null,
-                version.orElse(null), models, identities);
+        var passed = version.isPresent() && !models.isEmpty() && weightsSettled;
+        return new ProfileStages.EndpointIdentity(passed, lookup.executablePath(), version.orElse(null), models,
+                identities);
     }
 
     private ProfileStages.EndpointLaunch launch(EndpointProfile profile, String model, String baseTask,
@@ -165,7 +177,7 @@ public final class EndpointVerification {
             var outcome = EndpointOutcome.accept(client.post(profile, EndpointClient.CHAT_PATH, request.body()), null);
             if (outcome.fate() == EndpointOutcome.Fate.ANSWERED) {
                 var figure = outcome.usage().totalTokens().orElse(middle);
-                best = (int) Math.max(best, Math.max(figure, middle));
+                best = (int) Math.min(MAXIMUM_CONTEXT_TOKENS, Math.max(best, Math.max(figure, middle)));
                 low = middle + 1;
             } else {
                 high = middle - 1;
@@ -175,18 +187,21 @@ public final class EndpointVerification {
     }
 
     /**
-     * @return the measurement of {@code result_schema}: {@code none} when the endpoint refuses the request without a
+     * @return the measurement of {@code result_schema}: {@code none} when the endpoint refuses a request that carries a
      *         schema, {@code enforced} when the contradicted schema still holds the answer, {@code advisory} otherwise
      */
     private String measureSchema(EndpointProfile profile, String model, String baseTask) {
-        if (content(profile, model, baseTask, null).isEmpty()) {
-            return "none";
-        }
         var contradicted = JsonNode.object(Map.of("type", JsonNode.string("object"), "required",
                 JsonNode.array(List.of(JsonNode.string(CONTRADICTED_POINTER)))));
-        var answered = content(profile, model, baseTask, contradicted);
-        if (answered.isEmpty()) {
+        var request = new EndpointRequest(model, "", baseTask, contradicted, profile.endpoint().resultSchema(),
+                profile.endpoint().answerReserveTokens());
+        var response = client.post(profile, EndpointClient.CHAT_PATH, request.body());
+        if (response.failure() != EndpointClient.Failure.NONE || !response.successful()) {
             return "none";
+        }
+        var answered = contentOf(response);
+        if (answered.isEmpty()) {
+            return "advisory";
         }
         try {
             var document = JsonDocument.parse(answered.get().getBytes(StandardCharsets.UTF_8), "answer");
@@ -199,13 +214,16 @@ public final class EndpointVerification {
     }
 
     /**
-     * @return the content of one answer, or empty when the endpoint refused the request, did not answer, or answered
-     *         with something that is not a JSON document
+     * @return the content of one answer, or empty when the endpoint did not answer, did not answer successfully, or
+     *         answered with something that is not a JSON document
      */
     private Optional<String> content(EndpointProfile profile, String model, String task, JsonNode schema) {
         var request = new EndpointRequest(model, "", task, schema,
                 schema == null ? null : profile.endpoint().resultSchema(), profile.endpoint().answerReserveTokens());
-        var response = client.post(profile, EndpointClient.CHAT_PATH, request.body());
+        return contentOf(client.post(profile, EndpointClient.CHAT_PATH, request.body()));
+    }
+
+    private static Optional<String> contentOf(EndpointClient.Response response) {
         if (response.failure() != EndpointClient.Failure.NONE || !response.successful()) {
             return Optional.empty();
         }

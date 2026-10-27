@@ -77,11 +77,13 @@ graded again.
 [[verification]]
 `EndpointVerification`::
 The four stages of the verification of an endpoint draft. `identity` runs the version probe, finds the owner of the
-listening socket, reads the models listing and the weights identities. `launch` checks readiness, sends the base task
-with streaming off and with the result schema, sends it once without a schema and once with a schema the task text
-contradicts, and settles `result_schema`. `classes` sends a task that asks for a tool call and records `tools_ignored`
-when the endpoint answers with the decoy result the task names. `limits` bisects the largest accepted request and reports
-the endpoint's own usage figure for it. Where the owner cannot be read, the stages send nothing and the draft is refused.
+listening socket, reads the models listing and the weights identities. `launch` checks readiness and sends the base task
+with streaming off and with the result schema, and once without a schema. `result_schema` is measured from the status of
+the request that carries a schema the task text contradicts: a refusal is `none`, an answer the contradicted schema still
+holds is `enforced`, any other answer `advisory`. `classes` sends a task that asks for a tool call and records
+`tools_ignored` when the endpoint answers with the decoy result the task names. `limits` bisects the largest accepted
+request and reports the endpoint's own usage figure for it. Where the owner cannot be read, or is not the program the
+draft names, the stages send nothing and the draft is refused.
 
 == How the parts work together
 

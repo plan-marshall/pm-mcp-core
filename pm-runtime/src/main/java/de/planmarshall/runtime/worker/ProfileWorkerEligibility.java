@@ -16,6 +16,7 @@ import java.util.stream.Stream;
 
 import de.planmarshall.core.profile.LoadedProfile;
 import de.planmarshall.core.profile.ProfileSetKind;
+import de.planmarshall.core.profile.ProfileValidator;
 import de.planmarshall.core.profile.VerificationRecord;
 import de.planmarshall.core.role.HarnessProfile;
 import de.planmarshall.core.role.RoleClass;
@@ -56,6 +57,9 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
 
     private static final List<String> ELIGIBLE_STAGES = List.of("faults", "egress");
     private static final List<String> ZERO_TOOL_STAGES = List.of(CLASSES_STAGE, "isolation");
+
+    /** The stages an endpoint harness's verification records: its profile carries no worker, tool or session claim. */
+    private static final List<String> ENDPOINT_STAGES = List.of("identity", "launch", CLASSES_STAGE, "limits");
 
     private final LoadedProfile profile;
     private final RuntimePlatform platform;
@@ -132,7 +136,7 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
         if (profile.kind() == ProfileSetKind.SHIPPED) {
             return EligibilityVerdict.eligible();
         }
-        var claimedStages = claimedStages(facts);
+        var claimedStages = claimedStages(profile, facts);
         if (claimedStages.isEmpty()) {
             return EligibilityVerdict.eligible();
         }
@@ -169,7 +173,10 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
      * @param facts the facts projected from a profile
      * @return the stages the profile's claims rest on; empty when the profile makes no claim
      */
-    private static List<String> claimedStages(HarnessProfile facts) {
+    private static List<String> claimedStages(LoadedProfile profile, HarnessProfile facts) {
+        if (ProfileValidator.isEndpoint(profile.document())) {
+            return ENDPOINT_STAGES;
+        }
         var stages = new ArrayList<String>();
         if (facts.eligible()) {
             stages.addAll(ELIGIBLE_STAGES);

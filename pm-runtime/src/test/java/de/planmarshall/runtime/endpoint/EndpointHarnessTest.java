@@ -83,6 +83,38 @@ class EndpointHarnessTest {
     }
 
     @Test
+    @DisplayName("a socket whose owner cannot be read refuses the task")
+    void unknownOwnerRefused() {
+        var harness = new EndpointHarness(new EndpointClient(),
+                (host, port) -> SocketOwner.Lookup.notFound("no program listens on the port"));
+        var profile = EndpointFixtures.profile(base());
+
+        var outcome = harness.task(profile, EndpointFixtures.enrolment(), request(), null);
+
+        assertAll(
+                () -> assertEquals(EndpointOutcome.Fate.REFUSED, outcome.fate()),
+                () -> assertEquals(EndpointOutcome.Reason.HARNESS_NOT_ENROLLED, outcome.reason()),
+                () -> assertTrue(outcome.detail().contains("no program listens")),
+                () -> assertEquals(0, server.getRequestCount()));
+    }
+
+    @Test
+    @DisplayName("another build at the enrolled path refuses the task")
+    void changedDigestRefused() {
+        var harness = new EndpointHarness(new EndpointClient(), owner(EndpointFixtures.executablePath()));
+        var profile = EndpointFixtures.profile(base());
+        var previousBuild = EndpointFixtures.enrolment(EndpointFixtures.executablePath());
+
+        var outcome = harness.task(profile, previousBuild, request(), null);
+
+        assertAll(
+                () -> assertEquals(EndpointOutcome.Fate.REFUSED, outcome.fate()),
+                () -> assertEquals(EndpointOutcome.Reason.HARNESS_NOT_ENROLLED, outcome.reason()),
+                () -> assertTrue(outcome.detail().contains("not the build the enrolment recorded")),
+                () -> assertEquals(0, server.getRequestCount()));
+    }
+
+    @Test
     @DisplayName("the enrolled program answers, and the request went out with streaming off")
     void acceptedAnswer() throws Exception {
         var enrolled = EndpointFixtures.enrolment();

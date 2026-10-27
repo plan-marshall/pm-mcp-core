@@ -44,7 +44,7 @@ final class EndpointFixtures {
      * @return the endpoint profile
      */
     static EndpointProfile profile(String baseUrl, String resultSchema) {
-        return new EndpointProfile("local-runner", "ollama",
+        return new EndpointProfile("local-runner", executableName(),
                 new EndpointProfile.Identity(List.of("--version"), "version ([0-9.]+)"),
                 new EndpointProfile.UpdateEvidence("none", null),
                 new EndpointProfile.Endpoint("openai_chat", "loopback", baseUrl, "/ready", "/models", "/models",
@@ -61,6 +61,11 @@ final class EndpointFixtures {
     /** @return the absolute path of the program the test runs in, which the owner check can find and digest */
     static String executablePath() {
         return ProcessHandle.current().info().command().orElseThrow();
+    }
+
+    /** @return the bare name of the program the test runs in, which a draft names */
+    static String executableName() {
+        return Path.of(executablePath()).getFileName().toString();
     }
 
     /**

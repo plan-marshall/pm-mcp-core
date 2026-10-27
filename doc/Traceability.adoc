@@ -1307,12 +1307,20 @@ link:../pm-core/src/main/java/de/planmarshall/core/role/HarnessProfile.java[Harn
 link:../pm-core/src/main/java/de/planmarshall/core/role/RoleValidation.java[RoleValidation],
 link:../pm-core/src/main/java/de/planmarshall/core/role/RoleCatalog.java[RoleCatalog],
 link:../pm-core/src/main/java/de/planmarshall/core/role/StewardConfiguration.java[StewardConfiguration],
-link:../pm-core/src/main/java/de/planmarshall/core/profile/EndpointProfile.java[EndpointProfile]
+link:../pm-core/src/main/java/de/planmarshall/core/profile/EndpointProfile.java[EndpointProfile],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointRequest.java[EndpointRequest],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointOutcome.java[EndpointOutcome],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointHarness.java[EndpointHarness],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointVerification.java[EndpointVerification]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/RoleValidationTableTest.java[RoleValidationTableTest],
 link:../pm-core/src/test/java/de/planmarshall/core/role/RoleEffectiveConfigurationTest.java[RoleEffectiveConfigurationTest],
 link:../pm-core/src/test/java/de/planmarshall/core/profile/EndpointProfileValidatorTest.java[EndpointProfileValidatorTest],
-link:../pm-core/src/test/java/de/planmarshall/core/role/HarnessProfileEndpointTest.java[HarnessProfileEndpointTest]
+link:../pm-core/src/test/java/de/planmarshall/core/role/HarnessProfileEndpointTest.java[HarnessProfileEndpointTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointRequestTest.java[EndpointRequestTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointOutcomeTest.java[EndpointOutcomeTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointHarnessTest.java[EndpointHarnessTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointVerificationTest.java[EndpointVerificationTest]
 
 Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Artifacts Developer Guide],
 link:../pm-core/doc/developer/core-profile.adoc#_endpoint_profiles[Profile Loader and Schema Developer Guide § Endpoint

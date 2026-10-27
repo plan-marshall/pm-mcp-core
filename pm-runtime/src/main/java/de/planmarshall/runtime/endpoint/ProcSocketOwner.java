@@ -39,20 +39,24 @@ final class ProcSocketOwner implements SocketOwner {
         if (!Files.isDirectory(PROCESS_TABLE.resolve("net"))) {
             return Lookup.notFound("the owner of a listening socket is not readable on this platform");
         }
-        var inode = inode(PROCESS_TABLE.resolve("net/tcp"), port)
-                .or(() -> inode(PROCESS_TABLE.resolve("net/tcp6"), port));
-        if (inode.isEmpty()) {
-            return Lookup.notFound("no program listens on the port %d".formatted(port));
+        try {
+            var inode = inode(PROCESS_TABLE.resolve("net/tcp"), port)
+                    .or(() -> inode(PROCESS_TABLE.resolve("net/tcp6"), port));
+            if (inode.isEmpty()) {
+                return Lookup.notFound("no program listens on the port %d".formatted(port));
+            }
+            var owner = processOf(inode.get());
+            if (owner.isEmpty()) {
+                return Lookup.notFound("the program that listens on the port %d cannot be found".formatted(port));
+            }
+            var executable = executableOf(owner.get());
+            if (executable.isEmpty()) {
+                return Lookup.notFound("the executable of the process %d cannot be read".formatted(owner.get()));
+            }
+            return Lookup.found(executable.get().toString());
+        } catch (UncheckedIOException _) {
+            return Lookup.notFound("the socket table cannot be read");
         }
-        var owner = processOf(inode.get());
-        if (owner.isEmpty()) {
-            return Lookup.notFound("the program that listens on the port %d cannot be found".formatted(port));
-        }
-        var executable = executableOf(owner.get());
-        if (executable.isEmpty()) {
-            return Lookup.notFound("the executable of the process %d cannot be read".formatted(owner.get()));
-        }
-        return Lookup.found(executable.get().toString());
     }
 
     /**
