@@ -1,0 +1,45 @@
+= ADR 008: An Endpoint Harness Runs the Role Class `zero_tool` Only
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-27
+
+== Context
+
+Client Profiles § A Model on This Machine: an endpoint harness "has no tools, no MCP connection, and no session, so it
+runs exactly one role class, `zero_tool` … and no other". The role views of both clients are `pm-mcp-clients`'; the
+server-side projection of a harness's runnable classes is `core.role.HarnessProfile`.
+
+The projection had to decide what an endpoint profile, which declares no `headless.classes` block, runs.
+
+== Decision
+
+`HarnessProfile.of` projects an endpoint profile with the class `zero_tool` alone, at the tool set `enforced`, with no
+restricted models, no resumability and no ask-user tool. Its context budget is the endpoint's `context_tokens` less
+`answer_reserve_tokens`. A role of another class assigned to an endpoint harness is refused by the ordinary class check,
+because the harness does not run that class.
+
+== Alternatives Considered
+
+Reading the classes from a synthesized `headless` block was considered and not taken: an endpoint profile has no such
+block, and synthesizing one would make the profile say something it does not. Allowing `writer` and `read_only` with the
+classes read as not runnable was considered and not taken: the class rule is a property of the harness, not a per-role
+exception.
+
+== Consequences
+
+- A `judge` assigned to an endpoint harness is ungraded by definition; the clients' role views mark it, and the server
+  records no qualification for it.
+- The class check of `RoleValidation` needs no endpoint-specific branch: the projection already answers that only
+  `zero_tool` runs.
+- A future endpoint protocol with tools would change this record and the projection together.
+
+== Source
+
+Pull request for the work package `doc/plans/endpoint-harness.adoc`; Client Profiles § A Model on This Machine, § Role
+Classes of a Harness.
