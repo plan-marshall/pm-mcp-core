@@ -32,6 +32,8 @@ import java.util.Optional;
  * <li>the workspace: path base the project store root itself, journal {@code workspace/mcp/transaction-journal.json},
  * sidecar {@code workspace/mcp/digests.json}, staged files only below {@code workspace/} and {@code pending/},
  * guarded by the workspace lock;</li>
+ * <li>the machine: path base {@code machine/}, journal {@code mcp/transaction-journal.json}, sidecar
+ * {@code mcp/digests.json}, guarded by the machine scope lock;</li>
  * <li>the lesson store: path base {@code lessons/}, journal {@code .transaction-journal.json}, sidecar
  * {@code .digests.json}, guarded by the lesson store lock.</li>
  * </ul>
@@ -135,6 +137,16 @@ List<Path> ownedDirectories, LockKey lockKey) {
         var pathBase = LockKey.projectStore(base, projectId).resolve("lessons");
         return new JournalScope(JournalScopeType.LESSONS, null, pathBase, pathBase.resolve("." + JOURNAL),
                 pathBase.resolve("." + SIDECAR), List.of(pathBase), LockKey.lessonStore(base, projectId));
+    }
+
+    /**
+     * @param base the base directory of the runtime
+     * @return the one machine scope, whose workflow state lies in {@code machine/mcp/status.json}
+     */
+    public static JournalScope machine(Path base) {
+        var pathBase = base.toAbsolutePath().normalize().resolve("machine");
+        return new JournalScope(JournalScopeType.MACHINE, null, pathBase, pathBase.resolve(MCP).resolve(JOURNAL),
+                pathBase.resolve(MCP).resolve(SIDECAR), List.of(pathBase), LockKey.machineScope(base));
     }
 
     /**

@@ -144,12 +144,12 @@ public class WorkflowStatusCodec {
 
     /** Every member of the closed schema, in the order it declares them. */
     static final List<String> MEMBERS = List.of(FIELD_FORMAT_VERSION, SCOPE_TYPE, SCOPE_ID, "main_sha", "origin",
-            PHASE, OUTCOME, "instance_version", "setup_run", STATE, CALL_STACK, "worktree_path", "entry_baseline",
-            "merge_outcome", "owed", "branch_name", "branch_pushed_at", LOOP_BACK_ITERATION, "counters",
-            RETRY_COUNTERS, OUTLINE_LOOP_BACKS, POLICY_COUNTERS, WAIVER_REQUESTS, "gaps", "replan_pending",
-            "replans", "follow_ups", "settle_trigger", "watch_restarts", "loop_backs", "remediation_cause",
-            "refine_relaunch_count", "outline_relaunch_count", "metadata", "freshness_reconcile", "amendments",
-            "steps", ACTIVE_JOBS, ACTIVE_JOB, ACTIVE_TASKS, PENDING_CONDITION, FACTS, UPDATED_AT);
+            PHASE, OUTCOME, "instance_version", "setup_run", "onboard_run", "onboard_steps", STATE, CALL_STACK,
+            "worktree_path", "entry_baseline", "merge_outcome", "owed", "branch_name", "branch_pushed_at",
+            LOOP_BACK_ITERATION, "counters", RETRY_COUNTERS, OUTLINE_LOOP_BACKS, POLICY_COUNTERS, WAIVER_REQUESTS,
+            "gaps", "replan_pending", "replans", "follow_ups", "settle_trigger", "watch_restarts", "loop_backs",
+            "remediation_cause", "refine_relaunch_count", "outline_relaunch_count", "metadata", "freshness_reconcile",
+            "amendments", "steps", ACTIVE_JOBS, ACTIVE_JOB, ACTIVE_TASKS, PENDING_CONDITION, FACTS, UPDATED_AT);
 
     /** The members that only the status of a plan scope carries. */
     private static final Set<String> PLAN_ONLY_MEMBERS = Set.of(OUTLINE_LOOP_BACKS, POLICY_COUNTERS, WAIVER_REQUESTS);

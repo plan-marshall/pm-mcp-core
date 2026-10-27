@@ -864,7 +864,8 @@ public final class InvariantFixtures {
     }
 
     enum WaiverWaitOutcome implements PrimitiveOutcome {
-        WAIVED("waived", OutcomeClass.SUCCESS), EXPIRED("expired", OutcomeClass.FAILURE);
+        WAIVED("waived", OutcomeClass.SUCCESS), RAISED("raised", OutcomeClass.SUCCESS),
+        DECLINED("declined", OutcomeClass.FAILURE);
 
         private final String wireName;
         private final OutcomeClass outcomeClass;

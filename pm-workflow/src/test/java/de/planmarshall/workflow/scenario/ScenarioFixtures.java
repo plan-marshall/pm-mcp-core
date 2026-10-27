@@ -124,14 +124,12 @@ final class ScenarioFixtures {
                 phase execute
                 question review
                     approve -> execute.confirm
-                    revise -> handed_back
-                    returned -> handed_back
+                    revise -> completed
 
             state execute.confirm
                 phase execute
                 question clarification
                     answered -> completed
-                    assumed -> completed
 
             state completed terminal merged success
                 phase completed
@@ -239,6 +237,7 @@ final class ScenarioFixtures {
             case PLAN -> JournalScope.plan(directory, PROJECT, scopeId);
             case EPIC -> JournalScope.epic(directory, PROJECT, scopeId);
             case WORKSPACE -> JournalScope.workspace(directory, PROJECT);
+            case MACHINE -> JournalScope.machine(directory);
             case LESSONS -> throw new IllegalArgumentException("a scenario does not start the lesson store");
         };
         try {

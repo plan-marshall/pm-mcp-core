@@ -50,18 +50,18 @@ class ScenarioDeterminismTest {
             assert_state execute.ask
             answer_question Q-001 web {"branch_key":"approve"}
             assert_state execute.confirm
-            answer_question Q-002 web {"branch_key":"assumed"}
+            answer_question Q-002 web {"branch_key":"answered"}
             assert_state completed
             assert_outcome merged
             """;
 
     /**
-     * The transition the changed unit routes differently: the deadline of the clarification hands the plan back. Every
-     * state stays reachable, so the changed unit passes the verifier.
+     * The transition the changed unit routes differently: the clarification hands the plan back. Every state stays
+     * reachable, so the changed unit passes the verifier.
      */
-    private static final String TRANSITION = "assumed -> completed";
+    private static final String TRANSITION = "answered -> completed";
 
-    private static final String CHANGED_TRANSITION = "assumed -> handed_back";
+    private static final String CHANGED_TRANSITION = "answered -> handed_back";
 
     @TempDir
     Path first;

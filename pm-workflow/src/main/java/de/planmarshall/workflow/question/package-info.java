@@ -8,7 +8,8 @@
  * the root of this repository.
  */
 /**
- * The question records, their adjudication and their deadlines.
+ * The question records and their adjudication. A question has no deadline and no fallback by time: it ends by an
+ * answer, a withdrawal, or the end of its scope.
  * <p>
  * Specification:
  * <ul>

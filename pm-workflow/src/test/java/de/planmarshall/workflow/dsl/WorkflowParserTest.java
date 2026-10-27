@@ -407,11 +407,9 @@ class WorkflowParserTest {
                     Map.of(), 1, UnitOrigin.DEFAULT, Map.of(), Optional.of("setup.choose"), Map.of(), List.of(),
                     states(state("setup.choose", "setup", choose),
                             state("setup.wait", "setup", new StateBehavior.QuestionWait("clarification",
-                                    List.of(to("answered", "setup.choose"), to("expired", "setup.left")),
-                                    List.of(link(LinkRelation.NEXT, "skip_wait", LinkForm.NOOP, List.of(),
-                                            Optional.empty(), "setup.skip", to("done", "setup.choose"))))),
+                                    List.of(to("answered", "setup.choose")))),
                             state("setup.review", "setup", new StateBehavior.QuestionWait("review",
-                                    List.of(to("done", "setup.choose")), List.of())),
+                                    List.of(to("approve", "setup.choose"), to("revise", "setup.choose")))),
                             terminal("setup.left", "setup", "left", OutcomeClass.INDETERMINATE),
                             terminal("setup.held", "setup", "held", OutcomeClass.UNSETTLED)),
                     NOWHERE);
