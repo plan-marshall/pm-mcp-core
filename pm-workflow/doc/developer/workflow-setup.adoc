@@ -1,0 +1,76 @@
+= Setup Gate Developer Guide
+
+:toc: left
+:toclevels: 3
+:sectnums:
+:nofooter:
+
+== Purpose
+
+`de.planmarshall.workflow.setup` is the project setup's state machine and the one setup gate the machine scope's
+onboarding decides. The machine is not configured until the first run of its onboarding has reached
+`onboard.completed`; while it has not, no plan, an epic, or a project onboarding starts
+(link:../../../doc/specification/workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL § Machine Scope], item 6;
+link:../../../doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL § Waiting for the
+Operator], item 6).
+
+== Main Types
+
+`MachineOnboarding`:: The onboarding as the gate reads it from the machine scope's `WorkflowStatus`. It is complete when
+the status rests in `onboard.completed`, or when the `onboard_run` member says `reconfigure`: a later run of one aspect
+is entered from the machine's settings and is only possible after the first run. Its `pendingSteps` are the steps of the
+`onboard_steps` member whose state is neither `done` nor `skipped`, in their order, and `missingStep()` names the first;
+`fromStatus` refuses a status of another scope and an `onboard_steps` member that is not the array of step objects the
+schema admits (link:../../../doc/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State
+Store]).
+
+`SetupGate`:: The one guard. `decide(act, onboarding)` admits a step of the onboarding itself and an operator verb in
+every state; every start (`START_PLAN`, `START_EPIC`, `START_PROJECT_ONBOARDING`) is refused `machine_not_onboarded`
+while the first run is incomplete. `decideStep(step, onboarding)` refuses an act over the local API that needs a step
+that is still pending with `onboarding_incomplete` and the HTTP status `409`; an act whose step is done is admitted even
+while another step is pending. A refusal names the step and both of the operator's clients, `web` and `cli`, where the
+onboarding goes on.
+
+A caller that finds no machine status passes no `WorkflowStatus`; it treats the onboarding as incomplete — no step is
+`done`, and the missing step is the entry state of the machine unit — and lets the gate refuse the start. The gate does
+not invent a status.
+
+== Invariants
+
+* *Admission is read, never assumed*: only `onboard.completed` or a reconfigure run opens the gate; an absent or `null`
+  step list names the current state as the missing step. A present list that is not an array of step objects is refused
+  as unreadable.
+* *The onboarding and the operator stay open*: an incomplete first run never refuses the onboarding's own steps or an
+  operator verb.
+* *One status, one scope*: `MachineOnboarding.fromStatus` refuses a status that is not the machine scope's.
+* *No time limit, no fallback*: the gate itself decides nothing by time; it is re-read on every act.
+
+== Failure Modes
+
+[cols="2,3"]
+|===
+|Failure |Behaviour
+
+|The machine status does not exist
+|The onboarding is not complete; a start is refused `machine_not_onboarded`, naming the current state and both clients.
+
+|`onboard_steps` is not an array of step objects
+|`MachineOnboarding.fromStatus` refuses the status with `IllegalArgumentException`; the caller reports an unreadable
+machine state rather than admitting a start.
+
+|A later run of one aspect is in progress
+|The gate stays open: the status carries `reconfigure`, and every start and act is admitted.
+|===
+
+== Specification Tracing
+
+* link:../../../doc/specification/workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL § Machine Scope]
+* link:../../../doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL § Waiting for the
+  Operator]
+* link:../../../doc/specification/domain-extensions/04-setup-state-machine.adoc[Domain Extensions § Setup State Machine]
+
+== Decisions
+
+* link:../adr/workflow-setup/001-the-setup-gate-reads-the-machine-status.adoc[ADR workflow-setup/001]: the setup gate
+  reads the machine's status through `MachineOnboarding` and refuses with the two reasons of the specification, rather
+  than through a second machine-state store.
