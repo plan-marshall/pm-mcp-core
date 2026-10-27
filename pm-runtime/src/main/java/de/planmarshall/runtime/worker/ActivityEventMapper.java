@@ -40,18 +40,18 @@ import de.planmarshall.core.queue.ActivityEventMapping.KindMapping;
  */
 public final class ActivityEventMapper {
 
+    /** The usage figure whose value is a number the harness reports, never not applicable. */
+    private static final String COST_USD = "cost_usd";
+
     /** The keys of the usage pointers, in the order the profile declares them. */
     private static final List<String> USAGE_KEYS = List.of("input_tokens", "output_tokens", "cache_read",
-            "cache_creation", "reasoning", "tool_uses", "cost_usd");
+            "cache_creation", "reasoning", "tool_uses", COST_USD);
 
     /** The sentinel of a usage component the harness does not report. */
     private static final String UNMEASURED = "unmeasured";
 
     /** The sentinel of a usage component the harness has no such figure for. */
     private static final String NOT_APPLICABLE = "not_applicable";
-
-    /** The usage figure whose value is a number the harness reports, never not applicable. */
-    private static final String COST_USD = "cost_usd";
 
     private final ActivityEventMapping mapping;
     private final Map<String, String> usagePointers;

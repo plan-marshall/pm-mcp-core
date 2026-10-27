@@ -12,9 +12,9 @@ package de.planmarshall.core.profile;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -117,7 +117,7 @@ class ShippedUsageFixturesTest {
     }
 
     private static Long cost(HarnessUsage row) {
-        return row.costUsd().map(value -> value.longValueExact()).orElse(null);
+        return row.costUsd().map(BigDecimal::longValueExact).orElse(null);
     }
 
     private static OptionalLong totalOrEmpty(Map<String, Long> assigned, Set<String> notApplicable) {
@@ -180,6 +180,6 @@ class ShippedUsageFixturesTest {
                 Map.of("input_tokens", 120, "output_tokens", 30))));
 
         assertAll(() -> assertTrue(row.cacheCreationInputTokens().isNotApplicable()),
-                () -> assertSame(row.cacheReadInputTokens().state(), Measurement.State.UNMEASURED));
+                () -> assertEquals(Measurement.State.UNMEASURED, row.cacheReadInputTokens().state()));
     }
 }

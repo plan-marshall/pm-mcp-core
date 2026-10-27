@@ -44,8 +44,10 @@ public final class ProfileStages {
     private static final String COST_USD = "cost_usd";
     private static final String TOOL_USES = "tool_uses";
 
-    /** The declaration of a figure that does not exist for a harness by design. */
-    private static final String NOT_APPLICABLE = "not_applicable";
+    /** The declaration of a figure that does not exist for a harness by design, spelled once. */
+    private static final class Wire {
+        private static final String NOT_APPLICABLE = "not_applicable";
+    }
 
     /** The figures of {@code headless.usage}, in schema order. */
     public static final List<String> USAGE_FIGURES = List.of(INPUT_TOKENS, OUTPUT_TOKENS, CACHE_READ, CACHE_CREATION,
@@ -99,7 +101,7 @@ public final class ProfileStages {
         /** The declared pointer resolved on the output and the figure was parsed. */
         REPORTED("reported"),
         /** The figure does not exist for this harness by design. */
-        NOT_APPLICABLE("not_applicable"),
+        NOT_APPLICABLE(Wire.NOT_APPLICABLE),
         /** The harness does not report the figure. */
         MISSING("missing");
 
@@ -301,7 +303,7 @@ public final class ProfileStages {
                 figures.put(figure, UsageStatus.MISSING);
             } else {
                 var pointer = declaration.text().orElseThrow();
-                if (NOT_APPLICABLE.equals(pointer)) {
+                if (Wire.NOT_APPLICABLE.equals(pointer)) {
                     if (NEVER_NOT_APPLICABLE.contains(figure)) {
                         throw ProfileRefusal.invalid(profile.clientId() + PROFILE_SUFFIX,
                                 "/headless/usage/" + figure,
@@ -336,7 +338,7 @@ public final class ProfileStages {
                 return OptionalLong.empty();
             }
             var pointer = declaration.text().orElseThrow();
-            if (NOT_APPLICABLE.equals(pointer)) {
+            if (Wire.NOT_APPLICABLE.equals(pointer)) {
                 continue;
             }
             var value = integerAt(profile, turn, pointer);
