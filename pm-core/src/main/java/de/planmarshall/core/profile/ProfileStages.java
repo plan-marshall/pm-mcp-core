@@ -160,6 +160,14 @@ public final class ProfileStages {
      */
     public record ResumabilityResult(FormMeasurement hold, FormMeasurement resume) {
 
+        /**
+         * @throws NullPointerException if a measurement is {@code null}
+         */
+        public ResumabilityResult {
+            Objects.requireNonNull(hold, "hold");
+            Objects.requireNonNull(resume, "resume");
+        }
+
         /** @return whether the harness may hold after a question, with its limit */
         public boolean holdVerified() {
             return hold.measured();
@@ -182,14 +190,16 @@ public final class ProfileStages {
 
         /**
          * @return the record's {@code values[]} entries the stage writes: one per form, {@code measured} where the form
-         *         passed and {@code not_measured} where it did not
+         *         passed and {@code not_measured} where it did not. The verification record admits only the pointer and
+         *         the status of a value; the limit it proved is a profile value, carried by {@link #hold()} and
+         *         {@link #resume()}, not by the record
          */
-        public List<Value> values() {
+        public List<ValueEntry> values() {
             return List.of(
-                    new Value("/headless/resumability/hold", hold.measured() ? "measured" : "not_measured",
-                            hold.longestSeconds()),
-                    new Value("/headless/resumability/resume", resume.measured() ? "measured" : "not_measured",
-                            resume.longestSeconds()));
+                    new ValueEntry("/headless/resumability/hold",
+                            hold.measured() ? "measured" : "not_measured"),
+                    new ValueEntry("/headless/resumability/resume",
+                            resume.measured() ? "measured" : "not_measured"));
         }
     }
 
@@ -198,35 +208,21 @@ public final class ProfileStages {
      *
      * @param pointer the profile pointer the stage settled
      * @param status  {@code measured} or {@code not_measured}
-     * @param seconds the limit the stage proved; {@code null} where it measured nothing
      * @since 0.1
      */
-    public record Value(String pointer, String status, Integer seconds) {
+    public record ValueEntry(String pointer, String status) {
 
         /**
          * @throws NullPointerException     if a component is {@code null}
          * @throws IllegalArgumentException if the status is not one of the record's
          */
-        public Value {
+        public ValueEntry {
             Objects.requireNonNull(pointer, "pointer");
             Objects.requireNonNull(status, "status");
             if (!"measured".equals(status) && !"not_measured".equals(status)) {
                 throw new IllegalArgumentException("Not a resumability value status: " + status);
             }
         }
-    }
-
-    /**
-     * Records what the stage {@code resumability} measured. The stage itself runs on the probe task of
-     * {@code plan-marshall-mcp/question-loop-verification} and hands its result here; a form it did not measure is
-     * {@link FormMeasurement#notMeasured()}, never a fallback that claims a capability.
-     *
-     * @param hold   what the stage measured of the hold
-     * @param resume what the stage measured of the resume
-     * @return the record of the resumability stage
-     */
-    public static ResumabilityResult resumability(FormMeasurement hold, FormMeasurement resume) {
-        return new ResumabilityResult(hold, resume);
     }
 
     /**

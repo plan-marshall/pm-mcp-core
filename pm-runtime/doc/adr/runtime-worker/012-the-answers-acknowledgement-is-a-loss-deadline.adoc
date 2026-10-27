@@ -1,0 +1,51 @@
+= ADR 012: The answer's acknowledgement is a deadline of the loss detector, armed by its delivery
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-27
+
+== Context
+
+A worker that continues after its question may have stopped while it waited: a host that ended its held call, a model
+request that never returned (Model Work § Answer acknowledgement). The acknowledgement of the answer is therefore the
+health check of a continuation, the same check an offer has, within the host's `worker.ack_deadline_seconds` of the
+answer's delivery; a missing acknowledgement ends the worker as lost, and where the host's acknowledgement is
+informational, silence alone decides. `LossDetection` already owed an acknowledgement for an offer and for a fresh
+worker's first call, and nothing armed a deadline for an answer.
+
+== Decision
+
+`LossDetection.answerDelivered(Instant)` arms the acknowledgement deadline from the instant the answer was delivered and
+restarts the silence limit from it, through the same `armAck` and `reschedule` the offer uses. The deadline is the
+offer's: `ackDeadlineSeconds`, suppressed where the role is `zero_tool`, where the parameters declare the acknowledgement
+informational, or where the host reports no deadline. The detector still owns no delay literal, so a test moves the
+clock and the deadline moves with it.
+
+The runtime's inbound port `WorkerCalls` does not yet carry the call: the transport hands the answer to the worker in the
+assembly, which owes a `WorkerCalls` entry that the supervisor implements by calling `answerDelivered`. Adding the port
+entry without its assembly counterpart would leave the method uncalled, and the assembly lives in
+`plan-marshall-mcp`, which this work package keeps untouched.
+
+== Alternatives Considered
+
+* Arming the deadline when the wait closes: refused because a wait closes for a re-offer or a recycle as well, and those
+  are not answers.
+* A second detector for answers: refused because the three deadlines already share one timer and one clock, and the
+  earliest-deadline rule is what keeps them from firing twice.
+
+== Consequences
+
+The answer's acknowledgement and the offer's are one signal (`ACK_MISSED`), one reason and one loss path, so the duty to
+offer the task again falls out of the existing loss handling. A host whose acknowledgement is informational raises the
+signal by silence instead, as before. A caller that delivers an answer without calling `answerDelivered` leaves the
+generation with no answer deadline: the assembly's entry is load-bearing, not decorative.
+
+== Source
+
+Pull request of the work package `doc/plans/question-continuation.adoc`; Model Work § Answer acknowledgement and
+§ Detection; Client Profiles § Worker Parameters (`ack_deadline_seconds`).

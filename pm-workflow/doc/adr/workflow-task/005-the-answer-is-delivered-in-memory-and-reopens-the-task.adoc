@@ -42,9 +42,10 @@ the reason on the continuation, drops the stored session and removes the deliver
 
 == Consequences
 
-A runtime restart loses no committed state: holds end at a restart, and a suspended task's answer is re-delivered from
-the question record on the resume. The supervisor must call `answer` when a question closes and must not read the
-delivery as durable. A second answer for the same question replaces the delivery in place.
+A runtime restart loses no committed state: a hold ends at a restart, and the answer of a suspended task is delivered
+again when the supervisor reads the closed question at the resume. The supervisor must call `answer` when a question
+closes, must not read the delivery as durable, and owes both the hold's end and the re-delivery. A second answer for the
+same question replaces the delivery in place.
 
 == Source
 

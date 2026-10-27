@@ -21,11 +21,13 @@ not at all (fallback). Which one it is, and how long it lasts, is decided here a
 
 == How to use it
 
-The engine asks `QuestionContinuation.decide` when a task follows its `ask` link and writes the answer into the queue
-record through `TaskProtocol.hold` or `TaskProtocol.suspend`; a fallback closes the task `asked` through
-`TaskProtocol.fallback`. The layer that composes a task representation asks `QuestionBound.mayOffer` before it offers the
-link, and calls `record` when the question was filed. The entry identity is the caller's: pass the same value on a
-re-entry through `<state>.asked`, and a new value for a new entry of the state.
+The package is the contract the engine and the receipt layers call: the engine asks `QuestionContinuation.decide` when a
+task follows its `ask` link and records the outcome through `TaskProtocol.hold`, `TaskProtocol.suspend` or
+`TaskProtocol.fallback`; the layer that composes a task representation asks `QuestionBound.mayOffer` before it offers the
+link and calls `record` when the question was filed. Neither caller exists in this repository yet: the engine's
+`<state>.asked` wiring and the envelope's `ask:TASK-NNN` path are the remaining work of the package, and this guide
+states the contract they must keep. The entry identity is the caller's: pass the same value on a re-entry through
+`<state>.asked`, and a new value for a new entry of the state.
 
 == Invariants and failure modes
 

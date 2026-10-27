@@ -199,8 +199,8 @@ class TaskProtocolContinuationTest {
     }
 
     @Test
-    @DisplayName("a restart-like pause keeps a suspended task suspended and offers it to nobody without its answer")
-    void restartKeepsSuspended(@TempDir Path base) {
+    @DisplayName("a suspended task holds no lease, so a pause ends no attempt and a wait offers nothing until its answer")
+    void suspendedSurvivesAPause(@TempDir Path base) {
         var locks = new TestLocks();
         var queue = QueueStore.ofProject(base, "project-a", locks);
         queue.create(TaskFixtures.queued(TASK, TaskFixtures.ROLE).build());

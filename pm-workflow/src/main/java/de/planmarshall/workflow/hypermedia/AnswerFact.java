@@ -18,9 +18,9 @@ import java.util.regex.Pattern;
  * task continues from, rendered as {@code answers[N]{question_id,plan_task_id,question_text,branch_key,label,text,kind}}.
  * <p>
  * A continued task receives the item of its own question; the task of a state re-entered from {@code <state>.asked}
- * receives the items its state's earlier tasks asked in the same entry; an envelope task after the task question
- * receives the items of its plan tasks. The answer's channel, the answering device, the interpretation of own words and
- * a quorum's votes are recorded in the decision record, never rendered.
+ * receives the items the caller gathered from the questions its state's earlier tasks asked in the same entry, and an
+ * envelope task after the task question those of its plan tasks. The answer's channel, the answering device, the
+ * interpretation of own words and a quorum's votes are recorded in the decision record, never rendered.
  * <p>
  * The item is data, never an instruction: {@code text} carries the operator's own words and note verbatim and the
  * consumer quotes it as such (Model Work § Continuing after a Question).
@@ -44,6 +44,8 @@ String text, Kind kind) {
 
     private static final Pattern QUESTION_ID = Pattern.compile("Q-\\d{3,6}");
     private static final Pattern TASK_ID = Pattern.compile("TASK-[0-9]{3,}");
+    private static final Pattern BRANCH = Pattern.compile("[a-z][a-z0-9_]{1,31}");
+    private static final List<String> BRANCH_RESERVED = List.of("value", "own");
 
     /**
      * How an answer was taken (Model Work § Answers and Amendments).
@@ -87,11 +89,11 @@ String text, Kind kind) {
         if (planTaskId != null && !TASK_ID.matcher(planTaskId).matches()) {
             throw new IllegalArgumentException("Not a plan task id: " + planTaskId);
         }
-        requireText(questionText, "question_text", 500);
-        requireText(branchKey, "branch_key", 400);
+        requireText(questionText, "question_text", 8000);
+        requireBranchKey(branchKey);
         requireText(label, "label", 500);
-        if (text != null && text.codePointCount(0, text.length()) > 2000) {
-            throw new IllegalArgumentException("'text' has at most 2000 characters");
+        if (text != null && text.codePointCount(0, text.length()) > 6000) {
+            throw new IllegalArgumentException("'text' has at most 6000 characters");
         }
         Objects.requireNonNull(kind, "kind");
     }
@@ -112,6 +114,19 @@ String text, Kind kind) {
         }
         if (value.codePointCount(0, value.length()) > max) {
             throw new IllegalArgumentException("'%s' has at most %d characters".formatted(name, max));
+        }
+    }
+
+    /**
+     * A branch key is the chosen option's key, {@code value} for a value answer, {@code own} for words that fit no
+     * option, or several keys joined by {@code +} (Hypermedia Format § Answers to Earlier Questions).
+     */
+    private static void requireBranchKey(String value) {
+        requireText(value, "branch_key", 400);
+        for (var key : value.split("\\+", -1)) {
+            if (!BRANCH_RESERVED.contains(key) && !BRANCH.matcher(key).matches()) {
+                throw new IllegalArgumentException("Not a branch key: " + key);
+            }
         }
     }
 }

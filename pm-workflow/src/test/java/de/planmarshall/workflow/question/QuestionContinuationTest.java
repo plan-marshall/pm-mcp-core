@@ -49,7 +49,7 @@ class QuestionContinuationTest {
                 () -> assertTrue(decision.holds()),
                 () -> assertEquals(AT.plusSeconds(600), decision.holdUntil()),
                 () -> assertNull(decision.resumeUntil()),
-                () -> assertNull(decision.fallbackReasons()));
+                () -> assertNull(decision.fallbackReason()));
     }
 
     @Test
@@ -79,7 +79,7 @@ class QuestionContinuationTest {
 
         assertAll(
                 () -> assertEquals(QuestionContinuation.Form.FALLBACK, decision.form()),
-                () -> assertEquals(FallbackReason.NOT_ALLOWED, decision.fallbackReasons()));
+                () -> assertEquals(FallbackReason.NOT_ALLOWED, decision.fallbackReason()));
     }
 
     @Test
@@ -97,8 +97,8 @@ class QuestionContinuationTest {
         var unverifiedHarness = QuestionContinuation.decide(StateBehavior.AskForm.ASK, false, bounds(0, 0), AT);
 
         assertAll(
-                () -> assertEquals(FallbackReason.NOT_ALLOWED, withoutQuestions.fallbackReasons()),
-                () -> assertEquals(FallbackReason.NOT_ALLOWED, unverifiedHarness.fallbackReasons()));
+                () -> assertEquals(FallbackReason.NOT_ALLOWED, withoutQuestions.fallbackReason()),
+                () -> assertEquals(FallbackReason.NOT_ALLOWED, unverifiedHarness.fallbackReason()));
     }
 
     @Test
@@ -111,7 +111,7 @@ class QuestionContinuationTest {
 
         assertAll(
                 () -> assertEquals(QuestionContinuation.Form.RESUME, resumed.form()),
-                () -> assertEquals(FallbackReason.HOLD_EXPIRED, expired.fallbackReasons()));
+                () -> assertEquals(FallbackReason.HOLD_EXPIRED, expired.fallbackReason()));
     }
 
     @Test
@@ -122,25 +122,23 @@ class QuestionContinuationTest {
     }
 
     @Test
-    @DisplayName("the continuation record names the form and its limit")
-    void continuationRecord() {
-        var decision = QuestionContinuation.decide(StateBehavior.AskForm.ASK, false, bounds(600, 0), AT);
-        var continuation = QuestionContinuation.continuation(decision, "Q-007", AT);
-
-        assertAll(
-                () -> assertEquals("Q-007", continuation.questionId()),
-                () -> assertEquals(QueueTaskRecord.ContinuationForm.HOLD, continuation.form()),
-                () -> assertEquals(AT.plusSeconds(600), continuation.holdUntil()),
-                () -> assertNull(continuation.fallbackReason()));
-    }
-
-    @Test
     @DisplayName("a fallback records no continuation form")
     void fallbackHasNoRecordForm() {
         var decision = QuestionContinuation.fallback(FallbackReason.RESUME_EXPIRED);
 
         assertAll(
                 () -> assertTrue(decision.recordForm().isEmpty()),
-                () -> assertEquals(FallbackReason.RESUME_EXPIRED, decision.fallbackReasons()));
+                () -> assertEquals(FallbackReason.RESUME_EXPIRED, decision.fallbackReason()));
+    }
+
+    @Test
+    @DisplayName("a hold and a resume name their queue-record form, a fallback names none")
+    void recordForms() {
+        var hold = QuestionContinuation.decide(StateBehavior.AskForm.ASK, false, bounds(600, 0), AT);
+        var resume = QuestionContinuation.decide(StateBehavior.AskForm.ASK, false, bounds(0, 3600), AT);
+
+        assertAll(
+                () -> assertEquals(QueueTaskRecord.ContinuationForm.HOLD, hold.recordForm().orElseThrow()),
+                () -> assertEquals(QueueTaskRecord.ContinuationForm.RESUME, resume.recordForm().orElseThrow()));
     }
 }

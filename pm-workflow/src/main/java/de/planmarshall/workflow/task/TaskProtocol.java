@@ -193,6 +193,7 @@ public final class TaskProtocol {
         Objects.requireNonNull(at, "at");
         var answer = new AtomicReference<WaitAnswer>();
         queue.updateAll(records -> {
+            pruneDeliveries(records);
             if (jobState.hasEnded(request.generationId())) {
                 answer.set(new WaitAnswer.End("job_ended"));
                 return records;
@@ -282,6 +283,21 @@ public final class TaskProtocol {
      */
     private boolean resumable(QueueTaskRecord task) {
         return task.status() == Status.SUSPENDED && answers.containsKey(task.queueTaskId());
+    }
+
+    /**
+     * Forgets the deliveries of tasks that are no longer waiting for an answer, so a delivery never outlives the hold or
+     * suspension it was made to.
+     *
+     * @param records the queue as the transaction read it
+     */
+    private void pruneDeliveries(List<QueueTaskRecord> records) {
+        if (answers.isEmpty()) {
+            return;
+        }
+        answers.keySet().removeIf(id -> records.stream().noneMatch(task ->
+                task.queueTaskId().equals(id)
+                        && (task.status() == Status.AWAITING_ANSWER || task.status() == Status.SUSPENDED)));
     }
 
     /** Consultation tasks first, then work tasks in creation order. */
@@ -580,7 +596,9 @@ public final class TaskProtocol {
             }
             return after;
         });
-        answers.remove(queueTaskId);
+        if (closed.get() != null) {
+            answers.remove(queueTaskId);
+        }
         return Optional.ofNullable(closed.get());
     }
 

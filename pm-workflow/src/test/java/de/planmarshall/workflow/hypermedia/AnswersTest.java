@@ -100,6 +100,27 @@ class AnswersTest {
                                 AnswerFact.Kind.CHOSEN)),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new AnswerFact("Q-007", null, " ", "option_a", "A", null,
+                                AnswerFact.Kind.CHOSEN)),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new AnswerFact("Q-007", null, "Which?", "Option A", "A", null,
+                                AnswerFact.Kind.CHOSEN)),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new AnswerFact("Q-007", null, "Which?", "option_a+", "A", null,
                                 AnswerFact.Kind.CHOSEN)));
+    }
+
+    @Test
+    @DisplayName("the selected keys of a several answer and the two reserved keys are branch keys")
+    void branchKeys() {
+        assertAll(
+                () -> assertEquals("option_a+option_b",
+                        new AnswerFact("Q-007", null, "Which?", "option_a+option_b", "A, B", null,
+                                AnswerFact.Kind.CHOSEN).branchKey()),
+                () -> assertEquals("value",
+                        new AnswerFact("Q-007", null, "Which?", "value", "3", null,
+                                AnswerFact.Kind.CHOSEN).branchKey()),
+                () -> assertEquals("own",
+                        new AnswerFact("Q-007", null, "Which?", "own", "mine", "my words",
+                                AnswerFact.Kind.OWN_OPTION).branchKey()));
     }
 }

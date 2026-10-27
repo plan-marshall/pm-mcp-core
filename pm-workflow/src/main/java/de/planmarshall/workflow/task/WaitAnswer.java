@@ -39,8 +39,8 @@ public sealed interface WaitAnswer permits WaitAnswer.Offered, WaitAnswer.Answer
 
     /**
      * The answer to a question of the task the caller holds (Model Work § Continuing after a Question): the task's
-     * representation carries the answer in {@code facts.answers}, and its only link is {@code ack}, until the caller
-     * acknowledges it.
+     * representation carries the answer in {@code facts.answers}, and the representation offers {@code ack} as its only
+     * link until the caller acknowledges it.
      *
      * @param task    the held task
      * @param answers the answer's items

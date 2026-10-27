@@ -24,9 +24,10 @@ import java.util.Objects;
  * counts on both axes it belongs to. {@code ask} and {@code ask fresh} count alike: the bound is on the link, never on
  * the continuation form.
  * <p>
- * The ledger is the server's and lives as long as the scope does. It is keyed by the caller's entry identity, so the
- * engine passes the same {@code stateEntryId} on a re-entry through {@code <state>.asked} and the entry's count
- * continues; a new entry of the state has a new identity and a fresh count.
+ * The ledger is the server's, held in memory for the lifetime of the queue that serves the scope; a restart rebuilds it
+ * from the scope's question records, which is what the caller owes. The engine passes the same {@code stateEntryId} on a
+ * re-entry through {@code <state>.asked} and the entry's count continues; a new entry of the state has a new identity
+ * and a fresh count.
  *
  * @since 0.1
  */

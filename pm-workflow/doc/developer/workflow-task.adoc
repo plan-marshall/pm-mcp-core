@@ -25,9 +25,10 @@ It decides; the runtime transports (link:../adr/workflow-task/001-the-protocol-d
 
 `WaitRequest` and `WaitAnswer`::
 A wait names the caller's generation, the role, the generation's configuration digest, the role's current digest and
-the re-offer budget of the state. The answer is `Offered` (a task leased to the generation), `WaitAgain` (the window
-ended without a task: `no_task`, `paused`, `consulting`, `awaiting_answer` or `attempts_spent`) or `End` (`job_ended`,
-`fenced`, `recycled`, `drained` or `stopped`).
+the re-offer budget of the state. The answer is `Offered` (a task leased to the generation), `Answered` (the answer to
+the question of the task the generation holds, with its `facts.answers` and `ack` as its only link), `WaitAgain` (the
+window ended without a task: `no_task`, `paused`, `consulting`, `awaiting_answer` or `attempts_spent`) or `End`
+(`job_ended`, `fenced`, `recycled`, `drained` or `stopped`).
 
 `TaskCall` and `CallResult`::
 A call names the task and the caller's generation. The result is `Accepted` (the record after the call) or `Refused`
@@ -110,7 +111,8 @@ The continuation is the protocol's, not the transport's: the task record's `cont
 transitions.
 
 * `hold(call, continuation, at)` moves an `executing` task to `awaiting_answer` with the continuation of the form `hold`:
-  the lease and the attempt stay, so a hold spends no re-offer and the worker keeps its model slot.
+  the lease and the attempt stay, so a hold spends no re-offer; the model slot stays with the generation, which is the
+  supervisor's bookkeeping, not this protocol's.
 * `answer(questionId, answers, at)` delivers the closed question's answer to the task that asked it — a holding task at
   its pending or next wait, a suspended task at the offer of the generation that resumes it. `deliveredAnswers` and
   `answerDeliveredAt` expose the delivery; the delivery is held in memory because a hold ends at a restart by the

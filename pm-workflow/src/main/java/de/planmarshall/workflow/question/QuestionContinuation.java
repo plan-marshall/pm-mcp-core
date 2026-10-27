@@ -14,7 +14,6 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 
-import de.planmarshall.core.queue.QueueTaskRecord.Continuation;
 import de.planmarshall.core.queue.QueueTaskRecord.ContinuationForm;
 import de.planmarshall.core.queue.QueueTaskRecord.FallbackReason;
 import de.planmarshall.core.role.RoleArtifact;
@@ -81,10 +80,10 @@ public final class QuestionContinuation {
      * @param form            the form in force
      * @param holdUntil       when the hold ends; {@code null} unless the form is {@code hold}
      * @param resumeUntil     when the suspension ends; {@code null} unless the form is {@code resume}
-     * @param fallbackReasons why the task does not continue; empty unless the form is {@code fallback}
+     * @param fallbackReason  why the task does not continue; {@code null} unless the form is {@code fallback}
      * @since 0.1
      */
-    public record Decision(Form form, Instant holdUntil, Instant resumeUntil, FallbackReason fallbackReasons) {
+    public record Decision(Form form, Instant holdUntil, Instant resumeUntil, FallbackReason fallbackReason) {
 
         /**
          * @throws NullPointerException     if the form is {@code null}
@@ -98,7 +97,7 @@ public final class QuestionContinuation {
             if ((form == Form.RESUME) != (resumeUntil != null)) {
                 throw new IllegalArgumentException("Only a resume carries its resume limit");
             }
-            if ((form == Form.FALLBACK) != (fallbackReasons != null)) {
+            if ((form == Form.FALLBACK) != (fallbackReason != null)) {
                 throw new IllegalArgumentException("Exactly a fallback carries its reason");
             }
         }
@@ -202,22 +201,5 @@ public final class QuestionContinuation {
     private static boolean continues(StateBehavior.AskForm askForm, boolean envelopeTask,
             RoleArtifact.Questions questions) {
         return (envelopeTask || askForm.allowsContinuation()) && anyForm(questions);
-    }
-
-    /**
-     * @param decision the decision in force
-     * @param question the question the task filed
-     * @param at       the instant the continuation record is written
-     * @return the continuation member of the queue task record for a hold or a resume
-     * @throws IllegalArgumentException if the decision is a fallback
-     */
-    public static Continuation continuation(Decision decision, String question, Instant at) {
-        Objects.requireNonNull(decision, "decision");
-        Objects.requireNonNull(question, "question");
-        Objects.requireNonNull(at, "at");
-        var form = decision.recordForm().orElseThrow(
-                () -> new IllegalArgumentException("A fallback records no continuation; it names a reason"));
-        return new Continuation(question, form, decision.holdUntil(), null, null, decision.resumeUntil(), null, null,
-                null);
     }
 }

@@ -38,8 +38,9 @@ alike.
 == Consequences
 
 The engine and the envelope-receipt layer must pass the entry identity and the plan task id; a caller that invents a
-new identity per question voids the bound. The ledger is the scope's, so it must be dropped when the scope ends and
-kept across restarts of the server, as the question records are.
+new identity per question voids the bound. The ledger is the scope's, held in memory by the queue that serves it; a restart rebuilds it from the scope's question
+records, which is what the caller owes, and it must be dropped when the scope ends. A caller that invents a new
+identity per question voids the bound.
 
 == Source
 

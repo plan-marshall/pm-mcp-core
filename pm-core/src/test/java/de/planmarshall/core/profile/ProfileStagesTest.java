@@ -63,7 +63,7 @@ class ProfileStagesTest {
     @Test
     @DisplayName("the resumability stage records a measured hold and leaves the unmeasured resume false")
     void resumabilityRecorded() {
-        var result = ProfileStages.resumability(new ProfileStages.FormMeasurement(true, 3600),
+        var result = new ProfileStages.ResumabilityResult(new ProfileStages.FormMeasurement(true, 3600),
                 ProfileStages.FormMeasurement.notMeasured());
 
         assertAll(
@@ -72,8 +72,8 @@ class ProfileStagesTest {
                 () -> assertFalse(result.resumeVerified()),
                 () -> assertNull(result.maxResumeAgeSeconds()),
                 () -> assertEquals(List.of(
-                                new ProfileStages.Value("/headless/resumability/hold", "measured", 3600),
-                                new ProfileStages.Value("/headless/resumability/resume", "not_measured", null)),
+                                new ProfileStages.ValueEntry("/headless/resumability/hold", "measured"),
+                                new ProfileStages.ValueEntry("/headless/resumability/resume", "not_measured")),
                         result.values()));
     }
 

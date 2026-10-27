@@ -26,9 +26,11 @@ harness allow it. `ModelJob.ask()` remains as a derived accessor for the callers
 offered — the workflow validator, the engine and `SubWorkflowInvariants` — so the refusal of `ask fresh` on a
 `role each` state is the refusal `ask` has, through one code path.
 
-The parser reads the axis with one method, `parseAskForm`, and the printer writes `askForm().sourceText()`, so the
-lexical rule lives in one place (R15.3). `InstancePruner` and `SubWorkflowInvariants` rebuild the record with
-`askForm()` and keep the form.
+The parser reads the axis with one method, `parseAskForm`, and the printer writes `askForm().sourceText()`. The lexical
+tokens live where each side reads them: the parser's two literals and the enum's `sourceText()`, with
+`dsl/valid/ask-fresh-unit.pmwf` pinning the round trip (R15.3's shared predicate is owed when a third form appears, since
+two literals are cheaper than a predicate for the two). `InstancePruner` and `SubWorkflowInvariants` rebuild the record
+with `askForm()` and keep the form.
 
 == Alternatives Considered
 

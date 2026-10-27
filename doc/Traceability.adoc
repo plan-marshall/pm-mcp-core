@@ -1815,7 +1815,8 @@ link:../pm-runtime/doc/adr/runtime-worker/001-one-supervisor-per-project-and-rol
 link:../pm-runtime/doc/adr/runtime-worker/004-deadlines-from-an-injected-clock-and-timer.adoc[ADR runtime-worker/004],
 link:../pm-runtime/doc/adr/runtime-worker/005-agent-started-reads-executable-path-and-digest.adoc[ADR runtime-worker/005],
 link:../pm-runtime/doc/adr/runtime-worker/008-lease-aware-idle-and-idle-yields.adoc[ADR runtime-worker/008],
-link:../pm-runtime/doc/adr/runtime-worker/009-transport-notifications-and-the-protocol-adapter.adoc[ADR runtime-worker/009]
+link:../pm-runtime/doc/adr/runtime-worker/009-transport-notifications-and-the-protocol-adapter.adoc[ADR runtime-worker/009],
+link:../pm-runtime/doc/adr/runtime-worker/012-the-answers-acknowledgement-is-a-loss-deadline.adoc[ADR runtime-worker/012]
 
 [#PM-WORK-4]
 === PM-WORK-4: Consultation through the Server
