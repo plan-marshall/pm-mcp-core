@@ -21,6 +21,7 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.BeforeEach;
@@ -153,5 +154,28 @@ class HarnessEnrolmentStoreTest {
         return new HarnessEnrolment(clientId, Path.of("/usr/local/bin/" + clientId).toAbsolutePath(), "a".repeat(64),
                 version, NOW, NOW, new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED,
                         Map.of("input", "reported")), Map.of("text", "reported"), Map.of());
+    }
+
+    @Test
+    @DisplayName("the report maps the usage stage's figure names to the store's")
+    void reportMapsProfileFigureNames() {
+        var report = HarnessEnrolment.UsageReport.of(HarnessEnrolment.UsageSource.VERIFIED,
+                Map.of("input_tokens", "reported", "output_tokens", "missing"), List.of());
+
+        assertEquals(Map.of("input", "reported", "output", "missing"), report.figures());
+    }
+
+    @Test
+    @DisplayName("the start context of a verified usage report round-trips")
+    void startContextRoundTrip() {
+        var report = new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.VERIFIED,
+                Map.of("input", "reported", "cache_creation", "not_applicable"), List.of(
+                        new HarnessEnrolment.UsageReport.StartContext("writer", "a-model", OptionalLong.of(27104)),
+                        new HarnessEnrolment.UsageReport.StartContext("zero_tool", "a-model",
+                                OptionalLong.empty())));
+        store.enrol(new HarnessEnrolment("claude", Path.of("/usr/local/bin/claude").toAbsolutePath(),
+                "a".repeat(64), "1.5.0", NOW, NOW, report, Map.of("text", "reported"), Map.of()));
+
+        assertEquals(report, store.find("claude").orElseThrow().usageReport());
     }
 }

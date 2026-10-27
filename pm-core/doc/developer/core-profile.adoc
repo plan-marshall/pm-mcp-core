@@ -210,6 +210,30 @@ A loaded profile and a shipped profile compare by the content of their document 
 `LoadedProfile` and `ProfileSets.ShippedProfile` override `equals`, `hashCode` and `toString` for that. Their compact
 constructors clone the bytes on the way in, so the value the record was built from cannot change it afterwards.
 
+== The Usage Stage: Start Context and Coverage
+_Requirements: link:{docs}/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5], link:{docs}/Requirements.adoc#PM-WF-14[PM-WF-14]_
+
+`ProfileStages.usage` records each figure of `headless.usage` `reported`, `not_applicable` or `missing`, fails for a
+declared pointer that does not resolve, and compares a parsed figure with the harness's own record field by field. It
+now also takes the start context of every class and model the `launch` stage ran, from the first turn's input, cache
+read and cache creation, and derives the usage coverage of the figures a verified profile reports: `complete` when every
+report figure is reported or not applicable, `partial` with the missing figures, `not_reported` when none is. The cost is
+recorded data and never part of the report; the usage validation refuses a profile that declares input, output or tool
+uses not applicable.
+
+`VerificationRecord.Stage` keeps the `start_context` in its closed shape; `UsageResult.startContext()` carries it out of
+the stage, and `UsageResult.coverage()` with `missingFigures()` carries the report's verdict. The install path in
+`plan-marshall-mcp` must supply the real `launch` output; until that handoff is implemented, the start context remains in
+the verification record. A harness whose first turn does not report the input figures records the start context
+unmeasured.
+
+`ProfileStagesTest` covers the three coverages, the start-context sum and its unmeasured case and the not-applicable
+refusal; `VerificationRecordTest` covers the record's start-context parse and its refusals;
+`ShippedUsageFixturesTest` parses the synthetic per-harness fixtures — the recorded outputs of a real run remain owed.
+
+link:../adr/core-profile/007-usage-stage-start-context-and-coverage.adoc[ADR 007]: the usage stage records the start
+context and derives the usage coverage.
+
 == The resumability stage
 
 `ProfileStages.ResumabilityResult` is what the stage `resumability` of the profile verification hands on: one
@@ -220,4 +244,3 @@ verification record's `values[]` entries (`/headless/resumability/hold` and `/re
 the limits are read by name (`maxHoldSeconds`, `maxResumeAgeSeconds`) so this package keeps no dependency on
 `core.role`, which reads the profile's `headless.resumability` block
 (link:../adr/core-profile/006-the-resumability-result-is-the-measurement.adoc[ADR 006]).
-

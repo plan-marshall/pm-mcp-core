@@ -1,0 +1,45 @@
+= ADR 048: The token split is derived on read and the aggregate carries its coverage
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-27.
+
+== Context
+
+The metrics rows persist the five token components and the derived `total_tokens` (ADR core-store/042). Every operator
+view must show the same figure with the split `tokens_in` (input, cache read, cache creation) and `tokens_out` (output,
+reasoning) and its coverage: how many rows the figure rests on and how many are unmeasured, with their reasons. Deriving
+each figure in each view would let two views disagree, and persisting the split would add a column that the rows do not
+carry (Store Schemas § Metrics Store, Raw Components Only).
+
+== Decision
+
+`HarnessUsage` owns the split: `tokensIn()` and `tokensOut()` derive it from the five components, a `not_applicable`
+component counting `0` and an unmeasured one leaving the split unmeasured, so a partial sum is never recorded.
+`UsageAggregate` is the one aggregate type every view calls: it carries the total, the split, `rows`, `rows_unmeasured`,
+`unmeasured_reasons`, `population_count`, `excluded` and `total_is_floor`, derived on read from the rows and never
+persisted. `UsageAggregate.plus` sums only figures of one population and a floor in any part makes the sum a floor.
+
+== Alternatives Considered
+
+Persisting `tokens_in` and `tokens_out` in the row was rejected because the rows keep the raw components only.
+Deriving the split in each view was rejected because two views could then disagree and a partial sum could be shown as
+measured. Summing across populations was rejected: `model_job` and `model_task` count different units (Store Schemas §
+Metrics Store, Populations).
+
+== Consequences
+
+A view shows `at least` the value while a row of its population is unmeasured; it never shows a fabricated `0`. A
+population whose every row is unmeasured has no total at all, so it shows no figure rather than "at least 0"; a figure of
+an empty population has no value either. A later change of the weights or of the split rule changes one method, not every
+view.
+
+== Source
+
+Work package `doc/plans/token-usage.adoc`; Store Schemas § Metrics Store (Usage Columns, Aggregates, Populations, What
+the Operator Sees); Model Work § Usage Reporting & Spend Classes; Client Profiles § Tokens, Not Money.
