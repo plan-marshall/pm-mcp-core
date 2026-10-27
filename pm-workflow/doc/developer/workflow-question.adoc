@@ -1,8 +1,6 @@
 = `workflow.question`
 :nofooter:
 
-link:../README.adoc[Developer documentation] » `workflow.question`
-
 == What the package is for
 
 The server's side of the question records' continuation and of the question bound (Model Work § Continuing after a

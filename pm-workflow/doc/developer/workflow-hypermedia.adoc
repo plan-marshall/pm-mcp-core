@@ -1,8 +1,6 @@
 = `workflow.hypermedia`
 :nofooter:
 
-link:../README.adoc[Developer documentation] » `workflow.hypermedia`
-
 == What the package is for
 
 The typed values of the representation forms the specification fixes (Hypermedia Format Specification). The package
