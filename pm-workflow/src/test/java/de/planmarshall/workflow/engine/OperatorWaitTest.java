@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -24,8 +25,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.spi.AwaitedEvent;
+import de.planmarshall.core.spi.Primitive;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.WorkflowStatus;
+import de.planmarshall.workflow.verify.WorkflowCatalog;
 
 /**
  * The operator wait of the engine (Workflow DSL, Waiting for the Operator; PM-WF-20): a resting link state awaits the
@@ -115,22 +118,22 @@ class OperatorWaitTest {
     @DisplayName("Should pass the operator's link parameters to the binder of the link's primitive")
     void operatorParametersReachTheBinder() {
         var unit = EngineFixtures.plan("execute.wait", STATES);
-        var seen = new java.util.ArrayList<Map<String, String>>();
+        var seen = new ArrayList<Map<String, String>>();
         var binder = new WorkflowEngine.ParameterBinder() {
             @Override
-            public Record bind(de.planmarshall.core.spi.Primitive<?, ?> primitive,
+            public Record bind(Primitive<?, ?> primitive,
                     WorkflowStatus status) {
                 return new EngineFixtures.NoParams();
             }
 
             @Override
-            public Record bind(de.planmarshall.core.spi.Primitive<?, ?> primitive,
+            public Record bind(Primitive<?, ?> primitive,
                     WorkflowStatus status, Map<String, String> parameters) {
                 seen.add(parameters);
                 return new EngineFixtures.NoParams();
             }
         };
-        var engine = new WorkflowEngine(unit, de.planmarshall.workflow.verify.WorkflowCatalog.empty(),
+        var engine = new WorkflowEngine(unit, WorkflowCatalog.empty(),
                 fixtures.validator(), fixtures.registry(), binder, fixtures.ports());
         var status = assertInstanceOf(EngineStep.Resting.class,
                 engine.start(JournalScopeType.PLAN, "waiting-plan")).status();
