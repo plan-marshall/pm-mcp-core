@@ -44,7 +44,7 @@ class StateKindTest {
                 Arguments.of("composite job state", new StateBehavior.JobStep("diagram.build", true, List.of()),
                         "composite_job"),
                 Arguments.of("task state", new StateBehavior.ModelJob("change", Optional.of("reviewer"),
-                        Optional.empty(), Optional.empty(), false, List.of(), List.of()), "job"),
+                        Optional.empty(), Optional.empty(), StateBehavior.AskForm.NONE, List.of(), List.of()), "job"),
                 Arguments.of("call state", new StateBehavior.SubWorkflowCall("diagram.callee", Optional.empty(),
                         Map.of(), List.of()), "call"),
                 Arguments.of("call state through a named entry", new StateBehavior.SubWorkflowCall("diagram.callee",

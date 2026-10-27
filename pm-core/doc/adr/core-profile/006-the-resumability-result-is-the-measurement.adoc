@@ -1,0 +1,43 @@
+= ADR 006: The resumability stage's result is the measurement, and an unmeasured form carries no limit
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-27
+
+== Context
+
+Client Profiles § Profile Verification lists the stage `resumability` of the profile verification: it measures the hold
+and the resume of a harness on the probe task of `plan-marshall-mcp/question-loop-verification` and records the
+`headless.resumability` values, and a form it did not measure stays `false` or `null`. The probe runs outside this
+repository; this package owns the parsing and validation of `headless.resumability` and the value the stage hands on.
+
+== Decision
+
+`ProfileStages.ResumabilityResult` with two `FormMeasurement`s (`measured`, `longestSeconds`) is the stage's result.
+`FormMeasurement` refuses a measured form without a positive limit and an unmeasured one with a limit, so the record can
+never claim a capability the stage did not prove, and `ResumabilityResult.values()` renders the verification record's
+`values[]` entries (`measured` or `not_measured`) the stage writes. The type names the limits (`maxHoldSeconds`,
+`maxResumeAgeSeconds`) rather than the profile's members, so this package does not depend on the role package that reads
+them.
+
+== Alternatives Considered
+
+* Returning `core.role.HarnessProfile.Resumability` directly: refused because `core.role` already depends on
+  `core.profile`, and the reverse dependency would close a package cycle for a four-component value.
+* Falling back to a compiled default for an unmeasured form: refused by the specification, which requires `false` or
+  `null`, and by the measurement, which did not run every form on every harness.
+
+== Consequences
+
+The stage runner maps the result onto the profile document; a form it skipped is `notMeasured()`. A later stage that
+measures another form adds a `FormMeasurement` and a `values()` entry. The result is a value, never a partial profile.
+
+== Source
+
+Pull request of the work package `doc/plans/question-continuation.adoc`; Client Profiles § Resumability and
+§ Profile Verification.

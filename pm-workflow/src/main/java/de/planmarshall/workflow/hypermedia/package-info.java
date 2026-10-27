@@ -8,8 +8,9 @@
  * the root of this repository.
  */
 /**
- * The hypermedia state engine: the representation of the current state, its link forms and link grammar, and the
- * composite wait.
+ * The typed values of the representation forms the specification fixes: currently the items of {@code facts.answers}
+ * ({@link de.planmarshall.workflow.hypermedia.AnswerFact}, {@link de.planmarshall.workflow.hypermedia.Answers}). The
+ * representation itself, its link forms and link grammar, and the composite wait are composed by the assembly.
  * <p>
  * Specification:
  * <ul>

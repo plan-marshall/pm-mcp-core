@@ -77,7 +77,7 @@ class AstNodeModelTest {
             var auto = new StateBehavior.AutoStep("p", transitions);
             var job = new StateBehavior.JobStep("p", true, transitions);
             var modelJob = new StateBehavior.ModelJob("task", Optional.of("writer"), Optional.empty(), Optional.empty(),
-                    false, strings, transitions);
+                    StateBehavior.AskForm.NONE, strings, transitions);
             var question = new StateBehavior.QuestionWait("decision", transitions);
             var outcome = new OutcomeTransition("done", "end", Optional.empty(), completions, LOCATION);
             var link = new LinkSpec(LinkRelation.NEXT, "go", LinkForm.NOOP, params, Optional.empty(),
@@ -334,8 +334,8 @@ class AstNodeModelTest {
                     new StateBehavior.InteractiveLinks(List.of()),
                     new StateBehavior.AutoStep("p", List.of()),
                     new StateBehavior.JobStep("p", false, List.of()),
-                    new StateBehavior.ModelJob("task", Optional.empty(), Optional.empty(), Optional.of("roles"), false,
-                            List.of(), List.of()),
+                    new StateBehavior.ModelJob("task", Optional.empty(), Optional.empty(), Optional.of("roles"),
+                            StateBehavior.AskForm.NONE, List.of(), List.of()),
                     new StateBehavior.SubWorkflowCall("sub", Optional.of("main"), Map.of(), List.of()),
                     new StateBehavior.QuestionWait("decision", List.of()),
                     new StateBehavior.TerminalState());

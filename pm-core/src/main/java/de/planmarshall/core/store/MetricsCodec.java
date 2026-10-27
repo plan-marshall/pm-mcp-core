@@ -80,6 +80,7 @@ public class MetricsCodec {
     private static final String FIELD_YIELD_REASON = "yield_reason";
     private static final String FIELD_OUTCOME = "outcome";
     private static final String FIELD_ATTEMPT_END = "attempt_end";
+    private static final String FIELD_CONTINUATION = "continuation";
     private static final String FIELD_CAUSE_CLASS = "cause_class";
     private static final String FIELD_SPEND_CLASS = "spend_class";
     private static final String FIELD_POPULATION = "population";
@@ -187,6 +188,8 @@ public class MetricsCodec {
         writeEnum(generator, FIELD_YIELD_REASON, row.yieldReason() == null ? null : row.yieldReason().wireName());
         generator.writeStringField(FIELD_OUTCOME, row.outcome().wireName());
         writeEnum(generator, FIELD_ATTEMPT_END, row.attemptEnd() == null ? null : row.attemptEnd().wireName());
+        writeEnum(generator, FIELD_CONTINUATION,
+                row.continuation() == null ? null : row.continuation().wireName());
         generator.writeStringField(FIELD_CAUSE_CLASS, row.causeClass().wireName());
         generator.writeStringField(FIELD_SPEND_CLASS, row.spendClass().wireName());
         generator.writeStringField(FIELD_POPULATION, row.population().wireName());
@@ -383,6 +386,7 @@ public class MetricsCodec {
         MetricsRow.YieldReason yieldReason = null;
         MetricsRow.Outcome outcome = null;
         AttemptEnd attemptEnd = null;
+        MetricsRow.ContinuationMark continuation = null;
         MetricsRow.CauseClass causeClass = null;
         MetricsRow.SpendClass spendClass = null;
         MetricsRow.Population population = null;
@@ -414,6 +418,8 @@ public class MetricsCodec {
                 case FIELD_YIELD_REASON -> yieldReason = enumValue(parser, field, MetricsRow.YieldReason::fromWireName);
                 case FIELD_OUTCOME -> outcome = enumValue(parser, field, MetricsRow.Outcome::fromWireName);
                 case FIELD_ATTEMPT_END -> attemptEnd = enumValue(parser, field, AttemptEnd::fromWireName);
+                case FIELD_CONTINUATION -> continuation = enumValue(parser, field,
+                        MetricsRow.ContinuationMark::fromWireName);
                 case FIELD_CAUSE_CLASS -> causeClass = enumValue(parser, field, MetricsRow.CauseClass::fromWireName);
                 case FIELD_SPEND_CLASS -> spendClass = enumValue(parser, field, MetricsRow.SpendClass::fromWireName);
                 case FIELD_POPULATION -> population = enumValue(parser, field, MetricsRow.Population::fromWireName);
@@ -433,7 +439,7 @@ public class MetricsCodec {
         requireFields(seen, "task row", FIELD_KIND, FIELD_QUEUE_TASK_ID, FIELD_ATTEMPT, FIELD_ROLE, FIELD_JOB_ID,
                 FIELD_GENERATION_ID, FIELD_HARNESS, FIELD_HARNESS_VERSION, FIELD_MODEL, FIELD_EFFORT, FIELD_FORM,
                 FIELD_PHASE, FIELD_STEP_ID, FIELD_ENVELOPE_ID, FIELD_PREDICTED_COST, FIELD_OUTCOME,
-                FIELD_ATTEMPT_END, FIELD_CAUSE_CLASS, FIELD_SPEND_CLASS, FIELD_POPULATION, FIELD_TOTAL_TOKENS,
+                FIELD_ATTEMPT_END, FIELD_CONTINUATION, FIELD_CAUSE_CLASS, FIELD_SPEND_CLASS, FIELD_POPULATION, FIELD_TOTAL_TOKENS,
                 FIELD_INPUT_TOKENS, FIELD_OUTPUT_TOKENS, FIELD_CACHE_READ, FIELD_CACHE_CREATION, FIELD_REASONING,
                 FIELD_TOOL_USES, FIELD_COST_USD, FIELD_UNMEASURED_REASON, FIELD_DURATION_MS, FIELD_DURATION_BASIS,
                 FIELD_QUEUED_MS, FIELD_CONSULTATION_OF, FIELD_RECORDED_AT);
@@ -450,7 +456,8 @@ public class MetricsCodec {
                     .generationId(generationId).harness(harness).harnessVersion(harnessVersion).model(model)
                     .effort(effort).form(form).phase(phase).stepId(stepId).envelopeId(envelopeId)
                     .predictedCost(predictedCost).yieldReason(yieldReason).outcome(outcome).attemptEnd(attemptEnd)
-                    .causeClass(causeClass).spendClass(spendClass).population(population).usage(usage)
+                    .continuation(continuation).causeClass(causeClass).spendClass(spendClass)
+                    .population(population).usage(usage)
                     .durationMs(durationMs).durationBasis(durationBasis).queuedMs(queuedMs)
                     .consultationOf(consultationOf).recordedAt(recordedAt).build();
         } catch (IllegalArgumentException e) {

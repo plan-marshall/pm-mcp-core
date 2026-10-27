@@ -79,6 +79,7 @@ class WorkflowParserTest {
     private static final String SUBWORKFLOW_UNIT = "dsl/valid/subworkflow-unit.pmwf";
     private static final String SESSION_UNIT = "dsl/valid/session-unit.pmwf";
     private static final String ADJUDICATE_UNIT = "dsl/valid/adjudicate-unit.pmwf";
+    private static final String ASK_FRESH_UNIT = "dsl/valid/ask-fresh-unit.pmwf";
     private static final String INSTANCE_UNIT = "dsl/valid/instance-unit.pmwf";
     private static final String THREE_ENTRIES_UNIT = "dsl/valid/three-entries-unit.pmwf";
 
@@ -256,10 +257,10 @@ class WorkflowParserTest {
         }
 
         @Test
-        @DisplayName("finds the six valid fixtures")
+        @DisplayName("finds the seven valid fixtures")
         void fixturesPresent() {
-            assertEquals(List.of(ADJUDICATE_UNIT, INSTANCE_UNIT, PLAN_UNIT, SESSION_UNIT, SUBWORKFLOW_UNIT,
-                    THREE_ENTRIES_UNIT), validFixtures());
+            assertEquals(List.of(ADJUDICATE_UNIT, ASK_FRESH_UNIT, INSTANCE_UNIT, PLAN_UNIT, SESSION_UNIT,
+                    SUBWORKFLOW_UNIT, THREE_ENTRIES_UNIT), validFixtures());
         }
 
         @ParameterizedTest(name = "{0}")
@@ -343,11 +344,12 @@ class WorkflowParserTest {
                     states(
                             state("git.stage", "inherit", new StateBehavior.ModelJob("change",
                                     Optional.of("implementer"), Optional.of("git.list-changes"), Optional.empty(),
-                                    true, List.of("reviewer", "architect"),
+                                    StateBehavior.AskForm.ASK, List.of("reviewer", "architect"),
                                     List.of(to("done", "git.review"), to("lost", "git.stepped-out")))),
                             new StateNode("git.review", "inherit", Optional.empty(), Optional.empty(),
                                     Optional.of("git.read-diff"), new StateBehavior.ModelJob("change",
-                                            Optional.of("reviewer"), Optional.empty(), Optional.empty(), false,
+                                            Optional.of("reviewer"), Optional.empty(), Optional.empty(),
+                                            StateBehavior.AskForm.NONE,
                                             List.of(), List.of(to("approved", "git.done"),
                                                     to("rejected", "git.stage"))),
                                     NOWHERE),
@@ -433,7 +435,8 @@ class WorkflowParserTest {
                     WorkflowScope.ENTITY, List.of(), Optional.empty(), Optional.empty(), declarations, decisions,
                     Map.of(), 1, UnitOrigin.DEFAULT, Map.of(), Optional.of("adjudicate.vote"), Map.of(), List.of(),
                     states(state("adjudicate.vote", "inherit", new StateBehavior.ModelJob("decision",
-                            Optional.empty(), Optional.empty(), Optional.of("adjudicate.list-roles"), false, List.of(),
+                            Optional.empty(), Optional.empty(), Optional.of("adjudicate.list-roles"),
+                            StateBehavior.AskForm.NONE, List.of(),
                             List.of(to("decided", "adjudicate.settled"), to("lost", "adjudicate.settled")))),
                             terminal("adjudicate.settled", "inherit", "settled", OutcomeClass.SUCCESS)),
                     NOWHERE);
@@ -488,7 +491,8 @@ class WorkflowParserTest {
                     List.of(), Optional.empty(), Optional.empty(), Map.of(), Map.of(), Map.of(), 1,
                     UnitOrigin.DEFAULT, Map.of(), Optional.empty(), entryBindings, List.of(),
                     states(state("review.check", "inherit", new StateBehavior.ModelJob("change",
-                            Optional.of("reviewer"), Optional.empty(), Optional.empty(), false, List.of(),
+                            Optional.of("reviewer"), Optional.empty(), Optional.empty(),
+                            StateBehavior.AskForm.NONE, List.of(),
                             List.of(to("approved", "review.done"), to("rejected", "review.fix"),
                                     to("lost", "review.failed")))),
                             state("review.fix", "inherit", new StateBehavior.SubWorkflowCall("git.commit_and_push",

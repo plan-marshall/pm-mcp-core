@@ -126,6 +126,20 @@ public final class LossDetection {
     }
 
     /**
+     * Records the delivery of the answer to a question the generation holds (Model Work § Answer acknowledgement): the
+     * answer's acknowledgement is due within the host's deadline from here, by silence alone where the host's
+     * acknowledgement is informational, and the silence limit counts again from the answer.
+     *
+     * @param at the instant the answer was delivered
+     */
+    public synchronized void answerDelivered(Instant at) {
+        Objects.requireNonNull(at, "at");
+        armAck(at);
+        lastCall = at;
+        reschedule();
+    }
+
+    /**
      * Records a call; the silence limit counts from the latest call while no wait is open.
      *
      * @param at the instant of the call

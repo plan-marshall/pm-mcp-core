@@ -1,0 +1,53 @@
+= ADR 010: `ask fresh` is a form of the asking axis, not a second flag
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-27
+
+== Context
+
+A task state declares the asking axis in its `job llm` clause (`doc/specification/workflow-dsl/02-units-jobs-decisions.adoc`
+§ Task States). `AskingAxis` read this axis as one boolean `ask`, and Model Work § Continuing after a Question adds a
+second form of it: `ask fresh` offers the same `ask` link and orders the server never to continue the task after its
+question. A boolean cannot carry the difference, and a second boolean beside the first admits the combination "no ask
+but fresh", which has no meaning.
+
+== Decision
+
+`StateBehavior.ModelJob` carries `AskForm askForm` instead of `boolean ask`. `AskForm` (`NONE`, `ASK`, `ASK_FRESH`) is a
+closed enum in the AST, its `sourceText()` is the clause the printer writes, `declaresAsk()` answers whether the state
+offers the link at all and `allowsContinuation()` whether the declared form lets a task continue where its role and
+harness allow it. `ModelJob.ask()` remains as a derived accessor for the callers that only ask whether the link is
+offered — the workflow validator, the engine and `SubWorkflowInvariants` — so the refusal of `ask fresh` on a
+`role each` state is the refusal `ask` has, through one code path.
+
+The parser reads the axis with one method, `parseAskForm`, and the printer writes `askForm().sourceText()`. The lexical
+tokens live where each side reads them: the parser's two literals and the enum's `sourceText()`, with
+`dsl/valid/ask-fresh-unit.pmwf` pinning the round trip (R15.3's shared predicate is owed when a third form appears, since
+two literals are cheaper than a predicate for the two). `InstancePruner` and `SubWorkflowInvariants` rebuild the record
+with `askForm()` and keep the form.
+
+== Alternatives Considered
+
+* A second `boolean askFresh` beside `ask`: refused because it admits the meaningless combination and because every
+  consumer would have to check two fields in the same order.
+* Keeping the boolean and deriving `ask fresh` from a link's presence: refused because the axis is a declaration of the
+  state, not of a link, and the missing-form case would become indistinguishable from an absent `ask`.
+* A sealed `AskingAxis` with a variant per form: refused as surplus; the two forms differ in one capability, not in
+  shape, and the enum's two predicates state it.
+
+== Consequences
+
+Every construction site names the form. A new form is one enum value and one `sourceText()`, and the printer and the
+parser follow it. The `ask()` accessor must not grow a third meaning: a rule that needs the difference reads
+`askForm()`.
+
+== Source
+
+Pull request of the work package `doc/plans/question-continuation.adoc`; Workflow DSL § Task States; Model Work
+§ Continuing after a Question.

@@ -1,0 +1,43 @@
+= ADR 001: `facts.answers` is a typed item with the specification's fixed columns
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-27
+
+== Context
+
+Hypermedia Format § Answers to Earlier Questions fixes the rendering of `facts.answers`: one item per answered part,
+with the columns `question_id`, `plan_task_id`, `question_text`, `branch_key`, `label`, `text` and `kind`, where
+`plan_task_id` is set for class `task` only, `text` holds the operator's own words and note as quoted data, and `kind` is
+one of `chosen`, `interpreted`, `own_option`, `delegated` or `none_fits`. The package was empty; the runtime and the
+continued tasks need one value both can carry.
+
+== Decision
+
+`AnswerFact` is the item, with the columns as components and a closed `Kind` enum; `cells()` renders the row in the
+specification's order and `COLUMNS` names that order once. `Answers` is an immutable set of items keyed by question:
+`plus` replaces the item of a question already carried, so a retried delivery never doubles a row, and `rows()` renders
+the table. The compact constructors refuse a question id or plan task id that breaks its grammar and a blank text,
+which keeps a malformed item out of a representation instead of rendering it.
+
+== Alternatives Considered
+
+* A `Map<String, Object>` rendered by the caller: refused because the columns, their order and the word "kind" would be
+  repeated at every renderer and would drift from the specification.
+* Rendering the table itself in this package: refused because TOON rendering is the assembly's, and this package owns
+  the value the renderer consumes, not the wire text.
+
+== Consequences
+
+A column the specification adds is one component, one entry in `COLUMNS` and one cell in `cells()`. The renderer must
+quote `text` as data; the type cannot enforce that, so the role skill and the review state it.
+
+== Source
+
+Pull request of the work package `doc/plans/question-continuation.adoc`; Hypermedia Format § Answers to Earlier
+Questions; Model Work § The Answer in the Next Task.

@@ -14,6 +14,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * The profile values the stages {@code isolation}, {@code egress} and {@code usage} of the profile verification settle,
@@ -37,6 +38,8 @@ public final class ProfileStages {
 
     /** The suffix of a profile document, as a refusal names it. */
     private static final String PROFILE_SUFFIX = ".json";
+    private static final String MEASURED = "measured";
+    private static final String NOT_MEASURED = "not_measured";
 
     private ProfileStages() {
     }
@@ -117,6 +120,126 @@ public final class ProfileStages {
                 .flatMap(JsonNode::booleanValue)
                 .orElse(false);
         return new IsolationResult(exclusive, projectSettingsControl, extensionIsolation);
+    }
+
+    /**
+     * What the stage {@code resumability} measured of one form of a continuation (Client Profiles § Resumability): the
+     * form passed, and the longest hold or session age it proved.
+     *
+     * @param measured      whether the stage ran the form and it passed
+     * @param longestSeconds the longest hold or session age the stage proved; {@code null} when the form was not
+     *                       measured
+     * @since 0.1
+     */
+    public record FormMeasurement(boolean measured, Integer longestSeconds) {
+
+        /**
+         * @throws IllegalArgumentException if a measured form carries no positive limit, or an unmeasured one carries a
+         *                                  limit
+         */
+        public FormMeasurement {
+            if (measured && (longestSeconds == null || longestSeconds < 1)) {
+                throw new IllegalArgumentException("A measured form carries the limit it proved");
+            }
+            if (!measured && longestSeconds != null) {
+                throw new IllegalArgumentException("A form the stage did not measure carries no limit");
+            }
+        }
+
+        /** @return a form the stage did not measure, which leaves the profile's value {@code false} and {@code null} */
+        public static FormMeasurement notMeasured() {
+            return new FormMeasurement(false, null);
+        }
+    }
+
+    /**
+     * The result of the stage {@code resumability}: what the stage measured of the hold and of the resume. A form it
+     * did not measure stays {@code false} with no limit, so the profile records no capability the stage never proved.
+     *
+     * @param hold   what the stage measured of a worker holding its task for the answer
+     * @param resume what the stage measured of a generation resumed from a stored session
+     * @since 0.1
+     */
+    public record ResumabilityResult(FormMeasurement hold, FormMeasurement resume) {
+
+        /** The schema's upper bound of {@code headless.resumability.max_hold_seconds}. */
+        public static final int MAX_HOLD_SECONDS = 3_600;
+
+        /** The schema's upper bound of {@code headless.resumability.max_age_seconds}. */
+        public static final int MAX_RESUME_AGE_SECONDS = 604_800;
+
+        /**
+         * @throws NullPointerException     if a measurement is {@code null}
+         * @throws IllegalArgumentException if a measured limit lies outside its schema range
+         */
+        public ResumabilityResult {
+            Objects.requireNonNull(hold, "hold");
+            Objects.requireNonNull(resume, "resume");
+            if (hold.measured() && hold.longestSeconds() > MAX_HOLD_SECONDS) {
+                throw new IllegalArgumentException("A measured hold is at most %d seconds"
+                        .formatted(MAX_HOLD_SECONDS));
+            }
+            if (resume.measured() && resume.longestSeconds() > MAX_RESUME_AGE_SECONDS) {
+                throw new IllegalArgumentException("A measured resume age is at most %d seconds"
+                        .formatted(MAX_RESUME_AGE_SECONDS));
+            }
+        }
+
+        /** @return whether the harness may hold after a question, with its limit */
+        public boolean holdVerified() {
+            return hold.measured();
+        }
+
+        /** @return the longest hold the stage proved, or {@code null} */
+        public Integer maxHoldSeconds() {
+            return hold.longestSeconds();
+        }
+
+        /** @return whether the harness may resume a stored session, with its limit */
+        public boolean resumeVerified() {
+            return resume.measured();
+        }
+
+        /** @return the longest session age the stage proved, or {@code null} */
+        public Integer maxResumeAgeSeconds() {
+            return resume.longestSeconds();
+        }
+
+        /**
+         * @return the record's {@code values[]} entries the stage writes: one per form, {@code measured} where the form
+         *         passed and {@code not_measured} where it did not. The verification record admits only the pointer and
+         *         the status of a value; the limit it proved is a profile value, carried by {@link #hold()} and
+         *         {@link #resume()}, not by the record
+         */
+        public List<ValueEntry> values() {
+            return List.of(
+                    new ValueEntry("/headless/resumability/hold",
+                            hold.measured() ? MEASURED : NOT_MEASURED),
+                    new ValueEntry("/headless/resumability/resume",
+                            resume.measured() ? MEASURED : NOT_MEASURED));
+        }
+    }
+
+    /**
+     * One entry of the verification record's {@code values[]} the stage {@code resumability} writes.
+     *
+     * @param pointer the profile pointer the stage settled
+     * @param status  {@code measured} or {@code not_measured}
+     * @since 0.1
+     */
+    public record ValueEntry(String pointer, String status) {
+
+        /**
+         * @throws NullPointerException     if a component is {@code null}
+         * @throws IllegalArgumentException if the status is not one of the record's
+         */
+        public ValueEntry {
+            Objects.requireNonNull(pointer, "pointer");
+            Objects.requireNonNull(status, "status");
+            if (!MEASURED.equals(status) && !NOT_MEASURED.equals(status)) {
+                throw new IllegalArgumentException("Not a resumability value status: " + status);
+            }
+        }
     }
 
     /**

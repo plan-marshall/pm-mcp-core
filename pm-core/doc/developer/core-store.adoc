@@ -1639,3 +1639,5 @@ parity check the specification has run ahead of is `@Disabled` with the work pac
   settings names the revision it read, and a stale revision is refused as `conflict`.
 * link:../adr/core-store/046-the-machine-scope-keeps-its-state-in-machine-mcp.adoc[ADR 046]: the machine scope's status
   lies in `machine/mcp/status.json` under the machine scope lock, beside no project.
+* link:../adr/core-store/047-a-metrics-row-names-its-continuation-form.adoc[ADR 047]: a task row names the continuation
+  form its usage belongs to (`hold` or `resume`), and a task that never continued carries `null`.
