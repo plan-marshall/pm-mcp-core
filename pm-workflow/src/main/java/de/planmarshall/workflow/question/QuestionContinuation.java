@@ -190,8 +190,7 @@ public final class QuestionContinuation {
     }
 
     /**
-     * @param questions    the role's effective continuation bounds, or {@code null}
-     * @param reason       why a continuation fell back
+     * @param reason why a continuation fell back
      * @return the decision that closes the task {@code asked} for that reason
      */
     public static Decision fallback(FallbackReason reason) {

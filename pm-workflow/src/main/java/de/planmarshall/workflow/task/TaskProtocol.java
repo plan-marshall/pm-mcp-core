@@ -237,7 +237,12 @@ public final class TaskProtocol {
             return records;
         }
         switch (held.status()) {
-            case OFFERED -> answer.set(new WaitAnswer.Offered(held));
+            case OFFERED -> {
+                var delivered = answers.get(held.queueTaskId());
+                answer.set(delivered != null
+                        ? new WaitAnswer.Answered(held, delivered.answers())
+                        : new WaitAnswer.Offered(held));
+            }
             case CONSULTING -> answer.set(new WaitAnswer.WaitAgain("consulting"));
             case AWAITING_ANSWER -> {
                 var delivered = answers.get(held.queueTaskId());
@@ -299,7 +304,7 @@ public final class TaskProtocol {
         answers.keySet().removeIf(id -> records.stream().noneMatch(task ->
                 task.queueTaskId().equals(id)
                         && (task.status() == Status.AWAITING_ANSWER || task.status() == Status.SUSPENDED
-                        || task.status() == Status.OFFERED && task.continuation() != null)));
+                        || task.continuation() != null && !task.isClosed())));
     }
 
     /** Consultation tasks first, then work tasks in creation order. */
@@ -803,9 +808,9 @@ public final class TaskProtocol {
             var after = new ArrayList<QueueTaskRecord>(records.size());
             for (var task : records) {
                 if (task.lease() != null && task.lease().generationId().equals(generationId)) {
+                    // a fenced hold keeps its continuation, so the answer reaches the successor once the record closes
                     after.add(task.withAttempts(ended(task.attempts(), AttemptEnd.RESTART, at))
                             .withLease(null)
-                            .withContinuation(null)
                             .withStatus(Status.QUEUED));
                     ids.add(task.queueTaskId());
                 } else {

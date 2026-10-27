@@ -136,6 +136,7 @@ class TaskProtocolContinuationTest {
         protocol.answer("Q-001", answer(), TaskFixtures.AT.plusSeconds(4));
         var resumed = protocol.wait(TaskFixtures.waitFor(TaskFixtures.SUCCESSOR), TaskFixtures.AT.plusSeconds(5));
         var answered = assertInstanceOf(WaitAnswer.Answered.class, resumed);
+        var repeated = protocol.wait(TaskFixtures.waitFor(TaskFixtures.SUCCESSOR), TaskFixtures.AT.plusSeconds(6));
         var stray = protocol.wait(TaskFixtures.waitFor(TaskFixtures.THIRD), TaskFixtures.AT.plusSeconds(6));
         var acknowledged = protocol.acknowledgeAnswer(
                 new TaskCall(answered.task().queueTaskId(), TaskFixtures.SUCCESSOR), TaskFixtures.AT.plusSeconds(7));
@@ -146,12 +147,34 @@ class TaskProtocolContinuationTest {
                 () -> assertEquals(AttemptEnd.SUSPENDED, suspended.currentAttempt().orElseThrow().end()),
                 () -> assertEquals(TaskFixtures.SUCCESSOR, answered.task().lease().generationId()),
                 () -> assertEquals(answer(), answered.answers()),
+                () -> assertEquals(answer(), assertInstanceOf(WaitAnswer.Answered.class, repeated).answers(),
+                        "a retried wait answers with the same facts"),
                 () -> assertEquals(new WaitAnswer.WaitAgain("no_task"), stray,
                         "a neighbouring wait keeps the answer of the resumed task"),
                 () -> assertEquals(Status.EXECUTING,
                         assertInstanceOf(CallResult.Accepted.class, acknowledged).task().status()),
                 () -> assertEquals(2, assertInstanceOf(CallResult.Accepted.class, acknowledged).task()
                         .attempts().size()));
+    }
+
+    @Test
+    @DisplayName("a fenced holding generation keeps its continuation, and the successor receives the answer")
+    void fenceKeepsTheAnswer(@TempDir Path base) {
+        var locks = new TestLocks();
+        var queue = QueueStore.ofProject(base, "project-a", locks);
+        queue.create(TaskFixtures.queued(TASK, TaskFixtures.ROLE).build());
+        var protocol = protocol(queue, locks);
+        protocol.hold(TaskFixtures.call(executing(protocol)),
+                continuation(ContinuationForm.HOLD, TaskFixtures.AT.plusSeconds(2)), TaskFixtures.AT.plusSeconds(2));
+        protocol.answer("Q-001", answer(), TaskFixtures.AT.plusSeconds(3));
+
+        protocol.fence(TaskFixtures.GENERATION, TaskFixtures.AT.plusSeconds(4));
+        var successor = protocol.wait(TaskFixtures.waitFor(TaskFixtures.SUCCESSOR), TaskFixtures.AT.plusSeconds(5));
+
+        assertAll(
+                () -> assertEquals("Q-001", queue.read(TASK).orElseThrow().continuation().questionId()),
+                () -> assertEquals(answer(),
+                        assertInstanceOf(WaitAnswer.Answered.class, successor).answers()));
     }
 
     @Test

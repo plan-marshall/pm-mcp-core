@@ -160,12 +160,27 @@ public final class ProfileStages {
      */
     public record ResumabilityResult(FormMeasurement hold, FormMeasurement resume) {
 
+        /** The schema's upper bound of {@code headless.resumability.max_hold_seconds}. */
+        public static final int MAX_HOLD_SECONDS = 3_600;
+
+        /** The schema's upper bound of {@code headless.resumability.max_age_seconds}. */
+        public static final int MAX_RESUME_AGE_SECONDS = 604_800;
+
         /**
-         * @throws NullPointerException if a measurement is {@code null}
+         * @throws NullPointerException     if a measurement is {@code null}
+         * @throws IllegalArgumentException if a measured limit lies outside its schema range
          */
         public ResumabilityResult {
             Objects.requireNonNull(hold, "hold");
             Objects.requireNonNull(resume, "resume");
+            if (hold.measured() && hold.longestSeconds() > MAX_HOLD_SECONDS) {
+                throw new IllegalArgumentException("A measured hold is at most %d seconds"
+                        .formatted(MAX_HOLD_SECONDS));
+            }
+            if (resume.measured() && resume.longestSeconds() > MAX_RESUME_AGE_SECONDS) {
+                throw new IllegalArgumentException("A measured resume age is at most %d seconds"
+                        .formatted(MAX_RESUME_AGE_SECONDS));
+            }
         }
 
         /** @return whether the harness may hold after a question, with its limit */
