@@ -11,6 +11,7 @@ package de.planmarshall.core.profile;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -18,6 +19,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.stream.Collectors;
+
+import de.planmarshall.core.role.RoleClass;
 
 /**
  * The profile values the stages {@code isolation}, {@code egress} and {@code usage} of the profile verification settle,
@@ -128,8 +132,10 @@ public final class ProfileStages {
      */
     public record StartContext(String workerClass, String model, OptionalLong tokens) {
 
-        /** The classes of the closed list. */
-        public static final Set<String> CLASSES = Set.of("writer", "read_only", "zero_tool");
+        /** The classes of the closed list, derived from the role classes. */
+        public static final Set<String> CLASSES = Arrays.stream(RoleClass.values())
+                .map(RoleClass::wireName)
+                .collect(Collectors.toUnmodifiableSet());
 
         /**
          * @throws NullPointerException     if a component is {@code null}

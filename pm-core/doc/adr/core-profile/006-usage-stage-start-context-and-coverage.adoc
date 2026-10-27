@@ -31,8 +31,11 @@ Deriving the coverage in each client was rejected because the enrolled harness's
 
 == Consequences
 
-A verified profile's `usage_report` carries the start context for the enrolment store and the lists. A harness whose
-first turn does not report the input figures records it unmeasured; nothing defaults it to `0`.
+`HarnessEnrolment.UsageReport` now carries the start context and validates the report's figure names.
+The handoff from a finished `UsageResult` to the stored report is owed: it belongs to the install path in
+`plan-marshall-mcp`, which builds the enrolment from the verification; `UsageReport.of` is the boundary that maps the
+stage's figure names to the store's. Until it is called, a verified profile's start context stays in the verification
+record. A harness whose first turn does not report the input figures records it unmeasured; nothing defaults it to `0`.
 
 == Source
 

@@ -157,6 +157,15 @@ class HarnessEnrolmentStoreTest {
     }
 
     @Test
+    @DisplayName("the report maps the usage stage's figure names to the store's")
+    void reportMapsProfileFigureNames() {
+        var report = HarnessEnrolment.UsageReport.of(HarnessEnrolment.UsageSource.VERIFIED,
+                Map.of("input_tokens", "reported", "output_tokens", "missing"), List.of());
+
+        assertEquals(Map.of("input", "reported", "output", "missing"), report.figures());
+    }
+
+    @Test
     @DisplayName("the start context of a verified usage report round-trips")
     void startContextRoundTrip() {
         var report = new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.VERIFIED,

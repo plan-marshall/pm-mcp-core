@@ -11,6 +11,7 @@ package de.planmarshall.runtime.launch;
 
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,6 +20,9 @@ import java.util.Objects;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+import de.planmarshall.core.role.RoleClass;
 
 /**
  * One entry of the machine's harness enrolment store (PM-SEC-5, Harness Enrolment Store): the absolute executable path,
@@ -163,6 +167,27 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
         }
 
         /**
+         * @param source        where the report came from
+         * @param stagedFigures the usage stage's result per figure, keyed as {@code headless.usage} names it
+         * @param startContext  the start context per class and model
+         * @return the report with the figures keyed as the enrolment store names them
+         */
+        public static UsageReport of(UsageSource source, Map<String, String> stagedFigures,
+                List<StartContext> startContext) {
+            var report = new LinkedHashMap<String, String>();
+            stagedFigures.forEach((figure, result) -> report.put(reportName(figure), result));
+            return new UsageReport(source, report, startContext);
+        }
+
+        private static String reportName(String figure) {
+            return switch (figure) {
+                case "input_tokens" -> "input";
+                case "output_tokens" -> "output";
+                default -> figure;
+            };
+        }
+
+        /**
          * What a worker costs before it does anything, per class and model (Client Profiles § Tokens, Not Money, Start
          * Context).
          *
@@ -173,8 +198,10 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
          */
         public record StartContext(String workerClass, String model, OptionalLong tokens) {
 
-            /** The classes of the closed list. */
-            public static final Set<String> CLASSES = Set.of("writer", "read_only", "zero_tool");
+            /** The classes of the closed list, derived from the role classes. */
+            public static final Set<String> CLASSES = Arrays.stream(RoleClass.values())
+                    .map(RoleClass::wireName)
+                    .collect(Collectors.toUnmodifiableSet());
 
             /**
              * @throws NullPointerException     if a component is {@code null}

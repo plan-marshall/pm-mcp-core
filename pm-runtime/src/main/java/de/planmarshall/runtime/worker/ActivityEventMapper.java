@@ -19,6 +19,7 @@ import de.planmarshall.core.profile.CanonicalJson;
 import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.profile.ProfileRefusal;
+import de.planmarshall.core.profile.ProfileStages;
 import de.planmarshall.core.queue.ActivityEntry;
 import de.planmarshall.core.queue.ActivityEventMapping;
 import de.planmarshall.core.queue.ActivityEventMapping.KindMapping;
@@ -43,9 +44,8 @@ public final class ActivityEventMapper {
     /** The usage figure whose value is a number the harness reports, never not applicable. */
     private static final String COST_USD = "cost_usd";
 
-    /** The keys of the usage pointers, in the order the profile declares them. */
-    private static final List<String> USAGE_KEYS = List.of("input_tokens", "output_tokens", "cache_read",
-            "cache_creation", "reasoning", "tool_uses", COST_USD);
+    /** The keys of the usage pointers, the one figure list the profile stage and the turn read. */
+    private static final List<String> USAGE_KEYS = ProfileStages.USAGE_FIGURES;
 
     /** The sentinel of a usage component the harness does not report. */
     private static final String UNMEASURED = "unmeasured";
