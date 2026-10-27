@@ -316,6 +316,18 @@ values without a comma between them, a trailing comma or a comma alone; a value 
 stays the verifier's and the declaration bounds' (link:../adr/workflow-dsl/006-empty-list-admitted-as-a-call-value.adoc[ADR 006]).
 The printer writes the empty list back as `[]`, so it survives the round trip.
 
+== The Asking Axis of a Task State
+_Requirements: link:{docs}/requirements/02-workflow.adoc#PM-WF-12[PM-WF-12]_
+
+A task state's `job llm` clause carries an asking axis after its role clauses: absent, `ask`, or `ask fresh`. The AST
+holds it as one `StateBehavior.AskForm`; `ModelJob.ask()` answers whether any form is declared, and the form itself
+decides whether the server may continue the task after its question (`allowsContinuation`). `ask fresh` offers the same
+`ask` link and orders the server never to continue the task, which `workflow.question` decides together with the role's
+bounds and the harness. On a `role each` state both forms are refused by the verifier through the same check. An
+`instance-unit.pmwf`-style fixture with both forms is `dsl/valid/ask-fresh-unit.pmwf`, and the printer writes the form's
+own text (link:../adr/workflow-dsl/009-ask-fresh-as-a-form-of-the-axis.adoc[ADR 009]).
+
+
 == The Printer and the Round Trip
 _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
 
@@ -407,3 +419,6 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
   as a call value, and nothing else of the grammar changes.
 * link:../adr/workflow-dsl/007-refused-characters-and-frontmatter-bounds.adoc[ADR 007]: the frontmatter refuses format,
   line and paragraph separators, is bounded at 200 lines, and a refusal echoes at most 80 characters.
+* link:../adr/workflow-dsl/009-ask-fresh-as-a-form-of-the-axis.adoc[ADR 009]: the asking axis is one `AskForm` value
+  (`none`, `ask`, `ask fresh`), and `ask fresh` is refused on a `role each` state exactly as `ask` is.
+

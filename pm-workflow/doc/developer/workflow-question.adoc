@@ -1,0 +1,55 @@
+= `workflow.question`
+:nofooter:
+
+link:../README.adoc[Developer documentation] » `workflow.question`
+
+== What the package is for
+
+The server's side of the question records' continuation and of the question bound (Model Work § Continuing after a
+Question, § Question Bound; Timeouts & Budgets § Question hold, § Question resume window, § Question bound). A task that
+asks may continue in the asking generation (hold), in a generation resumed from the stored harness session (resume), or
+not at all (fallback). Which one it is, and how long it lasts, is decided here and never by the model.
+
+== Main types
+
+* `QuestionContinuation` — `decide(AskForm, envelopeTask, Questions, at)` answers a `Decision` of the form `HOLD`,
+  `RESUME` or `FALLBACK` from the three sources the specification names: the state's asking axis, whether the task is an
+  envelope task, and the role's effective `questions` bounds, which `EffectiveRole` has already cut to what the harness
+  declares verified. `afterHold` decides the move from an expired hold to a suspension or to `hold_expired`.
+  `continuation(decision, questionId, at)` builds the queue record's `continuation` member.
+* `QuestionBound` — the `ask` link's bound: three questions per entry of a state, re-entries through
+  `<state>.asked` continuing the entry, and three per plan task over all its envelope tasks. `record(stateEntry,
+  planTask)` counts on both axes or on neither, so a spent axis withholds the link without counting a question.
+
+== How to use it
+
+The engine asks `QuestionContinuation.decide` when a task follows its `ask` link and writes the answer into the queue
+record through `TaskProtocol.hold` or `TaskProtocol.suspend`; a fallback closes the task `asked` through
+`TaskProtocol.fallback`. The layer that composes a task representation asks `QuestionBound.mayOffer` before it offers the
+link, and calls `record` when the question was filed. The entry identity is the caller's: pass the same value on a
+re-entry through `<state>.asked`, and a new value for a new entry of the state.
+
+== Invariants and failure modes
+
+* `decide` throws on a state that declares no `ask` link (there is no question to continue) and on a `null` instant; it
+  never reads a representation, a model request or a plan.
+* A bound of zero — an absent `questions` member, or a harness that verified no form — is `not_allowed`, never a
+  compiled default.
+* `ask fresh` falls back for a task of an ordinary state, and continues for an envelope task, which may always continue.
+* A form the harness did not verify cannot be chosen, because `EffectiveRole` cuts the bound to zero; a test that stubs
+  the bounds without that cut would hide the rule.
+* The decision is pure; the limits are instants derived from the ask's instant, never from a clock read inside the
+  package.
+
+== Decisions
+
+* link:../adr/workflow-question/001-the-form-is-decided-from-state-role-and-harness.adoc[ADR 001]: the form is decided
+  from the state, the role and the harness.
+* link:../adr/workflow-question/002-the-question-bound-counts-two-axes.adoc[ADR 002]: the question bound counts two axes,
+  keyed by the caller's entry identity.
+
+== Specification
+
+* `doc/specification/model-work/06-envelopes-questions-deadlines.adoc` § Continuing after a Question, § Question Bound
+* `doc/specification/timeouts/01-job-budgets-and-waits.adoc` § Question hold, § Question resume window, § Question bound
+* `doc/specification/client-profiles/01-profile-schema.adoc` § Resumability

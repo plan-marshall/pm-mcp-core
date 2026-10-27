@@ -1,0 +1,47 @@
+= ADR 002: The question bound counts on two axes, keyed by the caller's entry identity
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-27
+
+== Context
+
+Model Work § Question Bound offers the `ask` link at most three times to the tasks of one entry of a state, re-entries
+through `<state>.asked` continuing the entry, and at most three times per plan task over all its envelope tasks,
+whichever form each question took. The two bounds answer different questions: a state that keeps asking, and a plan task
+whose work moves between envelope tasks. The server needs a ledger that survives the re-entry and the envelope hand-over.
+
+== Decision
+
+`QuestionBound` keeps one count per `Key(axis, id)`, with `STATE_ENTRY` and `PLAN_TASK` as the closed axes and
+`MAX_ASKS = 3` as the compiled bound. `record(stateEntry, planTask)` counts a question on both axes atomically: when
+either axis is spent, neither is counted and the answer is `false`, so the server withholds the link without having
+counted a question the worker never asked. The caller supplies the entry identity and passes the same identity on a
+re-entry through `<state>.asked`, which is what makes the bound continue across the re-entry; a new entry of the state
+has a new identity and a fresh count. The form of the question is not part of the key, so `ask` and `ask fresh` count
+alike.
+
+== Alternatives Considered
+
+* Counting in the queue task record: refused because the bound is a property of the state entry and the plan task, not
+  of one delivery, and the record is replaced per task.
+* Counting only per plan task: refused because the state-entry bound is the one that stops a state from re-asking after
+  every answer, which is the failure Q5 measured.
+* Deriving the entry identity from the state id alone: refused because a later entry of the same state would inherit the
+  earlier entry's spent bound.
+
+== Consequences
+
+The engine and the envelope-receipt layer must pass the entry identity and the plan task id; a caller that invents a
+new identity per question voids the bound. The ledger is the scope's, so it must be dropped when the scope ends and
+kept across restarts of the server, as the question records are.
+
+== Source
+
+Pull request of the work package `doc/plans/question-continuation.adoc`; Model Work § Question Bound; Timeouts & Budgets
+§ Question Bound.

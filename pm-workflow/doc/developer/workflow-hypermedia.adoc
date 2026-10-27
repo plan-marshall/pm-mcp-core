@@ -1,0 +1,43 @@
+= `workflow.hypermedia`
+:nofooter:
+
+link:../README.adoc[Developer documentation] » `workflow.hypermedia`
+
+== What the package is for
+
+The typed values of the representation forms the specification fixes (Hypermedia Format Specification). The package
+carries the values the server composes an offer from; the TOON rendering itself belongs to the assembly.
+
+== Main types
+
+* `AnswerFact` — one item of `facts.answers`: `question_id`, `plan_task_id` (class `task` only), `question_text`,
+  `branch_key`, `label`, `text` (the operator's own words and note, quoted as data) and `kind` (`chosen`,
+  `interpreted`, `own_option`, `delegated`, `none_fits`). `COLUMNS` and `cells()` name and render the specification's
+  order once.
+* `Answers` — the items of one representation, keyed by question: `plus` replaces an item of the same question, so a
+  retried delivery never doubles a row, and `rows()` renders the table.
+
+== How to use it
+
+`TaskProtocol` hands an `Answers` to `WaitAnswer.Answered` for a holding generation and to the offer of a resumed
+suspension; the renderer writes `answers[N]{…}` from `Answers.rows()`. Nothing in this package is persisted.
+
+== Invariants and failure modes
+
+* Every item answers a question closed `answered`; a question id or plan task id outside its grammar is refused where
+  the item is built, never rendered.
+* `text` is the operator's own words and note, quoted as data and never as an instruction; a renderer must not
+  interpolate it into prose.
+* The answer's channel, the answering device, an interpretation's passages and a quorum's votes are recorded in the
+  decision record and never rendered.
+* The item carries no form of the continuation: the form is the queue record's.
+
+== Decisions
+
+* link:../adr/workflow-hypermedia/001-answer-facts-is-a-typed-item.adoc[ADR 001]: `facts.answers` is a typed item with
+  the specification's fixed columns.
+
+== Specification
+
+* `doc/specification/hypermedia-format/01-representation-and-link-forms.adoc` § Answers to Earlier Questions
+* `doc/specification/model-work/06-envelopes-questions-deadlines.adoc` § The Answer in the Next Task

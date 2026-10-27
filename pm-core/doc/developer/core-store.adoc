@@ -1626,3 +1626,5 @@ parity check the specification has run ahead of is `@Disabled` with the work pac
   `ChangeLedger` write through the caller's `ScopeTransaction`, so the scope's digest sidecar covers both files.
 * link:../adr/core-store/045-qualification-settings-refuse-a-stale-revision.adoc[ADR 045]: a write of the qualification
   settings names the revision it read, and a stale revision is refused as `conflict`.
+* link:../adr/core-store/046-a-metrics-row-names-its-continuation-form.adoc[ADR 046]: a task row names the continuation
+  form its usage belongs to (`hold` or `resume`), and a task that never continued carries `null`.

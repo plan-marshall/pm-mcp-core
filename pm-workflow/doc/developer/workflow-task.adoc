@@ -102,3 +102,28 @@ from a store the protocol does not own.
   `workflow.consult`, never by `submit` or `infeasible`.
 * A pause spends no re-offer and is queued at once; the offer waits only for the plan to be started.
 * An `agent_started` signal never takes an action other than `restart`.
+
+== A task that continues after its question
+
+The continuation is the protocol's, not the transport's: the task record's `continuation` member (Model Work
+§ Continuing after a Question) and the statuses `awaiting_answer` and `suspended` carry it, and `TaskProtocol` owns the
+transitions.
+
+* `hold(call, continuation, at)` moves an `executing` task to `awaiting_answer` with the continuation of the form `hold`:
+  the lease and the attempt stay, so a hold spends no re-offer and the worker keeps its model slot.
+* `answer(questionId, answers, at)` delivers the closed question's answer to the task that asked it — a holding task at
+  its pending or next wait, a suspended task at the offer of the generation that resumes it. `deliveredAnswers` and
+  `answerDeliveredAt` expose the delivery; the delivery is held in memory because a hold ends at a restart by the
+  specification's own rule.
+* `WaitAnswer.Answered` is the wait's answer to a holding generation: the task's representation carries the answer in
+  `facts.answers` (`workflow.hypermedia`), and only `ack` is offered. `acknowledgeAnswer` is that link: the task returns
+  to `executing`, and its links are offered again. `submit` before the acknowledgement is `link_not_available`.
+* A suspended task whose answer arrived is offered like a queued task, leased to the new generation; that offer carries
+  the answer, and its `ack` is the answer's acknowledgement (`acknowledgeAnswer` accepts the `offered` task).
+* `fallback(call, reason, at)` — and `fallback(queueTaskId, reason, at)` for a suspended task the server holds no lease
+  of — closes the task `asked` with its question id, records the reason on the continuation, drops the stored session
+  and forgets the delivery. The next task carries the answer in its facts.
+
+The form, the bounds and the fallback reasons are `workflow.question`'s
+(link:../adr/workflow-task/005-the-answer-is-delivered-in-memory-and-reopens-the-task.adoc[ADR 005]).
+

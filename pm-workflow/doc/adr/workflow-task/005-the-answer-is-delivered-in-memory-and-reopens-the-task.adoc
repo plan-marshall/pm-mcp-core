@@ -1,0 +1,53 @@
+= ADR 005: The answer of a held task is delivered in memory and re-opens the task on its acknowledgement
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-27
+
+== Context
+
+A holding task stays leased in `awaiting_answer` and offers only `pm_wait`; when its question closes, the pending or next
+wait is answered with the task's representation carrying `facts.answers`, whose only link is `ack`, and the task's links
+return only after that acknowledgement (Model Work § Continuing after a Question and § Answer acknowledgement). A
+suspended task is different: its worker ended, and the answer reaches the generation that resumes the stored session in
+the offer itself. The queue task record has no member for a delivered answer, and the specification's `continuation`
+member names the question, not the answer.
+
+== Decision
+
+`TaskProtocol` keeps the delivered answers in memory, keyed by queue task id, with the instant of delivery
+(`DeliveredAnswer`), and exposes `answer(questionId, Answers, at)`, `deliveredAnswers`, `answerDeliveredAt` and
+`acknowledgeAnswer`. A hold is `hold(call, continuation, at)`: `executing` to `awaiting_answer`, the lease and the attempt
+kept, so a hold spends no re-offer. `answer` marks the delivery for a task in `awaiting_answer` or `suspended`; a wait of
+the holding generation then answers `WaitAnswer.Answered`, and `acknowledgeAnswer` moves the task back to `executing`,
+where `submit` and the other links are offered again. A suspended task whose answer arrived is offered by the same wait
+that serves queued tasks, leased to the new generation, and that offer is the answer's delivery: its `ack` is the answer
+acknowledgement, so no second acknowledgement exists. `fallback` closes the task `asked`, keeps the question id, records
+the reason on the continuation, drops the stored session and removes the delivery.
+
+== Alternatives Considered
+
+* A new member of the queue task record for the delivered answer: refused because the specification's queue task record
+  does not carry one, the delivery is a transport fact of one running server, and a hold ends at a restart by the
+  specification's own rule, so the state must not be durable.
+* Reusing `Status.OFFERED` for the answered hold and letting `acknowledge` handle it: refused because the status would
+  then have to mean both "not yet acknowledged after an offer" and "answer delivered", and the offer acknowledgement
+  and the answer acknowledgement would be the same code path for different representations. `acknowledgeAnswer` accepts
+  the resumed `offered` task separately, where the two acknowledgements are the same event.
+
+== Consequences
+
+A runtime restart loses no committed state: holds end at a restart, and a suspended task's answer is re-delivered from
+the question record on the resume. The supervisor must call `answer` when a question closes and must not read the
+delivery as durable. A second answer for the same question replaces the delivery in place.
+
+== Source
+
+Pull request of the work package `doc/plans/question-continuation.adoc`; Model Work § Continuing after a Question,
+§ Answer acknowledgement and § The Answer in the Next Task; Hypermedia Format § `facts.answers`; Store Schemas § Queue
+Task Record.

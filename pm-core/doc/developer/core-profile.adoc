@@ -209,3 +209,15 @@ refuses cannot drift apart.
 A loaded profile and a shipped profile compare by the content of their document bytes, not by the array identity:
 `LoadedProfile` and `ProfileSets.ShippedProfile` override `equals`, `hashCode` and `toString` for that. Their compact
 constructors clone the bytes on the way in, so the value the record was built from cannot change it afterwards.
+
+== The resumability stage
+
+`ProfileStages.ResumabilityResult` is what the stage `resumability` of the profile verification hands on: one
+`FormMeasurement` for the hold and one for the resume, each either measured with the longest limit the stage proved or
+`notMeasured()`. `FormMeasurement` refuses a measured form without a positive limit and an unmeasured one with a limit,
+so the result can never claim a capability the probe did not observe. `ResumabilityResult.values()` renders the
+verification record's `values[]` entries (`/headless/resumability/hold` and `/resume`, `measured` or `not_measured`), and
+the limits are read by name (`maxHoldSeconds`, `maxResumeAgeSeconds`) so this package keeps no dependency on
+`core.role`, which reads the profile's `headless.resumability` block
+(link:../adr/core-profile/006-the-resumability-result-is-the-measurement.adoc[ADR 006]).
+

@@ -450,9 +450,15 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogAnswerRevisi
 link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogCurrentLineTest.java[QuestionLogCurrentLineTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogRefusedLineTest.java[QuestionLogRefusedLineTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogMalformedTest.java[QuestionLogMalformedTest],
-link:../pm-core/src/test/java/de/planmarshall/core/store/EntryQuestionMoveTest.java[EntryQuestionMoveTest]
+link:../pm-core/src/test/java/de/planmarshall/core/store/EntryQuestionMoveTest.java[EntryQuestionMoveTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/question/QuestionContinuationTest.java[QuestionContinuationTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/question/QuestionBoundTest.java[QuestionBoundTest]
 
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_question_log[Scope Stores Developer Guide § The Question Log],
+link:../pm-workflow/doc/developer/workflow-question.adoc[Question Continuation Developer Guide],
+link:../pm-workflow/doc/developer/workflow-dsl.adoc[Workflow DSL Developer Guide § The Asking Axis],
+link:../pm-workflow/doc/adr/workflow-question/001-the-form-is-decided-from-state-role-and-harness.adoc[ADR workflow-question/001],
+link:../pm-workflow/doc/adr/workflow-dsl/009-ask-fresh-as-a-form-of-the-axis.adoc[ADR workflow-dsl/009],
 link:../pm-core/doc/adr/core-store/032-question-store-in-core-store-read-through-a-runtime-adapter.adoc[ADR core-store/032],
 link:../pm-core/doc/adr/core-store/033-question-invariants-held-by-the-store-as-refusal-values.adoc[ADR core-store/033],
 link:../pm-core/doc/adr/core-store/036-entry-question-file-moved-by-the-store.adoc[ADR core-store/036],
@@ -1711,8 +1717,11 @@ link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-2[PM-WORK-2
 Implementation (the queue task record, the queue of a project below `projects/<project_id>/queue/` and of the machine
 below `machine/queue/`, the persisted generation fence, the activity journal of a task, and the protocol that offers,
 acknowledges, leases, fences, settles `submitted` and `infeasible`, closes `lost`, re-offers, records the off-track
-signals with their `security` audit record and delivers skills; the outcome `asked`, the `awaiting_answer` and
-`suspended` behaviour and the continuation are `question-continuation`'s, and the runtime that serves a task to a
+signals with their `security` audit record and delivers skills; the continuation after a question as far as the library
+carries it — the form decided from the state, the role and the harness, the hold, the answer with its acknowledgement,
+the offer of a resumed suspension, the fallback and the question bound, and the form of that usage in the metrics row —
+whereas the supervisor that starts the resumed generation from the stored session, the losses of a continuing worker
+and the launch of a resumable role are not wired here; the runtime that serves a task to a
 harness worker, the worker launch, the `worker-task` unit of the assembly and the MCP tools are not wired here): link:../pm-core/src/main/java/de/planmarshall/core/queue/QueueTaskRecord.java[QueueTaskRecord],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/QueueTaskRecordCodec.java[QueueTaskRecordCodec],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/QueueStore.java[QueueStore],
@@ -1720,6 +1729,11 @@ link:../pm-core/src/main/java/de/planmarshall/core/queue/FencedGenerations.java[
 link:../pm-core/src/main/java/de/planmarshall/core/queue/ActivityEntry.java[ActivityEntry],
 link:../pm-core/src/main/java/de/planmarshall/core/queue/ActivityJournal.java[ActivityJournal],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/task/TaskProtocol.java[TaskProtocol],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/task/WaitAnswer.java[WaitAnswer],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/question/QuestionContinuation.java[QuestionContinuation],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/question/QuestionBound.java[QuestionBound],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/hypermedia/AnswerFact.java[AnswerFact],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/hypermedia/Answers.java[Answers],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/task/AuditLogSecurityAudit.java[AuditLogSecurityAudit]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/queue/QueueTaskRecordCodecTest.java[QueueTaskRecordCodecTest],
@@ -1734,10 +1748,22 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolReOf
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolRefusalTest.java[TaskProtocolRefusalTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolInterleavingTest.java[TaskProtocolInterleavingTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/WorkerTaskUnitFixtureTest.java[WorkerTaskUnitFixtureTest],
-link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/AuditLogSecurityAuditTest.java[AuditLogSecurityAuditTest]
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/AuditLogSecurityAuditTest.java[AuditLogSecurityAuditTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolContinuationTest.java[TaskProtocolContinuationTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/question/QuestionContinuationTest.java[QuestionContinuationTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/question/QuestionBoundTest.java[QuestionBoundTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/hypermedia/AnswersTest.java[AnswersTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/AdditionalRulesTest.java[AdditionalRulesTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowPrinterTest.java[WorkflowPrinterTest]
 
 Documentation: link:../pm-core/doc/developer/core-queue.adoc[Task Queue Developer Guide],
 link:../pm-workflow/doc/developer/workflow-task.adoc[Task Protocol Developer Guide],
+link:../pm-workflow/doc/developer/workflow-question.adoc[Question Continuation Developer Guide],
+link:../pm-workflow/doc/developer/workflow-hypermedia.adoc[Hypermedia Values Developer Guide],
+link:../pm-workflow/doc/adr/workflow-task/005-the-answer-is-delivered-in-memory-and-reopens-the-task.adoc[ADR workflow-task/005],
+link:../pm-workflow/doc/adr/workflow-question/001-the-form-is-decided-from-state-role-and-harness.adoc[ADR workflow-question/001],
+link:../pm-workflow/doc/adr/workflow-question/002-the-question-bound-counts-two-axes.adoc[ADR workflow-question/002],
+link:../pm-workflow/doc/adr/workflow-hypermedia/001-answer-facts-is-a-typed-item.adoc[ADR workflow-hypermedia/001],
 link:../pm-core/doc/adr/core-queue/004-generation-fence-beside-the-queue.adoc[ADR core-queue/004],
 link:../pm-core/doc/adr/core-queue/005-record-combinations-checked-at-the-write-boundary.adoc[ADR core-queue/005],
 link:../pm-workflow/doc/adr/workflow-task/001-the-protocol-decides-the-runtime-transports.adoc[ADR workflow-task/001],
