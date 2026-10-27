@@ -13,10 +13,12 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
@@ -38,12 +40,26 @@ class SocketOwnerTest {
             var lookup = owner.ownerOf("127.0.0.1", socket.getLocalPort());
 
             assertAll(
-                    () -> assertTrue(lookup.isFound(), lookup.detail()),
+                    () -> assertTrue(lookup.isFound(), () -> tables(socket.getLocalPort()) + " — " + lookup.detail()),
                     () -> assertTrue(Path.of(lookup.executablePath()).isAbsolute()),
                     () -> assertTrue(Files.isRegularFile(Path.of(lookup.executablePath()))),
                     () -> assertTrue(lookup.runs(lookup.executablePath())),
                     () -> assertFalse(lookup.runs("/nonexistent/program")));
         }
+    }
+
+    private static String tables(int port) {
+        var wanted = ":%04X".formatted(port);
+        var found = new StringBuilder();
+        for (var table : List.of("/proc/net/tcp", "/proc/net/tcp6")) {
+            try {
+                Files.readAllLines(Path.of(table)).stream().filter(line -> line.contains(wanted))
+                        .forEach(line -> found.append(table).append(": ").append(line).append('\n'));
+            } catch (IOException e) {
+                found.append(table).append(": ").append(e.getMessage()).append('\n');
+            }
+        }
+        return found.isEmpty() ? "no entry for " + wanted + " in either table" : found.toString();
     }
 
     @Test

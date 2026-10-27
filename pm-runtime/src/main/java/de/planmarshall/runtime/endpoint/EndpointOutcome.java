@@ -178,7 +178,7 @@ public record EndpointOutcome(Fate fate, Reason reason, String detail, String co
             var check = AnswerSchema.validate(resultSchema, document);
             if (!check.valid()) {
                 return new EndpointOutcome(Fate.ENDED, Reason.INVALID_ANSWER,
-                        "the answer does not validate: %s".formatted(check.detail()), "", usage);
+                        "the answer does not validate against the result schema", "", usage);
             }
         }
         return answered(content.get(), usage);

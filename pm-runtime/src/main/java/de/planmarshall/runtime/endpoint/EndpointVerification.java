@@ -91,15 +91,17 @@ public final class EndpointVerification {
             String toolTask, String decoyResult, JsonNode schema) {
         var endpoint = URI.create(profile.endpoint().baseUrl());
         var lookup = owner.ownerOf(endpoint.getHost(), endpoint.getPort());
-        var identity = identity(profile, lookup);
         if (!ownsTheNamedProgram(profile, lookup)) {
-            // No request leaves the runtime: the program on the port is not the one the draft names.
-            return new ProfileStages.EndpointVerification(identity,
+            // No request leaves the runtime, and no probe runs: the program on the port is not the one the draft names.
+            return new ProfileStages.EndpointVerification(
+                    new ProfileStages.EndpointIdentity(false, lookup.isFound() ? lookup.executablePath() : null, null,
+                            List.of(), Map.of()),
                     new ProfileStages.EndpointLaunch(false, false, "none", false),
                     new ProfileStages.EndpointClasses(false, false), new ProfileStages.EndpointLimits(false, 0));
         }
-        return new ProfileStages.EndpointVerification(identity, launch(profile, model, baseTask, schema),
-                classes(profile, model, toolTask, decoyResult), limits(profile, model, baseTask));
+        return new ProfileStages.EndpointVerification(identity(profile, lookup),
+                launch(profile, model, baseTask, schema), classes(profile, model, toolTask, decoyResult),
+                limits(profile, model, baseTask));
     }
 
     /**

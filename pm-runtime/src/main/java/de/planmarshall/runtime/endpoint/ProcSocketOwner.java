@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HexFormat;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -40,8 +41,8 @@ final class ProcSocketOwner implements SocketOwner {
             return Lookup.notFound("the owner of a listening socket is not readable on this platform");
         }
         try {
-            var inode = inode(PROCESS_TABLE.resolve("net/tcp"), port)
-                    .or(() -> inode(PROCESS_TABLE.resolve("net/tcp6"), port));
+            var inode = inode(PROCESS_TABLE.resolve("net/tcp"), host, port)
+                    .or(() -> inode(PROCESS_TABLE.resolve("net/tcp6"), host, port));
             if (inode.isEmpty()) {
                 return Lookup.notFound("no program listens on the port %d".formatted(port));
             }
@@ -61,21 +62,61 @@ final class ProcSocketOwner implements SocketOwner {
 
     /**
      * @param table the socket table of the kernel
+     * @param host  the host of the base URL
      * @param port  the port
-     * @return the inode of the listening socket on the port
+     * @return the inode of the listening socket on the port whose local address is the host's or the wildcard
      */
-    private static Optional<String> inode(Path table, int port) {
+    private static Optional<String> inode(Path table, String host, int port) {
         if (!Files.isRegularFile(table)) {
             return Optional.empty();
         }
         var wanted = ":%04X".formatted(port);
+        var local = encoded(table, host);
+        if (local.isEmpty()) {
+            return Optional.empty();
+        }
         try (Stream<String> lines = Files.lines(table)) {
             return lines.skip(1).map(line -> line.strip().split("\\s+"))
-                    .filter(fields -> fields.length > 9 && LISTEN.equals(fields[3]) && fields[1].endsWith(wanted))
+                    .filter(fields -> fields.length > 9 && LISTEN.equals(fields[3]) && fields[1].endsWith(wanted)
+                            && serves(fields[1], local.get()))
                     .map(fields -> fields[9]).findFirst();
         } catch (IOException e) {
             throw new UncheckedIOException("The socket table cannot be read: " + table, e);
         }
+    }
+
+    /**
+     * @param localAddress the local address of a socket table entry, {@code address:port}
+     * @param local        the encoded address of the base URL's host
+     * @return whether the entry serves that address, or every address of its family
+     */
+    private static boolean serves(String localAddress, String local) {
+        var address = localAddress.substring(0, localAddress.indexOf(':'));
+        return address.equalsIgnoreCase(local) || address.chars().allMatch(character -> character == '0');
+    }
+
+    /**
+     * @param table the socket table, which decides the address form the host is encoded in
+     * @param host  the host of a loopback base URL
+     * @return its address as the kernel writes it, or empty where the table cannot hold that host
+     */
+    private static Optional<String> encoded(Path table, String host) {
+        var ipv6Table = "tcp6".equals(table.getFileName().toString());
+        if (host.contains(":")) {
+            if (!ipv6Table) {
+                return Optional.empty();
+            }
+            var bytes = new byte[16];
+            bytes[15] = 1;
+            return Optional.of(HexFormat.of().withUpperCase().formatHex(bytes));
+        }
+        var bytes = new byte[4];
+        var octets = host.split("\\.");
+        for (var index = 0; index < 4; index++) {
+            bytes[3 - index] = (byte) Integer.parseInt(octets[index]);
+        }
+        var encoded = HexFormat.of().withUpperCase().formatHex(bytes);
+        return Optional.of(ipv6Table ? "0000000000000000FFFF0000" + encoded : encoded);
     }
 
     /**

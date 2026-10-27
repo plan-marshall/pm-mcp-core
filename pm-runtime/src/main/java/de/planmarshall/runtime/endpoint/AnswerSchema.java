@@ -75,6 +75,11 @@ public final class AnswerSchema {
             return Check.refused(pointer, "the result schema's type is neither a string nor an array");
         }
         if (schema.member("$ref").isPresent()) {
+            var siblings = schema.members().keySet().stream()
+                    .filter(name -> KEYWORDS.contains(name) && !"$ref".equals(name)).findFirst();
+            if (siblings.isPresent()) {
+                return Check.refused(pointer, "the result schema combines $ref with '%s'".formatted(siblings.get()));
+            }
             var reference = schema.member("$ref").flatMap(JsonNode::text).orElse("");
             if (!reference.startsWith("#/")) {
                 return Check.refused(pointer, "the result schema refers to '%s'".formatted(reference));

@@ -93,16 +93,7 @@ int maxAnswerTokens) {
      *         tool choice
      */
     public String body() {
-        var members = new LinkedHashMap<String, JsonNode>();
-        members.put("model", JsonNode.string(model));
-        members.put("messages", JsonNode.array(List.of(message("system", system), message("user", user))));
-        members.put("stream", JsonNode.bool(false));
-        members.put("n", JsonNode.integer(1));
-        members.put("temperature", JsonNode.integer(0));
-        members.put("top_p", JsonNode.integer(1));
-        members.put("presence_penalty", JsonNode.integer(0));
-        members.put("frequency_penalty", JsonNode.integer(0));
-        members.put("max_tokens", JsonNode.integer(maxAnswerTokens));
+        var members = baseMembers();
         if (resultSchema != null) {
             members.put("response_format", responseFormat());
         }
@@ -114,6 +105,18 @@ int maxAnswerTokens) {
      * @return the body of the tool-call probe: the request, plus a {@code tools} member that declares one tool
      */
     public String bodyWithTools(String toolName) {
+        var members = baseMembers();
+        var function = Map.of("name", JsonNode.string(toolName), "description",
+                JsonNode.string("A probe tool the endpoint is never wired to"),
+                "parameters", JsonNode.object(Map.of("type", JsonNode.string("object"), "properties",
+                        JsonNode.object(Map.of()))));
+        members.put("tools", JsonNode.array(List.of(JsonNode.object(Map.of("type", JsonNode.string("function"),
+                "function", JsonNode.object(function))))));
+        return CanonicalJson.write(JsonNode.object(members));
+    }
+
+    /** @return the members every request carries: no serving-program default decides how a task runs */
+    private LinkedHashMap<String, JsonNode> baseMembers() {
         var members = new LinkedHashMap<String, JsonNode>();
         members.put("model", JsonNode.string(model));
         members.put("messages", JsonNode.array(List.of(message("system", system), message("user", user))));
@@ -124,13 +127,7 @@ int maxAnswerTokens) {
         members.put("presence_penalty", JsonNode.integer(0));
         members.put("frequency_penalty", JsonNode.integer(0));
         members.put("max_tokens", JsonNode.integer(maxAnswerTokens));
-        var function = Map.of("name", JsonNode.string(toolName), "description",
-                JsonNode.string("A probe tool the endpoint is never wired to"),
-                "parameters", JsonNode.object(Map.of("type", JsonNode.string("object"), "properties",
-                        JsonNode.object(Map.of()))));
-        members.put("tools", JsonNode.array(List.of(JsonNode.object(Map.of("type", JsonNode.string("function"),
-                "function", JsonNode.object(function))))));
-        return CanonicalJson.write(JsonNode.object(members));
+        return members;
     }
 
     private JsonNode responseFormat() {

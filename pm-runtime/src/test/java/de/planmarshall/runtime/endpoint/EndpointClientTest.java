@@ -112,6 +112,17 @@ class EndpointClientTest {
     }
 
     @Test
+    @DisplayName("a target that is not a loopback address is refused before any request")
+    void notLoopback() {
+        var response = client.get(EndpointFixtures.profile("https://runner.example.test"), "/models");
+
+        assertAll(
+                () -> assertFalse(response.successful()),
+                () -> assertEquals(EndpointClient.Failure.UNREACHABLE, response.failure()),
+                () -> assertTrue(response.detail().contains("not a loopback address")));
+    }
+
+    @Test
     @DisplayName("the URL is the base URL and the path")
     void uri() {
         var profile = EndpointFixtures.profile("http://127.0.0.1:11434");

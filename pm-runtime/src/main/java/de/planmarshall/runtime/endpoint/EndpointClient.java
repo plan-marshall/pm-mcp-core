@@ -79,6 +79,10 @@ public final class EndpointClient {
     private Response send(EndpointProfile profile, String path, String body) {
         Objects.requireNonNull(profile, "profile");
         var uri = uri(profile, path);
+        if (!loopback(uri)) {
+            return new Response(0, "", Failure.UNREACHABLE,
+                    "refused (%s): not a loopback address".formatted(shown(uri)));
+        }
         try (var handler = HttpHandler.builder().uri(uri).connectionTimeoutSeconds(CONNECT_TIMEOUT_SECONDS)
                      .readTimeoutSeconds(profile.endpoint().requestTimeoutSeconds()).allowInsecureHttp(true).build()) {
             var request = handler.requestBuilder().uri(uri).header("Content-Type", MEDIA_TYPE);
@@ -105,6 +109,18 @@ public final class EndpointClient {
 
     private static Response failure(EndpointProfile profile, URI uri, Failure failure, String detail) {
         return new Response(0, "", failure, "%s (%s): %s".formatted(failure.wireName(), shown(uri), detail));
+    }
+
+    /**
+     * @param uri a target
+     * @return whether the target is a plain HTTP loopback address, the only cleartext the package admits
+     */
+    static boolean loopback(URI uri) {
+        if (!"http".equalsIgnoreCase(uri.getScheme())) {
+            return false;
+        }
+        var host = uri.getHost();
+        return "127.0.0.1".equals(host) || "::1".equals(host);
     }
 
     /**

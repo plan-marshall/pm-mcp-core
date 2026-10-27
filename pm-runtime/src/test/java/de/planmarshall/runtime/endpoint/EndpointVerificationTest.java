@@ -164,7 +164,9 @@ class EndpointVerificationTest {
             @Override
             public MockResponse dispatch(RecordedRequest request) {
                 if (request.getTarget().contains("/models")) {
-                    return new MockResponse.Builder().code(200).body("{\"models\":[]}").build();
+                    return new MockResponse.Builder().code(200)
+                            .body("{\"models\":[{\"id\":\"big\",\"digest\":\"abc\"},{\"id\":\"mid\"},"
+                                    + "{\"id\":\"small\",\"digest\":\"abc\"}]}").build();
                 }
                 return new MockResponse.Builder().code(200).body(ANSWER).build();
             }
@@ -174,6 +176,8 @@ class EndpointVerificationTest {
 
         assertAll(
                 () -> assertFalse(result.identity().passed()),
+                () -> assertEquals(List.of("big", "mid", "small"), result.identity().models()),
+                () -> assertFalse(result.identity().weights().containsKey("mid")),
                 () -> assertTrue(result.refusesDraft()));
     }
 

@@ -17,6 +17,7 @@ All packages lie below `de.planmarshall.runtime`. Each line is the first sentenc
 * `corpus`: the Git LFS part of the fetch of the corpus sources: the batch request and the object download through `cui-http`.
 * `credentials`: the credential stores of the runtime: exactly one `SecretStore` per machine, the one the operator recorded in `credentials.store` of `machine-config.json`, read and written by `CredentialStoreChoice`.
 * `credentials.dbus`: a minimal D-Bus client for the Linux Secret Service backend.
+* `endpoint`: the endpoint harness: the one request of a task on a model this machine serves over loopback HTTP, the answer and its usage, the owner check of the listening socket, the weights identity of the models and the verification stages of an endpoint.
 * `enrolment`: the integrity of the project enrolments: the runtime's side of the enrolment store of `pm-core`, and the verification of the harness enrolment sidecar.
 * `ingest`: the level-1 ingestion validator for external text.
 * `job`: the job runtime of a project's process jobs: the verification of a job, its launch through `pm-exec`, its job log, its termination, the derivation of its fate and its settlement, run by `SubprocessJobRunner`.

@@ -71,6 +71,17 @@ class AnswerSchemaTest {
     }
 
     @Test
+    @DisplayName("a $ref with a sibling keyword is refused, never resolved with its sibling ignored")
+    void referenceWithSiblingRefused() {
+        var check = AnswerSchema.validate(parse("{\"$defs\":{\"a\":{\"type\":\"string\"}},"
+                + "\"$ref\":\"#/$defs/a\",\"minLength\":3}"), parse("\"ab\""));
+
+        assertAll(
+                () -> assertFalse(check.valid()),
+                () -> assertTrue(check.detail().contains("combines $ref")));
+    }
+
+    @Test
     @DisplayName("a schema with a keyword the check does not implement is refused instead of passed")
     void unsupportedKeywordRefused() {
         var check = AnswerSchema.validate(parse("{\"type\":\"object\",\"patternProperties\":{}}"), parse("{}"));
