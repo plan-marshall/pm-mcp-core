@@ -77,6 +77,16 @@ class VerificationRecordTest {
     }
 
     @Test
+    @DisplayName("a start context model absent from the harness models is refused")
+    void unlistedModelRefused() {
+        var bytes = RECORD.replace("\"model\": \"a-model\"", "\"model\": \"b-model\"").getBytes(UTF_8);
+
+        var refusal = assertThrows(ProfileRefusal.class, () -> VerificationRecord.read(bytes, "record"));
+
+        assertEquals("/stages/usage/start_context/0/model", refusal.pointer());
+    }
+
+    @Test
     @DisplayName("a start context entry whose tokens are neither an integer nor unmeasured is refused")
     void unknownTokensRefused() {
         var bytes = RECORD.replace("\"tokens\": 27104", "\"tokens\": \"measured\"").getBytes(UTF_8);

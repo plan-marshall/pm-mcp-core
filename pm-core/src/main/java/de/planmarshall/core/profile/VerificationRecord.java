@@ -190,7 +190,7 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
             var tool = tool(required(root, "/tool"));
             var harness = harness(required(root, "/harness"));
             var platform = platform(required(root, "/platform"));
-            var stages = stages(required(root, "/stages"));
+            var stages = stages(required(root, "/stages"), harness.models());
             values(required(root, "/values"));
             return new VerificationRecord((int) format, clientId, digest, verifiedAt, tool, harness, platform, stages);
         }
@@ -239,7 +239,7 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
             return new Platform(os, arch, confinement);
         }
 
-        private Map<String, Stage> stages(JsonNode stages) {
+        private Map<String, Stage> stages(JsonNode stages, List<String> harnessModels) {
             object(stages, "/stages", "stages", Set.of(), STAGE_NAMES);
             var read = new LinkedHashMap<String, Stage>();
             for (var name : stages.members().keySet()) {
@@ -258,7 +258,8 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
                 if (trialNode != null) {
                     trials = (int) integer(stage, pointer + "/trials", NAME_TRIALS);
                 }
-                var startContext = startContext(stage.member("start_context").orElse(null), pointer + "/start_context");
+                var startContext = startContext(stage.member("start_context").orElse(null),
+                        pointer + "/start_context", harnessModels);
                 if (!startContext.isEmpty() && !"usage".equals(name)) {
                     throw ProfileRefusal.recordInvalid(document, pointer + "/start_context",
                             "'start_context' belongs to the stage 'usage'");
@@ -268,7 +269,8 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
             return read;
         }
 
-        private List<ProfileStages.StartContext> startContext(JsonNode startContext, String pointer) {
+        private List<ProfileStages.StartContext> startContext(JsonNode startContext, String pointer,
+                List<String> harnessModels) {
             if (startContext == null) {
                 return List.of();
             }
@@ -283,6 +285,10 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
                 object(entry, entryPointer, "start_context entry", Set.of("class", "model", "tokens"));
                 var workerClass = string(entry, entryPointer + "/class", "class");
                 var model = string(entry, entryPointer + "/model", "model");
+                if (!harnessModels.contains(model)) {
+                    throw ProfileRefusal.recordInvalid(document, entryPointer + "/model",
+                            "the model is not listed in '/harness/models'");
+                }
                 var tokens = entry.member("tokens").orElse(null);
                 if (tokens == null) {
                     throw ProfileRefusal.recordInvalid(document, entryPointer + PTR_TOKENS,
