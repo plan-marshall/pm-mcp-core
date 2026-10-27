@@ -443,7 +443,7 @@ The store, its codec, and the members the workflow engine owns (`format_version`
           "role": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
           "state": { "type": "string", "enum": ["queued", "leased", "ended"], "description": "Coarse projection of the queue task state, updated with the task's outcome; the fine states live in the queue task record." },
           "outcome": { "type": ["string", "null"], "enum": ["submitted", "asked", "infeasible", "lost", null] },
-          "reason": { "type": ["string", "null"], "enum": ["attempts_spent", "role_undefined", "class_mismatch", "role_unqualified", "role_unavailable", "deadline_expired", "withdrawn", null], "description": "lost only: why the task ended without a result (model-work.adoc, Closed Task Outcomes); the state takes its conservative fallback." }
+          "reason": { "type": ["string", "null"], "enum": ["attempts_spent", "role_undefined", "class_mismatch", "role_unqualified", "role_unavailable", "input_too_large", "deadline_expired", "withdrawn", null], "description": "lost only: why the task ended without a result (model-work.adoc, Closed Task Outcomes); the state takes its conservative fallback." }
         }
       }
     },
