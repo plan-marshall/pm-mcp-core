@@ -1299,16 +1299,24 @@ eligibility, the models that accept a restricted tool set, the classes the harne
 model tiers, the context-budget fallback, the idle wakeups, the resumability that cuts a role's continuation bounds, and
 the harness's ask-user tool that no role may name — projected from the profile document; a role of a class the harness
 cannot run is invalid with `harness_class_not_runnable`, and the steward takes its model from the harness's tier
-`standard`. Not implemented here: the translation of skills, links and prompts, and the composition of a launch from the
-`headless` block, which belong to the host-integration and worker-launch packages): link:../pm-core/src/main/java/de/planmarshall/core/role/HarnessProfile.java[HarnessProfile],
+`standard`. Also the endpoint profile of the same sets: `profile_kind: "endpoint"`, its closed document, the locality
+combinations the schema cannot express, and the projection the runtime reads (Client Profiles § Endpoint Harness; ADRs
+core-profile/007, /008 and /009). Not implemented here: the translation of skills, links and prompts, and the composition
+of a launch from the `headless` block, which belong to the host-integration and worker-launch packages):
+link:../pm-core/src/main/java/de/planmarshall/core/role/HarnessProfile.java[HarnessProfile],
 link:../pm-core/src/main/java/de/planmarshall/core/role/RoleValidation.java[RoleValidation],
 link:../pm-core/src/main/java/de/planmarshall/core/role/RoleCatalog.java[RoleCatalog],
-link:../pm-core/src/main/java/de/planmarshall/core/role/StewardConfiguration.java[StewardConfiguration]
+link:../pm-core/src/main/java/de/planmarshall/core/role/StewardConfiguration.java[StewardConfiguration],
+link:../pm-core/src/main/java/de/planmarshall/core/profile/EndpointProfile.java[EndpointProfile]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/RoleValidationTableTest.java[RoleValidationTableTest],
-link:../pm-core/src/test/java/de/planmarshall/core/role/RoleEffectiveConfigurationTest.java[RoleEffectiveConfigurationTest]
+link:../pm-core/src/test/java/de/planmarshall/core/role/RoleEffectiveConfigurationTest.java[RoleEffectiveConfigurationTest],
+link:../pm-core/src/test/java/de/planmarshall/core/profile/EndpointProfileValidatorTest.java[EndpointProfileValidatorTest],
+link:../pm-core/src/test/java/de/planmarshall/core/role/HarnessProfileEndpointTest.java[HarnessProfileEndpointTest]
 
-Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Artifacts Developer Guide]
+Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Artifacts Developer Guide],
+link:../pm-core/doc/developer/core-profile.adoc#_endpoint_profiles[Profile Loader and Schema Developer Guide § Endpoint
+profiles]
 
 [#PM-CLIENT-5]
 === PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy
@@ -1741,7 +1749,9 @@ with the assignment stores, the plan override and the model catalogues read thro
 effective model catalogue, the project's else the machine's, with `model_not_allowed`; validation against the client
 profile and the catalogue with the ten reasons of the table; the composition check with `role_undefined` and
 `class_mismatch`, at composition and at task creation; the one model caller with the judge and steward skipping Qualify,
-and the steward's harness from `harnesses.default` of `machine-config.json` and its model from the tier `standard`. Not
+and the steward's harness from `harnesses.default` of `machine-config.json` and its model from the tier `standard`; and an
+endpoint harness runs the class `zero_tool` alone, its projection carrying no other class (Client Profiles § Endpoint
+Harness, ADR core-profile/008). Not
 implemented here, and not claimed by this package: the escalation assignment (bullet 9), the shipped artifacts, tiers,
 qualification records and their calibration (bullets 7 and 8, which are the release assembly's and
 `machine-onboarding-unit`'s), the resolution `roles.default`, the grading and the record validity (PM-WORK-6), and the
@@ -1960,6 +1970,26 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/RecordedQualifi
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationCheckTest.java[QualificationCheckTest] (a record whose `generic` topic reaches the level and whose `own` topic does not is not valid, and neither is the reverse; a record without a topic of the corpus is not valid; every topic at the level is valid; the level is read at every check; the warm downgrade), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/ConstantBaselineTest.java[ConstantBaselineTest] (eight of ten equal references at 80 percent at an 80 percent level do not qualify, the matched control nine of ten does, ten equal references are too uniform), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/RoleTopicsTest.java[RoleTopicsTest] (the topics by the items' `role` field, the review statuses, the zero-tool and judgment roles), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/ScoringTest.java[ScoringTest], link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/JudgeCheckTest.java[JudgeCheckTest] (the oracle and blind accuracies, the lost judge task, the stale record), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationRecordCodecTest.java[QualificationRecordCodecTest], link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationRecordStoreTest.java[QualificationRecordStoreTest], link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/RoleGraderTest.java[RoleGraderTest] (a complete corpus writes the record with its tokens, a failed import writes no valid record, a partial one names its missed sources, the judge refusals, the screener's five runs and its catch rate, the checkout at the origin commit and `current` when the commit is missing, the re-grading of only the ungraded items), link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/RecordedQualificationTest.java[RecordedQualificationTest] (a changed level applies to an existing record, the warm downgrade, a stale digest), link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/ModelCallerTest.java[ModelCallerTest] (an unqualified role closes `role_unqualified` and the judge and the steward skip Qualify)
 
 Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Developer Guide] (§ Role Qualification), link:../pm-workflow/doc/developer/workflow-model.adoc[The One Model Caller Developer Guide] (§ The Grading Run and the Qualification Lookup), link:../pm-core/doc/adr/core-role/003-qualification-measurements-decided-at-every-check.adoc[ADR core-role/003], link:../pm-core/doc/adr/core-role/004-grading-through-ports-not-a-worker-runtime.adoc[ADR core-role/004], link:../pm-workflow/doc/adr/workflow-model/002-the-grading-run-in-workflow-model.adoc[ADR workflow-model/002]
+
+The weights identity of an endpoint harness (Client Profiles § Weights Identity): the identity of every allowed model's
+weights is read at enrolment, at every start of the runtime and at every project setup run, recorded beside the model in
+the harness enrolment, and it is a member of the qualification digest, so a model whose weights changed is unqualified
+until it is graded again; the change is audited `harness_updated`, naming the model and both identities:
+
+Implementation: link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/WeightsReader.java[WeightsReader],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointEnrolment.java[EndpointEnrolment],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolment.java[HarnessEnrolment],
+link:../pm-core/src/main/java/de/planmarshall/core/role/RoleDigests.java[RoleDigests]
+
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/WeightsReaderTest.java[WeightsReaderTest] (the
+listing pointer and the argv probe, and an identity it cannot read left unread),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointEnrolmentTest.java[EndpointEnrolmentTest] (a changed
+identity re-recorded and audited with the model and both identities, an unchanged one left alone)
+
+Documentation: link:../pm-runtime/doc/developer/runtime-endpoint.adoc#weights-identity[Endpoint Harness Developer Guide §
+Weights Identity], link:../pm-runtime/doc/adr/runtime-endpoint/003-answer-validated-against-a-closed-schema-subset.adoc[ADR
+runtime-endpoint/003]
+
 [#PM-WORK-7]
 === PM-WORK-7: Worker Activity & Off-Track Signals
 

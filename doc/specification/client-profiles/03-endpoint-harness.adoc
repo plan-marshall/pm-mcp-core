@@ -12,15 +12,25 @@ link:../../Specification.adoc[Specification] » link:../client-profiles.adoc[Cli
 == A Model on This Machine
 _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-2[PM-ARCH-2: Local-by-Design & Zero External Cloud Dependency], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1: Roles as Configuration]_
 
-_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-14[PM-WATCH-CLIENT-14]_
+A model that a program of the machine serves over HTTP on the loopback interface is a harness of its own kind, the
+*endpoint harness*: it runs exactly one role class, `zero_tool`, and it is described by an endpoint profile of the same
+profile sets, verification and override rules as a client profile. The runtime never starts, stops or configures the
+serving program, and no task text reaches a program other than the enrolled one.
 
-A model that a program of the machine serves over HTTP on the loopback interface (an operating system's own model server, or a local model runner), or that a service answers over HTTPS in the remote form of the protocol `system_one` (link:04-judgment-endpoint.adoc#judgment-endpoint[Judgment Endpoint]), is a harness of its own kind, the *endpoint harness*. It has no tools, no MCP connection, and no session, so it runs exactly one role class, `zero_tool` (the screener and the judge, link:01-profile-schema.adoc#role-classes[Role Classes of a Harness]), and no other. Nothing a loopback endpoint is given leaves the machine, so untrusted text screened on it reaches no model provider; a remote endpoint sends what it is given to its service, which is why the screener runs on a loopback endpoint only (link:04-judgment-endpoint.adoc#remote-form[Remote Form]).
+The runtime and the profile kind are implemented: the profile kind by `pm-core` (§ Endpoint Profile Schema below and
+link:../../../pm-core/doc/developer/core-profile.adoc[Profile Loader and Schema Developer Guide]), the runtime by
+`pm-runtime` (link:../../../pm-runtime/doc/developer/runtime-endpoint.adoc[Endpoint Harness Developer Guide]): the
+request, the answer and its usage, the enrolment and the owner check, the weights identity and the verification of an
+endpoint.
 
-* *A profile of its own kind*: an endpoint harness is described by an *endpoint profile* (<<endpoint-profile-schema>>), a document of the same profile sets, verification, and override rules as a client profile (link:01-profile-schema.adoc#profile-sets[Profile Sets]), told apart by its member `profile_kind: "endpoint"`. Its `client_id` shares the namespace of the client profiles. It has no `tools`, `skill_loading`, `headless`, `connection`, `detection`, or `worker` block: it is never a host of the operator, never a target of a client bundle, and has none of the per-host values of the task protocol.
-* *Started by the operator, never by `PM-MCP`*: the serving program runs under the operator's own account and its own terms (a licence it asks to accept, a model it downloads); the runtime never starts, stops, or configures it. The runtime only sends requests to it and checks before each request that the program listening on the profile's port is the enrolled one (<<endpoint-enrolment>>).
-* *Loopback, or the one remote form*: `base_url` names `127.0.0.1` or `[::1]`; profile validation refuses any other host, except the remote form of the protocol `system_one`, whose `base_url` is the HTTPS origin of one service (link:04-judgment-endpoint.adoc#remote-form[Remote Form]). A request to an endpoint is no outbound request of the runtime (link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-2[PM-ARCH-2]); whether the serving program itself makes network requests is the operator's knowledge of that program and is never claimed by a profile.
-* *No shipped endpoint profile*: the release ships no endpoint profile. The operator adds one through the onboarding's `harness.add` in the endpoint form (<<endpoint-verification>>), and roles are assigned to it like to any harness (link:../model-work/01-roles-and-configuration.adoc#role-assignment[Model Work Specification, Role Assignment]), each graded before it runs (link:../model-work/01-roles-and-configuration.adoc#qualification-records[Model Work Specification, Qualification Records]).
-* *A judge on an endpoint is the operator's risk*: the `judge` is exempt from qualification, so nothing grades a judge assigned to an endpoint harness, and every grade it gives rests on that model. The assignment is allowed; `pm-operator roles show` and the role views of both clients mark a `judge` on an endpoint harness as ungraded wherever its assignment is shown.
+* *Started by the operator, never by `PM-MCP`*: the serving program runs under the operator's own account and its own
+  terms; the runtime only sends requests to it and checks before each request that the program listening on the profile's
+  port is the enrolled one.
+* *No shipped endpoint profile*: the release ships no endpoint profile. The operator adds one through the onboarding,
+  and roles are assigned to it like to any harness (link:../model-work/01-roles-and-configuration.adoc#role-assignment[Model
+  Work Specification, Role Assignment]).
+* *A judge on an endpoint is the operator's risk*: the assignment is allowed, and the role views of both clients mark a
+  `judge` on an endpoint harness as ungraded wherever its assignment is shown.
 
 [#endpoint-profile-schema]
 === Endpoint Profile Schema
@@ -93,53 +103,41 @@ A model that a program of the machine serves over HTTP on the loopback interface
 
 Profile validation applies the rules of a client profile where they concern the same members (link:01-profile-schema.adoc#profile-hardening[A Profile Is Untrusted Input]) and refuses an endpoint profile whose `answer_reserve_tokens` is not below `context_tokens`, or whose `weights_probe` fills the members of the other source. It refuses the combinations of `locality` that the schema cannot express: `loopback` with an `https` `base_url`, with a `credential_key`, or without `executable` and `identity`; `remote` with the protocol `openai_chat`, with an `http` `base_url`, without a `credential_key`, or with an `executable`, `identity`, or `update_evidence`.
 
+* *Loopback here; the remote form elsewhere*: this part admits the members of the protocol `system_one` and of the remote
+  form in the schema and refuses a profile that uses them until link:04-judgment-endpoint.adoc[the judgment endpoint]
+  implements them, which owns them from then on.
+
 [#endpoint-request]
 === The Request
 
-A task of a `zero_tool` role on an endpoint harness is one HTTP request, composed by the server:
-
-* *What it sends*: the launch prompt of a `zero_tool` worker (link:../model-work/04-worker-launch.adoc[Model Work Specification, Worker Launch]) as the system message and the task input as the user message; the model of the role's effective configuration; streaming explicitly off; the role's result schema as the response format where `result_schema` is `enforced` or `advisory`. It sends no `tools` member and no tool choice, whatever the endpoint accepts. Every request value the endpoint has a default for is sent explicitly, so no default of the serving program decides how the task runs.
-* *What fits*: the role's context budget on an endpoint harness is `context_tokens` less `answer_reserve_tokens`, and the batch of a screening (link:../model-work/07-untrusted-text-screening.adoc#batch-v1[Model Work Specification, Batch Format]) is packed to it like an envelope to its budget. A role artifact whose launch prompt alone does not fit is invalid on that harness and counts as undefined (link:../model-work/01-roles-and-configuration.adoc[Model Work Specification, Roles & Configuration]).
-* *What it accepts*: the answer is validated against the result schema by the server, never trusted because the endpoint enforces a schema. An answer that does not validate, a refusal text, an HTTP error, or a timeout ends the attempt like a worker without a valid result, and the task's own rules apply (a screening fails closed and leaves its sources `unscreened`, link:../model-work/07-untrusted-text-screening.adoc#screen-stored[Model Work Specification, Screened Once Stored]). An endpoint that does not answer its readiness check counts as a start failure (link:../model-work/03-supervision-and-recycling.adoc#start-failure-guard[Model Work Specification, Start-Failure Guard]).
-* *Usage*: the token counts of the answer's usage object are recorded per task; a count the answer lacks is `unmeasured` (link:01-profile-schema.adoc#token-usage[Tokens, Not Money]).
+Implemented by `pm-runtime` (link:../../../pm-runtime/doc/developer/runtime-endpoint.adoc#the-request[Endpoint Harness
+Developer Guide]): one HTTP request per task, composed by the server, with the launch prompt as the system message, the
+task input as the user message, streaming explicitly off, no tool, and every request value the endpoint has a default for
+sent explicitly. The answer is validated by the server against the result schema, whatever `result_schema` says; an
+answer that does not validate, a refusal text, an HTTP error and a timeout each end the attempt like a worker without a
+valid result, and the token counts of the answer's `usage` object are recorded per task, a missing count `unmeasured`.
 
 [#endpoint-enrolment]
 === Enrolment
 
-An endpoint harness is enrolled like a harness started as a process (link:../store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas Specification, Harness Enrolment Store]): the absolute path, digest, and version of its serving program, checked against its update evidence when the digest changes. Before each request the runtime checks that the process that owns the listening socket of `base_url` runs the enrolled executable; another program on the port refuses the request before it is sent (fate `refused`, reason `harness_not_enrolled`), so no task text reaches a program that is not the enrolled one.
+Implemented by `pm-runtime`: an endpoint harness is enrolled like a harness started as a process, and before each request
+the runtime checks that the process owning the listening socket of `base_url` runs the enrolled executable; another
+program on the port refuses the request before it is sent (fate `refused`, reason `harness_not_enrolled`).
 
 [#weights-identity]
 === Weights Identity
 _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6: Role Qualification], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation]_
 
-_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-14[PM-WATCH-CLIENT-14]_
-
-The same model name may load different weights: another chip, another operating system build, or a model runner's tag that now points to other weights. Where a profile's `weights_probe` (an endpoint profile's, or `headless.weights_probe` of a client profile) is not `null`, the runtime reads the weights identity of every model the catalogue allows on that harness when the harness is enrolled, at every start of the runtime, and at every project setup run, and records it in the harness enrolment beside the model. The weights identity is a member of the qualification digest (link:../model-work/01-roles-and-configuration.adoc#role-artifact[Model Work Specification, Role Artifact]), so a model whose weights changed is unqualified until it is graded again; the change is audited (`harness_updated`, naming the model and both identities). A harness whose probe is `null` keeps the digest it has: its model name stands for its weights.
+Implemented by `pm-runtime` (link:../../../pm-runtime/doc/developer/runtime-endpoint.adoc#weights-identity[Endpoint
+Harness Developer Guide]): where a profile's `weights_probe` is not `null`, the identity of the weights of every allowed
+model is read at enrolment, at every start of the runtime and at every project setup run, and recorded in the harness
+enrolment beside the model. It is a member of the qualification digest, so a model whose weights changed is unqualified
+until it is graded again, and the change is audited `harness_updated`, naming the model and both identities.
 
 [#endpoint-verification]
 === Verification of an Endpoint
 
-`pm-operator profile verify` and the onboarding's `harness.verify-profile` verify an endpoint draft by the stages that apply to it, decided from what the runtime observes and never from the model's statement (link:01-profile-schema.adoc#profile-verification[Profile Verification]):
-
-[cols="1,4,3"]
-|===
-|Stage |What it does |Profile values it settles
-
-|`identity`
-|Runs the version probe; finds the listening socket of `base_url` and the executable that owns it; reads the models listing and, where declared, the weights identity of each model.
-|`identity`, `executable`, `endpoint.models_path`, `models_pointer`, `weights_probe`
-
-|`launch`
-|Checks readiness, then sends the base task with streaming off and with the result schema; checks that the answer is one JSON document and not an event stream, and that it validates. Sends the same task with a result schema whose answer the task text contradicts, and once without the schema.
-|`endpoint.readiness_path`, `result_schema` (`enforced` when the contradicted schema still holds the answer, `advisory` when it does not, `none` when the request is refused)
-
-|`classes`
-|Sends a task that asks for a tool call and declares a probe tool in a `tools` member, once only for this stage, and checks the answer for a tool call and for the decoy result the task text names. The class `zero_tool` is runnable on an endpoint whatever the answer, because the server never sends tools; an endpoint that answers with an invented tool result is recorded as `tools_ignored` and shown at the profile, so no one wires it to a tool caller.
-|the record only
-
-|`limits`
-|Finds the largest accepted request by bisection between `1024` tokens and the endpoint's refusal, counting with the endpoint's own usage figures.
-|`endpoint.context_tokens`
-|===
-
-A failed `identity` or `launch` stage refuses the draft; `classes` and `limits` record what they found.
+Implemented by `pm-runtime` (link:../../../pm-runtime/doc/developer/runtime-endpoint.adoc#verification[Endpoint Harness
+Developer Guide]): the stages `identity`, `launch`, `classes` and `limits` of `pm-operator profile verify` and of the
+onboarding's `harness.verify-profile`, decided from what the runtime observes. A failed `identity` or `launch` stage
+refuses the draft; `classes` and `limits` record what they found.
