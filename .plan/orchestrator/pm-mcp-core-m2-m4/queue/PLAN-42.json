@@ -2,10 +2,10 @@
   "id": "PLAN-42",
   "slug": "operator-wait-and-machine-scope",
   "workstream": "WS-03",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-42-operator-wait-and-machine-scope",
+  "pr": "#199",
+  "landing": "landings/PLAN-42.md",
   "seq": 42
 }
