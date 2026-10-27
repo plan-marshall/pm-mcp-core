@@ -506,7 +506,7 @@ link:../pm-core/src/test/java/de/planmarshall/core/profile/ShippedUsageFixturesT
 Documentation (the token usage of the work package `token-usage`):
 link:../pm-core/doc/developer/core-store.adoc[Store Developer Guide],
 link:../pm-workflow/doc/developer/workflow-plan.adoc[Plan Composition Developer Guide],
-link:../pm-core/doc/adr/core-store/046-token-split-derived-on-read-and-the-coverage-aggregate.adoc[ADR core-store/046],
+link:../pm-core/doc/adr/core-store/047-token-split-derived-on-read-and-the-coverage-aggregate.adoc[ADR core-store/047],
 link:../pm-workflow/doc/adr/workflow-plan/018-plan-and-epic-token-facts-per-population.adoc[ADR workflow-plan/018]
 
 Verified by (no spend limit): link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java[WorkflowStatusCodecTest],

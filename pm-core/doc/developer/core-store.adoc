@@ -1594,7 +1594,7 @@ population, the refused task, the population refusal, the groupings and `plus`, 
 reports reasoning apart and one whose output already contains it; `UsagePointersTest` covers the parsed figures and the
 three-valued measurement of a turn.
 
-link:../adr/core-store/046-token-split-derived-on-read-and-the-coverage-aggregate.adoc[ADR 046]: the split is derived on
+link:../adr/core-store/047-token-split-derived-on-read-and-the-coverage-aggregate.adoc[ADR 047]: the split is derived on
 read and the aggregate carries its coverage.
 
 == Decisions

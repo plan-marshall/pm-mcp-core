@@ -1,4 +1,4 @@
-= ADR 046: The token split is derived on read and the aggregate carries its coverage
+= ADR 047: The token split is derived on read and the aggregate carries its coverage
 :nofooter:
 
 == Status
