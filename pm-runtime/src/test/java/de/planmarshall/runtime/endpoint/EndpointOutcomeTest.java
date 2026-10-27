@@ -140,6 +140,16 @@ class EndpointOutcomeTest {
     }
 
     @Test
+    @DisplayName("an answer without a choice is no valid answer")
+    void noChoice() {
+        var outcome = EndpointOutcome.accept(answer("{\"choices\":[]}"), SCHEMA);
+
+        assertAll(
+                () -> assertEquals(EndpointOutcome.Fate.ENDED, outcome.fate()),
+                () -> assertEquals(EndpointOutcome.Reason.INVALID_ANSWER, outcome.reason()));
+    }
+
+    @Test
     @DisplayName("a refusal carries the reason and no content")
     void refusedCarriesNoContent() {
         var outcome = EndpointOutcome.refused(EndpointOutcome.Reason.HARNESS_NOT_ENROLLED, "another program listens");

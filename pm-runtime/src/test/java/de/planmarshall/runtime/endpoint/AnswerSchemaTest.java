@@ -124,6 +124,33 @@ class AnswerSchemaTest {
     }
 
     @Test
+    @DisplayName("the closed keywords of the subset are enforced")
+    void keywords() {
+        assertAll(
+                () -> assertTrue(AnswerSchema.validate(parse("{\"const\":\"clean\"}"), parse("\"clean\"")).valid()),
+                () -> assertFalse(AnswerSchema.validate(parse("{\"const\":\"clean\"}"), parse("\"x\"")).valid()),
+                () -> assertFalse(AnswerSchema.validate(parse("{\"type\":\"string\",\"minLength\":3}"),
+                        parse("\"ab\"")).valid()),
+                () -> assertFalse(AnswerSchema.validate(parse("{\"type\":\"string\",\"maxLength\":1}"),
+                        parse("\"ab\"")).valid()),
+                () -> assertFalse(AnswerSchema.validate(parse("{\"type\":\"number\",\"maximum\":1}"),
+                        parse("2")).valid()),
+                () -> assertFalse(AnswerSchema.validate(parse("{\"type\":\"integer\"}"), parse("1.5")).valid()),
+                () -> assertTrue(AnswerSchema.validate(parse("{\"type\":\"boolean\"}"), parse("true")).valid()),
+                () -> assertTrue(AnswerSchema.validate(parse("{\"type\":\"null\"}"), parse("null")).valid()));
+    }
+
+    @Test
+    @DisplayName("an array's items are checked")
+    void arrayItems() {
+        var schema = parse("{\"type\":\"array\",\"items\":{\"type\":\"string\"}}");
+
+        assertAll(
+                () -> assertTrue(AnswerSchema.validate(schema, parse("[\"a\"]")).valid()),
+                () -> assertFalse(AnswerSchema.validate(schema, parse("[1]")).valid()));
+    }
+
+    @Test
     @DisplayName("a deeply nested schema is checked without looping")
     void depthGuard() {
         var nested = "{\"type\":\"object\"}";

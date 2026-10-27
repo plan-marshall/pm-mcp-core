@@ -134,6 +134,50 @@ class EndpointVerificationTest {
     }
 
     @Test
+    @DisplayName("an endpoint that answers the tool probe with a tool call is recorded as answering one")
+    void toolCallAnswered() {
+        server.setDispatcher(new Dispatcher() {
+            @Override
+            public MockResponse dispatch(RecordedRequest request) {
+                if (request.getTarget().contains("/models")) {
+                    return new MockResponse.Builder().code(200)
+                            .body("{\"models\":[{\"id\":\"big\",\"digest\":\"abc\"},{\"id\":\"mid\",\"digest\":\"abc\"},"
+                                    + "{\"id\":\"small\",\"digest\":\"abc\"}]}").build();
+                }
+                return new MockResponse.Builder().code(200)
+                        .body("{\"choices\":[{\"message\":{\"content\":\"{}\",\"tool_calls\":[{\"id\":\"1\"}]}}]}")
+                        .build();
+            }
+        });
+
+        var result = verification().verify(EndpointFixtures.profile(base()), "mid", "base task", "task", DECOY, SCHEMA);
+
+        assertAll(
+                () -> assertTrue(result.classes().toolCallAnswered()),
+                () -> assertFalse(result.classes().toolsIgnored()));
+    }
+
+    @Test
+    @DisplayName("a model whose weights identity cannot be read fails the identity stage")
+    void unreadWeightsFailIdentity() {
+        server.setDispatcher(new Dispatcher() {
+            @Override
+            public MockResponse dispatch(RecordedRequest request) {
+                if (request.getTarget().contains("/models")) {
+                    return new MockResponse.Builder().code(200).body("{\"models\":[]}").build();
+                }
+                return new MockResponse.Builder().code(200).body(ANSWER).build();
+            }
+        });
+
+        var result = verification().verify(EndpointFixtures.profile(base()), "mid", "base task", "task", DECOY, SCHEMA);
+
+        assertAll(
+                () -> assertFalse(result.identity().passed()),
+                () -> assertTrue(result.refusesDraft()));
+    }
+
+    @Test
     @DisplayName("a failed identity refuses the draft")
     void failedIdentityRefusesDraft() {
         var verification = new EndpointVerification(new EndpointClient(),

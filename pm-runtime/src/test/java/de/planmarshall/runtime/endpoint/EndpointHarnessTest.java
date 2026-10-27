@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.mockwebserver.EnableMockWebServer;
@@ -157,6 +158,36 @@ class EndpointHarnessTest {
         var harness = new EndpointHarness(new EndpointClient(), owner(enrolled.executablePath().toString()));
 
         assertTrue(harness.ready(EndpointFixtures.profile(base())));
+    }
+
+    @Test
+    @DisplayName("a readiness check that does not answer a success status is not ready")
+    void notReady() {
+        server.setDispatcher(new Dispatcher() {
+            @Override
+            public MockResponse dispatch(RecordedRequest request) {
+                return new MockResponse.Builder().code(503).body("{}").build();
+            }
+        });
+        var enrolled = EndpointFixtures.enrolment();
+        var harness = new EndpointHarness(new EndpointClient(), owner(enrolled.executablePath().toString()));
+
+        assertFalse(harness.ready(EndpointFixtures.profile(base())));
+    }
+
+    @Test
+    @DisplayName("a models listing that cannot be read is no listing")
+    void unreadableListing() {
+        server.setDispatcher(new Dispatcher() {
+            @Override
+            public MockResponse dispatch(RecordedRequest request) {
+                return new MockResponse.Builder().code(500).body("not json").build();
+            }
+        });
+        var enrolled = EndpointFixtures.enrolment();
+        var harness = new EndpointHarness(new EndpointClient(), owner(enrolled.executablePath().toString()));
+
+        assertNull(harness.listing(EndpointFixtures.profile(base())));
     }
 
     @Test
