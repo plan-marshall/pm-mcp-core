@@ -75,14 +75,36 @@ ends unsubmitted.
 Guard:: Table test per harness with a declared `tool_result_limit_chars` over task inputs below, at, and above the
 limit (8 000, 32 000, 128 000 characters): no tool result the server returns exceeds the limit, the task id and the
 `ack` link are in the first part of every offer, and the worker completes the task by reading the parts as
-resources; negative control: with the limit unset the largest input reproduces the loss; the exact threshold of
-`opencode` is measured and replaces the provisional `32000`; a profile with a limit and no `resource_tools` is
+resources; negative control: with the limit unset the largest input reproduces the loss; `opencode` sets its own limit
+through its inline settings, and the table runs with them; a profile with a limit and no `resource_tools` is
 refused.
 Fixture:: OpenCode 1.18.34: 8 000 and 32 000 characters completed, 128 000 failed ("…128402 bytes truncated…",
 full output saved under `~/.local/share/opencode/tool-output/`); the worker's `pull_ack` calls with the guessed ids
 `h128000`, `128000`, `gate13` and a `pull_submit` with `task_id` `test` were all refused, and it ended with
 `{"task_id":"unknown"}`. Claude Code 2.1.291 completed all three sizes.
 Source:: link:../../../plan-marshall-documentation/doc/specification/evaluation.adoc#results[Evaluation Reference], Gate 13.
+
+[#PM-WATCH-CLIENT-17]
+=== PM-WATCH-CLIENT-17: An inline setting the harness accepts is not one it applies
+
+Anchor:: link:../specification/client-profiles/01-profile-schema.adoc#headless-inline-settings[Client Profiles § Inline Settings],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]
+Hazard:: A harness reads its configuration leniently: a key of an older configuration version is migrated with a
+warning or dropped, an unknown key is ignored, a setting under a provider id that is not the model's provider applies to
+nothing, and a harness release renames a key. The launch still succeeds, so a check of acceptance passes while the
+worker runs with the harness's defaults: code mode hides the server's tool calls from the output stream, a compaction
+the server cannot see changes the worker's context, a result is cut at the default limit below the declared one, and a
+hung model request outlasts the silence limit by the default timeouts and their retries.
+Guard:: The verification checks the effect of every key of `inline_settings`, never its acceptance: a call of a server
+tool appears as a `tool_use` line of its own under the tool's direct name; a task that fills the context past the
+harness's compaction point shows no compaction and ends by the context limit or by recycling; a result just below the
+declared limit with more lines than the default line limit arrives whole; a stub provider that never sends headers ends
+the worker by its exit before the silence limit, retries included, while a stub reasoning model that streams after a
+pause shorter than the chunk timeout completes. Matched control per key: the same check without the setting reproduces
+the default. A changed configuration format of a new harness version fails the stage, not a worker.
+Source:: Article analysis `opencode-2-1` of plan-marshall-documentation (OpenCode 2.x defaults read from its source at
+`7b1e54a`: code mode on, compaction keeping the last 15,000 tokens, 50 KiB and 2,000 lines, 300 s and 900 s with three
+retries after a timeout).
 
 == On-the-Fly Placeholder Rendering Rules
 
