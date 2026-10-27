@@ -285,35 +285,42 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
                 object(entry, entryPointer, "start_context entry", Set.of("class", "model", "tokens"));
                 var workerClass = string(entry, entryPointer + "/class", "class");
                 var model = string(entry, entryPointer + "/model", "model");
-                if (!harnessModels.contains(model)) {
-                    throw ProfileRefusal.recordInvalid(document, entryPointer + "/model",
-                            "the model is not listed in '/harness/models'");
-                }
-                var tokens = entry.member("tokens").orElse(null);
-                if (tokens == null) {
-                    throw ProfileRefusal.recordInvalid(document, entryPointer + PTR_TOKENS,
-                            "the member 'tokens' of a start_context entry is missing");
-                }
-                final OptionalLong value;
-                if (tokens.isInteger()) {
-                    if (tokens.integerValue().orElseThrow() < 0) {
-                        throw ProfileRefusal.recordInvalid(document, entryPointer + PTR_TOKENS,
-                                "'tokens' must not be negative");
-                    }
-                    value = OptionalLong.of(tokens.integerValue().orElseThrow());
-                } else if (tokens.isString() && "unmeasured".equals(tokens.text().orElseThrow())) {
-                    value = OptionalLong.empty();
-                } else {
-                    throw ProfileRefusal.recordInvalid(document, entryPointer + PTR_TOKENS,
-                            "'tokens' must be an integer or 'unmeasured'");
-                }
+                requireListedModel(model, harnessModels, entryPointer);
                 try {
-                    contexts.add(new ProfileStages.StartContext(workerClass, model, value));
+                    contexts.add(new ProfileStages.StartContext(workerClass, model,
+                            tokens(entry, entryPointer)));
                 } catch (IllegalArgumentException e) {
                     throw ProfileRefusal.recordInvalid(document, entryPointer, e.getMessage());
                 }
             }
             return List.copyOf(contexts);
+        }
+
+        private void requireListedModel(String model, List<String> harnessModels, String entryPointer) {
+            if (!harnessModels.contains(model)) {
+                throw ProfileRefusal.recordInvalid(document, entryPointer + "/model",
+                        "the model is not listed in '/harness/models'");
+            }
+        }
+
+        private OptionalLong tokens(JsonNode entry, String entryPointer) {
+            var tokens = entry.member("tokens").orElse(null);
+            if (tokens == null) {
+                throw ProfileRefusal.recordInvalid(document, entryPointer + PTR_TOKENS,
+                        "the member 'tokens' of a start_context entry is missing");
+            }
+            if (tokens.isInteger()) {
+                if (tokens.integerValue().orElseThrow() < 0) {
+                    throw ProfileRefusal.recordInvalid(document, entryPointer + PTR_TOKENS,
+                            "'tokens' must not be negative");
+                }
+                return OptionalLong.of(tokens.integerValue().orElseThrow());
+            }
+            if (tokens.isString() && "unmeasured".equals(tokens.text().orElseThrow())) {
+                return OptionalLong.empty();
+            }
+            throw ProfileRefusal.recordInvalid(document, entryPointer + PTR_TOKENS,
+                    "'tokens' must be an integer or 'unmeasured'");
         }
 
         private Map<String, String> results(JsonNode results, String pointer) {
