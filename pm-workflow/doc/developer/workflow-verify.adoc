@@ -7,7 +7,7 @@
 
 Package `de.planmarshall.workflow.verify` implements the static AST verifier and the transition fuzzer for the Workflow Domain-Specific Language (Workflow DSL) of Plan Marshall (PM-IMPL-5, PM-TEST-3).
 The static verifier inspects a parsed `WorkflowDefinition` and its transition graph ahead of execution and reports every violation of the static verification rules it checks.
-A unit has one of the scopes of `WorkflowScope`: `plan`, `epic`, `workspace`, `entity` and `subworkflow`.
+A unit has one of the scopes of `WorkflowScope`: `plan`, `epic`, `workspace`, `machine`, `entity` and `subworkflow`.
 Among the checks are the interface rules and the type check, which compare a unit with the type, the entries and the exits its frontmatter declares (<<interface-rules>>).
 The package also holds the compiled invariants every project-owned unit satisfies and the compiled bounds of the declarations a unit may change (<<_compiled_invariants>>); the loader of the project-owned units in `workflow.unit` runs both.
 

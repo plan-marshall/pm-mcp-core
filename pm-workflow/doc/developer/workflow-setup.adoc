@@ -19,9 +19,10 @@ Operator], item 6).
 `MachineOnboarding`:: The onboarding as the gate reads it from the machine scope's `WorkflowStatus`. It is complete when
 the status rests in `onboard.completed`, or when the `onboard_run` member says `reconfigure`: a later run of one aspect
 is entered from the machine's settings and is only possible after the first run. Its `pendingSteps` are the steps of the
-`onboard_steps` member whose state is not `done`, in their order, and `missingStep()` names the first; `fromStatus`
-refuses a status of another scope and an `onboard_steps` member that is not the array of step objects the schema admits
-(link:../../../doc/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store]).
+`onboard_steps` member whose state is neither `done` nor `skipped`, in their order, and `missingStep()` names the first;
+`fromStatus` refuses a status of another scope and an `onboard_steps` member that is not the array of step objects the
+schema admits (link:../../../doc/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State
+Store]).
 
 `SetupGate`:: The one guard. `decide(act, onboarding)` admits a step of the onboarding itself and an operator verb in
 every state; every start (`START_PLAN`, `START_EPIC`, `START_PROJECT_ONBOARDING`) is refused `machine_not_onboarded`
@@ -36,8 +37,9 @@ not invent a status.
 
 == Invariants
 
-* *Admission is read, never assumed*: only `onboard.completed` or a reconfigure run opens the gate; an unreadable step
-  list names the current state as the missing step.
+* *Admission is read, never assumed*: only `onboard.completed` or a reconfigure run opens the gate; an absent or `null`
+  step list names the current state as the missing step. A present list that is not an array of step objects is refused
+  as unreadable.
 * *The onboarding and the operator stay open*: an incomplete first run never refuses the onboarding's own steps or an
   operator verb.
 * *One status, one scope*: `MachineOnboarding.fromStatus` refuses a status that is not the machine scope's.

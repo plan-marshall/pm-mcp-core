@@ -48,7 +48,8 @@ evaluated (`raiseUndecided`), and the two-valued decision of a result guard over
 `policyLoopBack` and `policyRetry` return `Charge.Granted` with the count raised, or `Charge.Exhausted` with the
 outcome `exhausted` and the status unchanged.
 `EngineEvent`:: The sealed event that resumes a resting state: `JobSettled(jobId, fate)`,
-`TasksSettled(taskOutcomes, evaluatedOutcome)`, `QuestionResolved(questionId, outcome)` and `TimeElapsed(at)`.
+`TasksSettled(taskOutcomes, evaluatedOutcome)`, `QuestionResolved(questionId, outcome)`,
+`OperatorAct(stateId, linkId, parameters)` and `TimeElapsed(at)`.
 `RestingWait`:: What a resting state waits for, derived from the status alone: the `AwaitedEvent` kind, the jobs bound
 to the state (`active_job`, `active_jobs`) and the entities of its queue tasks (`active_tasks`). `accepts(event)`
 decides whether an event is the one the state waits for.

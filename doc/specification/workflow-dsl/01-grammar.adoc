@@ -270,9 +270,8 @@ What the implementation does not cover yet stays specified here:
 [#unit-types]
 === Unit Types
 
-The six types and the rows the implementation checks are described in link:../../../pm-workflow/doc/developer/workflow-ast.adoc#unit-types[Workflow AST Developer Guide § Unit Types]. Not implemented yet, and specified here:
+The six types and the rows the implementation checks are described in link:../../../pm-workflow/doc/developer/workflow-ast.adoc#unit-types[Workflow AST Developer Guide § Unit Types]. The machine unit is the row of the type `system` with `scope machine`: the machine unit `onboarding.pmwf` (<<machine-scope>>), started, with no entries and no exits. Not implemented yet, and specified here:
 
-* *The machine unit*: the row of the type `system` with `scope machine`, the machine unit `onboarding.pmwf` (<<machine-scope>>), started, with no entries and no exits.
 * *Owned and designed units*: which units the operator may own and design is stated with the units (xref:04-ast-node-model.adoc#project-owned-units[Designable Workflow Units, Levels & Compiled Invariants]; xref:04-ast-node-model.adoc#process-designer[Designing a Process]); a unit of type `system`, `task`, or `instance` is never owned, designed, or placed by the operator.
 
 [#interface-rules]

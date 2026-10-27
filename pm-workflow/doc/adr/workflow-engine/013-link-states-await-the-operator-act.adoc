@@ -36,8 +36,8 @@ engine would be untested.
 
 An operator wait is visible as `waiting_for_operator` and never as stalled; the run state stays in the store across a
 restart. The act names the link the operator followed and runs its primitive; a link with free parameters needs a binder
-that reads the operator's submission, which the runtime supplies where it applies the act. The act an engine-owned
-transition that ends the scope needs no engine event.
+that reads the operator's submission, which the runtime supplies where it applies the act. An engine-owned transition
+that ends the scope needs no engine event.
 
 == Source
 
