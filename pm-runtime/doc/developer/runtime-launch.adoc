@@ -199,6 +199,18 @@ enrolment is owed (see § Owed).
   owed by a package there; the runtime's descendant recording, sweep and audit are implemented
   (ADR runtime-launch/003).
 
+== The Usage Report and the Start Context
+_Requirements: link:../../../doc/Traceability.adoc#PM-CLIENT-5[§ PM-CLIENT-5], link:../../../doc/Traceability.adoc#PM-WF-14[§ PM-WF-14]_
+
+`HarnessEnrolment.UsageReport` carries the harness's per-figure usage results and, for a verified profile, the start
+context per class and model: the first-turn input, cache read and cache creation, an integer or `unmeasured`.
+`HarnessEnrolmentStore` reads and writes the optional `start_context` array beside `source` and `figures`, and refuses an
+unknown class or a token value that is neither an integer nor `unmeasured`. The harness list renders the report as
+complete, partial with the missing figures, or not reported, and the start context beside it.
+
+link:../adr/runtime-launch/007-the-usage-report-keeps-the-start-context.adoc[ADR 007]: the usage report kept with an
+enrolment carries the start context.
+
 == Specification
 
 * `doc/specification/model-work/04-worker-launch.adoc`

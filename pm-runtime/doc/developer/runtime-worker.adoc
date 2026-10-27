@@ -589,3 +589,14 @@ link:{req}/12-testing.adoc#PM-TEST-4[PM-TEST-4]
   link:../adr/runtime-worker/007-verification-controls-built-in-runtime-worker.adoc[ADR 007],
   link:../adr/runtime-worker/008-lease-aware-idle-and-idle-yields.adoc[ADR 008],
   link:../adr/runtime-worker/009-transport-notifications-and-the-protocol-adapter.adoc[ADR 009]
+
+== The Turn's Usage Figures
+_Requirements: link:../../../doc/Traceability.adoc#PM-WORK-3[§ PM-WORK-3], link:../../../doc/Traceability.adoc#PM-CLIENT-5[§ PM-CLIENT-5]_
+
+`ActivityEventMapper` reads the usage of a turn through the profile's `headless.usage` pointers: the five token
+components, `tool_uses` and `cost_usd`. A pointer that is absent or resolves to no value is `unmeasured`, the profile's
+`not_applicable` mark is kept, and a cost is kept as the number the harness reports. The usage object of an activity
+entry therefore has seven members; the cost stays recorded data.
+
+link:../adr/runtime-worker/012-the-turn-keeps-tool-uses-and-cost-raw.adoc[ADR 012]: a turn keeps the tool uses and the
+reported cost raw.

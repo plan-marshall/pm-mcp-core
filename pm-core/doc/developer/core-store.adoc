@@ -1561,6 +1561,29 @@ parity check the specification has run ahead of is `@Disabled` with the work pac
   Schemas § Change Ledger Record]
 * Concepts: link:{docs}/concepts/store-integrity.adoc[Concepts § Store Integrity]
 
+== The Token Split and the Usage Aggregate
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-14[PM-WF-14], link:{docs}/Requirements.adoc#PM-WORK-3[PM-WORK-3]_
+
+`HarnessUsage` owns the split every view shows: `tokensIn()` sums input, cache read and cache creation, `tokensOut()`
+sums output and reasoning. A `not_applicable` component counts `0`; an unmeasured one leaves the split unmeasured, so a
+partial sum is never recorded. `totalTokens()` keeps its lower bound of `1`.
+
+`UsageAggregate` is the one aggregate type every view calls, derived on read and never persisted. It carries the total,
+the split, `rows`, `rowsUnmeasured`, `unmeasuredReasons`, `populationCount`, `excluded` and `totalIsFloor`. `of(rows)`
+refuses a set that mixes populations; `byPopulation`, `byPhase`, `byRole`, `byModelAndHarness`, `byCauseClass` and
+`bySpendClass` group the rows; `plus` sums two figures of one population and keeps a floor a floor.
+
+* An empty population has no total; a population with rows always has one, exact or a floor.
+* `totalIsFloor` is true exactly while a row of the population is unmeasured; the constructor refuses any other pair.
+* The split is empty when any row of the population left a component of it unmeasured.
+
+`UsageAggregateTest` covers the sum, the not-applicable component, the unmeasured floor with its reasons, the empty
+population, the refused task, the population refusal, the groupings and `plus`; `UsagePointersTest` covers the split of
+a parsed turn.
+
+link:../adr/core-store/046-token-split-derived-on-read-and-the-coverage-aggregate.adoc[ADR 046]: the split is derived on
+read and the aggregate carries its coverage.
+
 == Decisions
 
 * link:../adr/core-store/001-engine-owned-members-typed-remainder-verbatim.adoc[ADR 001]: only the engine-owned members

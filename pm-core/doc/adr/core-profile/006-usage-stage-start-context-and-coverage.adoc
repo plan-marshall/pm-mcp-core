@@ -1,0 +1,40 @@
+= ADR 006: The usage stage records the start context and derives the usage coverage
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-27.
+
+== Context
+
+What a worker costs before it does anything differs by harness by an order of magnitude, and the harness lists must show
+what each enrolled harness reports of its usage: `complete`, `partial` with the missing figures, or `not_reported`
+(Client Profiles § Tokens, Not Money). The stage `usage` already records each figure `reported`, `not_applicable` or
+`missing` and fails for a pointer that does not resolve; it recorded neither the first-turn cost nor the coverage.
+
+== Decision
+
+`ProfileStages.UsageResult` carries a `StartContext` per class and model the `launch` stage ran: the first-turn input,
+cache read and cache creation, an integer or unmeasured when the first turn does not report them. It derives the
+coverage from the report figures (the cost is recorded data and never part of the report) and names the missing figures.
+The validation refuses a profile that declares `input_tokens`, `output_tokens` or `tool_uses` not applicable, at the
+usage stage. `VerificationRecord.Stage` keeps the `start_context` of the stage in its closed shape.
+
+== Alternatives Considered
+
+Asking a model for its start context was rejected: usage is read from the harness output, never asked from a model.
+Deriving the coverage in each client was rejected because the enrolled harness's report is the one source.
+
+== Consequences
+
+A verified profile's `usage_report` carries the start context for the enrolment store and the lists. A harness whose
+first turn does not report the input figures records it unmeasured; nothing defaults it to `0`.
+
+== Source
+
+Work package `doc/plans/token-usage.adoc`; Client Profiles § Tokens, Not Money (Start Context, Usage report of a
+harness) and § Profile Verification (stage `usage`); Store Schemas § Enrolment Store (`usage_report`).
