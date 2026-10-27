@@ -35,6 +35,7 @@ import de.planmarshall.core.store.ConfinementOutcome;
 import de.planmarshall.core.store.PathConfinement;
 import de.planmarshall.core.store.WorkspaceRoots;
 import de.planmarshall.workflow.ast.OutcomeTransition;
+import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
@@ -71,10 +72,10 @@ import de.planmarshall.workflow.verify.DeclarationBounds;
  * author {@value #RESERVED_AUTHOR} after NFKC normalisation, removal of its format characters, stripping of its
  * surrounding whitespace and case folding is a {@value UnitFinding#AUTHOR_RESERVED} finding at its author line, so a
  * placed unit never passes as a delivered one; a file that declares the identifier
- * of an earlier file, or {@value PlanUnitMerger#PLAN_UNIT}, is a {@value UnitFinding#DUPLICATE_UNIT_ID} finding and
+ * of an earlier file, or {@value Phase#PLAN_UNIT}, is a {@value UnitFinding#DUPLICATE_UNIT_ID} finding and
  * never replaces the earlier unit.</li>
- * <li>Merge the phase files into the plan unit ({@link PlanUnitMerger}) and verify every unit with Rules 1-12, Rule 5
- * excluded: a project unit has no released baseline.</li>
+ * <li>Read the plan unit and its six phase sub-workflows (PM-WF-16) as units of their own — no part is merged into
+ * another — and verify every unit with Rules 1-12, Rule 5 excluded: a project unit has no released baseline.</li>
  * <li>Check the declarations against their compiled bounds ({@link DeclarationBounds}).</li>
  * <li>Build the project roster, the default descriptors of the steps the plan unit completes plus the declared
  * project steps, and run the {@link FinalizePipelineValidator}; a violation is located at the first state completing
@@ -129,7 +130,8 @@ public final class ProjectUnitLoader {
      * @param context       the inputs of the static verifier
      * @param defaultUnits  the verified default units by identifier, the reference of the invariants
      * @param defaultRoster the descriptors of the default finalize steps
-     * @param unitFiles     the names of the project-ownable unit files; a name of {@link PlanUnitMerger#PHASE_FILES}
+     * @param unitFiles     the names of the project-ownable unit files; the plan unit is
+     *                      {@value DefaultUnitLoader#PLAN_FILE}, its phase sub-workflows are further files
      *                      is a part of the plan unit
      * @throws NullPointerException if an argument or an element is {@code null}
      */
@@ -160,7 +162,7 @@ public final class ProjectUnitLoader {
         var bound = Set.copyOf(boundStepIds);
         var findings = new ArrayList<UnitFinding>();
         var units = parseUnits(roots, findings);
-        var subUnits = units.values().stream().filter(unit -> !PlanUnitMerger.PLAN_UNIT.equals(unit.id())).toList();
+        var subUnits = units.values().stream().filter(unit -> !Phase.PLAN_UNIT.equals(unit.id())).toList();
         var invariants = new CompiledInvariants(context.registry(), defaultUnits.values(), defaultRoster,
                 CompiledInvariants.Subject.PROJECT_REPLACEMENT);
         for (var unit : units.values()) {
@@ -170,7 +172,7 @@ public final class ProjectUnitLoader {
             DeclarationBounds.check(unit).forEach(finding -> findings.add(UnitFinding.at(
                     UnitFinding.Kind.DECLARATION, finding.code(), finding.location(),
                     "'%s' (bound %s): %s".formatted(finding.name(), finding.bound(), finding.message()))));
-            var pipeline = PlanUnitMerger.PLAN_UNIT.equals(unit.id())
+            var pipeline = Phase.PLAN_UNIT.equals(unit.id())
                     ? FinalizePipelineValidator.validate(roster(unit, steps)) : List.<PipelineViolation>of();
             pipeline.forEach(violation -> findings.add(UnitFinding.at(UnitFinding.Kind.PIPELINE,
                     violation.rule().name(), completingStateOrHeader(unit, violation.stepName()),
@@ -179,7 +181,7 @@ public final class ProjectUnitLoader {
                     .filter(violation -> !CompiledInvariants.reReports(violation, unit, rules))
                     .forEach(violation -> findings.add(UnitFinding.at(UnitFinding.Kind.INVARIANT,
                             violation.id().wireId(), violation.location(), violation.message())));
-            if (PlanUnitMerger.PLAN_UNIT.equals(unit.id())) {
+            if (Phase.PLAN_UNIT.equals(unit.id())) {
                 checkProjectSteps(unit, steps, bound, findings);
             }
         }
@@ -193,31 +195,23 @@ public final class ProjectUnitLoader {
     }
 
     /**
-     * Stages 1 to 3 up to the merge: reads, parses and format-checks every file and merges the phase files.
+     * Stages 1 to 3: reads, parses and format-checks every file. The plan unit is its own file; its six phase
+     * sub-workflows are ordinary sub-workflow units beside it (PM-WF-16), each read on its own.
      *
      * @return the units that passed, the plan unit first
      */
     private Map<String, WorkflowDefinition> parseUnits(WorkspaceRoots roots, List<UnitFinding> findings) {
-        var parts = new LinkedHashMap<String, WorkflowDefinition>();
         var subUnits = new LinkedHashMap<String, WorkflowDefinition>();
-        var planFile = CONFIG_DIRECTORY + PlanUnitMerger.PHASE_FILES.getFirst();
+        var planFile = CONFIG_DIRECTORY + DefaultUnitLoader.PLAN_FILE;
         for (var file : unitFiles) {
             var path = CONFIG_DIRECTORY + file;
-            read(roots, path, findings).flatMap(source -> parse(path, source, findings)).ifPresent(unit -> {
-                if (PlanUnitMerger.PHASE_FILES.contains(file)) {
-                    parts.put(file, unit);
-                } else {
-                    UnitFinding.putUnique(subUnits, unit, planFile, findings);
-                }
-            });
+            read(roots, path, findings).flatMap(source -> parse(path, source, findings))
+                    .ifPresent(unit -> UnitFinding.putUnique(subUnits, unit, planFile, findings));
         }
         var units = new LinkedHashMap<String, WorkflowDefinition>();
-        var planFiles = unitFiles.stream().filter(PlanUnitMerger.PHASE_FILES::contains).toList();
-        if (!planFiles.isEmpty() && parts.size() == planFiles.size()) {
-            var ordered = PlanUnitMerger.PHASE_FILES.stream().filter(parts::containsKey).map(parts::get).toList();
-            var merge = PlanUnitMerger.merge(ordered);
-            findings.addAll(merge.findings());
-            merge.unit().ifPresent(plan -> units.put(plan.id(), plan));
+        var plan = subUnits.remove(Phase.PLAN_UNIT);
+        if (plan != null) {
+            units.put(plan.id(), plan);
         }
         units.putAll(subUnits);
         return units;

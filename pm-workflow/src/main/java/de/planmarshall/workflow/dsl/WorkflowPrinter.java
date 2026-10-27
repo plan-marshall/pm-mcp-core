@@ -161,7 +161,6 @@ public final class WorkflowPrinter {
         state.terminalOutcome().ifPresent(outcome -> header.append(" terminal ").append(outcome.id()).append(' ')
                 .append(lower(outcome.outcomeClass())));
         line(0, header.toString());
-        line(1, "phase " + state.phase());
         state.skillPath().ifPresent(path -> line(1, "skill " + path));
         state.factsPrimitiveId().ifPresent(primitive -> line(1, "facts " + primitive));
         printBehavior(state.behavior());

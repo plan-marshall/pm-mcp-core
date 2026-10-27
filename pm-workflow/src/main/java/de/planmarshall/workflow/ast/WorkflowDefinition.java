@@ -36,7 +36,6 @@ import java.util.stream.Stream;
  * @param instance      the parsed {@code instance} header line of a plan instance version
  * @param declarations  the {@code declare} lines by name, each with its value and the line it was read at
  * @param decisions     the {@code decide} lines by decision kind; only in the unit {@code adjudicate.decisions}
- * @param partVersions  the version of every part file of the merged plan unit; empty otherwise
  * @param formatVersion the DSL format every file of the unit declares
  * @param origin        whether the unit is compiled into the binary or owned by the project
  * @param derivedFrom   the default revision per file a project unit derives from; empty for a default unit
@@ -57,7 +56,6 @@ Optional<String> resultSchema,
 Optional<InstanceHeader> instance,
 Map<String, ValueDeclaration> declarations,
 Map<String, DecisionDeclaration> decisions,
-Map<String, Integer> partVersions,
 int formatVersion,
 UnitOrigin origin,
 Map<String, Integer> derivedFrom,
@@ -79,7 +77,6 @@ SourceLocation location) {
      * @param instance      the parsed instance header line
      * @param declarations  the {@code declare} lines by name, each with its value and line
      * @param decisions     the {@code decide} lines by decision kind
-     * @param partVersions  the version of every part file
      * @param formatVersion the DSL format
      * @param origin        the origin of the unit
      * @param derivedFrom   the default revision per file
@@ -93,7 +90,6 @@ SourceLocation location) {
         params = List.copyOf(params);
         declarations = Collections.unmodifiableMap(new LinkedHashMap<>(declarations));
         decisions = Collections.unmodifiableMap(new LinkedHashMap<>(decisions));
-        partVersions = Collections.unmodifiableMap(new LinkedHashMap<>(partVersions));
         derivedFrom = Collections.unmodifiableMap(new LinkedHashMap<>(derivedFrom));
         entryBindings = Collections.unmodifiableMap(new LinkedHashMap<>(entryBindings));
         migrations = List.copyOf(migrations);

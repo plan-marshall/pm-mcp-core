@@ -106,7 +106,6 @@ public final class WorkflowParser {
     private static final String KEYWORD_ENTRY = "entry";
     private static final String KEYWORD_RESULT = "result";
     private static final String KEYWORD_DECLARE = "declare";
-    private static final String KEYWORD_INHERIT = "inherit";
     private static final String KEYWORD_COMPOSITE_JOB = "composite_job";
     private static final String KEYWORD_QUESTION = "question";
     private static final String KEYWORD_CONSULT = "consult";
@@ -127,7 +126,7 @@ public final class WorkflowParser {
 
     private static final Set<String> RESERVED_KEYWORDS = Set.of("workflow", "version", "format", "derived_from",
             KEYWORD_SCOPE, "param", KEYWORD_RESULT, KEYWORD_DECLARE, KEYWORD_START, "migrate", KEYWORD_STATE, "terminal",
-            "phase", KEYWORD_INHERIT, "skill", "facts", "auto", "job", KEYWORD_COMPOSITE_JOB, "call", KEYWORD_QUESTION,
+            "skill", "facts", "auto", "job", KEYWORD_COMPOSITE_JOB, "call", KEYWORD_QUESTION,
             KEYWORD_LINK, KEYWORD_GUARD, "depends_on_config", "do", "llm", "role", KEYWORD_EACH, KEYWORD_CONSULT,
             "completes", "as", "and", "or", KEYWORD_NOT, "in_worktree", "has_open_findings", "all_tasks_completed",
             "predicate", "text", KEYWORD_INT, KEYWORD_ENUM, KEYWORD_SCHEMA, KEYWORD_LIST);
@@ -239,7 +238,7 @@ public final class WorkflowParser {
             parseState(states);
         } while (hasLine());
         return new WorkflowDefinition(frontmatter, id, version, scope, params, resultSchema, instance, declarations,
-                decisions, Map.of(), formatVersion, origin, derivedFrom, startState, entryBindings, migrations, states,
+                decisions, formatVersion, origin, derivedFrom, startState, entryBindings, migrations, states,
                 location);
     }
 
@@ -412,23 +411,10 @@ public final class WorkflowParser {
             terminal = Optional.of(new TerminalOutcome(outcome, outcomeClass));
         }
         line.expectEnd();
-        var phase = parsePhase();
         var skillPath = parseSkill();
         var factsPrimitiveId = parseFacts();
         StateBehavior behavior = terminal.isPresent() ? new StateBehavior.TerminalState() : parseBody();
-        states.put(id, new StateNode(id, phase, terminal, skillPath, factsPrimitiveId, behavior, location(keyword)));
-    }
-
-    private String parsePhase() {
-        var line = statement("phase", "the 'phase' clause of the state");
-        String phase;
-        if (line.consumeIf(KEYWORD_INHERIT)) {
-            phase = KEYWORD_INHERIT;
-        } else {
-            phase = identifier(line, "a phase").text();
-        }
-        line.expectEnd();
-        return phase;
+        states.put(id, new StateNode(id, terminal, skillPath, factsPrimitiveId, behavior, location(keyword)));
     }
 
     private Optional<String> parseSkill() {

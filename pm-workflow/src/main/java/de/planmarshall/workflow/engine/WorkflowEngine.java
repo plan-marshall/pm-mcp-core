@@ -24,6 +24,7 @@ import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.InternalFaultException.Reason;
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.JobStarter;
+import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.core.spi.Primitive;
 import de.planmarshall.core.spi.PrimitiveRegistry;
 import de.planmarshall.core.spi.PrimitiveResult;
@@ -45,6 +46,7 @@ import de.planmarshall.workflow.ast.LinkAction;
 import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.OutcomeTransition;
 import de.planmarshall.workflow.ast.ParamSpec;
+import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
@@ -108,24 +110,21 @@ public final class WorkflowEngine {
     /** The transitions one advance may chain at most; a verified unit never comes near it. */
     static final int MAX_CHAIN = 1_000;
 
-    private static final String INHERIT = "inherit";
+    /** The phase of a scope whose unit carries no phase sub-workflow. */
+    private static final String WORKSPACE_PHASE = "workspace";
 
-    /**
-     * The phase of the status store for each phase of the DSL, as the state catalogue maps them; package-private for
-     * the parity test that holds its values to {@code WorkflowStatus.PHASES}.
-     */
-    static final Map<String, String> PHASES = Map.ofEntries(
-            Map.entry("init", "phase-1-init"),
-            Map.entry("refine", "phase-2-refine"),
-            Map.entry("outline", "phase-3-outline"),
-            Map.entry("plan", "phase-4-plan"),
-            Map.entry("execute", "phase-5-execute"),
-            Map.entry("finalize", "phase-6-finalize"),
-            Map.entry("completed", "completed"),
-            Map.entry("aborted", "aborted"),
-            Map.entry("epic", "epic"),
-            Map.entry("workspace", "workspace"),
-            Map.entry("machine", "machine"));
+    private static final String MACHINE_PHASE = "machine";
+
+    private static final String EPIC_PHASE = "epic";
+
+    /** The phase a plan scope opens at, before its first state is entered. */
+    private static final String FIRST_PHASE = "phase-1-init";
+
+    /** The phase of a scope that ended without a failure. */
+    private static final String COMPLETED_PHASE = "completed";
+
+    /** The phase of a scope that ended in a failure. */
+    private static final String ABORTED_PHASE = "aborted";
 
     private final WorkflowDefinition unit;
     private final Map<String, WorkflowDefinition> units;
@@ -234,28 +233,17 @@ public final class WorkflowEngine {
      * @param scopeId   the plan or epic id; {@code null} for the workspace and the machine scope
      * @return the step the start ends in, with the first status of the scope
      * @throws IllegalArgumentException if the unit declares no start state (a unit with entries is called, never
-     *                                  started), the scope does not fit the status store, or the start state inherits
-     *                                  its phase outside the workspace scope
+     *                                  started), or the scope does not fit the status store
      */
     public EngineStep start(JournalScopeType scopeType, String scopeId) {
         var startState = stateOf(unit, unit.startState().orElseThrow(() -> new IllegalArgumentException(
                 "the unit '%s' declares no start state; a unit with entries is called, never started"
                         .formatted(unit.id()))));
-        String phase;
-        if (INHERIT.equals(startState.phase())) {
-            if (scopeType != JournalScopeType.WORKSPACE) {
-                throw new IllegalArgumentException("the start state '%s' inherits a phase the %s scope does not have"
-                        .formatted(startState.id(), scopeType.wireName()));
-            }
-            phase = "workspace";
-        } else {
-            phase = phaseOf(startState.phase());
-        }
         var now = clock.now();
         var status = WorkflowStatus.builder()
                 .scopeType(scopeType)
                 .scopeId(scopeId)
-                .phase(phase)
+                .phase(initialPhase(scopeType))
                 .state(startState.id())
                 .callStack(List.of())
                 .policyCounters(Map.of())
@@ -491,7 +479,8 @@ public final class WorkflowEngine {
     private EngineStep ended(WorkflowStatus status, StateNode terminal) {
         var outcome = terminal.terminalOutcome().orElseThrow(
                 () -> fault(Reason.UNRESOLVED_NAME, "the terminal state '%s' declares no outcome", terminal.id()));
-        return new EngineStep.Ended(status, outcome.id(), outcome.outcomeClass());
+        var phase = outcome.outcomeClass() == OutcomeClass.FAILURE ? ABORTED_PHASE : COMPLETED_PHASE;
+        return new EngineStep.Ended(status.toBuilder().phase(phase).build(), outcome.id(), outcome.outcomeClass());
     }
 
     private EngineStep resting(WorkflowStatus status, StateNode node) {
@@ -556,12 +545,58 @@ public final class WorkflowEngine {
         return ((LinkAction.ExecutePrimitive) link.action()).primitiveId();
     }
 
-    private static String phaseOf(String dslPhase) {
-        var phase = PHASES.get(dslPhase);
-        if (phase == null) {
-            throw fault(Reason.UNRESOLVED_NAME, "the phase '%s' has no value in the status store", dslPhase);
+    /**
+     * The phase a scope opens at, before its first state is entered: the scope's own phase for the scope types that
+     * carry one, and the first plan phase otherwise. {@code enter} derives the phase of the state actually reached.
+     */
+    private static String initialPhase(JournalScopeType scopeType) {
+        return switch (scopeType) {
+            case WORKSPACE -> WORKSPACE_PHASE;
+            case MACHINE -> MACHINE_PHASE;
+            case EPIC -> EPIC_PHASE;
+            case PLAN -> FIRST_PHASE;
+            case LESSONS -> throw new IllegalArgumentException("the lesson store has no status document");
+        };
+    }
+
+    /**
+     * The phase of the state about to be current (PM-WF-16): the phase sub-workflow on the call stack, else the phase
+     * unit the current unit itself is, else the phase the plan unit's call state {@code phases.<name>} names, else the
+     * scope's own phase. No unit and no state declares a phase of its own.
+     *
+     * @param currentUnit the unit the state belongs to
+     * @param stateId     the identifier of the state
+     * @param stack       the call stack at the state
+     * @param previous    the phase the scope carried before, the last fallback of a plan scope
+     */
+    private static String phaseOf(WorkflowDefinition currentUnit, String stateId, CallStack stack, String previous) {
+        for (var frame : stack.unwound()) {
+            var phase = Phase.ofUnit(frame.subWorkflowId());
+            if (phase.isPresent()) {
+                return phase.get().wireName();
+            }
         }
-        return phase;
+        var unitPhase = Phase.ofUnit(currentUnit.id());
+        if (unitPhase.isPresent()) {
+            return unitPhase.get().wireName();
+        }
+        var callStatePhase = Phase.ofCallState(stateId);
+        if (callStatePhase.isPresent()) {
+            return callStatePhase.get().wireName();
+        }
+        return previous;
+    }
+
+    private static String phaseOf(WorkflowDefinition currentUnit, String stateId, CallStack stack,
+            WorkflowStatus status) {
+        var scopePhase = switch (status.scopeType()) {
+            case WORKSPACE -> WORKSPACE_PHASE;
+            case MACHINE -> MACHINE_PHASE;
+            case EPIC -> EPIC_PHASE;
+            case PLAN -> status.phase();
+            case LESSONS -> throw new IllegalArgumentException("the lesson store has no status document");
+        };
+        return phaseOf(currentUnit, stateId, stack, scopePhase);
     }
 
     private static InternalFaultException fault(Reason reason, String message, Object... names) {
@@ -716,7 +751,7 @@ public final class WorkflowEngine {
 
         /** Makes the state current: its phase applies, and the bindings of the state left are cleared. */
         private void enter(StateNode node) {
-            var phase = INHERIT.equals(node.phase()) ? status.phase() : phaseOf(node.phase());
+            var phase = phaseOf(unitOf(stack), node.id(), stack, status);
             status = status.toBuilder()
                     .state(node.id())
                     .phase(phase)
@@ -766,7 +801,7 @@ public final class WorkflowEngine {
         private String call(StateNode node, StateBehavior.SubWorkflowCall call) {
             var callee = verifiedUnit(call.subWorkflowId());
             var entry = entryOf(callee, call);
-            var frame = new CallFrame(unitOf(stack).id(), node.id(), status.phase(), callee.id(), entry,
+            var frame = new CallFrame(unitOf(stack).id(), node.id(), callee.id(), entry,
                     call.paramBindings(), clock.now().toString());
             stack = stack.push(frame);
             results.push(new LinkedHashMap<>());
@@ -806,12 +841,12 @@ public final class WorkflowEngine {
             var result = results.pop();
             stack = popped.remaining();
             var frame = popped.frame();
+            var caller = stateOf(unitOf(stack), frame.callerStateId());
             status = status.toBuilder()
-                    .phase(frame.callerPhase())
+                    .phase(phaseOf(unitOf(stack), caller.id(), stack, status))
                     .callStack(stack.toStore())
                     .retryCounters(clearedFor(status.retryCounters(), callee))
                     .build();
-            var caller = stateOf(unitOf(stack), frame.callerStateId());
             if (!(caller.behavior() instanceof StateBehavior.SubWorkflowCall call)) {
                 throw fault(Reason.UNRESOLVED_NAME, "the calling state '%s' of the frame is no call state",
                         caller.id());

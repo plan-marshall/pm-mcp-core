@@ -83,7 +83,7 @@ Instant updatedAt,
 Map<String, String> retained) {
 
     /** The deepest call stack the schema admits. */
-    public static final int MAX_CALL_DEPTH = 4;
+    public static final int MAX_CALL_DEPTH = 5;
 
     /** The phases of the schema. */
     public static final Set<String> PHASES = Set.of("phase-1-init", "phase-2-refine", "phase-3-outline",
@@ -185,7 +185,6 @@ Map<String, String> retained) {
      *
      * @param callerWorkflowId the workflow that called
      * @param callerStateId    the calling state, whose transition the return selects
-     * @param callerPhase      the phase of the calling state
      * @param subworkflowId    the called sub-workflow
      * @param entry            the entry of the called sub-workflow the call went through (PM-WF-16); for a phase
      *                         sub-workflow the point at which the phase is entered
@@ -193,7 +192,7 @@ Map<String, String> retained) {
      * @param pushedAt         the instant of the push
      * @since 0.1
      */
-    public record CallFrame(String callerWorkflowId, String callerStateId, String callerPhase, String subworkflowId,
+    public record CallFrame(String callerWorkflowId, String callerStateId, String subworkflowId,
     String entry, Map<String, BoundArg> boundArgs, Instant pushedAt) {
 
         /**
@@ -203,7 +202,6 @@ Map<String, String> retained) {
         public CallFrame {
             requireNonBlank(callerWorkflowId, "caller_workflow_id");
             requireNonBlank(callerStateId, "caller_state_id");
-            requireNonBlank(callerPhase, "caller_phase");
             requireNonBlank(subworkflowId, "subworkflow_id");
             requireNonBlank(entry, "entry");
             boundArgs = orderedCopy(boundArgs, "boundArgs", (name, arg) -> requireNonBlank(name, "bound_args key"));

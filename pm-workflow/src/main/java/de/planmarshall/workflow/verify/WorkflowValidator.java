@@ -1096,13 +1096,6 @@ public final class WorkflowValidator {
                             "the terminal '%s' declares the outcome 'stepped_out' with the class %s; only a terminal of class STEPPED_OUT declares it"
                                     .formatted(state.id(), outcome.outcomeClass()))));
 
-            if ("inherit".equals(state.phase()) && definition.scope() != WorkflowScope.SUBWORKFLOW
-                    && definition.scope() != WorkflowScope.ENTITY) {
-                violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(), state.location(),
-                        "the state '%s' declares 'phase inherit', which is admitted only in sub-workflow and entity units"
-                                .formatted(state.id())));
-            }
-
             if (definition.scope() == WorkflowScope.SUBWORKFLOW
                     && state.behavior() instanceof StateBehavior.InteractiveLinks links && !links.links().isEmpty()
                     && state.skillPath().isEmpty()) {
@@ -1409,11 +1402,11 @@ public final class WorkflowValidator {
                     "the sub-workflow call graph contains a cycle: %s".formatted(String.join(" -> ", cyclePath))));
             return;
         }
-        if (callStack.size() >= 5) {
+        if (callStack.size() >= 6) {
             var depthPath = new ArrayList<>(callStack);
             depthPath.add(calleeId);
             violations.add(new Violation(VerificationRule.CALL_GRAPH_DAG, rootState.id(), rootState.location(),
-                    "the sub-workflow call stack exceeds the maximum depth 4: %s".formatted(String.join(" -> ", depthPath))));
+                    "the sub-workflow call stack exceeds the maximum depth 5: %s".formatted(String.join(" -> ", depthPath))));
             return;
         }
         var calleeOpt = catalog.find(calleeId);
