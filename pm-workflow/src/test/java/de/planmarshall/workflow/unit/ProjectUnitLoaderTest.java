@@ -47,6 +47,7 @@ import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
 import de.planmarshall.core.store.ConfinementOutcome;
+import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.dsl.ParseResult;
 import de.planmarshall.workflow.dsl.RefusalRule;
@@ -121,8 +122,10 @@ class ProjectUnitLoaderTest {
 
             assertAll(
                     () -> assertTrue(result.isVerified(), result.findings()::toString),
-                    () -> assertEquals(List.of(PlanUnitMerger.PLAN_UNIT, "adjudicate.decisions", "replan",
-                                    "git.commit_and_push", "remediation.qgate-findings"),
+                    () -> assertEquals(List.of(Phase.PLAN_UNIT, "phase-1-init", "phase-2-refine", "phase-3-outline",
+                                    "phase-4-plan", "phase-5-execute", "land", "phase-6-finalize",
+                                    "adjudicate.decisions", "replan", "git.commit_and_push",
+                                    "remediation.qgate-findings"),
                             List.copyOf(result.units().keySet())),
                     () -> assertEquals(Optional.empty(), result.refusal()),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
@@ -135,11 +138,12 @@ class ProjectUnitLoaderTest {
         @DisplayName("parses every unit as a project unit, named by its path below the project")
         void projectOrigin() {
             var units = load().units();
-            var plan = units.get(PlanUnitMerger.PLAN_UNIT);
+            var plan = units.get(Phase.PLAN_UNIT);
 
             assertAll(
                     () -> units.values().forEach(unit -> assertEquals(UnitOrigin.PROJECT, unit.origin(), unit::id)),
-                    () -> assertEquals(configPath("init.pmwf"), plan.location().resourceName()),
+                    () -> assertEquals(configPath("plan.pmwf"), plan.location().resourceName()),
+                    () -> assertEquals(configPath("init.pmwf"), units.get("phase-1-init").location().resourceName()),
                     () -> assertEquals(configPath(InvariantFixtures.REPLAN_FILE),
                             units.get("replan").location().resourceName()));
         }
@@ -447,9 +451,8 @@ class ProjectUnitLoaderTest {
             var finding = assertRefused(result, UnitFinding.Kind.RULE, UnitFinding.DUPLICATE_UNIT_ID,
                     configPath(mutation.file()), mutation.lineOf(UnitFixtures.PLAN_HEADER));
             assertAll(
-                    () -> assertTrue(finding.message().contains("'" + PlanUnitMerger.PLAN_UNIT + "'"),
-                            finding::message),
-                    () -> assertTrue(finding.message().contains(configPath("init.pmwf")), finding::message),
+                    () -> assertTrue(finding.message().contains("'" + Phase.PLAN_UNIT + "'"), finding::message),
+                    () -> assertTrue(finding.message().contains(configPath("plan.pmwf")), finding::message),
                     () -> assertTrue(finding.message().contains(configPath(mutation.file())), finding::message));
         }
     }

@@ -9,7 +9,9 @@
  */
 package de.planmarshall.workflow.verify;
 
+import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -100,7 +102,7 @@ final class FinalizeInvariants {
     }
 
     private static void mandatorySteps(Context context) {
-        var completed = completedSteps(context.unit());
+        var completed = completedSteps(context.allEdges());
         context.defaultRoster().stream()
                 .filter(FinalizeInvariants::isMandatory)
                 .map(FinalizeStepDescriptor::name)
@@ -113,10 +115,9 @@ final class FinalizeInvariants {
         return step.lane().map(lane -> MANDATORY_LANE_CLASSES.contains(lane.laneClass())).orElse(false);
     }
 
-    private static Set<String> completedSteps(WorkflowDefinition definition) {
+    private static Set<String> completedSteps(List<CompiledInvariants.Edge> edges) {
         var steps = new LinkedHashSet<String>();
-        Context.edges(definition)
-                .forEach(edge -> edge.transition().completions().forEach(completion -> steps.add(completion.stepId())));
+        edges.forEach(edge -> edge.transition().completions().forEach(completion -> steps.add(completion.stepId())));
         return steps;
     }
 
@@ -125,8 +126,8 @@ final class FinalizeInvariants {
      * @param step       the identifier of a finalize step
      * @return the first state, in declaration order, with a transition that completes the step
      */
-    static Optional<StateNode> firstCompletingState(WorkflowDefinition definition, String step) {
-        return definition.states().values().stream()
+    static Optional<StateNode> firstCompletingState(Collection<StateNode> states, String step) {
+        return states.stream()
                 .filter(state -> Context.transitions(state).stream().anyMatch(transition -> transition.completions()
                         .stream().anyMatch(completion -> step.equals(completion.stepId()))))
                 .findFirst();
@@ -136,7 +137,7 @@ final class FinalizeInvariants {
         for (var violation : context.pipeline()) {
             var message = "rule %d (%s) of the step '%s': %s".formatted(violation.rule().specificationRule(),
                     violation.rule(), violation.stepName(), violation.message());
-            firstCompletingState(context.unit(), violation.stepName()).ifPresentOrElse(
+            firstCompletingState(context.states(), violation.stepName()).ifPresentOrElse(
                     state -> context.reportState(InvariantId.INV_FIN_2, state, message),
                     () -> context.reportUnit(InvariantId.INV_FIN_2, message));
         }
@@ -178,7 +179,7 @@ final class FinalizeInvariants {
      *         barrier excluded, in declaration order
      */
     private static Set<Optional<CallValue>> prePullRequestModes(Context context) {
-        return context.reference().states().values().stream()
+        return context.referenceStates().stream()
                 .filter(state -> isCommitCall(state) && !PUSH_BARRIER.equals(state.id())
                         && !context.referenceDominates(CREATE_PR, state.id()))
                 .map(FinalizeInvariants::pushMode)
@@ -246,7 +247,7 @@ final class FinalizeInvariants {
 
     private static void cleanupFallbackAndLanding(Context context) {
         var id = InvariantId.INV_FIN_6;
-        for (var edge : Context.edges(context.unit())) {
+        for (var edge : context.allEdges()) {
             var source = edge.source();
             var transition = edge.transition();
             if (MERGED.equals(transition.outcomeName()) && !ARCHIVE_PLAN.equals(source.id())
@@ -256,8 +257,8 @@ final class FinalizeInvariants {
                         .formatted(MERGED, source.id(), BRANCH_CLEANUP));
             }
             var lateCall = source.behavior() instanceof StateBehavior.SubWorkflowCall
-                    && (CompiledInvariants.PHASE_EXECUTE.contains(source.phase())
-                    || CompiledInvariants.PHASE_FINALIZE.equals(source.phase()));
+                    && context.inAnyPhase(source, Set.of(CompiledInvariants.PHASE_EXECUTE,
+                            CompiledInvariants.PHASE_FINALIZE));
             if (lateCall && CompiledInvariants.STEPPED_OUT.equals(transition.outcomeName())
                     && !CompiledInvariants.HAND_BACK.equals(transition.targetStateId())) {
                 context.reportTransition(id, source, transition, "the call state '%s' routes '%s' to '%s', not to '%s'"
@@ -269,8 +270,8 @@ final class FinalizeInvariants {
                         .formatted(source.id(), transition.targetStateId(), ARCHIVE_PLAN));
             }
         }
-        if (completedSteps(context.reference()).contains(EMIT_LANDING)
-                && !completedSteps(context.unit()).contains(EMIT_LANDING)) {
+        if (completedSteps(context.referenceEdges()).contains(EMIT_LANDING)
+                && !completedSteps(context.allEdges()).contains(EMIT_LANDING)) {
             context.reportUnit(id, "the step '%s' is completed by no transition".formatted(EMIT_LANDING));
         }
     }

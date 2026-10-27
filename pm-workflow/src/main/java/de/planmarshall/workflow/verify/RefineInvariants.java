@@ -64,8 +64,9 @@ final class RefineInvariants {
         for (var required : List.of(LaneEntryIds.DEEP_ENTRY, ANALYZE)) {
             context.requirePresent(id, required);
             var known = new LinkedHashSet<String>();
-            exitsAvoiding(context.reference(), context.referenceGraph(), required).forEach(edge -> known.add(edge.key()));
-            for (var edge : exitsAvoiding(context.unit(), context.graph(), required)) {
+            exitsAvoiding(context, context.referenceStateMap(), context.referenceGraph(), required)
+                    .forEach(edge -> known.add(edge.key()));
+            for (var edge : exitsAvoiding(context, context.stateMap(), context.graph(), required)) {
                 if (!known.contains(edge.key())) {
                     context.reportTransition(id, edge.source(), edge.transition(),
                             "the transition '%s' -> '%s' leaves the refine phase on a path that does not pass '%s'"
@@ -75,10 +76,10 @@ final class RefineInvariants {
             }
         }
         if (context.requirePresent(id, QGATE)) {
-            for (var edge : Context.edges(context.reference())) {
+            for (var edge : context.referenceEdges()) {
                 var transition = edge.transition();
-                if (QGATE.equals(transition.targetStateId()) && !Context.hasTransition(context.unit(),
-                        edge.source().id(), transition.outcomeName(), QGATE)) {
+                if (QGATE.equals(transition.targetStateId()) && !context.hasTransition(edge.source().id(),
+                        transition.outcomeName(), QGATE)) {
                     context.reportUnit(id, "the transition '%s' of '%s' into '%s' of the default unit is missing"
                             .formatted(transition.outcomeName(), edge.source().id(), QGATE));
                 }
@@ -109,17 +110,17 @@ final class RefineInvariants {
     }
 
     /**
-     * @return the transitions that leave the refine phase for a state that is not a fallback, from a refine state
+     * @return the transitions that leave the refine phase for a terminal that is not a fallback, from a refine state
      *         reached from an entry of the phase without passing the required state
      */
-    private static List<Edge> exitsAvoiding(WorkflowDefinition definition, UnitGraph graph, String required) {
-        var states = definition.states();
-        var reached = reachedRefineStates(states, refineEntries(definition), graph, required);
+    private static List<Edge> exitsAvoiding(Context context, Map<String, StateNode> states, UnitGraph graph,
+            String required) {
+        var reached = reachedRefineStates(context, states, refineEntries(context, states), graph, required);
         return reached.values().stream()
                 .flatMap(source -> Context.transitions(source).stream().map(transition -> new Edge(source, transition)))
                 .filter(edge -> {
                     var target = states.get(edge.transition().targetStateId());
-                    return target != null && !isRefine(target) && !FALLBACKS.contains(target.id());
+                    return target != null && Context.isTerminal(target) && !FALLBACKS.contains(target.id());
                 })
                 .toList();
     }
@@ -129,15 +130,14 @@ final class RefineInvariants {
      *         entry-bound state) that is a refine state, then every refine state a transition from outside the phase
      *         targets, in declaration order
      */
-    private static Set<String> refineEntries(WorkflowDefinition definition) {
-        var states = definition.states();
+    private static Set<String> refineEntries(Context context, Map<String, StateNode> states) {
         var entries = new LinkedHashSet<String>();
-        definition.startingStates().stream()
-                .filter(start -> isRefine(states.get(start)))
+        context.unit().startingStates().stream()
+                .filter(start -> isRefine(context, states.get(start)))
                 .forEach(entries::add);
-        for (var edge : Context.edges(definition)) {
+        for (var edge : context.allEdges()) {
             var target = states.get(edge.transition().targetStateId());
-            if (!isRefine(edge.source()) && isRefine(target)) {
+            if (!isRefine(context, edge.source()) && isRefine(context, target)) {
                 entries.add(target.id());
             }
         }
@@ -149,8 +149,8 @@ final class RefineInvariants {
      *
      * @return the refine states reached, in the order they were reached
      */
-    private static Map<String, StateNode> reachedRefineStates(Map<String, StateNode> states, Set<String> entries,
-            UnitGraph graph, String required) {
+    private static Map<String, StateNode> reachedRefineStates(Context context, Map<String, StateNode> states,
+            Set<String> entries, UnitGraph graph, String required) {
         var reached = new LinkedHashMap<String, StateNode>();
         var queue = new ArrayDeque<String>();
         entries.stream()
@@ -159,7 +159,7 @@ final class RefineInvariants {
         while (!queue.isEmpty()) {
             for (var next : graph.successors(queue.poll())) {
                 var nextState = states.get(next);
-                if (isRefine(nextState) && !next.equals(required)) {
+                if (isRefine(context, nextState) && !next.equals(required)) {
                     visit(reached, queue, next, nextState);
                 }
             }
@@ -176,7 +176,7 @@ final class RefineInvariants {
         }
     }
 
-    private static boolean isRefine(StateNode state) {
-        return state != null && PHASE_REFINE.equals(state.phase());
+    private static boolean isRefine(Context context, StateNode state) {
+        return state != null && context.inPhase(state, PHASE_REFINE);
     }
 }

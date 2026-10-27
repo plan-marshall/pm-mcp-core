@@ -26,23 +26,18 @@ entry repair -> review.fix
 entry recheck -> review.check
 
 state review.check
-    phase inherit
     job llm change role reviewer
         approved -> review.done
         rejected -> review.fix
         lost -> review.failed
 
 state review.fix
-    phase inherit
     call git.commit_and_push entry stage (push = enabled)
         done -> review.check
         stepped_out -> review.stepped-out
 
 state review.done terminal done success
-    phase inherit
 
 state review.failed terminal failed failure
-    phase inherit
 
 state review.stepped-out terminal stepped_out stepped_out
-    phase inherit

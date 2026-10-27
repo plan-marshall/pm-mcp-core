@@ -365,7 +365,7 @@ class SubWorkflowExecutionTest {
             assertAll(
                     () -> assertEquals("sub.wait", resting.stateId()),
                     () -> assertEquals(EXECUTE, resting.status().phase()),
-                    () -> assertEquals(List.of(new WorkflowStatus.CallFrame("plan", "execute.invoke", EXECUTE,
+                    () -> assertEquals(List.of(new WorkflowStatus.CallFrame("plan", "execute.invoke",
                             "sub.args", "main", expectedArgs, pushedAt)), resting.status().callStack()));
         }
 
@@ -668,25 +668,26 @@ class SubWorkflowExecutionTest {
     @DisplayName("CallStack value")
     class CallStackValue {
 
-        private final CallFrame frame = new CallFrame("plan", "execute.invoke", EXECUTE, "sub.args", "main",
+        private final CallFrame frame = new CallFrame("plan", "execute.invoke", "sub.args", "main",
                 Map.of("mode", new CallValue.EnumValue("strict")), T0.toString());
 
         @Test
-        @DisplayName("Should push to four frames and refuse a fifth")
+        @DisplayName("Should push to five frames, the phase level adding one, and refuse a sixth")
         void shouldBoundDepth() {
-            var full = CallStack.empty().push(frame).push(frame).push(frame).push(frame);
-            var fiveFrames = List.of(frame, frame, frame, frame, frame);
+            var full = CallStack.empty().push(frame).push(frame).push(frame).push(frame).push(frame);
+            var sixFrames = List.of(frame, frame, frame, frame, frame, frame);
 
             assertAll(
+                    () -> assertEquals(5, CallStack.MAX_DEPTH),
                     () -> assertEquals(CallStack.MAX_DEPTH, full.depth()),
                     () -> assertThrows(IllegalStateException.class, () -> full.push(frame)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new CallStack(fiveFrames)));
+                    () -> assertThrows(IllegalArgumentException.class, () -> new CallStack(sixFrames)));
         }
 
         @Test
         @DisplayName("Should pop exactly one frame, unwind every frame top first, and refuse to pop an empty stack")
         void shouldPopAndUnwind() {
-            var other = new CallFrame("sub.args", "sub.wait", EXECUTE, "sub.commit", "main", Map.of(), T0.toString());
+            var other = new CallFrame("sub.args", "sub.wait", "sub.commit", "main", Map.of(), T0.toString());
             var stack = CallStack.empty().push(frame).push(other);
 
             var popped = stack.pop();
@@ -708,7 +709,7 @@ class SubWorkflowExecutionTest {
             args.put("mode", new CallValue.EnumValue("strict"));
             args.put("rounds", new CallValue.IntValue(3));
             args.put("targets", new CallValue.EnumList(List.of("origin", "mirror")));
-            var stack = CallStack.empty().push(new CallFrame("plan", "execute.invoke", EXECUTE, "sub.args", "repair",
+            var stack = CallStack.empty().push(new CallFrame("plan", "execute.invoke", "sub.args", "repair",
                     args, T0.toString()));
 
             var stored = stack.toStore();
@@ -721,7 +722,7 @@ class SubWorkflowExecutionTest {
         @Test
         @DisplayName("Should refuse a stored integer argument outside the range of a call value")
         void shouldRefuseOversizedInteger() {
-            var stored = new WorkflowStatus.CallFrame("plan", "execute.invoke", EXECUTE, "sub.args", "main",
+            var stored = new WorkflowStatus.CallFrame("plan", "execute.invoke", "sub.args", "main",
                     Map.of("rounds", new BoundArg.IntegerArg(Long.MAX_VALUE)), T0);
             var storedFrames = List.of(stored);
 

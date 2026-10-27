@@ -121,7 +121,7 @@ final class ExecuteInvariants {
                     || referenceUnguarded.contains(state.id())) {
                 continue;
             }
-            if (isPhaseFive(state) && needsWorktree(state)) {
+            if (context.inPhase(state, CompiledInvariants.PHASE_EXECUTE) && needsWorktree(state)) {
                 context.reportState(id, state, "a path reaches '%s' without passing a worktree initialization %s"
                         .formatted(state.id(), Context.sorted(WORKTREE_INITS)));
             } else if (bindsLoopBack(state)) {
@@ -129,22 +129,18 @@ final class ExecuteInvariants {
                         .formatted(state.id(), LOOP_BACK) + " initialization");
             }
         }
-        for (var edge : Context.edges(context.unit())) {
+        for (var edge : context.allEdges()) {
             if (!LOOP_BACK_OUTLINE.equals(edge.transition().outcomeName())) {
                 continue;
             }
             var intoOutline = context.state(edge.transition().targetStateId())
-                    .filter(target -> PHASE_OUTLINE.equals(target.phase())).isPresent();
+                    .filter(target -> context.inPhase(target, PHASE_OUTLINE)).isPresent();
             if (!intoOutline) {
                 context.reportTransition(id, edge.source(), edge.transition(),
                         "the transition '%s' targets '%s', which is not a state of the outline phase"
                                 .formatted(LOOP_BACK_OUTLINE, edge.transition().targetStateId()));
             }
         }
-    }
-
-    private static boolean isPhaseFive(StateNode state) {
-        return CompiledInvariants.PHASE_EXECUTE.contains(state.phase());
     }
 
     private static boolean needsWorktree(StateNode state) {
@@ -174,16 +170,16 @@ final class ExecuteInvariants {
         context.requireDominance(id, DELIVERABLE_BUILD, EXIT_BARRIER);
         context.requireDominance(id, VERIFY_SWEEP, EXIT_BARRIER);
         context.requireDominance(id, LAND_VERIFY_SWEEP, LAND_EXIT_BARRIER);
-        for (var edge : Context.edges(context.unit())) {
+        for (var edge : context.allEdges()) {
             var source = edge.source();
             var transition = edge.transition();
             var target = context.state(transition.targetStateId());
-            var entersPhaseSix = !AFTER_PHASE_FIVE.contains(source.phase()) && target
-                    .filter(state -> CompiledInvariants.PHASE_FINALIZE.equals(state.phase())).isPresent();
+            var entersPhaseSix = !AFTER_PHASE_FIVE.contains(context.phaseOf(source).orElse(""))
+                    && target.filter(state -> context.inPhase(state, CompiledInvariants.PHASE_FINALIZE))
+                            .isPresent();
             if (!entersPhaseSix || PHASE_SIX_SOURCES.contains(source.id()) || FALLBACKS.contains(target.get().id())
                     || INIT_READY.equals(source.id()) && ADOPT_PR.equals(target.get().id())
-                    || Context.hasTransition(context.reference(), source.id(), transition.outcomeName(),
-                    target.get().id())) {
+                    || context.referenceHasTransition(source.id(), transition.outcomeName(), target.get().id())) {
                 continue;
             }
             context.reportTransition(id, source, transition,
@@ -196,7 +192,8 @@ final class ExecuteInvariants {
         var id = InvariantId.INV_EXEC_3;
         context.requirePresent(id, EVALUATE_ENVELOPE_RETURN);
         var envelopeStates = context.states().stream()
-                .filter(state -> isPhaseFive(state) && state.behavior() instanceof StateBehavior.ModelJob)
+                .filter(state -> context.inPhase(state, CompiledInvariants.PHASE_EXECUTE)
+                        && state.behavior() instanceof StateBehavior.ModelJob)
                 .filter(state -> Context.transitions(state).stream()
                         .anyMatch(transition -> EVALUATE_ENVELOPE_RETURN.equals(transition.targetStateId())))
                 .toList();
@@ -218,11 +215,13 @@ final class ExecuteInvariants {
                                     transition.outcomeName(), transition.targetStateId(), EVALUATE_ENVELOPE_RETURN)));
         }
         var knownTaskStates = new HashSet<String>();
-        context.reference().states().values().stream()
-                .filter(state -> isPhaseFive(state) && state.behavior() instanceof StateBehavior.ModelJob)
+        context.referenceStates().stream()
+                .filter(state -> context.inPhase(state, CompiledInvariants.PHASE_EXECUTE)
+                        && state.behavior() instanceof StateBehavior.ModelJob)
                 .forEach(state -> knownTaskStates.add(state.id()));
         context.states().stream()
-                .filter(state -> isPhaseFive(state) && state.behavior() instanceof StateBehavior.ModelJob)
+                .filter(state -> context.inPhase(state, CompiledInvariants.PHASE_EXECUTE)
+                        && state.behavior() instanceof StateBehavior.ModelJob)
                 .filter(state -> !knownTaskStates.contains(state.id()))
                 .forEach(state -> context.reportState(id, state,
                         "the task state '%s' of Phase 5 is not a task state of the default unit".formatted(state.id())));

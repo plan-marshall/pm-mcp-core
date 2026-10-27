@@ -1,41 +1,45 @@
 ---
-name: plan
-description: A unit written for the invariant and unit-loader tests.
-type: workflow
+name: phase-2-refine
+description: The refine phase sub-workflow of the plan unit.
+type: subworkflow
 icon: phase.refine
+entry: start
+exit: done
+exit: returned
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# The refine phase of the plan unit, written for the invariant and unit-loader tests, never copied from the product.
+# The refine phase as its own unit, written for the invariant and unit-loader tests, never copied from the product.
 # Every deep path passes refine.baseline-reconcile and refine.analyze; a lesson-derived plan passes refine.qgate,
-# whose blocking verdict calls the Q-Gate remediation.
-workflow plan version 1 format 1
-scope plan
-start refine.baseline-reconcile
+# whose blocking verdict calls the Q-Gate remediation. A remediation that cannot resolve leaves the phase on its
+# `returned` exit, which the plan unit routes to the plan's fallback.
+workflow phase-2-refine version 1 format 1
+scope subworkflow
+entry start -> refine.baseline-reconcile
 
 state refine.baseline-reconcile
-    phase refine
     auto test.proceed
         done -> refine.analyze
 
 state refine.analyze
-    phase refine
     auto test.analyze
-        confident -> outline.deep
+        confident -> refine.done-exit
         lesson -> refine.qgate
 
 state refine.qgate
-    phase refine
     auto test.qgate
-        pass -> outline.deep
+        pass -> refine.done-exit
         blocking -> refine.remediate
 
 state refine.remediate
-    phase refine
     call remediation.qgate-findings(retry_budget = 2, fix_budget = 2, waiver_wait_seconds = 3600, actions = [retry, fix])
-        resolved -> outline.deep
-        waived -> outline.deep
-        exhausted -> plan.return
-        fix_requested -> plan.return
-        stepped_out -> plan.return
+        resolved -> refine.done-exit
+        waived -> refine.done-exit
+        exhausted -> refine.return-exit
+        fix_requested -> refine.return-exit
+        stepped_out -> refine.return-exit
+
+state refine.done-exit terminal done success
+
+state refine.return-exit terminal returned failure

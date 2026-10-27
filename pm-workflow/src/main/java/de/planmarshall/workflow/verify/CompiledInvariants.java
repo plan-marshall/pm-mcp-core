@@ -31,6 +31,7 @@ import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.core.spi.Primitive;
 import de.planmarshall.core.spi.PrimitiveRegistry;
 import de.planmarshall.workflow.ast.OutcomeTransition;
+import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
@@ -85,10 +86,10 @@ public final class CompiledInvariants {
     /** The phase value of the states of Phase 6. */
     static final String PHASE_FINALIZE = "finalize";
 
-    /** The phase values of the states of Phase 5, its {@code land} lane included. */
-    static final Set<String> PHASE_EXECUTE = Set.of("execute", "land");
+    /** The phase value of the states of Phase 5, the {@code land} sub-workflow it calls included. */
+    static final String PHASE_EXECUTE = "execute";
 
-    /** The phase values of Phases 1 to 4. */
+    /** The phase values of the states of Phases 1 to 4. */
     static final Set<String> PHASES_BEFORE_EXECUTE = Set.of("init", "refine", "outline", PHASE_PLAN);
 
     /** The fallback state of Phases 1 to 4. */
@@ -172,7 +173,31 @@ public final class CompiledInvariants {
      */
     public List<InvariantViolation> check(WorkflowDefinition unit, VerificationResult rules,
             List<PipelineViolation> pipeline, Optional<String> lane) {
+        return check(unit, List.of(), rules, pipeline, lane);
+    }
+
+    /**
+     * Checks one unit against every invariant that applies to it, expanding the calls it makes over the sub-workflows
+     * the caller supplies: the invariants of a plan are decided over the call-resolved graph of the composed version
+     * (PM-IMPL-5, PM-WF-16).
+     *
+     * @param unit     the unit under check
+     * @param callable the sub-workflows a call of the unit or of a reachable unit may enter; the unit itself and the
+     *                 default units are used besides them
+     * @param rules    the result of {@link WorkflowValidator} for the unit
+     * @param pipeline the violations of the finalize pipeline validator over the project's roster; empty for every
+     *                 unit but the plan unit
+     * @param lane     the wire name of the plan's lane ({@code light}, {@code deep}, {@code land}, {@code adopt});
+     *                 empty where the lane is unknown, as for a template. {@link InvariantId#INV_INIT_2} holds per lane:
+     *                 it requires the {@code light -> deep} ratchet only for the lane {@code light} or an unknown lane
+     * @return every violation, ordered by the declaration order of its state, violations of the unit as a whole after
+     *         every state, and within a state by invariant; empty when the unit satisfies every invariant
+     * @throws NullPointerException if an argument is {@code null}
+     */
+    public List<InvariantViolation> check(WorkflowDefinition unit, Collection<WorkflowDefinition> callable,
+            VerificationResult rules, List<PipelineViolation> pipeline, Optional<String> lane) {
         Objects.requireNonNull(unit, "unit");
+        Objects.requireNonNull(callable, "callable");
         Objects.requireNonNull(rules, "rules");
         Objects.requireNonNull(pipeline, "pipeline");
         Objects.requireNonNull(lane, "lane");
@@ -183,14 +208,14 @@ public final class CompiledInvariants {
                     "there is no default unit '%s' to compare the unit with".formatted(unit.id())));
             return ordered(unit, found);
         }
-        var context = new Context(unit, reference, rules, List.copyOf(pipeline), registry, defaultRoster, subject,
-                lane);
+        var context = new Context(unit, reference, defaultUnits, callable, rules, List.copyOf(pipeline), registry,
+                defaultRoster, subject, lane);
         for (var id : InvariantId.values()) {
             if (id.appliesTo(unit.id())) {
                 CHECKS.get(id).run(context);
             }
         }
-        return ordered(unit, context.found());
+        return context.ordered();
     }
 
     /**
@@ -289,9 +314,13 @@ public final class CompiledInvariants {
     }
 
     private static List<InvariantViolation> ordered(WorkflowDefinition unit, List<InvariantViolation> found) {
+        return ordered(unit.states().values(), found);
+    }
+
+    private static List<InvariantViolation> ordered(Collection<StateNode> states, List<InvariantViolation> found) {
         Map<String, Integer> declarationIndex = new HashMap<>();
-        for (var stateId : unit.states().keySet()) {
-            declarationIndex.put(stateId, declarationIndex.size());
+        for (var state : states) {
+            declarationIndex.put(state.id(), declarationIndex.size());
         }
         var afterEveryState = declarationIndex.size();
         var sorted = new ArrayList<>(found);
@@ -328,6 +357,10 @@ public final class CompiledInvariants {
 
         private final WorkflowDefinition reference;
 
+        private final CallGraphExpansion expansion;
+
+        private final CallGraphExpansion referenceExpansion;
+
         private final UnitGraph graph;
 
         private final UnitGraph referenceGraph;
@@ -346,13 +379,20 @@ public final class CompiledInvariants {
 
         private final List<InvariantViolation> found = new ArrayList<>();
 
-        Context(WorkflowDefinition unit, WorkflowDefinition reference, VerificationResult rules,
-                List<PipelineViolation> pipeline, PrimitiveRegistry registry,
-                List<FinalizeStepDescriptor> defaultRoster, Subject subject, Optional<String> lane) {
+        Context(WorkflowDefinition unit, WorkflowDefinition reference, Map<String, WorkflowDefinition> defaults,
+                Collection<WorkflowDefinition> callable, VerificationResult rules, List<PipelineViolation> pipeline,
+                PrimitiveRegistry registry, List<FinalizeStepDescriptor> defaultRoster, Subject subject,
+                Optional<String> lane) {
             this.unit = unit;
             this.reference = reference;
-            this.graph = UnitGraph.of(unit);
-            this.referenceGraph = UnitGraph.of(reference);
+            var catalog = new LinkedHashMap<String, WorkflowDefinition>();
+            defaults.forEach(catalog::putIfAbsent);
+            callable.forEach(definition -> catalog.putIfAbsent(definition.id(), definition));
+            catalog.put(unit.id(), unit);
+            this.expansion = CallGraphExpansion.of(unit, catalog);
+            this.referenceExpansion = CallGraphExpansion.of(reference, catalog);
+            this.graph = expansion.graph();
+            this.referenceGraph = referenceExpansion.graph();
             this.rules = rules;
             this.pipeline = pipeline;
             this.registry = registry;
@@ -427,16 +467,102 @@ public final class CompiledInvariants {
 
         // ----- states
 
+        /**
+         * @param stateId the identifier of a state of the expansion: the unit under check, or a sub-workflow it reaches
+         * @return the state, when the expansion declares it
+         */
         Optional<StateNode> state(String stateId) {
-            return Optional.ofNullable(unit.states().get(stateId));
+            return Optional.ofNullable(expansion.states().get(stateId));
         }
 
+        /**
+         * @param stateId the identifier of a state of the reference's expansion
+         * @return the state of the default unit or of a sub-workflow it reaches
+         */
         Optional<StateNode> referenceState(String stateId) {
-            return Optional.ofNullable(reference.states().get(stateId));
+            return Optional.ofNullable(referenceExpansion.states().get(stateId));
         }
 
+        /** @return every state of the expansion, the unit under check first, then its callees in discovery order */
         Collection<StateNode> states() {
+            return expansion.states().values();
+        }
+
+        /** @return the states the unit under check declares itself */
+        Collection<StateNode> ownStates() {
             return unit.states().values();
+        }
+
+        /** @return the identifier of the unit that declares each state of the expansion */
+        Map<String, String> owners() {
+            return expansion.owners();
+        }
+
+        /** @return the units of the expansion by identifier, the unit under check first */
+        Map<String, WorkflowDefinition> expandedUnits() {
+            return expansion.units();
+        }
+
+        /** @return every state of the expansion by identifier, the unit under check first */
+        Map<String, StateNode> stateMap() {
+            return expansion.states();
+        }
+
+        /** @return every state of the reference's expansion by identifier */
+        Map<String, StateNode> referenceStateMap() {
+            return referenceExpansion.states();
+        }
+
+        /** @return every state of the reference's expansion */
+        Collection<StateNode> referenceStates() {
+            return referenceExpansion.states().values();
+        }
+
+        /** @return the states the reference declares itself */
+        Collection<StateNode> referenceOwnStates() {
+            return reference.states().values();
+        }
+
+        /**
+         * The phase of a state (PM-WF-16): the phase sub-workflow on its call path declares it, so a state of a phase
+         * unit carries that phase, and a state of a unit called within a phase carries the phase of its frame.
+         *
+         * @param state a state
+         * @return the wire name of the phase; empty for a unit that carries none, such as a workspace or epic unit
+         */
+        Optional<String> phaseOf(StateNode state) {
+            return phaseOf(state.id());
+        }
+
+        /**
+         * @param stateId the identifier of a state
+         * @return the wire name of the phase of the state; empty for a unit that carries none
+         */
+        Optional<String> phaseOf(String stateId) {
+            var owner = expansion.owners().get(stateId);
+            var phase = owner == null ? null : expansion.phases().get(owner);
+            if (phase != null) {
+                return Optional.of(phase.wireName());
+            }
+            return Phase.ofCallState(stateId).map(Phase::wireName);
+        }
+
+        /**
+         * @param state a state
+         * @param phase the wire name of a phase
+         * @return {@code true} when the state lies in that phase
+         */
+        boolean inPhase(StateNode state, String phase) {
+            return phaseOf(state).filter(phase::equals).isPresent();
+        }
+
+        /**
+         * @param state  a state
+         * @param phases the wire names of a set of phases
+         * @return {@code true} when the state lies in one of them
+         */
+        boolean inAnyPhase(StateNode state, Set<String> phases) {
+            return phaseOf(state).filter(phases::contains).isPresent();
         }
 
         /**
@@ -519,6 +645,35 @@ public final class CompiledInvariants {
                 }
             }
             return edges;
+        }
+
+        /**
+         * @return every transition of the expansion, each with its source state, the unit under check's first
+         */
+        List<Edge> allEdges() {
+            return expansion.edges();
+        }
+
+        /**
+         * @return every transition of the reference's expansion
+         */
+        List<Edge> referenceEdges() {
+            return referenceExpansion.edges();
+        }
+
+        /**
+         * @return {@code true} when the expansion has a transition from the source on the outcome into the target
+         */
+        boolean hasTransition(String source, String outcome, String target) {
+            return expansion.hasTransition(source, outcome, target);
+        }
+
+        /**
+         * @return {@code true} when the reference's expansion has a transition from the source on the outcome into the
+         *         target
+         */
+        boolean referenceHasTransition(String source, String outcome, String target) {
+            return referenceExpansion.hasTransition(source, outcome, target);
         }
 
         /**
@@ -629,7 +784,7 @@ public final class CompiledInvariants {
          * @return {@code true} when the state is present in the unit or absent from the reference
          */
         boolean requirePresent(InvariantId id, String stateId) {
-            if (reference.states().containsKey(stateId) && !unit.states().containsKey(stateId)) {
+            if (referenceExpansion.states().containsKey(stateId) && !expansion.states().containsKey(stateId)) {
                 reportUnit(id, "the state '%s' of the default unit is missing".formatted(stateId));
                 return false;
             }
@@ -646,8 +801,8 @@ public final class CompiledInvariants {
          * @param target    the state the paths lead into
          */
         void requireDominance(InvariantId id, String dominator, String target) {
-            if (!reference.states().containsKey(dominator) || !reference.states().containsKey(target)
-                    || !referenceDominates(dominator, target)) {
+            if (!referenceExpansion.states().containsKey(dominator)
+                    || !referenceExpansion.states().containsKey(target) || !referenceDominates(dominator, target)) {
                 return;
             }
             if (!requirePresent(id, dominator)) {
@@ -674,13 +829,14 @@ public final class CompiledInvariants {
                 Predicate<StateNode> candidates) {
             var referenceStarts = reference.startingStates();
             var referenceReach = referenceGraph.forwardClosure(Set.copyOf(referenceStarts));
-            var referenceTargets = idsOf(reference, state -> targets.test(state) && referenceReach.contains(state.id()));
+            var referenceTargets = idsOf(referenceExpansion.states().values(),
+                    state -> targets.test(state) && referenceReach.contains(state.id()));
             if (referenceTargets.isEmpty()) {
                 return List.of();
             }
-            var unitTargets = idsOf(unit, targets);
+            var unitTargets = idsOf(expansion.states().values(), targets);
             var dominators = new ArrayList<String>();
-            for (var candidate : reference.states().values()) {
+            for (var candidate : referenceExpansion.states().values()) {
                 if (referenceStarts.contains(candidate.id()) || referenceTargets.contains(candidate.id())
                         || !candidates.test(candidate) || !referenceReach.contains(candidate.id())
                         || !dominatesAll(referenceGraph, referenceStarts, candidate.id(), referenceTargets)) {
@@ -693,7 +849,7 @@ public final class CompiledInvariants {
                 var reached = avoiding(graph, unit.startingStates(), Set.of(candidate.id()));
                 unitTargets.stream().filter(target -> !target.equals(candidate.id()) && reached.contains(target))
                         .findFirst()
-                        .ifPresent(target -> reportState(id, unit.states().get(target),
+                        .ifPresent(target -> reportState(id, expansion.states().get(target),
                                 "a path reaches '%s' without passing '%s', which every path of the default unit passes"
                                         .formatted(target, candidate.id())));
             }
@@ -710,7 +866,7 @@ public final class CompiledInvariants {
          * @param target the state the routes lead into
          */
         void requireNoNewBypass(InvariantId id, Set<String> gates, String target) {
-            if (!unit.states().containsKey(target)) {
+            if (!expansion.states().containsKey(target)) {
                 return;
             }
             var around = avoiding(graph, unit.startingStates(), gates);
@@ -723,7 +879,7 @@ public final class CompiledInvariants {
                 if (sourceId.equals(target)) {
                     continue;
                 }
-                var source = unit.states().get(sourceId);
+                var source = expansion.states().get(sourceId);
                 if (source == null) {
                     continue;
                 }
@@ -733,7 +889,7 @@ public final class CompiledInvariants {
                         continue;
                     }
                     var known = referenceAround.contains(sourceId)
-                            && hasTransition(reference, sourceId, transition.outcomeName(), next);
+                            && referenceHasTransition(sourceId, transition.outcomeName(), next);
                     if (!known) {
                         reportTransition(id, source, transition,
                                 "the transition '%s' -> '%s' opens a route into '%s' that passes none of %s; the default"
@@ -771,12 +927,25 @@ public final class CompiledInvariants {
             return ids;
         }
 
+        static Set<String> idsOf(Collection<StateNode> states, Predicate<StateNode> filter) {
+            var ids = new LinkedHashSet<String>();
+            states.stream().filter(filter).forEach(state -> ids.add(state.id()));
+            return ids;
+        }
+
         static List<String> sorted(Set<String> ids) {
             return ids.stream().sorted().toList();
         }
 
         static SourceLocation nowhere() {
             return NOWHERE;
+        }
+
+        /**
+         * @return the violations found so far, in the declaration order of the expanded graph
+         */
+        List<InvariantViolation> ordered() {
+            return CompiledInvariants.ordered(states(), found);
         }
     }
 

@@ -216,9 +216,9 @@ public final class PlanInstanceComposer {
                 HeaderJson.write(header));
         return new WorkflowDefinition(instanceFrontmatter(template.frontmatter()), PLAN_UNIT, header.version(),
                 template.scope(), template.params(), template.resultSchema(), Optional.of(instance),
-                template.declarations(), template.decisions(), Map.of(), template.formatVersion(), template.origin(),
-                Map.of(), template.startState(), template.entryBindings(), template.migrations(), states,
-                template.location());
+                template.declarations(), template.decisions(), template.formatVersion(), template.origin(),
+                Map.<String, Integer>of(), template.startState(), template.entryBindings(), template.migrations(),
+                states, template.location());
     }
 
     /** The frontmatter of a composed version: the template's, with the type {@link UnitType#INSTANCE}. */
@@ -254,7 +254,7 @@ public final class PlanInstanceComposer {
                 .filter(step -> keptSteps.contains(step.name())).toList());
         pipeline.forEach(violation -> found.add("pipeline step '%s' (%s): %s".formatted(violation.stepName(),
                 violation.rule(), violation.message())));
-        invariants.check(unit, result, pipeline, lane.map(PlanInstanceHeader.Lane::wireName)).stream()
+        invariants.check(unit, catalog, result, pipeline, lane.map(PlanInstanceHeader.Lane::wireName)).stream()
                 .filter(violation -> !CompiledInvariants.reReports(violation, unit, result))
                 .forEach(violation -> found.add("%s in '%s': %s".formatted(violation.id().wireId(),
                         violation.stateId(), violation.message())));

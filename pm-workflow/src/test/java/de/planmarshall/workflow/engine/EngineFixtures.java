@@ -376,7 +376,7 @@ final class EngineFixtures {
      */
     static WorkflowStatus.CallFrame frame(String callerWorkflowId, String callerStateId, String subworkflowId,
             String entry) {
-        return new WorkflowStatus.CallFrame(callerWorkflowId, callerStateId, EXECUTE, subworkflowId, entry, Map.of(),
+        return new WorkflowStatus.CallFrame(callerWorkflowId, callerStateId, subworkflowId, entry, Map.of(),
                 T0);
     }
 

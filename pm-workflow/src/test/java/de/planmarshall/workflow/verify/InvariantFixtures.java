@@ -42,9 +42,11 @@ import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.LaneClass;
 
 /**
  * The passing units of the compiled-invariant tests and their inputs, read from {@code unit-fixtures/defaults/}. The
- * units are written for the tests and never copied from the shipped content of the product (PM-IMPL-5): the seven
- * phase files of the plan unit, merged here into the unit {@code plan}, and the project-ownable sub-workflows
- * {@code adjudicate.decisions}, {@code replan}, {@code git.commit_and_push} and {@code remediation.qgate-findings}.
+ * units are written for the tests and never copied from the shipped content of the product (PM-IMPL-5): the plan unit
+ * {@code plan}, the six phase sub-workflows it calls (PM-WF-16), the land lane as a sub-workflow of the execute phase,
+ * and the project-ownable sub-workflows {@code adjudicate.decisions}, {@code replan}, {@code git.commit_and_push} and
+ * {@code remediation.qgate-findings}. No phase file is merged into another: every phase is a unit of its own, and the
+ * compiled invariants are decided over the call-resolved graph of the plan.
  * <p>
  * The units name the primitives of {@link #registry()} and the entity kinds of {@link #entityKinds()}, which are
  * written for the tests as well. A refusing unit is the passing source with one named {@link Mutation}: a text that
@@ -58,9 +60,12 @@ public final class InvariantFixtures {
     /** The classpath directory of the passing units. */
     public static final String ROOT = "unit-fixtures/defaults/";
 
-    /** The phase files of the plan unit, in merge order. */
-    public static final List<String> PLAN_FILES = List.of("init.pmwf", "refine.pmwf", "outline.pmwf", "plan.pmwf",
-            "execute.pmwf", "land.pmwf", "finalize.pmwf");
+    /** The file of the plan unit, which calls the phase sub-workflows. */
+    public static final String PLAN_FILE = "plan.pmwf";
+
+    /** The phase sub-workflows of the plan unit, in phase order. */
+    public static final List<String> PLAN_FILES = List.of("init.pmwf", "refine.pmwf", "outline.pmwf",
+            "phase-4-plan.pmwf", "execute.pmwf", "land.pmwf", "finalize.pmwf");
 
     /** The file of the adjudication unit. */
     public static final String ADJUDICATION_FILE = "adjudicate-decisions.pmwf";
@@ -125,12 +130,12 @@ public final class InvariantFixtures {
 
     /**
      * {@code init.light-gate} without its {@code light -> deep} ratchet: its {@code deep} outcome stays routed, into
-     * the fallback {@code plan.return}, so every outcome of the unit is routed and only the ratchet transition of the
-     * default unit is missing.
+     * the light exit, so every outcome of the unit is routed and only the ratchet transition of the default unit is
+     * missing.
      */
     public static final Mutation WITHOUT_RATCHET = new Mutation("init.light-gate without the light -> deep ratchet",
-            INIT_FILE, "        pass -> outline.light\n        deep -> refine.baseline-reconcile\n",
-            "        pass -> outline.light\n        deep -> plan.return\n");
+            INIT_FILE, "        pass -> init.light-exit\n        deep -> init.deep-exit\n",
+            "        pass -> init.light-exit\n        deep -> init.light-exit\n");
 
     /**
      * The changes that remove the light route from the plan unit, as a {@code deep} version holds it: the light exit
@@ -142,29 +147,25 @@ public final class InvariantFixtures {
             new Mutation("without init.light-gate", INIT_FILE, """
 
                     state init.light-gate
-                        phase init
                         auto test.gate
-                            pass -> outline.light
-                            deep -> refine.baseline-reconcile
+                            pass -> init.light-exit
+                            deep -> init.deep-exit
                     """, ""),
             new Mutation("without the authoring states of the light lane", OUTLINE_FILE, """
                     state outline.light
-                        phase outline
                         auto test.proceed
                             done -> outline.light-regate
 
                     state outline.light-regate
-                        phase outline
                         auto test.gate
                             pass -> outline.light-review
                             deep -> outline.deep
 
                     state outline.light-review
-                        phase outline
                         job test.build
                             succeeded -> outline.gate
                             failed -> outline.light-regate
-                            cancelled -> plan.return
+                            cancelled -> outline.return-exit
 
                     """, ""));
 
@@ -204,10 +205,11 @@ public final class InvariantFixtures {
     }
 
     /**
-     * @return the text of every fixture file by name, the phase files first in merge order
+     * @return the text of every fixture file by name, the plan unit first, then the phase sub-workflows
      */
     static Map<String, String> sources() {
         var sources = new LinkedHashMap<String, String>();
+        sources.put(PLAN_FILE, read(PLAN_FILE));
         PLAN_FILES.forEach(file -> sources.put(file, read(file)));
         SUB_UNIT_FILES.forEach(file -> sources.put(file, read(file)));
         return sources;
@@ -227,50 +229,18 @@ public final class InvariantFixtures {
     }
 
     /**
-     * Merges the phase files of the plan unit for the tests: the states and migrations are the union, the frontmatter,
-     * the start state, the header and the origin are those of the first part, the version is the sum of the part
-     * versions, recorded per file in {@code partVersions}.
-     *
-     * @param parts the parsed phase files, in merge order
-     * @return the merged plan unit
-     */
-    static WorkflowDefinition mergePlan(List<WorkflowDefinition> parts) {
-        var first = parts.getFirst();
-        var states = new LinkedHashMap<String, StateNode>();
-        var migrations = new ArrayList<StateMigration>();
-        var partVersions = new LinkedHashMap<String, Integer>();
-        var version = 0;
-        for (var part : parts) {
-            part.states().forEach((id, state) -> {
-                if (states.putIfAbsent(id, state) != null) {
-                    throw new IllegalStateException("the state '%s' is declared in two phase files".formatted(id));
-                }
-            });
-            migrations.addAll(part.migrations());
-            partVersions.put(part.location().resourceName(), part.version());
-            version += part.version();
-        }
-        return new WorkflowDefinition(first.frontmatter(), PLAN_UNIT, version, first.scope(), List.of(),
-                Optional.empty(), Optional.empty(), Map.of(), Map.of(), partVersions, first.formatVersion(),
-                first.origin(), Map.of(), first.startState(), first.entryBindings(), migrations, states,
-                first.location());
-    }
-
-    /**
-     * Parses the files and merges the phase files into the plan unit.
+     * Parses the fixture files, each as a unit of its own: no phase file is merged into another.
      *
      * @param sources the text of every fixture file by name
      * @param origin  the origin the files are parsed with
-     * @return the units by identifier, the plan unit first
+     * @return the units by identifier, the plan unit first, then the phase sub-workflows in phase order
      */
     static Map<String, WorkflowDefinition> units(Map<String, String> sources, UnitOrigin origin) {
         var units = new LinkedHashMap<String, WorkflowDefinition>();
-        var parts = PLAN_FILES.stream().map(file -> parse(file, sources.get(file), origin)).toList();
-        units.put(PLAN_UNIT, mergePlan(parts));
-        for (var file : SUB_UNIT_FILES) {
-            var unit = parse(file, sources.get(file), origin);
+        sources.forEach((file, source) -> {
+            var unit = parse(file, source, origin);
             units.put(unit.id(), unit);
-        }
+        });
         return units;
     }
 
@@ -283,18 +253,15 @@ public final class InvariantFixtures {
 
     /**
      * @param file the name of a fixture file
-     * @return the identifier of the unit the file belongs to
+     * @return the identifier of the unit the file declares
      */
     static String unitOf(String file) {
-        if (PLAN_FILES.contains(file)) {
-            return PLAN_UNIT;
-        }
         return parse(file, read(file), UnitOrigin.DEFAULT).id();
     }
 
     /**
      * @param mutation a named change of one file
-     * @return the unit of the changed file, parsed as a project unit and merged when it is a phase file
+     * @return the unit of the changed file, parsed as a project unit
      */
     static WorkflowDefinition mutatedUnit(Mutation mutation) {
         var sources = sources();
@@ -398,7 +365,6 @@ public final class InvariantFixtures {
                 start entity.completed
 
                 state entity.completed terminal submitted success
-                    phase inherit
                 """, UnitOrigin.DEFAULT);
     }
 
@@ -731,7 +697,7 @@ public final class InvariantFixtures {
     }
 
     enum DeliverOutcome implements PrimitiveOutcome {
-        COMPLETED("completed"), HANDED_BACK("handed_back"), RETURNED("returned");
+        COMPLETED("completed"), HANDED_BACK("handed_back"), RETURNED("returned"), REENTRY("reentry");
 
         private final String wireName;
 

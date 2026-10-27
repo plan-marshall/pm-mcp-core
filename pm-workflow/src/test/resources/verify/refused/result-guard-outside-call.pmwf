@@ -15,11 +15,9 @@ scope subworkflow
 entry main -> verify.entry
 
 state verify.entry
-    phase inherit
     auto test.prepare
         done -> verify.done
             guard result.pushed
         skipped -> verify.done
 
 state verify.done terminal done success
-    phase inherit

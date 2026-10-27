@@ -15,10 +15,8 @@ scope subworkflow
 entry main -> verify.entry
 
 state verify.entry
-    phase inherit
     call test.depth5()
         done -> verify.done
         stepped_out -> verify.done
 
 state verify.done terminal done success
-    phase inherit

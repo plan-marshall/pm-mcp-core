@@ -248,7 +248,7 @@ final class InstancePruner {
         if (variant.variant().equals(call.subWorkflowId())) {
             return state;
         }
-        return new StateNode(state.id(), state.phase(), state.terminalOutcome(), state.skillPath(),
+        return new StateNode(state.id(), state.terminalOutcome(), state.skillPath(),
                 state.factsPrimitiveId(), new StateBehavior.SubWorkflowCall(variant.variant(), call.entry(),
                         call.paramBindings(), call.transitions()),
                 state.location());
@@ -281,7 +281,7 @@ final class InstancePruner {
                 new StateBehavior.QuestionWait(questionClass, transitions(transitions, removed));
             case StateBehavior.TerminalState terminal -> terminal;
         };
-        return new StateNode(state.id(), state.phase(), state.terminalOutcome(), state.skillPath(),
+        return new StateNode(state.id(), state.terminalOutcome(), state.skillPath(),
                 state.factsPrimitiveId(), behavior, state.location());
     }
 

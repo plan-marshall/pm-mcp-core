@@ -42,6 +42,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.workflow.ast.ParamDecl;
+import de.planmarshall.workflow.ast.Phase;
+import de.planmarshall.workflow.ast.StateBehavior;
+import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.finalize.FinalizePipelineValidator;
@@ -65,10 +68,11 @@ class CompiledInvariantsTest {
     private static final String REFINE_FILE = "refine.pmwf";
     private static final String OUTLINE_FILE = "outline.pmwf";
     private static final String PLAN_FILE = "plan.pmwf";
+    private static final String PHASE_FOUR_FILE = "phase-4-plan.pmwf";
     private static final String EXECUTE_FILE = "execute.pmwf";
     private static final String FINALIZE_FILE = "finalize.pmwf";
 
-    /** The header of the merged plan unit, where a violation of the unit as a whole is located. */
+    /** The header of the plan unit, where a violation of the unit as a whole is located. */
     private static final String PLAN_HEADER = "workflow plan version 1 format 1";
 
     /** The lane of a template, unknown, which {@code ProjectUnitLoader} checks a project unit with. */
@@ -119,22 +123,42 @@ class CompiledInvariantsTest {
         }
 
         @Test
-        @DisplayName("the passing units are the merged plan unit and the four project-ownable sub-workflows")
+        @DisplayName("the passing units are the plan unit, its seven phase units and the four project-ownable"
+                + " sub-workflows")
         void unitSet() {
-            assertEquals(List.of(PLAN_UNIT, "adjudicate.decisions", "replan", "git.commit_and_push",
-                    "remediation.qgate-findings"), unitIds());
+            assertEquals(List.of(PLAN_UNIT, "phase-1-init", "phase-2-refine", "phase-3-outline", "phase-4-plan",
+                    "phase-5-execute", "land", "phase-6-finalize", "adjudicate.decisions", "replan",
+                    "git.commit_and_push", "remediation.qgate-findings"), unitIds());
         }
 
         @Test
-        @DisplayName("the merge records the version of every phase file and their sum")
-        void mergedPlanUnit() {
+        @DisplayName("the plan unit calls the six phase sub-workflows, in phase order, at the entry its call state"
+                + " names")
+        void planUnitCallsThePhases() {
             var plan = InvariantFixtures.defaultUnits().get(PLAN_UNIT);
+            var phases = plan.states().values().stream()
+                    .map(StateNode::behavior)
+                    .filter(StateBehavior.SubWorkflowCall.class::isInstance)
+                    .map(behavior -> ((StateBehavior.SubWorkflowCall) behavior).subWorkflowId())
+                    .distinct()
+                    .toList();
 
             assertAll(
-                    () -> assertEquals(InvariantFixtures.PLAN_FILES, List.copyOf(plan.partVersions().keySet())),
-                    () -> assertEquals(InvariantFixtures.PLAN_FILES.size(), plan.version()),
-                    () -> assertEquals(Optional.of("init.begin"), plan.startState()),
-                    () -> assertEquals(INIT_FILE, plan.location().resourceName()));
+                    () -> assertEquals(Phase.unitIds(), phases),
+                    () -> assertEquals(Optional.of("phases.init"), plan.startState()));
+        }
+
+        @Test
+        @DisplayName("the plan unit declares no phase and no state declares one; the phase is the phase unit on the"
+                + " call stack")
+        void noStateDeclaresAPhase() {
+            var entry = InvariantFixtures.defaultUnits().get("phase-4-plan");
+
+            assertAll(
+                    () -> assertEquals(Optional.of(Phase.PLAN), Phase.ofUnit(entry.id())),
+                    () -> assertEquals(Optional.empty(), Phase.ofUnit(PLAN_UNIT)),
+                    () -> assertEquals(Optional.of(Phase.EXECUTE), Phase.ofCallState("phases.execute")),
+                    () -> assertEquals(Optional.of(Phase.FINALIZE), Phase.ofCallState("phases.finalize")));
         }
     }
 
@@ -675,23 +699,23 @@ class CompiledInvariantsTest {
                 change(InvariantId.INV_INIT_2, "the light lane skips outline.light-regate", OUTLINE_FILE,
                         "done -> outline.light-regate", "done -> outline.gate", "state outline.gate"),
                 change(InvariantId.INV_REFINE_1, "the deep path leaves refine without refine.analyze", REFINE_FILE,
-                        "done -> refine.analyze", "done -> outline.deep", "done -> outline.deep"),
-                change(InvariantId.INV_OUTLINE_1, "a remediation result enters Phase 4 past outline.gate",
-                        OUTLINE_FILE, "resolved -> outline.gate", "resolved -> plan.derive",
-                        "resolved -> plan.derive"),
+                        "done -> refine.analyze", "done -> refine.return-exit", "done -> refine.return-exit"),
+                change(InvariantId.INV_OUTLINE_1, "a phase before outline enters Phase 4 past outline.gate",
+                        PLAN_FILE, "        deep -> phases.refine", "        deep -> phases.plan",
+                        "deep -> phases.plan"),
                 change(InvariantId.INV_OUTLINE_2, "the deep lane skips outline.qgate", OUTLINE_FILE,
                         "approved -> outline.qgate", "approved -> outline.gate", "approved -> outline.gate"),
-                change(InvariantId.INV_PLAN_1, "the blocking verdict of plan.qgate calls no remediation", PLAN_FILE,
+                change(InvariantId.INV_PLAN_1, "the blocking verdict of plan.qgate calls no remediation", PHASE_FOUR_FILE,
                         "blocking -> plan.remediate", "blocking -> plan.compose", "blocking -> plan.compose"),
                 changeAt(InvariantId.INV_EXEC_1, "the envelope task runs before the worktree initialization",
-                        PLAN_FILE, "execute -> execute.worktree-init", "execute -> execute.envelope", EXECUTE_FILE,
-                        "state execute.envelope"),
+                        EXECUTE_FILE, "entry start -> execute.worktree-init", "entry start -> execute.envelope",
+                        EXECUTE_FILE, "state execute.envelope"),
                 change(InvariantId.INV_EXEC_2, "the exit barrier is reached without the deliverable build",
                         EXECUTE_FILE, "done -> execute.deliverable-build", "done -> execute.verify-sweep",
                         "state execute.exit-barrier"),
                 change(InvariantId.INV_EXEC_3, "the envelope task routes lost past the envelope evaluation",
-                        EXECUTE_FILE, "lost -> execute.evaluate-envelope-return", "lost -> finalize.hand-back",
-                        "lost -> finalize.hand-back"),
+                        EXECUTE_FILE, "lost -> execute.evaluate-envelope-return", "lost -> execute.hand-back-exit",
+                        "lost -> execute.hand-back-exit"),
                 changeAt(InvariantId.INV_FIN_1, "no transition completes the mandatory step default:create-pr",
                         FINALIZE_FILE, "\n            completes default:create-pr as done", "", INIT_FILE,
                         PLAN_HEADER),
@@ -705,9 +729,9 @@ class CompiledInvariantsTest {
                         "push_mode = no_push", "push_mode = push", "state execute.commit"),
                 change(InvariantId.INV_FIN_5, "the merge is reached without finalize.merge-gate", FINALIZE_FILE,
                         "done -> finalize.merge-gate", "done -> finalize.merge", "state finalize.merge\n"),
-                change(InvariantId.INV_FIN_6, "the push barrier steps out to plan.return", FINALIZE_FILE,
-                        "stepped_out -> finalize.hand-back", "stepped_out -> plan.return",
-                        "stepped_out -> plan.return"),
+                change(InvariantId.INV_FIN_6, "the push barrier steps out to the re-entry", FINALIZE_FILE,
+                        "stepped_out -> finalize.hand-back", "stepped_out -> finalize.reentry-exit",
+                        "stepped_out -> finalize.reentry-exit"),
                 change(InvariantId.INV_ADJ_1, "the vote wait lies below its bound", ADJUDICATION_FILE,
                         "declare vote_wait_seconds = 900", "declare vote_wait_seconds = 30",
                         "declare vote_wait_seconds = 30"),
@@ -731,11 +755,11 @@ class CompiledInvariantsTest {
                         REMEDIATION_FILE, "stepped_out -> remediation-qgate.budget-check",
                         "stepped_out -> remediation-qgate.exhausted", "stepped_out -> remediation-qgate.exhausted"),
                 change(InvariantId.INV_REM_5, "an early remediation call routes exhausted past the fallback",
-                        REFINE_FILE, "exhausted -> plan.return", "exhausted -> outline.deep",
-                        "exhausted -> outline.deep"),
-                change(InvariantId.INV_REM_6, "the plan unit runs a remediation primitive", PLAN_FILE,
-                        "state plan.derive\n    phase plan\n    auto test.proceed",
-                        "state plan.derive\n    phase plan\n    auto remediation.offer-actions", "state plan.derive"),
+                        REFINE_FILE, "exhausted -> refine.return-exit", "exhausted -> refine.done-exit",
+                        "exhausted -> refine.done-exit"),
+                change(InvariantId.INV_REM_6, "the plan unit runs a remediation primitive", PHASE_FOUR_FILE,
+                        "state plan.derive\n    auto test.proceed", "state plan.derive\n    auto remediation.offer-actions",
+                        "state plan.derive"),
                 change(InvariantId.INV_REM_7, "the decision offers its choice past the decision task",
                         REMEDIATION_FILE, "choice -> remediation-qgate.choose", "choice -> remediation-qgate.rerun",
                         "state remediation-qgate.decide"));

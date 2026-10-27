@@ -16,9 +16,7 @@ scope subworkflow
 entry main -> verify.entry
 
 state verify.entry
-    phase inherit
     job llm change role reviewer
         approved -> verify.done
 
 state verify.done terminal done success
-    phase inherit

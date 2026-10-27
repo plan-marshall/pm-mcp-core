@@ -133,6 +133,12 @@ final class RemediationInvariants {
     private static final String EXHAUSTED = "exhausted";
     private static final String FIX_REQUESTED_OUTCOME = "fix_requested";
 
+    /** The outcome of the terminal a phase sub-workflow leaves on when the plan unit routes it to the fallback. */
+    private static final String RETURNED_OUTCOME = "returned";
+
+    /** The outcome of the terminal a phase sub-workflow leaves on when the plan unit hands the plan back. */
+    private static final String HAND_BACK_OUTCOME = "handed_back";
+
     private static final ParamType BUDGET_TYPE = new ParamType.Int(Optional.of(0), Optional.of(BUDGET_CAP));
     private static final ParamType WAIT_TYPE = new ParamType.Int(Optional.of(0), Optional.of(WAIVER_WAIT_CAP));
 
@@ -337,7 +343,7 @@ final class RemediationInvariants {
     // ----- INV-REM-3
 
     private static void waivedPath(Context context) {
-        for (var edge : Context.edges(context.unit())) {
+        for (var edge : context.allEdges()) {
             checkWaivedEntry(context, edge.source(), edge.transition());
             checkWaiverWaitEntry(context, edge.source(), edge.transition());
         }
@@ -433,9 +439,9 @@ final class RemediationInvariants {
      */
     private static void checkRemediationCall(Context context, StateNode state, StateBehavior.SubWorkflowCall call,
             Set<String> afterMerge) {
-        var early = CompiledInvariants.PHASES_BEFORE_EXECUTE.contains(state.phase());
+        var early = context.phaseOf(state).filter(CompiledInvariants.PHASES_BEFORE_EXECUTE::contains).isPresent();
         var fallback = early ? CompiledInvariants.PLAN_RETURN : CompiledInvariants.HAND_BACK;
-        var replanAdmitted = replanAdmitted(state, afterMerge);
+        var replanAdmitted = replanAdmitted(context, state, afterMerge);
         for (var transition : Context.transitions(state)) {
             checkCallerRoute(context, state, transition, fallback, replanAdmitted);
         }
@@ -446,9 +452,9 @@ final class RemediationInvariants {
      * @return {@code true} when the call may route {@code exhausted} to the re-planning unit: from Phase 5 outside
      *         the {@code land} lane and from Phase 6 before the merge
      */
-    private static boolean replanAdmitted(StateNode state, Set<String> afterMerge) {
-        return CompiledInvariants.PHASE_EXECUTE.contains(state.phase()) && !state.id().startsWith("land.")
-                || CompiledInvariants.PHASE_FINALIZE.equals(state.phase()) && !afterMerge.contains(state.id());
+    private static boolean replanAdmitted(Context context, StateNode state, Set<String> afterMerge) {
+        return context.inPhase(state, CompiledInvariants.PHASE_EXECUTE) && !state.id().startsWith("land.")
+                || context.inPhase(state, CompiledInvariants.PHASE_FINALIZE) && !afterMerge.contains(state.id());
     }
 
     /**
@@ -468,16 +474,28 @@ final class RemediationInvariants {
     }
 
     /**
-     * {@code stepped_out} routes to the phase's fallback.
+     * {@code stepped_out} routes to the phase's fallback. The fallback of a phase that is its own unit is the exit the
+     * plan unit turns into the fallback state, so a route into that exit is the fallback route too.
      */
     private static void requireFallback(Context context, StateNode state, OutcomeTransition transition,
             String fallback) {
         var target = transition.targetStateId();
-        if (!fallback.equals(target)) {
+        if (!fallback.equals(target) && !isFallbackExit(context, target, fallback)) {
             context.reportTransition(InvariantId.INV_REM_5, state, transition,
                     "'%s' routes 'stepped_out' to '%s', not".formatted(state.id(), target)
                             + " to the fallback '%s'".formatted(fallback));
         }
+    }
+
+    /**
+     * @return {@code true} when the target is the terminal a phase sub-workflow leaves on when the plan unit turns that
+     *         outcome into the given fallback state
+     */
+    private static boolean isFallbackExit(Context context, String target, String fallback) {
+        var outcome = CompiledInvariants.HAND_BACK.equals(fallback) ? HAND_BACK_OUTCOME : RETURNED_OUTCOME;
+        return context.state(target).filter(Context::isTerminal)
+                .flatMap(StateNode::terminalOutcome)
+                .filter(reported -> outcome.equals(reported.id())).isPresent();
     }
 
     /**
@@ -488,7 +506,7 @@ final class RemediationInvariants {
         var target = transition.targetStateId();
         var toReplan = replanAdmitted && context.state(target).flatMap(Context::callee)
                 .filter(REPLAN_UNIT::equals).isPresent();
-        if (!fallback.equals(target) && !toReplan) {
+        if (!fallback.equals(target) && !isFallbackExit(context, target, fallback) && !toReplan) {
             context.reportTransition(InvariantId.INV_REM_5, state, transition,
                     "'%s' routes 'exhausted' to '%s', not to".formatted(state.id(), target)
                             + " the fallback '%s'%s".formatted(fallback,
@@ -497,7 +515,7 @@ final class RemediationInvariants {
     }
 
     private static Set<String> afterMerge(Context context) {
-        var mergeTargets = Context.edges(context.unit()).stream()
+        var mergeTargets = context.allEdges().stream()
                 .filter(edge -> FinalizeInvariants.MERGED.equals(edge.transition().outcomeName()))
                 .map(edge -> edge.transition().targetStateId())
                 .collect(Collectors.toCollection(LinkedHashSet::new));
@@ -542,7 +560,7 @@ final class RemediationInvariants {
         var id = InvariantId.INV_REM_6;
         var remediationUnit = context.unit().id().startsWith(CompiledInvariants.REMEDIATION_PREFIX);
         var known = new LinkedHashSet<String>();
-        context.reference().states().values()
+        context.referenceStates()
                 .forEach(state -> Context.primitiveId(state).ifPresent(known::add));
         for (var state : context.states()) {
             Context.primitiveId(state).filter(primitive -> primitive.startsWith(CompiledInvariants.REMEDIATION_PREFIX))

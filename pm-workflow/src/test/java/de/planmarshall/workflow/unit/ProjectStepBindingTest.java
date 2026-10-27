@@ -34,6 +34,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import de.cuioss.test.juli.junit5.EnableTestLogger;
+import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor;
 
 /**
@@ -106,7 +107,7 @@ class ProjectStepBindingTest {
 
         assertAll(
                 () -> assertTrue(result.isVerified(), result.findings()::toString),
-                () -> assertTrue(result.units().containsKey(PlanUnitMerger.PLAN_UNIT)));
+                () -> assertTrue(result.units().containsKey(Phase.PLAN_UNIT)));
     }
 
     @Test

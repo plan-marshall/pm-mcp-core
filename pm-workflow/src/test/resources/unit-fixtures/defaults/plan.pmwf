@@ -1,43 +1,88 @@
 ---
 name: plan
-description: A unit written for the invariant and unit-loader tests.
+description: The plan unit of the fixture corpus, calling the six phase sub-workflows.
 type: workflow
 icon: phase.plan
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# The plan phase (Phase 4) of the plan unit, written for the invariant and unit-loader tests, never copied from the
-# product. Every path into Phase 5 passes the derivation, plan.qgate and the composition; the blocking verdict of
-# plan.qgate calls the Q-Gate remediation. The phase is shared by both lanes after outline.gate, so its rework re-enters
-# outline.deep, the authoring entry every lane keeps (the light lane through its escalation), never a state of the
-# light route.
+# The plan unit, written for the invariant and unit-loader tests, never copied from the product. It carries no phase
+# and no state of a phase: every phase is the sub-workflow its call state names, `phases.init` to `phases.finalize`
+# (PM-WF-16). A loop-back is a call of a phase again; the re-entry into execute is the `reentry` outcome of finalize.
 workflow plan version 1 format 1
 scope plan
-start plan.derive
+start phases.init
 
-state plan.derive
-    phase plan
+state phases.init
+    call phase-1-init entry start
+        deep -> phases.refine
+        light -> phases.outline.light
+
+state phases.refine
+    call phase-2-refine entry start
+        done -> phases.outline
+        returned -> plan.return
+
+state phases.outline
+    call phase-3-outline entry start
+        done -> phases.plan
+        returned -> plan.return
+
+state phases.outline.light
+    call phase-3-outline entry light
+        done -> phases.plan
+        returned -> plan.return
+
+state phases.outline.rework
+    call phase-3-outline entry rework
+        done -> phases.plan
+        returned -> plan.return
+
+state phases.plan
+    call phase-4-plan entry start
+        execute -> phases.execute
+        land -> phases.execute.land
+        rework -> phases.outline.rework
+        returned -> plan.return
+
+state phases.execute
+    call phase-5-execute entry start
+        done -> phases.finalize
+        rework -> phases.outline.rework
+        returned -> plan.return
+
+state phases.execute.land
+    call phase-5-execute entry land
+        done -> phases.finalize
+        returned -> plan.return
+
+state phases.execute.reentry
+    call phase-5-execute entry reentry
+        done -> phases.finalize
+        rework -> phases.outline.rework
+        returned -> plan.return
+
+state phases.finalize
+    call phase-6-finalize entry start
+        completed -> completed
+        handed_back -> handed_back
+        returned -> returned
+        reentry -> phases.execute.reentry
+
+state phases.finalize.adopt
+    call phase-6-finalize entry adopt
+        completed -> completed
+        handed_back -> handed_back
+        returned -> returned
+        reentry -> phases.execute.reentry
+
+state plan.return
     auto test.proceed
-        done -> plan.qgate
+        done -> phases.finalize
 
-state plan.qgate
-    phase plan
-    auto test.qgate
-        pass -> plan.compose
-        blocking -> plan.remediate
+state completed terminal completed success
 
-state plan.remediate
-    phase plan
-    call remediation.qgate-findings(retry_budget = 2, fix_budget = 2, waiver_wait_seconds = 3600, actions = [retry, fix])
-        resolved -> plan.compose
-        waived -> plan.compose
-        exhausted -> plan.return
-        fix_requested -> outline.deep
-        stepped_out -> plan.return
+state handed_back terminal handed_back failure
 
-state plan.compose
-    phase plan
-    auto test.route
-        execute -> execute.worktree-init
-        land -> land.worktree-init
+state returned terminal returned failure

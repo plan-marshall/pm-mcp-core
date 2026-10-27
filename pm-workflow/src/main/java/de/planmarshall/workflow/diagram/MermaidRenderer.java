@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 
@@ -75,14 +76,15 @@ final class MermaidRenderer {
 
     private void renderUnit(WorkflowDefinition definition, Optional<String> activeState) {
         var transitions = StateTransitions.of(definition);
-        var groups = phaseGroups(definition);
+        var phase = phaseOf(definition);
+        var groups = phaseGroups(definition, phase);
         var aliases = Aliases.of(definition, groups.keySet(), transitions);
         line(0, "stateDiagram-v2");
-        groups.forEach((phase, states) -> {
-            if (INHERIT.equals(phase)) {
+        groups.forEach((groupPhase, states) -> {
+            if (INHERIT.equals(groupPhase)) {
                 declare(1, states, aliases);
             } else {
-                line(1, "state " + aliases.phase(phase) + " {");
+                line(1, "state " + aliases.phase(groupPhase) + " {");
                 declare(2, states, aliases);
                 states.stream().flatMap(state -> transitions.outgoing(state.id()).stream())
                         .filter(edge -> isInsideComposite(definition, edge))
@@ -112,23 +114,31 @@ final class MermaidRenderer {
     }
 
     /**
-     * Groups the states of a unit by phase value, the groups and the states of a group in declaration order.
+     * Groups the states of a unit under the phase the unit carries, if it is a phase sub-workflow; a unit that carries
+     * none, such as the plan unit that calls the phases, keeps its states ungrouped.
      */
-    private static Map<String, List<StateNode>> phaseGroups(WorkflowDefinition definition) {
+    private static Map<String, List<StateNode>> phaseGroups(WorkflowDefinition definition, String phase) {
         var groups = new LinkedHashMap<String, List<StateNode>>();
         definition.states().values()
-                .forEach(state -> groups.computeIfAbsent(state.phase(), phase -> new ArrayList<>()).add(state));
+                .forEach(state -> groups.computeIfAbsent(phase, key -> new ArrayList<>()).add(state));
         return groups;
     }
 
     /**
+     * @return the phase the unit carries as a phase sub-workflow; {@code inherit} for a unit that carries none
+     */
+    private static String phaseOf(WorkflowDefinition definition) {
+        return Phase.ofUnit(definition.id()).map(Phase::wireName).orElse(INHERIT);
+    }
+
+    /**
      * Tells whether a transition is emitted inside the composite of its source state's phase: its source and its
-     * target are states of the same phase, which is not {@code inherit}.
+     * target are states of the same phase sub-workflow, which is not {@code inherit}.
      */
     private static boolean isInsideComposite(WorkflowDefinition definition, StateTransitions.Edge edge) {
-        var phase = edge.source().phase();
+        var phase = phaseOf(definition);
         var target = definition.states().get(edge.target());
-        return !INHERIT.equals(phase) && target != null && phase.equals(target.phase());
+        return !INHERIT.equals(phase) && target != null;
     }
 
     private static String transition(StateTransitions.Edge edge, Aliases aliases) {

@@ -35,6 +35,7 @@ import org.junit.jupiter.api.io.TempDir;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
+import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.dsl.RefusalRule;
 import de.planmarshall.workflow.verify.InvariantFixtures;
@@ -93,24 +94,27 @@ class DefaultUnitLoaderTest {
 
             assertAll(
                     () -> assertTrue(result.isVerified(), result.findings()::toString),
-                    () -> assertEquals(List.of(PlanUnitMerger.PLAN_UNIT, "adjudicate.decisions", "replan",
-                                    "git.commit_and_push", "remediation.qgate-findings"),
+                    () -> assertEquals(List.of(Phase.PLAN_UNIT, "phase-1-init", "phase-2-refine", "phase-3-outline",
+                                    "phase-4-plan", "phase-5-execute", "land", "phase-6-finalize",
+                                    "adjudicate.decisions", "replan", "git.commit_and_push",
+                                    "remediation.qgate-findings"),
                             List.copyOf(result.units().keySet())),
                     () -> assertEquals(Optional.empty(), result.refusal()),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.ERROR, DefaultUnitLoader.class));
         }
 
         @Test
-        @DisplayName("parses every unit as a default unit and merges the phase files with their resource names")
-        void defaultOriginAndMerge() {
+        @DisplayName("parses every unit as a default unit of its own, the plan unit and each phase with its own file")
+        void defaultOriginAndFiles() {
             var units = UnitFixtures.defaultUnits();
-            var plan = units.get(PlanUnitMerger.PLAN_UNIT);
+            var plan = units.get(Phase.PLAN_UNIT);
 
             assertAll(
                     () -> units.values().forEach(unit -> assertEquals(UnitOrigin.DEFAULT, unit.origin(), unit::id)),
-                    () -> assertEquals(InvariantFixtures.PLAN_FILES.stream().map(file -> InvariantFixtures.ROOT + file)
-                            .toList(), List.copyOf(plan.partVersions().keySet())),
-                    () -> assertEquals(InvariantFixtures.ROOT + "init.pmwf", plan.location().resourceName()),
+                    () -> assertEquals(InvariantFixtures.ROOT + "plan.pmwf", plan.location().resourceName()),
+                    () -> assertEquals(Optional.of("phases.init"), plan.startState()),
+                    () -> assertEquals(InvariantFixtures.ROOT + "init.pmwf",
+                            units.get("phase-1-init").location().resourceName()),
                     () -> assertEquals(Map.of(), plan.derivedFrom()));
         }
 

@@ -21,14 +21,15 @@ import java.util.stream.Collectors;
 import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.ParamSpec;
 import de.planmarshall.workflow.ast.ParamType;
+import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
 
 /**
- * Renders a unit as AsciiDoc tables (PM-IMPL-5): per phase group, in the order in which the phase values are first
- * declared, a state table, a link table and an outcome table, each titled with its phase value.
+ * Renders a unit as AsciiDoc tables (PM-IMPL-5): for the phase the unit carries, if it is a phase sub-workflow, a
+ * state table, a link table and an outcome table, each titled with that phase value.
  * <ul>
  * <li><b>States</b>: exactly the columns of the State Catalogue: <em>State id</em>, <em>Phase value</em>,
  * <em>Kind</em> ({@link StateKind}), <em>Entered from</em> ({@code start} for the start state, {@code entry <name>} for
@@ -51,6 +52,7 @@ final class AsciiDocTableRenderer {
     private static final String NONE = "-";
     private static final String LIST_SEPARATOR = ", ";
     private static final String TABLE_DELIMITER = "|===";
+    private static final String INHERIT = "inherit";
 
     private final StringBuilder out = new StringBuilder();
 
@@ -71,9 +73,10 @@ final class AsciiDocTableRenderer {
 
     private void renderUnit(WorkflowDefinition definition) {
         var transitions = StateTransitions.of(definition);
+        var phase = phaseOf(definition);
         var groups = new LinkedHashMap<String, List<StateNode>>();
         definition.states().values()
-                .forEach(state -> groups.computeIfAbsent(state.phase(), phase -> new ArrayList<>()).add(state));
+                .forEach(state -> groups.computeIfAbsent(phase, key -> new ArrayList<>()).add(state));
         var first = true;
         for (Map.Entry<String, List<StateNode>> group : groups.entrySet()) {
             if (!first) {
@@ -86,12 +89,16 @@ final class AsciiDocTableRenderer {
         }
     }
 
+    private static String phaseOf(WorkflowDefinition definition) {
+        return Phase.ofUnit(definition.id()).map(Phase::wireName).orElse(INHERIT);
+    }
+
     private void stateTable(WorkflowDefinition definition, StateTransitions transitions, String phase,
             List<StateNode> states) {
         header(phase, "states", "2,1,1,2,3,2,2", "State id", "Phase value", "Kind", "Entered from",
                 "Offered links / outcomes", "Exits to", "Defined in");
         for (var state : states) {
-            row(code(state.id()), code(state.phase()), code(StateKind.of(state.behavior()).label()),
+            row(code(state.id()), code(phase), code(StateKind.of(state.behavior()).label()),
                     enteredFrom(definition, transitions, state), offered(definition.scope(), state),
                     exitsTo(transitions, state), "");
         }

@@ -72,7 +72,7 @@ final class InitInvariants {
         context.requirePresent(id, CLASSIFY);
         context.requireNoNewBypass(id, Set.of(CLASSIFY), READY);
         for (var state : context.states()) {
-            if (state.behavior() instanceof StateBehavior.QuestionWait && PHASE_INIT.equals(state.phase())) {
+            if (state.behavior() instanceof StateBehavior.QuestionWait && context.inPhase(state, PHASE_INIT)) {
                 Context.transitions(state).stream()
                         .filter(transition -> !CLASSIFY.equals(transition.targetStateId()))
                         .forEach(transition -> context.reportTransition(id, state, transition,
@@ -101,7 +101,7 @@ final class InitInvariants {
         }
         for (var gate : List.of(LaneEntryIds.LIGHT_ENTRY, LIGHT_REGATE)) {
             context.referenceState(gate).ifPresent(ratchet -> Context.transitions(ratchet).stream()
-                    .filter(transition -> !Context.hasTransition(context.unit(), gate, transition.outcomeName(),
+                    .filter(transition -> !context.hasTransition(gate, transition.outcomeName(),
                             transition.targetStateId()))
                     .forEach(transition -> context.report(id, gate, context.state(gate)
                                     .map(StateNode::location).orElse(context.unit().location()),

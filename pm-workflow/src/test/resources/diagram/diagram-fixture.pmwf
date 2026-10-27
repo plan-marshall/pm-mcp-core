@@ -82,7 +82,5 @@ state review.ask
         answered -> review.entry
 
 state diagram.done terminal done success
-    phase inherit
 
 state diagram.failed terminal failed failure
-    phase inherit

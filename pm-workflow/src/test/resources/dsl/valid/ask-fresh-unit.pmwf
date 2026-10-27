@@ -18,16 +18,13 @@ scope subworkflow
 entry start -> ask.continue
 
 state ask.continue
-    phase inherit
     job llm change role implementer ask
         done -> ask.report
         lost -> ask.done
 
 state ask.report
-    phase inherit
     job llm change role implementer ask fresh
         done -> ask.done
         lost -> ask.done
 
 state ask.done terminal done success
-    phase inherit

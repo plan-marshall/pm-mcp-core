@@ -21,18 +21,14 @@ declare prerequisite_wait_seconds = 604800
 entry main -> replan.assess
 
 state replan.assess
-    phase inherit
     job llm change role planner
         approved -> replan.apply
         lost -> replan.declined
 
 state replan.apply
-    phase inherit
     auto test.proceed
         done -> replan.replanned
 
 state replan.replanned terminal replanned success
-    phase inherit
 
 state replan.declined terminal declined failure
-    phase inherit
