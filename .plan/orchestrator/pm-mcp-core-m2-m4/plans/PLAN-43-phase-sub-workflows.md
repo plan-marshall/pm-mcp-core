@@ -16,7 +16,7 @@ workstream: WS-03
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -81,50 +81,94 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/unit/` — the plan unit as a workflow of phases
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/engine/` — the call stack and the history
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/` — call depth and phase rules
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/plan/` — composition and pruning
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/diagram/` — phase drill-down
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/` — the plan's history
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/ast/` — Deliverable 2 removes `StateNode.phase`, the phase clause, phase inherit and `partVersions` of `WorkflowDefinition`; added by cleanup on 2026-10-16
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/dsl/` — the parser side of the same removal; added by cleanup on 2026-10-16
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-unit.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-unit/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-engine.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-engine/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-verify.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-verify/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-plan.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-plan/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-diagram.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-diagram/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-core/doc/developer/core-store.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-core/doc/adr/core-store/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
 - OBSERVED: `doc/plans/phase-sub-workflows.adoc` — the package file, deleted when the package is done
+- OBSERVED: `doc/implementation-watch/phase-workflows.adoc` — PM-WATCH-PHASE-106, 107, 110, 111
 - OBSERVED: `doc/specification/phase-workflows/01-planning-phases-1-2.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/phase-workflows/02-planning-lanes-phases-3-4.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/phase-workflows/02-planning-lanes-phases-3-4.adoc` — specification part; keep the rows owned by finalize-pipeline-and-merge
+- OBSERVED: `doc/specification/phase-workflows/04-finalize-step-bands.adoc` — specification part; DC results, simplify bands
+- OBSERVED: `doc/specification/phase-workflows/07-questions-waivers-operator-influence.adoc` — specification part; Intent Amendments
 - OBSERVED: `doc/specification/state-catalogue/18-plan-unit-axes-short-landings.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/02-workflow-state-store.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/store-schemas/03-findings-and-review-records.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/store-schemas/03-findings-and-review-records.adoc` — specification part; only § Phases as Sub-Workflows deleted
+- OBSERVED: `doc/specification/store-schemas/06-task-and-references.adoc` — specification part; Intent Record, Outline Record, Capability Spec
 - OBSERVED: `doc/specification/workflow-dsl/01-grammar.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/workflow-dsl/02-units-jobs-decisions.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc` — § Positioned Layout, read, not edited
 - OBSERVED: `doc/specification/workflow-dsl/09-plan-instance.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/spi/validation/OutlineValidator.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/finalize/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/src/main/resources/de/planmarshall/workflow/plan/composition-rules.json` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/doc/developer/workflow-ast.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-core/doc/developer/core-spi.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/store-schemas/06-task-and-references.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/implementation-watch/phase-workflows.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/phase-workflows/04-finalize-step-bands.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/phase-workflows/07-questions-waivers-operator-influence.adoc` — exists at HEAD `8233fffc`; added by the second re-grounding pass of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/doc/developer/workflow-finalize.adoc` — D9 and D10 change `workflow.finalize` (`FinalizePipelineValidator`); the package is on the surface, its documents were not; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/doc/adr/workflow-finalize/` — last number 003; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-workflow/doc/adr/workflow-ast/` — last number 002; D2 removes `StateNode.phase` and `partVersions` in `workflow.ast`; added by the re-grounding of 2026-10-26
-- OBSERVED: `doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc` — § Positioned Layout (#181) addresses a plan unit or phase sub-workflow by the process tree's `node_id`; read, not edited; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/ast/StateNode.java` — D2: the phase member goes
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/ast/WorkflowDefinition.java` — D2: partVersions goes
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/ast/CallFrame.java` — D2/D4: callerPhase goes with the phase mapping
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/dsl/WorkflowParser.java` — D2: the phase clause and phase inherit go
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/dsl/WorkflowPrinter.java` — D2: prints the phase clause today
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/unit/PlanUnitMerger.java` — D2: removed with the merge of the phase files
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/unit/DefaultUnitLoader.java` — D2: merges PHASE_FILES today
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/unit/ProjectUnitLoader.java` — D2: merges the project's phase files today
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/unit/UnitFinding.java` — D2: refers to PlanUnitMerger.PLAN_UNIT
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/engine/CallStack.java` — D2: MAX_DEPTH to five
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/engine/WorkflowEngine.java` — D2/D4/D5: phase mapping goes, the history is written here
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/VerificationRule.java` — D2: CALL_GRAPH_DAG depth five
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java` — D2: depth rule, phase inherit check
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/CompiledInvariants.java` — D2: PHASE_* constants keyed on state.phase()
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/InitInvariants.java` — D2: reads state.phase()
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/RefineInvariants.java` — D2: reads state.phase()
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/OutlineInvariants.java` — D2: reads state.phase()
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/PlanInvariants.java` — D2: reads state.phase()
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/ExecuteInvariants.java` — D2: reads state.phase()
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/FinalizeInvariants.java` — D2: reads state.phase()
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/RemediationInvariants.java` — D2/D4: reads state.phase()
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/SubWorkflowInvariants.java` — D2: copies StateNode with its phase
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/SchemaRegistry.java` — D7/D8: no intent-record or outline-record in defaults() today
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/plan/InstancePruner.java` — D2: prunes a phase as a call; copies StateNode with its phase
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java` — D2: composes the phases, one instance file per unit
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/diagram/MermaidRenderer.java` — D2: groups by state.phase(); phase drill-down
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/diagram/AsciiDocTableRenderer.java` — D2: groups by state.phase()
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/diagram/InstanceMermaidRenderer.java` — D2: phase composites
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/finalize/FinalizePipelineValidator.java` — D9/D10: the finalize.simplify bands
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/finalize/FinalizeStepDescriptor.java` — D9: the simplify steps
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java` — D2: MAX_CALL_DEPTH to five
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatusCodec.java` — D2/D4: the phase member of the status
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/spi/validation/OutlineValidator.java` — D10: refuses an unchanged guard downstream of the change it guards
+- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/PlanHistory.java` — D5: the plan's append-only history (history.jsonl, ADR core-store/044)
+- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/IntentRecord.java` — D7: the intent record intent.json
+- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/OutlineRecord.java` — D8: the outline record outline.json
+- OBSERVED: `pm-workflow/src/main/resources/de/planmarshall/workflow/plan/composition-rules.json` — D9: default:finalize-step-simplify
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/unit/PlanUnitMergerTest.java` — deleted with PlanUnitMerger
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/unit/DefaultUnitLoaderTest.java` — loader without the merge
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/unit/ProjectUnitLoaderTest.java` — loader without the merge
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/unit/ProjectStepBindingTest.java` — uses PlanUnitMerger
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowParserTest.java` — phase clause and partVersions in fixtures
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowParserRefusalTest.java` — phase clause in fixtures
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowPrinterTest.java` — phase clause in fixtures
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowLexerTest.java` — phase clause in fixtures
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/dsl/AstWithoutLocations.java` — builds StateNode with phase
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/ast/AstNodeModelTest.java` — StateNode, CallFrame, WorkflowDefinition constructors
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/engine/WorkflowEngineTest.java` — phase of the status, history
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/engine/SubWorkflowExecutionTest.java` — depth five/six, phase of a called sub-workflow
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/engine/WorkflowEnginePhaseParityTest.java` — the phase mapping goes
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineFixtures.java` — phase clause in fixtures
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineResumeTest.java` — phase clause in fixtures
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineEventTest.java` — phase clause in fixtures
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/engine/GuardEvaluatorTest.java` — phase clause in fixtures
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/engine/LoopBackBudgetTest.java` — phase clause in fixtures
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/verify/WorkflowValidatorTest.java` — depth rule five/six
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/verify/AdditionalRulesTest.java` — phase clause in fixtures
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/verify/VerificationResultTest.java` — pins CALL_GRAPH_DAG
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/verify/CompiledInvariantsTest.java` — phase-keyed invariants
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/verify/InvariantFixtures.java` — phase clause, WorkflowDefinition constructor
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/verify/DeclarationBoundsTest.java` — phase clause in fixtures
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/verify/TestPrimitives.java` — phase clause in fixtures
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/plan/InstancePrunerTest.java` — prune a phase as a call
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java` — composed phases
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanFixtures.java` — phase clause in fixtures
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/diagram/WorkflowDiagramGeneratorTest.java` — phase drill-down
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/diagram/DiagramFixtures.java` — phase clause in fixtures
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioFixtures.java` — phase clause in fixtures (also PLAN-35's package)
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java` — phase and depth of the status
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/spi/validation/OutlineValidatorTest.java` — D10 refusal with matched controls
+- HYPOTHESIS: `pm-workflow/src/test/resources/dsl/` — every fixture with the phase clause
+- HYPOTHESIS: `pm-workflow/src/test/resources/verify/` — every fixture with the phase clause
+- HYPOTHESIS: `pm-workflow/src/test/resources/unit-fixtures/defaults/` — the phase part files (init, refine, outline, plan, execute, finalize, land) become phase sub-workflows
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

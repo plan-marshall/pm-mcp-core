@@ -16,7 +16,7 @@ workstream: WS-03
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -67,21 +67,6 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/unit/` — the onboarding unit of the machine scope
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/` — enrolment writes, project values over machine values
-- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/enrolment/` — detection and enrolment
-- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/workspace/` — the projects of the machine
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/config/` — Deliverable 7, the project's values over the machine's (`package-info.java` only today); added by cleanup on 2026-10-16
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/setup/` — the `project.*` and `setup.*` states (`package-info.java` only today); added by cleanup on 2026-10-16
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-unit.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-unit/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-core/doc/developer/core-store.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-core/doc/adr/core-store/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-runtime/doc/developer/runtime-enrolment.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-runtime/doc/adr/runtime-enrolment/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-runtime/doc/developer/runtime-workspace.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-runtime/doc/adr/runtime-workspace/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
 - OBSERVED: `doc/plans/project-onboarding-unit.adoc` — the package file, deleted when the package is done
 - OBSERVED: `doc/specification/credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/domain-extensions/04-setup-state-machine.adoc` — specification part; the implemented sections deleted
@@ -90,11 +75,18 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/store-schemas/08-project-configuration-local.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/11-enrolment-store.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/12-machine-stores.adoc` — specification part; the implemented sections deleted
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-setup.adoc` — to be created; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- HYPOTHESIS: `pm-core/doc/developer/core-config.adoc` — to be created; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/job/` — `ProbeCandidate` already has `Kind.SCRIPT` and a `CheckoutRoot` working directory (probe jobs for checkout scripts, D3 and D4); consumed, extended only if needed; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `doc/specification/model-work/01-roles-and-configuration.adoc` — the screener repeated runs (#189) change the expected tokens shown before `model_cost` consent (D6); trace only; added by the re-grounding of 2026-10-26
-- OBSERVED: `doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc` — the code scanning provider (#186) makes the provider list of D5 open-ended; trace only; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/specification/model-work/01-roles-and-configuration.adoc` — trace only; screener repeated runs change the tokens shown before model_cost consent (D6)
+- OBSERVED: `doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc` — trace only; the code scanning provider makes the provider list of D5 open-ended
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/enrolment/Enrolments.java` — project.enrol writes the enrolment as pm-operator enrol does; the consent write joins its transaction (D3, D4)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/QualificationSettingsStore.java` — writes local-config.json settings.qualification, "the project's onboarding writes it"; D7 revision/conflict
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeCandidate.java` — Kind.SCRIPT and CheckoutRoot for the checkout-script probe jobs (D3, D4); consumed, extended only if needed
+- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/config/` — Deliverable 7, the project's values over the machine's (package-info only today)
+- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/setup/` — the project.* and setup.* states (package-info only today)
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/EnrolmentsTest.java` — pm-operator enrol still enrols as a direct verb; enrol transaction extended
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/QualificationSettingsStoreTest.java` — project value change against an older revision refused with conflict (D7)
+- HYPOTHESIS: `pm-workflow/doc/developer/workflow-setup.adoc` — to be created; developer guide of the new setup package
+- HYPOTHESIS: `pm-core/doc/developer/core-config.adoc` — to be created; developer guide of the new config package
+- HYPOTHESIS: `pm-runtime/doc/adr/runtime-workspace/` — ADR directory does not exist yet
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

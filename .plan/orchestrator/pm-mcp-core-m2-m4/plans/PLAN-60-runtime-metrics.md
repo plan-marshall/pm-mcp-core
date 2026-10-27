@@ -16,7 +16,7 @@ workstream: WS-01
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -68,20 +68,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 
 ## Expected Surface
 
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/metrics/` — inferred from the `Where` line; a new package that does not exist at 238c823 and is not in the package table of `module-structure.adoc` yet (checked by cleanup on 2026-10-16)
-- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/web/` — the registry and snapshot endpoints, beyond `runtime/start`; added by cleanup on 2026-10-16
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/engine/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/start/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-runtime/pom.xml` — the dependency `micrometer-core`, with the version from the parent's managed versions (confirm/refute at the `dependencyManagement` of `de.planmarshall:pm-mcp-parent` resolved by the build: if it is not managed there, stop and ask the operator)
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- HYPOTHESIS: `pm-core/doc/developer/core-metrics.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-core/doc/adr/core-metrics/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-engine.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-engine/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-runtime/doc/developer/runtime-start.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-runtime/doc/adr/runtime-start/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
 - OBSERVED: `doc/plans/runtime-metrics.adoc` — the package file, deleted when the package is done
-- OBSERVED: `doc/implementation-watch/model-work.adoc` — watch document; the covered items deleted
 - OBSERVED: `doc/specification/client-profiles/01-profile-schema.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/filesystem-layout/02-machine-runtime.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/hypermedia-format/01-representation-and-link-forms.adoc` — specification part; the implemented sections deleted
@@ -91,16 +78,27 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - OBSERVED: `doc/specification/runtime-lifecycle/03-runtime-metrics.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/05-metrics-and-quality-report.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/timeouts/02-runtime-leases-operator-web.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `pm-core/doc/developer/core-store.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/job/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/lock/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/ModelSlotScheduler.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/queue/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/task/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/` — the recording site for `work.workers` (`WorkerSupervisor.generations`); no metrics hook exists there yet; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/` — `MetricsStore` and `ChangeLedger` write through `ScopeTransaction` (#185); `WorkerState`, `WorkerStateCodec`, `JobRecordStore.writeWorker` (#190); added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-core/doc/adr/core-store/` — next free number 046; added by the re-grounding of 2026-10-26
-- OBSERVED: `doc/Traceability.adoc` — written by every plan; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/implementation-watch/model-work.adoc` — watch document; the covered items deleted
+- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/metrics/` — new package: registry seam and closed catalogue of metric names, no library type
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/queue/QueueStore.java` — recording site of work.tasks (the task row write)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/LeaseStore.java` — recording site of work.leases
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/task/TaskProtocol.java` — recording site where an attempt ends (work.tasks, models.*)
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/engine/WorkflowEngine.java` — transition site of the counts of plans and epics by state (verify at outline)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java` — recording site of work.jobs
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/lock/FileLockManager.java` — recording site of work.locks
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/ModelSlotScheduler.java` — recording site of work.slots
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerSupervisor.java` — recording site of work.workers (generations); no hook yet
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/PeriodicSweep.java` — the disk-use step (runtime.disk.machine_store)
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/queue/QueueStoreTest.java` — a test per metric where the code records it
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/LeaseStoreTest.java` — work.leases recorded in the same step
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/engine/WorkflowEngineTest.java` — counts by state at transitions
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/job/SubprocessJobRunnerTest.java` — work.jobs recorded
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/lock/FileLockManagerTest.java` — work.locks recorded
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/launch/ModelSlotSchedulerTest.java` — work.slots recorded
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/start/PeriodicSweepTest.java` — disk-use step
+- OBSERVED: `pm-runtime/pom.xml` — gains micrometer-core (version from the parent's managed versions)
+- HYPOTHESIS: `pm-core/doc/developer/core-metrics.adoc` — developer guide of the new package (does not exist)
+- HYPOTHESIS: `pm-core/doc/adr/core-metrics/` — new ADR directory (does not exist)
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

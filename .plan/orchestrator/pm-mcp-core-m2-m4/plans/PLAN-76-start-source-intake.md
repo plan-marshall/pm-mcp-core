@@ -16,7 +16,7 @@ workstream: WS-03
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -78,22 +78,8 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/` — pending entry directory with its record, decision stores and transcript, the source directory and its manifest, `origin`, the epic header's sources — inferred from the `Where` line
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/spi/` — `OutcomeClass` and `PendingEntryReader`; carried from the former spec of `start-from-clients`
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/screening/` — the untrusted-text screening; carried from the former spec
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/unit/` — the move at creation in the start units — inferred from the `Where` line
-- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/start/` — the removal of `PeriodicSweep.PENDING_ENTRY_MAX_AGE` and `PendingEntryRecordsSweep`, both here; carried from the former spec
-- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/web/` — the entry endpoints and the listing of files (loopback only) — inferred from the `Where` line; the package name is a guess
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
 - OBSERVED: `doc/plans/start-source-intake.adoc` — the package file, deleted when the package is done
-- HYPOTHESIS: `pm-core/doc/developer/core-store.adoc` — developer documentation of the package; created or extended
-- HYPOTHESIS: `pm-core/doc/adr/core-store/` — ADRs of the package's design decisions; new directory if absent
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-unit.adoc` — developer documentation of the package; created or extended
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-unit/` — ADRs of the package's design decisions; new directory if absent
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-screening.adoc` — developer documentation of the package; created
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-screening/` — ADRs of the package's design decisions; new directory
-- HYPOTHESIS: `pm-runtime/doc/developer/runtime-start.adoc` — developer documentation of the package; created or extended
-- HYPOTHESIS: `pm-runtime/doc/adr/runtime-start/` — ADRs of the package's design decisions; new directory if absent
+- OBSERVED: `doc/implementation-watch/store-schemas.adoc` — PM-WATCH-STORE-58 (untrusted lessons)
 - OBSERVED: `doc/specification/filesystem-layout/03-project-store.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/model-work/07-untrusted-text-screening.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc` — specification part; the implemented sections deleted
@@ -101,18 +87,31 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/store-schemas/01-format-and-session-log.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/10-job-and-lesson-records.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/timeouts/02-runtime-leases-operator-web.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/log/RuntimeLogMessages.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/log/RuntimeLogMessagesTest.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/service/AuditEvent.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/LogMessages.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/PendingEntrySchemaParityTest.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-core/doc/adr/core-store/036-entry-question-file-moved-by-the-store.adoc` — accepted; keeps the entry flat and moves in two transactions; D4 needs it superseded; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/PeriodicSweep.java` — `PENDING_ENTRY_MAX_AGE` and the residue sweep still exist; named by the narrative; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/PendingEntryRecordsSweep.java` — the sweep step D3 retires; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/primitive/` — package-info only; the move at creation belongs here and in `core/store` (the `QuestionLog.moveEntryQuestions` precedent); added by the re-grounding of 2026-10-26
-- OBSERVED: `doc/implementation-watch/store-schemas.adoc` — `PM-WATCH-STORE-58` (untrusted lessons); added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-runtime/doc/adr/runtime-start/` — next free number 016; added by the re-grounding of 2026-10-26
-- OBSERVED: `doc/Traceability.adoc` — every package adds its lines; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-core/doc/adr/core-store/036-entry-question-file-moved-by-the-store.adoc` — accepted; D4 needs it superseded
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/PendingEntryStore.java` — file form pending/<entry_id>.json becomes the directory form
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/PendingEntryCodec.java` — entry.json record of the directory form
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/PendingEntryRecord.java` — the entry record of the directory form
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/EntryId.java` — replaced with the file form
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/QuestionLog.java` — entry questions and decisions moved into the new scope at creation (moveEntryQuestions precedent)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/spi/PendingEntryReader.java` — replaced with the file form
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/service/AuditEvent.java` — PENDING_ENTRY_REMOVED
+- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/screening/` — the untrusted-text screening; package-info only
+- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/primitive/` — the move at creation; package-info only
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/PeriodicSweep.java` — PENDING_ENTRY_MAX_AGE goes
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/PendingEntryRecordsSweep.java` — the age-based step D3 retires
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/SweepStep.java` — javadoc reference to the retired step
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/log/RuntimeLogMessages.java` — PM_RUNTIME-23 PENDING_ENTRY_RECORDS_SWEPT
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/PendingEntryStoreTest.java` — the directory form
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/PendingEntryCodecTest.java` — entry.json codec
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/EntryQuestionMoveTest.java` — one workspace transaction, directory deleted last
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/PendingEntrySchemaParityTest.java` — re-enabled; anchor repointed
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/spi/EnginePortsTest.java` — covers the PendingEntryReader port
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/start/PeriodicSweepTest.java` — an old entry still offered, no age sweep
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/start/PendingEntryRecordsSweepTest.java` — only a started or abandoned entry's cut-off directory is removed
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/start/PeriodicSweepKilledRuntimeIT.java` — the sweep after a stop
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/log/RuntimeLogMessagesTest.java` — holder test if PM_RUNTIME-23 goes
+- HYPOTHESIS: `pm-workflow/doc/developer/workflow-screening.adoc` — developer documentation of the package; created
+- HYPOTHESIS: `pm-workflow/doc/adr/workflow-screening/` — ADRs of the package's design decisions; new directory
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

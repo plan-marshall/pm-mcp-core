@@ -16,7 +16,7 @@ workstream: WS-01
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R16, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R16, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -68,20 +68,27 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/start/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/` — inferred from the `Where` line
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- HYPOTHESIS: `pm-runtime/doc/developer/runtime-start.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-runtime/doc/adr/runtime-start/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-core/doc/developer/core-store.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-core/doc/adr/core-store/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
 - OBSERVED: `doc/plans/runtime-control.adoc` — the package file, deleted when the package is done
 - OBSERVED: `doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/12-machine-stores.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/timeouts/02-runtime-leases-operator-web.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/implementation-watch/runtime-lifecycle.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/` — `WorkerDrainParticipant` is the drain participant for workers (D3 stop now: force end and fence); added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `doc/specification/credentials-and-enrolment/03-audit-and-outbound-https.adoc` — § Closed List of Outbound Calls (#188) binds the update check; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/specification/credentials-and-enrolment/03-audit-and-outbound-https.adoc` — Closed List of Outbound Calls binds the update check (D6)
+- OBSERVED: `doc/implementation-watch/runtime-lifecycle.adoc` — PM-WATCH-RUN-6, RUN-13, RUN-15 anchor the drain, stop and upgrade
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/RuntimeDrain.java` — one-shot drain with a constructor-fixed timeout; stop now, withdraw and restart need a cancellable/shortenable drain (D3, D4, D5)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/DrainParticipant.java` — no resume/withdraw seam yet (D4)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/DrainTimeout.java` — drain wait cut to zero for stop now (D3)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/JobDrainParticipant.java` — jobs admitted again on withdrawal, killed on stop now (D3, D4)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitFile.java` — Restart=on-failure vs exit 75 (EX_TEMPFAIL) under the service unit (D5)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitInstaller.java` — the upgrade rewrites an installed service unit (D7)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerDrainParticipant.java` — worker drain participant, force end and fence on stop now (D3)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerSupervisor.java` — stopAdmitting is one-way, withdrawal needs a resume seam (D4)
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/start/RuntimeDrainTest.java` — withdrawn drain, drain turned into stop now
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/start/RuntimeDrainKilledRuntimeIT.java` — killed-runtime fixture for stop now and restart
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/start/DrainTimeoutTest.java` — drain wait cut to zero
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/start/JobDrainParticipantTest.java` — jobs on withdraw and stop now
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/start/ServiceUnitFileTest.java` — exit 75 restart policy
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/start/ServiceUnitInstallerTest.java` — unit rewrite on upgrade
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerDrainParticipantTest.java` — worker fencing on stop now and resume on withdrawal
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

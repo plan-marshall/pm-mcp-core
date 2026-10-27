@@ -16,7 +16,7 @@ workstream: WS-03
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R17, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R17, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -62,34 +62,34 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/` — production code
-- HYPOTHESIS: `pm-core/src/test/java/de/planmarshall/core/store/` — tests
-- HYPOTHESIS: `pm-core/doc/developer/core-store.adoc` — developer documentation of the package; created or extended
-- HYPOTHESIS: `pm-core/doc/adr/core-store/` — ADRs of the package's design decisions; new directory if absent
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/engine/` — production code
-- HYPOTHESIS: `pm-workflow/src/test/java/de/planmarshall/workflow/engine/` — tests
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-engine.adoc` — developer documentation of the package; created or extended
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-engine/` — ADRs of the package's design decisions; new directory if absent
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/plan/` — production code
-- HYPOTHESIS: `pm-workflow/src/test/java/de/planmarshall/workflow/plan/` — tests
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-plan.adoc` — developer documentation of the package; created or extended
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-plan/` — ADRs of the package's design decisions; new directory if absent
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/` — production code
-- HYPOTHESIS: `pm-workflow/src/test/java/de/planmarshall/workflow/verify/` — tests
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-verify.adoc` — developer documentation of the package; created or extended
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-verify/` — ADRs of the package's design decisions; new directory if absent
-- OBSERVED: `doc/plans/README.adoc` — this package's own row only
 - OBSERVED: `doc/plans/plan-instance-versions.adoc` — the package file, deleted when the package is done
-- OBSERVED: `doc/implementation-watch/workflow-dsl.adoc` — watch document; the covered items deleted
-- OBSERVED: `doc/specification/store-schemas/02-workflow-state-store.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/implementation-watch/workflow-dsl.adoc` — watch document; PM-WATCH-DSL-21 and the covered items deleted
+- OBSERVED: `doc/specification/store-schemas/02-workflow-state-store.adoc` — specification part; instance_version
 - OBSERVED: `doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/workflow-dsl/04-ast-node-model.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/workflow-dsl/09-plan-instance.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/model/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/doc/developer/workflow-model.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/src/main/resources/de/planmarshall/workflow/plan/composition-rules.json` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/RoleEnvironment.java` — `weightsIdentity(clientId, model)` is the input of the model-identity comparison of Rule 13's quorum check; in a directory not on the surface; read; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `doc/specification/model-work/10-decision-quorum.adoc` — now holds the Model Identity rule (`#model-identity`, `PM-WATCH-DISP-67`) D4 builds on; read; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/specification/model-work/10-decision-quorum.adoc` — Model Identity rule that D4's quorum check builds on; read
+- OBSERVED: `pm-workflow/src/main/resources/de/planmarshall/workflow/plan/composition-rules.json` — composition rules resource, edited if a rule changes
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java` — instance_version becomes a field of the workflow state
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatusCodec.java` — instance_version member gets its field
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/RoleEnvironment.java` — weightsIdentity and resolveSkill, input of Rules 13 and 14; read
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/engine/WorkflowEngine.java` — composition at the entering transaction, switch to the version in force, stored sub-unit text
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java` — triggers, position rule, Rule 13 and 14 calls
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceStore.java` — accepts only a version the composer returned as verified
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstance.java` — public constructor is the provenance gap of the store guard
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionResult.java` — refusal reasons of Rules 13 and 14
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/model/RoleComposition.java` — role half of Rule 13, to be wired into the composer; quorum clause
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/model/CompositionRefusal.java` — gains skill_unresolved and the quorum refusal
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java` — seams of Rules 13 and 14 and of the skill clause of Rule 3 close
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java` — instance_version round trip
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusSchemaParityTest.java` — schema parity of the new field
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/engine/WorkflowEngineTest.java` — composition and switch fixtures
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineFixtures.java` — fixture plan entering each server event target
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java` — triggers, refusals, position rule
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceStoreTest.java` — store refuses an unverified version
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanFixtures.java` — plan fixtures
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/model/RoleCompositionTest.java` — role, class and quorum checks
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/verify/WorkflowValidatorTest.java` — closed seams
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

@@ -16,7 +16,7 @@ workstream: WS-03
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -67,14 +67,6 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/engine/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/` — the endpoints, the event stream reports and the completion view named in the Objective; added by cleanup on 2026-10-16
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- HYPOTHESIS: `pm-core/doc/developer/core-store.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-core/doc/adr/core-store/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-engine.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-engine/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
 - OBSERVED: `doc/plans/operator-reports.adoc` — the package file, deleted when the package is done
 - OBSERVED: `doc/specification/client-profiles/01-profile-schema.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/filesystem-layout/02-machine-runtime.adoc` — specification part; the implemented sections deleted
@@ -84,10 +76,13 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/model-work/09-completion-usage-and-spend.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/01-format-and-session-log.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/12-machine-stores.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/LockKey.java` — the report journal's own leaf lock has no key yet; read, extended; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/LockLevel.java` — lock levels of the report journal; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/LockOrder.java` — lock order of the report journal; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/StalledScopeDetector.java` — the existing `plan.hold_released` announce seam (D4); added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/LockKey.java` — the report journal's own leaf lock has no key yet; extended
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/LockLevel.java` — lock level of the report journal
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/LockOrder.java` — lock order of the report journal
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/StalledScopeDetector.java` — the existing plan.hold_released announce seam (D4)
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/LockKeyTest.java` — new lock key of the report journal
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/LockOrderTest.java` — lock order of the report journal
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/start/StalledScopeDetectorTest.java` — plan.hold_released writes exactly one report
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 
