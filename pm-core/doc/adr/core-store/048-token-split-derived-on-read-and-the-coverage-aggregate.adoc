@@ -34,9 +34,10 @@ Metrics Store, Populations).
 
 == Consequences
 
-A view shows `at least` the value while any row of its population is unmeasured; it never shows a fabricated `0`. A
-figure of an empty population has no value. A later change of the weights or of the split rule changes one method, not
-every view.
+A view shows `at least` the value while a row of its population is unmeasured; it never shows a fabricated `0`. A
+population whose every row is unmeasured has no total at all, so it shows no figure rather than "at least 0"; a figure of
+an empty population has no value either. A later change of the weights or of the split rule changes one method, not every
+view.
 
 == Source
 

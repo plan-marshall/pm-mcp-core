@@ -222,8 +222,10 @@ recorded data and never part of the report; the usage validation refuses a profi
 uses not applicable.
 
 `VerificationRecord.Stage` keeps the `start_context` in its closed shape; `UsageResult.startContext()` carries it out of
-the stage, and `UsageResult.coverage()` with `missingFigures()` carries the report's verdict. The stage runs with the real
-`launch` output, so a harness whose first turn does not report the input figures records the start context unmeasured.
+the stage, and `UsageResult.coverage()` with `missingFigures()` carries the report's verdict. The install path in
+`plan-marshall-mcp` must supply the real `launch` output; until that handoff is implemented, the start context remains in
+the verification record. A harness whose first turn does not report the input figures records the start context
+unmeasured.
 
 `ProfileStagesTest` covers the three coverages, the start-context sum and its unmeasured case and the not-applicable
 refusal; `VerificationRecordTest` covers the record's start-context parse and its refusals;

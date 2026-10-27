@@ -266,6 +266,25 @@ class ProfileStagesTest {
     }
 
     @Test
+    @DisplayName("a not-applicable cache figure counts 0 and a negative figure leaves the start context unmeasured")
+    void startContextEdgeFigures() {
+        var loaded = profile(ProfileFixtures.valid().set("/headless/usage/cache_read", "not_applicable"));
+        var firstTurn = turn("""
+                {"usage":{"input_tokens":10,"output_tokens":5}}
+                """);
+        var negative = turn("""
+                {"usage":{"input_tokens":-1,"output_tokens":5}}
+                """);
+
+        var result = ProfileStages.usage(loaded, firstTurn, Map.of(),
+                List.of(new StartContextInput("writer", "model-a", firstTurn),
+                        new StartContextInput("read_only", "model-b", negative)));
+
+        assertEquals(List.of(new StartContext("writer", "model-a", OptionalLong.of(10)),
+                new StartContext("read_only", "model-b", OptionalLong.empty())), result.startContext());
+    }
+
+    @Test
     @DisplayName("a profile that declares input, output or tool uses not applicable is refused by the usage validation")
     void notApplicableRefusedForInputOutputAndToolUses() {
         var loaded = profile(ProfileFixtures.valid().set("/headless/usage/input_tokens", "not_applicable"));

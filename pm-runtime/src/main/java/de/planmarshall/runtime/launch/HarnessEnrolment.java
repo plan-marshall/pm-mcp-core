@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import de.planmarshall.core.profile.ProfileStages;
 import de.planmarshall.core.role.RoleClass;
 
 /**
@@ -135,8 +136,9 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
     public record UsageReport(UsageSource source, Map<String, String> figures, List<StartContext> startContext) {
 
         private static final Set<String> FIGURE_RESULTS = Set.of("reported", "not_applicable", "missing");
-        private static final Set<String> REPORT_FIGURES = Set.of("input", "output", "cache_read", "cache_creation",
-                "reasoning", "tool_uses");
+        private static final Set<String> REPORT_FIGURES = ProfileStages.REPORT_FIGURES.stream()
+                .map(UsageReport::reportName)
+                .collect(Collectors.toUnmodifiableSet());
 
         /** Copies the figures and the start context and refuses an unknown result or figure. */
         public UsageReport {
