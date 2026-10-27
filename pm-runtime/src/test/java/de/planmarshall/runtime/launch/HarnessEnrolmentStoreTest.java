@@ -160,7 +160,7 @@ class HarnessEnrolmentStoreTest {
     @DisplayName("the start context of a verified usage report round-trips")
     void startContextRoundTrip() {
         var report = new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.VERIFIED,
-                Map.of("input_tokens", "reported", "cache_creation", "not_applicable"), List.of(
+                Map.of("input", "reported", "cache_creation", "not_applicable"), List.of(
                         new HarnessEnrolment.UsageReport.StartContext("writer", "a-model", OptionalLong.of(27104)),
                         new HarnessEnrolment.UsageReport.StartContext("zero_tool", "a-model",
                                 OptionalLong.empty())));

@@ -131,12 +131,17 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
     public record UsageReport(UsageSource source, Map<String, String> figures, List<StartContext> startContext) {
 
         private static final Set<String> FIGURE_RESULTS = Set.of("reported", "not_applicable", "missing");
+        private static final Set<String> FIGURES = Set.of("input", "output", "cache_read", "cache_creation",
+                "reasoning", "tool_uses");
 
-        /** Copies the figures and the start context and refuses an unknown result. */
+        /** Copies the figures and the start context and refuses an unknown result or figure. */
         public UsageReport {
             Objects.requireNonNull(source, "source");
             var results = new LinkedHashMap<String, String>();
             figures.forEach((figure, result) -> {
+                if (!FIGURES.contains(figure)) {
+                    throw new IllegalArgumentException("Not a usage report figure: " + figure);
+                }
                 if (!FIGURE_RESULTS.contains(result)) {
                     throw new IllegalArgumentException("Not a usage result: " + result);
                 }
@@ -144,6 +149,9 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
             });
             figures = Collections.unmodifiableMap(results);
             startContext = List.copyOf(startContext);
+            if (source == UsageSource.DECLARED && !startContext.isEmpty()) {
+                throw new IllegalArgumentException("A declared usage report carries no start context");
+            }
         }
 
         /**

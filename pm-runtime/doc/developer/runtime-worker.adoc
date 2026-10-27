@@ -595,8 +595,9 @@ _Requirements: link:../../../doc/Traceability.adoc#PM-WORK-3[§ PM-WORK-3], link
 
 `ActivityEventMapper` reads the usage of a turn through the profile's `headless.usage` pointers: the five token
 components, `tool_uses` and `cost_usd`. A pointer that is absent or resolves to no value is `unmeasured`, the profile's
-`not_applicable` mark is kept, and a cost is kept as the number the harness reports. The usage object of an activity
-entry therefore has seven members; the cost stays recorded data.
+`not_applicable` mark is kept (except for the cost, which is a number or `unmeasured` in the row schema), and a cost is
+kept as the number the harness reports. The usage object of an activity entry therefore has seven members; the cost
+stays recorded data.
 
 link:../adr/runtime-worker/012-the-turn-keeps-tool-uses-and-cost-raw.adoc[ADR 012]: a turn keeps the tool uses and the
 reported cost raw.

@@ -12,15 +12,20 @@ package de.planmarshall.core.profile;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.OptionalLong;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.store.HarnessUsage;
+import de.planmarshall.core.store.Measurement;
 import de.planmarshall.core.store.UsagePointers;
 
 /**
@@ -42,7 +47,7 @@ class ShippedUsageFixturesTest {
     void shippedHarnessesParseTheirUsage() {
         var shipped = ShippedProfiles.read().shipped();
         assertFalse(shipped.isEmpty(), "no shipped profile on the classpath");
-        var exercised = new java.util.ArrayList<String>();
+        var exercised = new ArrayList<String>();
 
         for (var entry : shipped.entrySet()) {
             var clientId = entry.getKey();
@@ -57,7 +62,7 @@ class ShippedUsageFixturesTest {
             exercised.add(clientId);
 
             var assigned = new LinkedHashMap<String, Long>();
-            var notApplicable = new java.util.HashSet<String>();
+            var notApplicable = new HashSet<String>();
             var turn = new LinkedHashMap<String, Object>();
             long next = FIRST_FIGURE;
             for (var figure : ProfileStages.USAGE_FIGURES) {
@@ -107,7 +112,7 @@ class ShippedUsageFixturesTest {
                         || UsagePointers.NOT_APPLICABLE.equals(declaration.text().orElse(null)));
     }
 
-    private static Long measured(de.planmarshall.core.store.Measurement measurement) {
+    private static Long measured(Measurement measurement) {
         return measurement.isMeasured() ? measurement.value() : null;
     }
 
@@ -115,7 +120,7 @@ class ShippedUsageFixturesTest {
         return row.costUsd().map(value -> value.longValueExact()).orElse(null);
     }
 
-    private static OptionalLong totalOrEmpty(Map<String, Long> assigned, java.util.Set<String> notApplicable) {
+    private static OptionalLong totalOrEmpty(Map<String, Long> assigned, Set<String> notApplicable) {
         long sum = 0;
         for (var figure : ProfileStages.USAGE_FIGURES) {
             if ("cost_usd".equals(figure) || "tool_uses".equals(figure)) {
@@ -133,7 +138,7 @@ class ShippedUsageFixturesTest {
         return sum < 1 ? OptionalLong.empty() : OptionalLong.of(sum);
     }
 
-    private static OptionalLong splitOrEmpty(Map<String, Long> assigned, java.util.Set<String> notApplicable,
+    private static OptionalLong splitOrEmpty(Map<String, Long> assigned, Set<String> notApplicable,
             String... figures) {
         long sum = 0;
         for (var figure : figures) {
@@ -175,7 +180,6 @@ class ShippedUsageFixturesTest {
                 Map.of("input_tokens", 120, "output_tokens", 30))));
 
         assertAll(() -> assertTrue(row.cacheCreationInputTokens().isNotApplicable()),
-                () -> assertTrue(row.cacheReadInputTokens().state()
-                        == de.planmarshall.core.store.Measurement.State.UNMEASURED));
+                () -> assertSame(row.cacheReadInputTokens().state(), Measurement.State.UNMEASURED));
     }
 }

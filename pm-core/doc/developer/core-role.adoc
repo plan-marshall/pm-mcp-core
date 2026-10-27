@@ -249,12 +249,13 @@ _Requirements: link:{docs}/Requirements.adoc#PM-WF-14[PM-WF-14], link:{docs}/Req
 
 `TokenTotal` carries the total a grading item or form used and the split beside it: `tokens_in` and `tokens_out`. The
 split is a measured pair that sums to the total, or `unmeasured` at both when it is unknown; an unmeasured total carries
-no split, and `plus` sums the split only when both addends have one. The order qualification, judge-check and decision
-calibration records write the split beside `total_tokens`; the cost is never part of a grading record. A total of `0` is
-refused (the lower bound is `1`), and a split that does not sum to the total is refused at construction.
+no split, and `plus` sums the split only when both addends have one. The qualification and judge-check records write the
+split beside `total_tokens`; the decision calibration record's schema carries the same two members, and its codec is owed
+with the package that builds it. The cost is never part of a grading record. A total of `0` is refused (the lower bound
+is `1`), and a split that does not sum to the total is refused at construction.
 
-`QualificationRecordCodecTest` covers the measured split and the refusals; the round-trip carries the split through
-`QualificationRecordCodec` and `JudgeCheckCodec`.
+`QualificationRecordCodecTest` covers the measured split and the refusals and carries it through the codec's round-trip;
+`JudgeCheckCodec` writes and reads the two members beside `total_tokens`.
 
 link:../adr/core-role/005-token-total-carries-the-split.adoc[ADR 005]: the token total of a grading record carries its
 split.

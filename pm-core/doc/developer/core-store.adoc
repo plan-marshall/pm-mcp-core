@@ -1573,13 +1573,15 @@ the split, `rows`, `rowsUnmeasured`, `unmeasuredReasons`, `populationCount`, `ex
 refuses a set that mixes populations; `byPopulation`, `byPhase`, `byRole`, `byModelAndHarness`, `byCauseClass` and
 `bySpendClass` group the rows; `plus` sums two figures of one population and keeps a floor a floor.
 
-* An empty population has no total; a population with rows always has one, exact or a floor.
+* An empty population has no total; a population with a measured row has one, exact or a floor; a population whose
+  every row is unmeasured has no total, never a fabricated `0`.
 * `totalIsFloor` is true exactly while a row of the population is unmeasured; the constructor refuses any other pair.
 * The split is empty when any row of the population left a component of it unmeasured.
 
 `UsageAggregateTest` covers the sum, the not-applicable component, the unmeasured floor with its reasons, the empty
-population, the refused task, the population refusal, the groupings and `plus`; `UsagePointersTest` covers the split of
-a parsed turn.
+population, the refused task, the population refusal, the groupings and `plus`, and the paired equality of a harness that
+reports reasoning apart and one whose output already contains it; `UsagePointersTest` covers the parsed figures and the
+three-valued measurement of a turn.
 
 link:../adr/core-store/046-token-split-derived-on-read-and-the-coverage-aggregate.adoc[ADR 046]: the split is derived on
 read and the aggregate carries its coverage.

@@ -19,7 +19,8 @@ read the five token components only; the specification records every figure the 
 
 `ActivityEventMapper` reads `tool_uses` and `cost_usd` through their pointers beside the five token components. A cost is
 kept as the number the harness reports; a pointer that is absent or resolves to no value is `unmeasured`, and the
-profile's `not_applicable` mark is kept. The cost stays recorded data: no view shows it and no rule reads it.
+profile's `not_applicable` mark is kept, except for the cost, which the row schema allows only as a number or
+`unmeasured`. The cost stays recorded data: no view shows it and no rule reads it.
 
 == Alternatives Considered
 

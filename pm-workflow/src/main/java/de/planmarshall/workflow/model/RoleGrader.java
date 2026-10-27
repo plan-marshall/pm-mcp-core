@@ -272,8 +272,7 @@ public final class RoleGrader {
         }
         var measured = new EnumMap<Topic, QualificationRecord.TopicResult>(Topic.class);
         var graded = 0;
-        var tokens = 0L;
-        var unmeasured = false;
+        TokenTotal tokens = null;
         long duration = 0;
         for (var topic : topics.topics()) {
             var topicItems = RoleTopics.items(plan.items(), topic, plan.role().artifact().name());
@@ -294,16 +293,14 @@ public final class RoleGrader {
             return Optional.empty();
         }
         for (var result : results) {
-            if (result.totalTokens().measured()) {
-                tokens += result.totalTokens().tokens();
-            } else {
-                unmeasured = true;
-            }
+            tokens = tokens == null ? result.totalTokens() : tokens.plus(result.totalTokens());
             if (result.durationMs() != null) {
                 duration += result.durationMs();
             }
         }
-        var totalTokens = unmeasured || tokens == 0 ? TokenTotal.unmeasured() : TokenTotal.measured(tokens);
+        var totalTokens = tokens == null || !tokens.measured() || tokens.tokens() == 0
+                ? TokenTotal.unmeasured()
+                : tokens;
         return Optional.of(new QualificationRecord.FormResult(measured, graded, totalTokens, duration));
     }
 

@@ -215,7 +215,7 @@ class ProfileStagesTest {
                         new StartContextInput("read_only", "model-b", withoutCacheRead)));
 
         assertAll(() -> assertEquals(List.of(new StartContext("writer", "model-a", OptionalLong.of(115)),
-                        new StartContext("read_only", "model-b", OptionalLong.empty())), result.startContext()));
+                new StartContext("read_only", "model-b", OptionalLong.empty())), result.startContext()));
     }
 
     @Test

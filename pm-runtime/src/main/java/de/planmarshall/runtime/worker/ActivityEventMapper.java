@@ -193,7 +193,8 @@ public final class ActivityEventMapper {
             return JsonNode.string(UNMEASURED);
         }
         if (NOT_APPLICABLE.equals(pointer)) {
-            return JsonNode.string(NOT_APPLICABLE);
+            // The cost is a number or unmeasured in the row schema, never not_applicable.
+            return JsonNode.string("cost_usd".equals(key) ? UNMEASURED : NOT_APPLICABLE);
         }
         var value = resolve(root, pointer).orElse(null);
         if (value == null) {

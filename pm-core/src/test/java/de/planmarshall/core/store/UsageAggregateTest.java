@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
@@ -121,10 +120,10 @@ class UsageAggregateTest {
     }
 
     @Test
-    @DisplayName("a refused row counts unmeasured without a reason")
+    @DisplayName("a population with no measured row has no total, never a fabricated zero")
     void refusedRowCountsUnmeasured() {
         var aggregate = UsageAggregate.of(List.of(refused("qt-0000000000000001")));
-        assertAll(() -> assertEquals(OptionalLong.of(0), aggregate.totalTokens()),
+        assertAll(() -> assertEquals(OptionalLong.empty(), aggregate.totalTokens()),
                 () -> assertEquals(1, aggregate.rowsUnmeasured()), () -> assertTrue(aggregate.totalIsFloor()),
                 () -> assertTrue(aggregate.unmeasuredReasons().isEmpty()));
     }
@@ -170,6 +169,38 @@ class UsageAggregateTest {
                         .get(SpendClass.FINDINGS_ONLY).totalTokens()),
                 () -> assertEquals(OptionalLong.of(6), UsageAggregate.byModelAndHarness(List.of(execute, finalize))
                         .get(new ModelHarness("deepseek-v4.1-flash", "opencode", "1.2.3")).totalTokens()));
+    }
+
+    @Test
+    @DisplayName("reasoning reported apart and included in the output give the same unified figure")
+    void reasoningApartAndIncludedAgree() {
+        var apart = new HarnessUsage(Measurement.measured(100), Measurement.measured(30), Measurement.measured(0),
+                Measurement.notApplicable(), Measurement.measured(10), Measurement.measured(1), Optional.empty(),
+                Optional.empty());
+        var included = new HarnessUsage(Measurement.measured(100), Measurement.measured(40), Measurement.measured(0),
+                Measurement.notApplicable(), Measurement.notApplicable(), Measurement.measured(1), Optional.empty(),
+                Optional.empty());
+
+        assertAll(() -> assertEquals(apart.totalTokens(), included.totalTokens()),
+                () -> assertEquals(apart.tokensOut(), included.tokensOut()),
+                () -> assertEquals(OptionalLong.of(140), apart.totalTokens()));
+    }
+
+    @Test
+    @DisplayName("a side whose rows are all unmeasured is the identity of the total, never a partial split")
+    void sumsWithAnAllUnmeasuredSide() {
+        var unmeasured = new HarnessUsage(Measurement.measured(10), Measurement.measured(5), Measurement.measured(0),
+                Measurement.measured(0), Measurement.unmeasured(), Measurement.measured(1), Optional.empty(),
+                Optional.of(UnmeasuredReason.NOT_REPORTED_BY_HARNESS));
+        var floor = UsageAggregate.of(List.of(row("qt-0000000000000001", unmeasured)));
+        var measured = UsageAggregate.of(List.of(row("qt-0000000000000002", usage(20, 10, 0, 0, 0))));
+
+        var sum = floor.plus(measured);
+        assertAll(() -> assertEquals(OptionalLong.of(30), sum.totalTokens()),
+                () -> assertEquals(OptionalLong.of(30), sum.tokensIn()),
+                () -> assertEquals(OptionalLong.empty(), sum.tokensOut()),
+                () -> assertEquals(2, sum.populationCount()), () -> assertEquals(1, sum.rowsUnmeasured()),
+                () -> assertTrue(sum.totalIsFloor()));
     }
 
     @Test

@@ -60,8 +60,8 @@ class VerificationRecordTest {
         var record = VerificationRecord.read(RECORD.getBytes(UTF_8), "record");
 
         assertAll(() -> assertEquals(List.of(new StartContext("writer", "a-model", OptionalLong.of(27104)),
-                        new StartContext("zero_tool", "a-model", OptionalLong.empty())),
-                record.stages().get("usage").startContext()),
+                                new StartContext("zero_tool", "a-model", OptionalLong.empty())),
+                        record.stages().get("usage").startContext()),
                 () -> assertEquals("not_applicable",
                         record.stages().get("usage").results().get("cache_creation")));
     }

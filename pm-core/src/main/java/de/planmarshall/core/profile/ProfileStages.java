@@ -207,7 +207,8 @@ public final class ProfileStages {
          *         not_reported; the cost is recorded data and never part of the report
          */
         public UsageCoverage coverage() {
-            var reported = REPORT_FIGURES.stream().filter(figure -> figures.get(figure) != UsageStatus.MISSING)
+            var reported = REPORT_FIGURES.stream()
+                    .filter(figure -> figures.getOrDefault(figure, UsageStatus.MISSING) != UsageStatus.MISSING)
                     .count();
             if (reported == REPORT_FIGURES.size()) {
                 return UsageCoverage.COMPLETE;
@@ -217,7 +218,8 @@ public final class ProfileStages {
 
         /** @return the report figures the harness does not report, in schema order */
         public List<String> missingFigures() {
-            return REPORT_FIGURES.stream().filter(figure -> figures.get(figure) == UsageStatus.MISSING).toList();
+            return REPORT_FIGURES.stream()
+                    .filter(figure -> figures.getOrDefault(figure, UsageStatus.MISSING) == UsageStatus.MISSING).toList();
         }
     }
 

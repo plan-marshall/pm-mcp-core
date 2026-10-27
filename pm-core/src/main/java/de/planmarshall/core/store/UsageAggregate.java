@@ -12,6 +12,7 @@ package de.planmarshall.core.store;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,9 +40,9 @@ import de.planmarshall.core.store.MetricsRow.SpendClass;
  * which reason, and whether the figure is a floor.
  * <p>
  * A total over a population with unmeasured rows is a floor ({@link #totalIsFloor()}), shown as <em>at least</em> its
- * value and never as exact. {@link #totalTokens()} is empty when the population is empty ({@code population_count == 0})
- * and never a fabricated {@code 0}: a figure without a measured row is unmeasured. The split is empty when any row of the
- * population left a component of it unmeasured, because a partial sum is never recorded.
+ * value and never as exact. {@link #totalTokens()} is empty when the population is empty or has no measured row
+ * ({@code population_count == 0} or every row unmeasured) and never a fabricated {@code 0}. The split is empty when any
+ * row of the population left a component of it unmeasured, because a partial sum is never recorded.
  * <p>
  * Sums and relations are formed only between figures of one population (Store Schemas § Metrics Store, Populations), so
  * a set of rows of different populations is refused rather than silently mixed. An epic's figure is the sum of its
@@ -54,8 +55,8 @@ import de.planmarshall.core.store.MetricsRow.SpendClass;
  * @param rows               the rows the figure rests on: the measured rows plus the excluded ones
  * @param rowsUnmeasured     the rows whose total is unmeasured
  * @param unmeasuredReasons  how many unmeasured rows name each reason
- * @param populationCount    every row of the population
- * @param excluded           the rows excluded from the figure, by class
+ * @param populationCount    every row of the population; {@code rows} plus {@code rowsUnmeasured}
+ * @param excluded           the rows excluded from the figure, by class; a subset of {@code rows}
  * @param totalIsFloor       whether the figure is a lower bound because a row of the population is unmeasured
  * @since 0.1
  */
@@ -143,14 +144,21 @@ long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
         if (rows + rowsUnmeasured > populationCount) {
             throw new IllegalArgumentException("'rows' and 'rows_unmeasured' exceed 'population_count'");
         }
+        if (rows + rowsUnmeasured != populationCount) {
+            throw new IllegalArgumentException(
+                    "'rows' and 'rows_unmeasured' must account for every row of the population");
+        }
         if (totalIsFloor != (rowsUnmeasured > 0)) {
             throw new IllegalArgumentException("'total_is_floor' is true exactly while 'rows_unmeasured' is above 0");
         }
         if (populationCount == 0 && totalTokens.isPresent()) {
             throw new IllegalArgumentException("An empty population has no total");
         }
-        if (populationCount > 0 && totalTokens.isEmpty()) {
-            throw new IllegalArgumentException("A population with rows has a total, exact or a floor");
+        if (populationCount > 0 && rows == 0 && totalTokens.isPresent()) {
+            throw new IllegalArgumentException("A population without a measured row has no total");
+        }
+        if (rows > 0 && totalTokens.isEmpty()) {
+            throw new IllegalArgumentException("A population with a measured row has a total, exact or a floor");
         }
         var reasons = new EnumMap<UnmeasuredReason, Long>(UnmeasuredReason.class);
         reasons.putAll(Objects.requireNonNull(unmeasuredReasons, "unmeasuredReasons"));
@@ -198,11 +206,12 @@ long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
         }
         var populationCount = counted;
         var floor = unmeasured > 0;
+        var measured = populationCount - unmeasured;
         return new UsageAggregate(Optional.of(population),
-                populationCount == 0 ? OptionalLong.empty() : OptionalLong.of(total),
+                measured == 0 ? OptionalLong.empty() : OptionalLong.of(total),
                 populationCount == 0 || !inMeasured ? OptionalLong.empty() : OptionalLong.of(in),
                 populationCount == 0 || !outMeasured ? OptionalLong.empty() : OptionalLong.of(out),
-                populationCount - unmeasured, unmeasured, reasons, populationCount, new TreeMap<>(), floor);
+                measured, unmeasured, reasons, populationCount, new TreeMap<>(), floor);
     }
 
     /**
@@ -236,6 +245,12 @@ long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
             throw new IllegalArgumentException(
                     "Sums are formed only between figures of one population: %s and %s".formatted(population, other.population));
         }
+        if (populationCount == 0) {
+            return other;
+        }
+        if (other.populationCount == 0) {
+            return this;
+        }
         var counted = populationCount + other.populationCount;
         var unmeasured = rowsUnmeasured + other.rowsUnmeasured;
         var reasons = new EnumMap<UnmeasuredReason, Long>(UnmeasuredReason.class);
@@ -243,9 +258,20 @@ long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
         other.unmeasuredReasons.forEach((reason, count) -> reasons.merge(reason, count, Long::sum));
         var excludedRows = new TreeMap<>(excluded);
         other.excluded.forEach((kind, count) -> excludedRows.merge(kind, count, Long::sum));
-        return new UsageAggregate(population, sum(totalTokens, other.totalTokens), sum(tokensIn, other.tokensIn),
-                sum(tokensOut, other.tokensOut), rows + other.rows, unmeasured, reasons, counted, excludedRows,
-                unmeasured > 0);
+        var leftHasRows = rows > 0;
+        var rightHasRows = other.rows > 0;
+        return new UsageAggregate(population, bothOrOne(leftHasRows, totalTokens, rightHasRows, other.totalTokens),
+                sum(tokensIn, other.tokensIn), sum(tokensOut, other.tokensOut), rows + other.rows, unmeasured, reasons,
+                counted, excludedRows, unmeasured > 0);
+    }
+
+    /** A total: the identity of a population with no measured row, and unmeasured when a measured row has none. */
+    private static OptionalLong bothOrOne(boolean leftHasRows, OptionalLong left, boolean rightHasRows,
+            OptionalLong right) {
+        if (leftHasRows && rightHasRows) {
+            return sum(left, right);
+        }
+        return leftHasRows ? left : right;
     }
 
     /**
@@ -253,6 +279,11 @@ long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
      * @return the aggregate per phase of the rows; the rows must be of one population
      */
     public static SortedMap<Phase, UsageAggregate> byPhase(Collection<MetricsRow> rows) {
+        Objects.requireNonNull(rows, "rows");
+        if (rows.stream().anyMatch(row -> row.phase() == null)) {
+            throw new IllegalArgumentException("A phase aggregate is of a plan's rows; an epic or workspace row has no "
+                    + "phase");
+        }
         return grouped(rows, MetricsRow::phase, Phase::compareTo);
     }
 
@@ -314,7 +345,7 @@ long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
     }
 
     private static <K> SortedMap<K, UsageAggregate> grouped(Collection<MetricsRow> rows,
-            Function<MetricsRow, K> dimension, java.util.Comparator<K> order) {
+            Function<MetricsRow, K> dimension, Comparator<K> order) {
         Objects.requireNonNull(rows, "rows");
         var groups = new LinkedHashMap<K, List<MetricsRow>>();
         for (var row : rows) {

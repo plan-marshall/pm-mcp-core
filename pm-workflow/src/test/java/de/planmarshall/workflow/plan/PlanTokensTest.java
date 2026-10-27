@@ -19,6 +19,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
+
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -90,7 +92,9 @@ class PlanTokensTest {
         var aggregate = epic.aggregate(UsageAggregate.Population.MODEL_JOB).orElseThrow();
         assertAll(() -> assertEquals(OptionalLong.of(400), aggregate.totalTokens()),
                 () -> assertEquals(3, aggregate.populationCount()), () -> assertEquals(1, aggregate.rowsUnmeasured()),
-                () -> assertTrue(aggregate.totalIsFloor()), () -> assertEquals("epic-1", epic.epicId()));
+                () -> assertTrue(aggregate.totalIsFloor()), () -> assertEquals("epic-1", epic.epicId()),
+                () -> assertEquals(OptionalLong.empty(), aggregate.tokensIn()),
+                () -> assertEquals(OptionalLong.empty(), aggregate.tokensOut()));
     }
 
     @Test

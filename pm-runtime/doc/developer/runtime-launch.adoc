@@ -205,8 +205,10 @@ _Requirements: link:../../../doc/Traceability.adoc#PM-CLIENT-5[§ PM-CLIENT-5], 
 `HarnessEnrolment.UsageReport` carries the harness's per-figure usage results and, for a verified profile, the start
 context per class and model: the first-turn input, cache read and cache creation, an integer or `unmeasured`.
 `HarnessEnrolmentStore` reads and writes the optional `start_context` array beside `source` and `figures`, and refuses an
-unknown class or a token value that is neither an integer nor `unmeasured`. The harness list renders the report as
-complete, partial with the missing figures, or not reported, and the start context beside it.
+unknown class or a token value that is neither an integer nor `unmeasured`; its figure keys are the report's
+(`input`, `output`, `cache_read`, `cache_creation`, `reasoning`, `tool_uses`). The harness list of the onboarding and of
+the machine's settings (PLAN-46, `pm-mcp-clients`) renders the report as complete, partial with the missing figures, or
+not reported, and the start context beside it.
 
 link:../adr/runtime-launch/007-the-usage-report-keeps-the-start-context.adoc[ADR 007]: the usage report kept with an
 enrolment carries the start context.

@@ -258,6 +258,10 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
                     trials = (int) integer(stage, pointer + "/trials", NAME_TRIALS);
                 }
                 var startContext = startContext(stage.member("start_context").orElse(null), pointer + "/start_context");
+                if (!startContext.isEmpty() && !"usage".equals(name)) {
+                    throw ProfileRefusal.recordInvalid(document, pointer + "/start_context",
+                            "'start_context' belongs to the stage 'usage'");
+                }
                 read.put(name, new Stage(status, results, trials, startContext));
             }
             return read;
