@@ -1,0 +1,48 @@
+= ADR 001: The setup gate reads the machine's status
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-27
+
+== Context
+
+While the machine's first onboarding has not reached `onboard.completed`, the setup gate of every start refuses to
+start a plan, an epic, or a project onboarding, and an act over the local API that needs an onboarding step that is not
+done is refused `onboarding_incomplete` with `409`
+(link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL § Machine Scope], item 6).
+The machine's state is already the engine's status in `machine/mcp/status.json`, which carries `onboard_run` and
+`onboard_steps` (link:../../../../doc/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow
+State Store]).
+
+== Decision
+
+`de.planmarshall.workflow.setup` holds `MachineOnboarding`, a read model over the machine scope's `WorkflowStatus`, and
+`SetupGate`, the one decision. `MachineOnboarding.fromStatus` derives completion from the resting state or the
+`reconfigure` run and reads the pending steps from `onboard_steps`; `SetupGate.decide` refuses a start
+`machine_not_onboarded` and `SetupGate.decideStep` refuses a missing-step act `onboarding_incomplete` with `409`, each
+naming the missing step and both clients. The gate is a pure function of the status; it writes nothing and decides
+nothing by time.
+
+== Alternatives Considered
+
+A separate "machine configured" flag in a machine store was refused: it would be a second writer of one fact and could
+disagree with the status. A gate inside the status store was refused: the store keeps typed values and refuses policy,
+and the gate is policy the starts share.
+
+== Consequences
+
+Every start that honours the gate re-reads the machine status; a later reconfigure run keeps the gate open. The
+onboarding's own steps and the operator's verbs never pass the gate, so the machine can always be brought to
+completion.
+
+== Source
+
+Pull request of the work package `operator-wait-and-machine-scope`; specification
+link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL § Machine Scope], item 6, and
+link:../../../../doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL § Waiting for the
+Operator], item 6.
