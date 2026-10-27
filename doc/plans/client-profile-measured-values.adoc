@@ -1,0 +1,30 @@
+= The client-profile values the question-loop follow-up measures
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `client-profile-measured-values`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 4 (the values the question loop settles) and Milestone 14 (the OpenCode 2.x profile and its inline settings); `PM-CLIENT-2`, `PM-WORK-2`
+Where:: pm-core packages `core.profile` (the profile schema members `headless.resumability` and `headless.inline_settings`, the shipped profiles, the stage `resumability` of the profile verification) and `core.role` (the `questions` values of the shipped roles); the specification sections under `doc/specification/`
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* *The division of the measurement.* `plan-marshall-mcp` / `question-loop-follow-up` measures; this package owns every value the measurement settles and every statement of the specification it writes those values into. The follow-up keeps only its own repository's work and names this package as the owner of the engine's part.
+* *The `headless.resumability` values.* The measured candidates of link:../specification/client-profiles/01-profile-schema.adoc#headless-resumability[Client Profiles § Resumability] become the shipped values of the profiles the follow-up measured, per shipped profile, with a form it did not measure staying `false` or `null`; the follow-up's driver settled them from its own runs, and the stage repeats the measurement. The stage and the expectation that a resume of a missing session fails at once are reconciled with the hosts that start a new session instead (`opencode`, `antigravity`).
+* *The `headless.inline_settings` member.* The member stays in the `required` list of the profile schema and `null` where a harness has none; the provisional `opencode` 2.x values of link:../specification/client-profiles/01-profile-schema.adoc#headless-inline-settings[Client Profiles § Inline settings] become the values the follow-up checked the effect of, one key at a time, never its acceptance alone (link:../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-17[PM-WATCH-CLIENT-17]). Milestone 14's item that verifies and ships the OpenCode 2.x profile keeps the supported version range, the launch, the version probe and the tool names; this package takes only what the question-loop measurement settles.
+* *The places of the findings.* The four findings the profile schema had no place for — whether a model reaches the tools, a missing session that starts a new one, a cut call the worker survives, and the OpenCode tool-catalog refusal — get a place in the schema, or a recorded reason why the schema stays as it is.
+* *The `questions` values and the question bound.* The `questions` values of the shipped roles (link:../specification/model-work/01-roles-and-configuration.adoc#roles[Model Work § Roles as Configuration Artifacts]) and the question bound (link:../specification/model-work/06-envelopes-questions-deadlines.adoc#question-bound[Model Work § Question Bound]) take the values the follow-up's R4 measurement and its bound variants settle, with the event-log evidence per variant; both stay open, not guessed, until those runs exist.
+
+== Trace
+
+Requirements stay in `plan-marshall-documentation`; the specification sections and watch documents are those of this repository, or of `plan-marshall-documentation` where a link leads there. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/13-client-profiles.adoc#PM-CLIENT-2[PM-CLIENT-2]; link:../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-2[PM-WORK-2]
+* Specification: link:../specification/client-profiles/01-profile-schema.adoc#headless-resumability[Client Profiles § Resumability]; link:../specification/client-profiles/01-profile-schema.adoc#headless-inline-settings[§ Inline settings]; link:../specification/client-profiles/01-profile-schema.adoc#profile-verification[§ Profile Verification]; link:../specification/model-work/06-envelopes-questions-deadlines.adoc#question-bound[Model Work § Question Bound]; link:../specification/model-work/01-roles-and-configuration.adoc#roles[§ Roles as Configuration Artifacts]
+* Watch: link:../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-17[PM-WATCH-CLIENT-17]; link:../implementation-watch/model-work.adoc[Model Work]
+* Measured by: link:../../../plan-marshall-mcp/doc/plans/question-loop-follow-up.adoc[`plan-marshall-mcp` / `question-loop-follow-up`]
+
+== Done When
+
+The shipped `headless.resumability` values per profile are the measured ones and an unmeasured form stays `false` or `null`; the stage `resumability` and its expectation agree with the measured hosts; the `headless.inline_settings` values of the OpenCode 2.x profile are the checked ones and each finding has a place in the schema or a recorded reason for none; the `questions` values of the shipped roles and the question bound are written from the follow-up's runs, or recorded as deliberately open with the run they wait for; no statement of the corrected specification contradicts a result of the follow-up.
