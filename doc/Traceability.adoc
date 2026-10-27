@@ -568,30 +568,16 @@ link:../pm-core/doc/developer/core-store.adoc#_the_call_stack[Scope Stores Devel
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-20[PM-WF-20]
 
-Implementation (the operator wait as a kind of state in the language, the engine and the static verifier, and the
-machine scope's onboarding wait; the scenario harness that drives operator waits resolves a question only by the answer
-a client gives and has no directive that fires a deadline: a resting link state is an operator wait in every unit and
-scope, awaits `OPERATOR_ACT`, holds no task, worker or model slot, and nothing ends it by time; the engine derives the
-wait from the status and accepts no time event for it; the verifier refuses a link clause in a worker unit and a
-question state declares no link; the question classes carry no `assumed` fallback and a waiver request no `expired`
-outcome): link:../pm-core/src/main/java/de/planmarshall/core/spi/AwaitedEvent.java[AwaitedEvent],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/RestingWait.java[RestingWait],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WorkflowEngine.java[WorkflowEngine],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java[WorkflowValidator],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/VerificationRule.java[VerificationRule],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/QuestionClassRegistry.java[QuestionClassRegistry],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/StateBehavior.java[StateBehavior]
+Implementation (in part, of the bullets that nothing is decided by the passing of time and that no unit defines a
+deadline of its own: the scenario harness that drives operator waits resolves a question only by the answer a client
+gives and has no directive that fires a deadline, and a script that names the removed deadline directive is refused by
+name; the operator-wait states and their acts are other work packages'): link:../pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioScript.java[ScenarioScript],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioReplayRunner.java[ScenarioReplayRunner]
 
-Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/OperatorWaitTest.java[OperatorWaitTest],
-link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/AdditionalRulesTest.java[AdditionalRulesTest],
-link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/WaiverDeclineTest.java[WaiverDeclineTest],
-link:../pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioScriptTest.java[ScenarioScriptTest],
+Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioScriptTest.java[ScenarioScriptTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioDeterminismTest.java[ScenarioDeterminismTest]
 
-Documentation: link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer Guide],
-link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide],
-link:../pm-workflow/doc/developer/workflow-scenario.adoc[Scenario Replay Harness Developer Guide],
-link:../pm-workflow/doc/adr/workflow-engine/013-link-states-await-the-operator-act.adoc[ADR workflow-engine/013]
+Documentation: link:../pm-workflow/doc/developer/workflow-scenario.adoc[Scenario Replay Harness Developer Guide]
 
 [#PM-WF-25]
 === PM-WF-25: Plan Behaviour Axes & Plan Overrides
@@ -616,36 +602,6 @@ Documentation: link:../pm-workflow/doc/developer/workflow-plan.adoc#_the_plan_be
 link:../pm-workflow/doc/developer/workflow-verify.adoc#_declaration_bounds[Workflow Verification Developer Guide § Declaration Bounds],
 link:../pm-workflow/doc/adr/workflow-plan/015-axis-levels-and-overrides-carried-in-plan-facts.adoc[ADR workflow-plan/015],
 link:../pm-workflow/doc/adr/workflow-verify/028-axis-variant-declarations-as-enum-values.adoc[ADR workflow-verify/028]
-
-[#PM-WF-26]
-=== PM-WF-26: Machine Onboarding & the Machine Scope
-
-link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-26[PM-WF-26]
-
-Implementation (the fourth top-level scope and the setup gate of its onboarding: the machine scope with no scope id and
-its workflow state in `machine/mcp/status.json`, its `machine` phase and its journal, digest sidecar and scope lock; the
-resident unit's graph check over a unit with no terminal that rests in `onboard.completed`; the onboarding read from the
-status's `onboard_run` and `onboard_steps`; and the setup gate that refuses a start `machine_not_onboarded` while the
-first run is incomplete, an act that needs a missing step `onboarding_incomplete` with status 409, names the step and
-both clients, and admits the onboarding itself and the operator's verbs in every state. The onboarding unit's own
-sub-workflows and the operator's settings acts are other work packages'): link:../pm-core/src/main/java/de/planmarshall/core/store/JournalScope.java[JournalScope],
-link:../pm-core/src/main/java/de/planmarshall/core/store/JournalScopeType.java[JournalScopeType],
-link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java[WorkflowStatus],
-link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatusStore.java[WorkflowStatusStore],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/WorkflowScope.java[WorkflowScope],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java[WorkflowValidator],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/setup/MachineOnboarding.java[MachineOnboarding],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/setup/SetupGate.java[SetupGate]
-
-Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/setup/SetupGateTest.java[SetupGateTest],
-link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/MachineResidentUnitTest.java[MachineResidentUnitTest],
-link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusSchemaParityTest.java[WorkflowStatusSchemaParityTest],
-link:../pm-core/src/test/java/de/planmarshall/core/store/MachineScopeStoreTest.java[MachineScopeStoreTest]
-
-Documentation: link:../pm-core/doc/developer/core-store.adoc[Scope Stores Developer Guide],
-link:../pm-workflow/doc/developer/workflow-setup.adoc[Setup Gate Developer Guide],
-link:../pm-core/doc/adr/core-store/046-the-machine-scope-keeps-its-state-in-machine-mcp.adoc[ADR core-store/046],
-link:../pm-workflow/doc/adr/workflow-verify/031-the-machine-unit-is-resident.adoc[ADR workflow-verify/031]
 
 == link:../../plan-marshall-documentation/doc/requirements/03-skills.adoc[Skills]
 
@@ -1091,26 +1047,6 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/JobEnvironmentCompo
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/WorkerEgressProxyTest.java[WorkerEgressProxyTest]
 
 Documentation (the confinement and the environment): link:../pm-runtime/doc/developer/runtime-job.adoc#_confinement_and_environment[Developer Guide § Confinement and Job Environment (`runtime.job`)], link:../pm-runtime/doc/adr/runtime-job/014-confinement-and-environment-composed-outside-the-launcher.adoc[ADR runtime-job/014]
-
-[#PM-SEC-8]
-=== PM-SEC-8: Consent Before Acting
-
-link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-8[PM-SEC-8]
-
-Implementation (the language and verifier side of a consent state: a consent is an operator wait of the same form as
-every other — its links `yes`, `yes_remember` and `no` are declared links of a resting link state and so are operator
-links only, never rendered in a model-facing representation (the local-API rendering is the clients' work); the
-verifier refuses a declared link clause in a unit a worker acts in, so no model reaches an operator act. The consent
-kinds, their store and the operator's acts are `machine-onboarding-unit`'s): link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/StateBehavior.java[StateBehavior],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java[WorkflowValidator],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/VerificationRule.java[VerificationRule],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/RestingWait.java[RestingWait]
-
-Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/AdditionalRulesTest.java[AdditionalRulesTest],
-link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/OperatorWaitTest.java[OperatorWaitTest]
-
-Documentation: link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide],
-link:../pm-workflow/doc/adr/workflow-verify/032-operator-links-and-model-links-apart.adoc[ADR workflow-verify/032]
 
 == link:../../plan-marshall-documentation/doc/requirements/09-technology.adoc[Technology]
 

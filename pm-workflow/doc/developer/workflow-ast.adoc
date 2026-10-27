@@ -154,9 +154,9 @@ the plan behaviour axes, `git.commit_and_push`, the remediation policy units and
 |one or more; none for a landing variant (`landing.*`)
 
 |`system`
-|The runtime's own flows, compiled only: the workspace unit, the machine unit `onboarding.pmwf`, the project onboarding
-unit and the bootstrap units (started), and the sub-workflows of these flows (called).
-|`workspace`, `machine`, `entity` (started); `subworkflow` (called)
+|The runtime's own flows, compiled only: the workspace unit, the project onboarding unit and the bootstrap units
+(started), and the sub-workflows of these flows (called).
+|`workspace`, `entity` (started); `subworkflow` (called)
 |none (started); one or more (called)
 |none (started); one or more (called)
 
@@ -178,9 +178,9 @@ The two exceptions within the `subworkflow` row are recognised by the unit id, b
 adjudication unit by the id `adjudicate.decisions`, a landing variant by the prefix `landing.`
 (link:../adr/workflow-verify/026-interface-rules-within-rules-3-and-6.adoc[ADR workflow-verify 026]).
 
-The machine unit is a resident unit of the row: type `system`, scope `machine`, started, no entries and no exits, no
-terminal, resting in `onboard.completed`; the verifier checks that every state returns to it
-(link:{spec}/workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL § Machine Scope]).
+The tree has no `machine` scope yet, so the row of the machine unit, type `system` with scope `machine`
+(link:{spec}/workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL § Machine Scope]), is neither expressed nor checked;
+it follows with the work package link:../../../doc/plans/operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`].
 
 == Entries and the Call Through an Entry
 _Requirements: link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16], link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_

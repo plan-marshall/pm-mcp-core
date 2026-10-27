@@ -272,14 +272,15 @@ What the implementation does not cover yet stays specified here:
 
 The six types and the rows the implementation checks are described in link:../../../pm-workflow/doc/developer/workflow-ast.adoc#unit-types[Workflow AST Developer Guide § Unit Types]. Not implemented yet, and specified here:
 
-* *The machine unit*: the row of the type `system` with `scope machine`, the machine unit `onboarding.pmwf` (<<machine-scope>>), started, with no entries and no exits.
+* *The machine unit*: the row of the type `system` with `scope machine`, the machine unit `onboarding.pmwf` (<<machine-scope>>), started, with no entries and no exits. The tree of the workflow language has no `machine` scope yet.
 * *Owned and designed units*: which units the operator may own and design is stated with the units (xref:04-ast-node-model.adoc#project-owned-units[Designable Workflow Units, Levels & Compiled Invariants]; xref:04-ast-node-model.adoc#process-designer[Designing a Process]); a unit of type `system`, `task`, or `instance` is never owned, designed, or placed by the operator.
 
 [#interface-rules]
 === Interface Rules
 
-The interface rules are described in link:../../../pm-workflow/doc/developer/workflow-verify.adoc#interface-rules[Workflow Verification Developer Guide § Interface Rules and Unit Types]. The machine unit is resident: like the workspace unit, it lives as long as what it serves, declares no terminal, and returns from every state to its resting state (Rule 3); it lives as long as the machine's installation and rests in `onboard.completed` (<<machine-scope>>). Not implemented yet, and specified here:
+The interface rules are described in link:../../../pm-workflow/doc/developer/workflow-verify.adoc#interface-rules[Workflow Verification Developer Guide § Interface Rules and Unit Types]. Not implemented yet, and specified here:
 
+* *The machine unit is resident*: like the workspace unit, the machine unit (`scope machine`) is a resident unit, which lives as long as what it serves, declares no terminal, and returns from every state to its resting state (Rule 3): it lives as long as the machine's installation and rests in `onboard.completed` (<<machine-scope>>).
 * *A landing variant is verified composed*: a landing variant is composed into the finalize phase rather than called (xref:09-plan-instance.adoc#plan-axes[Plan Behaviour Axes]); each of its entries is bound to the state the phase's dispatch hub enters for that step, and it is verified composed into the phase.
 
 [#machine-scope]
