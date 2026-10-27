@@ -51,6 +51,18 @@ public final class ProfileValidator {
     private static final String NAME_CONNECTION = "connection";
     private static final String NAME_WORKER = "worker";
     private static final String NAME_DETECTION = "detection";
+    private static final String NAME_PROFILE_KIND = "profile_kind";
+    private static final String NAME_ENDPOINT = "endpoint";
+    private static final String NAME_PROTOCOL = "protocol";
+    private static final String NAME_LOCALITY = "locality";
+    private static final String NAME_BASE_URL = "base_url";
+    private static final String NAME_CREDENTIAL_KEY = "credential_key";
+    private static final String NAME_READINESS_PATH = "readiness_path";
+    private static final String NAME_MODELS_PATH = "models_path";
+    private static final String NAME_MODELS_POINTER = "models_pointer";
+    private static final String NAME_CONTEXT_TOKENS = "context_tokens";
+    private static final String NAME_ANSWER_RESERVE_TOKENS = "answer_reserve_tokens";
+    private static final String NAME_REQUEST_TIMEOUT_SECONDS = "request_timeout_seconds";
     private static final String NAME_IDENTITY = "identity";
     private static final String NAME_EXECUTABLE = "executable";
     private static final String NAME_INSTALL_LOCATIONS = "install_locations";
@@ -162,6 +174,17 @@ public final class ProfileValidator {
             NAME_MIN_DAEMON_VERSION, NAME_TOOLS, NAME_SKILL_LOADING, NAME_HEADLESS, NAME_CONNECTION, NAME_WORKER, NAME_DETECTION,
             NAME_IDENTITY);
 
+    /** The one value of {@code profile_kind} a document of the profile sets declares. */
+    public static final String PROFILE_KIND_ENDPOINT = "endpoint";
+
+    private static final Set<String> ENDPOINT_TOP_LEVEL = Set.of(NAME_PROFILE_KIND, NAME_SCHEMA_VERSION, NAME_CLIENT_ID,
+            NAME_DISPLAY_NAME, NAME_MIN_DAEMON_VERSION, NAME_ICON, NAME_EXECUTABLE, NAME_IDENTITY, NAME_UPDATE_EVIDENCE,
+            NAME_ENDPOINT, NAME_MODEL_TIERS, NAME_WEIGHTS_PROBE);
+
+    private static final Set<String> ENDPOINT_BLOCK = Set.of(NAME_PROTOCOL, NAME_LOCALITY, NAME_BASE_URL,
+            NAME_CREDENTIAL_KEY, NAME_READINESS_PATH, NAME_MODELS_PATH, NAME_MODELS_POINTER, NAME_RESULT_SCHEMA,
+            NAME_CONTEXT_TOKENS, NAME_ANSWER_RESERVE_TOKENS, NAME_REQUEST_TIMEOUT_SECONDS);
+
     private static final Set<String> HEADLESS = Set.of(NAME_EXECUTABLE, NAME_INSTALL_LOCATIONS, NAME_INSTALL_HINT, NAME_AUTH_PROBE,
             NAME_MODELS_PROBE, NAME_WEIGHTS_PROBE, NAME_MODEL_TIERS, NAME_SUPPORTED_VERSIONS, NAME_UPDATE_EVIDENCE, NAME_AGENT_MODE,
             "argv", NAME_MCP_CONFIG, NAME_CLASSES, "env", NAME_CAPABILITIES, NAME_OUTPUT, NAME_USAGE, NAME_EVENTS, NAME_ENDPOINTS,
@@ -210,6 +233,9 @@ public final class ProfileValidator {
     private static final Pattern LOGIN_FILE = Pattern.compile("^\\w[\\w./-]*$");
     private static final Pattern HOME_PATH = Pattern.compile("^~/[A-Za-z0-9_./-]+$");
     private static final Pattern ENDPOINT_HOST = Pattern.compile("^[a-z0-9.-]+$");
+    private static final Pattern ENDPOINT_PATH = Pattern.compile("^/[A-Za-z0-9._/-]{0,127}$");
+    private static final Pattern LOOPBACK_URL = Pattern.compile("^http://(127\\.0\\.0\\.1|\\[::1\\]):([0-9]{1,5})$");
+    private static final Pattern HTTPS_URL = Pattern.compile("^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?$");
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{([^{}]*)\\}\\}");
 
     private ProfileValidator() {
@@ -247,6 +273,15 @@ public final class ProfileValidator {
         return profile.member(NAME_CLIENT_ID).flatMap(JsonNode::text).orElse("");
     }
 
+    /**
+     * @param profile a profile document
+     * @return whether the document declares {@code profile_kind: "endpoint"}
+     */
+    public static boolean isEndpoint(JsonNode profile) {
+        return profile.member(NAME_PROFILE_KIND).flatMap(JsonNode::text)
+                .filter(PROFILE_KIND_ENDPOINT::equals).isPresent();
+    }
+
     /** The checks of one document; it carries the document name and the installation's rules. */
     private static final class Checker {
 
@@ -259,6 +294,16 @@ public final class ProfileValidator {
         }
 
         private void checkProfile(JsonNode profile) {
+            var declaredKind = profile.member(NAME_PROFILE_KIND);
+            if (declaredKind.isPresent()) {
+                var kind = declaredKind.get().text().orElse("");
+                if (PROFILE_KIND_ENDPOINT.equals(kind)) {
+                    checkEndpointProfile(profile);
+                    return;
+                }
+                throw invalid("/profile_kind",
+                        "'profile_kind' has the undeclared value '%s'".formatted(kind));
+            }
             object(profile, "", "profile", TOP_LEVEL, TOP_LEVEL);
             if (integer(required(profile, "", NAME_SCHEMA_VERSION), "/schema_version", NAME_SCHEMA_VERSION, 1,
                     SCHEMA_VERSION) != SCHEMA_VERSION) {
@@ -286,6 +331,150 @@ public final class ProfileValidator {
             worker(required(profile, "", NAME_WORKER), "/worker", profile);
             detection(required(profile, "", NAME_DETECTION), "/detection");
             identity(required(profile, "", NAME_IDENTITY), "/identity");
+        }
+
+        /**
+         * Validates an endpoint profile (Client Profiles § Endpoint Profile Schema): the same sets and hardening rules as
+         * a client profile, a closed document of its own members, and the locality combinations the schema cannot
+         * express.
+         */
+        private void checkEndpointProfile(JsonNode profile) {
+            object(profile, "", "endpoint profile", ENDPOINT_TOP_LEVEL, ENDPOINT_TOP_LEVEL);
+            if (integer(required(profile, "", NAME_SCHEMA_VERSION), "/schema_version", NAME_SCHEMA_VERSION, 1,
+                    SCHEMA_VERSION) != SCHEMA_VERSION) {
+                throw invalid("/schema_version", "'schema_version' must be %d".formatted(SCHEMA_VERSION));
+            }
+            var clientId = text(required(profile, "", NAME_CLIENT_ID), "/client_id", NAME_CLIENT_ID, 32);
+            if (!CLIENT_ID.matcher(clientId).matches()) {
+                throw invalid("/client_id", "not a client id: '%s'".formatted(clientId));
+            }
+            var displayName = text(required(profile, "", NAME_DISPLAY_NAME), PTR_DISPLAY_NAME, NAME_DISPLAY_NAME, 64);
+            if (displayName.isEmpty()) {
+                throw invalid(PTR_DISPLAY_NAME, "a display name is not empty");
+            }
+            stringRule(displayName, PTR_DISPLAY_NAME, true);
+            var minDaemonVersion = text(required(profile, "", NAME_MIN_DAEMON_VERSION), "/min_daemon_version",
+                    NAME_MIN_DAEMON_VERSION, 256);
+            if (!VERSION.matcher(minDaemonVersion).matches()) {
+                throw invalid("/min_daemon_version", "not a version: '%s'".formatted(minDaemonVersion));
+            }
+            icon(required(profile, "", NAME_ICON), "/icon");
+            var executable = optionalText(required(profile, "", NAME_EXECUTABLE), "/executable", NAME_EXECUTABLE, 64);
+            if (executable != null && !EXECUTABLE.matcher(executable).matches()) {
+                throw invalid("/executable", "not a bare executable name: '%s'".formatted(executable));
+            }
+            var identityNode = required(profile, "", NAME_IDENTITY);
+            var hasIdentity = !identityNode.isNull();
+            if (hasIdentity) {
+                identity(identityNode, "/identity");
+            }
+            var evidenceNode = required(profile, "", NAME_UPDATE_EVIDENCE);
+            if (!evidenceNode.isNull()) {
+                updateEvidence(evidenceNode, "/update_evidence");
+            }
+            var block = endpointBlock(required(profile, "", NAME_ENDPOINT), "/endpoint");
+            modelTiers(required(profile, "", NAME_MODEL_TIERS), "/model_tiers");
+            weightsProbe(required(profile, "", NAME_WEIGHTS_PROBE), "/weights_probe");
+            localityRules(block, executable, hasIdentity);
+        }
+
+        /**
+         * Validates the {@code endpoint} block and returns the values the locality rules read.
+         */
+        private EndpointBlock endpointBlock(JsonNode endpoint, String pointer) {
+            object(endpoint, pointer, NAME_ENDPOINT, ENDPOINT_BLOCK, ENDPOINT_BLOCK);
+            var protocol = enumValue(required(endpoint, pointer, NAME_PROTOCOL), pointer + "/protocol", NAME_PROTOCOL,
+                    Set.of("openai_chat", "system_one"));
+            var locality = enumValue(required(endpoint, pointer, NAME_LOCALITY), pointer + "/locality", NAME_LOCALITY,
+                    Set.of("loopback", "remote"));
+            var baseUrl = text(required(endpoint, pointer, NAME_BASE_URL), pointer + "/base_url", NAME_BASE_URL, 256);
+            if (!LOOPBACK_URL.matcher(baseUrl).matches() && !HTTPS_URL.matcher(baseUrl).matches()) {
+                throw invalid(pointer + "/base_url", "not an endpoint URL: '%s'".formatted(baseUrl));
+            }
+            var credential = optionalText(optional(endpoint, NAME_CREDENTIAL_KEY), pointer + "/credential_key",
+                    NAME_CREDENTIAL_KEY, 32);
+            if (credential != null && !CLIENT_ID.matcher(credential).matches()) {
+                throw invalid(pointer + "/credential_key", "not a credential key: '%s'".formatted(credential));
+            }
+            endpointPath(optional(endpoint, NAME_READINESS_PATH), pointer + "/readiness_path", NAME_READINESS_PATH);
+            endpointPath(required(endpoint, pointer, NAME_MODELS_PATH), pointer + "/models_path", NAME_MODELS_PATH);
+            var modelsPointer = text(required(endpoint, pointer, NAME_MODELS_POINTER), pointer + "/models_pointer",
+                    NAME_MODELS_POINTER, 256);
+            if (!modelsPointer.startsWith("/")) {
+                throw invalid(pointer + "/models_pointer", MSG_NOT_A_POINTER.formatted(modelsPointer));
+            }
+            enumValue(required(endpoint, pointer, NAME_RESULT_SCHEMA), pointer + "/result_schema", NAME_RESULT_SCHEMA,
+                    Set.of("enforced", "advisory", "none"));
+            var contextTokens = integer(required(endpoint, pointer, NAME_CONTEXT_TOKENS), pointer + "/context_tokens",
+                    NAME_CONTEXT_TOKENS, 1024, Integer.MAX_VALUE);
+            var answerReserve = integer(required(endpoint, pointer, NAME_ANSWER_RESERVE_TOKENS),
+                    pointer + "/answer_reserve_tokens", NAME_ANSWER_RESERVE_TOKENS, 64, Integer.MAX_VALUE);
+            if (answerReserve >= contextTokens) {
+                throw invalid(pointer + "/answer_reserve_tokens",
+                        "the answer reserve %d stays below context_tokens %d".formatted(answerReserve, contextTokens));
+            }
+            integer(required(endpoint, pointer, NAME_REQUEST_TIMEOUT_SECONDS), pointer + "/request_timeout_seconds",
+                    NAME_REQUEST_TIMEOUT_SECONDS, 5, 3600);
+            return new EndpointBlock(protocol, locality, baseUrl, credential);
+        }
+
+        /**
+         * Refuses the combinations of {@code locality} the schema cannot express: the remote form and the protocol
+         * {@code system_one} belong to the package {@code judgment-endpoint} and are refused until it is done; a
+         * loopback endpoint names a plain {@code http} loopback URL, no credential, and the serving program and its
+         * identity.
+         */
+        private void localityRules(EndpointBlock block, String executable, boolean hasIdentity) {
+            if ("remote".equals(block.locality())) {
+                throw invalid("/endpoint/locality",
+                        "the remote form is the judgment endpoint's; this package refuses it until that package is done");
+            }
+            if ("system_one".equals(block.protocol())) {
+                throw invalid("/endpoint/protocol",
+                        "the protocol system_one is the judgment endpoint's; this package refuses it until that "
+                                + "package is done");
+            }
+            var loopback = LOOPBACK_URL.matcher(block.baseUrl());
+            if (!loopback.matches()) {
+                throw invalid("/endpoint/base_url",
+                        "a loopback endpoint names http://127.0.0.1:<port> or http://[::1]:<port>: '%s'"
+                                .formatted(block.baseUrl()));
+            }
+            var port = Integer.parseInt(loopback.group(2));
+            if (port < 1 || port > 65535) {
+                throw invalid("/endpoint/base_url", "not a port: %d".formatted(port));
+            }
+            if (block.credentialKey() != null) {
+                throw invalid("/endpoint/credential_key", "a loopback endpoint has a null credential_key");
+            }
+            if (executable == null) {
+                throw invalid("/executable", "a loopback endpoint names the program that serves it");
+            }
+            if (!hasIdentity) {
+                throw invalid("/identity", "a loopback endpoint names its identity");
+            }
+        }
+
+        private void endpointPath(JsonNode path, String pointer, String name) {
+            if (path == null || path.isNull()) {
+                return;
+            }
+            var value = text(path, pointer, name, 128);
+            if (!ENDPOINT_PATH.matcher(value).matches()) {
+                throw invalid(pointer, "not an endpoint path: '%s'".formatted(value));
+            }
+        }
+
+        /**
+         * @param node the value of a member the schema types {@code [string, null]}
+         * @return the string, or {@code null} for the JSON null
+         */
+        private String optionalText(JsonNode node, String pointer, String name, int max) {
+            return node == null || node.isNull() ? null : text(node, pointer, name, max);
+        }
+
+        /** The values of the {@code endpoint} block the locality rules read. */
+        private record EndpointBlock(String protocol, String locality, String baseUrl, String credentialKey) {
         }
 
         private void icon(JsonNode icon, String pointer) {

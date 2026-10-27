@@ -64,8 +64,16 @@ resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshal
 * link:doc/adr/core-analysis/[`doc/adr/core-analysis/`]: the code-analysis contract.
 * link:doc/adr/core-findings/[`doc/adr/core-findings/`]: the findings contract.
 * link:doc/adr/core-profile/[`doc/adr/core-profile/`]: the client profile validator, its digest and sidecar, the refused
-  profile as a value, the bundle-managed paths as installation data, and the schema literals named once per class
-  (link:doc/adr/core-profile/005-schema-literals-named-once-per-class.adoc[ADR 005]).
+  profile as a value, the bundle-managed paths as installation data, the schema literals named once per class and the
+  endpoint profile:
+  link:doc/adr/core-profile/005-schema-literals-named-once-per-class.adoc[ADR 005] the schema literals named once per
+  class;
+  link:doc/adr/core-profile/007-endpoint-profile-is-a-kind-of-the-profile-sets.adoc[ADR 007] the endpoint profile is a kind
+  of the profile sets;
+  link:doc/adr/core-profile/008-endpoint-harness-runs-zero-tool-only.adoc[ADR 008] an endpoint harness runs `zero_tool`
+  only;
+  link:doc/adr/core-profile/009-endpoint-profile-declares-no-supported-range.adoc[ADR 009] an endpoint profile declares no
+  supported version range.
 * link:doc/adr/core-queue/[`doc/adr/core-queue/`]: the task queue; ADRs 001 and 003 are superseded, ADR 002 stands, ADRs 004 to 006 record the generation fence, the record's combinations at the write boundary and the journal's sibling lock.
 * link:doc/adr/core-role-corpus/[`doc/adr/core-role-corpus/`]: the corpus formats, the row readers, the verdict of an import, the corpus validator and the Python meaning of its patterns.
 * link:doc/adr/core-service/[`doc/adr/core-service/`]: the service interfaces:

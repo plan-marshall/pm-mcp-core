@@ -174,6 +174,12 @@ public final class ProfileLoader {
         var state = LoadedProfile.State.VERIFIED;
         if (!build.version().equals(verification.harness().version())
                 || !build.executableSha256().equals(verification.harness().executableSha256())) {
+            if (ProfileValidator.isEndpoint(profile)) {
+                // An endpoint profile declares no supported_versions range: another build of the serving program cannot
+                // be judged against one, so the record keeps its state and launches go on.
+                return new LoadedProfile(clientId, kind, profile, document,
+                        LoadedProfile.State.VERIFIED_ON_OTHER_BUILD, verification);
+            }
             var supported = profile.member("headless")
                     .filter(headless -> !headless.isNull())
                     .flatMap(headless -> headless.member("supported_versions"))
@@ -243,7 +249,10 @@ public final class ProfileLoader {
 
     /** A project profile changes how a harness works, not which harness it is. */
     private void sameAsBase(LoadedProfile project, LoadedProfile base) {
-        for (var pointer : List.of("/detection", "/identity", "/headless/executable")) {
+        var pointers = ProfileValidator.isEndpoint(project.document())
+                ? ENDPOINT_IDENTITY_POINTERS
+                : List.of("/detection", "/identity", "/headless/executable");
+        for (var pointer : pointers) {
             var projectValue = value(project.document(), pointer);
             var baseValue = value(base.document(), pointer);
             if (!CanonicalJson.write(projectValue).equals(CanonicalJson.write(baseValue))) {
@@ -252,6 +261,10 @@ public final class ProfileLoader {
             }
         }
     }
+
+    /** The pointers that say which endpoint harness a project endpoint profile describes. */
+    private static final List<String> ENDPOINT_IDENTITY_POINTERS = List.of("/identity", "/executable",
+            "/endpoint/protocol", "/endpoint/locality", "/endpoint/base_url", "/endpoint/credential_key");
 
     /**
      * Reads a value below a profile whose parent may be JSON {@code null}: a project profile of a harness without a
