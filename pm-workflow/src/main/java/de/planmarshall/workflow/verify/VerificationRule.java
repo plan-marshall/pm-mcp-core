@@ -94,8 +94,8 @@ public enum VerificationRule {
     GATE_PRODUCER_COVERAGE(8),
     /** Step completion once per firing, outcome classes admit status, and cycle measures fit. */
     STEP_COMPLETION(9),
-    /** Resting link states and declared links on question states exist only in session-driven units. */
-    SESSION_DRIVEN_LINKS(10),
+    /** A declared link clause is an operator link in every unit and scope; a worker unit declares none (Rule 10). */
+    OPERATOR_LINKS_APART(10),
     /** Every cycle contains an awaited event (11b) or an engine-chained cycle measure (11a). */
     CYCLE_AWAITED_EVENT(11),
     /** Link relation and form compatibility, parameter requirements, and reserved relations. */

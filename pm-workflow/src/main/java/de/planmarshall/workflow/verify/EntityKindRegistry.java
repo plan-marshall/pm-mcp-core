@@ -16,6 +16,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * An immutable registry of known {@link EntityKind} instances (PM-IMPL-5, PM-WF-5).
@@ -64,6 +66,14 @@ public final class EntityKindRegistry {
         var updated = new LinkedHashMap<>(kinds);
         updated.put(kind.name(), kind);
         return new EntityKindRegistry(updated.values());
+    }
+
+    /**
+     * @return the identifiers of the entity units the registered kinds run; the zero-tool kinds have none
+     */
+    public Set<String> entityUnits() {
+        return kinds.values().stream().map(EntityKind::entityUnit).flatMap(Optional::stream)
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     /**

@@ -28,12 +28,12 @@ class SpiVocabularyTest {
     }
 
     @Test
-    @DisplayName("the awaited events are the eight of the contract, in its order")
+    @DisplayName("the awaited events are the nine of the contract, in its order")
     void awaitedEvents() {
         var names = Arrays.stream(AwaitedEvent.values()).map(Enum::name).toList();
 
-        assertEquals(List.of("NONE", "JOB_SETTLED", "TASK_SETTLED", "OPERATOR_WAIVER", "MODEL_SUBMIT", "TIME",
-                "EXTERNAL_STATE", "QUESTION_ANSWER"), names);
+        assertEquals(List.of("NONE", "JOB_SETTLED", "TASK_SETTLED", "OPERATOR_WAIVER", "OPERATOR_ACT",
+                "MODEL_SUBMIT", "TIME", "EXTERNAL_STATE", "QUESTION_ANSWER"), names);
     }
 
     @Test

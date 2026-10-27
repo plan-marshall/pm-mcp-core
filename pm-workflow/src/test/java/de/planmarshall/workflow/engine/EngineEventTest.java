@@ -239,12 +239,12 @@ class EngineEventTest {
 
             fixtures.questionReader.answer = new QuestionRead.Open();
             var open = assertThrows(IllegalArgumentException.class, () -> engine.advance(atQuestion, event));
-            fixtures.questionReader.answer = new QuestionRead.Resolved("assumed");
+            fixtures.questionReader.answer = new QuestionRead.Resolved("declined");
             var other = assertThrows(IllegalArgumentException.class, () -> engine.advance(atQuestion, event));
 
             assertAll(
                     () -> assertTrue(open.getMessage().contains("still open")),
-                    () -> assertTrue(other.getMessage().contains("assumed")));
+                    () -> assertTrue(other.getMessage().contains("declined")));
         }
 
         @Test

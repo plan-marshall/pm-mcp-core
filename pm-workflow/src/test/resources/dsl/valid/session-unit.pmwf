@@ -54,15 +54,12 @@ state setup.wait
     phase setup
     question clarification
         answered -> setup.choose
-        expired -> setup.left
-    link next skip_wait ()
-        do setup.skip
-            done -> setup.choose
 
 state setup.review
     phase setup
     question review
-        done -> setup.choose
+        approve -> setup.choose
+        revise -> setup.choose
 
 state setup.left terminal left indeterminate
     phase setup

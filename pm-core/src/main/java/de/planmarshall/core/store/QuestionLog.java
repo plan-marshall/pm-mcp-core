@@ -182,13 +182,14 @@ public final class QuestionLog {
     }
 
     /**
-     * @param scope the plan, epic or workspace scope whose log this is
+     * @param scope the plan, epic, workspace or machine scope whose log this is
      * @throws IllegalArgumentException if the scope is the lesson store, which has no question log
      */
     public QuestionLog(JournalScope scope) {
         this(scope, switch (Objects.requireNonNull(scope, "scope").type()) {
             case PLAN, EPIC -> FILE_NAME;
             case WORKSPACE -> WORKSPACE_DIRECTORY + "/" + FILE_NAME;
+            case MACHINE -> FILE_NAME;
             case LESSONS -> throw new IllegalArgumentException("The lesson store has no question log");
         });
     }

@@ -51,7 +51,7 @@ public final class MetricsStore {
     private final String storePath;
 
     /**
-     * @param scope the plan, epic or workspace scope whose metrics store this is
+     * @param scope the plan, epic, workspace or machine scope whose metrics store this is
      * @throws IllegalArgumentException if the scope is the lesson store, which has no metrics store
      */
     public MetricsStore(JournalScope scope) {
@@ -59,6 +59,7 @@ public final class MetricsStore {
         this.storePath = switch (scope.type()) {
             case PLAN, EPIC -> FILE_NAME;
             case WORKSPACE -> Path.of(WORKSPACE_DIRECTORY, FILE_NAME).toString();
+            case MACHINE -> FILE_NAME;
             case LESSONS -> throw new IllegalArgumentException("The lesson store has no metrics store");
         };
     }

@@ -390,10 +390,7 @@ public final class ProjectUnitLoader {
             case StateBehavior.JobStep job -> transitions.addAll(job.transitions());
             case StateBehavior.ModelJob job -> transitions.addAll(job.transitions());
             case StateBehavior.SubWorkflowCall call -> transitions.addAll(call.transitions());
-            case StateBehavior.QuestionWait question -> {
-                transitions.addAll(question.transitions());
-                question.links().forEach(link -> transitions.addAll(link.transitions()));
-            }
+            case StateBehavior.QuestionWait question -> transitions.addAll(question.transitions());
             case StateBehavior.InteractiveLinks(var links) ->
                 links.forEach(link -> transitions.addAll(link.transitions()));
             case StateBehavior.TerminalState _ -> {

@@ -16,7 +16,7 @@ workstream: WS-03
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -70,47 +70,43 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/unit/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/` — the designer endpoints and the project-level placing of `git.land-unit` named in the `Where` line; added by cleanup on 2026-10-16
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-unit.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-unit/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-verify.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-verify/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-core/doc/developer/core-store.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-core/doc/adr/core-store/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
 - OBSERVED: `doc/plans/process-designer.adoc` — the package file, deleted when the package is done
-- OBSERVED: `doc/implementation-watch/workflow-dsl.adoc` — watch document; the covered items deleted
-- OBSERVED: `doc/specification/domain-extensions/05-recipes-and-extension-points.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/domain-extensions/06-configuration.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/domain-extensions/05-recipes-and-extension-points.adoc` — specification part; recipe places
+- OBSERVED: `doc/specification/domain-extensions/06-configuration.adoc` — specification part; config_drift and adoption
 - OBSERVED: `doc/specification/filesystem-layout/01-repository-workspace.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/filesystem-layout/02-machine-runtime.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/identifiers/01-general-rules-and-registry.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/filesystem-layout/02-machine-runtime.adoc` — machine workflows and recipes layout
+- OBSERVED: `doc/specification/identifiers/01-general-rules-and-registry.adoc` — unit-name grammar (state_id)
 - OBSERVED: `doc/specification/state-catalogue.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/state-catalogue/18-plan-unit-axes-short-landings.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/store-schemas/03-findings-and-review-records.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/workflow-dsl/01-grammar.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/workflow-dsl/02-units-jobs-decisions.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/workflow-dsl/04-ast-node-model.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/workflow-dsl/05-primitives.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/state-catalogue/18-plan-unit-axes-short-landings.adoc` — short landing git.land-unit
+- OBSERVED: `doc/specification/store-schemas/03-findings-and-review-records.adoc` — R10: read by finding parity tests, keep blocks byte-stable
+- OBSERVED: `doc/specification/workflow-dsl/01-grammar.adoc` — R10: read by UnitFrontmatterReaderTest, keep byte-stable
+- OBSERVED: `doc/specification/workflow-dsl/02-units-jobs-decisions.adoc` — specification part; declarations
+- OBSERVED: `doc/specification/workflow-dsl/04-ast-node-model.adoc` — Designing a Process, INV-AXIS-1
+- OBSERVED: `doc/specification/workflow-dsl/05-primitives.adoc` — primitive registry the catalogue is generated from
 - OBSERVED: `doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/workflow-dsl/09-plan-instance.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/ast/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/plan/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/doc/developer/workflow-plan.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/doc/developer/workflow-ast.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/doc/developer/workflow-dsl.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/` — the catalogue source `RoleCatalog`; the narrative names it, the surface omitted it; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/spi/` — the catalogue source `PrimitiveRegistry`; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-workflow/doc/adr/workflow-dsl/` — next free number 009 (R11 and R06 for the changed packages); added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-workflow/doc/adr/workflow-plan/` — next free number 018; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-workflow/doc/adr/workflow-ast/` — next free number 003; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/findings/FindingSchemaParityTest.java` — R10: a reader of a Surface specification part (byte-stable); added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/analysis/AnalysisResultSchemaTest.java` — R10: reader of a Surface specification part; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/dsl/UnitFrontmatterReaderTest.java` — R10: reader of a Surface specification part; added by the re-grounding of 2026-10-26
-- OBSERVED: `doc/Traceability.adoc` — every package adds its lines; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/specification/workflow-dsl/09-plan-instance.adoc` — unit levels in the instance header and composition
+- OBSERVED: `doc/implementation-watch/workflow-dsl.adoc` — watch document; the covered items deleted
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/unit/ProjectUnitLoader.java` — unit resolver by level, no first copy (MISSING finding)
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/unit/PlanUnitMerger.java` — phase files resolved project over machine over default
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/ast/UnitOrigin.java` — gains MACHINE (DEFAULT, PROJECT only today)
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/plan/UnitReference.java` — origin default, machine or project per unit
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/plan/HeaderJson.java` — maps only project today (line 521)
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/plan/HeaderSchemaCheck.java` — header origin values
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java` — resolver in the composition, config_drift and config_adopted
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/InvariantId.java` — INV-AXIS-1 (absent today)
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/CompiledInvariants.java` — INV-AXIS-1 for the changed variants
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/DeclarationBounds.java` — declarable parameters with bounds (security_severity_caps for phase-6-finalize)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/RoleCatalog.java` — catalogue source for roles; may gain an enumeration accessor
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/spi/PrimitiveRegistry.java` — catalogue source for primitives; may gain an enumeration accessor
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/unit/ProjectUnitLoaderTest.java` — precedence project over machine over default, no fallback
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/unit/PlanUnitMergerTest.java` — level precedence for phase files
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/plan/HeaderSchemaCheckTest.java` — header origin per unit
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java` — composition by level, config_adopted
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/verify/CompiledInvariantsTest.java` — INV-AXIS-1
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/verify/DeclarationBoundsTest.java` — declarable parameters and bounds
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/dsl/UnitFrontmatterReaderTest.java` — R10: reads workflow-dsl/01-grammar.adoc
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/findings/FindingSchemaParityTest.java` — R10: reads store-schemas/03
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/analysis/AnalysisResultSchemaTest.java` — R10: reads store-schemas/03
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

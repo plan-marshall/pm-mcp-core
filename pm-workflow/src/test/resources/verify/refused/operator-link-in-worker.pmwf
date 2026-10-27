@@ -1,15 +1,16 @@
 ---
-name: verify.session-link
-description: A unit written for the verifier tests.
-type: workflow
+name: worker-task
+description: The task protocol unit, written with a resting link for the verifier tests.
+type: task
 icon: workflow.default
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
+exit: done
 ---
-# expect: SESSION_DRIVEN_LINKS state verify.entry line 15
-workflow verify.session-link version 1 format 1
-scope plan
+# expect: OPERATOR_LINKS_APART state verify.entry line 16
+workflow worker-task version 1 format 1
+scope entity
 start verify.entry
 
 state verify.entry

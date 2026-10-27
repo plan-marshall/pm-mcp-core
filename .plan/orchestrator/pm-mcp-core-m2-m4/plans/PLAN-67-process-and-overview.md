@@ -16,7 +16,7 @@ workstream: WS-03
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R12, R13, R14, R15, R16, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R12, R13, R14, R15, R16, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -67,19 +67,15 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/plan/` — production code
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/` — production code
-- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/web/` — production code
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-plan.adoc` — developer documentation of the package; created or extended
-- HYPOTHESIS: `pm-runtime/doc/developer/runtime-web.adoc` — developer documentation of the package; created or extended
 - OBSERVED: `doc/plans/process-and-overview.adoc` — the package file, deleted when the package is done
 - OBSERVED: `doc/specification/filesystem-layout/03-project-store.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/state-catalogue/04-plan-finalize-terminal.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/02-workflow-state-store.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `pm-core/doc/developer/core-store.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/diagram/` — the Positioned Layout (#181) joins the process answer to a layout by `node_id`; no package owns it; read; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc` — § Positioned Layout constrains D2's `node_id` form; read; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc` — Positioned Layout constrains the node_id form of D2
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java` — typed status members title, created_at, phase_entered_at, pause, terminal_reason, setup_aspect, onboard_run, onboard_steps
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatusCodec.java` — the eight schema members added to MEMBERS
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusSchemaParityTest.java` — membersEqualSchema re-enabled
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java` — round trip of the added members
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

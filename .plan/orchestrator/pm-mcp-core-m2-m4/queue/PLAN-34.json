@@ -2,10 +2,10 @@
   "id": "PLAN-34",
   "slug": "role-qualification",
   "workstream": "WS-05",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-34-role-qualification",
+  "pr": "#196",
+  "landing": "landings/PLAN-34.md",
   "seq": 34
 }

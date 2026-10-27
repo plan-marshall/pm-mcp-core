@@ -152,14 +152,14 @@ final class UnitGraph {
 
     /**
      * @param behavior what a state does
-     * @return the links the state declares; empty for every behaviour but links and question states
+     * @return the links the state declares; empty for every behaviour but a resting link state
      */
     static List<LinkSpec> declaredLinks(StateBehavior behavior) {
         return switch (behavior) {
             case StateBehavior.InteractiveLinks links -> links.links();
-            case StateBehavior.QuestionWait question -> question.links();
             case StateBehavior.AutoStep _, StateBehavior.JobStep _, StateBehavior.ModelJob _,
-                StateBehavior.SubWorkflowCall _, StateBehavior.TerminalState _ -> List.of();
+                StateBehavior.QuestionWait _, StateBehavior.SubWorkflowCall _, StateBehavior.TerminalState _ ->
+                List.of();
         };
     }
 

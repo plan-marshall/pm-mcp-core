@@ -2,9 +2,10 @@
   "id": "PLAN-66",
   "slug": "worker-activity",
   "workstream": "WS-04",
-  "status": "staged",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "status": "shipped",
+  "lane": "runbook",
+  "plan_marshall_plan_id": "rb-66-worker-activity",
+  "pr": "#198",
+  "landing": "landings/PLAN-66.md",
   "seq": 66
 }

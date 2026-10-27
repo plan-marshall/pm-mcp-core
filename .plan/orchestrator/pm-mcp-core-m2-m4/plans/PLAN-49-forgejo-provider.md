@@ -16,7 +16,7 @@ workstream: WS-08
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -66,29 +66,24 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `pm-providers/pm-provider-forgejo/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/findings/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/ProjectEnrolment.java` — the closed list of integrations and providers (wire name `gitlab`) lives here, not only in `core.findings`; added by cleanup on 2026-10-16
-- HYPOTHESIS: `pm-providers/pom.xml` — a new module needs a module entry and a `KNOWN_PREFIXES` entry; added by cleanup on 2026-10-16
-- HYPOTHESIS: `pm-providers/pm-provider-forgejo/pom.xml` — depends on `pm-provider-ci`, `pm-provider-http` and `pm-core`, as the Module Structure Specification now lists it (confirm/refute at `module-structure.adoc` § `pm-provider-forgejo` and § Dependency Rules; the `pm-provider-http` entry requires that module to exist)
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- HYPOTHESIS: `pm-core/doc/developer/core-findings.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-core/doc/adr/core-findings/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
 - OBSERVED: `doc/plans/forgejo-provider.adoc` — the package file, deleted when the package is done
 - OBSERVED: `doc/specification/credentials-and-enrolment/01-provider-credentials.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/07-project-configuration.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/08-project-configuration-local.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/09-derived-facts-and-build-timings.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/12-machine-stores.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/log/CoreLogMessagesTest.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-providers/README.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- HYPOTHESIS: `doc/developer/provider-forgejo.adoc` — to be created; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-providers/README.adoc` — exists; the new module is added to it; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/log/CoreLogMessagesTest.java` — `KNOWN_PREFIXES` gains `PM_PROVIDER_FORGEJO`; added by the re-grounding of 2026-10-26
-- OBSERVED: `doc/LogMessages.adoc` — one row per log record the provider adds; added by the re-grounding of 2026-10-26
-- OBSERVED: `doc/Traceability.adoc` — every package adds its lines; added by the re-grounding of 2026-10-26
-- HYPOTHESIS: `pm-providers/pm-provider-forgejo/README.adoc` — module README (per module, as the github, gitlab, sonar, git and http providers have it); new; added by the re-grounding of 2026-10-26
-- HYPOTHESIS: `pm-providers/pm-provider-forgejo/doc/developer/provider-forgejo.adoc` — the provider guide lives per module, not under a root `doc/developer/`; new; added by the re-grounding of 2026-10-26
+- HYPOTHESIS: `pm-providers/pm-provider-forgejo/` — new module (Forgejo REST client, host detection, ci contract adapter); depends on pm-provider-http and pm-core alone, never on pm-provider-ci
+- HYPOTHESIS: `pm-providers/pm-provider-forgejo/pom.xml` — module POM; must not depend on pm-provider-ci (absent)
+- HYPOTHESIS: `pm-providers/pm-provider-forgejo/src/main/java/de/planmarshall/provider/forgejo/log/ForgejoLogMessages.java` — log holder PM_PROVIDER_FORGEJO, created with its first record (R12)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/findings/FindingSourceKind.java` — only if Forgejo pull request reviews need a source kind (open question of the re-grounding)
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/log/CoreLogMessagesTest.java` — KNOWN_PREFIXES gains PM_PROVIDER_FORGEJO
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/findings/FindingSchemaParityTest.java` — reads the closed source enum; changes with FindingSourceKind
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/guard/ProviderNeutralityArchTest.java` — exemption is exactly GITHUB_PR/GITLAB_MR; changes only if a review source kind is added
+- OBSERVED: `pom.xml` — root POM adds the module to dependencyManagement, as #156 did for pm-provider-http
+- OBSERVED: `pm-providers/pom.xml` — module entry for pm-provider-forgejo
+- OBSERVED: `pm-providers/README.adoc` — the new module is added to it
+- HYPOTHESIS: `pm-providers/pm-provider-forgejo/README.adoc` — module README (new)
+- HYPOTHESIS: `pm-providers/pm-provider-forgejo/doc/developer/provider-forgejo.adoc` — the provider guide lives per module (new)
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

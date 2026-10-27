@@ -26,8 +26,8 @@ import lombok.Builder;
 import lombok.With;
 
 /**
- * The status document {@code mcp/status.json} of one plan, epic or workspace scope (PM-ARCH-6: the persisted state
- * machine position; PM-WF-16: the persisted call stack; PM-ARCH-4: every run state lives in the store).
+ * The status document {@code mcp/status.json} of one plan, epic, workspace or machine scope (PM-ARCH-6: the persisted
+ * state machine position; PM-WF-16: the persisted call stack; PM-ARCH-4: every run state lives in the store).
  * <p>
  * The members the workflow engine owns are typed: the position ({@code scope_type}, {@code scope_id}, {@code phase},
  * {@code state}, {@code call_stack}), the loop-back accounting ({@code loop_back_iteration},
@@ -42,8 +42,8 @@ import lombok.With;
  * job kinds and states, the task states and outcomes, the condition kinds, the policy classes) are checked when it is
  * built, so a copy with a value outside the schema cannot be written.
  *
- * @param scopeType          the type of the scope: plan, epic or workspace
- * @param scopeId            the plan or epic id; {@code null} for the workspace scope
+ * @param scopeType          the type of the scope: plan, epic, workspace or machine
+ * @param scopeId            the plan or epic id; {@code null} for the workspace and the machine scope
  * @param phase              the phase of the state
  * @param state              the fully qualified identifier of the current state
  * @param callStack          the active sub-workflow call frames, bottom to top, at most {@value #MAX_CALL_DEPTH}
@@ -87,7 +87,8 @@ Map<String, String> retained) {
 
     /** The phases of the schema. */
     public static final Set<String> PHASES = Set.of("phase-1-init", "phase-2-refine", "phase-3-outline",
-            "phase-4-plan", "phase-5-execute", "phase-6-finalize", "completed", "aborted", "epic", "workspace");
+            "phase-4-plan", "phase-5-execute", "phase-6-finalize", "completed", "aborted", "epic", "workspace",
+            "machine");
 
     /** The remediation policy classes that key {@code policy_counters}. */
     public static final Set<String> POLICY_CLASSES = Set.of("ci-failure", "review-findings", "build-failure",
@@ -117,8 +118,8 @@ Map<String, String> retained) {
     /**
      * @throws NullPointerException     if a required component is {@code null}
      * @throws IllegalArgumentException if a value lies outside the schema: the lesson store as scope type, a scope id
-     *                                  missing for a plan or epic or present for the workspace, a phase outside the
-     *                                  schema, a blank state, more than {@value #MAX_CALL_DEPTH} frames, a negative
+     *                                  missing for a plan or epic or present for a scope that has none, a phase outside
+     *                                  the schema, a blank state, more than {@value #MAX_CALL_DEPTH} frames, a negative
      *                                  counter, loop-back accounting or waiver requests outside a plan scope, an
      *                                  unknown policy class, the same waiver request id twice, a second pending
      *                                  request, or a binding of another state than the current one
@@ -135,7 +136,8 @@ Map<String, String> retained) {
             }
             requireMatch(SCOPE_ID, scopeId, "scope_id");
         } else if (scopeId != null) {
-            throw new IllegalArgumentException("'scope_id' must be null for the workspace scope: " + scopeId);
+            throw new IllegalArgumentException("'scope_id' must be null for the %s scope: %s"
+                    .formatted(scopeType.wireName(), scopeId));
         }
         requireOneOf(PHASES, phase, "phase");
         requireNonBlank(state, "state");

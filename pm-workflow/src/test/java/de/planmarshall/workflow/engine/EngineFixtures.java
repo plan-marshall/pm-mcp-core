@@ -23,6 +23,7 @@ import java.util.Optional;
 
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.CycleMeasure;
+import de.planmarshall.core.spi.FreeParam;
 import de.planmarshall.core.spi.JobStarter;
 import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.core.spi.PendingEntryReader;
@@ -139,7 +140,6 @@ final class EngineFixtures {
                 phase execute
                 question clarification
                     answered -> execute.backoff
-                    assumed -> handed_back
 
             state execute.backoff
                 phase execute
@@ -247,6 +247,9 @@ final class EngineFixtures {
     /** A link primitive of a session-driven state: {@code done}, {@code failed}. */
     final Scripted<StepOutcome> proceed = new Scripted<>("test.proceed", StepOutcome.class, AwaitedEvent.NONE);
 
+    /** A link primitive with a free text parameter: {@code done}. */
+    final NoteStep note = new NoteStep();
+
     /** A {@code job} primitive: {@code succeeded}, {@code failed}, {@code cancelled}. */
     final Scripted<JobOutcome> build = new Scripted<>("test.build", JobOutcome.class, AwaitedEvent.JOB_SETTLED);
 
@@ -296,7 +299,7 @@ final class EngineFixtures {
 
     /** @return the registry of every primitive of this fixture */
     PrimitiveRegistry registry() {
-        return new PrimitiveRegistry(List.of(step, mark, proceed, build, backoff, cap, nextWork, job, enqueue,
+        return new PrimitiveRegistry(List.of(step, mark, proceed, note, build, backoff, cap, nextWork, job, enqueue,
                 evaluateChange));
     }
 
@@ -466,6 +469,46 @@ final class EngineFixtures {
 
     /** The empty parameter record of every fixture primitive. */
     record NoParams() {
+    }
+
+    /**
+     * The free parameter of {@link NoteStep}.
+     *
+     * @param note the operator's note
+     */
+    record NoteParams(@FreeParam(minLength = 1, maxLength = 80) String note) {
+    }
+
+    /** A link primitive with one free text parameter; it records the notes it ran with and returns {@code done}. */
+    static final class NoteStep implements Primitive<NoteParams, StepOutcome> {
+
+        final List<String> notes = new ArrayList<>();
+
+        @Override
+        public String id() {
+            return "test.note";
+        }
+
+        @Override
+        public Class<NoteParams> parameterType() {
+            return NoteParams.class;
+        }
+
+        @Override
+        public Class<StepOutcome> outcomeType() {
+            return StepOutcome.class;
+        }
+
+        @Override
+        public PrimitiveResult<StepOutcome> execute(WorkflowExecutionContext context, NoteParams parameters) {
+            notes.add(parameters.note());
+            return new PrimitiveResult<>(StepOutcome.DONE, Map.of(), Optional.empty());
+        }
+
+        @Override
+        public AwaitedEvent awaitedEvent() {
+            return AwaitedEvent.NONE;
+        }
     }
 
     /** The outcomes of {@code test.step}, {@code test.mark} and {@code test.proceed}. */

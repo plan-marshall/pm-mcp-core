@@ -61,7 +61,7 @@ class ScenarioReplayRunnerTest {
             assert_state execute.ask
             answer_question Q-001 web {"branch_key":"approve"}
             assert_state execute.confirm
-            answer_question Q-002 web {"branch_key":"assumed"}
+            answer_question Q-002 web {"branch_key":"answered"}
             assert_state completed
             assert_outcome merged
             """;

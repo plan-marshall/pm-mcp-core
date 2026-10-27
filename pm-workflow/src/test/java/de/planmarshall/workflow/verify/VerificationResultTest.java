@@ -75,7 +75,7 @@ class VerificationResultTest {
                 Map.entry(VerificationRule.CALL_GRAPH_DAG, 7),
                 Map.entry(VerificationRule.GATE_PRODUCER_COVERAGE, 8),
                 Map.entry(VerificationRule.STEP_COMPLETION, 9),
-                Map.entry(VerificationRule.SESSION_DRIVEN_LINKS, 10),
+                Map.entry(VerificationRule.OPERATOR_LINKS_APART, 10),
                 Map.entry(VerificationRule.CYCLE_AWAITED_EVENT, 11),
                 Map.entry(VerificationRule.LINK_COMPATIBILITY, 12)), byRule);
     }

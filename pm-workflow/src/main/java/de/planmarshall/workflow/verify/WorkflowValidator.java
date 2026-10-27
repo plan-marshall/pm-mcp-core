@@ -51,6 +51,7 @@ import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.UnitFrontmatter;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
+import de.planmarshall.workflow.setup.MachineOnboarding;
 
 /**
  * The static verifier of one workflow unit (PM-IMPL-5, PM-TEST-3): it runs every check of {@link VerificationRule}
@@ -124,6 +125,12 @@ public final class WorkflowValidator {
 
     /** The fallback states of the plan phases, the only targets of {@code stepped_out} in a plan unit (Rule 6). */
     private static final Set<String> PHASE_FALLBACK_STATES = Set.of("plan.return", "finalize.hand-back");
+
+    /** The resting state of the resident machine unit (Workflow DSL, Machine Scope). */
+    private static final String MACHINE_RESTING_STATE = MachineOnboarding.RESTING_STATE;
+
+    /** The task protocol unit, the one compiled unit every model state runs once per task. */
+    private static final String WORKER_TASK = "worker-task";
 
     private static final Set<String> CONDITION_KINDS = Set.of(
             "integrity_breach", "footprint_violation", "job_incomplete",
@@ -251,7 +258,7 @@ public final class WorkflowValidator {
         checkCallGraphDag(definition, violations);
         checkGateProducerCoverage(definition, graph, violations);
         checkStepCompletion(definition, graph, violations);
-        checkSessionDrivenLinks(definition, violations);
+        checkOperatorLinks(definition, violations);
         checkCycleAwaitedEvent(definition, violations);
         checkReachability(definition, graph, violations);
         checkExitPaths(definition, graph, defaultLostRoute, violations);
@@ -273,7 +280,7 @@ public final class WorkflowValidator {
         return switch (definition.scope()) {
             case PLAN -> true;
             case SUBWORKFLOW -> catalog.calledOnlyFromPlanUnits(definition.id());
-            case EPIC, WORKSPACE, ENTITY -> false;
+            case EPIC, WORKSPACE, MACHINE, ENTITY -> false;
         };
     }
 
@@ -394,10 +401,11 @@ public final class WorkflowValidator {
     }
 
     /**
-     * Interface rule 2: a unit without exits declares a terminal, its stop point, except the resident workspace unit; a
-     * unit with exits reports through its terminals exactly its exits, plus {@code stepped_out} on a terminal of that
-     * class; a landing variant declares neither an exit nor a terminal. A terminal {@code stepped_out} of another class
-     * is {@link VerificationRule#SUBWORKFLOW_CALL_CONTRACT}'s and is not repeated here.
+     * Interface rule 2: a unit without exits declares a terminal, its stop point, except the resident workspace and
+     * machine units; a resident machine unit declares no terminal at all; a unit with exits reports through its
+     * terminals exactly its exits, plus {@code stepped_out} on a terminal of that class; a landing variant declares
+     * neither an exit nor a terminal. A terminal {@code stepped_out} of another class is
+     * {@link VerificationRule#SUBWORKFLOW_CALL_CONTRACT}'s and is not repeated here.
      */
     private static void checkStopPointsOrExits(WorkflowDefinition definition, List<Violation> violations) {
         var exits = declaredExits(definition);
@@ -413,6 +421,13 @@ public final class WorkflowValidator {
                     VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS, terminal.id(), terminal.location(),
                     "the landing variant declares the terminal '%s'; it continues in the phase and declares none"
                             .formatted(terminal.id()))));
+            return;
+        }
+        if (definition.scope() == WorkflowScope.MACHINE) {
+            terminals.forEach(terminal -> violations.add(new Violation(
+                    VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS, terminal.id(), terminal.location(),
+                    "the resident machine unit declares the terminal '%s'; it lives on and rests in '%s'"
+                            .formatted(terminal.id(), MACHINE_RESTING_STATE))));
             return;
         }
         if (exits.isEmpty()) {
@@ -475,10 +490,9 @@ public final class WorkflowValidator {
 
     /**
      * Interface rule 6: the scope of the unit and the presence of its entries and exits match the row of its type in
-     * the Unit Types table. A {@code system} unit is started (scope {@code workspace} or {@code entity}, no entries, no
-     * exits) or called (scope {@code subworkflow}, entries and exits); the adjudication unit is the {@code subworkflow}
-     * without entries, a landing variant the one without exits. The row of a scope the tree does not have yet
-     * ({@code system} with scope {@code machine}) is not checked.
+     * the Unit Types table. A {@code system} unit is started (scope {@code workspace}, {@code machine} or
+     * {@code entity}, no entries, no exits) or called (scope {@code subworkflow}, entries and exits); the adjudication
+     * unit is the {@code subworkflow} without entries, a landing variant the one without exits.
      */
     private static void checkTypeFits(WorkflowDefinition definition, List<Violation> violations) {
         var type = definition.frontmatter().type();
@@ -492,7 +506,8 @@ public final class WorkflowValidator {
                     !ADJUDICATION_UNIT.equals(definition.id()), !isLandingVariant(definition));
             case SYSTEM -> scope == WorkflowScope.SUBWORKFLOW
                     ? new TypeRow(Set.of(WorkflowScope.SUBWORKFLOW), true, true)
-                    : new TypeRow(Set.of(WorkflowScope.WORKSPACE, WorkflowScope.ENTITY), false, false);
+                    : new TypeRow(Set.of(WorkflowScope.WORKSPACE, WorkflowScope.MACHINE, WorkflowScope.ENTITY), false,
+                    false);
             case TASK -> new TypeRow(Set.of(WorkflowScope.SUBWORKFLOW, WorkflowScope.ENTITY), false, true);
         };
         var location = definition.frontmatter().location();
@@ -673,13 +688,8 @@ public final class WorkflowValidator {
                     checkPrimitiveJobTransitions(definition, state, primitiveOf(link), link.transitions(), violations);
                 }
             }
-            case StateBehavior.QuestionWait question -> {
-                for (var link : question.links()) {
-                    checkPrimitiveJobTransitions(definition, state, primitiveOf(link), link.transitions(), violations);
-                }
-            }
-            case StateBehavior.JobStep _, StateBehavior.ModelJob _, StateBehavior.SubWorkflowCall _,
-                StateBehavior.TerminalState _ -> {
+            case StateBehavior.JobStep _, StateBehavior.ModelJob _, StateBehavior.QuestionWait _,
+                StateBehavior.SubWorkflowCall _, StateBehavior.TerminalState _ -> {
             }
         }
     }
@@ -1041,7 +1051,7 @@ public final class WorkflowValidator {
     }
 
     private static void checkLeafTaskConstraint(WorkflowDefinition definition, List<Violation> violations) {
-        boolean isWorkerUnit = definition.scope() == WorkflowScope.ENTITY || "worker-task".equals(definition.id());
+        boolean isWorkerUnit = definition.scope() == WorkflowScope.ENTITY || WORKER_TASK.equals(definition.id());
         if (isWorkerUnit) {
             for (var state : definition.states().values()) {
                 if (state.behavior() instanceof StateBehavior.ModelJob) {
@@ -1261,7 +1271,8 @@ public final class WorkflowValidator {
             detail = switch (definition.scope()) {
                 case PLAN -> PHASE_FALLBACK_STATES.contains(target.id()) ? null
                         : "not the phase's fallback state 'plan.return' or 'finalize.hand-back'";
-                case EPIC, WORKSPACE, ENTITY -> isRestingState(target) ? null : "not a resting state of the unit";
+                case EPIC, WORKSPACE, MACHINE, ENTITY -> isRestingState(target) ? null
+                        : "not a resting state of the unit";
                 case SUBWORKFLOW -> subWorkflowSteppedOutDetail(definition, target, targetClass);
             };
         }
@@ -2027,27 +2038,10 @@ public final class WorkflowValidator {
                     }
                 }
             }
-            case StateBehavior.QuestionWait question -> {
+            case StateBehavior.QuestionWait _ -> {
                 // The resolution outcomes of a question class carry no outcome class: the specification gives each
                 // class its closed outcome set and no class per outcome (Workflow DSL, Question States), and every
                 // resolution enters a re-entrant state that decides. A completion on one is therefore refused.
-                if (question.transitions().contains(transition)) {
-                    return Optional.empty();
-                }
-                for (var link : question.links()) {
-                    if (link.transitions().contains(transition)
-                            && link.action() instanceof LinkAction.ExecutePrimitive(var primId)) {
-                        var primitive = registry.find(primId);
-                        if (primitive.isPresent()) {
-                            for (var outcome : primitive.get().outcomeType().getEnumConstants()) {
-                                var po = (PrimitiveOutcome) outcome;
-                                if (po.wireName().equals(outcomeName)) {
-                                    return Optional.of(po.outcomeClass());
-                                }
-                            }
-                        }
-                    }
-                }
                 return Optional.empty();
             }
             case StateBehavior.InteractiveLinks _ -> {
@@ -2074,36 +2068,48 @@ public final class WorkflowValidator {
         return Optional.empty();
     }
 
-    private void checkSessionDrivenLinks(WorkflowDefinition definition, List<Violation> violations) {
-        if (definition.scope() != WorkflowScope.PLAN && definition.scope() != WorkflowScope.EPIC) {
+    /**
+     * Rule 10: a declared {@code link} clause is an operator link, admitted in every unit and every scope; a unit a
+     * worker acts in (the entity unit of every registered entity kind and the task protocol unit {@code worker-task})
+     * renders its links from the entity kind instead and declares none, so a resting link state there would be
+     * rendered to a model. Every unit a worker unit reaches through a call is a worker unit too (Rule 4) and is checked
+     * with it.
+     */
+    private void checkOperatorLinks(WorkflowDefinition definition, List<Violation> violations) {
+        if (!isWorkerUnit(definition)) {
             return;
         }
         for (var state : definition.states().values()) {
             if (state.behavior() instanceof StateBehavior.InteractiveLinks) {
-                violations.add(new Violation(VerificationRule.SESSION_DRIVEN_LINKS, state.id(), state.location(),
-                        "the resting link state '%s' is not admitted in a unit of scope %s"
-                                .formatted(state.id(), definition.scope())));
-            } else if (state.behavior() instanceof StateBehavior.QuestionWait question
-                    && !question.links().isEmpty()) {
-                violations.add(new Violation(VerificationRule.SESSION_DRIVEN_LINKS, state.id(), state.location(),
-                        "declared links on the question state '%s' are not admitted in a unit of scope %s"
-                                .formatted(state.id(), definition.scope())));
+                violations.add(new Violation(VerificationRule.OPERATOR_LINKS_APART, state.id(), state.location(),
+                        "the resting link state '%s' declares links in the worker unit '%s'; a model acts only through "
+                                .formatted(state.id(), definition.id())
+                                + "the links of its task entity, never through a declared link clause"));
             } else if (state.behavior() instanceof StateBehavior.SubWorkflowCall call) {
                 firstCalleeWithLinks(call.subWorkflowId()).ifPresent(callee -> violations.add(new Violation(
-                        VerificationRule.SESSION_DRIVEN_LINKS, state.id(), state.location(),
-                        "the sub-workflow '%s' reached by the call contains resting links, which are not admitted in a unit of scope %s"
-                                .formatted(callee, definition.scope()))));
+                        VerificationRule.OPERATOR_LINKS_APART, state.id(), state.location(),
+                        "the sub-workflow '%s' reached by the call of the worker unit '%s' declares links, which a model "
+                                .formatted(callee, definition.id())
+                                + "never acts through")));
             }
         }
     }
 
     /**
-     * Walks the sub-workflows a call reaches, the callee and every unit it calls in turn (Rule 10 covers every
-     * sub-workflow a plan or epic unit calls, ADR 011). Each unit is visited once, so a call cycle, which Rule 7
-     * refuses, does not loop; an unregistered callee is refused by Rule 6 and contributes nothing.
+     * @param definition a unit
+     * @return whether a worker acts in the unit: it is {@code worker-task} or the entity unit of a registered kind
+     */
+    private boolean isWorkerUnit(WorkflowDefinition definition) {
+        return WORKER_TASK.equals(definition.id()) || entityKinds.entityUnits().contains(definition.id());
+    }
+
+    /**
+     * Walks the sub-workflows a call reaches, the callee and every unit it calls in turn. Each unit is visited once, so
+     * a call cycle, which Rule 7 refuses, does not loop; an unregistered callee is refused by Rule 6 and contributes
+     * nothing.
      *
      * @param calleeId the unit the call names
-     * @return the first reached unit, in call order, with a resting link state or a question state with declared links
+     * @return the first reached unit, in call order, that declares a resting link state
      */
     private Optional<String> firstCalleeWithLinks(String calleeId) {
         var visited = new HashSet<String>();
@@ -2122,12 +2128,9 @@ public final class WorkflowValidator {
                     case StateBehavior.InteractiveLinks _ -> {
                         return Optional.of(id);
                     }
-                    case StateBehavior.QuestionWait question when !question.links().isEmpty() -> {
-                        return Optional.of(id);
-                    }
                     case StateBehavior.SubWorkflowCall nested -> queue.add(nested.subWorkflowId());
                     default -> {
-                        // no link and no further call
+                        // no declared link and no further call
                     }
                 }
             }
@@ -2201,9 +2204,8 @@ public final class WorkflowValidator {
 
     /**
      * Decides whether the edge {@code fromId -> toId} waits for an event (Rule 11b). A {@code job},
-     * {@code composite_job} or {@code job llm} state awaits its job or task on every edge. A question state awaits
-     * the answer or its deadline on the edges of its own resolution outcomes only; an edge of one of its declared links
-     * is judged by that link like the edge of a link state.
+     * {@code composite_job} or {@code job llm} state awaits its job or task on every edge. A question state awaits the
+     * answer on the edges of its own resolution outcomes only.
      */
     private boolean stepAwaitsEvent(WorkflowDefinition definition, String fromId, String toId) {
         var state = definition.states().get(fromId);
@@ -2213,9 +2215,8 @@ public final class WorkflowValidator {
         return switch (state.behavior()) {
             case StateBehavior.JobStep _, StateBehavior.ModelJob _ -> true;
             case StateBehavior.QuestionWait question -> question.transitions().stream()
-                    .anyMatch(transition -> toId.equals(transition.targetStateId()))
-                    || traversedLinkAwaits(state, toId);
-            case StateBehavior.InteractiveLinks _ -> traversedLinkAwaits(state, toId);
+                    .anyMatch(transition -> toId.equals(transition.targetStateId()));
+            case StateBehavior.InteractiveLinks _ -> traversedLinkAwaits(definition, state, toId);
             case StateBehavior.AutoStep auto -> registry.find(auto.primitiveId())
                     .map(p -> p.awaitedEvent() != AwaitedEvent.NONE).orElse(false);
             case StateBehavior.SubWorkflowCall _, StateBehavior.TerminalState _ -> false;
@@ -2223,18 +2224,18 @@ public final class WorkflowValidator {
     }
 
     /**
-     * Decides whether the edge {@code fromId -> toId} through a declared link of a link or question state waits for
-     * an external event. A traversed link awaits when its form takes a submission (a {@code submit} link waits for
-     * the model) or its primitive declares an awaited event; a {@code noop} link over a primitive with no awaited
-     * event does not satisfy the cycle.
+     * Decides whether the edge {@code fromId -> toId} through a declared link of a resting link state waits for an
+     * external event. A declared link of an operator wait awaits the operator's act; in a worker unit, whose links a
+     * model follows, a {@code submit} link awaits the model and a {@code noop} link its primitive's awaited event.
      */
-    private boolean traversedLinkAwaits(StateNode state, String toId) {
+    private boolean traversedLinkAwaits(WorkflowDefinition definition, StateNode state, String toId) {
+        var workerUnit = isWorkerUnit(definition);
         for (var link : UnitGraph.declaredLinks(state.behavior())) {
             boolean traverses = link.transitions().stream().anyMatch(t -> toId.equals(t.targetStateId()));
             if (!traverses) {
                 continue;
             }
-            if (link.form() == LinkForm.SUBMIT) {
+            if (!workerUnit || link.form() == LinkForm.SUBMIT) {
                 return true;
             }
             var primitive = registry.find(primitiveOf(link));
@@ -2257,6 +2258,10 @@ public final class WorkflowValidator {
                             .formatted(state.id(), startingPoint(definition)))));
             return;
         }
+        if (definition.scope() == WorkflowScope.MACHINE) {
+            checkMachineExitPaths(definition, graph, violations);
+            return;
+        }
         var exits = new LinkedHashSet<String>();
         for (var state : definition.states().values()) {
             if (isTerminal(state) || UnitGraph.hasImplicitExit(definition.scope(), state, defaultLostRoute)) {
@@ -2267,6 +2272,26 @@ public final class WorkflowValidator {
         definition.states().values().stream().filter(state -> !leaving.contains(state.id()))
                 .forEach(state -> violations.add(new Violation(VerificationRule.EXIT_PATH, state.id(),
                         state.location(), "the state '%s' has no path to a terminal state".formatted(state.id()))));
+    }
+
+    /**
+     * Rule 3 over a resident machine unit: it declares no terminal and returns from every state to its resting state
+     * {@value #MACHINE_RESTING_STATE}, which the unit must declare (Workflow DSL, Machine Scope, item 7).
+     */
+    private static void checkMachineExitPaths(WorkflowDefinition definition, UnitGraph graph,
+            List<Violation> violations) {
+        if (!definition.states().containsKey(MACHINE_RESTING_STATE)) {
+            violations.add(new Violation(VerificationRule.EXIT_PATH, unitStateId(definition),
+                    definition.location(), "the resident machine unit declares no resting state '%s'"
+                    .formatted(MACHINE_RESTING_STATE)));
+            return;
+        }
+        var returning = graph.backwardClosure(Set.of(MACHINE_RESTING_STATE));
+        definition.states().values().stream()
+                .filter(state -> !isTerminal(state) && !returning.contains(state.id()))
+                .forEach(state -> violations.add(new Violation(VerificationRule.EXIT_PATH, state.id(),
+                        state.location(), "the state '%s' has no path back to the resting state '%s'"
+                        .formatted(state.id(), MACHINE_RESTING_STATE))));
     }
 
     private void checkReleasedStates(WorkflowDefinition definition, List<Violation> violations) {
