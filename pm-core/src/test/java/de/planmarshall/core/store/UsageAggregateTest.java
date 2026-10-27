@@ -134,7 +134,8 @@ class UsageAggregateTest {
         var fresh = row("qt-0000000000000001", usage(1, 1, 1, 1, 1));
         var warm = row("qt-0000000000000002", usage(1, 1, 1, 1, 1), Population.MODEL_TASK, Phase.PHASE_5_EXECUTE,
                 "writer", CauseClass.BENIGN, SpendClass.SUBMITTED);
-        var thrown = assertThrows(IllegalArgumentException.class, () -> UsageAggregate.of(List.of(fresh, warm)));
+        var rows = List.of(fresh, warm);
+        var thrown = assertThrows(IllegalArgumentException.class, () -> UsageAggregate.of(rows));
         assertTrue(thrown.getMessage().contains("one population"));
     }
 

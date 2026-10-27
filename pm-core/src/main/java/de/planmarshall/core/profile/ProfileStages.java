@@ -35,19 +35,31 @@ import java.util.Set;
  */
 public final class ProfileStages {
 
+    /** The figure names of {@code headless.usage}, spelled once. */
+    private static final String INPUT_TOKENS = "input_tokens";
+    private static final String OUTPUT_TOKENS = "output_tokens";
+    private static final String CACHE_READ = "cache_read";
+    private static final String CACHE_CREATION = "cache_creation";
+    private static final String REASONING = "reasoning";
+    private static final String COST_USD = "cost_usd";
+    private static final String TOOL_USES = "tool_uses";
+
+    /** The declaration of a figure that does not exist for a harness by design. */
+    private static final String NOT_APPLICABLE = "not_applicable";
+
     /** The figures of {@code headless.usage}, in schema order. */
-    public static final List<String> USAGE_FIGURES = List.of("input_tokens", "output_tokens", "cache_read",
-            "cache_creation", "reasoning", "cost_usd", "tool_uses");
+    public static final List<String> USAGE_FIGURES = List.of(INPUT_TOKENS, OUTPUT_TOKENS, CACHE_READ, CACHE_CREATION,
+            REASONING, COST_USD, TOOL_USES);
 
     /** The figures the enrolment's usage report carries, in schema order; the cost is recorded data and never shown. */
-    public static final List<String> REPORT_FIGURES = List.of("input_tokens", "output_tokens", "cache_read",
-            "cache_creation", "reasoning", "tool_uses");
+    public static final List<String> REPORT_FIGURES = List.of(INPUT_TOKENS, OUTPUT_TOKENS, CACHE_READ, CACHE_CREATION,
+            REASONING, TOOL_USES);
 
     /** The three pointers whose first-turn sum is the start context (Client Profiles § Tokens, Not Money). */
-    private static final List<String> START_CONTEXT_FIGURES = List.of("input_tokens", "cache_read", "cache_creation");
+    private static final List<String> START_CONTEXT_FIGURES = List.of(INPUT_TOKENS, CACHE_READ, CACHE_CREATION);
 
     /** The figures a profile never declares not applicable (Client Profiles § Tokens, Not Money). */
-    private static final List<String> NEVER_NOT_APPLICABLE = List.of("input_tokens", "output_tokens", "tool_uses");
+    private static final List<String> NEVER_NOT_APPLICABLE = List.of(INPUT_TOKENS, OUTPUT_TOKENS, TOOL_USES);
 
     /** The suffix of a profile document, as a refusal names it. */
     private static final String PROFILE_SUFFIX = ".json";
@@ -289,7 +301,7 @@ public final class ProfileStages {
                 figures.put(figure, UsageStatus.MISSING);
             } else {
                 var pointer = declaration.text().orElseThrow();
-                if ("not_applicable".equals(pointer)) {
+                if (NOT_APPLICABLE.equals(pointer)) {
                     if (NEVER_NOT_APPLICABLE.contains(figure)) {
                         throw ProfileRefusal.invalid(profile.clientId() + PROFILE_SUFFIX,
                                 "/headless/usage/" + figure,
@@ -310,35 +322,43 @@ public final class ProfileStages {
             List<StartContextInput> inputs) {
         var contexts = new ArrayList<StartContext>();
         for (var input : inputs) {
-            long sum = 0;
-            var measured = true;
-            for (var figure : START_CONTEXT_FIGURES) {
-                var declaration = usage.member(figure).orElse(JsonNode.nullValue());
-                if (declaration.isNull()) {
-                    measured = false;
-                    break;
-                }
-                var pointer = declaration.text().orElseThrow();
-                if ("not_applicable".equals(pointer)) {
-                    continue;
-                }
-                final JsonNode value;
-                try {
-                    value = JsonPointer.resolve(input.firstTurn(), pointer, profile.clientId() + PROFILE_SUFFIX);
-                } catch (ProfileRefusal _) {
-                    measured = false;
-                    break;
-                }
-                if (!value.isInteger() || value.integerValue().orElseThrow() < 0) {
-                    measured = false;
-                    break;
-                }
-                sum += value.integerValue().orElseThrow();
-            }
             contexts.add(new StartContext(input.workerClass(), input.model(),
-                    measured ? OptionalLong.of(sum) : OptionalLong.empty()));
+                    firstTurnTokens(profile, usage, input.firstTurn())));
         }
         return List.copyOf(contexts);
+    }
+
+    private static OptionalLong firstTurnTokens(LoadedProfile profile, JsonNode usage, JsonNode turn) {
+        long sum = 0;
+        for (var figure : START_CONTEXT_FIGURES) {
+            var declaration = usage.member(figure).orElse(JsonNode.nullValue());
+            if (declaration.isNull()) {
+                return OptionalLong.empty();
+            }
+            var pointer = declaration.text().orElseThrow();
+            if (NOT_APPLICABLE.equals(pointer)) {
+                continue;
+            }
+            var value = integerAt(profile, turn, pointer);
+            if (value.isEmpty()) {
+                return OptionalLong.empty();
+            }
+            sum += value.getAsLong();
+        }
+        return OptionalLong.of(sum);
+    }
+
+    private static OptionalLong integerAt(LoadedProfile profile, JsonNode turn, String pointer) {
+        final JsonNode value;
+        try {
+            value = JsonPointer.resolve(turn, pointer, profile.clientId() + PROFILE_SUFFIX);
+        } catch (ProfileRefusal _) {
+            return OptionalLong.empty();
+        }
+        if (!value.isInteger() || value.integerValue().orElseThrow() < 0) {
+            return OptionalLong.empty();
+        }
+        return value.integerValue();
     }
 
     private static BigDecimal parseFigure(JsonNode turn, String pointer, String figure, LoadedProfile profile,

@@ -35,27 +35,31 @@ public record TokenTotal(Long tokens, Long tokensIn, Long tokensOut) {
      *                                  split
      */
     public TokenTotal {
+        validate(tokens, tokensIn, tokensOut);
+    }
+
+    private static void validate(Long tokens, Long tokensIn, Long tokensOut) {
         if (tokens == null) {
             if (tokensIn != null || tokensOut != null) {
                 throw new IllegalArgumentException("An unmeasured 'total_tokens' carries no split");
             }
-        } else {
-            if (tokens < 1) {
-                throw new IllegalArgumentException("'total_tokens' must be at least 1: " + tokens);
-            }
-            if (tokensIn != null || tokensOut != null) {
-                if (tokensIn == null || tokensOut == null) {
-                    throw new IllegalArgumentException("The split is measured as a pair");
-                }
-                if (tokensIn < 0 || tokensOut < 0) {
-                    throw new IllegalArgumentException("A split part must not be negative: " + tokensIn + "/"
-                            + tokensOut);
-                }
-                if (tokensIn + tokensOut != tokens) {
-                    throw new IllegalArgumentException("The split %d + %d does not sum to 'total_tokens' %d"
-                            .formatted(tokensIn, tokensOut, tokens));
-                }
-            }
+            return;
+        }
+        if (tokens < 1) {
+            throw new IllegalArgumentException("'total_tokens' must be at least 1: " + tokens);
+        }
+        if (tokensIn == null && tokensOut == null) {
+            return;
+        }
+        if (tokensIn == null || tokensOut == null) {
+            throw new IllegalArgumentException("The split is measured as a pair");
+        }
+        if (tokensIn < 0 || tokensOut < 0) {
+            throw new IllegalArgumentException("A split part must not be negative: " + tokensIn + "/" + tokensOut);
+        }
+        if (tokensIn + tokensOut != tokens) {
+            throw new IllegalArgumentException("The split %d + %d does not sum to 'total_tokens' %d"
+                    .formatted(tokensIn, tokensOut, tokens));
         }
     }
 

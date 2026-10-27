@@ -115,7 +115,7 @@ long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
                 return byModel;
             }
             var byHarness = compareNullsFirst(harness, other.harness);
-            return byHarness != 0 ? byHarness : compareNullsFirst(harnessVersion, other.harnessVersion);
+            return byHarness == 0 ? compareNullsFirst(harnessVersion, other.harnessVersion) : byHarness;
         }
 
         private static int compareNullsFirst(String left, String right) {

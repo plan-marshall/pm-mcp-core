@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.RecordComponent;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
@@ -102,8 +103,8 @@ class PlanTokensTest {
     void carriesNoLimitBudgetOrProjection() {
         var forbidden = List.of("limit", "budget", "projection", "anchor", "comparison", "remaining");
         var components = List.of(Arrays.stream(PlanTokens.class.getRecordComponents())
-                        .map(component -> component.getName()).toList(),
-                Arrays.stream(EpicTokens.class.getRecordComponents()).map(component -> component.getName()).toList());
+                        .map(RecordComponent::getName).toList(),
+                Arrays.stream(EpicTokens.class.getRecordComponents()).map(RecordComponent::getName).toList());
 
         assertTrue(components.stream().flatMap(List::stream)
                 .noneMatch(name -> forbidden.stream().anyMatch(name::contains)));

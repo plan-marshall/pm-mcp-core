@@ -57,22 +57,21 @@ class VerificationRecordTest {
     @Test
     @DisplayName("the start context of the usage stage is read per class and model")
     void startContextRead() {
-        var record = VerificationRecord.read(RECORD.getBytes(UTF_8), "record");
+        var parsed = VerificationRecord.read(RECORD.getBytes(UTF_8), "record");
 
         assertAll(() -> assertEquals(List.of(new StartContext("writer", "a-model", OptionalLong.of(27104)),
                                 new StartContext("zero_tool", "a-model", OptionalLong.empty())),
-                        record.stages().get("usage").startContext()),
+                        parsed.stages().get("usage").startContext()),
                 () -> assertEquals("not_applicable",
-                        record.stages().get("usage").results().get("cache_creation")));
+                        parsed.stages().get("usage").results().get("cache_creation")));
     }
 
     @Test
     @DisplayName("a start context entry of an unknown class is refused")
     void unknownClassRefused() {
-        var record = RECORD.replace("\"writer\"", "\"planner\"");
+        var bytes = RECORD.replace("\"writer\"", "\"planner\"").getBytes(UTF_8);
 
-        var refusal = assertThrows(ProfileRefusal.class,
-                () -> VerificationRecord.read(record.getBytes(UTF_8), "record"));
+        var refusal = assertThrows(ProfileRefusal.class, () -> VerificationRecord.read(bytes, "record"));
 
         assertEquals("/stages/usage/start_context/0", refusal.pointer());
     }
@@ -80,10 +79,9 @@ class VerificationRecordTest {
     @Test
     @DisplayName("a start context entry whose tokens are neither an integer nor unmeasured is refused")
     void unknownTokensRefused() {
-        var record = RECORD.replace("\"tokens\": 27104", "\"tokens\": \"measured\"");
+        var bytes = RECORD.replace("\"tokens\": 27104", "\"tokens\": \"measured\"").getBytes(UTF_8);
 
-        var refusal = assertThrows(ProfileRefusal.class,
-                () -> VerificationRecord.read(record.getBytes(UTF_8), "record"));
+        var refusal = assertThrows(ProfileRefusal.class, () -> VerificationRecord.read(bytes, "record"));
 
         assertEquals("/stages/usage/start_context/0/tokens", refusal.pointer());
     }

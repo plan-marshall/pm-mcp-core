@@ -50,6 +50,9 @@ public final class ActivityEventMapper {
     /** The sentinel of a usage component the harness has no such figure for. */
     private static final String NOT_APPLICABLE = "not_applicable";
 
+    /** The usage figure whose value is a number the harness reports, never not applicable. */
+    private static final String COST_USD = "cost_usd";
+
     private final ActivityEventMapping mapping;
     private final Map<String, String> usagePointers;
 
@@ -194,13 +197,13 @@ public final class ActivityEventMapper {
         }
         if (NOT_APPLICABLE.equals(pointer)) {
             // The cost is a number or unmeasured in the row schema, never not_applicable.
-            return JsonNode.string("cost_usd".equals(key) ? UNMEASURED : NOT_APPLICABLE);
+            return JsonNode.string(COST_USD.equals(key) ? UNMEASURED : NOT_APPLICABLE);
         }
         var value = resolve(root, pointer).orElse(null);
         if (value == null) {
             return JsonNode.string(UNMEASURED);
         }
-        if ("cost_usd".equals(key)) {
+        if (COST_USD.equals(key)) {
             return value.isNumber() ? value : JsonNode.string(UNMEASURED);
         }
         return value.isInteger() ? value : JsonNode.string(UNMEASURED);

@@ -160,6 +160,7 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
         private static final String NAME_RESULTS = "results";
         private static final String NAME_POINTER = "pointer";
         private static final String PTR_STATUS = "/status";
+        private static final String PTR_TOKENS = "/tokens";
 
         private final String document;
 
@@ -284,20 +285,20 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
                 var model = string(entry, entryPointer + "/model", "model");
                 var tokens = entry.member("tokens").orElse(null);
                 if (tokens == null) {
-                    throw ProfileRefusal.recordInvalid(document, entryPointer + "/tokens",
+                    throw ProfileRefusal.recordInvalid(document, entryPointer + PTR_TOKENS,
                             "the member 'tokens' of a start_context entry is missing");
                 }
                 final OptionalLong value;
                 if (tokens.isInteger()) {
                     if (tokens.integerValue().orElseThrow() < 0) {
-                        throw ProfileRefusal.recordInvalid(document, entryPointer + "/tokens",
+                        throw ProfileRefusal.recordInvalid(document, entryPointer + PTR_TOKENS,
                                 "'tokens' must not be negative");
                     }
                     value = OptionalLong.of(tokens.integerValue().orElseThrow());
                 } else if (tokens.isString() && "unmeasured".equals(tokens.text().orElseThrow())) {
                     value = OptionalLong.empty();
                 } else {
-                    throw ProfileRefusal.recordInvalid(document, entryPointer + "/tokens",
+                    throw ProfileRefusal.recordInvalid(document, entryPointer + PTR_TOKENS,
                             "'tokens' must be an integer or 'unmeasured'");
                 }
                 try {
