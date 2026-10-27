@@ -16,7 +16,7 @@ workstream: WS-03
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R17, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R17, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -70,23 +70,22 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `doc/plans/own-calls.adoc` — the package file, written by PLAN-96; deleted when the package is done
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/task/` — the task and its submit (`package-info.java` only today)
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/decision/` — the decision records (`package-info.java` only today)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/` — the decision record
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-task.adoc` — developer documentation of the package; created or extended
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-task/` — ADRs of the package's design decisions; new directory
-- OBSERVED: `doc/specification/phase-workflows/03-q-gate-and-execute.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/hypermedia-format/02-link-grammar.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/model-work/11-decision-records.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/plans/own-calls.adoc` — the package file (exists), deleted when the package is done
+- OBSERVED: `doc/specification/phase-workflows/03-q-gate-and-execute.adoc` — Own Calls of a Writer
+- OBSERVED: `doc/specification/hypermedia-format/02-link-grammar.adoc` — named schema own-call
+- OBSERVED: `doc/specification/model-work/11-decision-records.adoc` — decision point execute.own-call
+- OBSERVED: `doc/specification/state-catalogue/10-entity-units.adoc` — submit:TASK-NNN parameter
 - OBSERVED: `doc/implementation-watch/phase-workflows.adoc` — PM-WATCH-PHASE-113 retired with the package
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/SchemaRegistry.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/LinkSchema.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-core/doc/adr/core-store/` — next free number 046; the decision record is written in the submit transaction through the `ScopeTransaction` seam (ADR `core-store/044`); added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `pm-core/doc/developer/core-store.adoc` — extended with the decision record write; added by the re-grounding of 2026-10-26
-- OBSERVED: `doc/specification/phase-workflows/03-q-gate-and-execute.adoc` — the submit link and own calls; added by the re-grounding of 2026-10-26
-- OBSERVED: `doc/specification/state-catalogue/10-entity-units.adoc` — the submit link in the entity units; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/task/TaskProtocol.java` — submit gains own_calls and its checks
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/task/CallResult.java` — Refused carries no rejected.detail naming the item
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/SchemaRegistry.java` — registers the schema own-call
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/LinkSchema.java` — named schema parameters
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/LinkParameter.java` — list<schema[own-call]> parameter type
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/decision/` — decision records at execute.own-call; no class nameable yet
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/` — decision record write via ScopeTransaction; the Task Diff Record is read here; no class nameable yet
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolSubmitTest.java` — guards of PM-WATCH-PHASE-113
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskFixtures.java` — submit fixtures
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/verify/RegistriesAndRecordsTest.java` — schema registry defaults
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

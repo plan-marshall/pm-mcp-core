@@ -16,7 +16,7 @@ workstream: WS-03
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -72,24 +72,15 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/unit/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/epic/` — the package whose `package-info.java` cites the epic coordination this plan implements (the draft and decomposition checks); added by cleanup on 2026-10-16
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-unit.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-unit/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-core/doc/developer/core-store.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-core/doc/adr/core-store/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
 - OBSERVED: `doc/plans/epic-decomposition.adoc` — the package file, deleted when the package is done
 - OBSERVED: `doc/specification/model-work/08-epic-coordination.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/state-catalogue/06-setup-epic-other.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/state-catalogue/17-epic-decomposition-and-review.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/04-epic-and-change-ledger.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/phase-workflows/01-planning-phases-1-2.adoc` — specification part; the implemented sections deleted (the Intent Record)
-- HYPOTHESIS: `pm-workflow/doc/developer/workflow-epic.adoc` — to be created; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- HYPOTHESIS: `pm-workflow/doc/adr/workflow-epic/` — to be created; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/ScopeTransaction.java` — the one ledger write under the epic lock is now the `ScopeTransaction` pattern (ADR `core-store/044`); added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/JournalScopeType.java` — the `EPIC` scope exists; added by the re-grounding of 2026-10-26
+- OBSERVED: `doc/specification/phase-workflows/01-planning-phases-1-2.adoc` — specification part; only the epic-intent parts of The Intent Record (lines 406 to 455) are deleted
+- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/epic/` — the epic coordination (draft and decomposition checks); package-info only today, the classes are unnamed
+- HYPOTHESIS: `pm-workflow/doc/developer/workflow-epic.adoc` — to be created (also by PLAN-57, 77, 92)
+- HYPOTHESIS: `pm-workflow/doc/adr/workflow-epic/` — new directory (also by PLAN-57, 77, 92)
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

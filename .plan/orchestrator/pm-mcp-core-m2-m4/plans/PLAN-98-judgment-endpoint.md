@@ -16,7 +16,7 @@ workstream: WS-05
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R17, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R17, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -69,25 +69,27 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `doc/plans/judgment-endpoint.adoc` — the package file, written by PLAN-96; deleted when the package is done
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/` — the adapter of the protocol `system_one` beside the adapter of `endpoint-harness` (new package of that plan)
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/credentials/` — the Token Lane credential entry the remote form reads
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/enrolment/` — the harness enrolment of the origin and the credential key
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/` — the endpoint profile members `protocol`, `locality`, `credential_key`
-- HYPOTHESIS: `pm-runtime/doc/developer/runtime-endpoint.adoc` — developer documentation, extended
-- HYPOTHESIS: `pm-runtime/doc/adr/runtime-endpoint/` — ADRs of the package's design decisions
+- OBSERVED: `doc/plans/judgment-endpoint.adoc` — the package file (exists since #143), deleted when the package is done
 - OBSERVED: `doc/specification/client-profiles/04-judgment-endpoint.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/client-profiles/03-endpoint-harness.adoc` — profile members this plan extends
+- OBSERVED: `doc/specification/store-schemas/11-enrolment-store.adoc` — remote-form enrolment, conflict with the required executable members
+- OBSERVED: `doc/specification/credentials-and-enrolment/01-provider-credentials.adoc` — Provider Credentials, credential_key entry
+- OBSERVED: `doc/specification/credentials-and-enrolment/03-audit-and-outbound-https.adoc` — Closed List of Outbound Calls names the remote judgment endpoints
 - OBSERVED: `doc/implementation-watch/client-profiles.adoc` — PM-WATCH-CLIENT-15 retired with the package
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/store-schemas/11-enrolment-store.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/credentials-and-enrolment/01-provider-credentials.adoc` — § Provider Credentials is in the trace and the file was not in the surface; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `doc/specification/credentials-and-enrolment/03-audit-and-outbound-https.adoc` — § Closed List of Outbound Calls (#188) names the remote judgment endpoints; added by the re-grounding of 2026-10-26
-- OBSERVED: `doc/specification/client-profiles/03-endpoint-harness.adoc` — the profile members this plan extends; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/ProfileValidator.java` — admits `protocol`, `locality`, `credential_key`; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/ProfileStages.java` — stages of the endpoint profile; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-runtime/doc/developer/runtime-launch.adoc` — existing guide of the enrolment package; extended; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-runtime/doc/developer/runtime-credentials.adoc` — existing guide of the credential store; extended; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/ProfileValidator.java` — admits protocol, locality, credential_key (after PLAN-97)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/ProfileStages.java` — judgment endpoint stage differences (identity, launch, limits)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolment.java` — remote form: null executable, origin and credential key
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolmentStore.java` — enrolment of the origin and credential key, unreadable-store rule
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessVerifier.java` — verification differences of the remote form
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/credentials/` — Token Lane credential entry the remote form reads; no class nameable yet
+- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/` — adapter of the protocol system_one beside the harness adapter (package created by PLAN-97)
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/profile/ProfileValidatorTest.java` — locality and protocol combinations
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/profile/ProfileStagesTest.java` — stage differences
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessVerifierTest.java` — model_alias refusal, verification
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessEnrolmentStoreTest.java` — remote-form enrolment
+- HYPOTHESIS: `pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/` — stub fixtures of PM-WATCH-CLIENT-15 (package created by PLAN-97)
+- HYPOTHESIS: `pm-runtime/doc/developer/runtime-endpoint.adoc` — developer documentation, created by PLAN-97 and extended here
+- HYPOTHESIS: `pm-runtime/doc/adr/runtime-endpoint/` — ADRs of the package (new, PLAN-97 creates it)
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

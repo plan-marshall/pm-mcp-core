@@ -16,7 +16,7 @@ workstream: WS-01
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R16, R18.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R16, R18, R19.
 
 Plan parameters (the values the rules ask for):
 
@@ -70,36 +70,36 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/start/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/` — inferred from the `Where` line
-- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/web/` — the cleanup and report endpoints and the operator verbs named in the `Where` line; replaces `workflow/unit`, which the `Where` line does not name and Deliverable 1 excludes (`cleanup.*` are operator acts, no workflow unit) — corrected by cleanup on 2026-10-16
-- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
-- HYPOTHESIS: `pm-runtime/doc/developer/runtime-start.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-runtime/doc/adr/runtime-start/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
-- HYPOTHESIS: `pm-core/doc/developer/core-store.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
-- HYPOTHESIS: `pm-core/doc/adr/core-store/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
 - OBSERVED: `doc/plans/cleanup.adoc` — the package file, deleted when the package is done
 - OBSERVED: `doc/implementation-watch/store-schemas.adoc` — watch document; the covered items deleted
 - OBSERVED: `doc/specification/credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/filesystem-layout/03-project-store.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/runtime-lifecycle/03-runtime-metrics.adoc` — specification part; runtime.disk.machine_store
 - OBSERVED: `doc/specification/state-catalogue/01-conventions-generic-conditions.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/08-project-configuration-local.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/11-enrolment-store.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/12-machine-stores.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/13-leases-integrity-testing.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/timeouts/03-retention-host-config.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/lock/StaleLeaseSweep.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/audit/AuditRotation.java` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/enrolment/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/job/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/config/` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `doc/specification/runtime-lifecycle/03-runtime-metrics.adoc` — exists at HEAD `88ec9c70`; added by the re-grounding of 2026-10-25 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/MetricsStore.java` — now `ScopeTransaction`-based and append and snapshot only; deleting a plan's or the workspace's metrics rows needs a new delete path in the transaction; added by the re-grounding of 2026-10-26 (see Re-grounding Record)
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/QualificationSettingsStore.java` — the documents `local-config.json` and `machine-config.json` that carry the cleanup members follow its revision and `CONFLICT` rule (ADR `core-store/045`); added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/StoreRefusal.java` — the `CONFLICT` outcome; added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/PeriodicSweep.java` — the only sweep that still removes pending entries by age (`PENDING_ENTRY_MAX_AGE` 86400); the spec requires evidence (started or abandoned); added by the re-grounding of 2026-10-26
-- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/PendingEntryRecordsSweep.java` — the sweep step in question; added by the re-grounding of 2026-10-26
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/MetricsStore.java` — new delete path for a plan's and the workspace's metrics rows
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/QualificationSettingsStore.java` — local-config and machine-config documents that carry the cleanup members (revision and CONFLICT rule)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/ProjectStore.java` — writer of unenrolled_at in store.json (the identity is written once today)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/service/AuditEvent.java` — cleanup_deleted and waiver_waived records
+- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/config/` — cleanup settings and their resolution; package-info only
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/PeriodicSweep.java` — residue steps, the daily check, per-step counts; PENDING_ENTRY_MAX_AGE goes
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/PendingEntryRecordsSweep.java` — age-based step replaced by evidence-based removal
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/lock/StaleLeaseSweep.java` — becomes a sweep step with audit and counts
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/audit/AuditRotation.java` — rotated audit files as a sweep step
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/enrolment/Enrolments.java` — unenrol records unenrolled_at; enrol removes it
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/MetricsStoreTest.java` — the delete path (also edited by running PLAN-73)
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/QualificationSettingsStoreTest.java` — cleanup members of the settings documents
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreTest.java` — unenrolled_at write
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/start/PeriodicSweepTest.java` — each residue kind removed by its evidence
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/start/PendingEntryRecordsSweepTest.java` — open pending entry never removed
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/lock/StaleLeaseSweepTest.java` — stale leases as a sweep step
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/audit/AuditRotationTest.java` — rotated audit files as a sweep step
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/EnrolmentsTest.java` — unenrol and enrol with unenrolled_at
 
 ## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
 

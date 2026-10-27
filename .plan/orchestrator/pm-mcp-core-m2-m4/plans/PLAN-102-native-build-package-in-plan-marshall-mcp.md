@@ -30,7 +30,7 @@ PLAN-84 (#135, `0bf64f7`) reported the native build of `pm-mcpd` against the dep
 ## Deliverables
 
 1. **The package `native-build-verification`**: add `doc/plans/native-build-verification.adoc` to `plan-marshall-mcp` with exactly the text of the section *Package File* below, and its row to the table of `doc/plans/README.adoc` as the section *Index Row* gives it (after the last row). Correct a link or an anchor that does not resolve and say so in the pull request body.
-2. **The dangling cross-repository links of that index.** Today the index links `job-runner`, `operator-and-question-stores`, `project-machine-store`, `stalled-scope-detection` of `pm-mcp-core` (all done or absorbed: a done package leaves the table and its file is deleted) and `api-contract`, `integration-layers`, `operator-enrolment-verbs`, `operator-harness-and-roles-verbs` of `pm-mcp-clients` (moved to `doc/plans/implemented/`). Re-read the rows against `origin/main` of both repositories, and drop each done package from the _Depends on_ cell that names it, as PLAN-93 did here; a dependency that is not done stays. Say in the pull request body which links were dropped.
+2. **The dangling cross-repository links of that index.** Today (read at `origin/main` of `plan-marshall-mcp` on 2026-10-27) the index links `job-runner`, `operator-and-question-stores`, `project-machine-store`, `stalled-scope-detection`, `role-sets-and-model-caller`, `task-queue-and-protocol`, `waits`, `worker-launch`, `supervisor` and `role-qualification` of `pm-mcp-core` (all done or absorbed: a done package leaves the table and its file is deleted; `supervision-scenarios` of `pm-mcp-core` is still open and stays) and `api-contract`, `integration-layers`, `operator-enrolment-verbs`, `operator-harness-and-roles-verbs` of `pm-mcp-clients` (moved to `doc/plans/implemented/`). The `question-loop-verification` row is `done` there (#107) and its follow-up `question-loop-follow-up` is open: leave both rows as they are. Re-read the rows against `origin/main` of both repositories, and drop each done package from the _Depends on_ cell that names it, as PLAN-93 did here; a dependency that is not done stays. Say in the pull request body which links were dropped.
 3. **The links check, recorded**: the documentation repository's `trace.py` over both trees from the worktree (the absolute-path command of the Standing Constraints), `BROKEN LINKS 0`.
 
 **Done when:** `doc/plans/native-build-verification.adoc` and its row exist in `plan-marshall-mcp`, every link of the index resolves on `origin/main` of the three sibling repositories, the links check reports `BROKEN LINKS 0` and the run is recorded in the pull request body. The pull request touches only `doc/plans/` of `plan-marshall-mcp`.
@@ -59,6 +59,7 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 * *Run it*: `verify -Pnative,integration-tests` with `GRAALVM_HOME` and `JAVA_HOME` on a GraalVM 25 installation, against the `SNAPSHOT` of `pm-mcp-core` that its merge deployed, and against the client binaries of `pm-mcp-clients` (the native layout of `pm-e2e` needs them, otherwise it is skipped and the build output says so).
 * *The native-image metadata of the engine*: `pm-mcp-core` modules carry their metadata (`META-INF/native-image/de.planmarshall/<name>/`) and name this build as its check; the build proves that it resolves every class of the modules the daemon uses.
 * *The `kill` downcall*: the native check of the descriptor with `options.captureCallState` that `pm-runtime` (`ProcessGroupSignals`, `KillBinding`) binds through the foreign function interface, by signalling a real process group in a native test; it is the only check of that descriptor.
+* *The process-path downcall*: the `libproc` `proc_pidpath` downcall (`jint, void*, jint -> jint`) that `pm-runtime` (`runtime.worker.SystemProcessExecutables`, added by #190) registers in `reachability-metadata.json` loads in the native binary on macOS; on Linux the same class reads `/proc/<pid>/exe` and the check is skipped with that reason.
 * *The credential paths*: the Keychain downcalls (macOS) and the Secret Service client (Linux) of `pm-runtime` load in the native binary and complete a round trip where the host allows it, and are skipped with their reason where it does not.
 * *The report*: each check is recorded `passed`, `failed`, or `skipped` with its reason, with the revision of the `SNAPSHOT` it ran against; a failure is a pull request in `pm-mcp-core`, not a workaround here.
 
@@ -66,20 +67,20 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` (those of the engine in `pm-mcp-core`) and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
 
-* Requirements: link:../../../plan-marshall-documentation/doc/requirements/01-architecture.adoc#PM-ARCH-3[PM-ARCH-3]
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/09-technology.adoc#PM-TECH-3[PM-TECH-3] (the native executable); link:../../../plan-marshall-documentation/doc/requirements/01-architecture.adoc#PM-ARCH-3[PM-ARCH-3]
 * Specification: link:../../../pm-mcp-core/doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc[Job Runtime § Process Termination & Cancellation Protocol]; link:../../../pm-mcp-core/doc/specification/credentials-and-enrolment/01-provider-credentials.adoc[Credentials & Enrolment Specification]
 * Watch: link:../../../pm-mcp-core/doc/implementation-watch/job-runtime.adoc[Job Runtime]
 
 == Done When
 
-The native build of `pm-mcpd` ran against the named `SNAPSHOT` and its report lists the four checks above; every `failed` check has a pull request in `pm-mcp-core`; the epic of `pm-mcp-core` has the report.
+The native build of `pm-mcpd` ran against the named `SNAPSHOT` and its report lists the five checks above (the metadata, the `kill` downcall, the `proc_pidpath` downcall, the credential paths, the report); every `failed` check has a pull request in `pm-mcp-core`; the epic of `pm-mcp-core` has the report.
 ````
 
 ## Index Row
 
 ````asciidoc
 |link:native-build-verification.adoc[`native-build-verification`]
-|The native build of the daemon against the deployed engine: the metadata of the engine modules, the `kill` downcall, the Keychain and Secret Service paths
+|The native build of the daemon against the deployed engine: the metadata of the engine modules, the `kill` and `proc_pidpath` downcalls, the Keychain and Secret Service paths
 |`open`
 |nothing
 |Milestone 4
@@ -151,11 +152,13 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 
 ## Hand-Off Command
 
-Launch it from the checkout `/home/oliver/git/plan-marshall-mcp` (the plan writes that repository):
+Launch it from the checkout `/home/oliver/git/plan-marshall-mcp` (the plan writes that repository), after the ledger land that carries this spec (the lane reads the copy in the main checkout of `pm-mcp-core`; runbook adaptation 2026-10-27; the spec names the lane's refusal of a spec outside its repository as a hypothesis to confirm at its first step, with the operator's fallback of copying the spec into that repository's `.plan/temp/`):
 
 ```text
-/plan-marshall-runbook-lane plan=/home/oliver/git/pm-mcp-core/.plan/local/worktrees/_orchestrator/.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-102-native-build-package-in-plan-marshall-mcp.md
+/plan-marshall-runbook-lane plan=/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-102-native-build-package-in-plan-marshall-mcp.md
 ```
+
+This plan touches no path of `pm-mcp-core`, so it runs beside any plan of this repository without a collision and without a build of `pm-mcp-core` (documents only, one pull request in `plan-marshall-mcp`; the links check needs the documentation repository's `trace.py` over both trees, R17).
 
 ## Write-Boundary
 
