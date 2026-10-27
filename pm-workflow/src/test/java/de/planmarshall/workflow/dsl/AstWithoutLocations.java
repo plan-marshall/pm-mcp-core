@@ -93,7 +93,7 @@ final class AstWithoutLocations {
             case StateBehavior.JobStep job -> new StateBehavior.JobStep(job.primitiveId(), job.composite(),
                     transitions(job.transitions()));
             case StateBehavior.ModelJob job -> new StateBehavior.ModelJob(job.entityKind(), job.roleName(),
-                    job.fanOutPrimitiveId(), job.rolesPrimitiveId(), job.ask(), job.consultRoles(),
+                    job.fanOutPrimitiveId(), job.rolesPrimitiveId(), job.askForm(), job.consultRoles(),
                     transitions(job.transitions()));
             case StateBehavior.SubWorkflowCall call -> new StateBehavior.SubWorkflowCall(call.subWorkflowId(),
                     call.entry(), call.paramBindings(), transitions(call.transitions()));

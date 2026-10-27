@@ -137,7 +137,7 @@ final class SubWorkflowInvariants {
                     shape(job.transitions()));
             case StateBehavior.ModelJob job -> new StateBehavior.ModelJob(job.entityKind(),
                     ignoreRole ? Optional.empty() : job.roleName(), job.fanOutPrimitiveId(), job.rolesPrimitiveId(),
-                    job.ask(), job.consultRoles(), shape(job.transitions()));
+                    job.askForm(), job.consultRoles(), shape(job.transitions()));
             case StateBehavior.SubWorkflowCall call -> new StateBehavior.SubWorkflowCall(call.subWorkflowId(),
                     call.entry(), call.paramBindings(), shape(call.transitions()));
             case StateBehavior.QuestionWait question -> new StateBehavior.QuestionWait(question.questionClass(),

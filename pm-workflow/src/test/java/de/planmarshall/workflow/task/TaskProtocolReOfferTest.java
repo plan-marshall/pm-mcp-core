@@ -12,12 +12,12 @@ package de.planmarshall.workflow.task;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 
 
 import org.junit.jupiter.api.DisplayName;
@@ -221,6 +221,7 @@ class TaskProtocolReOfferTest {
     void suspend(@TempDir Path base) {
         var harness = harness(base);
         var call = acknowledged(harness);
+        harness.protocol().hold(call, TaskFixtures.holdContinuation(), TaskFixtures.AT.plusSeconds(2));
         Continuation continuation = TaskFixtures.continuation();
 
         var suspended = assertInstanceOf(CallResult.Accepted.class,
@@ -244,17 +245,14 @@ class TaskProtocolReOfferTest {
         var offered = TaskFixtures.task(protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION),
                 TaskFixtures.AT));
         protocol.acknowledge(TaskFixtures.call(offered), TaskFixtures.AT.plusSeconds(1));
-        protocol.suspend(TaskFixtures.call(offered), TaskFixtures.continuation(), TaskFixtures.AT.plusSeconds(2));
-        var suspended = queue.read("qt-0000000000000001").orElseThrow()
-                .withStatus(QueueTaskRecord.Status.AWAITING_ANSWER)
-                .withLease(new QueueTaskRecord.Lease(TaskFixtures.GENERATION, TaskFixtures.GENERATION,
-                        TaskFixtures.AT.plusSeconds(1), TaskFixtures.AT.plusSeconds(1)));
-        queue.updateAll(records -> List.of(suspended));
+        protocol.hold(TaskFixtures.call(offered), TaskFixtures.holdContinuation(), TaskFixtures.AT.plusSeconds(2));
+        var held = queue.read("qt-0000000000000001").orElseThrow();
 
         protocol.pausePlan(TaskFixtures.PLAN, TaskFixtures.AT.plusSeconds(3));
 
         var after = queue.read("qt-0000000000000001").orElseThrow();
         assertAll(
+                () -> assertNotNull(held.continuation(), "the hold stored a continuation to clear"),
                 () -> assertEquals(QueueTaskRecord.Status.QUEUED, after.status()),
                 () -> assertNull(after.continuation()));
     }

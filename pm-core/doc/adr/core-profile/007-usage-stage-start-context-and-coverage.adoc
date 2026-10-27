@@ -1,4 +1,4 @@
-= ADR 006: The usage stage records the start context and derives the usage coverage
+= ADR 007: The usage stage records the start context and derives the usage coverage
 :nofooter:
 
 == Status

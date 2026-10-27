@@ -1594,7 +1594,7 @@ population, the refused task, the population refusal, the groupings and `plus`, 
 reports reasoning apart and one whose output already contains it; `UsagePointersTest` covers the parsed figures and the
 three-valued measurement of a turn.
 
-link:../adr/core-store/047-token-split-derived-on-read-and-the-coverage-aggregate.adoc[ADR 047]: the split is derived on
+link:../adr/core-store/048-token-split-derived-on-read-and-the-coverage-aggregate.adoc[ADR 048]: the split is derived on
 read and the aggregate carries its coverage.
 
 == Decisions
@@ -1664,3 +1664,5 @@ read and the aggregate carries its coverage.
   settings names the revision it read, and a stale revision is refused as `conflict`.
 * link:../adr/core-store/046-the-machine-scope-keeps-its-state-in-machine-mcp.adoc[ADR 046]: the machine scope's status
   lies in `machine/mcp/status.json` under the machine scope lock, beside no project.
+* link:../adr/core-store/047-a-metrics-row-names-its-continuation-form.adoc[ADR 047]: a task row names the continuation
+  form its usage belongs to (`hold` or `resume`), and a task that never continued carries `null`.

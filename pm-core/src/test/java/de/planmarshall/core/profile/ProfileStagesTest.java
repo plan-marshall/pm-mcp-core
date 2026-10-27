@@ -12,6 +12,8 @@ package de.planmarshall.core.profile;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -61,6 +63,51 @@ class ProfileStagesTest {
         var result = ProfileStages.egress(profile());
 
         assertEquals(List.of("api.acme.test:443"), result.endpoints());
+    }
+
+    @Test
+    @DisplayName("the resumability stage records a measured hold and leaves the unmeasured resume false")
+    void resumabilityRecorded() {
+        var result = new ProfileStages.ResumabilityResult(new ProfileStages.FormMeasurement(true, 3600),
+                ProfileStages.FormMeasurement.notMeasured());
+
+        assertAll(
+                () -> assertTrue(result.holdVerified()),
+                () -> assertEquals(3600, result.maxHoldSeconds()),
+                () -> assertFalse(result.resumeVerified()),
+                () -> assertNull(result.maxResumeAgeSeconds()),
+                () -> assertEquals(List.of(
+                                new ProfileStages.ValueEntry("/headless/resumability/hold", "measured"),
+                                new ProfileStages.ValueEntry("/headless/resumability/resume", "not_measured")),
+                        result.values()));
+    }
+
+    @Test
+    @DisplayName("a measured limit outside the profile schema's range is refused")
+    void resumabilityRanges() {
+        assertAll(
+                () -> assertThrows(IllegalArgumentException.class, () -> resultWithHold(3_601)),
+                () -> assertThrows(IllegalArgumentException.class, () -> resultWithResume(604_801)));
+    }
+
+    private static void resultWithHold(int seconds) {
+        new ProfileStages.ResumabilityResult(new ProfileStages.FormMeasurement(true, seconds),
+                ProfileStages.FormMeasurement.notMeasured());
+    }
+
+    private static void resultWithResume(int seconds) {
+        new ProfileStages.ResumabilityResult(ProfileStages.FormMeasurement.notMeasured(),
+                new ProfileStages.FormMeasurement(true, seconds));
+    }
+
+    @Test
+    @DisplayName("a measured form without the limit it proved, and an unmeasured one with a limit, are refused")
+    void resumabilityRefusals() {
+        assertAll(
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new ProfileStages.FormMeasurement(true, null)),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new ProfileStages.FormMeasurement(false, 3600)));
     }
 
     @Test

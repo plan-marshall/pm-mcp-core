@@ -1,0 +1,42 @@
+= ADR 047: A metrics row names its continuation form
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-27
+
+== Context
+
+Model Work § Continuing after a Question (Accounting) requires the usage of a hold's wake-ups and of a resumed
+generation to be accounted to the task, marked `continuation`, so that the metrics compare continuation with the fallback
+per role and harness. The metrics store's task row had no such column, so the two populations were indistinguishable.
+
+== Decision
+
+`MetricsRow` carries `QueueTaskRecord.ContinuationForm continuation` (`hold` or `resume`), written as the column
+`continuation` and required on every task row, `null` for a task that never continued. The codec reads the wire names of
+the queue record's enum, so the mark and the record's `continuation.form` cannot drift. The fallback rows of a task that
+did continue carry `null`: the fallback task is a new task, and counting it as a continuation would count the same work
+twice. The format version stays 1 (R13).
+
+== Alternatives Considered
+
+* A boolean `continuation`: refused because the hold and the resume are the two populations the specification compares,
+  and the form is already a value of the queue record.
+* A separate row kind for continuations: refused because the row already measures one attempt of one task, and a new kind
+  would split every roll-up that reads the task population.
+
+== Consequences
+
+Every producer of a task row states the form or `null`; a row of a resumed generation names `resume`, and the wake-ups of
+a hold name `hold`. A reader that groups by the population must treat `null` as "no continuation", never as a third
+form. The specification's schema, its required list and the codec's required set carry the column together.
+
+== Source
+
+Pull request of the work package `doc/plans/question-continuation.adoc`; Store Schemas § Metrics & Quality Report; Model
+Work § Continuing after a Question (Accounting).

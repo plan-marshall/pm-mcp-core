@@ -229,5 +229,16 @@ the stage, and `UsageResult.coverage()` with `missingFigures()` carries the repo
 refusal; `VerificationRecordTest` covers the record's start-context parse and its refusals;
 `ShippedUsageFixturesTest` parses the synthetic per-harness fixtures — the recorded outputs of a real run remain owed.
 
-link:../adr/core-profile/006-usage-stage-start-context-and-coverage.adoc[ADR 006]: the usage stage records the start
+link:../adr/core-profile/007-usage-stage-start-context-and-coverage.adoc[ADR 007]: the usage stage records the start
 context and derives the usage coverage.
+
+== The resumability stage
+
+`ProfileStages.ResumabilityResult` is what the stage `resumability` of the profile verification hands on: one
+`FormMeasurement` for the hold and one for the resume, each either measured with the longest limit the stage proved or
+`notMeasured()`. `FormMeasurement` refuses a measured form without a positive limit and an unmeasured one with a limit,
+so the result can never claim a capability the probe did not observe. `ResumabilityResult.values()` renders the
+verification record's `values[]` entries (`/headless/resumability/hold` and `/resume`, `measured` or `not_measured`), and
+the limits are read by name (`maxHoldSeconds`, `maxResumeAgeSeconds`) so this package keeps no dependency on
+`core.role`, which reads the profile's `headless.resumability` block
+(link:../adr/core-profile/006-the-resumability-result-is-the-measurement.adoc[ADR 006]).

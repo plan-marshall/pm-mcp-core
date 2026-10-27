@@ -96,6 +96,11 @@ final class TaskFixtures {
                 "session-1", AT, AT.plusSeconds(3600), DIGEST, "c".repeat(40), null);
     }
 
+    static QueueTaskRecord.Continuation holdContinuation() {
+        return new QueueTaskRecord.Continuation("Q-001", QueueTaskRecord.ContinuationForm.HOLD,
+                AT.plusSeconds(600), null, null, null, null, null, null);
+    }
+
     static TaskCall call(QueueTaskRecord task) {
         return call(task, GENERATION);
     }

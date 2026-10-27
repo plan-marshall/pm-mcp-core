@@ -1,0 +1,48 @@
+= ADR 001: The continuation form is decided from the state, the role and the harness
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-27
+
+== Context
+
+After an `ask` the server holds, suspends or falls the task back (Model Work § Continuing after a Question). The
+specification fixes the three sources of the decision — the state, the role artifact and the harness — and forbids the
+model as a source; the role's bounds are already cut to what the harness's profile declares verified in
+`EffectiveRole`, so a form the harness did not verify is a zero bound.
+
+== Decision
+
+`QuestionContinuation.decide(AskForm, boolean envelopeTask, RoleArtifact.Questions, Instant)` is a pure function on
+those three inputs. It answers a `Decision` of the form `HOLD`, `RESUME` or `FALLBACK` with the limit in force and, for
+a fallback, one `QueueTaskRecord.FallbackReason`. The order is the specification's: hold while the hold bound lasts,
+then suspend where a resume bound is open, else fall back; `afterHold` decides the transition when a hold expires. The
+caller assembles the queue record's `continuation` member from the decision and the facts it alone holds at the
+suspension (the session id, the configuration digest, the worktree head).
+
+An `ask fresh` state does not continue, except for an envelope task, which the specification lets continue whichever form
+its state declares. A role whose effective bounds are zero — absent `questions`, or no verified harness form — falls
+back with `not_allowed`, which is what makes an unverified harness indistinguishable from an absent member by design.
+
+== Alternatives Considered
+
+* A decision object that also names the session and the worktree head: refused because those are facts of the
+  suspension, read by the supervisor at the suspension, not inputs of the form decision.
+* Deciding the form in the engine from the state alone: refused because the role and the harness are the other two
+  sources, and the engine does not resolve roles' effective bounds.
+
+== Consequences
+
+The model can never choose a form: no link and no fact carries one. A new source of the decision is a new parameter and a
+new test cell; the reasons the stored session is refused (`session_missing`, `configuration_changed`,
+`harness_changed`, `worktree_moved`, `resume_unacknowledged`) stay the supervisor's, which knows them.
+
+== Source
+
+Pull request of the work package `doc/plans/question-continuation.adoc`; Model Work § Continuing after a Question and
+§ Resume refused; Client Profiles § Resumability; Model Work § Role Artifact Schema (`questions`).

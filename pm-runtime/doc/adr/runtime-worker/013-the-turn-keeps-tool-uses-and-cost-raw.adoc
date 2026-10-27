@@ -1,4 +1,4 @@
-= ADR 012: A turn keeps the tool uses and the reported cost raw
+= ADR 013: A turn keeps the tool uses and the reported cost raw
 :nofooter:
 
 == Status

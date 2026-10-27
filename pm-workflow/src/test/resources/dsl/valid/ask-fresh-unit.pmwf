@@ -1,0 +1,33 @@
+---
+name: Ask forms
+description: A sub-workflow written for the parser and printer tests.
+type: subworkflow
+icon: unit.ask
+entry: start
+entry_description: The work starts.
+exit: done
+exit_description: The work is done.
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# A sub-workflow written for the tests, not taken from any default unit.
+# It covers the two asking forms of a task state: ask and ask fresh.
+workflow ask.forms version 1 format 1
+scope subworkflow
+entry start -> ask.continue
+
+state ask.continue
+    phase inherit
+    job llm change role implementer ask
+        done -> ask.report
+        lost -> ask.done
+
+state ask.report
+    phase inherit
+    job llm change role implementer ask fresh
+        done -> ask.done
+        lost -> ask.done
+
+state ask.done terminal done success
+    phase inherit
