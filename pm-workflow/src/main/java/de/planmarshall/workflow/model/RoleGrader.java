@@ -126,12 +126,13 @@ public final class RoleGrader {
         if (judgeRefusal.isPresent()) {
             return judgeRefusal.get();
         }
+        var runs = GradingOffer.runs(plan);
         var previous = plan.previous().filter(entry -> entry.qualificationDigest().equals(role.qualificationDigest())
                 && entry.corpusRevision().equals(plan.corpusRevision()));
         var results = new ArrayList<QualificationRecord.ItemResult>();
         var forms = new EnumMap<RoleForm, QualificationRecord.FormResult>(RoleForm.class);
         for (var form : forms(plan)) {
-            var formResults = gradeForm(plan, topics, form, previous);
+            var formResults = gradeForm(plan, topics, form, previous, runs);
             var formResult = formResult(plan, topics, formResults);
             if (formResult.isEmpty()) {
                 return refused(GradingOutcome.Refused.NO_GRADED_ITEMS,
@@ -174,7 +175,7 @@ public final class RoleGrader {
     }
 
     private List<QualificationRecord.ItemResult> gradeForm(GradingPlan plan, RoleTopics topics, RoleForm form,
-            Optional<QualificationRecord> previous) {
+            Optional<QualificationRecord> previous, int runs) {
         var results = new ArrayList<QualificationRecord.ItemResult>();
         for (var topic : topics.topics()) {
             for (var item : RoleTopics.items(plan.items(), topic, plan.role().artifact().name())) {
@@ -182,12 +183,12 @@ public final class RoleGrader {
                 var reused = previous.map(entry -> reuse(entry, item, form, checkout)).orElse(List.of());
                 if (!reused.isEmpty()) {
                     results.addAll(reused);
-                    for (var run = reused.size() + 1; run <= GradingOffer.runs(plan); run++) {
+                    for (var run = reused.size() + 1; run <= runs; run++) {
                         results.add(offer(item, form, checkout, run));
                     }
                     continue;
                 }
-                for (var run = 1; run <= GradingOffer.runs(plan); run++) {
+                for (var run = 1; run <= runs; run++) {
                     results.add(offer(item, form, checkout, run));
                 }
             }

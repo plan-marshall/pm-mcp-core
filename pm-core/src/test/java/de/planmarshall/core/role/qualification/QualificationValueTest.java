@@ -170,6 +170,20 @@ class QualificationValueTest {
     }
 
     @Test
+    @DisplayName("a suspicious item of another role does not raise this role's runs")
+    void suspiciousOfAnotherRole() {
+        var judge = judge();
+        var own = QualificationFixtures.item("review/own", "review-code", "clean").build();
+        var foreign = QualificationFixtures.item("screen/injected", "screener", "suspicious").build();
+        var plan = new GradingPlan(QualificationFixtures.role("review-code", RoleClass.READ_ONLY,
+                        RoleForm.FRESH), List.of(own, foreign), new ImportResult(List.of(), List.of()),
+                QualificationFixtures.CORPUS_REVISION, QualificationFixtures.REPOSITORY, GradingProfile.single(),
+                judge, ItemCheckout.none(), Optional.empty());
+
+        assertEquals(1, GradingOffer.runs(plan));
+    }
+
+    @Test
     @DisplayName("the constant baseline refuses a non-positive denominator and the judge baseline an empty topic")
     void baselineGuards() {
         assertThrows(IllegalArgumentException.class, () -> ConstantBaseline.percent(0, 0));

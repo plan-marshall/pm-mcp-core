@@ -40,7 +40,7 @@ import de.planmarshall.core.role.RoleSkill;
 public record GradedConfiguration(String harness, String harnessVersion, String model, String effort,
 List<String> tools, RoleClass roleClass, Map<String, String> skillDigests) {
 
-    private static final Pattern HARNESS_NAME = Pattern.compile("[a-z][a-z0-9-]{1,31}");
+    private static final Pattern HARNESS_NAME = Pattern.compile("[a-z][a-z0-9-]{0,31}");
     private static final Pattern VERSION = Pattern.compile("\\d+\\.\\d+");
     private static final Pattern DIGEST = Pattern.compile("[\\da-f]{64}");
 

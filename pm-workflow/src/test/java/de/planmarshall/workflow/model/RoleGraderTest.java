@@ -27,11 +27,15 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.planmarshall.core.profile.JsonNode;
+import de.planmarshall.core.role.EffectiveRole;
 import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.role.corpus.ImportResult;
 import de.planmarshall.core.role.corpus.ImportedItem;
 import de.planmarshall.core.role.qualification.Checkout;
+import de.planmarshall.core.role.qualification.Grade;
+import de.planmarshall.core.role.qualification.GradedConfiguration;
 import de.planmarshall.core.role.qualification.GradingConsent;
 import de.planmarshall.core.role.qualification.GradingHarness;
 import de.planmarshall.core.role.qualification.GradingOutcome;
@@ -372,6 +376,23 @@ class RoleGraderTest {
         }
 
         @Test
+        @DisplayName("a reused record is topped up to the runs the plan requires")
+        void reuseToppedUp() {
+            var fixtures = new Fixtures();
+            var screener = ModelFixtures.role("screener", RoleClass.ZERO_TOOL, RoleForm.FRESH);
+            var item = GraderFixtures.item("screen/injected", "screener", "suspicious").build();
+            var plan = GraderFixtures.plan(screener, List.of(item), fixtures.judgeConfiguration(),
+                    GraderFixtures.complete(), GradingProfile.single(), Optional.of(screenerRecord(screener, item)),
+                    ItemCheckout.none());
+
+            var graded = assertInstanceOf(GradingOutcome.Graded.class,
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED));
+
+            assertEquals(GradingProfile.SCREENER_RUNS - 1, fixtures.harness.offered().size());
+            assertEquals(GradingProfile.SCREENER_RUNS, graded.entry().items().size());
+        }
+
+        @Test
         @DisplayName("a changed digest re-grades every item")
         void changedDigestRegrades() {
             var fixtures = new Fixtures();
@@ -413,6 +434,25 @@ class RoleGraderTest {
     private static List<ImportedItem> corpus() {
         return List.of(GraderFixtures.item("review/own", GraderFixtures.ROLE, "clean").build(),
                 GraderFixtures.item("review/generic", GraderFixtures.GENERIC_ROLE, "clean").build());
+    }
+
+    /**
+     * @param role the screener's effective role
+     * @param item the suspicious item that was graded once
+     * @return a record with one graded run of the item
+     */
+    private static QualificationRecord screenerRecord(EffectiveRole role,
+            ImportedItem item) {
+        var topic = new QualificationRecord.TopicResult(new BigDecimal("100"), BigDecimal.ZERO, 1);
+        var form = new QualificationRecord.FormResult(
+                Map.of(Topic.OWN, topic), 1, TokenTotal.measured(1_000), 100);
+        var result = new QualificationRecord.ItemResult(item.id(), RoleForm.FRESH, Checkout.CURRENT,
+                JsonNode.string("suspicious"), Grade.of(true),
+                TokenTotal.measured(1_000), 100L);
+        return new QualificationRecord(role.artifact().name(), role.qualificationDigest(),
+                GradedConfiguration.of(role),
+                GraderFixtures.CORPUS_REVISION, List.of(), Map.of(RoleForm.FRESH, form), null, 0,
+                GraderFixtures.NOW, List.of(result));
     }
 
     /** The grader under test with its recorders. */

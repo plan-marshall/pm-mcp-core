@@ -35,9 +35,6 @@ public final class JudgeCheck {
     /** The format version of a judge check record. */
     public static final int FORMAT_VERSION = 1;
 
-    /** The compiled qualification margin, in percentage points. */
-    public static final int MARGIN = 10;
-
     private static final Pattern DIGEST = Pattern.compile("[0-9a-f]{64}");
     private static final Pattern NAME = Pattern.compile("[a-z][a-z0-9-]{1,31}");
 
@@ -224,7 +221,7 @@ public final class JudgeCheck {
             if (entry.unscored() > 0) {
                 reasons.add("unscored");
             }
-            var margin = BigDecimal.valueOf(MARGIN);
+            var margin = BigDecimal.valueOf(QualificationCheck.MARGIN);
             if (entry.oracleAccuracy().compareTo(entry.constantBaseline().add(margin)) < 0) {
                 reasons.add("oracle_not_above_baseline");
             }
