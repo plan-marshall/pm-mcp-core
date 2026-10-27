@@ -169,6 +169,21 @@ public final class WorkflowEngine {
          * @return the parameter record, an instance of {@link Primitive#parameterType()}
          */
         Record bind(Primitive<?, ?> primitive, WorkflowStatus status);
+
+        /**
+         * Binds the parameters of a primitive an operator act runs, with the operator's submission for the link's free
+         * parameters. A binder that reads the submission overrides it; the default ignores it and binds from the status
+         * alone, as every non-operator caller does.
+         *
+         * @param primitive  the primitive the current state runs
+         * @param status     the status of the scope at the state
+         * @param parameters the operator's submission for the link's free parameters, by name; empty for a link without
+         *                   one
+         * @return the parameter record, an instance of {@link Primitive#parameterType()}
+         */
+        default Record bind(Primitive<?, ?> primitive, WorkflowStatus status, Map<String, String> parameters) {
+            return bind(primitive, status);
+        }
     }
 
     /**
@@ -312,7 +327,7 @@ public final class WorkflowEngine {
                 resolve(run, status, node, question, resolved);
             case StateBehavior.InteractiveLinks links when event instanceof EngineEvent.OperatorAct act ->
                 run.chain(run.runPrimitive(node, primitiveOf(linkOf(links, act)),
-                        linkOf(links, act).transitions()));
+                        linkOf(links, act).transitions(), act.parameters()));
             default -> throw new IllegalStateException("the state '%s' accepted %s, which it cannot route"
                     .formatted(node.id(), event));
         };
@@ -704,8 +719,20 @@ public final class WorkflowEngine {
          * @return the target of that transition
          */
         String runPrimitive(StateNode node, String primitiveId, List<OutcomeTransition> transitions) {
+            return runPrimitive(node, primitiveId, transitions, Map.of());
+        }
+
+        /**
+         * Runs the primitive of an {@code auto} state, or of a composite job state its event resumes, and selects the
+         * transition of the returned outcome.
+         *
+         * @param operatorParameters the operator's submission for an operator link's free parameters; empty otherwise
+         * @return the target of that transition
+         */
+        String runPrimitive(StateNode node, String primitiveId, List<OutcomeTransition> transitions,
+                Map<String, String> operatorParameters) {
             var primitive = primitiveOf(primitiveId);
-            var parameters = Objects.requireNonNull(binder.bind(primitive, status), "parameters");
+            var parameters = Objects.requireNonNull(binder.bind(primitive, status, operatorParameters), "parameters");
             var scopeId = Optional.ofNullable(status.scopeId());
             WorkflowExecutionContext context = () -> scopeId;
             PrimitiveResult<?> result = execute(primitive, context, parameters);

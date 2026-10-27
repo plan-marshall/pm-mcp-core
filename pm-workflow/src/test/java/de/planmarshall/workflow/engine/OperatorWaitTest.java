@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 
 
@@ -108,5 +109,34 @@ class OperatorWaitTest {
                 () -> assertEquals("merged", assertInstanceOf(EngineStep.Ended.class, settled).outcomeId()),
                 () -> assertEquals(AwaitedEvent.OPERATOR_ACT, engine.restingWait(waiting).orElseThrow().awaitedEvent()),
                 () -> assertTrue(waiting.activeTasks().isEmpty(), "the waiting plan still holds nothing"));
+    }
+
+    @Test
+    @DisplayName("Should pass the operator's link parameters to the binder of the link's primitive")
+    void operatorParametersReachTheBinder() {
+        var unit = EngineFixtures.plan("execute.wait", STATES);
+        var seen = new java.util.ArrayList<Map<String, String>>();
+        var binder = new WorkflowEngine.ParameterBinder() {
+            @Override
+            public Record bind(de.planmarshall.core.spi.Primitive<?, ?> primitive,
+                    WorkflowStatus status) {
+                return new EngineFixtures.NoParams();
+            }
+
+            @Override
+            public Record bind(de.planmarshall.core.spi.Primitive<?, ?> primitive,
+                    WorkflowStatus status, Map<String, String> parameters) {
+                seen.add(parameters);
+                return new EngineFixtures.NoParams();
+            }
+        };
+        var engine = new WorkflowEngine(unit, de.planmarshall.workflow.verify.WorkflowCatalog.empty(),
+                fixtures.validator(), fixtures.registry(), binder, fixtures.ports());
+        var status = assertInstanceOf(EngineStep.Resting.class,
+                engine.start(JournalScopeType.PLAN, "waiting-plan")).status();
+
+        engine.advance(status, new EngineEvent.OperatorAct("execute.wait", "proceed", Map.of("note", "go")));
+
+        assertEquals(List.of(Map.of("note", "go")), seen);
     }
 }

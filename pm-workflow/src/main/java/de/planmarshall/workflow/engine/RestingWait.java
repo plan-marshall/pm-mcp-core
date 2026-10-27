@@ -75,7 +75,7 @@ public record RestingWait(String stateId, AwaitedEvent awaitedEvent, Set<String>
             case EngineEvent.TasksSettled(var outcomes, _) ->
                 awaitedEvent == AwaitedEvent.TASK_SETTLED && outcomes.keySet().equals(taskEntities);
             case EngineEvent.QuestionResolved _ -> awaitedEvent == AwaitedEvent.QUESTION_ANSWER;
-            case EngineEvent.OperatorAct(var actedState, _) ->
+            case EngineEvent.OperatorAct(var actedState, _, _) ->
                 awaitedEvent == AwaitedEvent.OPERATOR_ACT && stateId.equals(actedState);
             case EngineEvent.TimeElapsed _ -> awaitedEvent == AwaitedEvent.TIME;
         };

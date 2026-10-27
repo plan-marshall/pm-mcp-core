@@ -51,6 +51,7 @@ import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.UnitFrontmatter;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
+import de.planmarshall.workflow.setup.MachineOnboarding;
 
 /**
  * The static verifier of one workflow unit (PM-IMPL-5, PM-TEST-3): it runs every check of {@link VerificationRule}
@@ -126,7 +127,7 @@ public final class WorkflowValidator {
     private static final Set<String> PHASE_FALLBACK_STATES = Set.of("plan.return", "finalize.hand-back");
 
     /** The resting state of the resident machine unit (Workflow DSL, Machine Scope). */
-    private static final String MACHINE_RESTING_STATE = "onboard.completed";
+    private static final String MACHINE_RESTING_STATE = MachineOnboarding.RESTING_STATE;
 
     /** The task protocol unit, the one compiled unit every model state runs once per task. */
     private static final String WORKER_TASK = "worker-task";
@@ -1050,7 +1051,7 @@ public final class WorkflowValidator {
     }
 
     private static void checkLeafTaskConstraint(WorkflowDefinition definition, List<Violation> violations) {
-        boolean isWorkerUnit = definition.scope() == WorkflowScope.ENTITY || "worker-task".equals(definition.id());
+        boolean isWorkerUnit = definition.scope() == WorkflowScope.ENTITY || WORKER_TASK.equals(definition.id());
         if (isWorkerUnit) {
             for (var state : definition.states().values()) {
                 if (state.behavior() instanceof StateBehavior.ModelJob) {

@@ -127,11 +127,12 @@ public sealed interface EngineEvent
      * The operator acted through one of the links of an operator wait: the state runs the link's primitive and routes
      * its outcome.
      *
-     * @param stateId the operator-wait state the act was made in
-     * @param linkId  the identifier pattern of the link the operator followed
+     * @param stateId    the operator-wait state the act was made in
+     * @param linkId     the identifier pattern of the link the operator followed
+     * @param parameters the operator's submission for the link's free parameters, by name; empty for a link without one
      * @since 0.1
      */
-    record OperatorAct(String stateId, String linkId) implements EngineEvent {
+    record OperatorAct(String stateId, String linkId, Map<String, String> parameters) implements EngineEvent {
 
         /**
          * @throws NullPointerException     if a component is {@code null}
@@ -140,6 +141,16 @@ public sealed interface EngineEvent
         public OperatorAct {
             requireNonBlank(stateId, "stateId");
             requireNonBlank(linkId, "linkId");
+            Objects.requireNonNull(parameters, "parameters");
+            parameters = Collections.unmodifiableMap(new LinkedHashMap<>(parameters));
+        }
+
+        /**
+         * @param stateId the operator-wait state the act was made in
+         * @param linkId  the identifier pattern of the link the operator followed
+         */
+        public OperatorAct(String stateId, String linkId) {
+            this(stateId, linkId, Map.of());
         }
     }
 
