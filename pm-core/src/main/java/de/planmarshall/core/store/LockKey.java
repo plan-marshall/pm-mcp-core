@@ -192,7 +192,7 @@ public record LockKey(LockLevel level, Path lockFile, String id) implements Comp
      */
     public static LockKey machineScope(Path base) {
         return new LockKey(LockLevel.WORKSPACE, canonical(base).resolve(MACHINE).resolve(LOCK_DIRECTORY)
-                .resolve("machine" + LOCK_SUFFIX), MACHINE);
+                .resolve(MACHINE + LOCK_SUFFIX), MACHINE);
     }
 
     /**

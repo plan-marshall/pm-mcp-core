@@ -62,7 +62,7 @@ Set<String> completedSteps) {
      * @throws IllegalArgumentException if the first run is incomplete and no pending step is named
      */
     public MachineOnboarding {
-        Objects.requireNonNull(state, "state");
+        Objects.requireNonNull(state, STEP_STATE);
         pendingSteps = List.copyOf(pendingSteps);
         completedSteps = Set.copyOf(completedSteps);
         if (!firstRunCompleted && pendingSteps.isEmpty()) {

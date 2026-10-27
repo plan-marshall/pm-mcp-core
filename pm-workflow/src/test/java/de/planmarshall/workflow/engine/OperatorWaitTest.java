@@ -74,16 +74,16 @@ class OperatorWaitTest {
                 () -> assertTrue(fixtures.taskCreator.requests.isEmpty(), "no task is offered"),
                 () -> assertEquals(JournalScopeType.PLAN, status.scopeType()));
 
-        assertThrows(IllegalArgumentException.class,
-                () -> engine.advance(status, new EngineEvent.TimeElapsed(EngineFixtures.T0.plus(Duration.ofDays(30)))),
+        var time = new EngineEvent.TimeElapsed(EngineFixtures.T0.plus(Duration.ofDays(30)));
+        assertThrows(IllegalArgumentException.class, () -> engine.advance(status, time),
                 "time does not end an operator wait");
         assertEquals(started, engine.advance(status), "the wait is unchanged");
 
-        assertThrows(IllegalArgumentException.class,
-                () -> engine.advance(status, new EngineEvent.OperatorAct("execute.wait", "unknown")),
+        var unknownLink = new EngineEvent.OperatorAct("execute.wait", "unknown");
+        assertThrows(IllegalArgumentException.class, () -> engine.advance(status, unknownLink),
                 "only a link the state offers is accepted");
-        assertThrows(IllegalArgumentException.class,
-                () -> engine.advance(status, new EngineEvent.OperatorAct("execute.build", "proceed")),
+        var otherState = new EngineEvent.OperatorAct("execute.build", "proceed");
+        assertThrows(IllegalArgumentException.class, () -> engine.advance(status, otherState),
                 "only the waiting state accepts its operator's act");
 
         var acted = assertInstanceOf(EngineStep.Resting.class,
