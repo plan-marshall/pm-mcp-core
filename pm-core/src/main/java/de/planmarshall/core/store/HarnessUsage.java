@@ -116,6 +116,29 @@ Optional<BigDecimal> costUsd, Optional<UnmeasuredReason> unmeasuredReason) {
     }
 
     /**
+     * The usage of one answer of an endpoint harness (Client Profiles § The Request): the {@code usage} object of the
+     * answer carries a prompt and a completion count, and a count the answer lacks is {@code unmeasured}. The endpoint
+     * is sent no tool, so it reports no tool use; the cache and reasoning figures are not part of the protocol's
+     * {@code usage} object and are {@code not_applicable}.
+     *
+     * @param promptTokens     the answer's {@code prompt_tokens}; empty when the answer lacks the figure
+     * @param completionTokens the answer's {@code completion_tokens}; empty when the answer lacks the figure
+     * @return the usage of the answer
+     */
+    public static HarnessUsage fromEndpoint(OptionalLong promptTokens, OptionalLong completionTokens) {
+        Objects.requireNonNull(promptTokens, "promptTokens");
+        Objects.requireNonNull(completionTokens, "completionTokens");
+        var missing = promptTokens.isEmpty() || completionTokens.isEmpty();
+        return new HarnessUsage(
+                promptTokens.isPresent() ? Measurement.measured(promptTokens.getAsLong()) : Measurement.unmeasured(),
+                completionTokens.isPresent() ? Measurement.measured(completionTokens.getAsLong())
+                        : Measurement.unmeasured(),
+                Measurement.notApplicable(), Measurement.notApplicable(), Measurement.notApplicable(),
+                Measurement.measured(0), Optional.empty(),
+                missing ? Optional.of(UnmeasuredReason.NOT_REPORTED_BY_HARNESS) : Optional.empty());
+    }
+
+    /**
      * @return the usage of a task that never ran: every figure unmeasured, with no reason, because there was no
      *         attempt to measure
      */

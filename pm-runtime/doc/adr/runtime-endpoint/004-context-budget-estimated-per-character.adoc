@@ -1,0 +1,44 @@
+= ADR 004: The Context Budget Is Estimated at Four Characters per Token
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-27
+
+== Context
+
+Client Profiles § The Request makes the role's context budget on an endpoint harness `context_tokens` less
+`answer_reserve_tokens`, packs a screening batch to it, and makes a role artifact invalid on that harness whose launch
+prompt alone does not fit. The server composes the request before anything is sent and must decide fit without a tokenizer
+for the serving program's weights.
+
+The package had to decide how a text is counted against the budget.
+
+== Decision
+
+`EndpointRequest` counts a text at four characters per token, rounding up
+(`EndpointRequest.estimate`), and refuses a composition whose launch prompt alone exceeds the budget
+(`prompt_exceeds_context_budget`) or whose messages exceed it (`task_exceeds_context_budget`). The answer reserve is sent
+as `max_tokens`, so the answer cannot consume the part of the budget the prompt needs.
+
+== Alternatives Considered
+
+A model-specific tokenizer was considered and not taken: it ties the engine to the weights of every serving program and
+changes with every model. Sending an oversized request and letting the endpoint refuse it was considered and not taken:
+the refusal would arrive from the program, not from the rule, and the budget would be no bound of the server's.
+
+== Consequences
+
+- The estimate is conservative for most scripts and may under-count dense text; a request the endpoint still refuses ends
+  the attempt like any other HTTP error.
+- The budget is a property of the profile, so an operator who measures a different limit changes `context_tokens` and
+  `answer_reserve_tokens`, not the estimate.
+- A change of the estimate changes every role's fit on every endpoint and is recorded here.
+
+== Source
+
+Pull request for the work package `doc/plans/endpoint-harness.adoc`; Client Profiles § The Request.
