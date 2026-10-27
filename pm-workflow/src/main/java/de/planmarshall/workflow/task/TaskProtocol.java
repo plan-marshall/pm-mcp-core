@@ -530,7 +530,8 @@ public final class TaskProtocol {
         var continuation = task.continuation();
         return continuation != null
                 && continuation.questionId().equals(questionId)
-                && (task.status() == Status.AWAITING_ANSWER || task.status() == Status.SUSPENDED);
+                && (task.status() == Status.AWAITING_ANSWER || task.status() == Status.SUSPENDED
+                || task.status() == Status.QUEUED || task.status() == Status.OFFERED);
     }
 
     /**

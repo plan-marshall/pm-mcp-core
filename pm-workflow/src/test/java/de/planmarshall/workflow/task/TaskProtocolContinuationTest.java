@@ -249,6 +249,27 @@ class TaskProtocolContinuationTest {
     }
 
     @Test
+    @DisplayName("an answer that arrives after the fence is stored and reaches the successor with its facts")
+    void answerAfterFence(@TempDir Path base) {
+        var locks = new TestLocks();
+        var queue = QueueStore.ofProject(base, "project-a", locks);
+        queue.create(TaskFixtures.queued(TASK, TaskFixtures.ROLE).build());
+        var protocol = protocol(queue, locks);
+        protocol.hold(TaskFixtures.call(executing(protocol)),
+                continuation(ContinuationForm.HOLD, TaskFixtures.AT.plusSeconds(2)), TaskFixtures.AT.plusSeconds(2));
+        protocol.fence(TaskFixtures.GENERATION, TaskFixtures.AT.plusSeconds(3));
+
+        var delivered = protocol.answer("Q-001", answer(), TaskFixtures.AT.plusSeconds(4));
+        var successor = protocol.wait(TaskFixtures.waitFor(TaskFixtures.SUCCESSOR), TaskFixtures.AT.plusSeconds(5));
+
+        assertAll(
+                () -> assertEquals(TASK, delivered.orElseThrow().queueTaskId(),
+                        "a fenced continuation still receives its answer"),
+                () -> assertEquals(answer(),
+                        assertInstanceOf(WaitAnswer.Answered.class, successor).answers()));
+    }
+
+    @Test
     @DisplayName("the server falls back a hold whose limit passed, without a lease")
     void fallbackOfHold(@TempDir Path base) {
         var locks = new TestLocks();
