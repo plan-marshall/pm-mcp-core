@@ -2,10 +2,10 @@
   "id": "PLAN-102",
   "slug": "native-build-package-in-plan-marshall-mcp",
   "workstream": "WS-04",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-102-native-build-package-in-plan-marshall-mcp",
+  "pr": "plan-marshall-mcp#109",
+  "landing": "landings/PLAN-102.md",
   "seq": 102
 }
