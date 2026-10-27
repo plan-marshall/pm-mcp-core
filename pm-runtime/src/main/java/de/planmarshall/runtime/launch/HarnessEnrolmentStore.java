@@ -21,12 +21,14 @@ import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Supplier;
@@ -251,7 +253,42 @@ public final class HarnessEnrolmentStore {
         requiredObject(report, "figures").members()
                 .forEach((figure, result) -> figures.put(figure, textValue(result, "the figure '%s'".formatted(figure))));
         return new HarnessEnrolment.UsageReport(
-                HarnessEnrolment.UsageSource.fromWireName(text(report, "source")), figures);
+                HarnessEnrolment.UsageSource.fromWireName(text(report, "source")), figures,
+                startContext(report.member("start_context").orElse(null)));
+    }
+
+    private static List<HarnessEnrolment.UsageReport.StartContext> startContext(JsonNode startContext) {
+        if (startContext == null) {
+            return List.of();
+        }
+        if (!startContext.isArray()) {
+            throw new IllegalArgumentException("the member 'start_context' is not an array");
+        }
+        var contexts = new ArrayList<HarnessEnrolment.UsageReport.StartContext>();
+        var elements = startContext.elements();
+        for (var index = 0; index < elements.size(); index++) {
+            var entry = elements.get(index);
+            if (!entry.isObject()) {
+                throw new IllegalArgumentException("the start_context entry %d is not an object".formatted(index));
+            }
+            var workerClass = text(entry, "class");
+            var model = text(entry, "model");
+            var tokens = entry.member("tokens").orElseThrow(
+                    () -> new IllegalArgumentException("the member 'tokens' is missing"));
+            final OptionalLong value;
+            if (tokens.isInteger()) {
+                if (tokens.integerValue().orElseThrow() < 0) {
+                    throw new IllegalArgumentException("'tokens' must not be negative");
+                }
+                value = OptionalLong.of(tokens.integerValue().orElseThrow());
+            } else if (tokens.isString() && "unmeasured".equals(tokens.text().orElseThrow())) {
+                value = OptionalLong.empty();
+            } else {
+                throw new IllegalArgumentException("'tokens' must be an integer or 'unmeasured'");
+            }
+            contexts.add(new HarnessEnrolment.UsageReport.StartContext(workerClass, model, value));
+        }
+        return List.copyOf(contexts);
     }
 
     private static Map<String, String> events(JsonNode node) {
@@ -322,8 +359,20 @@ public final class HarnessEnrolmentStore {
         members.put("updated_at", JsonNode.string(enrolment.updatedAt().toString()));
         var figures = new TreeMap<String, JsonNode>();
         enrolment.usageReport().figures().forEach((figure, result) -> figures.put(figure, JsonNode.string(result)));
-        members.put("usage_report", JsonNode.object(Map.of("source", JsonNode.string(enrolment.usageReport().source()
-                .wireName()), "figures", JsonNode.object(figures))));
+        var report = new LinkedHashMap<String, JsonNode>();
+        report.put("source", JsonNode.string(enrolment.usageReport().source().wireName()));
+        report.put("figures", JsonNode.object(figures));
+        if (!enrolment.usageReport().startContext().isEmpty()) {
+            var contexts = new ArrayList<JsonNode>();
+            for (var context : enrolment.usageReport().startContext()) {
+                var tokens = context.tokens().isPresent() ? JsonNode.integer(context.tokens().getAsLong())
+                        : JsonNode.string("unmeasured");
+                contexts.add(JsonNode.object(Map.of("class", JsonNode.string(context.workerClass()), "model",
+                        JsonNode.string(context.model()), "tokens", tokens)));
+            }
+            report.put("start_context", JsonNode.array(contexts));
+        }
+        members.put("usage_report", JsonNode.object(report));
         var events = new TreeMap<String, JsonNode>();
         enrolment.events().forEach((kind, result) -> events.put(kind, JsonNode.string(result)));
         members.put("events", JsonNode.object(events));

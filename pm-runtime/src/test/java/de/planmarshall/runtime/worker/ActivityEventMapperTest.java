@@ -146,8 +146,8 @@ class ActivityEventMapperTest {
                 () -> assertEquals(ActivityEntry.Kind.TURN, mapped.kind()),
                 () -> assertEquals(ActivityEntry.StopReason.MAX_TOKENS, mapped.stopReason()),
                 () -> assertEquals("{\"cache_creation\":\"not_applicable\",\"cache_read\":7,"
-                        + "\"input_tokens\":120,\"output_tokens\":30,\"reasoning\":\"unmeasured\"}",
-                        mapped.usage()));
+                        + "\"cost_usd\":\"unmeasured\",\"input_tokens\":120,\"output_tokens\":30,"
+                        + "\"reasoning\":\"unmeasured\",\"tool_uses\":\"unmeasured\"}", mapped.usage()));
     }
 
     @Test

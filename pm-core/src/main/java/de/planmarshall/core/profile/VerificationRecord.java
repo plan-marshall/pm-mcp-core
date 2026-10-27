@@ -16,6 +16,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 import java.util.Set;
 
 /**
@@ -65,22 +66,34 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
     /**
      * One stage of the record.
      *
-     * @param status  {@code passed}, {@code failed} or {@code not_run}
-     * @param results the per-kind results of the stages {@code events} and {@code usage}; empty for another stage
-     * @param trials  the trials of the stage {@code faults}; {@code null} for another stage
+     * @param status       {@code passed}, {@code failed} or {@code not_run}
+     * @param results      the per-kind results of the stages {@code events} and {@code usage}; empty for another stage
+     * @param trials       the trials of the stage {@code faults}; {@code null} for another stage
+     * @param startContext the start context of the stage {@code usage}; empty for another stage
      * @since 0.1
      */
-    public record Stage(String status, Map<String, String> results, Integer trials) {
+    public record Stage(String status, Map<String, String> results, Integer trials,
+    List<ProfileStages.StartContext> startContext) {
 
         /** The closed statuses of a stage. */
         public static final Set<String> STATUSES = Set.of("passed", "failed", "not_run");
 
-        /** Copies the results and refuses an unknown status. */
+        /** Copies the results and the start context and refuses an unknown status. */
         public Stage {
             if (!STATUSES.contains(status)) {
                 throw new IllegalArgumentException("Not a stage status: " + status);
             }
             results = Collections.unmodifiableMap(new LinkedHashMap<>(results));
+            startContext = List.copyOf(startContext);
+        }
+
+        /**
+         * @param status  the status
+         * @param results the per-kind results
+         * @param trials  the trials of the stage {@code faults}
+         */
+        public Stage(String status, Map<String, String> results, Integer trials) {
+            this(status, results, trials, List.of());
         }
     }
 
@@ -231,7 +244,8 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
             for (var name : stages.members().keySet()) {
                 var pointer = "/stages/" + name;
                 var stage = stages.members().get(name);
-                object(stage, pointer, name, Set.of(NAME_STATUS), Set.of(NAME_STATUS, NAME_RESULTS, NAME_TRIALS));
+                object(stage, pointer, name, Set.of(NAME_STATUS),
+                        Set.of(NAME_STATUS, NAME_RESULTS, NAME_TRIALS, "start_context"));
                 var status = string(stage, pointer + PTR_STATUS, NAME_STATUS);
                 if (!Stage.STATUSES.contains(status)) {
                     throw ProfileRefusal.recordInvalid(document, pointer + PTR_STATUS,
@@ -243,9 +257,52 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
                 if (trialNode != null) {
                     trials = (int) integer(stage, pointer + "/trials", NAME_TRIALS);
                 }
-                read.put(name, new Stage(status, results, trials));
+                var startContext = startContext(stage.member("start_context").orElse(null), pointer + "/start_context");
+                read.put(name, new Stage(status, results, trials, startContext));
             }
             return read;
+        }
+
+        private List<ProfileStages.StartContext> startContext(JsonNode startContext, String pointer) {
+            if (startContext == null) {
+                return List.of();
+            }
+            if (!startContext.isArray()) {
+                throw ProfileRefusal.recordInvalid(document, pointer, "'start_context' must be an array");
+            }
+            var contexts = new ArrayList<ProfileStages.StartContext>();
+            var elements = startContext.elements();
+            for (var index = 0; index < elements.size(); index++) {
+                var entryPointer = pointer + "/" + index;
+                var entry = elements.get(index);
+                object(entry, entryPointer, "start_context entry", Set.of("class", "model", "tokens"));
+                var workerClass = string(entry, entryPointer + "/class", "class");
+                var model = string(entry, entryPointer + "/model", "model");
+                var tokens = entry.member("tokens").orElse(null);
+                if (tokens == null) {
+                    throw ProfileRefusal.recordInvalid(document, entryPointer + "/tokens",
+                            "the member 'tokens' of a start_context entry is missing");
+                }
+                final OptionalLong value;
+                if (tokens.isInteger()) {
+                    if (tokens.integerValue().orElseThrow() < 0) {
+                        throw ProfileRefusal.recordInvalid(document, entryPointer + "/tokens",
+                                "'tokens' must not be negative");
+                    }
+                    value = OptionalLong.of(tokens.integerValue().orElseThrow());
+                } else if (tokens.isString() && "unmeasured".equals(tokens.text().orElseThrow())) {
+                    value = OptionalLong.empty();
+                } else {
+                    throw ProfileRefusal.recordInvalid(document, entryPointer + "/tokens",
+                            "'tokens' must be an integer or 'unmeasured'");
+                }
+                try {
+                    contexts.add(new ProfileStages.StartContext(workerClass, model, value));
+                } catch (IllegalArgumentException e) {
+                    throw ProfileRefusal.recordInvalid(document, entryPointer, e.getMessage());
+                }
+            }
+            return List.copyOf(contexts);
         }
 
         private Map<String, String> results(JsonNode results, String pointer) {

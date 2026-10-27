@@ -42,7 +42,7 @@ public final class ActivityEventMapper {
 
     /** The keys of the usage pointers, in the order the profile declares them. */
     private static final List<String> USAGE_KEYS = List.of("input_tokens", "output_tokens", "cache_read",
-            "cache_creation", "reasoning");
+            "cache_creation", "reasoning", "tool_uses", "cost_usd");
 
     /** The sentinel of a usage component the harness does not report. */
     private static final String UNMEASURED = "unmeasured";
@@ -175,19 +175,20 @@ public final class ActivityEventMapper {
     }
 
     /**
-     * Reads the five token components through the profile's usage pointers. A pointer that is absent or names no value
-     * is {@code unmeasured}; the profile's own {@code not_applicable} mark is kept.
+     * Reads the usage figures through the profile's usage pointers: the five token components, the tool calls and the
+     * harness-reported cost. A pointer that is absent or names no value is {@code unmeasured}; the profile's own
+     * {@code not_applicable} mark is kept.
      */
     private String usage(JsonNode root) {
         var members = new LinkedHashMap<String, JsonNode>();
         for (var key : USAGE_KEYS) {
             var pointer = usagePointers.get(key);
-            members.put(key, usageComponent(root, pointer));
+            members.put(key, usageComponent(key, root, pointer));
         }
         return CanonicalJson.write(JsonNode.object(members));
     }
 
-    private static JsonNode usageComponent(JsonNode root, String pointer) {
+    private static JsonNode usageComponent(String key, JsonNode root, String pointer) {
         if (pointer == null) {
             return JsonNode.string(UNMEASURED);
         }
@@ -195,7 +196,13 @@ public final class ActivityEventMapper {
             return JsonNode.string(NOT_APPLICABLE);
         }
         var value = resolve(root, pointer).orElse(null);
-        return value != null && value.isInteger() ? value : JsonNode.string(UNMEASURED);
+        if (value == null) {
+            return JsonNode.string(UNMEASURED);
+        }
+        if ("cost_usd".equals(key)) {
+            return value.isNumber() ? value : JsonNode.string(UNMEASURED);
+        }
+        return value.isInteger() ? value : JsonNode.string(UNMEASURED);
     }
 
     /**

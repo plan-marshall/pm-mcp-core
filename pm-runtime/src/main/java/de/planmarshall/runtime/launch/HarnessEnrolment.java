@@ -13,8 +13,10 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -118,17 +120,19 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
     }
 
     /**
-     * The usage report kept with an enrolment.
+     * The usage report kept with an enrolment (Client Profiles § Tokens, Not Money): what the harness reports of its
+     * usage, and what a worker costs before it does anything.
      *
-     * @param source  where the report came from
-     * @param figures the result per figure, {@code reported}, {@code not_applicable} or {@code missing}
+     * @param source       where the report came from
+     * @param figures      the result per figure, {@code reported}, {@code not_applicable} or {@code missing}
+     * @param startContext the first-turn tokens per class and model; empty for {@code source} declared
      * @since 0.1
      */
-    public record UsageReport(UsageSource source, Map<String, String> figures) {
+    public record UsageReport(UsageSource source, Map<String, String> figures, List<StartContext> startContext) {
 
         private static final Set<String> FIGURE_RESULTS = Set.of("reported", "not_applicable", "missing");
 
-        /** Copies the figures and refuses an unknown result. */
+        /** Copies the figures and the start context and refuses an unknown result. */
         public UsageReport {
             Objects.requireNonNull(source, "source");
             var results = new LinkedHashMap<String, String>();
@@ -139,6 +143,46 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
                 results.put(figure, result);
             });
             figures = Collections.unmodifiableMap(results);
+            startContext = List.copyOf(startContext);
+        }
+
+        /**
+         * @param source  where the report came from
+         * @param figures the result per figure
+         */
+        public UsageReport(UsageSource source, Map<String, String> figures) {
+            this(source, figures, List.of());
+        }
+
+        /**
+         * What a worker costs before it does anything, per class and model (Client Profiles § Tokens, Not Money, Start
+         * Context).
+         *
+         * @param workerClass the class of the worker, {@code writer}, {@code read_only} or {@code zero_tool}
+         * @param model       the model the stage ran with
+         * @param tokens      the first-turn tokens; empty when the first turn does not report the input figures
+         * @since 0.1
+         */
+        public record StartContext(String workerClass, String model, OptionalLong tokens) {
+
+            /** The classes of the closed list. */
+            public static final Set<String> CLASSES = Set.of("writer", "read_only", "zero_tool");
+
+            /**
+             * @throws NullPointerException     if a component is {@code null}
+             * @throws IllegalArgumentException if the class is not one of the closed list or the model is blank
+             */
+            public StartContext {
+                Objects.requireNonNull(workerClass, "workerClass");
+                Objects.requireNonNull(model, "model");
+                Objects.requireNonNull(tokens, "tokens");
+                if (!CLASSES.contains(workerClass)) {
+                    throw new IllegalArgumentException("Not a worker class: " + workerClass);
+                }
+                if (model.isBlank()) {
+                    throw new IllegalArgumentException("'model' must not be blank");
+                }
+            }
         }
     }
 
