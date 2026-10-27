@@ -12,10 +12,12 @@ package de.planmarshall.core.queue;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -107,6 +109,30 @@ class ActivityJournalTest {
         journal.append(TASK, signal(1));
 
         assertThrows(IllegalArgumentException.class, () -> journal.append(TASK, signal(3)));
+    }
+
+    @Test
+    @DisplayName("an observer sees the attempt's entries with the new one inside the appending transaction")
+    void observerSeesTheNewEntry(@TempDir Path base) {
+        var journal = ActivityJournal.ofScope(base, "project-a", QueueFixtures.planScope(), new TestLocks());
+        journal.append(TASK, signal(1));
+        var seen = new ArrayList<Integer>();
+
+        journal.appendNext(TASK, seq -> signal(seq), entries -> seen.addAll(
+                entries.stream().map(ActivityEntry::seq).toList()));
+
+        assertEquals(List.of(1, 2), seen);
+    }
+
+    @Test
+    @DisplayName("a throwing observer writes nothing")
+    void observerRefusalWritesNothing(@TempDir Path base) {
+        var journal = ActivityJournal.ofScope(base, "project-a", QueueFixtures.planScope(), new TestLocks());
+
+        assertThrows(IllegalStateException.class, () -> journal.appendNext(TASK, seq -> signal(seq), entries -> {
+            throw new IllegalStateException("refused");
+        }));
+        assertTrue(journal.entries(TASK).isEmpty());
     }
 
     @Test

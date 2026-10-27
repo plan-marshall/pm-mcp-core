@@ -1,0 +1,47 @@
+= ADR 001: Activity Is Served From a Cursor and a Pull Stream
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-26
+
+== Context
+
+Store Schemas § Activity Journal requires a task's activity to be served to both clients from a cursor and as a live
+stream a client opens only while it shows the task, and the plan's process to name per leaf its tasks with a link to
+their activity. The HTTP routes are assembly routes in `pm-mcp-server`, which this plan leaves untouched; the runtime
+supplies what the routes serve. A push registry inside the runtime would hold a subscription per connected client and
+would have to be cleaned up when a client disconnects without notice.
+
+== Decision
+
+`ActivityService` reads the journal and returns an `ActivityPage` (the entries after a cursor, the next cursor, whether
+more follow) and opens an `ActivityStream` for a task. The stream is pull-based: each `poll()` answers the entries
+written since the previous poll, and `close()` ends it. The transport that owns the connection decides how often to
+poll; the runtime holds no subscriber state and no thread. `ActivityLinks` is the one spelling of the activity URI, so
+the process resource and the task resource name the same target.
+
+== Alternatives Considered
+
+1. *A subscriber registry with a push callback.*
+   _Rejected_: it holds state per client in the runtime, must be repaired after a disconnect, and duplicates what the
+   transport already does.
+2. *An SSE endpoint in the runtime.*
+   _Rejected_: the runtime has no listener (the package holds listener state only); the assembly owns the transport.
+3. *Serve only full pages, no stream.*
+   _Rejected_: the specification asks for a live stream, and a page-only read makes a client poll from zero each time.
+
+== Consequences
+
+* Two clients read the same journal without a shared subscription; a slow client costs its own reads only.
+* A cursor is the sequence the client last saw; a bounded journal never reuses one, so a gap is visible.
+* The assembly's route is a thin adapter over `page` and `poll`.
+
+== Source
+
+Work package `worker-activity`; Store Schemas § Activity Journal, and Runtime & Interaction Model § The Plan's Process as
+a Structure (the process resource) of the plan-marshall documentation.

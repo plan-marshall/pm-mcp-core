@@ -42,6 +42,33 @@ public interface WorkerProtocol {
     void agentStarted(String generationId, String queueTaskId, int attempt, String executable, Instant at);
 
     /**
+     * Reports an activity-derived off-track signal to the task protocol, which records it in the queue task's
+     * {@code signals[]} and as a {@code signal} entry of the activity journal, and takes its action (Model Work § A
+     * Worker Off Track).
+     *
+     * @param report the signal and the facts the protocol records
+     */
+    void offTrack(OffTrackReport report);
+
+    /**
+     * One activity-derived off-track signal as the runtime reports it.
+     *
+     * @param generationId the worker's generation
+     * @param queueTaskId  the queue task the generation holds
+     * @param attempt      the attempt of that task
+     * @param signal       the signal's wire name, one of {@code repeating}, {@code no_progress}, {@code over_size},
+     *                     {@code outside_footprint}
+     * @param action       the action's wire name, one of {@code show}, {@code nudge}, {@code yield}, {@code restart}
+     * @param measurement  the measured value
+     * @param threshold    the threshold in force
+     * @param at           the instant the signal was raised
+     * @since 0.1
+     */
+    record OffTrackReport(String generationId, String queueTaskId, int attempt, String signal, String action,
+    double measurement, double threshold, Instant at) {
+    }
+
+    /**
      * Closes the queued tasks of one role on one harness as lost with the reason {@code role_unavailable}, with their
      * conservative fallback, when the start-failure guard holds.
      *

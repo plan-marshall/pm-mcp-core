@@ -23,6 +23,7 @@ import java.util.Set;
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.profile.LoadedProfile;
 import de.planmarshall.core.profile.SupportedVersions;
+import de.planmarshall.core.queue.ActivityEventMapping;
 import de.planmarshall.core.role.RoleClass;
 
 /**
@@ -55,6 +56,9 @@ import de.planmarshall.core.role.RoleClass;
  * @param versionProbeArgv   the argument vector of the version probe; empty when the profile declares none
  * @param versionPattern     the pattern that reads the version out of the probe's output; {@code null} when none
  * @param writablePaths      the sub-paths the harness must write to run, as the profile declares them
+ * @param usagePointers      the JSON pointer of each usage column; a column absent is not reported
+ * @param events             the mapping of an output line onto the activity kinds; {@code null} for a harness without
+ *                           an event stream
  * @since 0.1
  */
 public record HeadlessBlock(String executable, List<String> argv, Map<RoleClass, List<String>> classArgs,
@@ -62,7 +66,8 @@ AgentMode agentMode, McpConfig mcpConfig, Map<String, String> env, OutputFormat 
 Map<String, String> modelTiers, Map<String, List<String>> modelEfforts, List<String> resourceTools,
 DataHome dataHome, SessionResidue sessionResidue, List<String> resumeArgv, Set<String> capabilities,
 UpdateEvidence updateEvidence, SupportedVersions supportedVersions, List<String> versionProbeArgv,
-String versionPattern, List<String> writablePaths) {
+String versionPattern, List<String> writablePaths, Map<String, String> usagePointers,
+ActivityEventMapping events) {
 
     /** Copies the collections. */
     public HeadlessBlock {
@@ -87,6 +92,8 @@ String versionPattern, List<String> writablePaths) {
         Objects.requireNonNull(supportedVersions, "supportedVersions");
         versionProbeArgv = List.copyOf(Objects.requireNonNull(versionProbeArgv, "versionProbeArgv"));
         writablePaths = List.copyOf(Objects.requireNonNull(writablePaths, "writablePaths"));
+        usagePointers = Collections.unmodifiableMap(new LinkedHashMap<>(Objects.requireNonNull(usagePointers,
+                "usagePointers")));
     }
 
     /**
@@ -121,7 +128,9 @@ String versionPattern, List<String> writablePaths) {
                 versionProbeArgv(profile),
                 text(profile.document().member("identity").orElse(JsonNode.nullValue()), "version_pattern")
                         .orElse(null),
-                strings(headless.member("writable_paths").orElse(JsonNode.nullValue())));
+                strings(headless.member("writable_paths").orElse(JsonNode.nullValue())),
+                usagePointers(headless.member("usage").orElse(JsonNode.nullValue())),
+                ActivityEventMapping.of(headless.member("events").orElse(JsonNode.nullValue())));
     }
 
     /**
@@ -242,6 +251,17 @@ String versionPattern, List<String> writablePaths) {
     private static Map<String, List<String>> efforts(JsonNode efforts) {
         var values = new LinkedHashMap<String, List<String>>();
         efforts.members().forEach((model, list) -> values.put(model, strings(list)));
+        return values;
+    }
+
+    private static Map<String, String> usagePointers(JsonNode usage) {
+        var values = new LinkedHashMap<String, String>();
+        usage.members().forEach((column, pointer) -> {
+            var text = pointer.text();
+            if (text.isPresent()) {
+                values.put(column, text.get());
+            }
+        });
         return values;
     }
 

@@ -1,0 +1,52 @@
+= ADR 009: A Navigation Figure Carries Its Population or a Sentinel
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-26
+
+== Context
+
+Model Work § Navigation Figures requires each figure beside the tokens to be derived from a task's records with its
+population (the turns, the reads or the lookups it counts over) and `indeterminate` where that population cannot be read;
+the cache-read share is additionally `unmeasured` where the harness reports no cache reads. A plain ratio cannot say any
+of that: an absent population would print `0`, which reads as a measured zero and corrupts a comparison the figures
+exist to support.
+
+== Decision
+
+`Figure` is measured (a finite value and a population of at least one) or one of the two sentinels `indeterminate` and
+`unmeasured`, and its constructor refuses any other shape. `NavigationFigures.derive` computes the four figures and the
+per-skill `SkillResidency` from the activity journal, the role's required skills and the generation's in-band bytes; a
+population that is empty produces the sentinel, never a zero. `NavigationVocabulary` names the harness's read, whole-file
+read and search tools, the language-server tool and the skill tool, because no figure can guess a tool's meaning.
+
+== Alternatives Considered
+
+1. *A `Double` with `null` for absent.*
+   _Rejected_: it cannot distinguish “the harness reports no cache reads” from “the task made no lookup”, and every
+   consumer would invent its own rendering.
+2. *A zero with a separate flag.*
+   _Rejected_: the flag travels apart from the number and one consumer forgets it; the token figures already show why an
+   unmeasured value is never `0`.
+3. *Derive the tools from the profile.*
+   _Rejected_: the harness's tool names are a property of the harness build, and the profile does not declare which of
+   the role's tools read a whole file; the vocabulary is passed where the task's harness is known.
+
+== Consequences
+
+* A figure is either usable or explicitly unusable; a comparison over runs can exclude an `indeterminate` population
+  instead of averaging a fabricated zero.
+* A new harness supplies a vocabulary; the derivation itself is unchanged.
+* A partial read (`read_range`) never counts as a fallback-to-read, because the vocabulary separates the whole-file
+  tools from the reading tools.
+
+== Source
+
+Work package `worker-activity`; link:../../../../doc/specification/model-work/09-completion-usage-and-spend.adoc#navigation-figures[Model
+Work § Navigation Figures], link:../../../../doc/specification/model-work/04-worker-launch.adoc#skill-delivery[Model Work
+§ Skill Delivery Record & Re-Delivery].

@@ -514,6 +514,50 @@ as a start failure.
 
 The failure-mode coverage is the fault matrix of PM-TEST-4 and the scenarios of `SupervisorScenarioTest`.
 
+== Activity, the Signals and the Navigation Figures
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-7[PM-WORK-7]
+
+link:{src}/ActivityEventMapper.java[`ActivityEventMapper`] maps one line of the worker's output stream onto the closed
+activity kinds through the profile's `headless.events` projection (`core.queue.ActivityEventMapping`, projected by
+`launch.HeadlessBlock`). It reads only the declared pointers: the tool's name and its target, never its arguments, and
+the size and failure of a tool result, never its content. A line that matches no mapping is counted, never shown.
+
+link:{src}/WorkerActivityPump.java[`WorkerActivityPump`] drives the reading while the worker runs: it keeps the byte
+offset of the worker's `JobLog`, maps the complete lines the log gained, appends each through the recorder, and appends
+the `attempt_end` entry with the count of unmatched lines when the attempt ends
+(link:../adr/runtime-worker/011-the-stream-reader-is-a-pump-over-the-job-log.adoc[ADR 011]).
+
+link:{src}/ActivityRecorder.java[`ActivityRecorder`] is the harness-side write path into the journal of the task's
+scope: the journal hands it the attempt's entries inside its own transaction, it evaluates the off-track signals there,
+and it reports each to `WorkerProtocol.offTrack` after the lock (the task protocol writes its own server entries,
+including the `signal` entry) (link:../adr/runtime-worker/010-the-activity-recorder-evaluates-signals-at-the-entry.adoc[ADR
+010]).
+
+link:{src}/OffTrackDetector.java[`OffTrackDetector`] computes the four activity signals from the journal:
+
+[cols="1,3"]
+|===
+|Signal |Measured from
+
+|`repeating` |The longest run of one tool call with one target; a write of the target or a failed result ends the run.
+|`no_progress` |The turns since the last link of the task, or since the attempt began.
+|`over_size` |The `total_tokens` of the attempt's turns over the plan task's `predicted_cost_tokens`.
+|`outside_footprint` |The unplanned changed files the task's records report for the current plan task.
+|===
+
+The threshold is the compiled one of `core.role.RoleArtifact.OffTrackSignal`, which the role artifact may lower and never
+raise; the action is the artifact's, `show` when it names none. A signal already on the attempt's record, or already
+reported by the recorder for that attempt, is not raised again. A signal whose value cannot be measured is not
+evaluated: `over_size` without a predicted cost and `outside_footprint` outside an envelope task are absent, never zero.
+
+`WorkerTaskActivity` is the boundary that supplies the attempt, the role and the two plan-task figures; the assembly
+adapts it from the queue record and the envelope. The runtime reads neither.
+
+`core.queue.NavigationFigures` derives the four navigation figures and the per-skill residency from the same journal,
+beside the tokens; the figures are evidence, never a limit
+(link:../../../pm-core/doc/developer/core-queue.adoc[`core.queue`]).
+
 == Specification Tracing
 
 _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3], link:{req}/01-architecture.adoc#PM-ARCH-8[PM-ARCH-8],

@@ -287,6 +287,32 @@ class TaskProtocolReOfferTest {
     }
 
     @Test
+    @DisplayName("an agent_started detection is journalled with the action restart")
+    void agentStartedJournalled(@TempDir Path base) {
+        var locks = new TestLocks();
+        var queue = QueueStore.ofProject(base, "project-a", locks);
+        queue.create(TaskFixtures.queued("qt-0000000000000001", TaskFixtures.ROLE).build());
+        var protocol = TaskProtocol.builder(queue, locks)
+                .journal(scope -> ActivityJournal.ofScope(base, "project-a", scope, locks))
+                .build();
+        var offered = TaskFixtures.task(protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION),
+                TaskFixtures.AT));
+        protocol.acknowledge(TaskFixtures.call(offered), TaskFixtures.AT.plusSeconds(1));
+        var event = new SecurityAudit.Event("/usr/local/bin/opencode", TaskFixtures.GENERATION,
+                offered.queueTaskId(), 1, TaskFixtures.AT.plusSeconds(2));
+
+        protocol.agentStarted(TaskFixtures.call(offered), event, 3);
+
+        var entries = ActivityJournal.ofScope(base, "project-a", TaskFixtures.planScope(), locks)
+                .entries("qt-0000000000000001");
+        assertAll(
+                () -> assertEquals(1, entries.size()),
+                () -> assertEquals(ActivityEntry.Kind.SIGNAL, entries.getFirst().kind()),
+                () -> assertEquals(SignalName.AGENT_STARTED, entries.getFirst().signal().signal()),
+                () -> assertEquals(SignalAction.RESTART, entries.getFirst().signal().action()));
+    }
+
+    @Test
     @DisplayName("a task whose next attempt exhausts the budget closes lost attempts_spent")
     void budgetSpent(@TempDir Path base) {
         var harness = harness(base);
