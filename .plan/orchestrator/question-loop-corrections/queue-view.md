@@ -4,17 +4,18 @@
 
 ## START HERE
 
-**Resume anchor**: PLAN-01 and PLAN-02 launched 2026-10-27 in the runbook lane (operator started both). NEXT: wait for their landings, then run /plan-orchestrator analyze for each; record running only on the operator's word. PLAN-03 waits for the landing of PLAN-01 and PLAN-02, the operator's run budget and the data-home decision. At the landing of PLAN-02 re-check what of question-continuation remains after #201, and whether a package for the Milestone 14 OpenCode 2.x items exists.
+**Resume anchor**: PLAN-01 and PLAN-02 running in the runbook lane (operator confirmed 2026-10-27). NEXT: wait for their landings, then run /plan-orchestrator analyze for each. PLAN-03 waits for the landing of PLAN-01 and PLAN-02, the operator's run budget and the data-home decision. At the landing of PLAN-02 re-check what of question-continuation remains after #201, and whether a package for the Milestone 14 OpenCode 2.x items exists.
 **Phase**: orchestrating
+**Running**:
+- PLAN-01 (WS-01)
+- PLAN-02 (WS-02)
 **Queue** (staged, in order):
 1. PLAN-03 (WS-02)
-- PLAN-01 (WS-01) — status: launched
-- PLAN-02 (WS-02) — status: launched
 
 ## Ordered Queue
 
 | # | Plan | Workstream | Status | Surface (expected) | Lane |
 |---|------|------------|--------|--------------------|------|
-| 1 | PLAN-01 | WS-01 | launched | ../plan-marshall-documentation/doc/developer/question-loop-experiment.adoc; ../plan-marshall-documentation/doc/discussions/open-questions.adoc; ../plan-marshall-documentation/doc/specification/evaluation.adoc; doc/specification/client-profiles/01-profile-schema.adoc; doc/specification/client-profiles/02-placeholders.adoc; doc/specification/model-work/01-roles-and-configuration.adoc; doc/specification/model-work/06-envelopes-questions-deadlines.adoc | runbook |
-| 2 | PLAN-02 | WS-02 | launched | ../plan-marshall-mcp/doc/plans/README.adoc; ../plan-marshall-mcp/doc/plans/question-loop-follow-up.adoc; doc/plans/; doc/plans/README.adoc; doc/plans/question-continuation.adoc | runbook |
+| 1 | PLAN-01 | WS-01 | running | ../plan-marshall-documentation/doc/developer/question-loop-experiment.adoc; ../plan-marshall-documentation/doc/discussions/open-questions.adoc; ../plan-marshall-documentation/doc/specification/evaluation.adoc; doc/specification/client-profiles/01-profile-schema.adoc; doc/specification/client-profiles/02-placeholders.adoc; doc/specification/model-work/01-roles-and-configuration.adoc; doc/specification/model-work/06-envelopes-questions-deadlines.adoc | runbook |
+| 2 | PLAN-02 | WS-02 | running | ../plan-marshall-mcp/doc/plans/README.adoc; ../plan-marshall-mcp/doc/plans/question-loop-follow-up.adoc; doc/plans/; doc/plans/README.adoc; doc/plans/question-continuation.adoc | runbook |
 | 3 | PLAN-03 | WS-02 | staged | ../plan-marshall-documentation/doc/specification/evaluation.adoc; ../plan-marshall-mcp/doc/plans/question-loop-follow-up.adoc; ../plan-marshall-mcp/pm-e2e/src/test/java/de/planmarshall/e2e/; doc/specification/client-profiles/01-profile-schema.adoc; doc/specification/model-work/01-roles-and-configuration.adoc | plan-marshall |
