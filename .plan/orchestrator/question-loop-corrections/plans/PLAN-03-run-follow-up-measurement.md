@@ -38,6 +38,12 @@ evidence store.
 - Launched only on the operator's word, after PLAN-02 and PLAN-01 have landed and the operator accepted the run budget
   the package states.
 - The criteria are fixed before the first measured run and not changed by it.
+- OpenCode runs use the configuration the package names (the inline settings of the profile, with the unset defaults as
+  control only where the package says so), and the effect of each setting is checked before the first measured run, never
+  its acceptance (`PM-WATCH-CLIENT-17`).
+- The per-worker data home of an OpenCode 2.x worker follows the operator's decision on the open question
+  `opencode-worker-login`, recorded in the package; without one, OpenCode runs serially on the operator's data home and
+  every result says so.
 - Evidence is never kept only in a worktree: before the plan's worktree is removed, the evidence store holds every run.
 - Every figure comes from the stub's event log, the relay's host-side log and the worker's output, never from what a
   model reports about itself.
@@ -52,6 +58,10 @@ evidence store.
   `pm-e2e/src/test/java/de/planmarshall/e2e/experiment/question/`).
 - HYPOTHESIS: the Expected Surface below is the package's `Where` as of `a3f3a28`; PLAN-02 may move the engine's part
   into a package here — confirm at the package file after PLAN-02 landed (verify-at-outline).
+- OBSERVED: the OpenCode 2.x profile and its inline settings are specified (core #206, `plan-marshall-documentation`
+  #125) with values provisional until verified, and Roadmap Milestone 14 holds the items that verify and ship them; no
+  package of `doc/plans/` carries those items (2026-10-27). The settled `headless.resumability` of OpenCode therefore
+  lands in the evaluation reference and, once the profile that ships `>=2.1.0 <3.0.0` is on `main`, in that profile.
 - Verify-first clause: before scoping, read the package file and both indexes at `origin/main` of `plan-marshall-mcp`
   and this repository; if PLAN-02 has not landed, stop and report in the inbox message.
 
@@ -67,7 +77,10 @@ evidence store.
 
 - Depends on: PLAN-02 (the package it implements), PLAN-01 (the corrected evaluation rows it extends).
 - Overlaps with: PLAN-01 on Client Profiles 01 and Model Work 01 — sequenced after it.
-- Adjacent to: PLAN-73 of `pm-mcp-core-m2-m4` (`question-continuation`), which waits for this plan's values.
+- Also waits for: the operator's decision on `opencode-worker-login`, which PLAN-02 records in the package, or the
+  recorded choice to run OpenCode serially on the operator's data home.
+- Adjacent to: PLAN-73 of `pm-mcp-core-m2-m4` shipped the library core of `question-continuation` (#201); the rest of
+  that package waits for this plan's values.
 
 ## Hand-Off Command
 

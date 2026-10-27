@@ -33,7 +33,8 @@ when the three plans have landed and the roadmap item of Milestone 4 can be chec
   `doc/specification/evaluation.adoc`, `doc/developer/question-loop-experiment.adoc` and
   `doc/discussions/open-questions.adoc`; disjoint from PLAN-02.
 - PLAN-02 — touches `doc/plans/` here and `doc/plans/` of `plan-marshall-mcp`; disjoint from PLAN-01. Its change to
-  `doc/plans/question-continuation.adoc` concerns PLAN-73 of the sibling epic `pm-mcp-core-m2-m4` (see Watches).
+  `doc/plans/question-continuation.adoc` concerns PLAN-73 of the sibling epic `pm-mcp-core-m2-m4`, shipped as #201 (see
+  Watches). Its sixth deliverable follows the OpenCode 2.x worker of #206 and documentation #125.
 - PLAN-03 — runs in `plan-marshall-mcp` (the package `question-loop-follow-up` as PLAN-02 leaves it); its surface lies
   outside this repository, so the gate reads it as indeterminate and sequences it. It is launched by the operator's word
   after PLAN-02 has landed and the operator accepted the run budget the package asks for.
@@ -48,6 +49,17 @@ when the three plans have landed and the roadmap item of Milestone 4 can be chec
   package revision, then the re-measurement). The re-measurement stays a separate plan because it needs an operator run
   budget and runs in another repository.
 - 2026-10-27 — Parallelization scope 2 (operator).
+- 2026-10-27 — Two specification changes landed after decompose and were incorporated into the three plan specs before
+  the plans were emitted: `pm-mcp-core` #206 (the profile member `headless.inline_settings` and the OpenCode 2.x worker,
+  values provisional until verified) and `plan-marshall-documentation` #125 (`PM-CLIENT-2`, Roadmap Milestone 14, the open
+  questions `opencode-worker-login` and `opencode-event-source`). Effect: PLAN-01 names, among the limits, that the OpenCode
+  runs had no inline settings, and adds its open questions beside the two new ones; PLAN-02 gains a sixth deliverable (the
+  follow-up package states the configuration of its OpenCode runs with the unset defaults as matched control, hands the
+  2.x profile to Milestone 14, records a decision on the data home, and takes `inline_settings` as the form of a schema
+  addition); PLAN-03 carries those as constraints and waits also on the data-home decision. No Expected Surface changed.
+  Also found while reading: `question-continuation` is partly built (PLAN-73 shipped as #201, library core), which the
+  PLAN-01 and PLAN-02 specs had read as staged. The decision on the control runs, the data home and the 2.x profile owner
+  is left to the operator at refine, as the specs say.
 - 2026-10-27 — The `pm-mcp-core` executor in the main checkout was stale (0.1.1924 against the registry's 0.1.2017) and
   was regenerated from the plugin cache before scaffolding; the old file is kept in the session scratchpad. The shared
   ledger worktree was fast-forwarded from #78 to `origin/main` (#195), with no pending paths.
@@ -66,5 +78,9 @@ when the three plans have landed and the roadmap item of Milestone 4 can be chec
   that epic's inbox on 2026-10-27. On the same day the operator reported #73 landed; the ledger shows it `shipped` as
   #201, titled "partial: library core". — re-check at the landing of PLAN-02, which makes the package depend on
   `question-loop-follow-up`, what of `question-continuation` remains and which values it implemented.
+- The OpenCode 2.x items of Roadmap Milestone 14 (verify and ship the 2.x profile; implement and set the inline
+  settings) have no package in `doc/plans/` of this repository. PLAN-02 names them as owners and creates none; PLAN-03's
+  OpenCode values reach the profile only once a package ships it. — re-check at the landing of PLAN-02 whether a package
+  exists, and tell the operator if not.
 - Resolved 2026-10-27: the local main checkout of `plan-marshall-mcp` pulled #107 and #108 and is level with
   `origin/main` (`3b93248`).
