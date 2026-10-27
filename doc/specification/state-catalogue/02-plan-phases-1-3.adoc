@@ -173,7 +173,7 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |`phase-3-outline`
 |`job`
 |The change-type detection of the same lane (`ambiguous`).
-|`job llm change-type role classify`: the entity submits `submit:change-type` (`change_type` enum, `rationale:text[1..500]`); skill `pm/outline/detect-change-type`. The return evaluation writes `change_type` and returns `classified`.
+|`job llm change-type role classify`: the entity submits `submit:change-type` (`change_type` enum, `rationale:text[1..500]`); skill `pm/outline/detect-change-type`. A `zero_tool` role receives the rendered clarified request in-band (link:../model-work/01-roles-and-configuration.adoc#closed-task-in-band[Model Work Specification, A Closed Task without Tools]); one that does not fit closes the task `input_too_large`, and the change type is assumed. The return evaluation writes `change_type` and returns `classified`.
 |`outline.classify-change-type`: `classified` -> `outline.deep`; `infeasible`, `lost` -> `outline.assume-change-type`. `outline.light-classify-change-type`: `classified` -> `outline.light`; `infeasible`, `lost` -> `outline.light-assume-change-type`.
 |link:../phase-workflows/03-q-gate-and-execute.adoc#_single_writer_heuristic_vs_judgment_fallback[Phase Workflows Specification, Judgment Fallback]
 
