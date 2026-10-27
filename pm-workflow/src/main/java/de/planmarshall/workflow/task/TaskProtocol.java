@@ -19,6 +19,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -297,7 +298,8 @@ public final class TaskProtocol {
         }
         answers.keySet().removeIf(id -> records.stream().noneMatch(task ->
                 task.queueTaskId().equals(id)
-                        && (task.status() == Status.AWAITING_ANSWER || task.status() == Status.SUSPENDED)));
+                        && (task.status() == Status.AWAITING_ANSWER || task.status() == Status.SUSPENDED
+                        || task.status() == Status.OFFERED && task.continuation() != null)));
     }
 
     /** Consultation tasks first, then work tasks in creation order. */
@@ -473,26 +475,54 @@ public final class TaskProtocol {
      * @return the task the answer was delivered to, or empty when no holding or suspended task asked that question
      */
     public Optional<QueueTaskRecord> answer(String questionId, Answers answers, Instant at) {
+        return answer(null, questionId, answers, at);
+    }
+
+    /**
+     * Delivers the answer of a closed question to the task of one scope that asked it. One project queue serves several
+     * plan and epic scopes, and a question id is unique only within its scope, so a caller that knows the scope names it;
+     * without a scope the answer is delivered only when exactly one open task of the queue holds that question.
+     *
+     * @param scope      the scope of the question, or {@code null} when the caller does not know it
+     * @param questionId the closed question
+     * @param answers    the answer's items, one per answered part
+     * @param at         the instant of the delivery
+     * @return the task the answer was delivered to, or empty when no open task, or more than one, holds that question
+     */
+    public Optional<QueueTaskRecord> answer(QueueTaskRecord.Scope scope, String questionId, Answers answers,
+            Instant at) {
         Objects.requireNonNull(questionId, "questionId");
         Objects.requireNonNull(answers, "answers");
         Objects.requireNonNull(at, "at");
         var target = new AtomicReference<QueueTaskRecord>();
+        var ambiguous = new AtomicBoolean();
         queue.updateAll(records -> {
-            for (var task : records) {
-                var continuation = task.continuation();
-                if (continuation == null || !continuation.questionId().equals(questionId)) {
-                    continue;
-                }
-                if (task.status() != Status.AWAITING_ANSWER && task.status() != Status.SUSPENDED) {
-                    continue;
-                }
+            var candidates = records.stream()
+                    .filter(task -> scope == null || task.scope().equals(scope))
+                    .filter(task -> holdsQuestion(task, questionId))
+                    .toList();
+            if (candidates.size() > 1) {
+                ambiguous.set(true);
+                return records;
+            }
+            if (candidates.size() == 1) {
+                var task = candidates.getFirst();
                 this.answers.put(task.queueTaskId(), new DeliveredAnswer(answers, at));
                 target.set(task);
-                break;
             }
             return records;
         });
+        if (ambiguous.get()) {
+            return Optional.empty();
+        }
         return Optional.ofNullable(target.get());
+    }
+
+    private static boolean holdsQuestion(QueueTaskRecord task, String questionId) {
+        var continuation = task.continuation();
+        return continuation != null
+                && continuation.questionId().equals(questionId)
+                && (task.status() == Status.AWAITING_ANSWER || task.status() == Status.SUSPENDED);
     }
 
     /**
@@ -568,14 +598,14 @@ public final class TaskProtocol {
     }
 
     /**
-     * Falls a suspended continuation back, for the server, which holds no lease of it: the stored session is dropped
-     * because its worktree head, its configuration digest, its harness version or the session itself no longer fits
-     * (Model Work § Resume refused), the task closes {@code asked} and the next task carries the answer.
+     * Falls a continuation that holds no lease back, for the server: the stored session is dropped because its worktree
+     * head, its configuration digest, its harness version or the session itself no longer fits (Model Work § Resume
+     * refused), or because the hold's limit passed; the task closes {@code asked} and the next task carries the answer.
      *
-     * @param queueTaskId the suspended task
+     * @param queueTaskId the holding or suspended task
      * @param reason      why the continuation fell back
      * @param at          the instant of the fallback
-     * @return the closed task, empty when the task is not a suspended continuation
+     * @return the closed task, empty when the task is not a continuation the server may end
      */
     public Optional<QueueTaskRecord> fallback(String queueTaskId, FallbackReason reason, Instant at) {
         Objects.requireNonNull(queueTaskId, "queueTaskId");
@@ -585,8 +615,7 @@ public final class TaskProtocol {
         queue.updateAll(records -> {
             var after = new ArrayList<QueueTaskRecord>(records.size());
             for (var task : records) {
-                if (task.queueTaskId().equals(queueTaskId) && task.status() == Status.SUSPENDED
-                        && canFallBack(task)) {
+                if (task.queueTaskId().equals(queueTaskId) && canFallBack(task)) {
                     var settled = applyFallback(task, reason, at);
                     closed.set(settled);
                     after.add(settled);
@@ -632,11 +661,17 @@ public final class TaskProtocol {
     public CallResult suspend(TaskCall call, Continuation continuation, Instant at) {
         Objects.requireNonNull(continuation, "continuation");
         Objects.requireNonNull(at, "at");
-        return onLeasedTask(call, task -> new CallResult.Accepted(task
-                .withAttempts(ended(task.attempts(), AttemptEnd.SUSPENDED, at))
-                .withLease(null)
-                .withStatus(Status.SUSPENDED)
-                .withContinuation(continuation)));
+        return onLeasedTask(call, task -> {
+            if (task.status() != Status.AWAITING_ANSWER
+                    || continuation.form() != QueueTaskRecord.ContinuationForm.RESUME) {
+                return new CallResult.Refused(TaskRefusal.LINK_NOT_AVAILABLE, task);
+            }
+            return new CallResult.Accepted(task
+                    .withAttempts(ended(task.attempts(), AttemptEnd.SUSPENDED, at))
+                    .withLease(null)
+                    .withStatus(Status.SUSPENDED)
+                    .withContinuation(continuation));
+        });
     }
 
     /**

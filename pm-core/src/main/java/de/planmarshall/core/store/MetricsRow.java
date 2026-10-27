@@ -18,7 +18,6 @@ import java.util.regex.Pattern;
 import lombok.Builder;
 import lombok.With;
 
-import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
 
 /**
@@ -56,8 +55,7 @@ import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
  * @param attemptEnd        how the attempt ended; {@code null} only for a refused task
  * @param continuation      the form of the continuation the row's usage belongs to; {@code null} when the task never
  *                          continued
- * @param causeClass        the cause class of the task
- * @param spendClass        what the tokens were spent on
+ * @param causeClass        the cause class of the task * @param spendClass        what the tokens were spent on
  * @param population        the population of the figures
  * @param usage             the usage figures of the attempt
  * @param durationMs        the measured duration, or {@code null}
@@ -72,7 +70,7 @@ import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
 public record MetricsRow(String queueTaskId, Integer attempt, String role, String jobId, String generationId,
 String harness, String harnessVersion, String model, String effort, Form form, Phase phase, String stepId,
 String envelopeId, PredictedCost predictedCost, YieldReason yieldReason, Outcome outcome, AttemptEnd attemptEnd,
-QueueTaskRecord.ContinuationForm continuation, CauseClass causeClass, SpendClass spendClass, Population population,
+ContinuationMark continuation, CauseClass causeClass, SpendClass spendClass, Population population,
 HarnessUsage usage, Long durationMs, DurationBasis durationBasis, Long queuedMs, String consultationOf,
 Instant recordedAt) {
 
@@ -269,6 +267,39 @@ Instant recordedAt) {
          * @return the value of that name; empty if no value has it
          */
         public static Optional<Population> fromWireName(String wireName) {
+            return Arrays.stream(values()).filter(value -> value.wireName.equals(wireName)).findFirst();
+        }
+    }
+
+    /**
+     * The form of the continuation the row's usage belongs to (Model Work § Continuing after a Question, Accounting).
+     * The vocabulary is declared here, as {@link AttemptEnd} is, because {@code core.queue} depends on {@code core.store}
+     * and not the other way round; {@code ContinuationMarkParityTest} keeps the two equal.
+     *
+     * @since 0.1
+     */
+    public enum ContinuationMark {
+        /** The usage of a holding generation's wake-ups. */
+        HOLD("hold"),
+        /** The usage of a generation started from a stored session. */
+        RESUME("resume");
+
+        private final String wireName;
+
+        ContinuationMark(String wireName) {
+            this.wireName = wireName;
+        }
+
+        /** @return the name of the value in a store */
+        public String wireName() {
+            return wireName;
+        }
+
+        /**
+         * @param wireName the name of a value in a store
+         * @return the value of that name; empty if no value has it
+         */
+        public static Optional<ContinuationMark> fromWireName(String wireName) {
             return Arrays.stream(values()).filter(value -> value.wireName.equals(wireName)).findFirst();
         }
     }

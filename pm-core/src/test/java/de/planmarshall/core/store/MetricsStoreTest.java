@@ -39,7 +39,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.core.profile.JsonDocument;
-import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
 import de.planmarshall.core.store.MetricsRow.CauseClass;
 import de.planmarshall.core.store.MetricsRow.DurationBasis;
@@ -155,14 +154,14 @@ class MetricsStoreTest {
         @DisplayName("round-trips the continuation mark of a hold and of a resume")
         void continuationMark() {
             var marked = row("qt-0123456789abcdef", usage()).toBuilder()
-                    .continuation(QueueTaskRecord.ContinuationForm.RESUME).build();
+                    .continuation(MetricsRow.ContinuationMark.RESUME).build();
 
             append(marked);
 
             var read = store.snapshot().taskRows().getFirst();
             assertAll(
                     () -> assertEquals(marked, read),
-                    () -> assertEquals(QueueTaskRecord.ContinuationForm.RESUME, read.continuation()));
+                    () -> assertEquals(MetricsRow.ContinuationMark.RESUME, read.continuation()));
         }
 
         @Test

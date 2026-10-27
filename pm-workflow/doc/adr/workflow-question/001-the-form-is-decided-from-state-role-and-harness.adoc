@@ -21,9 +21,9 @@ model as a source; the role's bounds are already cut to what the harness's profi
 `QuestionContinuation.decide(AskForm, boolean envelopeTask, RoleArtifact.Questions, Instant)` is a pure function on
 those three inputs. It answers a `Decision` of the form `HOLD`, `RESUME` or `FALLBACK` with the limit in force and, for
 a fallback, one `QueueTaskRecord.FallbackReason`. The order is the specification's: hold while the hold bound lasts,
-then suspend where a resume bound is open, else fall back; `afterHold` decides the transition when a hold expires.
-`continuation(Decision, questionId, at)` builds the queue record's `continuation` member, so the caller never assembles
-the record's nine fields itself.
+then suspend where a resume bound is open, else fall back; `afterHold` decides the transition when a hold expires. The
+caller assembles the queue record's `continuation` member from the decision and the facts it alone holds at the
+suspension (the session id, the configuration digest, the worktree head).
 
 An `ask fresh` state does not continue, except for an envelope task, which the specification lets continue whichever form
 its state declares. A role whose effective bounds are zero — absent `questions`, or no verified harness form — falls

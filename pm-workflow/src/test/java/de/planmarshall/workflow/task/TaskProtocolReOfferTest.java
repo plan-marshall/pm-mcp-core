@@ -221,6 +221,7 @@ class TaskProtocolReOfferTest {
     void suspend(@TempDir Path base) {
         var harness = harness(base);
         var call = acknowledged(harness);
+        harness.protocol().hold(call, TaskFixtures.holdContinuation(), TaskFixtures.AT.plusSeconds(2));
         Continuation continuation = TaskFixtures.continuation();
 
         var suspended = assertInstanceOf(CallResult.Accepted.class,

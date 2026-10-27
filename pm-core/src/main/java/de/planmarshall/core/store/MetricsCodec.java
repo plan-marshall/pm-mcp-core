@@ -41,7 +41,6 @@ import java.util.OptionalLong;
 import java.util.function.Function;
 import lombok.experimental.UtilityClass;
 
-import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
 
 /**
@@ -387,7 +386,7 @@ public class MetricsCodec {
         MetricsRow.YieldReason yieldReason = null;
         MetricsRow.Outcome outcome = null;
         AttemptEnd attemptEnd = null;
-        QueueTaskRecord.ContinuationForm continuation = null;
+        MetricsRow.ContinuationMark continuation = null;
         MetricsRow.CauseClass causeClass = null;
         MetricsRow.SpendClass spendClass = null;
         MetricsRow.Population population = null;
@@ -420,7 +419,7 @@ public class MetricsCodec {
                 case FIELD_OUTCOME -> outcome = enumValue(parser, field, MetricsRow.Outcome::fromWireName);
                 case FIELD_ATTEMPT_END -> attemptEnd = enumValue(parser, field, AttemptEnd::fromWireName);
                 case FIELD_CONTINUATION -> continuation = enumValue(parser, field,
-                        QueueTaskRecord.ContinuationForm::fromWireName);
+                        MetricsRow.ContinuationMark::fromWireName);
                 case FIELD_CAUSE_CLASS -> causeClass = enumValue(parser, field, MetricsRow.CauseClass::fromWireName);
                 case FIELD_SPEND_CLASS -> spendClass = enumValue(parser, field, MetricsRow.SpendClass::fromWireName);
                 case FIELD_POPULATION -> population = enumValue(parser, field, MetricsRow.Population::fromWireName);

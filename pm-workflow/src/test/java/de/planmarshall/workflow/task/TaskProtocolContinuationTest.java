@@ -136,8 +136,9 @@ class TaskProtocolContinuationTest {
         protocol.answer("Q-001", answer(), TaskFixtures.AT.plusSeconds(4));
         var resumed = protocol.wait(TaskFixtures.waitFor(TaskFixtures.SUCCESSOR), TaskFixtures.AT.plusSeconds(5));
         var answered = assertInstanceOf(WaitAnswer.Answered.class, resumed);
+        var stray = protocol.wait(TaskFixtures.waitFor(TaskFixtures.THIRD), TaskFixtures.AT.plusSeconds(6));
         var acknowledged = protocol.acknowledgeAnswer(
-                new TaskCall(answered.task().queueTaskId(), TaskFixtures.SUCCESSOR), TaskFixtures.AT.plusSeconds(6));
+                new TaskCall(answered.task().queueTaskId(), TaskFixtures.SUCCESSOR), TaskFixtures.AT.plusSeconds(7));
 
         assertAll(
                 () -> assertEquals(Status.SUSPENDED, suspended.status()),
@@ -145,6 +146,8 @@ class TaskProtocolContinuationTest {
                 () -> assertEquals(AttemptEnd.SUSPENDED, suspended.currentAttempt().orElseThrow().end()),
                 () -> assertEquals(TaskFixtures.SUCCESSOR, answered.task().lease().generationId()),
                 () -> assertEquals(answer(), answered.answers()),
+                () -> assertEquals(new WaitAnswer.WaitAgain("no_task"), stray,
+                        "a neighbouring wait keeps the answer of the resumed task"),
                 () -> assertEquals(Status.EXECUTING,
                         assertInstanceOf(CallResult.Accepted.class, acknowledged).task().status()),
                 () -> assertEquals(2, assertInstanceOf(CallResult.Accepted.class, acknowledged).task()
@@ -220,6 +223,62 @@ class TaskProtocolContinuationTest {
                 () -> assertEquals(Status.SUSPENDED, afterPause.status()),
                 () -> assertNull(afterPause.lease()),
                 () -> assertEquals(new WaitAnswer.WaitAgain("no_task"), wait));
+    }
+
+    @Test
+    @DisplayName("the server falls back a hold whose limit passed, without a lease")
+    void fallbackOfHold(@TempDir Path base) {
+        var locks = new TestLocks();
+        var queue = QueueStore.ofProject(base, "project-a", locks);
+        queue.create(TaskFixtures.queued(TASK, TaskFixtures.ROLE).build());
+        var protocol = protocol(queue, locks);
+        protocol.hold(TaskFixtures.call(executing(protocol)),
+                continuation(ContinuationForm.HOLD, TaskFixtures.AT.plusSeconds(2)), TaskFixtures.AT.plusSeconds(2));
+
+        var closed = protocol.fallback(TASK, FallbackReason.HOLD_EXPIRED, TaskFixtures.AT.plusSeconds(700));
+
+        assertAll(
+                () -> assertTrue(closed.isPresent()),
+                () -> assertEquals(Outcome.ASKED, closed.orElseThrow().outcome()),
+                () -> assertEquals(FallbackReason.HOLD_EXPIRED,
+                        closed.orElseThrow().continuation().fallbackReason()),
+                () -> assertNull(closed.orElseThrow().lease()));
+    }
+
+    @Test
+    @DisplayName("an answer without a named scope is delivered to nobody while two scopes hold the same question")
+    void answerAmbiguity(@TempDir Path base) {
+        var locks = new TestLocks();
+        var queue = QueueStore.ofProject(base, "project-a", locks);
+        var planA = new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, "plan-a");
+        var planB = new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, "plan-b");
+        queue.create(TaskFixtures.queued(TASK, TaskFixtures.ROLE).scope(planA).build());
+        queue.create(TaskFixtures.queued("qt-0000000000000002", TaskFixtures.ROLE).scope(planB).build());
+        var protocol = protocol(queue, locks);
+        var heldA = ((CallResult.Accepted) protocol.hold(TaskFixtures.call(executing(protocol)),
+                continuation(ContinuationForm.HOLD, TaskFixtures.AT.plusSeconds(2)), TaskFixtures.AT.plusSeconds(2)))
+                .task();
+        var heldB = ((CallResult.Accepted) protocol.hold(
+                TaskFixtures.call(executing(protocol, "qt-0000000000000002", TaskFixtures.SUCCESSOR),
+                        TaskFixtures.SUCCESSOR),
+                continuation(ContinuationForm.HOLD, TaskFixtures.AT.plusSeconds(2)), TaskFixtures.AT.plusSeconds(2)))
+                .task();
+
+        var ambiguous = protocol.answer("Q-001", answer(), TaskFixtures.AT.plusSeconds(4));
+        var scoped = protocol.answer(planB, "Q-001", answer(), TaskFixtures.AT.plusSeconds(4));
+
+        assertAll(
+                () -> assertEquals(Status.AWAITING_ANSWER, heldA.status()),
+                () -> assertEquals(Status.AWAITING_ANSWER, heldB.status()),
+                () -> assertTrue(ambiguous.isEmpty(), "a bare question id names no scope"),
+                () -> assertEquals("qt-0000000000000002", scoped.orElseThrow().queueTaskId()));
+    }
+
+    /** A task of the named id offered to, and acknowledged by, the named generation. */
+    private static QueueTaskRecord executing(TaskProtocol protocol, String queueTaskId, String generation) {
+        var offered = TaskFixtures.task(protocol.wait(TaskFixtures.waitFor(generation), TaskFixtures.AT));
+        return ((CallResult.Accepted) protocol.acknowledge(TaskFixtures.call(offered, generation),
+                TaskFixtures.AT.plusSeconds(1))).task();
     }
 
     @Test

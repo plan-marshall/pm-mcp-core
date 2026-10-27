@@ -89,9 +89,9 @@ String text, Kind kind) {
         if (planTaskId != null && !TASK_ID.matcher(planTaskId).matches()) {
             throw new IllegalArgumentException("Not a plan task id: " + planTaskId);
         }
-        requireText(questionText, "question_text", 8000);
+        requireText(questionText, "question_text", 500);
         requireBranchKey(branchKey);
-        requireText(label, "label", 500);
+        requireText(label, "label", 2000);
         if (text != null && text.codePointCount(0, text.length()) > 6000) {
             throw new IllegalArgumentException("'text' has at most 6000 characters");
         }

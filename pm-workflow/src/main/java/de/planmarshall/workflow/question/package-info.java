@@ -8,7 +8,9 @@
  * the root of this repository.
  */
 /**
- * The question records, their adjudication and their deadlines.
+ * The server's decision whether a task continues after its question and the bound on the {@code ask} link: the form
+ * (hold, resume or fallback) from the state, the role and the harness, and at most three questions per state entry and
+ * per plan task. The question records themselves live in {@code core.store}.
  * <p>
  * Specification:
  * <ul>
