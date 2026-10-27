@@ -39,6 +39,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.core.profile.JsonDocument;
+import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
 import de.planmarshall.core.store.MetricsRow.CauseClass;
 import de.planmarshall.core.store.MetricsRow.DurationBasis;
@@ -81,7 +82,8 @@ class MetricsStoreTest {
                 .generationId(JOB_ID).harness("opencode").harnessVersion("1.2.3").model("deepseek-v4.1-flash")
                 .effort("high").form(Form.FRESH).phase(Phase.PHASE_5_EXECUTE).stepId("step-1").envelopeId(null)
                 .predictedCost(null).yieldReason(null).outcome(Outcome.SUBMITTED).attemptEnd(AttemptEnd.CLOSED)
-                .causeClass(CauseClass.BENIGN).spendClass(SpendClass.SUBMITTED).population(Population.MODEL_JOB)
+                .continuation(null).causeClass(CauseClass.BENIGN).spendClass(SpendClass.SUBMITTED)
+                .population(Population.MODEL_JOB)
                 .usage(usage).durationMs(1_000L).durationBasis(DurationBasis.PROCESS).queuedMs(0L)
                 .consultationOf(null).recordedAt(RECORDED_AT).build();
     }
@@ -147,6 +149,20 @@ class MetricsStoreTest {
                     () -> assertEquals(Measurement.measured(7), read.usage().toolUses()),
                     () -> assertEquals(OptionalLong.of(7490), read.totalTokens()),
                     () -> assertEquals(AttemptEnd.CLOSED, read.attemptEnd()));
+        }
+
+        @Test
+        @DisplayName("round-trips the continuation mark of a hold and of a resume")
+        void continuationMark() {
+            var marked = row("qt-0123456789abcdef", usage()).toBuilder()
+                    .continuation(QueueTaskRecord.ContinuationForm.RESUME).build();
+
+            append(marked);
+
+            var read = store.snapshot().taskRows().getFirst();
+            assertAll(
+                    () -> assertEquals(marked, read),
+                    () -> assertEquals(QueueTaskRecord.ContinuationForm.RESUME, read.continuation()));
         }
 
         @Test
@@ -398,7 +414,7 @@ class MetricsStoreTest {
                      "role":"writer","job_id":"l-0123456789abcdef","generation_id":"l-0123456789abcdef",
                      "harness":"opencode","harness_version":"1.2.3","model":"m","effort":null,"form":"fresh",
                      "phase":"phase-5-execute","step_id":null,"envelope_id":null,"predicted_cost":null,
-                     "yield_reason":null,"outcome":"submitted","attempt_end":"closed","cause_class":"benign",
+                     "yield_reason":null,"outcome":"submitted","attempt_end":"closed","continuation":null,"cause_class":"benign",
                      "spend_class":"submitted","population":"model_job","total_tokens":9,
                      "input_tokens":1,"output_tokens":1,"cache_read_input_tokens":"not_applicable",
                      "cache_creation_input_tokens":"not_applicable","reasoning_tokens":"not_applicable",
@@ -418,7 +434,7 @@ class MetricsStoreTest {
                      "role":"writer","job_id":"l-0123456789abcdef","generation_id":"l-0123456789abcdef",
                      "harness":"opencode","harness_version":"1.2.3","model":"m","effort":null,"form":"fresh",
                      "phase":"phase-5-execute","step_id":null,"envelope_id":null,"predicted_cost":null,
-                     "yield_reason":null,"outcome":"submitted","attempt_end":"closed","cause_class":"benign",
+                     "yield_reason":null,"outcome":"submitted","attempt_end":"closed","continuation":null,"cause_class":"benign",
                      "spend_class":"submitted","population":"model_job","total_tokens":2,
                      "input_tokens":1,"output_tokens":1,"cache_read_input_tokens":"not_applicable",
                      "cache_creation_input_tokens":"not_applicable","reasoning_tokens":"not_applicable",
@@ -484,7 +500,7 @@ class MetricsStoreTest {
                      "role":"writer","job_id":"l-0123456789abcdef","generation_id":"l-0123456789abcdef",
                      "harness":"opencode","harness_version":"1.2.3","model":"m","effort":null,"form":"fresh",
                      "phase":"phase-5-execute","step_id":null,"envelope_id":null,"predicted_cost":null,
-                     "yield_reason":null,"outcome":null,"attempt_end":"closed","cause_class":"benign",
+                     "yield_reason":null,"outcome":null,"attempt_end":"closed","continuation":null,"cause_class":"benign",
                      "spend_class":"submitted","population":"model_job","total_tokens":2,
                      "input_tokens":1,"output_tokens":1,"cache_read_input_tokens":"not_applicable",
                      "cache_creation_input_tokens":"not_applicable","reasoning_tokens":"not_applicable",

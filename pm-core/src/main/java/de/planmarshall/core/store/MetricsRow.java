@@ -18,6 +18,7 @@ import java.util.regex.Pattern;
 import lombok.Builder;
 import lombok.With;
 
+import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
 
 /**
@@ -53,6 +54,8 @@ import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
  * @param yieldReason       the early-end exit of an envelope task, or {@code null}
  * @param outcome           the outcome of the task
  * @param attemptEnd        how the attempt ended; {@code null} only for a refused task
+ * @param continuation      the form of the continuation the row's usage belongs to; {@code null} when the task never
+ *                          continued
  * @param causeClass        the cause class of the task
  * @param spendClass        what the tokens were spent on
  * @param population        the population of the figures
@@ -69,8 +72,9 @@ import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
 public record MetricsRow(String queueTaskId, Integer attempt, String role, String jobId, String generationId,
 String harness, String harnessVersion, String model, String effort, Form form, Phase phase, String stepId,
 String envelopeId, PredictedCost predictedCost, YieldReason yieldReason, Outcome outcome, AttemptEnd attemptEnd,
-CauseClass causeClass, SpendClass spendClass, Population population, HarnessUsage usage, Long durationMs,
-DurationBasis durationBasis, Long queuedMs, String consultationOf, Instant recordedAt) {
+QueueTaskRecord.ContinuationForm continuation, CauseClass causeClass, SpendClass spendClass, Population population,
+HarnessUsage usage, Long durationMs, DurationBasis durationBasis, Long queuedMs, String consultationOf,
+Instant recordedAt) {
 
     /** The kind of every row this record writes. */
     public static final String KIND = "task";
