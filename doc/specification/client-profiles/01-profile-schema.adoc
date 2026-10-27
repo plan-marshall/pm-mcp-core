@@ -738,7 +738,7 @@ A setting the harness does not apply is not a setting: the verification checks t
 |Not measured.
 |===
 
-No value of this table is settled until the stage `resumability` measures it (<<profile-verification>>). `max_hold_seconds` and `max_age_seconds` are `3600` because 3,600 s is the schema's upper bound for a hold and no longer age is run; whether a resume of a missing session that starts a new session and exits `0` is a refused resume is an open question (link:../../../../plan-marshall-documentation/doc/discussions/open-questions.adoc#refused-resume[Open Questions, A Resume That Starts a New Session]).
+No value of this table is a measured one: a form the stage `resumability` did not measure is `false` or `null`, so the shipped profiles declare no `max_hold_seconds` and no `resume` limit. Whether a resume of a missing session that starts a new session and exits `0` is a refused resume is an open question (link:../../../../plan-marshall-documentation/doc/discussions/open-questions.adoc#refused-resume[Open Questions, A Resume of a Missing Session That Starts a New Session]).
 
 *No harness credentials*: `PM-MCP` never stores or exports a harness's authentication, and a profile declares no authentication variable. The harness CLI must already be logged in by its own login, cached under its home; a harness that is not logged in fails its worker's start (link:../model-work/03-supervision-and-recycling.adoc[Model Work Specification, start failures]).
 
