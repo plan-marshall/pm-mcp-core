@@ -87,13 +87,13 @@ Vocabulary skill templates (`SKILL.md`), the launch prompts of workers, and the 
 |`question` is withheld by the worker's agent, which denies every tool it does not name (`"*": false`); measured on OpenCode 2.1.x.
 
 |`antigravity`
-|`ask_question` cannot be withheld: a worker runs with all its host tools. The workers did not call it in 36 runs; the skill's instruction not to use it is the only measure on this harness.
+|`ask_question` cannot be withheld: a worker runs with all its host tools. Its output carries no tool call, so a call of `ask_question` is not observable in it; the skill's instruction not to use it is the only measure on this harness.
 
 |`codex`
 |Not measured.
 |===
 
-No host's question tool was called in any run, so what such a tool does in a headless worker was not observed.
+No host's question tool was seen to be called in any run, and a call of Antigravity's question tool was not observable, so what such a tool does in a headless worker was not observed.
 
 `pm_skill` takes no scope argument: the job record of the worker's connection gives the project and its enabled domains (link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/02-service-and-skill-tools.adoc[MCP Tools Specification, Service & Skill Tools]).
 
