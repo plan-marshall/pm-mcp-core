@@ -49,7 +49,7 @@ class WorkflowLexerTest {
         @Test
         @DisplayName("drops a comment to the end of its line and leaves out blank and comment-only lines")
         void dropsComments() {
-            var source = "# a leading comment\n\nstate demo.begin # trailing words\n   \t\n    phase init\n";
+            var source = "# a leading comment\n\nstate demo.begin # trailing words\n   \t\n";
 
             var lines = WorkflowLexer.tokenize(source);
 

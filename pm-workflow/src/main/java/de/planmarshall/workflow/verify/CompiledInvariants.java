@@ -389,8 +389,9 @@ public final class CompiledInvariants {
             defaults.forEach(catalog::putIfAbsent);
             callable.forEach(definition -> catalog.putIfAbsent(definition.id(), definition));
             catalog.put(unit.id(), unit);
-            this.expansion = CallGraphExpansion.of(unit, catalog);
-            this.referenceExpansion = CallGraphExpansion.of(reference, catalog);
+            this.expansion = expands(unit.id()) ? CallGraphExpansion.of(unit, catalog) : CallGraphExpansion.single(unit);
+            this.referenceExpansion = expands(reference.id()) ? CallGraphExpansion.of(reference, catalog)
+                    : CallGraphExpansion.single(reference);
             this.graph = expansion.graph();
             this.referenceGraph = referenceExpansion.graph();
             this.rules = rules;
@@ -399,6 +400,10 @@ public final class CompiledInvariants {
             this.defaultRoster = defaultRoster;
             this.subject = subject;
             this.lane = lane;
+        }
+
+        private static boolean expands(String unitId) {
+            return Phase.PLAN_UNIT.equals(unitId);
         }
 
         /**
@@ -476,11 +481,27 @@ public final class CompiledInvariants {
         }
 
         /**
+         * @param stateId the identifier of a state the unit under check declares itself
+         * @return the state, when the unit declares it
+         */
+        Optional<StateNode> ownState(String stateId) {
+            return Optional.ofNullable(unit.states().get(stateId));
+        }
+
+        /**
          * @param stateId the identifier of a state of the reference's expansion
          * @return the state of the default unit or of a sub-workflow it reaches
          */
         Optional<StateNode> referenceState(String stateId) {
             return Optional.ofNullable(referenceExpansion.states().get(stateId));
+        }
+
+        /**
+         * @param stateId the identifier of a state the default unit declares itself
+         * @return the state, when the default unit declares it
+         */
+        Optional<StateNode> referenceOwnState(String stateId) {
+            return Optional.ofNullable(reference.states().get(stateId));
         }
 
         /** @return every state of the expansion, the unit under check first, then its callees in discovery order */

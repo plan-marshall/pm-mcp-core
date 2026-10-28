@@ -199,7 +199,6 @@ class RegistriesAndRecordsTest {
                 start entry
 
                 state entry terminal done success
-                    phase verify
                 """);
         var catalog = WorkflowCatalog.of(unit);
         assertAll(

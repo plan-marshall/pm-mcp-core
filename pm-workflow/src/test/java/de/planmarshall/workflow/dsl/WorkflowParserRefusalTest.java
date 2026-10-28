@@ -90,7 +90,7 @@ class WorkflowParserRefusalTest {
     /** A unit whose header line after the unit header is the given instance line. */
     private static String withInstance(String instanceLine) {
         return frontmatter(UnitType.INSTANCE) + lines(HEADER, instanceLine, "scope plan", "start demo.end",
-                "state demo.end terminal done success", "phase init");
+                "state demo.end terminal done success");
     }
 
     /** A unit whose instance header carries the given members. */
@@ -106,7 +106,7 @@ class WorkflowParserRefusalTest {
     /** A unit of the scope whose header lines from line 3 on are the given lines. */
     private static String withHeaderLines(String scope, String... headerLines) {
         return frontmatter(typeOf(scope)) + lines(HEADER, "scope " + scope) + lines(headerLines)
-                + lines("start demo.end", "state demo.end terminal done success", "phase inherit");
+                + lines("start demo.end", "state demo.end terminal done success");
     }
 
     /** A unit whose states from line 4 on are the given lines. */
@@ -402,22 +402,20 @@ class WorkflowParserRefusalTest {
                     refusal("quorum not closed", RefusalRule.STRUCTURE, 3,
                             withHeaderLines("entity", "decide approach -> quorum(architect, 60")),
                     refusal("neither start nor entry binding", RefusalRule.STRUCTURE, 3,
-                            unit(HEADER, "scope plan", "state demo.end terminal done success", "phase init")),
+                            unit(HEADER, "scope plan", "state demo.end terminal done success")),
                     refusal("bare start", RefusalRule.STRUCTURE, 3, unit(HEADER, "scope plan", "start")),
                     refusal("unit ends after start", RefusalRule.STRUCTURE, 3,
                             unit(HEADER, "scope plan", "start demo.end")),
                     refusal("migrate without arrow", RefusalRule.STRUCTURE, 4, unit(HEADER, "scope plan",
-                            "start demo.end", "migrate demo.old demo.end", "state demo.end terminal done success",
-                            "phase init")),
+                            "start demo.end", "migrate demo.old demo.end", "state demo.end terminal done success")),
                     refusal("entry binding after start", RefusalRule.STRUCTURE, 4, unit(HEADER, "scope subworkflow",
-                            "start demo.end", "entry main -> demo.end", "state demo.end terminal done success",
-                            "phase inherit")),
+                            "start demo.end", "entry main -> demo.end", "state demo.end terminal done success")),
                     refusal("start after an entry binding", RefusalRule.STRUCTURE, 4, unit(HEADER,
                             "scope subworkflow", "entry main -> demo.end", "start demo.end",
-                            "state demo.end terminal done success", "phase inherit")),
+                            "state demo.end terminal done success")),
                     refusal("entry bound twice", RefusalRule.DUPLICATE_ID, 4, unit(HEADER, "scope subworkflow",
-                            "entry main -> demo.end", "entry main -> demo.other", "state demo.end terminal done success",
-                            "phase inherit")),
+                            "entry main -> demo.end", "entry main -> demo.other",
+                            "state demo.end terminal done success")),
                     refusal("bare entry binding", RefusalRule.STRUCTURE, 3, unit(HEADER, "scope subworkflow",
                             "entry")),
                     refusal("entry name is an enum value", RefusalRule.STRUCTURE, 3, unit(HEADER,
@@ -432,33 +430,31 @@ class WorkflowParserRefusalTest {
             return Stream.of(
                     refusal("bare state", RefusalRule.STRUCTURE, 4, withStates("state")),
                     refusal("state segment is reserved", RefusalRule.RESERVED_KEYWORD, 4,
-                            withStates("state demo.state terminal done success", "phase init")),
+                            withStates("state demo.state terminal done success")),
                     refusal("terminal without class", RefusalRule.STRUCTURE, 4,
-                            withStates("state demo.begin terminal done", "phase init")),
+                            withStates("state demo.begin terminal done")),
                     refusal("unknown outcome class", RefusalRule.STRUCTURE, 4,
-                            withStates("state demo.begin terminal done great", "phase init")),
+                            withStates("state demo.begin terminal done great")),
                     refusal("outcome class is an enum value", RefusalRule.STRUCTURE, 4,
-                            withStates("state demo.begin terminal done Success", "phase init")),
-                    refusal("terminal outcome is reserved", RefusalRule.RESERVED_KEYWORD, 4,
-                            withStates("state demo.begin terminal phase success", "phase init")),
-                    refusal("state without phase", RefusalRule.STRUCTURE, 5,
+                            withStates("state demo.begin terminal done Success")),
+                    refusal("state without body", RefusalRule.STRUCTURE, 5,
                             withStates("state demo.begin terminal done success", "auto demo.run")),
-                    refusal("phase is an enum value", RefusalRule.STRUCTURE, 5,
-                            withStates("state demo.begin terminal done success", "phase Init")),
+                    refusal("body keyword is an enum value", RefusalRule.STRUCTURE, 5,
+                            withStates("state demo.begin terminal done success", "Auto demo.run")),
                     refusal("bare skill path", RefusalRule.STRUCTURE, 6,
-                            withStates("state demo.begin terminal done success", "phase init", "skill pm")),
+                            withStates("state demo.begin terminal done success", "skill pm")),
                     refusal("skill path outside pm", RefusalRule.STRUCTURE, 6,
-                            withStates("state demo.begin terminal done success", "phase init", "skill tools/x")),
+                            withStates("state demo.begin terminal done success", "skill tools/x")),
                     refusal("skill segment is an enum value", RefusalRule.STRUCTURE, 6,
-                            withStates("state demo.begin terminal done success", "phase init", "skill pm/Plan")),
+                            withStates("state demo.begin terminal done success", "skill pm/Plan")),
                     refusal("facts without primitive", RefusalRule.STRUCTURE, 6,
-                            withStates("state demo.begin terminal done success", "phase init", "facts demo")),
+                            withStates("state demo.begin terminal done success", "facts demo")),
                     refusal("body missing at the end of the unit", RefusalRule.STRUCTURE, 5,
-                            withStates("state demo.begin", "phase init")),
+                            withStates("state demo.begin")),
                     refusal("unknown body", RefusalRule.STRUCTURE, 6,
-                            withStates("state demo.begin", "phase init", "wait demo.run")),
+                            withStates("state demo.begin", "wait demo.run")),
                     refusal("terminal state followed by a body", RefusalRule.STRUCTURE, 6,
-                            withStates("state demo.end terminal done success", "phase init", "auto demo.run")),
+                            withStates("state demo.end terminal done success", "auto demo.run")),
                     refusal("token after auto", RefusalRule.STRUCTURE, 6, unitWithBody("plan", "auto demo.run extra")),
                     refusal("transitions missing at the end of the unit", RefusalRule.STRUCTURE, 6,
                             unitWithBody("plan", "auto demo.run")),
@@ -627,7 +623,7 @@ class WorkflowParserRefusalTest {
         @DisplayName("refuses a unit without its frontmatter before reading its body, at line 1, column 1")
         void unitWithoutFrontmatter() {
             var diagnostic = refuse("bare.pmwf", lines(HEADER, "scope plan", "start demo.end",
-                    "state demo.end terminal done success", "phase init"));
+                    "state demo.end terminal done success"));
 
             assertAll(
                     () -> assertEquals(RefusalRule.FRONTMATTER, diagnostic.rule()),

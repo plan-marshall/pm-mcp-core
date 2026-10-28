@@ -13,13 +13,10 @@ scope plan
 start verify.entry
 
 state verify.entry
-    phase verify
     auto test.land-work
         landed -> verify.done
         abort_landed -> epic.aborted
 
 state epic.aborted terminal aborted failure
-    phase aborted
 
 state verify.done terminal done success
-    phase verify

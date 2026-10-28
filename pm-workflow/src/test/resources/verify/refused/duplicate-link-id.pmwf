@@ -14,7 +14,6 @@ scope workspace
 start verify.entry
 
 state verify.entry
-    phase verify
     link next proceed ()
         do test.proceed
             done -> verify.done
@@ -23,4 +22,3 @@ state verify.entry
             done -> verify.done
 
 state verify.done terminal done success
-    phase verify

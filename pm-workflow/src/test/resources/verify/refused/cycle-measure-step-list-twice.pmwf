@@ -15,7 +15,6 @@ scope plan
 start verify.entry
 
 state verify.entry
-    phase verify
     auto test.next-step
         first -> verify.one
             completes step:x as failed
@@ -23,7 +22,6 @@ state verify.entry
         settled -> verify.done
 
 state verify.one
-    phase verify
     auto test.prepare
         done -> verify.entry
             completes step:x as failed
@@ -31,7 +29,6 @@ state verify.one
             completes step:x as failed
 
 state verify.two
-    phase verify
     auto test.prepare
         done -> verify.entry
             completes step:two as done
@@ -39,4 +36,3 @@ state verify.two
             completes step:two as skipped
 
 state verify.done terminal done success
-    phase verify

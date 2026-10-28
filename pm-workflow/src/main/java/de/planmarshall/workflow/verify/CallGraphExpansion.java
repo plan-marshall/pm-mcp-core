@@ -66,6 +66,20 @@ final class CallGraphExpansion {
     }
 
     /**
+     * The expansion of a unit on its own: the compiled invariants of a unit contract — a remediation, commit,
+     * re-planning or adjudication unit — are decided over that unit, never over the sub-workflows it calls.
+     *
+     * @param unit the unit
+     * @return the expansion that holds only the unit's own states
+     */
+    static CallGraphExpansion single(WorkflowDefinition unit) {
+        return new CallGraphExpansion(Map.of(unit.id(), unit), unit.states(),
+                unit.states().keySet().stream().collect(java.util.stream.Collectors.toMap(id -> id, id -> unit.id(),
+                        (left, right) -> left, LinkedHashMap::new)),
+                carriedPhases(unit, Map.of(unit.id(), unit)), UnitGraph.of(unit));
+    }
+
+    /**
      * Expands the calls of a root unit over the units it reaches.
      *
      * @param root     the unit the search starts from

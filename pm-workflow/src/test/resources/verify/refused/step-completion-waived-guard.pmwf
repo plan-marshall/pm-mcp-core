@@ -13,7 +13,6 @@ scope plan
 start verify.entry
 
 state verify.entry
-    phase verify
     auto test.prepare
         done -> verify.done
             completes test:waived as waived
@@ -21,4 +20,3 @@ state verify.entry
             completes test:waived as skipped
 
 state verify.done terminal done success
-    phase verify

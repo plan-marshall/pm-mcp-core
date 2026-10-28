@@ -13,13 +13,11 @@ scope entity
 start verify.entry
 
 state verify.entry
-    phase verify
     auto test.prepare
         done -> epic.next-work
         skipped -> verify.done
 
 state epic.next-work
-    phase verify
     link next land ()
         do test.land-work
             landed -> verify.done
@@ -30,7 +28,5 @@ state epic.next-work
             abort_landed -> epic.aborted
 
 state epic.aborted terminal aborted failure
-    phase aborted
 
 state verify.done terminal done success
-    phase verify

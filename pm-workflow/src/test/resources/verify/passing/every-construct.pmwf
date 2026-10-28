@@ -162,4 +162,3 @@ state verify.failed terminal failed failure
 state verify.stepped-out terminal stepped_out stepped_out
 
 state epic.aborted terminal aborted failure
-    phase aborted

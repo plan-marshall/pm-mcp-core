@@ -13,13 +13,10 @@ scope plan
 start verify.entry
 
 state verify.entry
-    phase verify
     auto test.prepare
         done -> plan.aborted
         skipped -> verify.done
 
 state plan.aborted terminal aborted failure
-    phase aborted
 
 state verify.done terminal done success
-    phase verify

@@ -13,7 +13,6 @@ scope plan
 start verify.entry
 
 state verify.entry
-    phase verify
     auto test.fix
         fixed -> verify.done
             completes test:step as done
@@ -21,4 +20,3 @@ state verify.entry
             completes test:step as failed
 
 state verify.done terminal done success
-    phase verify

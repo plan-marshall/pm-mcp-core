@@ -162,7 +162,7 @@ class WorkflowParserTest {
     /** A unit of the scope whose start state {@code demo.begin} has the given body lines. */
     static String unitWithBody(String scope, String... body) {
         return frontmatter(typeOf(scope)) + lines("workflow demo version 1 format 1", "scope " + scope,
-                "start demo.begin", "state demo.begin", "    phase setup") + lines(body);
+                "start demo.begin", "state demo.begin") + lines(body);
     }
 
     private static WorkflowDefinition parse(String source) {
@@ -570,7 +570,7 @@ class WorkflowParserTest {
         @DisplayName("keeps 'entry' a positional keyword: a state segment named entry is a state identifier")
         void entryIsPositional() {
             var source = unitWithBody("plan", "auto demo.run", "done -> setup.entry") + lines("state setup.entry",
-                    "phase setup", "auto demo.run", "done -> demo.begin");
+                    "auto demo.run", "done -> demo.begin");
 
             var definition = parse(source);
 
@@ -581,7 +581,7 @@ class WorkflowParserTest {
         @DisplayName("parses a unit with declared entries and a start line without refusal; the verifier refuses it")
         void declaredEntriesWithStart() {
             var source = frontmatterWithEntry("review") + lines("workflow demo version 1 format 1",
-                    "scope subworkflow", "start demo.end", "state demo.end terminal done success", "phase inherit");
+                    "scope subworkflow", "start demo.end", "state demo.end terminal done success");
 
             var definition = parse(source);
 
@@ -596,8 +596,7 @@ class WorkflowParserTest {
         @DisplayName("parses a unit that binds an undeclared entry without refusal; the verifier refuses it")
         void undeclaredEntryBound() {
             var source = frontmatterWithEntry("review") + lines("workflow demo version 1 format 1",
-                    "scope subworkflow", "entry repair -> demo.end", "state demo.end terminal done success",
-                    "phase inherit");
+                    "scope subworkflow", "entry repair -> demo.end", "state demo.end terminal done success");
 
             var definition = parse(source);
 
@@ -753,7 +752,7 @@ class WorkflowParserTest {
         @DisplayName("reads every outcome class from its keyword")
         void outcomeClasses(OutcomeClass outcomeClass) {
             var source = unit("workflow demo version 1 format 1", "scope plan", "start demo.end",
-                    "state demo.end terminal done " + keyword(outcomeClass), "phase init");
+                    "state demo.end terminal done " + keyword(outcomeClass));
 
             var terminal = parse(source).states().get("demo.end").terminalOutcome().orElseThrow();
 
@@ -770,9 +769,9 @@ class WorkflowParserTest {
         /** A plan unit declaring the list and binding it as the argument of a call. */
         private static String withList(String list) {
             return frontmatter(UnitType.WORKFLOW) + lines("workflow demo version 1 format 1", "scope plan",
-                    "declare wait_after = " + list, "start demo.begin", "state demo.begin", "    phase setup",
+                    "declare wait_after = " + list, "start demo.begin", "state demo.begin",
                     "    call demo.sub(actions = " + list + ")", "        done -> demo.end",
-                    "state demo.end terminal done success", "    phase setup");
+                    "state demo.end terminal done success");
         }
 
         private static CallValue declared(WorkflowDefinition definition) {
@@ -871,8 +870,7 @@ class WorkflowParserTest {
         @DisplayName("reads every decision kind")
         void decisionKinds(String kind) {
             var source = frontmatter(UnitType.SYSTEM) + lines("workflow demo version 1 format 1", "scope entity",
-                    "decide " + kind + " -> ask", "start demo.end", "state demo.end terminal done success",
-                    "phase inherit");
+                    "decide " + kind + " -> ask", "start demo.end", "state demo.end terminal done success");
 
             assertEquals(Map.of(kind,
                             new DecisionDeclaration.Ask(new SourceLocation(RESOURCE, FRONTMATTER_LINES + 3, 1))),
@@ -893,7 +891,7 @@ class WorkflowParserTest {
         @DisplayName("records the derived_from revision of a project unit under the unit's id")
         void derivedFromOfProjectUnit() {
             var source = projectUnit("workflow demo version 4 format 1 derived_from 3", "scope plan",
-                    "start demo.end", "state demo.end terminal done success", "phase setup");
+                    "start demo.end", "state demo.end terminal done success");
 
             var result = WorkflowParser.parse("inline.pmwf", source, UnitOrigin.PROJECT);
 
@@ -905,7 +903,7 @@ class WorkflowParserTest {
         @DisplayName("records no derived_from for a project unit without the clause")
         void noDerivedFromOfProjectUnit() {
             var source = projectUnit("workflow demo version 4 format 1", "scope plan", "start demo.end",
-                    "state demo.end terminal done success", "phase setup");
+                    "state demo.end terminal done success");
 
             var result = WorkflowParser.parse("inline.pmwf", source, UnitOrigin.PROJECT);
 

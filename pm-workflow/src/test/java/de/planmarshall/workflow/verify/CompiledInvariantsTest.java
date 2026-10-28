@@ -245,7 +245,6 @@ class CompiledInvariantsTest {
                     entry main -> unknown.done
 
                     state unknown.done terminal done success
-                        phase inherit
                     """;
             var unit = InvariantFixtures.parse("unknown.pmwf", source, UnitOrigin.PROJECT);
 
@@ -553,7 +552,6 @@ class CompiledInvariantsTest {
                     start remediation-spend.resolved
 
                     state remediation-spend.resolved terminal resolved success
-                        phase inherit
                     """;
             var reference = InvariantFixtures.parse("remediation-spend.pmwf", source, UnitOrigin.DEFAULT);
             var unit = InvariantFixtures.parse("remediation-spend.pmwf", source, UnitOrigin.PROJECT);

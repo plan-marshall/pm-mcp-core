@@ -212,12 +212,10 @@ final class PlanFixtures {
                 entry main -> %2$s.pass
 
                 state %2$s.pass
-                    phase inherit
                     auto test.proceed
                         done -> %2$s.done
 
                 state %2$s.done terminal continue success
-                    phase inherit
                 """.formatted(id, prefix, waitAfter, outlineReview, selfMerge);
     }
 
@@ -443,29 +441,23 @@ final class PlanFixtures {
                 entry begin -> %2$s.begin
 
                 state %2$s.begin
-                    phase inherit
                     auto test.gate
                         pass -> %2$s.ready
                         deep -> %2$s.deliver
 
                 state %2$s.deliver
-                    phase inherit
                     auto test.deliver
                         completed -> %2$s.fix
                         handed_back -> %2$s.loop
                         returned -> %2$s.returned
 
                 state %2$s.ready terminal ready success
-                    phase inherit
 
                 state %2$s.fix terminal fix_requested success
-                    phase inherit
 
                 state %2$s.loop terminal loop_back success
-                    phase inherit
 
                 state %2$s.returned terminal returned failure
-                    phase inherit
                 """.formatted(id, prefix);
     }
 }

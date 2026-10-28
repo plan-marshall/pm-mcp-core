@@ -13,7 +13,6 @@ scope plan
 start verify.entry
 
 state verify.entry
-    phase verify
     job test.build
         succeeded -> verify.done
             completes test:class as done
@@ -23,4 +22,3 @@ state verify.entry
             completes test:class as failed
 
 state verify.done terminal done success
-    phase verify

@@ -15,17 +15,14 @@ scope plan
 start verify.entry
 
 state verify.entry
-    phase verify
     auto test.prepare
         done -> verify.done
         skipped -> verify.spin
 
 state verify.spin
-    phase verify
     job test.build
         succeeded -> verify.spin
         failed -> verify.spin
         cancelled -> verify.spin
 
 state verify.done terminal done success
-    phase verify

@@ -13,11 +13,9 @@ scope plan
 start verify.entry
 
 state verify.entry
-    phase verify
     auto test.prepare
         done -> verify.done
             completes test:step as done
         skipped -> verify.done
 
 state verify.done terminal done success
-    phase verify

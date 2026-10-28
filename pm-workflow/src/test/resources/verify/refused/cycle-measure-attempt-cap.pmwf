@@ -13,10 +13,8 @@ scope plan
 start verify.entry
 
 state verify.entry
-    phase verify
     auto test.capped
         retry -> verify.done
         exhausted -> verify.entry
 
 state verify.done terminal done success
-    phase verify

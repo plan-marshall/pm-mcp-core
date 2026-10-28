@@ -15,7 +15,6 @@ scope plan
 start verify.entry
 
 state verify.entry
-    phase verify
     auto test.prepare
         done -> finalize.review-cap-check
             completes step:a as done
@@ -23,7 +22,6 @@ state verify.entry
             completes step:a as skipped
 
 state finalize.review-cap-check
-    phase verify
     auto test.prepare
         done -> verify.after
             completes step:b as done
@@ -31,10 +29,8 @@ state finalize.review-cap-check
             completes step:b as skipped
 
 state verify.after
-    phase verify
     auto test.proceed
         done -> verify.done
             completes step:a as done
 
 state verify.done terminal done success
-    phase verify

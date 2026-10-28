@@ -69,6 +69,7 @@ state phases.finalize
         handed_back -> handed_back
         returned -> returned
         reentry -> phases.execute.reentry
+        stepped_out -> plan.return
 
 state phases.finalize.adopt
     call phase-6-finalize entry adopt
@@ -76,6 +77,7 @@ state phases.finalize.adopt
         handed_back -> handed_back
         returned -> returned
         reentry -> phases.execute.reentry
+        stepped_out -> plan.return
 
 state plan.return
     auto test.proceed

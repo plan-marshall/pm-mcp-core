@@ -13,22 +13,18 @@ scope plan
 start verify.entry
 
 state verify.entry
-    phase verify
     auto test.prepare
         done -> verify.work
         skipped -> verify.work.asked
 
 state verify.work
-    phase verify
     job llm change role reviewer ask
         approved -> verify.done
         lost -> verify.done
 
 state verify.work.asked
-    phase verify
     auto test.prepare
         done -> verify.done
         skipped -> verify.done
 
 state verify.done terminal done success
-    phase verify

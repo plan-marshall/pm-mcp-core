@@ -15,11 +15,9 @@ scope workspace
 start verify.entry
 
 state verify.entry
-    phase verify
     link submit choose [submit] (note: text[1..40], comment: text?)
         do test.choose
             chosen -> verify.done
             declined -> verify.entry
 
 state verify.done terminal done success
-    phase verify

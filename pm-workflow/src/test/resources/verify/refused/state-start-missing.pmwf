@@ -15,4 +15,3 @@ scope plan
 start verify.missing
 
 state verify.entry terminal done success
-    phase verify

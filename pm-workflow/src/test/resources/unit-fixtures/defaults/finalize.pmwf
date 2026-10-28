@@ -30,7 +30,7 @@ entry post_run -> finalize.archive-plan
 state finalize.push-barrier
     call git.commit_and_push(push_mode = push)
         done -> finalize.create-pr
-        stepped_out -> finalize.hand-back
+        stepped_out -> finalize.stepped-out-exit
 
 state finalize.create-pr
     auto test.proceed
@@ -65,12 +65,15 @@ state finalize.archive-plan
         returned -> returned
             completes default:archive-plan as done
         reentry -> finalize.reentry
+            completes default:archive-plan as done
 
 state finalize.reentry
     auto test.proceed
         done -> finalize.reentry-exit
 
 state finalize.reentry-exit terminal reentry success
+
+state finalize.stepped-out-exit terminal stepped_out stepped_out
 
 state completed terminal completed success
 

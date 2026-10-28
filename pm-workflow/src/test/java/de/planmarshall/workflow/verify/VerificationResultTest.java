@@ -151,7 +151,6 @@ class VerificationResultTest {
                 entry main -> verify.begin
 
                 state verify.a
-                    phase verify
                     skill pm/verify/start
                     facts test.missing
                     link next proceed ()
@@ -159,21 +158,18 @@ class VerificationResultTest {
                             done -> verify.b
 
                 state verify.b
-                    phase verify
                     skill pm/verify/start
                     link next proceed ()
                         do test.proceed
                             done -> verify.t
 
                 state verify.begin
-                    phase verify
                     skill pm/verify/start
                     link next proceed ()
                         do test.proceed
                             done -> verify.a
 
                 state verify.t terminal done success
-                    phase verify
                 """);
         var byStateFound = validator.verify(byState).violations();
         assertEquals(
@@ -198,7 +194,6 @@ class VerificationResultTest {
                 start verify.entry
 
                 state verify.entry
-                    phase verify
                     skill pm/verify/start
                     facts test.missing
                     link next proceed ()

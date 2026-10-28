@@ -79,9 +79,10 @@ state execute.land-entry
     call land entry start
         done -> execute.done-exit
         handed_back -> execute.hand-back-exit
+        stepped_out -> execute.hand-back-exit
 
 state execute.done-exit terminal done success
 
 state execute.rework-exit terminal rework success
 
-state execute.hand-back-exit terminal handed_back failure
+state execute.hand-back-exit terminal returned failure

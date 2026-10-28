@@ -16,16 +16,13 @@ scope epic
 start verify.entry
 
 state verify.entry
-    phase verify
     auto test.prepare
         done -> verify.next
         skipped -> verify.done
 
 state verify.next
-    phase verify
     auto test.next-work
         archive_uncommitted -> verify.next
         archived -> verify.next
 
 state verify.done terminal done success
-    phase verify

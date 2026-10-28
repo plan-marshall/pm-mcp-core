@@ -17,4 +17,3 @@ entry main -> demo.begin
 start demo.begin
 
 state demo.begin terminal done success
-    phase inherit

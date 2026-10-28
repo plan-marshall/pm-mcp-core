@@ -21,7 +21,6 @@ migrate init.old -> init.begin
 migrate review.legacy -> review.check
 
 state init.begin
-    phase init
     skill pm/plan/init
     facts plan.read-facts
     auto plan.prepare
@@ -34,18 +33,15 @@ state init.begin
             completes init:prepare as failed
 
 state init.dispatch
-    phase init
     job build.compile
         done -> init.compose
         failed -> plan.aborted
 
 state init.compose
-    phase init
     composite_job build.compose-all
         done -> review.check
 
 state review.check
-    phase review
     call git.commit_and_push(push = enabled, attempts = 2, targets = [origin, Mirror])
         done -> review.cap-check
             guard result.pushed
@@ -54,17 +50,13 @@ state review.check
         stepped_out -> plan.aborted
 
 state review.cap-check
-    phase review
     call git.no_args
         done -> review.empty-args
 
 state review.empty-args
-    phase review
     call git.no_args()
         done -> completed
 
 state completed terminal merged success
-    phase finalize
 
 state plan.aborted terminal aborted failure
-    phase aborted

@@ -215,12 +215,10 @@ class WorkflowDiagramGeneratorTest {
                     start decide.vote
 
                     state decide.vote
-                        phase inherit
                         job llm decision role each diagram.list-roles
                             approved -> decide.done
 
                     state decide.done terminal done success
-                        phase inherit
                     """);
 
             var rendered = WorkflowDiagramGenerator.renderMermaid(unit, Optional.empty());
@@ -256,17 +254,14 @@ class WorkflowDiagramGeneratorTest {
                 entry recheck -> build.review
 
                 state build.review
-                    phase inherit
                     auto diagram.proceed
                         done -> build.done
 
                 state build.repair
-                    phase inherit
                     auto diagram.proceed
                         done -> build.review
 
                 state build.done terminal done success
-                    phase inherit
                 """);
 
         @Test
@@ -315,17 +310,14 @@ class WorkflowDiagramGeneratorTest {
                     start build.judge
 
                     state build.judge
-                        phase build
                         auto diagram.proceed
                             done -> build-judge
 
                     state build-judge
-                        phase build
                         auto diagram.proceed
                             done -> build_judge
 
                     state build_judge
-                        phase build
                         auto diagram.proceed
                             done -> build.judge
                     """);
@@ -360,12 +352,10 @@ class WorkflowDiagramGeneratorTest {
                     start phase-build
 
                     state phase-build
-                        phase build
                         auto diagram.proceed
                             done -> phase_build-2
 
                     state phase_build-2
-                        phase review
                         auto diagram.proceed
                             done -> phase-build
                     """);
@@ -400,7 +390,6 @@ class WorkflowDiagramGeneratorTest {
                     start build_missing
 
                     state build_missing
-                        phase build
                         auto diagram.proceed
                             done -> build.missing
                     """);
@@ -554,12 +543,10 @@ class WorkflowDiagramGeneratorTest {
                     start instance.pruned
 
                     state instance.pruned
-                        phase build
                         auto diagram.proceed
                             done -> instance-pruned
 
                     state instance-pruned
-                        phase build
                         auto diagram.proceed
                             done -> instance_waived_1
                     """;
@@ -746,7 +733,6 @@ class WorkflowDiagramGeneratorTest {
                     start setup.choose
 
                     state setup.choose
-                        phase setup
                         link fix fix:lint (choice: enum[FIX|SUPPRESS], body: schema[fix-plan], count: int[0..5], \
                     size: int, items: list<text>, note: text[1..80]?)
                             do setup.fix
