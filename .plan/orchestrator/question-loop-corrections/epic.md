@@ -37,7 +37,8 @@ when the three plans have landed and the roadmap item of Milestone 4 can be chec
   Watches). Its sixth deliverable follows the OpenCode 2.x worker of #206 and documentation #125.
 - PLAN-03 — runs in `plan-marshall-mcp` (the package `question-loop-follow-up` as PLAN-02 leaves it); its surface lies
   outside this repository, so the gate reads it as indeterminate and sequences it. It is launched by the operator's word
-  after PLAN-02 has landed and the operator accepted the run budget the package asks for.
+  after PLAN-01 and PLAN-02 have landed and the operator accepted the run budget the package asks for. PLAN-02 landed
+  2026-10-28; PLAN-01 (`pm-mcp-core` #213) was still open.
 
 ## Decisions
 
@@ -60,6 +61,14 @@ when the three plans have landed and the roadmap item of Milestone 4 can be chec
   Also found while reading: `question-continuation` is partly built (PLAN-73 shipped as #201, library core), which the
   PLAN-01 and PLAN-02 specs had read as staged. The decision on the control runs, the data home and the 2.x profile owner
   is left to the operator at refine, as the specs say.
+- 2026-10-28 — PLAN-02 landed (`pm-mcp-core` #212, `6010dbc7`; `plan-marshall-mcp` #110, `da9d6d8`). Decisions the plan
+  recorded with the operator: the evidence store is a branch of `cuioss/plan-marshall-telemetry`; Codex is out of scope
+  and named not measured; the `done` of a measurement package keeps the build-only definition and states in the row that
+  the follow-up carries the unmet part; the inline-settings control runs for the cheap items only; the data home is
+  serial on the operator's data home; R3 `CALL_CUT` changes the criterion; the Q4 reference accepts the expression form.
+  Consequence for this epic: PLAN-03 no longer changes any specification of this repository; the settled values go to
+  `client-profile-measured-values`. PLAN-03's Expected Surface lost two paths and its Deliverable 4 was rewritten in the
+  same act (two verdicts persisted).
 - 2026-10-27 — The `pm-mcp-core` executor in the main checkout was stale (0.1.1924 against the registry's 0.1.2017) and
   was regenerated from the plugin cache before scaffolding; the old file is kept in the session scratchpad. The shared
   ledger worktree was fast-forwarded from #78 to `origin/main` (#195), with no pending paths.
@@ -69,18 +78,41 @@ when the three plans have landed and the roadmap item of Milestone 4 can be chec
 - The raw evidence of the smoke run (`runs.jsonl`, stub logs, per-invocation archives under `target/question-loop/` in
   the plan's worktree `plan-marshall-mcp/.plan/local/worktrees/question-loop-verification`) was deleted when the
   worktree was removed; no copy exists on this machine. The figures in the evaluation reference can no longer be checked
-  against a source. — source: landing review 2026-10-27 (PLAN-01 records it, PLAN-02 prevents a repeat)
+  against a source. — source: landing review 2026-10-27 (PLAN-01 records it, PLAN-02 prevents a repeat). PLAN-02 landed
+  2026-10-28: the follow-up package now names the evidence store (the branch `question-loop-follow-up` of
+  `cuioss/plan-marshall-telemetry`) and checks it in its Done When; the branch does not exist until PLAN-03 creates it.
+  PLAN-01 (`pm-mcp-core` #213, open on 2026-10-28) records the loss.
+- The landing of PLAN-02 (`rb-02-revise-follow-up-package-001.md`) is incomplete: `total_tokens` is `unknown`, so its
+  token total is unobserved, not zero. It was reconciled as far as its facts go; a manual paste from that run may still
+  surface the token figure. — source: `inbox landing-check`, 2026-10-28
 
 ## Watches
 
 - `pm-mcp-core-m2-m4` PLAN-73 (`question-continuation`) read `question-loop-verification` as `done` and its
   dependencies as met, although no `headless.resumability`, `questions` or bound value was settled. A finding was sent to
   that epic's inbox on 2026-10-27. On the same day the operator reported #73 landed; the ledger shows it `shipped` as
-  #201, titled "partial: library core". — re-check at the landing of PLAN-02, which makes the package depend on
-  `question-loop-follow-up`, what of `question-continuation` remains and which values it implemented.
-- The OpenCode 2.x items of Roadmap Milestone 14 (verify and ship the 2.x profile; implement and set the inline
-  settings) have no package in `doc/plans/` of this repository. PLAN-02 names them as owners and creates none; PLAN-03's
-  OpenCode values reach the profile only once a package ships it. — re-check at the landing of PLAN-02 whether a package
-  exists, and tell the operator if not.
+  #201, titled "partial: library core". PLAN-02 landed 2026-10-28: `question-continuation` now depends on
+  `client-profile-measured-values` and its bullet *Measured first* names the follow-up, and its first bullet of *What*
+  was corrected to what #201 built (the caller, the wiring, the loss path and the restart sweep are still missing).
+  Still open: two statements in the sibling epic name `question-loop-verification` as the source of the values
+  (`plans/PLAN-73-question-continuation.md` and `epic.md` of `pm-mcp-core-m2-m4`); a finding went to that epic's inbox
+  on 2026-10-28. — retire when that epic has reconciled them.
+- The OpenCode 2.x items of Roadmap Milestone 14 (verify and ship the 2.x profile; the version range, launch, version
+  probe, `events` mapping and tool names) have no package in `doc/plans/` of this repository. Re-checked at the landing
+  of PLAN-02, 2026-10-28: still none. `client-profile-measured-values` takes only the `inline_settings` member and the
+  measured values; PLAN-02 named Milestone 14 as owner and created no package. PLAN-03's OpenCode values reach the
+  profile only once a package ships it. — tell the operator; stage a package when the operator decides.
+- The shipped profile documents are `classpath:/profiles/<client_id>.json` resources of `pm-api` in `pm-mcp-clients`,
+  not of `pm-core`, so the measured values need a landing there. `client-profile-measured-values` names it as owed;
+  `pm-mcp-clients` has no work package for it and no index dependency records it. — re-check when
+  `client-profile-measured-values` is launched.
+- `doc/plans/worker-integration-tests.adoc:14` still names `question-loop-verification` as the measurer of the real
+  harnesses; it lies outside PLAN-02's declared surface and was not edited. — a row in a later plan, or a fold into one.
+- Unverified lead: PLAN-02's Done-when clause "`BROKEN LINKS 0` against both repositories' `main`" was reported as 0
+  for `pm-mcp-core` and 2843 for `plan-marshall-mcp`, the latter described as pre-existing. This analysis could not
+  measure it (the local `plan-marshall-mcp` checkout is behind `origin/main`). The clause is still in the spec of a
+  shipped plan. — measure on current checkouts before PLAN-03 repeats the clause.
+- The run budget PLAN-03 waits on: task 6 of the package names about 55 USD and about 240 h as the default, an estimate
+  from the smoke figures. — the operator confirms or replaces it before PLAN-03 is launched.
 - Resolved 2026-10-27: the local main checkout of `plan-marshall-mcp` pulled #107 and #108 and is level with
   `origin/main` (`3b93248`).
