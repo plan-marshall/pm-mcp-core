@@ -1,0 +1,14 @@
+= The Epic Package Developer Guide
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-14[PM-WF-14], link:../../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-3[PM-WORK-3]_
+
+The package holds the epic-wide values the engine derives, apart from a plan's own. Its first type, `EpicTokens`, carries
+an epic's tokens with their split and coverage: the sum of its plans' figures and of its own tasks (decompose, landing,
+review), per population. The epic's own task rows lie in the epic's metrics store with `phase: null`.
+
+`EpicTokens.of` merges the plans' `de.planmarshall.workflow.plan.PlanTokens` and the epic's own rows through
+`de.planmarshall.core.store.UsageAggregate`; a floor in any part makes the epic's figure a floor, and the warm workers'
+`worker_idle` usage belongs to no plan and is not part of it. The representation carries usage only: no limit, no budget
+line, no projection and no comparison with one.
+
+The plan-side value and its tests are in link:workflow-plan.adoc[the plan composition guide]; the design decision is
+link:../adr/workflow-plan/018-plan-and-epic-token-facts-per-population.adoc[ADR workflow-plan/018].

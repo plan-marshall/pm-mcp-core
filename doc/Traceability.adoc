@@ -497,6 +497,24 @@ link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeBudget.java[Pr
 link:../pm-core/src/main/java/de/planmarshall/core/store/ChangeLedger.java[ChangeLedger],
 link:../pm-core/src/main/java/de/planmarshall/core/store/QualificationSettingsStore.java[QualificationSettingsStore]
 
+Implementation (the token split and the coverage aggregate every view calls, and the token facts of a plan and an epic,
+added by the work package `token-usage`):
+link:../pm-core/src/main/java/de/planmarshall/core/store/HarnessUsage.java[HarnessUsage],
+link:../pm-core/src/main/java/de/planmarshall/core/store/UsageAggregate.java[UsageAggregate],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanTokens.java[PlanTokens],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/epic/EpicTokens.java[EpicTokens]
+
+Verified by (the token split and the coverage aggregate):
+link:../pm-core/src/test/java/de/planmarshall/core/store/UsageAggregateTest.java[UsageAggregateTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanTokensTest.java[PlanTokensTest],
+link:../pm-core/src/test/java/de/planmarshall/core/profile/ShippedUsageFixturesTest.java[ShippedUsageFixturesTest]
+
+Documentation (the token usage of the work package `token-usage`):
+link:../pm-core/doc/developer/core-store.adoc[Store Developer Guide],
+link:../pm-workflow/doc/developer/workflow-plan.adoc[Plan Composition Developer Guide],
+link:../pm-core/doc/adr/core-store/048-token-split-derived-on-read-and-the-coverage-aggregate.adoc[ADR core-store/048],
+link:../pm-workflow/doc/adr/workflow-plan/018-plan-and-epic-token-facts-per-population.adoc[ADR workflow-plan/018]
+
 Verified by (no spend limit): link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java[WorkflowStatusCodecTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/LoopBackBudgetTest.java[LoopBackBudgetTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/CompiledInvariantsTest.java[CompiledInvariantsTest],
@@ -1344,6 +1362,23 @@ link:../pm-core/src/main/java/de/planmarshall/core/profile/ProfileStages.java[Pr
 link:../pm-core/src/main/java/de/planmarshall/core/profile/SupportedVersions.java[SupportedVersions],
 link:../pm-core/src/main/java/de/planmarshall/core/profile/ShippedProfiles.java[ShippedProfiles]
 
+Implementation (the start context and the usage coverage of the stage `usage`, added by the work package `token-usage`):
+link:../pm-core/src/main/java/de/planmarshall/core/profile/ProfileStages.java[ProfileStages],
+link:../pm-core/src/main/java/de/planmarshall/core/profile/VerificationRecord.java[VerificationRecord],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolment.java[HarnessEnrolment],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolmentStore.java[HarnessEnrolmentStore]
+
+Verified by (the start context and the usage coverage):
+link:../pm-core/src/test/java/de/planmarshall/core/profile/VerificationRecordTest.java[VerificationRecordTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessEnrolmentStoreTest.java[HarnessEnrolmentStoreTest],
+link:../pm-core/src/test/java/de/planmarshall/core/profile/ShippedUsageFixturesTest.java[ShippedUsageFixturesTest]
+
+Documentation (the usage stage and the usage report):
+link:../pm-core/doc/developer/core-profile.adoc[Client Profiles Developer Guide],
+link:../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide],
+link:../pm-core/doc/adr/core-profile/007-usage-stage-start-context-and-coverage.adoc[ADR core-profile/007],
+link:../pm-runtime/doc/adr/runtime-launch/007-the-usage-report-keeps-the-start-context.adoc[ADR runtime-launch/007]
+
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/profile/ProfileLoaderTest.java[ProfileLoaderTest],
 link:../pm-core/src/test/java/de/planmarshall/core/profile/ProfileValidatorTest.java[ProfileValidatorTest],
 link:../pm-core/src/test/java/de/planmarshall/core/profile/ProfileStagesTest.java[ProfileStagesTest],
@@ -1880,6 +1915,17 @@ link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerCalls.java
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerProtocol.java[WorkerProtocol],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/ModelSlots.java[ModelSlots],
 link:../pm-core/src/main/java/de/planmarshall/core/store/WorkerState.java[WorkerState]
+
+Implementation (the usage figures a turn keeps raw — the five token components, `tool_uses` and the reported cost —
+added by the work package `token-usage`):
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/ActivityEventMapper.java[ActivityEventMapper]
+
+Verified by (the turn's usage figures):
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/ActivityEventMapperTest.java[ActivityEventMapperTest]
+
+Documentation (the turn's usage figures):
+link:../pm-runtime/doc/developer/runtime-worker.adoc[Worker Supervision Developer Guide],
+link:../pm-runtime/doc/adr/runtime-worker/013-the-turn-keeps-tool-uses-and-cost-raw.adoc[ADR runtime-worker/013]
 
 Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorScenarioTest.java[SupervisorScenarioTest] (the package's Done When scenarios over the fixture harness and the virtual clock, supported by the mechanism tests named below: AgentStartedDetectorTest for the `agent_started` match and the impostor, StartFailureGuardTest for the count, the hold, the probe and the clear, WorkerRecyclingTest for the four recycle triggers, and WorkerEndingTest for the one end path),
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerSupervisorStartTest.java[WorkerSupervisorStartTest],

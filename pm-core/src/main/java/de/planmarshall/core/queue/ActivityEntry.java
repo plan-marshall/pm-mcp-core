@@ -45,7 +45,9 @@ import de.planmarshall.core.store.StrictJson;
  * @param result        the tool result; tool_result only
  * @param path          a path relative to the worktree; file_changed only
  * @param stopReason    the stop reason of the turn; turn only
- * @param usage         the turn's token components, a JSON object as raw text, kept unchanged; turn only
+ * @param usage         the turn's usage figures, a JSON object as raw text, kept unchanged: the five token components and
+ *                      tool_uses as integers, {@code unmeasured} or {@code not_applicable}, and the reported cost as a
+ *                      number or {@code unmeasured}; turn only
  * @param link          the link the worker followed; link only
  * @param questionId    the question; question and answer_ack only
  * @param signal        the off-track signal and its action; signal only

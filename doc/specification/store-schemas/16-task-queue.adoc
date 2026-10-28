@@ -199,7 +199,7 @@ What a worker does while it serves a task, one entry per activity, in an append-
     "result": { "type": ["object", "null"], "required": ["bytes", "failed"], "additionalProperties": false, "description": "tool_result only.", "properties": { "bytes": { "type": "integer", "minimum": 0 }, "failed": { "type": "boolean" } } },
     "path": { "type": ["string", "null"], "maxLength": 1000, "description": "file_changed only: a path relative to the worktree." },
     "stop_reason": { "type": ["string", "null"], "enum": ["end_turn", "tool_use", "max_tokens", "refusal", "other", null], "description": "turn only: the turn's stop reason as the profile maps it (client-profiles/01, What a Worker Does); null where the profile maps none. Recorded only; no rule reads it." },
-    "usage": { "type": ["object", "null"], "description": "turn only: the turn's token components, each a measured integer, unmeasured, or not_applicable (store-schemas/05, Usage Columns)." },
+    "usage": { "type": ["object", "null"], "description": "turn only: the turn's usage figures read through the profile's pointers — the five token components and tool_uses as measured integers, unmeasured or not_applicable, and cost_usd as the number the harness reports or unmeasured (store-schemas/05, Usage Columns)." },
     "link": { "type": ["object", "null"], "required": ["rel", "target"], "additionalProperties": false, "description": "link only.", "properties": { "rel": { "type": "string", "enum": ["ack", "submit", "ask", "consult", "yield", "infeasible"] }, "target": { "type": ["string", "null"], "maxLength": 128, "description": "The entity or role the link names, for example TASK-007 or a consulted role." } } },
     "question_id": { "type": ["string", "null"], "pattern": "^Q-[0-9]{3,6}$", "description": "question and answer_ack only." },
     "signal": { "type": ["object", "null"], "required": ["signal", "action"], "additionalProperties": false, "description": "signal only: the same entry as the queue task record's signals[].", "properties": { "signal": { "type": "string", "enum": ["repeating", "no_progress", "over_size", "outside_footprint", "agent_started"] }, "action": { "type": "string", "enum": ["show", "nudge", "yield", "restart"] } }, "if": { "properties": { "signal": { "const": "agent_started" } } }, "then": { "properties": { "action": { "const": "restart" } } } },
@@ -256,21 +256,23 @@ The record of one grading of a role's configuration by the operator's grading in
       }
     },
     "warm_fresh_gap": { "type": ["number", "null"], "description": "The largest, over the topics, of the topic's fresh agreement minus its warm agreement in percentage points; null when only one form was graded." },
-    "ungraded": { "type": "integer", "minimum": 0, "description": "Items whose judge task closed lost; excluded from the agreement. A record with ungraded > 0 qualifies no form." },
+    "ungraded": { "type": "integer", "minimum": 0, "description": "Items whose judge task closed lost, or whose item task ended for a reason of the runtime (role_unavailable, withdrawn); excluded from the agreement. A record with ungraded > 0 qualifies no form." },
     "graded_at": { "type": "string", "format": "date-time" },
     "items": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["item_id", "form", "checkout", "answer", "score", "total_tokens", "duration_ms"],
+        "required": ["item_id", "form", "checkout", "answer", "score", "total_tokens", "tokens_in", "tokens_out", "duration_ms"],
         "additionalProperties": false,
         "properties": {
           "item_id": { "type": "string", "minLength": 1 },
           "form": { "type": "string", "enum": ["fresh", "warm"] },
           "checkout": { "type": "string", "enum": ["item_commit", "current", "corpus_context"], "description": "Where the item ran (model-work/01, Grading): item_commit for an item of the project's own repository run at its origin commit, current for one run in the project checkout, corpus_context for one run in an empty directory with its own context files." },
           "answer": { "type": ["string", "object", "null"], "description": "The submitted answer; null when the task closed lost." },
-          "score": { "oneOf": [ { "type": "number", "minimum": 0, "maximum": 1 }, { "type": "string", "const": "ungraded" } ], "description": "The grade a task of the judge role gave the answer (model-work/01, Role Qualification); ungraded when that judge task closed lost." },
+          "score": { "oneOf": [ { "type": "number", "minimum": 0, "maximum": 1 }, { "type": "string", "const": "ungraded" } ], "description": "The grade a task of the judge role gave the answer (model-work/01, Role Qualification); 0 when the item task ended without an answer for a reason of the model; ungraded when that judge task closed lost or the item task ended for a reason of the runtime." },
           "total_tokens": { "oneOf": [ { "type": "integer", "minimum": 1 }, { "type": "string", "const": "unmeasured" } ], "description": "The tokens the answer used (store-schemas/05, Usage Columns)." },
+          "tokens_in": { "oneOf": [ { "type": "integer", "minimum": 0 }, { "type": "string", "const": "unmeasured" } ], "description": "The split the view shows: input, cache read and cache creation (store-schemas/05, What the Operator Sees), measured as a pair with tokens_out summing to total_tokens." },
+          "tokens_out": { "oneOf": [ { "type": "integer", "minimum": 0 }, { "type": "string", "const": "unmeasured" } ], "description": "The split the view shows: output and reasoning, measured as a pair with tokens_in summing to total_tokens." },
           "duration_ms": { "type": ["integer", "null"], "minimum": 0 }
         }
       }
@@ -289,7 +291,7 @@ The record of one grading of a role's configuration by the operator's grading in
     },
     "formResult": {
       "type": "object",
-      "required": ["topics", "items", "total_tokens", "duration_ms"],
+      "required": ["topics", "items", "total_tokens", "tokens_in", "tokens_out", "duration_ms"],
       "additionalProperties": false,
       "properties": {
         "topics": {
@@ -304,6 +306,8 @@ The record of one grading of a role's configuration by the operator's grading in
         },
         "items": { "type": "integer", "minimum": 0, "description": "The graded items of all topics of this form." },
         "total_tokens": { "oneOf": [ { "type": "integer", "minimum": 1 }, { "type": "string", "const": "unmeasured" } ], "description": "The tokens the form's items used, unmeasured when an item's are." },
+        "tokens_in": { "oneOf": [ { "type": "integer", "minimum": 0 }, { "type": "string", "const": "unmeasured" } ], "description": "The split of the form's tokens: input, cache read and cache creation; unmeasured when an item's split is." },
+        "tokens_out": { "oneOf": [ { "type": "integer", "minimum": 0 }, { "type": "string", "const": "unmeasured" } ], "description": "The split of the form's tokens: output and reasoning; unmeasured when an item's split is." },
         "duration_ms": { "type": "integer", "minimum": 0 }
       }
     }
@@ -350,7 +354,7 @@ The record of one calibration of a quorum declaration by the operator's calibrat
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["item_id", "votes", "decided", "agreed_option", "false_auto", "total_tokens", "duration_ms"],
+        "required": ["item_id", "votes", "decided", "agreed_option", "false_auto", "total_tokens", "tokens_in", "tokens_out", "duration_ms"],
         "additionalProperties": false,
         "properties": {
           "item_id": { "type": "string", "minLength": 1 },
@@ -359,6 +363,8 @@ The record of one calibration of a quorum declaration by the operator's calibrat
           "agreed_option": { "type": ["string", "null"] },
           "false_auto": { "type": "boolean", "description": "decided and the agreed option is neither the item's target answer nor an accepted alternative." },
           "total_tokens": { "oneOf": [ { "type": "integer", "minimum": 1 }, { "type": "string", "const": "unmeasured" } ] },
+          "tokens_in": { "oneOf": [ { "type": "integer", "minimum": 0 }, { "type": "string", "const": "unmeasured" } ] },
+          "tokens_out": { "oneOf": [ { "type": "integer", "minimum": 0 }, { "type": "string", "const": "unmeasured" } ] },
           "duration_ms": { "type": ["integer", "null"], "minimum": 0 }
         }
       }
@@ -410,7 +416,7 @@ The record of one instrument check of a judge configuration, run before the firs
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["item_id", "label", "oracle_score", "blind_score", "total_tokens", "duration_ms"],
+        "required": ["item_id", "label", "oracle_score", "blind_score", "total_tokens", "tokens_in", "tokens_out", "duration_ms"],
         "additionalProperties": false,
         "properties": {
           "item_id": { "type": "string", "minLength": 1 },
@@ -418,6 +424,8 @@ The record of one instrument check of a judge configuration, run before the firs
           "oracle_score": { "oneOf": [ { "type": "number", "minimum": 0, "maximum": 1 }, { "type": "string", "const": "unscored" } ] },
           "blind_score": { "oneOf": [ { "type": "number", "minimum": 0, "maximum": 1 }, { "type": "string", "const": "unscored" } ] },
           "total_tokens": { "oneOf": [ { "type": "integer", "minimum": 1 }, { "type": "string", "const": "unmeasured" } ] },
+          "tokens_in": { "oneOf": [ { "type": "integer", "minimum": 0 }, { "type": "string", "const": "unmeasured" } ] },
+          "tokens_out": { "oneOf": [ { "type": "integer", "minimum": 0 }, { "type": "string", "const": "unmeasured" } ] },
           "duration_ms": { "type": ["integer", "null"], "minimum": 0 }
         }
       }

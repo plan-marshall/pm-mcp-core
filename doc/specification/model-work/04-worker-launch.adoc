@@ -87,8 +87,8 @@ Only the `zero_tool` class depends on the harness restricting the worker; for `w
 
 |`opencode`
 |yes, with its per-worker data home
-|Inline agent in `OPENCODE_CONFIG_CONTENT` with a local MCP command; `read_only` with every permission denied except the read tools; the result parsed from the final message against the schema, fail-closed; its own data directory per worker (`XDG_DATA_HOME`, with the harness's login file copied in)
-|Only the models in `restricted_models` accept a restricted agent; unreliable exit codes (`exit_reliable: false`); a tool-result limit, above which the server delivers a task's input in parts (`tool_result_limit_chars`); a process stopped while a model request is open may never continue after it is resumed, and is then replaced by silence at its silence limit (xref:03-supervision-and-recycling.adoc#detection[Detection]).
+|OpenCode 2.x, `run --standalone`, the project directory from `PWD`; inline agent in `OPENCODE_CONFIG_CONTENT` with a local MCP command offered as direct tools and the profile's inline settings (link:../client-profiles/01-profile-schema.adoc#headless-inline-settings[Client Profiles Specification, Inline Settings]); the agent's permissions an ordered list in which the last match wins and every tool of the set is allowed by name, since a tool no rule names is asked for and the headless run rejects every question; `read_only` with every permission denied except the read tools; the result parsed from the final message against the schema, fail-closed; its own data directory per worker (`XDG_DATA_HOME`, with the harness's login file copied in)
+|Only the models in `restricted_models` accept a restricted agent; unreliable exit codes (`exit_reliable: false`); a tool-result limit, above which the server delivers a task's input in parts (`tool_result_limit_chars`); a process stopped while a model request is open may never continue after it is resumed, and is then ended by the request timeout of its inline settings, or replaced by silence at its silence limit (xref:03-supervision-and-recycling.adoc#detection[Detection]).
 
 |`codex`
 |no

@@ -2,10 +2,10 @@
   "id": "PLAN-61",
   "slug": "token-usage",
   "workstream": "WS-04",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-61-token-usage",
+  "pr": "#204",
+  "landing": "landings/PLAN-61.md",
   "seq": 61
 }

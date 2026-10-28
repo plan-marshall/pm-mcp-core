@@ -214,6 +214,30 @@ A loaded profile and a shipped profile compare by the content of their document 
 `LoadedProfile` and `ProfileSets.ShippedProfile` override `equals`, `hashCode` and `toString` for that. Their compact
 constructors clone the bytes on the way in, so the value the record was built from cannot change it afterwards.
 
+== The Usage Stage: Start Context and Coverage
+_Requirements: link:{docs}/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5], link:{docs}/Requirements.adoc#PM-WF-14[PM-WF-14]_
+
+`ProfileStages.usage` records each figure of `headless.usage` `reported`, `not_applicable` or `missing`, fails for a
+declared pointer that does not resolve, and compares a parsed figure with the harness's own record field by field. It
+now also takes the start context of every class and model the `launch` stage ran, from the first turn's input, cache
+read and cache creation, and derives the usage coverage of the figures a verified profile reports: `complete` when every
+report figure is reported or not applicable, `partial` with the missing figures, `not_reported` when none is. The cost is
+recorded data and never part of the report; the usage validation refuses a profile that declares input, output or tool
+uses not applicable.
+
+`VerificationRecord.Stage` keeps the `start_context` in its closed shape; `UsageResult.startContext()` carries it out of
+the stage, and `UsageResult.coverage()` with `missingFigures()` carries the report's verdict. The install path in
+`plan-marshall-mcp` must supply the real `launch` output; until that handoff is implemented, the start context remains in
+the verification record. A harness whose first turn does not report the input figures records the start context
+unmeasured.
+
+`ProfileStagesTest` covers the three coverages, the start-context sum and its unmeasured case and the not-applicable
+refusal; `VerificationRecordTest` covers the record's start-context parse and its refusals;
+`ShippedUsageFixturesTest` parses the synthetic per-harness fixtures — the recorded outputs of a real run remain owed.
+
+link:../adr/core-profile/007-usage-stage-start-context-and-coverage.adoc[ADR 007]: the usage stage records the start
+context and derives the usage coverage.
+
 == The resumability stage
 
 `ProfileStages.ResumabilityResult` is what the stage `resumability` of the profile verification hands on: one
@@ -235,8 +259,8 @@ Profile Schema).
 `ProfileValidator` reads `profile_kind` before anything else. `endpoint` selects a closed document of its own members —
 `profile_kind`, `schema_version`, `client_id`, `display_name`, `min_daemon_version`, `icon`, `executable`, `identity`,
 `update_evidence`, `endpoint`, `model_tiers` and `weights_probe` — and none of the client profile's blocks: no `tools`,
-`skill_loading`, `headless`, `connection`, `detection` or `worker` (link:../adr/core-profile/007-endpoint-profile-is-a-kind-of-the-profile-sets.adoc[ADR
-007]). Any other `profile_kind` value is an undeclared member of the client profile. The hardening rules that a client
+`skill_loading`, `headless`, `connection`, `detection` or `worker` (link:../adr/core-profile/010-endpoint-profile-is-a-kind-of-the-profile-sets.adoc[ADR
+010]). Any other `profile_kind` value is an undeclared member of the client profile. The hardening rules that a client
 profile passes — NFC, single-line, control-character-free, bounded strings, closed objects, closed enumerations, the
 hardening of a probe — apply to the endpoint profile unchanged.
 
@@ -256,11 +280,10 @@ endpoint block (`protocol`, `locality`, `base_url`, `readiness_path`, `models_pa
 The loader treats both kinds alike and differs in one rule: an endpoint profile declares no supported version range, so a
 record measured on another build of the serving program leaves the profile `VERIFIED_ON_OTHER_BUILD` and launches go on,
 where a client profile is judged against `headless.supported_versions`
-(link:../adr/core-profile/009-endpoint-profile-declares-no-supported-range.adoc[ADR 009]). `core.role.HarnessProfile`
+(link:../adr/core-profile/012-endpoint-profile-declares-no-supported-range.adoc[ADR 012]). `core.role.HarnessProfile`
 projects an endpoint profile as a harness of the class `zero_tool` alone, with the endpoint's context budget
-(link:../adr/core-profile/008-endpoint-harness-runs-zero-tool-only.adoc[ADR 008]).
+(link:../adr/core-profile/011-endpoint-harness-runs-zero-tool-only.adoc[ADR 011]).
 
 The runtime side of an endpoint harness — the request, the owner check, the weights reading, the enrolment and the
 verification stages — is documented in `pm-runtime`
 (link:../../../pm-runtime/doc/developer/runtime-endpoint.adoc[`runtime.endpoint`]).
-

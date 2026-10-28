@@ -19,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
@@ -63,6 +64,8 @@ class QualificationRecordCodecTest {
                 () -> assertTrue(text.contains("\"format_version\":1")),
                 () -> assertTrue(text.contains("\"score\":\"ungraded\"")),
                 () -> assertTrue(text.contains("\"total_tokens\":\"unmeasured\"")),
+                () -> assertTrue(text.contains("\"tokens_in\":3000")),
+                () -> assertTrue(text.contains("\"tokens_out\":1000")),
                 () -> assertTrue(text.contains("\"answer\":{\"detail\":\"a defect\"}")),
                 () -> assertTrue(text.contains("\"missed_sources\":[\"reviews\"]")));
     }
@@ -126,6 +129,20 @@ class QualificationRecordCodecTest {
                 graded.missedSources(), graded.forms(), null, 1, graded.gradedAt(), List.of()));
     }
 
+    @Test
+    @DisplayName("the token split is a measured pair that sums to the total")
+    void tokenSplitMustSum() {
+        var total = TokenTotal.measured(120, 100, 20);
+
+        assertAll(() -> assertTrue(total.measured()),
+                () -> assertEquals(OptionalLong.of(100), total.splitIn()),
+                () -> assertEquals(OptionalLong.of(20), total.splitOut()),
+                () -> assertEquals(TokenTotal.measured(240, 200, 40), total.plus(total)));
+        assertRefused(() -> TokenTotal.measured(120, 100, 10));
+        assertRefused(() -> new TokenTotal(120L, 100L, null));
+        assertRefused(() -> new TokenTotal(null, 1L, 0L));
+    }
+
     private String text() {
         return new String(QualificationRecordCodec.write(fullRecord()), StandardCharsets.UTF_8);
     }
@@ -137,7 +154,7 @@ class QualificationRecordCodecTest {
                                 new BigDecimal("80"), 10),
                         Topic.GENERIC, new QualificationRecord.TopicResult(new BigDecimal("83.33"),
                                 new BigDecimal("70"), 12)),
-                22, TokenTotal.measured(4_000), 1_000);
+                22, TokenTotal.measured(4_000, 3_000, 1_000), 1_000);
         var warm = new QualificationRecord.FormResult(
                 Map.of(
                         Topic.OWN, new QualificationRecord.TopicResult(new BigDecimal("85"),
@@ -147,7 +164,7 @@ class QualificationRecordCodecTest {
                 22, TokenTotal.unmeasured(), 2_000);
         var items = List.of(
                 new QualificationRecord.ItemResult("review/clean-plan", RoleForm.FRESH, Checkout.CURRENT,
-                        JsonNode.string("clean"), Grade.of(true), TokenTotal.measured(1_200), 500L),
+                        JsonNode.string("clean"), Grade.of(true), TokenTotal.measured(1_200, 900, 300), 500L),
                 new QualificationRecord.ItemResult("review/clean-plan", RoleForm.WARM, Checkout.ITEM_COMMIT,
                         JsonNode.object(Map.of("detail", JsonNode.string("a defect"))), Grade.ungraded(),
                         TokenTotal.unmeasured(), null));

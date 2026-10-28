@@ -1,0 +1,38 @@
+= ADR 013: A turn keeps the tool uses and the reported cost raw
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-27.
+
+== Context
+
+The activity entries of a turn carry the usage figures read through the profile's `headless.usage` pointers. The mapper
+read the five token components only; the specification records every figure the harness reports raw, `tool_uses` and
+`cost_usd` included, so that later reports can be added on the same rows (Client Profiles § Tokens, Not Money).
+
+== Decision
+
+`ActivityEventMapper` reads `tool_uses` and `cost_usd` through their pointers beside the five token components. A cost is
+kept as the number the harness reports; a pointer that is absent or resolves to no value is `unmeasured`, and the
+profile's `not_applicable` mark is kept, except for the cost, which the row schema allows only as a number or
+`unmeasured`. The cost stays recorded data: no view shows it and no rule reads it.
+
+== Alternatives Considered
+
+Dropping the cost at the activity boundary was rejected because a later report cannot recover it. Reading a decimal
+cost as an integer was rejected because it would change the reported figure.
+
+== Consequences
+
+The activity entry's usage object has seven members. A harness whose profile declares no cost pointer keeps
+`cost_usd: unmeasured`, never `0`.
+
+== Source
+
+Work package `doc/plans/token-usage.adoc`; Client Profiles § Tokens, Not Money; Model Work § Worker Result & Usage
+Parsing.

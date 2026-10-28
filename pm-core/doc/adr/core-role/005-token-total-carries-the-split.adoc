@@ -1,0 +1,38 @@
+= ADR 005: The token total of a grading record carries its split
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-27.
+
+== Context
+
+The qualification and judge-check records carry `total_tokens` (Store Schemas § Role Qualification Record, § Judge Check
+Record). The operator must see tokens with the split beside the total, and never a cost or a priced figure (Client
+Profiles § Tokens, Not Money).
+
+== Decision
+
+`TokenTotal` carries `tokens_in` and `tokens_out` beside `total_tokens`. The split is a measured pair that sums to the
+total, or `unmeasured` at both when it is unknown; an unmeasured total carries no split. `plus` sums the split only when
+both addends have one. `QualificationRecordCodec` and `JudgeCheckCodec` write and read the two members.
+
+== Alternatives Considered
+
+Deriving the split from the total was rejected: a total is never split into parts it did not measure (Model Work §
+Post-Completion Integrity Invariants, item 6). Storing only the total was rejected because the operator view would lose
+the split.
+
+== Consequences
+
+A record written without a measured split stays readable and shows its total alone. The format version stays 1
+(R13): the members replace the shape in place.
+
+== Source
+
+Work package `doc/plans/token-usage.adoc`; Store Schemas § Role Qualification Record, § Decision Calibration Record, §
+Judge Check Record; Model Work § Post-Completion Integrity Invariants.

@@ -11,12 +11,19 @@ package de.planmarshall.runtime.launch;
 
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+import de.planmarshall.core.profile.ProfileStages;
+import de.planmarshall.core.role.RoleClass;
 
 /**
  * One entry of the machine's harness enrolment store (PM-SEC-5, Harness Enrolment Store): the absolute executable path,
@@ -118,27 +125,101 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
     }
 
     /**
-     * The usage report kept with an enrolment.
+     * The usage report kept with an enrolment (Client Profiles § Tokens, Not Money): what the harness reports of its
+     * usage, and what a worker costs before it does anything.
      *
-     * @param source  where the report came from
-     * @param figures the result per figure, {@code reported}, {@code not_applicable} or {@code missing}
+     * @param source       where the report came from
+     * @param figures      the result per figure, {@code reported}, {@code not_applicable} or {@code missing}
+     * @param startContext the first-turn tokens per class and model; empty for {@code source} declared
      * @since 0.1
      */
-    public record UsageReport(UsageSource source, Map<String, String> figures) {
+    public record UsageReport(UsageSource source, Map<String, String> figures, List<StartContext> startContext) {
 
         private static final Set<String> FIGURE_RESULTS = Set.of("reported", "not_applicable", "missing");
+        private static final Set<String> REPORT_FIGURES = ProfileStages.REPORT_FIGURES.stream()
+                .map(UsageReport::reportName)
+                .collect(Collectors.toUnmodifiableSet());
 
-        /** Copies the figures and refuses an unknown result. */
+        /** Copies the figures and the start context and refuses an unknown result or figure. */
         public UsageReport {
             Objects.requireNonNull(source, "source");
             var results = new LinkedHashMap<String, String>();
             figures.forEach((figure, result) -> {
+                if (!REPORT_FIGURES.contains(figure)) {
+                    throw new IllegalArgumentException("Not a usage report figure: " + figure);
+                }
                 if (!FIGURE_RESULTS.contains(result)) {
                     throw new IllegalArgumentException("Not a usage result: " + result);
                 }
                 results.put(figure, result);
             });
             figures = Collections.unmodifiableMap(results);
+            startContext = List.copyOf(startContext);
+            if (source == UsageSource.DECLARED && !startContext.isEmpty()) {
+                throw new IllegalArgumentException("A declared usage report carries no start context");
+            }
+        }
+
+        /**
+         * @param source  where the report came from
+         * @param figures the result per figure
+         */
+        public UsageReport(UsageSource source, Map<String, String> figures) {
+            this(source, figures, List.of());
+        }
+
+        /**
+         * @param source        where the report came from
+         * @param stagedFigures the usage stage's result per figure, keyed as {@code headless.usage} names it
+         * @param startContext  the start context per class and model
+         * @return the report with the figures keyed as the enrolment store names them
+         */
+        public static UsageReport of(UsageSource source, Map<String, String> stagedFigures,
+                List<StartContext> startContext) {
+            var report = new LinkedHashMap<String, String>();
+            stagedFigures.forEach((figure, result) -> report.put(reportName(figure), result));
+            return new UsageReport(source, report, startContext);
+        }
+
+        private static String reportName(String figure) {
+            return switch (figure) {
+                case "input_tokens" -> "input";
+                case "output_tokens" -> "output";
+                default -> figure;
+            };
+        }
+
+        /**
+         * What a worker costs before it does anything, per class and model (Client Profiles § Tokens, Not Money, Start
+         * Context).
+         *
+         * @param workerClass the class of the worker, {@code writer}, {@code read_only} or {@code zero_tool}
+         * @param model       the model the stage ran with
+         * @param tokens      the first-turn tokens; empty when the first turn does not report the input figures
+         * @since 0.1
+         */
+        public record StartContext(String workerClass, String model, OptionalLong tokens) {
+
+            /** The classes of the closed list, derived from the role classes. */
+            public static final Set<String> CLASSES = Arrays.stream(RoleClass.values())
+                    .map(RoleClass::wireName)
+                    .collect(Collectors.toUnmodifiableSet());
+
+            /**
+             * @throws NullPointerException     if a component is {@code null}
+             * @throws IllegalArgumentException if the class is not one of the closed list or the model is blank
+             */
+            public StartContext {
+                Objects.requireNonNull(workerClass, "workerClass");
+                Objects.requireNonNull(model, "model");
+                Objects.requireNonNull(tokens, "tokens");
+                if (!CLASSES.contains(workerClass)) {
+                    throw new IllegalArgumentException("Not a worker class: " + workerClass);
+                }
+                if (model.isBlank()) {
+                    throw new IllegalArgumentException("'model' must not be blank");
+                }
+            }
         }
     }
 

@@ -168,6 +168,41 @@ Optional<BigDecimal> costUsd, Optional<UnmeasuredReason> unmeasuredReason) {
     }
 
     /**
+     * The split a view shows as {@code tokens_in} (PM-WF-14, Client Profiles § Tokens, Not Money): the input, the
+     * cache-read and the cache-creation tokens, a {@code not_applicable} one counting {@code 0}. It is derived on read
+     * and never persisted; a component that is unmeasured makes the split unmeasured, because a partial sum is never
+     * recorded.
+     *
+     * @return the input split, or empty when a component of it is unmeasured
+     */
+    public OptionalLong tokensIn() {
+        return splitOf(inputTokens, cacheReadInputTokens, cacheCreationInputTokens);
+    }
+
+    /**
+     * The split a view shows as {@code tokens_out} (PM-WF-14, Client Profiles § Tokens, Not Money): the output and the
+     * reasoning tokens, a {@code not_applicable} one counting {@code 0}. It is derived on read and never persisted; a
+     * component that is unmeasured makes the split unmeasured.
+     *
+     * @return the output split, or empty when a component of it is unmeasured
+     */
+    public OptionalLong tokensOut() {
+        return splitOf(outputTokens, reasoningTokens);
+    }
+
+    private static OptionalLong splitOf(Measurement... components) {
+        long sum = 0;
+        for (var component : components) {
+            if (component.isMeasured()) {
+                sum += component.value();
+            } else if (!component.isNotApplicable()) {
+                return OptionalLong.empty();
+            }
+        }
+        return OptionalLong.of(sum);
+    }
+
+    /**
      * @param usages the usages of the turns of one task, in their order
      * @return the sum of the turns, component by component: measured when every turn measured it, {@code
      *         not_applicable} when every turn declares it absent, and {@code unmeasured} otherwise; the cost is summed
