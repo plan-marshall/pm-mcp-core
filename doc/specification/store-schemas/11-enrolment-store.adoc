@@ -116,7 +116,7 @@ One machine-wide file holds the harness CLIs that may run workers (job kind `llm
               },
               "start_context": {
                 "type": "array",
-                "description": "Input tokens of a worker's first model turn per class and model, from the usage stage of the verification (Client Profiles Specification, Start Context); absent for source declared.",
+                "description": "Input tokens of a worker's first model turn per class and model, recorded by the profile's verification (Client Profiles Specification, Tokens, Not Money); absent for source declared.",
                 "items": {
                   "type": "object",
                   "required": ["class", "model", "tokens"],

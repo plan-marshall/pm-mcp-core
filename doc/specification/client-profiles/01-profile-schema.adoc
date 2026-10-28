@@ -638,7 +638,7 @@ profile with `headless: null` is shown in the harness lists, marked, and never o
 harness (<<harness-scan>>). Values the evaluation did not measure stay _(provisional)_ like the other host facts.
 
 [#headless-usage]
-*Usage pointers*: Usage is read from the harness output through `headless.usage`, never asked from a model; the pointers, the value `"not_applicable"`, the five token components, and the recording are specified in <<token-usage>>. The same per-turn figures give the supervisor a warm worker's context size for its token budget (link:../model-work/03-supervision-and-recycling.adoc[Model Work Specification, Supervision & Recycling]).
+*Usage pointers*: Usage is read from the harness output through `headless.usage`, never asked from a model. The same per-turn figures give the supervisor a warm worker's context size for its token budget (link:../model-work/03-supervision-and-recycling.adoc[Model Work Specification, Supervision & Recycling]).
 
 [#headless-writable-paths]
 *Writable paths*: `headless.writable_paths` extends only the Landlock write set of workers. It lists the sub-paths a headless harness must write to run: its login or credential file, its caches, its session directory, and its own state file. Profile validation refuses an entry that equals, contains, or lies inside a settings, command, or skill file or directory the client's bundle manifest manages, and any shared configuration file in which the bundle owns an `enforcement` element (xref:../../../../plan-marshall-documentation/doc/specification/host-integration/02-bundle-manifest.adoc[Bundle Manifest]), so a harness home as a whole (`~/.claude`) is never an entry and a worker cannot rewrite the host's deny rules or the shim skill. The operator's own use of the harness and the bundle installer, which runs in `pm-mcpd`, are not restricted by it. `HeadlessBlock.writablePaths(home)` resolves the entries and `WorkerStart` hands them to the confinement of the worker (`JobConfinementComposer.forJob`, link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide]). The compiled entries:
@@ -840,39 +840,12 @@ A harness is shown where the harness itself is shown (the harness lists, a role'
 
 [#token-usage]
 === Tokens, Not Money
-_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-14[PM-WF-14: Task Envelopes, Model Slots & Usage per Task]_
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-14[PM-WF-14: Task Envelopes, Model Slots & Usage per Task]_
 
-Usage is read from the harness output through `headless.usage`, never asked from a model, recorded as the harness reports it, and shown in tokens, never in money.
+Usage is read from the harness output through `headless.usage`, never asked from a model. The pointers and the recording are implemented; what remains of this part is the handoff a verified profile makes to its enrolment and the fixtures and the evaluation that judge a harness version.
 
-* *Recorded as reported*: each pointer is a JSON Pointer into a turn line and fills the column of the same name in the task's metrics row (link:../store-schemas/05-metrics-and-quality-report.adoc#metrics-store[Store Schemas Specification, Metrics Store]), except `cache_read` (`cache_read_input_tokens`), `cache_creation` (`cache_creation_input_tokens`, the cache write), and `reasoning` (`reasoning_tokens`, the reasoning or thinking tokens a harness reports apart from its output). A harness whose output figure already contains its reasoning declares `reasoning` `"not_applicable"`, so nothing is counted twice. The pointer `cost_usd`, the capability `cost_field`, and the column `cost_usd` stay as recorded data: never shown, never summed into a figure the operator sees, and never read by a rule.
-* *Not reported or not applicable*: a pointer `null` means the harness does not report the figure (recorded `unmeasured`, reason `not_reported_by_harness`); `"not_applicable"` means the figure does not exist for this harness by design, such as Antigravity's cache creation, recorded as `"not_applicable"` and counted `0`, so that the harness is still measured. `"not_applicable"`, `unmeasured`, and a measured `0` are three distinct values. The usage validation in <<token-usage>> refuses `"not_applicable"` for `input_tokens`, `output_tokens` and `tool_uses`; the profile loader checks only the shape of the usage block.
-* *One figure*: `headless.usage` has no pointer for the total: `total_tokens` is the sum of the five token components, a not-applicable one counting `0`, when every applicable one is measured, otherwise `unmeasured`, unweighted and the same for every harness (link:../model-work/09-completion-usage-and-spend.adoc#job-result-schema[Model Work Specification, Worker Result & Usage Parsing]); the views derive its split, `tokens_in` (input, cache read, cache creation) and `tokens_out` (output, reasoning), and show it as `1.24 M tokens (1.10 M in · 0.14 M out)` with its coverage, in the number format of the client.
-* *Usage report of a harness*: the harness lists of the onboarding and of the machine's settings show per enrolled harness and version what it reports of its usage: `complete` (every token figure reported or not applicable), `partial` (naming what is missing), or `not_reported`, from the profile's declaration and, for a verified profile, from the `usage_report` of its verification (<<profile-verification>>), kept with the harness enrolment (link:../store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas Specification, Harness Enrolment Store]).
-* [[start-context]]*Start context*: what a worker costs before it does anything differs by harness by an order of magnitude (about 47k tokens on Claude Code with a small model, 27k on Antigravity, 5k on OpenCode in the evaluation), and it changes with a harness version and a model. The `usage` stage of the verification therefore measures it: the input of the first model turn of the `launch` base task (input, cache read, and cache creation) per class and model the stage ran with, recorded as `start_context` in the `usage_report` and shown in the harness lists beside the usage report, for example `starts at 47k tokens (writer, claude-haiku-4-5)`. A harness whose first turn does not report the input figures records it `unmeasured`. No rule reads the value; it is the basis on which the operator and the evaluation compare harnesses and judge a token budget.
+* *Usage report of a harness*: the harness lists of the onboarding and of the machine's settings show per enrolled harness and version what it reports of its usage: `complete` (every token figure reported or not applicable), `partial` (naming what is missing), or `not_reported`, from the profile's declaration and, for a verified profile, from the `usage_report` of its verification (<<profile-verification>>), kept with the harness enrolment (link:../store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas Specification, Harness Enrolment Store]). The install path that hands the verification's `UsageResult` to the enrolment's `UsageReport` (`UsageReport.of` is the mapping boundary) is owed to link:machine-onboarding-unit.adoc[`machine-onboarding-unit`].
 * *Measured per version*: recorded outputs of each harness and version are parsing fixtures, so a changed output format fails a test; the usage measurement of the evaluation is repeated for every new harness and harness version before its figures are trusted (link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#host-values[Evaluation Reference, Hosts as Relay Starters and Workers]).
-
-The shipped declarations per harness:
-
-[cols="2,1,1,1,1,1,1,3"]
-|===
-|Profile |`input_tokens` |`output_tokens` |`cache_read` |`cache_creation` |`reasoning` |`cost_usd` |Basis
-
-|`claude`
-|pointer |pointer |pointer |pointer |`"not_applicable"` |pointer
-|All four token components and a cost per turn (link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#results[Evaluation Reference], V7); its output figure contains the thinking tokens.
-
-|`opencode`
-|pointer |pointer |pointer |pointer |pointer |`null`
-|Input, output, cache read, cache write, and reasoning tokens, no cost (Gate 13).
-
-|`antigravity`
-|pointer |pointer |pointer |`"not_applicable"` |pointer |`null`
-|Input, output, thinking, cache-read, and total tokens; no cache-creation figure by design and no cost (Gate 13).
-
-|`codex`
-4+|_(provisional)_ |_(provisional)_ |_(provisional)_
-|Not measured.
-|===
 
 [#worker-activity]
 === What a Worker Does
@@ -966,10 +939,6 @@ pm-operator profile remove <client_id> [--project]                              
 |`faults`
 |The fault matrix of link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4] with `--trials` trials per fault (default and minimum for eligibility: `10`), two workers at once: exactly-once submit, exit detection, stall detection by silence, fencing of late calls, and the acknowledgement latency.
 |`worker.eligible`, `ack_deadline_seconds`, `ack_informational`, `silence_grace_seconds`, `idle_wakeups`; `connection` timing values
-
-|`usage`
-|Over the worker output of the `launch` stage: checks that every declared usage pointer resolves on the real output; a declared pointer that does not resolve fails the stage (<<token-usage>>). Where the harness keeps its own record of the session's turns (a session log in its data home), the stage also compares the figures parsed for the run with that record, field by field over the turns of the run; a difference fails the stage, because the parsing then drops or double-counts a figure. It also takes the start context of every class and model the `launch` stage ran (<<start-context>>).
-|`headless.usage`, recorded per figure as `reported`, `not_applicable`, or `missing`; the result is the harness's `usage_report`, with its `start_context`
 |===
 
 *Output.* The run writes a candidate profile `<PM_MCP_BASE>/profiles/candidates/<client_id>.json` and its verification record beside it, and changes nothing that is in force.
@@ -1000,9 +969,7 @@ pm-operator profile remove <client_id> [--project]                              
     "classes":   { "status": "passed" },
     "limits":    { "status": "passed" },
     "paths":     { "status": "passed" },
-    "faults":    { "status": "passed", "trials": 10 },
-    "usage":     { "status": "passed", "results": { "input_tokens": "reported", "output_tokens": "reported", "cache_read": "reported", "cache_creation": "not_applicable", "reasoning": "reported", "tool_uses": "reported" },
-                   "start_context": [ { "class": "writer", "model": "gemini-3.8-flash-low", "tokens": 27104 } ] }
+    "faults":    { "status": "passed", "trials": 10 }
   },
   "values": [
     { "pointer": "/headless/classes/zero_tool", "status": "measured", "code": "launch_without_tools_refused" },
@@ -1014,9 +981,9 @@ pm-operator profile remove <client_id> [--project]                              
 ----
 
 * `stages.<stage>.status` is `passed`, `failed`, or `not_run`. `values` holds one entry per profile value a stage settles, with `status` `measured` (the tool determined it), `confirmed` (a proposal of the tool the operator confirmed at install), `declared` (taken from the draft, because the tool cannot test it), or `not_measured` (its stage failed or did not run).
-* *Kept with the enrolment*: the per-kind result of `events` and the per-figure result of `usage` with its `start_context` (the `usage_report`) are kept with the harness's enrolment when the verified profile is installed for an enrolled harness (link:../store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas Specification, Harness Enrolment Store]) and shown wherever the enrolled harnesses are listed (<<token-usage>>). Recorded outputs of each harness and version, taken by these stages, are parsing fixtures of the build, so that a changed output format fails a test.
+* *Kept with the enrolment*: the per-kind result of `events` is kept with the harness's enrolment when the verified profile is installed for an enrolled harness (link:../store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas Specification, Harness Enrolment Store]) and shown wherever the enrolled harnesses are listed. Recorded outputs of each harness and version, taken by these stages, are parsing fixtures of the build, so that a changed output format fails a test.
 * *What ran is tracked exactly*: `tool` names the release and the commit of the `pm-mcpd` that ran the verification, taken from the binary and never from an argument; `harness` names the executable by its name, the exact version its version probe printed, the SHA-256 of the executable file the run started, and every model a stage ran with; `platform` names operating system, architecture, and confinement. The record holds no path, no host name, no user name, no environment value, and no model output.
-* *The record is closed data*: its schema admits no free text. `code` is a value of the closed list of outcome codes of its stage, `figures` holds integers under a closed set of keys (`min_ms`, `max_ms`, `trials`, `chars`, `count`), and the `results` of the stages `events` and `usage` hold, under the closed activity kinds and usage figures, one of `reported`, `missing`, and (for a usage figure) `not_applicable`. The `start_context` of the `usage` stage holds one entry per class and model, each a class of the closed list, a model the record's `harness.models` names, and `tokens` as an integer or `"unmeasured"`. A record with an unknown member, an unknown code, or a string that is not one of its closed forms is refused.
+* *The record is closed data*: its schema admits no free text. `code` is a value of the closed list of outcome codes of its stage, `figures` holds integers under a closed set of keys (`min_ms`, `max_ms`, `trials`, `chars`, `count`), and the `results` of the stage `events` hold, under the closed activity kinds, one of `reported` and `missing`. A record with an unknown member, an unknown code, or a string that is not one of its closed forms is refused.
 * *The candidate claims only what was measured*:
 ** `worker.eligible` is `true` only when `faults` passed every fault with at least 10 trials on a platform with a confinement (Landlock on Linux, the sandbox profile on macOS), `paths` passed, and `egress` passed or recorded `unenforced`; otherwise it is `false`, whatever the draft says. A record with `egress: unenforced` makes the harness eligible only while the operator's acceptance of unenforced egress holds for the machine (see *Runtime check on load* below).
 ** `headless.classes.zero_tool` is non-null only when the `classes` stage passed it and `isolation` measured an exclusive configuration with settings control; otherwise `null`.
