@@ -562,6 +562,45 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/ast/AstNodeModelTest.
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/SubWorkflowExecutionTest.java[SubWorkflowExecutionTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineResumeTest.java[EngineResumeTest]
 
+Implementation (the planning phases' records and their checks: the plan's intent record `intent.json` with its `intent-record` schema, its EARS form, its true deciders, the epic's required claims and its revision history in `history[]`; the outline record `outline.json` with its `outline-record` schema and the `outline.md` rendered from it; the outline's `satisfies` coverage and the refusal of an `unchanged` guard downstream of the change it guards; the builder check's submission and its conversation-free facts; the self-review's constraint, non-goal and decision results; the capability spec and the index of a tree's specs; and the read-only simplify step with the clone candidates the server computes and the apply of the accepted subset): link:../pm-core/src/main/java/de/planmarshall/core/store/IntentRecord.java[IntentRecord],
+link:../pm-core/src/main/java/de/planmarshall/core/store/IntentStore.java[IntentStore],
+link:../pm-core/src/main/java/de/planmarshall/core/store/IntentCodec.java[IntentCodec],
+link:../pm-core/src/main/java/de/planmarshall/core/store/IntentAcceptance.java[IntentAcceptance],
+link:../pm-core/src/main/java/de/planmarshall/core/store/ClarifiedRequestRenderer.java[ClarifiedRequestRenderer],
+link:../pm-core/src/main/java/de/planmarshall/core/store/EpicIntent.java[EpicIntent],
+link:../pm-core/src/main/java/de/planmarshall/core/store/EarsForm.java[EarsForm],
+link:../pm-core/src/main/java/de/planmarshall/core/store/OutlineRecord.java[OutlineRecord],
+link:../pm-core/src/main/java/de/planmarshall/core/store/OutlineStore.java[OutlineStore],
+link:../pm-core/src/main/java/de/planmarshall/core/store/OutlineCodec.java[OutlineCodec],
+link:../pm-core/src/main/java/de/planmarshall/core/store/OutlineRenderer.java[OutlineRenderer],
+link:../pm-core/src/main/java/de/planmarshall/core/spi/validation/OutlineValidator.java[OutlineValidator],
+link:../pm-core/src/main/java/de/planmarshall/core/spi/validation/BuilderCheck.java[BuilderCheck],
+link:../pm-core/src/main/java/de/planmarshall/core/spi/validation/SelfReviewSubmission.java[SelfReviewSubmission],
+link:../pm-core/src/main/java/de/planmarshall/core/store/CapabilitySpec.java[CapabilitySpec],
+link:../pm-core/src/main/java/de/planmarshall/core/store/CapabilityIndex.java[CapabilityIndex],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/finalize/SimplifyStep.java[SimplifyStep],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/finalize/CloneDetector.java[CloneDetector],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/finalize/ProposalRecord.java[ProposalRecord]
+
+Verified by (the planning phases' records and their checks): link:../pm-core/src/test/java/de/planmarshall/core/store/IntentRecordTest.java[IntentRecordTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/EarsFormTest.java[EarsFormTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/OutlineRecordTest.java[OutlineRecordTest],
+link:../pm-core/src/test/java/de/planmarshall/core/spi/validation/BuilderCheckTest.java[BuilderCheckTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/CapabilitySpecTest.java[CapabilitySpecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/spi/validation/OutlineCoverageTest.java[OutlineCoverageTest],
+link:../pm-core/src/test/java/de/planmarshall/core/spi/validation/SelfReviewSubmissionTest.java[SelfReviewSubmissionTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/finalize/SimplifyStepTest.java[SimplifyStepTest]
+
+Documentation (the planning phases' records and their checks): link:../pm-core/doc/developer/core-store.adoc#_the_intent_record[Scope Stores Developer Guide § The Intent Record],
+link:../pm-core/doc/developer/core-store.adoc#_the_outline_record[§ The Outline Record],
+link:../pm-core/doc/developer/core-store.adoc#_capability_specs[§ Capability Specs],
+link:../pm-core/doc/developer/core-spi.adoc#_model_submission_validators[Core SPI Developer Guide § Model Submission Validators],
+link:../pm-workflow/doc/developer/workflow-finalize.adoc#_the_simplify_step[Finalize Pipeline Developer Guide § The Simplify Step],
+link:../pm-core/doc/adr/core-store/049-intent-and-outline-records-are-revision-stores.adoc[ADR core-store/049],
+link:../pm-core/doc/adr/core-spi/003-ears-keywords-are-uppercase-structural-tokens.adoc[ADR core-spi/003],
+link:../pm-core/doc/adr/core-spi/004-the-self-review-judges-constraints-beside-criteria.adoc[ADR core-spi/004],
+link:../pm-workflow/doc/adr/workflow-finalize/004-clone-candidates-are-evidence-never-findings.adoc[ADR workflow-finalize/004]
+
 Implementation (the entries of a called unit, as far as the library modules carry them: the `entry <name> -> <state>` bindings of a unit with entries and the entry a `call` names, parsed into and printed from the tree; a call enters the callee at the state its entry binds, the entry it names or the callee's sole entry, and the frame it pushes records that entry, which the workflow state store writes and reads in every `call_stack` frame in format version 1; the verifier refuses a call to a unit without entries and a call that names an unknown entry or omits the entry of a callee with several, and checks every call against the exits its callee declares plus `stepped_out`): link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/StateBehavior.java[StateBehavior],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/CallFrame.java[CallFrame],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/WorkflowParser.java[WorkflowParser],
@@ -1318,16 +1357,32 @@ eligibility, the models that accept a restricted tool set, the classes the harne
 model tiers, the context-budget fallback, the idle wakeups, the resumability that cuts a role's continuation bounds, and
 the harness's ask-user tool that no role may name — projected from the profile document; a role of a class the harness
 cannot run is invalid with `harness_class_not_runnable`, and the steward takes its model from the harness's tier
-`standard`. Not implemented here: the translation of skills, links and prompts, and the composition of a launch from the
-`headless` block, which belong to the host-integration and worker-launch packages): link:../pm-core/src/main/java/de/planmarshall/core/role/HarnessProfile.java[HarnessProfile],
+`standard`. Also the endpoint profile of the same sets: `profile_kind: "endpoint"`, its closed document, the locality
+combinations the schema cannot express, and the projection the runtime reads (Client Profiles § Endpoint Harness; ADRs
+core-profile/010, /011 and /012). Not implemented here: the translation of skills, links and prompts, and the composition
+of a launch from the `headless` block, which belong to the host-integration and worker-launch packages):
+link:../pm-core/src/main/java/de/planmarshall/core/role/HarnessProfile.java[HarnessProfile],
 link:../pm-core/src/main/java/de/planmarshall/core/role/RoleValidation.java[RoleValidation],
 link:../pm-core/src/main/java/de/planmarshall/core/role/RoleCatalog.java[RoleCatalog],
-link:../pm-core/src/main/java/de/planmarshall/core/role/StewardConfiguration.java[StewardConfiguration]
+link:../pm-core/src/main/java/de/planmarshall/core/role/StewardConfiguration.java[StewardConfiguration],
+link:../pm-core/src/main/java/de/planmarshall/core/profile/EndpointProfile.java[EndpointProfile],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointRequest.java[EndpointRequest],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointOutcome.java[EndpointOutcome],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointHarness.java[EndpointHarness],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointVerification.java[EndpointVerification]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/RoleValidationTableTest.java[RoleValidationTableTest],
-link:../pm-core/src/test/java/de/planmarshall/core/role/RoleEffectiveConfigurationTest.java[RoleEffectiveConfigurationTest]
+link:../pm-core/src/test/java/de/planmarshall/core/role/RoleEffectiveConfigurationTest.java[RoleEffectiveConfigurationTest],
+link:../pm-core/src/test/java/de/planmarshall/core/profile/EndpointProfileValidatorTest.java[EndpointProfileValidatorTest],
+link:../pm-core/src/test/java/de/planmarshall/core/role/HarnessProfileEndpointTest.java[HarnessProfileEndpointTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointRequestTest.java[EndpointRequestTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointOutcomeTest.java[EndpointOutcomeTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointHarnessTest.java[EndpointHarnessTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointVerificationTest.java[EndpointVerificationTest]
 
-Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Artifacts Developer Guide]
+Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Artifacts Developer Guide],
+link:../pm-core/doc/developer/core-profile.adoc#_endpoint_profiles[Profile Loader and Schema Developer Guide § Endpoint
+profiles]
 
 [#PM-CLIENT-5]
 === PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy
@@ -1545,6 +1600,16 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineEventTes
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/LoopBackBudgetTest.java[LoopBackBudgetTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/diagram/WorkflowDiagramGeneratorTest.java[WorkflowDiagramGeneratorTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/diagram/StateKindTest.java[StateKindTest]
+
+Implementation (the named parameter schemas `intent-record` and `outline-record` of the registry, and the simplify step's descriptor in the finalize roster): link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/SchemaRegistry.java[SchemaRegistry],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/finalize/SimplifyStep.java[SimplifyStep],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/finalize/FinalizeStepDescriptor.java[FinalizeStepDescriptor]
+
+Verified by (the schema registry and the simplify descriptor): link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/RegistriesAndRecordsTest.java[RegistriesAndRecordsTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/finalize/SimplifyStepTest.java[SimplifyStepTest]
+
+Documentation (the simplify step): link:../pm-workflow/doc/developer/workflow-finalize.adoc#_the_simplify_step[Finalize Pipeline Developer Guide § The Simplify Step],
+link:../pm-workflow/doc/adr/workflow-finalize/004-clone-candidates-are-evidence-never-findings.adoc[ADR workflow-finalize/004]
 
 Implementation (the project-owned units and the compiled invariants: the loader of the default units from a classpath root the assembly names, the merge of the phase files into the plan unit with its part versions and the recorded `derived_from`, and the loader of a project's units from `.marshall/config/`, which confines every path, bounds every unit file at 1048576 bytes, refuses an author equal to the reserved one after NFKC normalisation, removal of its format characters, stripping and case folding, refuses another DSL format, verifies Rules 1-12, the declarations within their compiled bounds, the finalize pipeline over the project roster, the thirty compiled invariants against the default unit of the same id (among them the remediation invariants over the six remediation units, without a spend unit, and `INV-FIN-5`, which checks only that every path to the merge passes `finalize.merge-gate`) and the binding of the project steps, and returns every verified unit or every finding with file and line, refusing the lifecycle with `config_invalid` and never falling back to a default unit; the finalize step descriptor and the validator of the pipeline rules; the parts of `INV-GEN-2`, `INV-GEN-4` and `INV-REM-6` that need runtime facts, the `work_performed` clause of the validator's rule 6, its rule 7, the write-time refusal of its rule 8, the reading of `workflow.json` and the enrolment for the project steps, and the check of the shipped default units are not implemented yet): link:../pm-workflow/src/main/java/de/planmarshall/workflow/unit/DefaultUnitLoader.java[DefaultUnitLoader],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/unit/PlanUnitMerger.java[PlanUnitMerger],
@@ -1779,7 +1844,9 @@ with the assignment stores, the plan override and the model catalogues read thro
 effective model catalogue, the project's else the machine's, with `model_not_allowed`; validation against the client
 profile and the catalogue with the ten reasons of the table; the composition check with `role_undefined` and
 `class_mismatch`, at composition and at task creation; the one model caller with the judge and steward skipping Qualify,
-and the steward's harness from `harnesses.default` of `machine-config.json` and its model from the tier `standard`. Not
+and the steward's harness from `harnesses.default` of `machine-config.json` and its model from the tier `standard`; and an
+endpoint harness runs the class `zero_tool` alone, its projection carrying no other class (Client Profiles § Endpoint
+Harness, ADR core-profile/011). Not
 implemented here, and not claimed by this package: the escalation assignment (bullet 9), the shipped artifacts, tiers,
 qualification records and their calibration (bullets 7 and 8, which are the release assembly's and
 `machine-onboarding-unit`'s), the resolution `roles.default`, the grading and the record validity (PM-WORK-6), and the
@@ -2008,6 +2075,26 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/RecordedQualifi
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationCheckTest.java[QualificationCheckTest] (a record whose `generic` topic reaches the level and whose `own` topic does not is not valid, and neither is the reverse; a record without a topic of the corpus is not valid; every topic at the level is valid; the level is read at every check; the warm downgrade), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/ConstantBaselineTest.java[ConstantBaselineTest] (eight of ten equal references at 80 percent at an 80 percent level do not qualify, the matched control nine of ten does, ten equal references are too uniform), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/RoleTopicsTest.java[RoleTopicsTest] (the topics by the items' `role` field, the review statuses, the zero-tool and judgment roles), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/ScoringTest.java[ScoringTest], link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/JudgeCheckTest.java[JudgeCheckTest] (the oracle and blind accuracies, the lost judge task, the stale record), link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationRecordCodecTest.java[QualificationRecordCodecTest], link:../pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationRecordStoreTest.java[QualificationRecordStoreTest], link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/RoleGraderTest.java[RoleGraderTest] (a complete corpus writes the record with its tokens, a failed import writes no valid record, a partial one names its missed sources, the judge refusals, the screener's five runs and its catch rate, the checkout at the origin commit and `current` when the commit is missing, the re-grading of only the ungraded items), link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/RecordedQualificationTest.java[RecordedQualificationTest] (a changed level applies to an existing record, the warm downgrade, a stale digest), link:../pm-workflow/src/test/java/de/planmarshall/workflow/model/ModelCallerTest.java[ModelCallerTest] (an unqualified role closes `role_unqualified` and the judge and the steward skip Qualify)
 
 Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Developer Guide] (§ Role Qualification), link:../pm-workflow/doc/developer/workflow-model.adoc[The One Model Caller Developer Guide] (§ The Grading Run and the Qualification Lookup), link:../pm-core/doc/adr/core-role/003-qualification-measurements-decided-at-every-check.adoc[ADR core-role/003], link:../pm-core/doc/adr/core-role/004-grading-through-ports-not-a-worker-runtime.adoc[ADR core-role/004], link:../pm-workflow/doc/adr/workflow-model/002-the-grading-run-in-workflow-model.adoc[ADR workflow-model/002]
+
+The weights identity of an endpoint harness (Client Profiles § Weights Identity): the identity of every allowed model's
+weights is read at enrolment, at every start of the runtime and at every project setup run, recorded beside the model in
+the harness enrolment, and it is a member of the qualification digest, so a model whose weights changed is unqualified
+until it is graded again; the change is audited `harness_updated`, naming the model and both identities:
+
+Implementation: link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/WeightsReader.java[WeightsReader],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointEnrolment.java[EndpointEnrolment],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolment.java[HarnessEnrolment],
+link:../pm-core/src/main/java/de/planmarshall/core/role/RoleDigests.java[RoleDigests]
+
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/WeightsReaderTest.java[WeightsReaderTest] (the
+listing pointer and the argv probe, and an identity it cannot read left unread),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointEnrolmentTest.java[EndpointEnrolmentTest] (a changed
+identity re-recorded and audited with the model and both identities, an unchanged one left alone)
+
+Documentation: link:../pm-runtime/doc/developer/runtime-endpoint.adoc#weights-identity[Endpoint Harness Developer Guide §
+Weights Identity], link:../pm-core/doc/developer/core-profile.adoc#_endpoint_profiles[Profile Loader and Schema Developer
+Guide § Endpoint profiles]
+
 [#PM-WORK-7]
 === PM-WORK-7: Worker Activity & Off-Track Signals
 

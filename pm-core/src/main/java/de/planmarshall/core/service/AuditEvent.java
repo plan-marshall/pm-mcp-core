@@ -162,6 +162,15 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     /** The detail of a harness self-update that holds the digest of the changed executable. */
     public static final String DETAIL_NEW_SHA256 = "new_sha256";
 
+    /** The detail of a weights change that names the model whose weights identity changed. */
+    public static final String DETAIL_MODEL = "model";
+
+    /** The detail of a weights change that holds the identity the enrolment recorded before it. */
+    public static final String DETAIL_OLD_WEIGHTS_ID = "old_weights_id";
+
+    /** The detail of a weights change that holds the identity read now. */
+    public static final String DETAIL_NEW_WEIGHTS_ID = "new_weights_id";
+
     /** The name of the event that records one counted worker start failure of a role on a harness. */
     public static final String WORKER_START_FAILED = "worker_start_failed";
 
@@ -456,6 +465,23 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
                         Objects.requireNonNull(oldSha256, "oldSha256"), DETAIL_NEW_VERSION,
                         Objects.requireNonNull(newVersion, "newVersion"), DETAIL_NEW_SHA256,
                         Objects.requireNonNull(newSha256, "newSha256")));
+    }
+
+    /**
+     * @param clientId  the enrolled harness whose model's weights changed
+     * @param model     the model whose weights identity changed
+     * @param oldWeightsId the identity the enrolment recorded before the change
+     * @param newWeightsId the identity read now
+     * @return the record of a changed weights identity, naming the model and both identities
+     * @throws NullPointerException if a value is {@code null}
+     */
+    public static AuditEvent harnessWeightsUpdated(String clientId, String model, String oldWeightsId,
+            String newWeightsId) {
+        return new AuditEvent(HARNESS_UPDATED, CATEGORY_OPERATOR, OUTCOME_SUCCEEDED,
+                Map.of(DETAIL_CLIENT_ID, Objects.requireNonNull(clientId, "clientId"), DETAIL_MODEL,
+                        Objects.requireNonNull(model, "the model of the weights change"), DETAIL_OLD_WEIGHTS_ID,
+                        Objects.requireNonNull(oldWeightsId, "oldWeightsId"), DETAIL_NEW_WEIGHTS_ID,
+                        Objects.requireNonNull(newWeightsId, "newWeightsId")));
     }
 
     /**

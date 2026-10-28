@@ -1,0 +1,48 @@
+= ADR 012: An Endpoint Profile Declares No Supported Version Range
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-27
+
+== Context
+
+`ProfileLoader` binds a machine or project profile to the enrolled harness build and, where the loaded build is not the
+one the verification record was measured on, judges the loaded version against `headless.supported_versions`. An endpoint
+profile has no `headless` block and no `supported_versions` member: the endpoint schema of Client Profiles § Endpoint
+Profile Schema carries `identity.version_probe`, `identity.version_pattern`, `min_daemon_version` and the update evidence,
+but no version range of the serving program.
+
+The loader had to decide what a record measured on another build of the serving program means for an endpoint profile.
+
+== Decision
+
+An endpoint profile whose enrolment names another version or digest than its verification record is loaded
+`VERIFIED_ON_OTHER_BUILD`, and launches go on; no range is consulted, because the profile declares none. The record still
+binds the profile to its digest and to the executable: the launch's owner check compares the executable's path and its
+SHA-256 with the enrolment, and another build at the enrolled path is refused `harness_not_enrolled` until the operator
+re-enrols it. The profile's update evidence is the enrolment's check, not this loader's.
+
+== Alternatives Considered
+
+Refusing every endpoint profile whose serving program changed was considered and not taken: a model runner updates
+itself often, and the operator enrols the new build; refusing would make every update a re-verification. Requiring a
+synthesized supported range was considered and not taken: it is not in the endpoint schema, and a range the profile cannot
+declare would be an invention of the loader.
+
+== Consequences
+
+- An endpoint profile's verification survives an update of its serving program that the enrolment records; a changed
+  digest at the enrolled path is refused `harness_not_enrolled` by the owner check until the operator re-enrols it.
+- A model whose weights identity changed is handled by the weights identity, not by the version range: it is unqualified
+  until graded again.
+- A future endpoint schema with a supported range would change this record and the loader branch together.
+
+== Source
+
+Pull request for the work package `doc/plans/endpoint-harness.adoc`; Client Profiles § Endpoint Profile Schema, § Profile
+Sets; Store Schemas § Harness Enrolment Store.

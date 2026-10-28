@@ -68,6 +68,8 @@ public final class SchemaRegistry {
                 "vote-answer",
                 "triage-groups",
                 "simplify-proposal",
+                "intent-record",
+                "outline-record",
                 "commit-result"));
     }
 }

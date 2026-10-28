@@ -71,6 +71,9 @@ List<String> requiresPromptFields,
 Optional<String> cannotReach,
 List<String> filesFindings) {
 
+    /** The order of {@code default:finalize-step-simplify}, in the Settle band before the security audit. */
+    public static final int SIMPLIFY_ORDER = 5;
+
     /** The order of {@code default:pre-push-quality-gate}. */
     public static final int PRE_PUSH_QUALITY_GATE_ORDER = 10;
 

@@ -1585,33 +1585,6 @@ the result in the specification and the requirement it touches, and deletes this
 Source:: `phase-workflows/04-finalize-step-bands.adoc:192`, `phase-workflows/02-planning-lanes-phases-3-4.adoc:202`
 (Posture Resolution), `plan-marshall` `extension-api/standards/ext-point-lane-element.md:203-208`.
 
-[#PM-WATCH-PHASE-106]
-=== PM-WATCH-PHASE-106: The EARS check reads keywords, not language
-
-Anchor:: link:../specification/phase-workflows/01-planning-phases-1-2.adoc#intent-record[Phase Workflows § The Intent Record] (server check 1)
-Hazard:: The criteria are written in the project's model language, but the EARS keywords (`WHERE`, `WHILE`, `WHEN`,
-`IF … THEN`, `THE … SHALL`, `CONTINUE TO`) are uppercase English tokens. A check that matches lowercase keywords, or
-words of the model language, refuses a valid German criterion or accepts prose that only contains "when" and
-"shall"; a check that requires English text refuses every criterion of a German project.
-Guard:: Tests with valid and invalid criteria in English and German: each of the five patterns and the
-`unchanged` form accepted with German text between the keywords; lowercase keywords, a missing `SHALL`, `THEN`
-without `IF`, and preconditions out of order refused with the member named.
-Source:: Spec Frameworks analysis of plan-marshall-documentation (Kiro's EARS criteria; OpenSpec downgrades its
-SHALL check to a warning for non-English specs).
-
-[#PM-WATCH-PHASE-107]
-=== PM-WATCH-PHASE-107: A decision recorded as the operator's was answered by the operator
-
-Anchor:: link:../specification/phase-workflows/01-planning-phases-1-2.adoc#intent-record[Phase Workflows § The Intent Record] (server check 3)
-Hazard:: The intent record names a decider per decision. A model that writes `decider: operator` for its own call,
-or cites a question the operator answered differently or a quorum answered, turns an assumption into a claimed
-agreement that the pull request then reports as the operator's.
-Guard:: Tests submit records whose `operator` decision cites an unanswered part, a part of another plan, a part
-answered by a quorum, and a nonexistent `question_id`; each is refused with the member named. A `fact` decision
-whose evidence path does not exist is refused.
-Source:: Intent Definition analysis of plan-marshall-documentation (pi-plans records the answer source;
-Superpowers: "any choice you make goes in the design as your call, never as something they agreed to").
-
 [#PM-WATCH-PHASE-108]
 === PM-WATCH-PHASE-108: A model-supplied key-link pattern cannot stall the runtime
 
@@ -1633,46 +1606,6 @@ what the record omits, and the check passes a record that a builder could not us
 Guard:: A test composes the facts of `refine.builder-check` and asserts that they hold the intent record and the
 capability index only, with no member of `request.md`'s original input or clarifications and no earlier submission.
 Source:: Superpowers analysis of plan-marshall-documentation (the builder "will not be able to talk to the person").
-
-[#PM-WATCH-PHASE-110]
-=== PM-WATCH-PHASE-110: The ordering check reads criterion kinds, not deliverable names
-
-Anchor:: link:../specification/phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-satisfies[Phase Workflows § 6 `satisfies` Coverage]
-Hazard:: The rule refuses an outline in which the guard of an `unchanged` criterion depends on the change it guards.
-A check that follows only direct dependencies passes a chain of three deliverables; a check that counts a deliverable
-satisfying both kinds as a change refuses the plan that pins and changes in one place; a check that applies to every
-`unchanged` criterion refuses plans whose guard is an inspection or a demonstration, which no test precedes.
-Guard:: Tests over the outline DAG: the guard downstream of a change directly and through two others is refused
-naming both deliverables and the criterion; a deliverable satisfying both kinds is accepted; an `unchanged` criterion
-verified by `inspection` or `demonstration` is not checked; a plan without an `unchanged` criterion is unaffected;
-matched control: the guard first, the change after it, accepted.
-Source:: Article analysis `ai-native-sdlc-four-files` of plan-marshall-documentation (the plan's first task pins the
-old output before the refactor).
-
-[#PM-WATCH-PHASE-111]
-=== PM-WATCH-PHASE-111: A constraint the criteria accept is still judged
-
-Anchor:: link:../specification/phase-workflows/04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Phase Workflows § Normative Step Catalogue] (`pre-submission-self-review`),
-link:../specification/phase-workflows/01-planning-phases-1-2.adoc#builder-check[Phase Workflows § Builder Check]
-Hazard:: A constraint rules out what no criterion states, so a plan can meet every criterion and break a constraint. A
-self-review that judges criteria alone passes it; a result `respected` without evidence is as good as no result; a
-submission that lists the criteria and leaves out the constraints is accepted when the omission check covers criteria
-only. The builder check misses the same case when it compares only criteria with each other. A decision `DC-<n>` is the
-same case: code that works against it without an own call naming it passes when the review judges own calls only.
-Guard:: Tests submit the self-review with a constraint or a non-goal omitted (refused with the item named), with
-`respected` and no evidence (refused), with `violated` (a finding, the round not clean), with a decision omitted
-(refused) and `departed` (a finding, the round not clean), with `not_verified` (a non-blocking finding,
-`clean_unverified`), and for a record without constraints (unaffected). The facts of `refine.builder-check` are composed
-from a record whose accepted default permits what a constraint rules out; the question reaches the operator naming both
-items. Corpus fixture: the article's first-run case (spec and all tests accept a fallback that hides items, the
-constraint is "never lose an item silently"). A second fixture gives a record whose criteria all hold for an
-implementation that leaves the goal sentence false (the goal "an export completes for every account", the criteria
-only that a request is accepted and a job started); the check names the goal and those criteria in one `operator`
-question.
-Source:: Article analysis `ai-native-sdlc-four-files` of plan-marshall-documentation (the review against the intent's
-constraint was the only step that caught the spec-approved default). Article analysis `spec-driven-tools-heise`
-(OpenSpec's coherence check: decisions reflected in the code). Article analysis `right-amount-of-spec` (criteria a builder can
-meet while missing the goal).
 
 [#PM-WATCH-PHASE-112]
 === PM-WATCH-PHASE-112: Behaviour nobody asked for is listed, not passed

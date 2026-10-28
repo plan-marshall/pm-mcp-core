@@ -17,8 +17,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import de.planmarshall.core.profile.EndpointProfile;
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.profile.LoadedProfile;
+import de.planmarshall.core.profile.ProfileValidator;
 
 /**
  * The facts of a validated client profile that role validation reads (PM-CLIENT-2, Client Profile Schema): the worker
@@ -136,6 +138,9 @@ String askUserTool) {
      */
     public static HarnessProfile of(LoadedProfile profile) {
         var document = profile.document();
+        if (ProfileValidator.isEndpoint(document)) {
+            return endpoint(profile, document);
+        }
         var worker = document.member("worker").orElse(JsonNode.nullValue());
         var headless = document.member("headless").orElse(JsonNode.nullValue());
         var classes = classes(headless);
@@ -153,6 +158,22 @@ String askUserTool) {
                         .integerValue().orElse(0)).orElse(null),
                 resumability(headless),
                 document.member("tools").flatMap(tools -> tools.member("ask_user")).flatMap(JsonNode::text).orElse(""));
+    }
+
+    /**
+     * The facts of an endpoint profile (Client Profiles § A Model on This Machine): the harness runs the role class
+     * {@code zero_tool} alone, has no restricted models and no resumability, and its context budget is the endpoint's
+     * {@code context_tokens} less its {@code answer_reserve_tokens}.
+     *
+     * @param profile  the loaded profile
+     * @param document its validated document
+     * @return the facts a role reads from it
+     */
+    private static HarnessProfile endpoint(LoadedProfile profile, JsonNode document) {
+        var endpoint = EndpointProfile.of(document);
+        return new HarnessProfile(profile.clientId(), true, false, Set.of(),
+                Map.of(RoleClass.ZERO_TOOL, ToolSet.ENFORCED), Map.of(), endpoint.modelTiers(),
+                endpoint.endpoint().contextBudgetTokens(), null, new Resumability(false, null, false, null), "");
     }
 
     private static Map<RoleClass, ToolSet> classes(JsonNode headless) {
