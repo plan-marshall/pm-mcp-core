@@ -1402,7 +1402,7 @@ public final class WorkflowValidator {
                     "the sub-workflow call graph contains a cycle: %s".formatted(String.join(" -> ", cyclePath))));
             return;
         }
-        if (callStack.size() >= 6) {
+        if (callStack.size() >= 5) {
             var depthPath = new ArrayList<>(callStack);
             depthPath.add(calleeId);
             violations.add(new Violation(VerificationRule.CALL_GRAPH_DAG, rootState.id(), rootState.location(),

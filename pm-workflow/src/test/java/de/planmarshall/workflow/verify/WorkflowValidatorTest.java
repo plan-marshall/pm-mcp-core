@@ -231,7 +231,7 @@ class WorkflowValidatorTest {
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "stepped-out-terminal-class.pmwf"),
             new Check("Rule 7: the call graph is acyclic",
                     VerificationRule.CALL_GRAPH_DAG, "call-graph-cycle.pmwf"),
-            new Check("Rule 7: the call graph is at most four calls deep",
+            new Check("Rule 7: the call graph is at most five frames deep",
                     VerificationRule.CALL_GRAPH_DAG, "call-graph-depth.pmwf"),
             new Check("Rule 8: every path to a state requiring an artifact passes a producer",
                     VerificationRule.GATE_PRODUCER_COVERAGE, "gate-producer-missing.pmwf"),

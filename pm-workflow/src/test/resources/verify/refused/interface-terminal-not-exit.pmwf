@@ -9,7 +9,7 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: INTERFACE_STOP_POINTS_OR_EXITS state verify.failed line 26 column 1
+# expect: INTERFACE_STOP_POINTS_OR_EXITS state verify.failed line 24 column 1
 workflow verify.interface-terminal-not-exit version 1 format 1
 scope subworkflow
 entry main -> verify.entry

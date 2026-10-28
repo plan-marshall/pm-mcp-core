@@ -7,7 +7,7 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: LINK_ID_UNIQUE state verify.entry line 21
+# expect: LINK_ID_UNIQUE state verify.entry line 20
 # A plan unit whose link state declares two links with one identifier.
 workflow verify.duplicate-link version 1 format 1
 scope workspace

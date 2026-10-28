@@ -7,8 +7,8 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: EXIT_PATH state verify.next line 24
-# expect: STEP_COMPLETION state verify.next line 24
+# expect: EXIT_PATH state verify.next line 23
+# expect: STEP_COMPLETION state verify.next line 23
 # The archive-steps state of an epic unit loops on itself and reaches no terminal state; a
 # state off every archive path also has no exit, so EXIT_PATH refuses it as well.
 workflow verify.cycle-measure-archive-path version 1 format 1

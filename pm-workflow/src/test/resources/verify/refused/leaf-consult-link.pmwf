@@ -7,8 +7,8 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: LINK_ID_UNIQUE state verify.entry line 20
-# expect: LEAF_TASK_CONSTRAINT state verify.entry line 20
+# expect: LINK_ID_UNIQUE state verify.entry line 19
+# expect: LEAF_TASK_CONSTRAINT state verify.entry line 19
 # A consultation unit that offers a consult link; a declared consult: identifier also
 # repeats the implicit consult link, so LINK_ID_UNIQUE refuses it as well.
 workflow verify.consultation version 1 format 1

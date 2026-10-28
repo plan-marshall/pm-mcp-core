@@ -88,7 +88,7 @@ public enum VerificationRule {
     INTERFACE_CALL_ENTRY(6),
     /** Interface rule 6, the type fits: the scope and the presence of entries and exits match the row of the type. */
     TYPE_FITS(6),
-    /** The static call graph forms an acyclic DAG with maximum depth at most 4. */
+    /** The static call graph forms an acyclic DAG whose call stack holds at most five frames. */
     CALL_GRAPH_DAG(7),
     /** Every path to a guard or state with required artifacts passes a producer state. */
     GATE_PRODUCER_COVERAGE(8),

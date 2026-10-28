@@ -7,7 +7,7 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: STEP_COMPLETION state verify.entry line 21
+# expect: STEP_COMPLETION state verify.entry line 20
 workflow verify.step-completion-outcome-class version 1 format 1
 scope plan
 start verify.entry

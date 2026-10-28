@@ -629,8 +629,8 @@ class WorkflowParserTest {
                     () -> assertEquals(new SourceLocation(PLAN_UNIT, 13, 1), definition.location()),
                     () -> assertEquals(new SourceLocation(PLAN_UNIT, 20, 1), definition.migrations().get(0).location()),
                     () -> assertEquals(new SourceLocation(PLAN_UNIT, 23, 1), begin.location()),
-                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 28, 9), transition.location()),
-                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 29, 13),
+                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 27, 9), transition.location()),
+                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 28, 13),
                             transition.completions().getFirst().location()));
         }
 
@@ -664,9 +664,9 @@ class WorkflowParserTest {
 
             assertAll(
                     () -> assertEquals(new SourceLocation(SUBWORKFLOW_UNIT, 19, 1), param.location()),
-                    () -> assertEquals(new SourceLocation(SESSION_UNIT, 22, 5), detour.location()),
-                    () -> assertEquals(new SourceLocation(SESSION_UNIT, 22, 40), detour.freeParams().get(0).location()),
-                    () -> assertEquals(new SourceLocation(SESSION_UNIT, 22, 52),
+                    () -> assertEquals(new SourceLocation(SESSION_UNIT, 21, 5), detour.location()),
+                    () -> assertEquals(new SourceLocation(SESSION_UNIT, 21, 40), detour.freeParams().get(0).location()),
+                    () -> assertEquals(new SourceLocation(SESSION_UNIT, 21, 52),
                             detour.freeParams().get(1).location()));
         }
 

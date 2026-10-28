@@ -7,7 +7,7 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: STEP_COMPLETION state verify.entry line 23
+# expect: STEP_COMPLETION state verify.entry line 22
 # One transition completes the step twice. The firing walk reads the completions of a
 # transition once, so only the same-transition check refuses this; step-completion-firing.pmwf
 # pins the duplicate across two transitions of one firing.
