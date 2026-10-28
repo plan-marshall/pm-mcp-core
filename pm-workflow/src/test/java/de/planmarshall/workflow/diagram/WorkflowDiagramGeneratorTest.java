@@ -339,37 +339,34 @@ class WorkflowDiagramGeneratorTest {
         void shouldSeparatePhaseFromStateAlias() {
             var unit = DiagramFixtures.parse("phase-collision.pmwf", """
                     ---
-                    name: diagram.phases
+                    name: phase-5-execute
                     description: A unit written for the tests of pm-workflow.
-                    type: system
-                    icon: workflow.default
+                    type: subworkflow
+                    icon: phase.execute
                     modification_date: 2026-01-15
                     version: 0.1.0
                     author: plan-marshall
                     ---
-                    workflow diagram.phases version 1 format 1
-                    scope workspace
-                    start phase-build
+                    workflow phase-5-execute version 1 format 1
+                    scope subworkflow
+                    start phase.phase-5-execute
 
-                    state phase-build
+                    state phase.phase-5-execute
                         auto diagram.proceed
-                            done -> phase_build-2
+                            done -> execute.end
 
-                    state phase_build-2
-                        auto diagram.proceed
-                            done -> phase-build
+                    state execute.end terminal done success
                     """);
 
-            var rendered = WorkflowDiagramGenerator.renderMermaid(unit, Optional.of("phase-build"));
+            var rendered = WorkflowDiagramGenerator.renderMermaid(unit, Optional.of("execute.end"));
 
-            assertAll(() -> assertTrue(rendered.contains("state \"phase-build\" as phase_build\n"), rendered),
-                    () -> assertTrue(rendered.contains("state \"phase_build-2\" as phase_build_2\n"), rendered),
-                    () -> assertTrue(rendered.contains("state phase_build_3 {\n"), rendered),
-                    () -> assertTrue(rendered.contains("state phase_review {\n"), rendered),
-                    () -> assertTrue(rendered.contains("phase_build --> phase_build_2 : "), rendered),
-                    () -> assertTrue(rendered.contains("phase_build_2 --> phase_build : "), rendered),
-                    () -> assertTrue(rendered.contains("[*] --> phase_build\n"), rendered),
-                    () -> assertTrue(rendered.endsWith("class phase_build active\n"), rendered));
+            assertAll(() -> assertTrue(rendered.contains("state \"phase.phase-5-execute\" as phase_phase_5_execute\n"),
+                            rendered),
+                    () -> assertTrue(rendered.contains("    state phase_phase_5_execute_2 {\n"), rendered),
+                    () -> assertTrue(rendered.contains("        state \"execute.end\" as execute_end\n"), rendered),
+                    () -> assertTrue(rendered.contains("        phase_phase_5_execute --> execute_end : "), rendered),
+                    () -> assertTrue(rendered.contains("    [*] --> phase_phase_5_execute\n"), rendered),
+                    () -> assertTrue(rendered.endsWith("    class execute_end active\n"), rendered));
         }
 
         @Test
@@ -557,11 +554,11 @@ class WorkflowDiagramGeneratorTest {
 
             assertAll(() -> assertTrue(rendered.contains("state \"instance-pruned\" as instance_pruned_2\n"), rendered),
                     () -> assertTrue(rendered.contains("instance_pruned --> instance_pruned_2 : "), rendered),
-                    () -> assertTrue(rendered.contains("state \"pruned\" as instance_pruned_6 {\n"), rendered),
+                    () -> assertTrue(rendered.contains("state \"pruned\" as instance_pruned_5 {\n"), rendered),
                     () -> assertTrue(rendered.contains("as instance_pruned_1\n"), rendered),
                     () -> assertTrue(rendered.contains("as instance_pruned_2_2\n"), rendered),
                     () -> assertTrue(rendered.contains("state \"waived gates\" as instance_waived {\n"), rendered),
-                    () -> assertTrue(rendered.contains("as instance_waived_1_6\n"), rendered));
+                    () -> assertTrue(rendered.contains("as instance_waived_1_5\n"), rendered));
         }
 
         @Test

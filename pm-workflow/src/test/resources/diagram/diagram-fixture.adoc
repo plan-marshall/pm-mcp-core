@@ -1,10 +1,10 @@
-.Phase `review`: states
+.States
 [cols="2,1,1,2,3,2,2"]
 |===
 |State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
 
 |`review.entry`
-|`review`
+|-
 |`link`
 |start, `review.entry`, `review.ask`
 |links `proceed`, `choose`, `again`, `step_out`
@@ -12,23 +12,79 @@
 |
 
 |`review.prepare`
-|`review`
+|-
 |`auto`
 |`review.entry`
 |outcomes `done`, `skipped`
 |`build.compile`, `build.compose`
 |
 
+|`build.compile`
+|-
+|`job`
+|`review.entry`, `review.prepare`
+|outcomes `succeeded`, `failed`, `cancelled`
+|`build.compose`, `diagram.failed`
+|
+
+|`build.compose`
+|-
+|`composite_job`
+|`review.prepare`, `build.compile`
+|outcomes `succeeded`, `failed`, `cancelled`
+|`build.implement`, `diagram.failed`
+|
+
+|`build.implement`
+|-
+|`job`
+|`build.compose`
+|`task implementer each diagram.list-changes`; links `consult:reviewer`; outcomes `approved`, `lost`
+|`build.judge`, `diagram.failed`
+|
+
+|`build.judge`
+|-
+|`job`
+|`build.implement`
+|`task reviewer`; outcomes `approved`, `lost`
+|`build.commit`, `diagram.failed`
+|
+
+|`build.commit`
+|-
+|`call`
+|`build.judge`
+|outcomes `done`, `stepped_out`
+|`diagram.done`, `review.ask`, `diagram.failed`
+|
+
 |`review.ask`
-|`review`
+|-
 |`awaiting_user`
 |`review.entry`, `build.commit`
 |outcomes `answered`
 |`review.entry`
 |
+
+|`diagram.done`
+|-
+|`terminal`
+|`build.commit`
+|reports `done` (`success`)
+|-
+|
+
+|`diagram.failed`
+|-
+|`terminal`
+|`build.compile`, `build.compose`, `build.implement`, `build.judge`, `build.commit`
+|reports `failed` (`failure`)
+|-
+|
 |===
 
-.Phase `review`: links
+.Links
 [cols="2,1,2,1,3,2,1"]
 |===
 |State |rel |Identifier |form |Free parameters |Guard |Implicit link
@@ -64,9 +120,17 @@
 |-
 |-
 |yes
+
+|`build.implement`
+|`consult`
+|`consult:reviewer`
+|`submit`
+|-
+|-
+|yes
 |===
 
-.Phase `review`: outcomes
+.Outcomes
 [cols="2,2,2,2"]
 |===
 |State |Outcome |Guard |Next state
@@ -100,77 +164,6 @@
 |`skipped`
 |-
 |`build.compose`
-
-|`review.ask`
-|`answered`
-|-
-|`review.entry`
-|===
-
-.Phase `build`: states
-[cols="2,1,1,2,3,2,2"]
-|===
-|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
-
-|`build.compile`
-|`build`
-|`job`
-|`review.entry`, `review.prepare`
-|outcomes `succeeded`, `failed`, `cancelled`
-|`build.compose`, `diagram.failed`
-|
-
-|`build.compose`
-|`build`
-|`composite_job`
-|`review.prepare`, `build.compile`
-|outcomes `succeeded`, `failed`, `cancelled`
-|`build.implement`, `diagram.failed`
-|
-
-|`build.implement`
-|`build`
-|`job`
-|`build.compose`
-|`task implementer each diagram.list-changes`; links `consult:reviewer`; outcomes `approved`, `lost`
-|`build.judge`, `diagram.failed`
-|
-
-|`build.judge`
-|`build`
-|`job`
-|`build.implement`
-|`task reviewer`; outcomes `approved`, `lost`
-|`build.commit`, `diagram.failed`
-|
-
-|`build.commit`
-|`build`
-|`call`
-|`build.judge`
-|outcomes `done`, `stepped_out`
-|`diagram.done`, `review.ask`, `diagram.failed`
-|
-|===
-
-.Phase `build`: links
-[cols="2,1,2,1,3,2,1"]
-|===
-|State |rel |Identifier |form |Free parameters |Guard |Implicit link
-
-|`build.implement`
-|`consult`
-|`consult:reviewer`
-|`submit`
-|-
-|-
-|yes
-|===
-
-.Phase `build`: outcomes
-[cols="2,2,2,2"]
-|===
-|State |Outcome |Guard |Next state
 
 |`build.compile`
 |`succeeded`
@@ -236,26 +229,9 @@
 |`stepped_out`
 |-
 |`diagram.failed`
-|===
 
-.Phase `inherit`: states
-[cols="2,1,1,2,3,2,2"]
-|===
-|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
-
-|`diagram.done`
-|`inherit`
-|`terminal`
-|`build.commit`
-|reports `done` (`success`)
+|`review.ask`
+|`answered`
 |-
-|
-
-|`diagram.failed`
-|`inherit`
-|`terminal`
-|`build.compile`, `build.compose`, `build.implement`, `build.judge`, `build.commit`
-|reports `failed` (`failure`)
-|-
-|
+|`review.entry`
 |===
