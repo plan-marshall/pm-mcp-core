@@ -55,6 +55,15 @@ public final class EndpointVerification {
     /** The name of the probe tool the {@code classes} stage declares. */
     public static final String PROBE_TOOL = "probe_tool";
 
+    /** The measurement of an endpoint that accepts a result schema and does not hold to it. */
+    private static final String ADVISORY = "advisory";
+
+    /** The measurement of an endpoint that refuses a request carrying a result schema. */
+    private static final String NONE = "none";
+
+    /** The measurement of an endpoint that holds its answer to the schema it is sent. */
+    private static final String ENFORCED = "enforced";
+
     private static final String CONTRADICTED_POINTER = "__contradicted__";
 
     private final EndpointClient client;
@@ -96,7 +105,7 @@ public final class EndpointVerification {
             return new ProfileStages.EndpointVerification(
                     new ProfileStages.EndpointIdentity(false, lookup.isFound() ? lookup.executablePath() : null, null,
                             List.of(), Map.of()),
-                    new ProfileStages.EndpointLaunch(false, false, "none", false),
+                    new ProfileStages.EndpointLaunch(false, false, NONE, false),
                     new ProfileStages.EndpointClasses(false, false), new ProfileStages.EndpointLimits(false, 0));
         }
         return new ProfileStages.EndpointVerification(identity(profile, lookup),
@@ -199,19 +208,19 @@ public final class EndpointVerification {
                 profile.endpoint().answerReserveTokens());
         var response = client.post(profile, EndpointClient.CHAT_PATH, request.body());
         if (response.failure() != EndpointClient.Failure.NONE || !response.successful()) {
-            return "none";
+            return NONE;
         }
         var answered = contentOf(response);
         if (answered.isEmpty()) {
-            return "advisory";
+            return ADVISORY;
         }
         try {
             var document = JsonDocument.parse(answered.get().getBytes(StandardCharsets.UTF_8), "answer");
-            return AnswerSchema.validate(contradicted, document).valid() ? "enforced" : "advisory";
+            return AnswerSchema.validate(contradicted, document).valid() ? ENFORCED : ADVISORY;
         }
         /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
         catch (RuntimeException _) {
-            return "advisory";
+            return ADVISORY;
         }
     }
 

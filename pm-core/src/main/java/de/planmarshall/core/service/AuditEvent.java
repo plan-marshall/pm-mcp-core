@@ -479,7 +479,7 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
             String newWeightsId) {
         return new AuditEvent(HARNESS_UPDATED, CATEGORY_OPERATOR, OUTCOME_SUCCEEDED,
                 Map.of(DETAIL_CLIENT_ID, Objects.requireNonNull(clientId, "clientId"), DETAIL_MODEL,
-                        Objects.requireNonNull(model, "model"), DETAIL_OLD_WEIGHTS_ID,
+                        Objects.requireNonNull(model, "the model of the weights change"), DETAIL_OLD_WEIGHTS_ID,
                         Objects.requireNonNull(oldWeightsId, "oldWeightsId"), DETAIL_NEW_WEIGHTS_ID,
                         Objects.requireNonNull(newWeightsId, "newWeightsId")));
     }

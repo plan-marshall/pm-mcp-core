@@ -154,6 +154,11 @@ public final class ProfileValidator {
 
     // The pointer segments a refusal names, with their leading slash.
     private static final String PTR_DISPLAY_NAME = "/display_name";
+    private static final String PTR_SCHEMA_VERSION = "/schema_version";
+    private static final String PTR_CLIENT_ID = "/client_id";
+    private static final String PTR_MIN_DAEMON_VERSION = "/min_daemon_version";
+    private static final String PTR_IDENTITY = "/identity";
+    private static final String PTR_EXECUTABLE = "/executable";
     private static final String PTR_SOURCE = "/source";
     private static final String PTR_BUNDLED = "/bundled";
     private static final String PTR_ARGV = "/argv";
@@ -176,6 +181,9 @@ public final class ProfileValidator {
 
     /** The one value of {@code profile_kind} a document of the profile sets declares. */
     public static final String PROFILE_KIND_ENDPOINT = "endpoint";
+
+    /** The tool-set value that makes a harness limit a worker to its role's tools. */
+    private static final String ENFORCED = "enforced";
 
     private static final Set<String> ENDPOINT_TOP_LEVEL = Set.of(NAME_PROFILE_KIND, NAME_SCHEMA_VERSION, NAME_CLIENT_ID,
             NAME_DISPLAY_NAME, NAME_MIN_DAEMON_VERSION, NAME_ICON, NAME_EXECUTABLE, NAME_IDENTITY, NAME_UPDATE_EVIDENCE,
@@ -234,8 +242,8 @@ public final class ProfileValidator {
     private static final Pattern HOME_PATH = Pattern.compile("^~/[A-Za-z0-9_./-]+$");
     private static final Pattern ENDPOINT_HOST = Pattern.compile("^[a-z0-9.-]+$");
     private static final Pattern ENDPOINT_PATH = Pattern.compile("^/[A-Za-z0-9._/-]{0,127}$");
-    private static final Pattern LOOPBACK_URL = Pattern.compile("^http://(127\\.0\\.0\\.1|\\[::1\\]):([0-9]{1,5})$");
-    private static final Pattern HTTPS_URL = Pattern.compile("^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?$");
+    private static final Pattern LOOPBACK_URL = Pattern.compile("^http://(127\\.0\\.0\\.1|\\[::1\\]):(\\d{1,5})$");
+    private static final Pattern HTTPS_URL = Pattern.compile("^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:\\d{1,5})?$");
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{([^{}]*)\\}\\}");
 
     private ProfileValidator() {
@@ -305,23 +313,23 @@ public final class ProfileValidator {
                         "'profile_kind' has the undeclared value '%s'".formatted(kind));
             }
             object(profile, "", "profile", TOP_LEVEL, TOP_LEVEL);
-            if (integer(required(profile, "", NAME_SCHEMA_VERSION), "/schema_version", NAME_SCHEMA_VERSION, 1,
+            if (integer(required(profile, "", NAME_SCHEMA_VERSION), PTR_SCHEMA_VERSION, NAME_SCHEMA_VERSION, 1,
                     SCHEMA_VERSION) != SCHEMA_VERSION) {
-                throw invalid("/schema_version", "'schema_version' must be %d".formatted(SCHEMA_VERSION));
+                throw invalid(PTR_SCHEMA_VERSION, "'schema_version' must be %d".formatted(SCHEMA_VERSION));
             }
-            var clientId = text(required(profile, "", NAME_CLIENT_ID), "/client_id", NAME_CLIENT_ID, 32);
+            var clientId = text(required(profile, "", NAME_CLIENT_ID), PTR_CLIENT_ID, NAME_CLIENT_ID, 32);
             if (!CLIENT_ID.matcher(clientId).matches()) {
-                throw invalid("/client_id", "not a client id: '%s'".formatted(clientId));
+                throw invalid(PTR_CLIENT_ID, "not a client id: '%s'".formatted(clientId));
             }
             var displayName = text(required(profile, "", NAME_DISPLAY_NAME), PTR_DISPLAY_NAME, NAME_DISPLAY_NAME, 64);
             if (displayName.isEmpty()) {
                 throw invalid(PTR_DISPLAY_NAME, "a display name is not empty");
             }
             stringRule(displayName, PTR_DISPLAY_NAME, true);
-            var minDaemonVersion = text(required(profile, "", NAME_MIN_DAEMON_VERSION), "/min_daemon_version",
+            var minDaemonVersion = text(required(profile, "", NAME_MIN_DAEMON_VERSION), PTR_MIN_DAEMON_VERSION,
                     NAME_MIN_DAEMON_VERSION, 256);
             if (!VERSION.matcher(minDaemonVersion).matches()) {
-                throw invalid("/min_daemon_version", "not a version: '%s'".formatted(minDaemonVersion));
+                throw invalid(PTR_MIN_DAEMON_VERSION, "not a version: '%s'".formatted(minDaemonVersion));
             }
             icon(required(profile, "", NAME_ICON), "/icon");
             tools(required(profile, "", NAME_TOOLS), "/tools");
@@ -330,7 +338,7 @@ public final class ProfileValidator {
             connection(required(profile, "", NAME_CONNECTION), "/connection");
             worker(required(profile, "", NAME_WORKER), "/worker", profile);
             detection(required(profile, "", NAME_DETECTION), "/detection");
-            identity(required(profile, "", NAME_IDENTITY), "/identity");
+            identity(required(profile, "", NAME_IDENTITY), PTR_IDENTITY);
         }
 
         /**
@@ -340,33 +348,33 @@ public final class ProfileValidator {
          */
         private void checkEndpointProfile(JsonNode profile) {
             object(profile, "", "endpoint profile", ENDPOINT_TOP_LEVEL, ENDPOINT_TOP_LEVEL);
-            if (integer(required(profile, "", NAME_SCHEMA_VERSION), "/schema_version", NAME_SCHEMA_VERSION, 1,
+            if (integer(required(profile, "", NAME_SCHEMA_VERSION), PTR_SCHEMA_VERSION, NAME_SCHEMA_VERSION, 1,
                     SCHEMA_VERSION) != SCHEMA_VERSION) {
-                throw invalid("/schema_version", "'schema_version' must be %d".formatted(SCHEMA_VERSION));
+                throw invalid(PTR_SCHEMA_VERSION, "'schema_version' must be %d".formatted(SCHEMA_VERSION));
             }
-            var clientId = text(required(profile, "", NAME_CLIENT_ID), "/client_id", NAME_CLIENT_ID, 32);
+            var clientId = text(required(profile, "", NAME_CLIENT_ID), PTR_CLIENT_ID, NAME_CLIENT_ID, 32);
             if (!CLIENT_ID.matcher(clientId).matches()) {
-                throw invalid("/client_id", "not a client id: '%s'".formatted(clientId));
+                throw invalid(PTR_CLIENT_ID, "not a client id: '%s'".formatted(clientId));
             }
             var displayName = text(required(profile, "", NAME_DISPLAY_NAME), PTR_DISPLAY_NAME, NAME_DISPLAY_NAME, 64);
             if (displayName.isEmpty()) {
                 throw invalid(PTR_DISPLAY_NAME, "a display name is not empty");
             }
             stringRule(displayName, PTR_DISPLAY_NAME, true);
-            var minDaemonVersion = text(required(profile, "", NAME_MIN_DAEMON_VERSION), "/min_daemon_version",
+            var minDaemonVersion = text(required(profile, "", NAME_MIN_DAEMON_VERSION), PTR_MIN_DAEMON_VERSION,
                     NAME_MIN_DAEMON_VERSION, 256);
             if (!VERSION.matcher(minDaemonVersion).matches()) {
-                throw invalid("/min_daemon_version", "not a version: '%s'".formatted(minDaemonVersion));
+                throw invalid(PTR_MIN_DAEMON_VERSION, "not a version: '%s'".formatted(minDaemonVersion));
             }
             icon(required(profile, "", NAME_ICON), "/icon");
-            var executable = optionalText(required(profile, "", NAME_EXECUTABLE), "/executable", NAME_EXECUTABLE, 64);
+            var executable = optionalText(required(profile, "", NAME_EXECUTABLE), PTR_EXECUTABLE, NAME_EXECUTABLE, 64);
             if (executable != null && !EXECUTABLE.matcher(executable).matches()) {
-                throw invalid("/executable", "not a bare executable name: '%s'".formatted(executable));
+                throw invalid(PTR_EXECUTABLE, "not a bare executable name: '%s'".formatted(executable));
             }
             var identityNode = required(profile, "", NAME_IDENTITY);
             var hasIdentity = !identityNode.isNull();
             if (hasIdentity) {
-                identity(identityNode, "/identity");
+                identity(identityNode, PTR_IDENTITY);
             }
             var evidenceNode = required(profile, "", NAME_UPDATE_EVIDENCE);
             if (!evidenceNode.isNull()) {
@@ -404,7 +412,7 @@ public final class ProfileValidator {
                 throw invalid(pointer + "/models_pointer", MSG_NOT_A_POINTER.formatted(modelsPointer));
             }
             enumValue(required(endpoint, pointer, NAME_RESULT_SCHEMA), pointer + "/result_schema", NAME_RESULT_SCHEMA,
-                    Set.of("enforced", "advisory", "none"));
+                    Set.of(ENFORCED, "advisory", "none"));
             var contextTokens = integer(required(endpoint, pointer, NAME_CONTEXT_TOKENS), pointer + "/context_tokens",
                     NAME_CONTEXT_TOKENS, 1024, Integer.MAX_VALUE);
             var answerReserve = integer(required(endpoint, pointer, NAME_ANSWER_RESERVE_TOKENS),
@@ -449,10 +457,10 @@ public final class ProfileValidator {
                 throw invalid("/endpoint/credential_key", "a loopback endpoint has a null credential_key");
             }
             if (executable == null) {
-                throw invalid("/executable", "a loopback endpoint names the program that serves it");
+                throw invalid(PTR_EXECUTABLE, "a loopback endpoint names the program that serves it");
             }
             if (!hasIdentity) {
-                throw invalid("/identity", "a loopback endpoint names its identity");
+                throw invalid(PTR_IDENTITY, "a loopback endpoint names its identity");
             }
         }
 
@@ -553,9 +561,9 @@ public final class ProfileValidator {
             var headlessMembers = new HashSet<>(HEADLESS);
             headlessMembers.addAll(HEADLESS_OPTIONAL);
             object(headless, pointer, NAME_HEADLESS, HEADLESS, headlessMembers);
-            var executable = text(required(headless, pointer, NAME_EXECUTABLE), pointer + "/executable", NAME_EXECUTABLE, 64);
+            var executable = text(required(headless, pointer, NAME_EXECUTABLE), pointer + PTR_EXECUTABLE, NAME_EXECUTABLE, 64);
             if (!EXECUTABLE.matcher(executable).matches()) {
-                throw invalid(pointer + "/executable", "not a bare executable name: '%s'".formatted(executable));
+                throw invalid(pointer + PTR_EXECUTABLE, "not a bare executable name: '%s'".formatted(executable));
             }
             installLocations(required(headless, pointer, NAME_INSTALL_LOCATIONS), pointer + "/install_locations");
             var installHint = text(required(headless, pointer, NAME_INSTALL_HINT), pointer + "/install_hint", NAME_INSTALL_HINT,
@@ -810,7 +818,7 @@ public final class ProfileValidator {
             object(declaration, pointer, name, Set.of("args", NAME_TOOL_SET), Set.of("args", NAME_TOOL_SET));
             launchArguments(required(declaration, pointer, "args"), pointer + "/args", name + ".args", SLOTS, 0);
             return enumValue(required(declaration, pointer, NAME_TOOL_SET), pointer + "/tool_set", NAME_TOOL_SET,
-                    Set.of("enforced", "advisory"));
+                    Set.of(ENFORCED, "advisory"));
         }
 
         private boolean hasCapability(JsonNode capabilities, String capability) {
@@ -1160,7 +1168,7 @@ public final class ProfileValidator {
             return classes.members().values().stream()
                     .filter(value -> !value.isNull())
                     .map(value -> value.member(NAME_TOOL_SET).flatMap(JsonNode::text).orElse(""))
-                    .anyMatch("enforced"::equals);
+                    .anyMatch(ENFORCED::equals);
         }
 
         private boolean covered(String model, JsonNode restricted) {

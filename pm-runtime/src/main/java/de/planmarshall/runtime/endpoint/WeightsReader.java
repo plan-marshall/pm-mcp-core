@@ -123,10 +123,9 @@ public final class WeightsReader {
             return Optional.empty();
         }
         Process process = null;
-        try {
+        try (var output = new ByteArrayOutputStream()) {
             var started = new ProcessBuilder(argv).redirectErrorStream(true).start();
             process = started;
-            var output = new ByteArrayOutputStream();
             var reader = Thread.ofVirtual().start(() -> drain(started, output));
             if (!started.waitFor(PROBE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                 started.destroyForcibly();

@@ -94,20 +94,18 @@ public final class EndpointClient {
             var answer = handler.send(request.build(), BodyHandlers.ofString());
             return new Response(answer.statusCode(), answer.body(), Failure.NONE, "answered");
         } catch (HttpTimeoutException _) {
-            return failure(profile, uri, Failure.TIMEOUT, "no answer inside %d s"
+            return failure(uri, Failure.TIMEOUT, "no answer inside %d s"
                     .formatted(profile.endpoint().requestTimeoutSeconds()));
-        } catch (IOException e) {
-            return failure(profile, uri, Failure.UNREACHABLE, e.getClass().getSimpleName());
+        } catch (IOException | IllegalArgumentException | IllegalStateException e) {
+            // The message of such an exception may quote the URL: name its type only.
+            return failure(uri, Failure.UNREACHABLE, e.getClass().getSimpleName());
         } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
-            return failure(profile, uri, Failure.UNREACHABLE, "interrupted");
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            // The message of such an exception may quote the URL: name its type only.
-            return failure(profile, uri, Failure.UNREACHABLE, e.getClass().getSimpleName());
+            return failure(uri, Failure.UNREACHABLE, "interrupted");
         }
     }
 
-    private static Response failure(EndpointProfile profile, URI uri, Failure failure, String detail) {
+    private static Response failure(URI uri, Failure failure, String detail) {
         return new Response(0, "", failure, "%s (%s): %s".formatted(failure.wireName(), shown(uri), detail));
     }
 

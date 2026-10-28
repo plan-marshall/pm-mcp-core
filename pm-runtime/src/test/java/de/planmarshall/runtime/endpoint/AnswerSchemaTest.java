@@ -164,12 +164,13 @@ class AnswerSchemaTest {
     @Test
     @DisplayName("a deeply nested schema is checked without looping")
     void depthGuard() {
-        var nested = "{\"type\":\"object\"}";
+        var nested = new StringBuilder("{\"type\":\"object\"}");
         for (var index = 0; index < 5; index++) {
-            nested = "{\"type\":\"object\",\"properties\":{\"child\":" + nested + "}}";
+            var wrapper = new StringBuilder("{\"type\":\"object\",\"properties\":{\"child\":");
+            nested = wrapper.append(nested).append("}}");
         }
 
-        var check = AnswerSchema.validate(parse(nested), parse("{}"));
+        var check = AnswerSchema.validate(parse(nested.toString()), parse("{}"));
 
         assertTrue(check.valid());
     }

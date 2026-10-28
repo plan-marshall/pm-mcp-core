@@ -513,15 +513,26 @@ public final class ProfileStages {
 
     // ---- the stages of an endpoint harness ------------------------------------------------------------------
 
+    /** The stage that settles the serving program, its version probe and the models listing. */
+    private static final String IDENTITY = "identity";
+    /** The stage that settles readiness and the result schema. */
+    private static final String LAUNCH = "launch";
+    /** The stage that records the tool-call probe. */
+    private static final String CLASSES = "classes";
+    /** The stage that settles the endpoint's context limit. */
+    private static final String LIMITS = "limits";
+    /** The status of a stage a record keeps as passed. */
+    private static final String PASSED = "passed";
+
     /** The stages of the verification of an endpoint, in the order they run. */
-    public static final List<String> ENDPOINT_STAGES = List.of("identity", "launch", "classes", "limits");
+    public static final List<String> ENDPOINT_STAGES = List.of(IDENTITY, LAUNCH, CLASSES, LIMITS);
 
     /** The status of one value the endpoint stages write into the verification record. The set is closed. */
     public enum EndpointValueStatus {
         /** The stage observed the value on the endpoint. */
-        MEASURED("measured"),
+        MEASURED(ProfileStages.MEASURED),
         /** The stage could not observe the value, so it settles nothing. */
-        NOT_MEASURED("not_measured");
+        NOT_MEASURED(ProfileStages.NOT_MEASURED);
 
         private final String wireName;
 
@@ -678,10 +689,10 @@ public final class ProfileStages {
          */
         public Map<String, String> stageStatuses() {
             var statuses = new LinkedHashMap<String, String>();
-            statuses.put("identity", identity.passed() ? "passed" : "failed");
-            statuses.put("launch", launch.passed() ? "passed" : "failed");
-            statuses.put("classes", "passed");
-            statuses.put("limits", limits.passed() ? "passed" : "not_run");
+            statuses.put(IDENTITY, identity.passed() ? PASSED : "failed");
+            statuses.put(LAUNCH, launch.passed() ? PASSED : "failed");
+            statuses.put(CLASSES, PASSED);
+            statuses.put(LIMITS, limits.passed() ? PASSED : "not_run");
             return Collections.unmodifiableMap(statuses);
         }
 

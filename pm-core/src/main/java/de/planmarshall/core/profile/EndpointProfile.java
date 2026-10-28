@@ -36,6 +36,9 @@ import java.util.Objects;
 public record EndpointProfile(String clientId, String executable, Identity identity, UpdateEvidence updateEvidence,
 Endpoint endpoint, Map<String, String> modelTiers, WeightsProbe weightsProbe) {
 
+    /** The member of the document that carries the weights probe, on either kind of profile. */
+    private static final String WEIGHTS_PROBE = "weights_probe";
+
     /** Copies the tiers. */
     public EndpointProfile {
         Objects.requireNonNull(clientId, "clientId");
@@ -156,7 +159,7 @@ Endpoint endpoint, Map<String, String> modelTiers, WeightsProbe weightsProbe) {
                 updateEvidence(profile),
                 endpoint(block),
                 tiers(profile),
-                weightsProbe(profile.member("weights_probe").orElse(null)));
+                weightsProbe(profile.member(WEIGHTS_PROBE).orElse(null)));
     }
 
     /**
@@ -166,9 +169,9 @@ Endpoint endpoint, Map<String, String> modelTiers, WeightsProbe weightsProbe) {
      */
     public static WeightsProbe weightsProbeOf(JsonNode document) {
         var declared = ProfileValidator.isEndpoint(document)
-                ? document.member("weights_probe").orElse(null)
+                ? document.member(WEIGHTS_PROBE).orElse(null)
                 : document.member("headless").filter(headless -> !headless.isNull())
-                .flatMap(headless -> headless.member("weights_probe")).orElse(null);
+                .flatMap(headless -> headless.member(WEIGHTS_PROBE)).orElse(null);
         return weightsProbe(declared);
     }
 

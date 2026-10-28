@@ -154,7 +154,7 @@ public record EndpointOutcome(Fate fate, Reason reason, String detail, String co
         JsonNode answer;
         try {
             answer = JsonDocument.parse(response.body().getBytes(StandardCharsets.UTF_8), "answer");
-        } catch (ProfileRefusal | IllegalArgumentException malformed) {
+        } catch (ProfileRefusal | IllegalArgumentException _) {
             return ended(Reason.INVALID_ANSWER, "the answer is no JSON document");
         }
         var usage = usage(answer);
@@ -170,7 +170,7 @@ public record EndpointOutcome(Fate fate, Reason reason, String detail, String co
         JsonNode document;
         try {
             document = JsonDocument.parse(content.get().getBytes(StandardCharsets.UTF_8), "answer");
-        } catch (ProfileRefusal | IllegalArgumentException malformed) {
+        } catch (ProfileRefusal | IllegalArgumentException _) {
             return new EndpointOutcome(Fate.ENDED, Reason.INVALID_ANSWER,
                     "the content is not one JSON document", "", usage);
         }
