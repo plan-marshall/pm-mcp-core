@@ -36,8 +36,14 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:question-continuation.adoc[`question-continuation`]
 |Continuation after a question: hold, suspend and resume, the answer acknowledgement, the answer in the next task, the question bound, the stage `resumability` of the profile verification
 |`open`
-|link:../../../plan-marshall-mcp/doc/plans/question-loop-verification.adoc[`plan-marshall-mcp` / `question-loop-verification`]
+|link:client-profile-measured-values.adoc[`client-profile-measured-values`]
 |Milestone 4
+
+|link:client-profile-measured-values.adoc[`client-profile-measured-values`]
+|The client-profile values the question-loop follow-up measures: the `headless.resumability` values of the shipped profiles, the `headless.inline_settings` member and its provisional values, and the stage `resumability` checked against the measured hosts
+|`open`
+|link:../../../plan-marshall-mcp/doc/plans/question-loop-follow-up.adoc[`plan-marshall-mcp` / `question-loop-follow-up`]
+|Milestones 4 and 14
 
 |link:supervision-scenarios.adoc[`supervision-scenarios`]
 |Deterministic supervision scenarios

@@ -205,6 +205,8 @@ A deliverable may declare several verification command and criterion pairs; the 
 === Intent Record (`intent.json`)
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_
 
+Implemented in `pm-core`: `IntentRecord` (the `intent-record` schema and its EARS, fix-triple, decider, assumption, identifier and preservation checks), `IntentStore` (the revision and its `history[]`), `IntentCodec` (the strict reader and writer of this document) and `IntentStoreFile` (the accepting transaction on the plan lock), documented in link:../../../pm-core/doc/developer/core-store.adoc#_the_intent_record[Scope Stores Developer Guide § The Intent Record]. The schema below remains the normative shape for the assembly's submission endpoints.
+
 The plan's intent record (link:../phase-workflows/01-planning-phases-1-2.adoc#intent-record[Phase Workflows Specification, The Intent Record]), written by the transaction that accepts a `submit:refine` or a light `submit:outline`, and by a re-planning that changes intent. `current` is the accepted record; every earlier revision moves to `history[]` in the same transaction and is never changed. The model-supplied record is the named parameter schema `intent-record`; the members around it are server-owned.
 
 [source,json]
@@ -390,6 +392,8 @@ The server checks beyond the schema (EARS form, the fix triple, true deciders, t
 [#outline-record-store]
 === Outline Record (`outline.json`)
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_
+
+Implemented in `pm-core`: `OutlineRecord` (the `outline-record` schema and its bounds, dependency and file-intent rules), `OutlineStore` (the revision, its `history[]` and the server-owned `deliverable_status`), `OutlineCodec`, `OutlineRenderer` (the `outline.md` form) and `OutlineStoreFile`, documented in link:../../../pm-core/doc/developer/core-store.adoc#_the_outline_record[Scope Stores Developer Guide § The Outline Record]. The schema below remains the normative shape for the assembly's submission endpoints.
 
 The plan's solution outline (link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-validation-gate[Phase Workflows Specification, Phase 3 Validation]), written by the transaction that accepts a `submit:outline` and by `replan.apply`. `current` is the accepted record and every earlier revision moves to `history[]`; `deliverable_status` is server-owned. `outline.md` is rendered from `current` in the model language, deliverable by deliverable, in the section form of `plan-marshall`'s solution outline (`**Metadata:**`, `**Intent gloss:**`, `**Profiles:**`, ``- `<path>` (<intent>)`` under `**Affected files:**`, `**Change per file:**`, `**Verification:**`, `**Satisfies:**`, `**Added dependencies:**`, `**Interfaces:**`, `**Key links:**`); it is never read back. The model-supplied record is the named parameter schema `outline-record`.
 
@@ -791,6 +795,8 @@ The plan's solution outline (link:../phase-workflows/02-planning-lanes-phases-3-
 [#capability-spec]
 === Capability Spec (`.marshall/capabilities/<capability>.json`)
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_
+
+Implemented in `pm-core`: `CapabilitySpec` (the spec, its requirements and scenarios, the EARS check and the RFC 8785 fingerprint over the requirement without `plan_id` and `verified_by`) and `CapabilityIndex` (the reader of a tree's specs, the `facts.capability_index` form and the `IntentAcceptance.CapabilityFacts` of an acceptance), documented in link:../../../pm-core/doc/developer/core-store.adoc#_capability_specs[Scope Stores Developer Guide § Capability Specs]. Not implemented yet: the `architecture-refresh` writer of the plan's changes, its re-planning triggers and the capability test guard. The schema below remains the normative shape.
 
 A git-tracked team file of the project (link:../phase-workflows/01-planning-phases-1-2.adoc#capability-specs[Phase Workflows Specification, Capability Specs]), written only by the finalize step `architecture-refresh` in a plan's worktree; a requirement's fingerprint is the SHA-256 of the RFC 8785 canonical JSON of its object without `plan_id` and `verified_by`, so that following a renamed test changes no fingerprint. A removed requirement leaves the file; a capability whose last requirement is removed is deleted.
 

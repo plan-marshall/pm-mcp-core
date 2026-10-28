@@ -183,7 +183,11 @@ The union of the `added_dependencies` of the outline record that passed `outline
 
 [#outline-satisfies]
 === 6. `satisfies` Coverage
-_Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-110[PM-WATCH-PHASE-110]_
+
+The coverage and ordering checks are implemented in `pm-core` as `OutlineValidator#validate(OutlineRecord, IntentRecord)`
+(link:../../../pm-core/doc/developer/core-spi.adoc#_model_submission_validators[Core SPI Developer Guide § Model
+Submission Validators]): every entry names a criterion or decision the record holds, every criterion is covered, and
+the guard of an `unchanged` criterion verified by `test` may not depend on the change it guards.
 
 A deliverable names the parts of the plan's intent record it implements in its `satisfies` (xref:01-planning-phases-1-2.adoc#intent-record[Intent Record]); each entry is one identifier of the record's `criteria` (`AC-<n>`) or `decisions` (`DC-<n>`). `OutlineValidator` refuses the outline with `invalid_link_args`, naming the JSON pointer or the identifier, when:
 
