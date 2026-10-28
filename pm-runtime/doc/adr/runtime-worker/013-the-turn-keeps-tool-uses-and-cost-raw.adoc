@@ -34,5 +34,5 @@ The activity entry's usage object has seven members. A harness whose profile dec
 
 == Source
 
-Work package `doc/plans/token-usage.adoc`; Client Profiles § Tokens, Not Money; Model Work § Worker Result & Usage
+Closed usage work package (its package file is deleted); Client Profiles § Tokens, Not Money; Model Work § Worker Result & Usage
 Parsing.

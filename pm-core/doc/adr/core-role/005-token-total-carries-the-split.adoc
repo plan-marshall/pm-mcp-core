@@ -34,5 +34,5 @@ A record written without a measured split stays readable and shows its total alo
 
 == Source
 
-Work package `doc/plans/token-usage.adoc`; Store Schemas § Role Qualification Record, § Decision Calibration Record, §
+Closed usage work package (its package file is deleted); Store Schemas § Role Qualification Record, § Decision Calibration Record, §
 Judge Check Record; Model Work § Post-Completion Integrity Invariants.

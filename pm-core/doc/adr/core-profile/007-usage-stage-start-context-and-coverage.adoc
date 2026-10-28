@@ -39,5 +39,5 @@ record. A harness whose first turn does not report the input figures records it 
 
 == Source
 
-Work package `doc/plans/token-usage.adoc`; Client Profiles § Tokens, Not Money (Start Context, Usage report of a
+Closed usage work package (its package file is deleted); Client Profiles § Tokens, Not Money (Start Context, Usage report of a
 harness) and § Profile Verification (stage `usage`); Store Schemas § Enrolment Store (`usage_report`).

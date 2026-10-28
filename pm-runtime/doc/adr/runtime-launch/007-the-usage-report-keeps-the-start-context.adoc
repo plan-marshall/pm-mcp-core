@@ -32,5 +32,5 @@ stays readable and shows no start context.
 
 == Source
 
-Work package `doc/plans/token-usage.adoc`; Store Schemas § Enrolment Store (`usage_report`); Client Profiles § Tokens,
+Closed usage work package (its package file is deleted); Store Schemas § Enrolment Store (`usage_report`); Client Profiles § Tokens,
 Not Money (Start Context).
