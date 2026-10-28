@@ -44,7 +44,8 @@ import de.planmarshall.workflow.finalize.PipelineViolation;
  * Checks a project-owned unit against the compiled invariants of {@link InvariantId} (PM-IMPL-5, PM-WF-16).
  * <p>
  * The checks that apply to a unit follow from its identifier ({@link InvariantId#appliesTo}): the general invariants
- * for every unit, the phase invariants for the merged plan unit {@code plan}, and the unit invariants for
+ * for every unit, the phase invariants for the plan unit {@code plan} and for the phase unit whose states they judge,
+ * and the unit invariants for
  * {@code adjudicate.decisions}, {@code replan}, {@code git.commit_and_push} and the {@code remediation.*} units. The
  * default unit of the same identifier is the reference: where an invariant says that the unit equals the default unit,
  * or that a state lies on every path, the default unit tells what the unit must keep, and the unit may tighten it but
@@ -60,7 +61,7 @@ import de.planmarshall.workflow.finalize.PipelineViolation;
  */
 public final class CompiledInvariants {
 
-    /** The identifier of the merged plan unit. */
+    /** The identifier of the plan unit. */
     static final String PLAN_UNIT = InvariantId.PLAN_UNIT;
 
     /** The namespace of the remediation units. */
@@ -161,7 +162,7 @@ public final class CompiledInvariants {
     /**
      * Checks one project unit against every invariant that applies to it.
      *
-     * @param unit     the project unit; the merged plan unit for the phase files
+     * @param unit     the project unit; the plan unit for the phase invariants
      * @param rules    the result of {@link WorkflowValidator} for the unit
      * @param pipeline the violations of the finalize pipeline validator over the project's roster; empty for every
      *                 unit but the plan unit
@@ -615,6 +616,19 @@ public final class CompiledInvariants {
          */
         boolean inPhase(StateNode state, String phase) {
             return phaseOf(state).filter(phase::equals).isPresent();
+        }
+
+        /**
+         * @param state a state of the reference's expansion
+         * @return the short name of its phase, resolved the way {@link #phaseOf(StateNode)} resolves it for the unit
+         */
+        Optional<String> referencePhaseOf(StateNode state) {
+            var owner = referenceExpansion.owners().get(state.id());
+            var phase = owner == null ? null : referenceExpansion.phases().get(owner);
+            if (phase != null) {
+                return Optional.of(phase.name().toLowerCase(Locale.ROOT));
+            }
+            return Phase.ofCallState(state.id()).map(found -> found.name().toLowerCase(Locale.ROOT));
         }
 
         /**

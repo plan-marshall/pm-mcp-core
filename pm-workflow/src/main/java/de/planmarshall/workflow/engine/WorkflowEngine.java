@@ -69,11 +69,11 @@ import de.planmarshall.workflow.verify.WorkflowValidator;
  * <ul>
  * <li>an {@code auto} state runs its primitive through the {@link PrimitiveRegistry} and takes the transition of the
  * returned outcome;</li>
- * <li>a {@code call} state pushes a frame (the calling unit and state, the caller's phase, the sub-workflow, the entry
+ * <li>a {@code call} state pushes a frame (the calling unit and state, the sub-workflow, the entry
  * the call goes through, the bound arguments, {@code pushed_at} from the {@link WorkflowClock}) and enters the
  * sub-workflow at the state that entry binds, the entry the call names or the callee's sole entry when the call names
- * none; the frame and its entry are written with the status in the transaction of the call; a state
- * that declares {@code phase inherit} keeps the caller's phase;</li>
+ * none; the frame and its entry are written with the status in the transaction of the call; the phase of the scope is
+ * the phase sub-workflow on the stack, which the callee shares;</li>
  * <li>a terminal state of a sub-workflow pops exactly one frame and takes the calling state's transition of the
  * returned outcome; of an outcome routed twice, the one whose result guard holds over the frame's result record, the
  * facts the sub-workflow's primitives returned in this advance;</li>
@@ -597,7 +597,9 @@ public final class WorkflowEngine {
     /**
      * The phase a flat plan unit's state names by the first segment of its identifier ({@code execute.commit}), which
      * the engine's fixtures and a pre-split unit carry where a composed unit has the call state {@code phases.execute}.
-     * A composed unit derives its phase from the call stack, so this is the last fallback before the previous phase.
+     * A composed unit derives its phase from the call stack, so this is the last fallback before the previous phase. The
+     * segment {@code plan} is not read as the phase: it names the plan unit, so {@code plan.return} keeps the phase the
+     * plan called last.
      */
     private static Optional<Phase> phaseOfStatePrefix(String stateId) {
         var dot = stateId.indexOf('.');
@@ -605,6 +607,9 @@ public final class WorkflowEngine {
             return Optional.empty();
         }
         var segment = stateId.substring(0, dot);
+        if (Phase.PLAN_UNIT.equals(segment)) {
+            return Optional.empty();
+        }
         return Arrays.stream(Phase.values())
                 .filter(phase -> phase.name().toLowerCase(Locale.ROOT).equals(segment)).findFirst();
     }
