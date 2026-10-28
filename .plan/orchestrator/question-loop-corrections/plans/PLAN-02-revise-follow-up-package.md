@@ -52,12 +52,40 @@ runnable and binding and `question-continuation` waits for settled values. Docum
    between (a) a rule that a package whose Done When names results is `done` only when they are met, with the row of
    `question-loop-verification` corrected accordingly, and (b) keeping the definition and stating in the row that the
    follow-up carries the unmet part. The chosen form is applied.
+6. **The OpenCode 2.x worker as now specified.** Core #206 (`3ed18f7b`) and `plan-marshall-documentation` #125
+   (`a4c9934`) specify it: the profile member `headless.inline_settings` (the server's tools as direct tools, compaction
+   off, the tool-result limit, request timeouts below the silence limit; values provisional until verified), the 2.x
+   launch, version probe and `events` mapping, `PM-CLIENT-2`, `PM-WATCH-CLIENT-17`, the two OpenCode items of Roadmap
+   Milestone 14, and the open questions `opencode-worker-login` and `opencode-event-source`. The follow-up package
+   follows them:
+   - *Task 3 keeps only the question loop's findings.* Whether the profile or the version pattern changes for what the
+     specification now states (the supported range, `run --standalone` with the project from `PWD`, the version probe,
+     the tool names) is Milestone 14's item that verifies and ships the 2.x profile; the package names that item as the
+     owner and keeps the session-id pointer and the tool-catalog refusal of R2 warm/300.
+   - *The configuration of a measured OpenCode run is stated.* Every OpenCode run uses the profile's inline settings, and
+     the unset defaults are the matched control wherever a result may depend on a setting (`PM-WATCH-CLIENT-17`); the
+     effect of each setting is checked before the first measured run, never its acceptance. The operator confirms at
+     refine whether the control is run and for which items (OpenCode runs are cheap, the wall time of R1 and R2 is the
+     cost).
+   - *The tool-catalog refusal is investigated with code mode as a candidate cause* (HYPOTHESIS: the harness offers the
+     server's tools behind its code tool by default, not as direct tools): the investigation compares direct tools with
+     code mode and records the result either way.
+   - *The per-worker data home waits on a decision.* A 2.x login is not in `auth.json`, so the setup of task 3's fourth
+     bullet depends on the open question `opencode-worker-login`; the operator decides before the first run which of its
+     options the measurement uses, or that OpenCode runs serially on the operator's data home as the smoke run did, and
+     the package records the decision and any departure from the specified setup.
+   - *Task 12 takes `inline_settings` as the form of a schema addition* (a member in the `required` list of the profile
+     schema, `null` where a harness has none). The settled values go into the profile that ships the 2.x range
+     `>=2.1.0 <3.0.0`; where Milestone 14 has not shipped it when task 12 is reached, they go into the evaluation
+     reference only and the profile keeps `false` and `null` (the operator confirms).
 
 **Done when**: the follow-up package names its evidence store and checks it, states 20 runs per fixture and host,
 carries the fixed-criteria sentence, and has no task without a missable criterion; no package in either index depends,
 directly or through another package, on one that depends on it; `question-continuation` no longer reads as ready while
 the follow-up is open; the engine's part of the follow-up is a package of this repository with its index row; the
-`done` decision is applied; the documentation link check reports `BROKEN LINKS 0` against both repositories' `main`.
+`done` decision is applied; the package states the configuration of its OpenCode runs, names Milestone 14's item as the
+owner of the 2.x profile, and records the decision on the data home; the documentation link check reports
+`BROKEN LINKS 0` against both repositories' `main`.
 
 ## Standing Constraints
 
@@ -88,9 +116,19 @@ the follow-up is open; the engine's part of the follow-up is a package of this r
   `question-loop-follow-up.adoc` lines 26, 52, 60, 76, 99, 113 and 121 (verify-at-outline).
 - OBSERVED: `codex` is not on the PATH of the measuring machine (`command -v codex` empty, 2026-10-27).
 - OBSERVED: `plan-marshall-mcp` `doc/plans/README.adoc` line 137 defines `done` by the build checks only.
+- OBSERVED: PLAN-73 of `pm-mcp-core-m2-m4` was launched and shipped as #201 (`a7a355aa`, "partial: library core")
+  before this plan: its package file `doc/plans/question-continuation.adoc` is still open in the index, and its first
+  bullet of *What* still says "Nothing of it exists". The index has no row for the OpenCode 2.x items of Roadmap
+  Milestone 14 (`doc/plans/` holds no package named for the inline settings or the 2.x profile), and `doc/plans/` was not
+  touched by #204 or #206 (2026-10-27).
+- OBSERVED: the follow-up package at `3b93248` names OpenCode 2.x in task 3 (lines 42–51: supported range, `argv`, tool
+  naming, version pattern, the R2 warm/300 refusal, the data home per worker) and in task 12 (lines 121–123), and says
+  nothing of inline settings, code mode or compaction.
 - Verify-first clause: before scoping, re-read both indexes and the package files at `origin/main` (another plan may
-  have changed them), and check PLAN-73 of `pm-mcp-core-m2-m4` has not been launched; if it has, report it in the inbox
-  message instead of changing its package file under it.
+  have changed them), and read what #201 landed of `question-continuation` and which values it used. The change to the
+  package file is the dependency, the bullet *Measured first*, and the first bullet of *What* (corrected to what #201
+  landed, read from the merged code, not from this spec); its deliverables stay. If the code of #201 fixes a smoke-scale
+  candidate value, report it in the inbox message as a finding for the remaining deliverables, not as a change here.
 
 ## Expected Surface
 
@@ -104,9 +142,11 @@ the follow-up is open; the engine's part of the follow-up is a package of this r
 
 - Depends on: none (PLAN-01 may run beside it; their files are disjoint).
 - Overlaps with: none within this epic. `doc/plans/README.adoc` is shared, one row per plan, with every plan of this
-  repository (PLAN-42 of `pm-mcp-core-m2-m4` is running and resolves its conflicts there itself).
-- Adjacent to: PLAN-73 of `pm-mcp-core-m2-m4` implements `question-continuation`; this plan changes only that package's
-  dependency and its bullet *Measured first*, never its deliverables.
+  repository (PLAN-42 and PLAN-73 of `pm-mcp-core-m2-m4` have shipped; the plan works from `origin/main` after them).
+- Adjacent to: PLAN-73 of `pm-mcp-core-m2-m4` implemented the library core of `question-continuation` (#201); this plan
+  changes only that package's dependency, its bullet *Measured first* and the statement of what exists, never its
+  deliverables. The OpenCode 2.x items of Milestone 14 have no package yet: this plan names them as owners and creates
+  none.
 
 ## Hand-Off Command
 

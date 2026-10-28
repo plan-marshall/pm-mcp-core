@@ -2,10 +2,10 @@
   "id": "PLAN-02",
   "slug": "revise-follow-up-package",
   "workstream": "WS-02",
-  "status": "staged",
-  "lane": "plan-marshall",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "status": "shipped",
+  "lane": "runbook",
+  "plan_marshall_plan_id": "rb-02-revise-follow-up-package",
+  "pr": "#212",
+  "landing": "landings/PLAN-02.md",
   "seq": 2
 }
