@@ -25,7 +25,7 @@ import de.planmarshall.workflow.ast.Phase;
  * off. The named hooks of {@link #INV_GEN_2}, {@link #INV_GEN_4} and {@link #INV_REM_6} are the only exemptions.
  * <p>
  * A unit pattern is a unit identifier, {@value #ALL_UNITS} for every unit, or a namespace followed by {@code .*} for
- * every unit of the namespace, for example {@code remediation.*}. The phase invariants apply to the merged plan unit
+ * every unit of the namespace, for example {@code remediation.*}. The phase invariants apply to the plan unit
  * {@value #PLAN_UNIT}, which calls the phases, and to the phase sub-workflow whose states they judge, so a phase unit
  * is held to its own part of the guarantee and the plan unit to the guarantee over the composed graph.
  *
@@ -145,7 +145,7 @@ public enum InvariantId {
     /** The unit pattern that matches every unit. */
     static final String ALL_UNITS = "*";
 
-    /** The identifier of the merged plan unit. */
+    /** The identifier of the plan unit. */
     static final String PLAN_UNIT = "plan";
 
     /** The unit pattern of the remediation units. */

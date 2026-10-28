@@ -48,7 +48,7 @@ import de.planmarshall.workflow.verify.WorkflowValidator;
  * else the project's, else the machine's, else the shipped plan default, {@link PlanFacts#bound(PlanFacts.Axis)}),
  * passes the declarations of every axis variant among the request's sub-units into the facts, evaluates the
  * composition rules against them, applies their prunes and bindings, the bound variants and the waivers in force to
- * the merged plan template ({@link InstancePruner}: each axis call site calls its bound variant, every other variant
+ * the plan template ({@link InstancePruner}: each axis call site calls its bound variant, every other variant
  * of the axis is a pruned call with the reason {@code plan_default} and the level as source fact; from every event
  * after {@code start} on, the lane is known and the states of the other lane are pruned with the reason
  * {@code other_lane}), and builds the

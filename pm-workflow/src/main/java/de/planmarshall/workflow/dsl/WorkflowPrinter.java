@@ -48,8 +48,7 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * parenthesised, because the grammar admits no {@code not not}.
  * <p>
  * The header carries {@code derived_from <n>} when {@link WorkflowDefinition#derivedFrom()} holds a revision for the
- * unit's own id, the entry the parser records for a single-file project unit. What the parser of one file does not
- * record is not printed: the part versions of a merged unit and the derived-from revisions of its part files. A range
+ * unit's own id, the entry the parser records for a single-file project unit. A range
  * of a {@code text} or {@code int} type is printed when both of its bounds are present, as the grammar writes one only
  * with both. The printer checks nothing: it prints the tree it is given.
  *

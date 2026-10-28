@@ -86,8 +86,8 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * nothing, so the clause is refused there, and a revision of zero is refused for every origin.
  * <p>
  * The parser checks the grammar alone. The static verification rules of a unit (identifier length bounds, the
- * reachability, call-site and link-form rules), the merge of a multi-file unit (part versions, the derived-from
- * revisions of its files) and the project-unit refusal of an {@code instance} line are the work of later stages.
+ * reachability, call-site and link-form rules) and the project-unit refusal of an {@code instance} line are the work of
+ * later stages.
  *
  * @since 0.1
  */

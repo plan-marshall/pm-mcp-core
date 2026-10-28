@@ -73,7 +73,7 @@ public enum VerificationRule {
     LEAF_TASK_CONSTRAINT(4),
     /** Every released state name is a state, or is migrated directly to a state. */
     RELEASED_STATE(5),
-    /** Sub-workflow exit contracts, parameter bindings, phase inherit, and guided step-in skills. */
+    /** Sub-workflow exit contracts, parameter bindings, and guided step-in skills. */
     SUBWORKFLOW_CALL_CONTRACT(6),
     /**
      * Interface rule 3, called units return: a unit with entries declares an exit (a landing variant excepted), and

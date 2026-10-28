@@ -17,8 +17,8 @@ state declares a phase, and a surviving clause would be a second, disagreeing so
 
 == Decision
 
-* `WorkflowParser` no longer reads `phase` as a clause or `inherit` as a value of it; `phase` stays a reserved word of
-  the grammar so a unit that still writes it is refused by name rather than parsed as a state identifier.
+* `WorkflowParser` no longer reads `phase` as a clause or `inherit` as a value of it; a line that still writes `phase`
+  is refused as an unknown body clause, at the line that states it, rather than parsed as a state identifier.
 * `WorkflowPrinter` emits no phase line, so a printed unit never carries the removed clause.
 * The printer and the parser keep their one-line-per-construct agreement: the printer writes only what the parser
   reads (Rule 15.3 of the epic's checklist).

@@ -20,7 +20,7 @@ import de.planmarshall.workflow.verify.CompiledInvariants.Context;
 
 /**
  * The invariants of the init phase of the plan unit, {@code INV-INIT-1} and {@code INV-INIT-2} (PM-IMPL-5), as path
- * and dominator checks over the merged plan unit.
+ * and dominator checks over the composed plan unit's call-resolved graph.
  * <ul>
  * <li>{@link InvariantId#INV_INIT_1}: {@code init.classify} is a state of the unit; the routes from the start state
  * into {@code init.ready} that pass no {@code init.classify} are those of the default unit (the {@code recipe},

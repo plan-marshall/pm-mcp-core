@@ -170,7 +170,7 @@ reason; the guard is never folded into held or not held.
 outcome
 |`IllegalArgumentException`; the status stays as it is.
 
-|A call would exceed the depth 4
+|A call would exceed the depth 5
 |`CallStack.push` throws `IllegalStateException`.
 
 |The `ParameterBinder` binds a record of another type than the primitive takes

@@ -121,7 +121,7 @@ Seams: that the guarded field is a boolean or optional field of the callee's res
 
 === Rule 7: The Call Graph
 
-* `CALL_GRAPH_DAG`: the calls reached from a unit through the catalog form no cycle and nest at most four calls deep.
+* `CALL_GRAPH_DAG`: the calls reached from a unit through the catalog form no cycle and nest at most five calls deep.
 
 === Rule 8: Gate Producers
 
@@ -267,9 +267,6 @@ the project roster.
 
 `INV-GEN-1`'s scope, start state and terminal comparison reads the unit's own states, never those of its expansion: a
 sub-workflow bound by another axis variant is not a missing terminal of the plan.
-`INV-ADJ-1` and `INV-REPLAN-1` map the findings of `DeclarationBounds`.
-`CompiledInvariants.reReports` tells whether a violation only repeats such a finding, so a caller that lists the findings of those checks itself, as the project-unit loader does, lists none twice.
-`INV-GEN-3` reuses the verifier's reserved-target test, `WorkflowValidator.isReservedTarget`, which is package-private for this purpose.
 
 The violations are ordered by the declaration order of their state, violations of the unit as a whole after every state, and within a state by invariant.
 No configuration switches a check off, and no check stops at the first violation.

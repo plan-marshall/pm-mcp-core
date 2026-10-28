@@ -32,9 +32,9 @@ merged plan unit, built from seven phase files, and a composed plan instance ver
   returns its refusal as its own, then reads the body from the reported line.
 * The day of validation, after which no `modification_date` may lie, is taken in UTC
   (`LocalDate.now(ZoneOffset.UTC)`), so the result does not depend on the time zone of the machine.
-* The merged plan unit takes the frontmatter of its first part, the init file, with the type `workflow`
-  (`PlanUnitMerger`); a composed plan instance version takes the frontmatter of its template with the type `instance`
-  (`PlanInstanceComposer`). Every other field is the part's or the template's.
+* A composed plan instance version takes the frontmatter of its template with the type `instance`
+  (`PlanInstanceComposer`); the plan unit and each phase sub-workflow keep their own frontmatter, since no file is
+  merged any more (link:../workflow-unit/007-the-plan-unit-calls-its-phases.adoc[ADR workflow-unit 007]).
 
 Rationale not recorded beyond the specification's requirement of a parser of its own.
 
