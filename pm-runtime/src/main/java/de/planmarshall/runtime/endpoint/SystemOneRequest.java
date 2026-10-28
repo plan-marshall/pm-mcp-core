@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -128,7 +129,7 @@ public final class SystemOneRequest {
     /** Why a task cannot be composed. The set is closed. */
     public enum Refusal {
         /** The entity alone exceeds the harness's context budget. */
-        ENTITY_EXCEEDS_BUDGET("entity_exceeds_context_budget");
+        ENTITY_EXCEEDS_BUDGET("input_too_large");
 
         private final String wireName;
 
@@ -191,6 +192,16 @@ public final class SystemOneRequest {
         Objects.requireNonNull(model, "model");
         Objects.requireNonNull(state, "state");
         Objects.requireNonNull(questions, "questions");
+        if (questions.isEmpty()) {
+            throw new IllegalArgumentException("A judgment task asks at least one question");
+        }
+        var questionIds = new LinkedHashSet<String>();
+        for (var question : questions) {
+            if (!questionIds.add(question.questionId())) {
+                throw new IllegalArgumentException(
+                        "The task names the question '%s' twice".formatted(question.questionId()));
+            }
+        }
         var ascending = body(model, state, questions, true);
         var tokens = EndpointRequest.estimate(ascending);
         var budget = profile.endpoint().contextBudgetTokens();

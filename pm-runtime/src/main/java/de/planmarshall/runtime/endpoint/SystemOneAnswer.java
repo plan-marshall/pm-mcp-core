@@ -175,8 +175,7 @@ public final class SystemOneAnswer {
         }
         if (!requestedModel.equals(model.get())) {
             return Read.refused(Refusal.MODEL_ALIAS,
-                    "the answer names the model '%s', the request the model '%s'".formatted(model.get(),
-                            requestedModel));
+                    "the answer names another model id than the requested one");
         }
         var answers = document.member("answers").filter(JsonNode::isObject).orElse(null);
         if (answers == null) {

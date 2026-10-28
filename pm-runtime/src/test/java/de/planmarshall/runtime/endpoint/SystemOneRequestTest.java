@@ -12,6 +12,7 @@ package de.planmarshall.runtime.endpoint;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
@@ -99,6 +100,16 @@ class SystemOneRequestTest {
                         criterion.member("consequences").flatMap(JsonNode::text).orElseThrow()),
                 () -> assertTrue(question.member("criteria").flatMap(value -> value.member("a")).orElseThrow()
                         .member("consequences").isEmpty(), "a criterion without consequences omits the member"));
+    }
+
+    @Test
+    @DisplayName("a task asks at least one question and names each once")
+    void refusesAnEmptyOrAmbiguousTask() {
+        assertAll(
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> SystemOneRequest.compose(profile(8192), MODEL, state(), List.of())),
+                () -> assertThrows(IllegalArgumentException.class, () -> SystemOneRequest.compose(profile(8192), MODEL,
+                        state(), List.of(questions().getFirst(), questions().getFirst()))));
     }
 
     @Test

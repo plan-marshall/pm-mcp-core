@@ -39,11 +39,11 @@ import de.planmarshall.runtime.credentials.TokenLaneCredential;
  */
 public final class JudgmentClient {
 
-    /** The connect timeout of every request, in seconds. */
-    public static final int CONNECT_TIMEOUT_SECONDS = 5;
-
     /** The media type of every request body. */
     public static final String MEDIA_TYPE = "application/json";
+
+    /** The connect timeout of every request, in seconds. */
+    public static final int CONNECT_TIMEOUT_SECONDS = EndpointClient.CONNECT_TIMEOUT_SECONDS;
 
     private final TokenLaneCredential credentials;
     private final SecretRegistry redaction;
@@ -51,8 +51,8 @@ public final class JudgmentClient {
 
     /**
      * @param credentials the Token Lane entry of a remote endpoint
-     * @param redaction   the registry a secret is registered with before it is sent; {@code null} for one that keeps
-     *                    nothing
+     * @param redaction   the registry a secret is registered with before it is sent; {@code null} for a caller that
+     *                    sends no secret, which is the loopback form's case
      */
     public JudgmentClient(TokenLaneCredential credentials, SecretRegistry redaction) {
         this(credentials, redaction, null);
@@ -60,12 +60,12 @@ public final class JudgmentClient {
 
     /**
      * @param credentials the Token Lane entry of a remote endpoint
-     * @param redaction   the registry a secret is registered with before it is sent; {@code null} for one that keeps
-     *                    nothing
+     * @param redaction   the registry a secret is registered with before it is sent
      * @param sslContext  the TLS context of every request; {@code null} for the JDK's default, the TLS and hostname
-     *                    verification of every Token Lane request
+     *                    verification of every Token Lane request. Package-private, a seam of this package's tests: the
+     *                    production wiring uses the default context
      */
-    public JudgmentClient(TokenLaneCredential credentials, SecretRegistry redaction, SSLContext sslContext) {
+    JudgmentClient(TokenLaneCredential credentials, SecretRegistry redaction, SSLContext sslContext) {
         this.credentials = Objects.requireNonNull(credentials, "credentials");
         this.redaction = SecretRegistry.orNone(redaction);
         this.sslContext = sslContext;

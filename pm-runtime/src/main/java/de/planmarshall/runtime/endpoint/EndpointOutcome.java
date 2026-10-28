@@ -124,6 +124,8 @@ public record EndpointOutcome(Fate fate, Reason reason, String detail, String co
         MODEL_ALIAS("model_alias"),
         /** The runtime refused the request before it was sent. */
         REQUEST_REFUSED("request_refused"),
+        /** The entity does not fit the endpoint's context budget, so the task closes before a request is sent. */
+        INPUT_TOO_LARGE("input_too_large"),
         /** The answer was a redirect to another origin or to http, which ends the attempt. */
         REDIRECT_REFUSED("redirect_refused");
 

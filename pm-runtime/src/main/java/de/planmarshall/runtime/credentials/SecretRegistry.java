@@ -16,8 +16,9 @@ import java.util.Objects;
  * Provider Credentials, PM-CRED-5): every read-out of a job log, an activity entry or an excerpt passes it, so no secret
  * a runtime holds reaches a model or the operator's screen.
  * <p>
- * The registry is a seam: the operator channel implements it, and the callers that hold a secret register it. A caller
- * that is handed no registry uses {@link #none()} and never sends a secret it did not register.
+ * The registry is a seam: the operator channel implements it, and the caller that sends a secret registers it. A caller
+ * that sends no secret — the loopback form of an endpoint — passes {@link #none()}, which keeps nothing because there is
+ * nothing to keep.
  *
  * @since 0.1
  */
@@ -36,7 +37,7 @@ public interface SecretRegistry {
         return registry == null ? none() : registry;
     }
 
-    /** @return a registry that keeps nothing, for a caller that redacts its own text */
+    /** @return a registry that keeps nothing: for a caller that sends no secret and for a test double */
     static SecretRegistry none() {
         return secret -> Objects.requireNonNull(secret, "secret");
     }

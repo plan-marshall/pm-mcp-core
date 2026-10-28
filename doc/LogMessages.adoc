@@ -83,7 +83,7 @@ Holder: `de.planmarshall.runtime.log.RuntimeLogMessages`.
 |PM_RUNTIME-36 |WorkerSupervisor |Worker generation '%s' of role '%s' started on harness '%s' |Logged once the job runner reported the started job; names the worker generation, the role and the client id of the harness
 |PM_RUNTIME-37 |WorkerEnding |Worker generation '%s' of role '%s' ended with cause '%s' |Logged when a worker generation ended; names the generation, the role and the `EndCause` by its wire name (`task_done`, `recycle`, `drain`, `pause_at_once`, `lost`, `off_track` or `start_failure`)
 |PM_RUNTIME-38 |WorkerRecycling |Worker generation '%s' of role '%s' recycled for '%s' |Logged when a warm worker generation was recycled; names the generation, the role and what recycled it (`idle`, `token_budget`, `tasks_per_generation`, `configuration_changed` or `idle_yield`)
-|PM_RUNTIME-39 |JudgmentEndpoint |Judgment task of model '%s' on the endpoint '%s' answered (input %s, output %s, %s ms) |Logged when a judgment task answered both requests of the task: names the versioned model id, the endpoint's origin, the input and output tokens the answers measured and the duration. Never the request body, the facts or the credential; the `judgment_task_completed` audit record carries the same four facts
+|PM_RUNTIME-39 |JudgmentEndpoint |Judgment task of model '%s' on the endpoint '%s' answered (input %s, output %s, %s ms) |Logged when a judgment task answered both requests of the task: names the versioned model id, the endpoint's origin, the input and output tokens the answers measured and the duration. Never the request body, the facts or the credential; the `judgment_task_completed` audit record carries the same facts and the status the task ended with
 |===
 
 === WARN Level (100-199)

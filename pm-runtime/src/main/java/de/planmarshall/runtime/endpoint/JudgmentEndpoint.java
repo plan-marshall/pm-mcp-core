@@ -10,11 +10,14 @@
 package de.planmarshall.runtime.endpoint;
 
 import de.cuioss.tools.logging.CuiLogger;
+import java.io.UncheckedIOException;
 import java.net.URI;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import de.planmarshall.core.profile.CanonicalJson;
 import de.planmarshall.core.profile.EndpointProfile;
@@ -22,11 +25,20 @@ import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.HarnessUsage;
+import de.planmarshall.runtime.credentials.TokenLaneCredential;
+import de.planmarshall.runtime.launch.HarnessEnrolment;
+import de.planmarshall.runtime.launch.HarnessVerifier;
+import de.planmarshall.runtime.launch.LaunchRefusal;
 import de.planmarshall.runtime.log.RuntimeLogMessages;
 
 /**
  * A task of a judgment role (Client Profiles § Judgment Endpoint): the two requests of {@link SystemOneRequest}, the
  * server's own check of each answer by {@link SystemOneAnswer}, and the one record the task leaves.
+ * <p>
+ * No task text leaves the runtime before the endpoint is the enrolled one. The loopback form runs the owner check of the
+ * endpoint harness before its first request — the program on the port must be the enrolled executable and the build the
+ * enrolment recorded. The remote form has no serving program, so its enrolment must carry the origin and the credential
+ * key the profile names, and {@link JudgmentClient} sends the secret only to that origin.
  * <p>
  * The attempt is the task: both requests are sent from one composed entity, nothing is retried inside the attempt, and
  * an answer that does not validate, an HTTP error (including {@code 429} with a {@code retry-after}), a timeout, a
@@ -41,16 +53,19 @@ public final class JudgmentEndpoint {
     private static final CuiLogger LOGGER = new CuiLogger(JudgmentEndpoint.class);
 
     private final JudgmentClient client;
+    private final SocketOwner owner;
     private final AuditSink audit;
     private final Clock clock;
 
     /**
      * @param client the one request of the protocol
+     * @param owner  the reading of the listening socket's owner, the loopback form's check
      * @param audit  where the record of the task is appended
      * @param clock  the clock of the measured duration
      */
-    public JudgmentEndpoint(JudgmentClient client, AuditSink audit, Clock clock) {
+    public JudgmentEndpoint(JudgmentClient client, SocketOwner owner, AuditSink audit, Clock clock) {
         this.client = Objects.requireNonNull(client, "client");
+        this.owner = Objects.requireNonNull(owner, "owner");
         this.audit = Objects.requireNonNull(audit, "audit");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
@@ -60,19 +75,30 @@ public final class JudgmentEndpoint {
      * once the first answered.
      *
      * @param profile   the judgment endpoint profile
+     * @param enrolled  the enrolment of the endpoint
      * @param model     the versioned model id of the role
      * @param state     the facts of the vote entity
      * @param questions the questions of the entity
      * @return the two attempts of the task, and the composition the requests were sent from
      */
-    public Answers task(EndpointProfile profile, String model, JsonNode state,
+    public Answers task(EndpointProfile profile, HarnessEnrolment enrolled, String model, JsonNode state,
             List<SystemOneRequest.Question> questions) {
         Objects.requireNonNull(profile, "profile");
+        Objects.requireNonNull(enrolled, "enrolled");
         Objects.requireNonNull(model, "model");
-        var composed = SystemOneRequest.compose(profile, model, state, questions);
         var started = clock.millis();
+        var notEnrolled = ownerRefusal(profile, enrolled);
+        if (notEnrolled != null) {
+            var refused = new Attempt(EndpointOutcome.refused(EndpointOutcome.Reason.HARNESS_NOT_ENROLLED, notEnrolled),
+                    null);
+            var refusal = new Answers(null, refused, null);
+            logLaunchRefusal(profile, notEnrolled);
+            record(profile, model, refusal, started);
+            return refusal;
+        }
+        var composed = SystemOneRequest.compose(profile, model, state, questions);
         if (!composed.isComposed()) {
-            var refused = new Attempt(EndpointOutcome.refused(EndpointOutcome.Reason.REQUEST_REFUSED,
+            var refused = new Attempt(EndpointOutcome.refused(EndpointOutcome.Reason.INPUT_TOO_LARGE,
                     composed.detail()), null);
             var refusal = new Answers(null, refused, null);
             record(profile, model, refusal, started);
@@ -89,11 +115,59 @@ public final class JudgmentEndpoint {
         return answers;
     }
 
+    /**
+     * @return why no task text may be sent, or {@code null} when the endpoint is the enrolled one
+     */
+    private String ownerRefusal(EndpointProfile profile, HarnessEnrolment enrolled) {
+        if (profile.endpoint().remote()) {
+            if (enrolled.binding() == null) {
+                return "the remote endpoint '%s' is enrolled as a serving program".formatted(profile.clientId());
+            }
+            var origin = TokenLaneCredential.origin(URI.create(profile.endpoint().baseUrl()));
+            if (!origin.equals(enrolled.binding().origin())) {
+                return "the remote endpoint is enrolled for another origin than '%s'".formatted(origin);
+            }
+            if (!Objects.equals(profile.endpoint().credentialKey(), enrolled.binding().credentialKey())) {
+                return "the remote endpoint is enrolled with another credential entry";
+            }
+            return null;
+        }
+        if (enrolled.isEndpoint()) {
+            return "the loopback endpoint '%s' is enrolled as a remote endpoint".formatted(profile.clientId());
+        }
+        var endpoint = URI.create(profile.endpoint().baseUrl());
+        var lookup = owner.ownerOf(endpoint.getHost(), endpoint.getPort());
+        if (!lookup.runs(enrolled.executablePath().toString())) {
+            return lookup.isFound()
+                    ? "the program on the port is '%s', the enrolled executable is '%s'".formatted(
+                    lookup.executablePath(), enrolled.executablePath())
+                    : lookup.detail();
+        }
+        var digest = executableDigest(lookup.executablePath());
+        if (digest.isEmpty() || !digest.get().equals(enrolled.sha256())) {
+            return "the program on the port is not the build the enrolment recorded";
+        }
+        return null;
+    }
+
+    private static Optional<String> executableDigest(String executablePath) {
+        try {
+            return HarnessVerifier.digestExecutable(Path.of(executablePath));
+        } catch (UncheckedIOException _) {
+            return Optional.empty();
+        }
+    }
+
+    private void logLaunchRefusal(EndpointProfile profile, String detail) {
+        LOGGER.warn(RuntimeLogMessages.WARN.WORKER_LAUNCH_REFUSED, profile.clientId(),
+                LaunchRefusal.HARNESS_NOT_ENROLLED.code(), detail,
+                LaunchRefusal.HARNESS_NOT_ENROLLED.resolvingAct(profile.clientId()));
+    }
+
     private Attempt attempt(EndpointProfile profile, String model, String body, Map<String, List<String>> options) {
         var response = client.post(profile, SystemOneRequest.PATH, body);
         if (response.failure() == EndpointClient.Failure.REDIRECT) {
-            return new Attempt(EndpointOutcome.refused(EndpointOutcome.Reason.REDIRECT_REFUSED, response.detail()),
-                    null);
+            return new Attempt(EndpointOutcome.ended(EndpointOutcome.Reason.REDIRECT_REFUSED, response.detail()), null);
         }
         if (response.failure() == EndpointClient.Failure.REFUSED) {
             return new Attempt(EndpointOutcome.refused(EndpointOutcome.Reason.REQUEST_REFUSED, response.detail()), null);
@@ -171,7 +245,7 @@ public final class JudgmentEndpoint {
     /**
      * The two attempts of one task and the composition they were sent from.
      *
-     * @param request    the two bodies; {@code null} when the entity could not be composed
+     * @param request    the two bodies; {@code null} when no request was sent
      * @param ascending  the attempt whose options are sorted by {@code branch_key}
      * @param descending the attempt in the opposite order; {@code null} when the first ended the attempt
      * @since 0.1
@@ -193,10 +267,8 @@ public final class JudgmentEndpoint {
             if (answered()) {
                 return EndpointOutcome.Fate.ANSWERED.wireName();
             }
-            if (!ascending.answered()) {
-                return ascending.outcome().reason().wireName();
-            }
-            return descending == null ? EndpointOutcome.Fate.ENDED.wireName() : descending.outcome().reason().wireName();
+            return ascending.answered() ? descending.outcome().reason().wireName()
+                    : ascending.outcome().reason().wireName();
         }
 
         /** @return what ended the task, for a record */

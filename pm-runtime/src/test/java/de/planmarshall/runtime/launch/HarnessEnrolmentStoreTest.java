@@ -175,17 +175,31 @@ class HarnessEnrolmentStoreTest {
     @Test
     @DisplayName("an entry of the remote form without its required members is refused, not read as a program")
     void malformedEndpointEntry() throws Exception {
-        assertUnreadable("{\"format_version\":1,\"harnesses\":{\"hosted-judge\":{\"endpoint\":{\"origin\":"
-                + "\"https://judge.example.test\"},\"enrolled_at\":\"2026-10-24T10:00:00Z\",\"updated_at\":"
-                + "\"2026-10-24T10:00:00Z\",\"usage_report\":{\"source\":\"declared\",\"figures\":{}},"
-                + "\"events\":{}}}}");
+        assertUnreadable(endpointDocument("{\"origin\":\"https://judge.example.test\"}"));
         assertUnreadable("{\"format_version\":1,\"harnesses\":{\"hosted-judge\":{\"endpoint\":null,"
                 + "\"enrolled_at\":\"2026-10-24T10:00:00Z\",\"updated_at\":\"2026-10-24T10:00:00Z\","
                 + "\"usage_report\":{\"source\":\"declared\",\"figures\":{}},\"events\":{}}}}");
+        assertUnreadable(endpointDocument("{\"origin\":\"http://judge.example.test\",\"credential_key\":"
+                + "\"judge-token\"}"));
+    }
+
+    @Test
+    @DisplayName("an entry that carries members of both forms is refused, not read as one of its halves")
+    void mixedFormEntry() throws Exception {
         assertUnreadable("{\"format_version\":1,\"harnesses\":{\"hosted-judge\":{\"endpoint\":{\"origin\":"
-                + "\"http://judge.example.test\",\"credential_key\":\"judge-token\"},"
+                + "\"https://judge.example.test\",\"credential_key\":\"judge-token\"},\"executable_path\":"
+                + "\"/usr/local/bin/claude\",\"sha256\":\"" + "a".repeat(64) + "\",\"version\":\"1.5.0\","
                 + "\"enrolled_at\":\"2026-10-24T10:00:00Z\",\"updated_at\":\"2026-10-24T10:00:00Z\","
                 + "\"usage_report\":{\"source\":\"declared\",\"figures\":{}},\"events\":{}}}}");
+        assertUnreadable(entryDocument(",\"endpoint\":{\"origin\":\"https://judge.example.test\","
+                + "\"credential_key\":\"judge-token\"}"));
+    }
+
+    /** @param endpoint the members of the remote form's {@code endpoint} object */
+    private static String endpointDocument(String endpoint) {
+        return "{\"format_version\":1,\"harnesses\":{\"hosted-judge\":{\"endpoint\":" + endpoint + ","
+                + "\"enrolled_at\":\"2026-10-24T10:00:00Z\",\"updated_at\":\"2026-10-24T10:00:00Z\","
+                + "\"usage_report\":{\"source\":\"declared\",\"figures\":{}},\"events\":{}}}}";
     }
 
     private static HarnessEnrolment enrolment(String clientId, String version) {

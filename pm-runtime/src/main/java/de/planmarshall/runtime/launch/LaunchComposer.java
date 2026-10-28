@@ -293,6 +293,10 @@ public final class LaunchComposer {
             throw new CompositionException("the argument template of '%s' rendered empty".formatted(roleClass
                     .wireName()));
         }
+        if (request.enrolment().isEndpoint()) {
+            throw new CompositionException("the harness '%s' is a remote endpoint and launches no worker"
+                    .formatted(request.enrolment().clientId()));
+        }
         filled.add(0, request.enrolment().executablePath().toString());
         if (mayResume(request)) {
             filled.removeIf(argument -> argument.contains(EPHEMERAL_FLAG));

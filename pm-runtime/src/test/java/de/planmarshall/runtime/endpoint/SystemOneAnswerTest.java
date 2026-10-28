@@ -75,8 +75,10 @@ class SystemOneAnswerTest {
         assertAll(
                 () -> assertFalse(read.isValid()),
                 () -> assertEquals(SystemOneAnswer.Refusal.MODEL_ALIAS, read.refusal()),
-                () -> assertTrue(read.detail().contains("judge-2026-02-01")),
-                () -> assertTrue(read.detail().contains(REQUESTED)));
+                () -> assertFalse(read.detail().contains("judge-2026-02-01"),
+                        "the answered id is untrusted and never reaches the record"),
+                () -> assertFalse(read.detail().contains(REQUESTED)),
+                () -> assertTrue(read.detail().contains("another model id")));
     }
 
     /** The bodies of the answers that do not validate, and what each one lacks. */

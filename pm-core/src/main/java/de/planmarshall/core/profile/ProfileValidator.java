@@ -230,6 +230,9 @@ public final class ProfileValidator {
     private static final String MODEL_READABLE_CHARACTERS = " _.:/-$=,()\"{}<>";
 
     private static final Pattern CLIENT_ID = Pattern.compile("^[a-z][a-z0-9-]{0,31}$");
+
+    /** The credential-key grammar of the endpoint profile's {@code credential_key}. */
+    private static final Pattern CREDENTIAL_KEY = Pattern.compile("^[a-z][a-z0-9-]{1,31}$");
     private static final Pattern VARIABLE = Pattern.compile("^[A-Z][A-Z0-9_]{0,63}$");
     private static final Pattern VERSION = Pattern.compile("^\\d+\\.\\d+\\.\\d+(-[A-Za-z0-9.-]+)?$");
     private static final Pattern EXECUTABLE = Pattern.compile("^[a-z][a-z0-9-]*$");
@@ -401,7 +404,7 @@ public final class ProfileValidator {
             }
             var credential = optionalText(optional(endpoint, NAME_CREDENTIAL_KEY), pointer + "/credential_key",
                     NAME_CREDENTIAL_KEY, 32);
-            if (credential != null && !CLIENT_ID.matcher(credential).matches()) {
+            if (credential != null && !CREDENTIAL_KEY.matcher(credential).matches()) {
                 throw invalid(pointer + "/credential_key", "not a credential key: '%s'".formatted(credential));
             }
             endpointPath(optional(endpoint, NAME_READINESS_PATH), pointer + "/readiness_path", NAME_READINESS_PATH);

@@ -177,13 +177,16 @@ public final class JudgmentVerification {
             sent++;
             var read = probe(profile, model, fillerState(middle),
                     twoOptionsQuestion("Which option holds for the state?"), true);
-            if (read.valid()) {
+            if (read.status() == 400) {
+                high = middle - 1;
+            } else if (read.valid()) {
                 var measured = read.answer().usage().inputTokens();
                 var figure = measured.isMeasured() ? measured.value() : 0;
                 best = Math.clamp(Math.max(best, Math.max(figure, middle)), 0, MAXIMUM_CONTEXT_TOKENS);
                 low = middle + 1;
             } else {
-                high = middle - 1;
+                // An answer the service refused for another reason than its size is no measured bound of the limit.
+                return new ProfileStages.EndpointLimits(false, best);
             }
         }
         return new ProfileStages.EndpointLimits(best >= MINIMUM_CONTEXT_TOKENS, best);
@@ -194,11 +197,11 @@ public final class JudgmentVerification {
         var body = SystemOneRequest.body(model, state, List.of(question), ascending);
         var response = client.post(profile, SystemOneRequest.PATH, body);
         if (!response.successful()) {
-            return new Probe(false, null);
+            return new Probe(false, null, response.status());
         }
         var read = SystemOneAnswer.read(response.body(), model,
                 Map.of(question.questionId(), question.ascendingKeys()));
-        return new Probe(read.isValid(), read.answer());
+        return new Probe(read.isValid(), read.answer(), response.status());
     }
 
     private static boolean sameOptions(SystemOneAnswer.Answer left, SystemOneAnswer.Answer right) {
@@ -269,8 +272,8 @@ public final class JudgmentVerification {
         return tiers.isEmpty() ? models : List.copyOf(tiers);
     }
 
-    /** The reading of one probe request: whether it validated, and its answer. */
-    private record Probe(boolean valid, SystemOneAnswer.Answer answer) {
+    /** The reading of one probe request: whether it validated, its answer, and the status the service answered with. */
+    private record Probe(boolean valid, SystemOneAnswer.Answer answer, int status) {
 
         Probe {
             if (valid && answer == null) {

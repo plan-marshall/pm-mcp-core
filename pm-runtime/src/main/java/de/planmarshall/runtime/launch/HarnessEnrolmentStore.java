@@ -67,6 +67,14 @@ public final class HarnessEnrolmentStore {
     private static final String HARNESSES = "harnesses";
     private static final String FORMAT_VERSION_MEMBER = "format_version";
 
+    /** The members of a serving program's entry. */
+    private static final Set<String> PROGRAM_MEMBERS = Set.of("executable_path", "sha256", "version", "enrolled_at",
+            "updated_at", "weights", "usage_report", "events");
+
+    /** The members of a remote endpoint's entry. */
+    private static final Set<String> ENDPOINT_MEMBERS = Set.of("endpoint", "enrolled_at", "updated_at", "weights",
+            "usage_report", "events");
+
     private final Path base;
     private final Path file;
     private final Path sidecarFile;
@@ -247,13 +255,31 @@ public final class HarnessEnrolmentStore {
             if (!binding.isObject()) {
                 throw new IllegalArgumentException("the member 'endpoint' is not an object");
             }
+            onlyMembers(node, clientId, ENDPOINT_MEMBERS);
             return new HarnessEnrolment(clientId, null, null, null, Instant.parse(text(node, "enrolled_at")),
                     Instant.parse(text(node, "updated_at")), usageReport(node), events(node), weights(node),
                     new HarnessEnrolment.Binding(text(binding, "origin"), text(binding, "credential_key")));
         }
+        onlyMembers(node, clientId, PROGRAM_MEMBERS);
         return new HarnessEnrolment(clientId, Path.of(text(node, "executable_path")), text(node, "sha256"),
                 text(node, "version"), Instant.parse(text(node, "enrolled_at")), Instant.parse(text(node,
                         "updated_at")), usageReport(node), events(node), weights(node));
+    }
+
+    /**
+     * @param node     the entry
+     * @param clientId the client id, for the refusal
+     * @param allowed  the members of the form the entry takes
+     * @throws IllegalArgumentException if the entry carries a member of the other form or an undeclared one, so a mixed
+     *                                  entry is refused instead of being read as one of its halves
+     */
+    private static void onlyMembers(JsonNode node, String clientId, Set<String> allowed) {
+        for (var member : node.members().keySet()) {
+            if (!allowed.contains(member)) {
+                throw new IllegalArgumentException(
+                        "the entry '%s' carries the member '%s' of the other form".formatted(clientId, member));
+            }
+        }
     }
 
     private static HarnessEnrolment.UsageReport usageReport(JsonNode node) {

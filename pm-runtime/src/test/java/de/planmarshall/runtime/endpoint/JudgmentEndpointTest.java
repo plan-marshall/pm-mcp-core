@@ -40,6 +40,7 @@ import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.runtime.credentials.SecretRegistry;
+import de.planmarshall.runtime.launch.HarnessEnrolment;
 
 /**
  * A task of a judgment role (Client Profiles § Judgment Endpoint): the two requests in opposite orders, the answer's
@@ -92,8 +93,12 @@ class JudgmentEndpointTest {
     }
 
     private JudgmentEndpoint endpoint() {
-        return new JudgmentEndpoint(new JudgmentClient(key -> Optional.empty(), SecretRegistry.none()), audit,
-                Clock.systemUTC());
+        return new JudgmentEndpoint(new JudgmentClient(key -> Optional.empty(), SecretRegistry.none()),
+                (host, port) -> SocketOwner.Lookup.found(EndpointFixtures.executablePath()), audit, Clock.systemUTC());
+    }
+
+    private static HarnessEnrolment enrolment() {
+        return EndpointFixtures.enrolment();
     }
 
     private static JsonNode state() {
@@ -121,7 +126,7 @@ class JudgmentEndpointTest {
     void bothOrders() throws Exception {
         responder = request -> json(answer("judge-2026-01-01"));
 
-        var answers = endpoint().task(profile(), "judge-2026-01-01", state(), questions());
+        var answers = endpoint().task(profile(), enrolment(), "judge-2026-01-01", state(), questions());
 
         var first = server.takeRequest(2, TimeUnit.SECONDS);
         var second = server.takeRequest(2, TimeUnit.SECONDS);
@@ -141,7 +146,7 @@ class JudgmentEndpointTest {
     void refusesAnAlias() {
         responder = request -> json(answer("judge-2026-02-01"));
 
-        var answers = endpoint().task(profile(), "judge-2026-01-01", state(), questions());
+        var answers = endpoint().task(profile(), enrolment(), "judge-2026-01-01", state(), questions());
 
         assertAll(
                 () -> assertFalse(answers.answered()),
@@ -158,7 +163,7 @@ class JudgmentEndpointTest {
         responder = request -> new MockResponse.Builder().code(429).addHeader("Retry-After", "30")
                 .body("{\"error\":\"rate limited\"}").build();
 
-        var answers = endpoint().task(profile(), "judge-2026-01-01", state(), questions());
+        var answers = endpoint().task(profile(), enrolment(), "judge-2026-01-01", state(), questions());
 
         assertAll(
                 () -> assertFalse(answers.answered()),
@@ -173,7 +178,7 @@ class JudgmentEndpointTest {
         responder = request -> json(answer("judge-2026-01-01").replace("\"a\":0.75,\"b\":0.25",
                 "\"a\":0.9,\"b\":0.12"));
 
-        var answers = endpoint().task(profile(), "judge-2026-01-01", state(), questions());
+        var answers = endpoint().task(profile(), enrolment(), "judge-2026-01-01", state(), questions());
 
         assertAll(
                 () -> assertFalse(answers.answered()),
@@ -189,7 +194,7 @@ class JudgmentEndpointTest {
                 + "\"answers\":{\"q-1\":{\"choice\":\"a\",\"probabilities\":{\"a\":0.75,\"b\":0.25}}},"
                 + "\"usage\":{\"input_tokens\":120,\"output_tokens\":3}}");
 
-        endpoint().task(profile(), "judge-2026-01-01", state(), questions());
+        var answers = endpoint().task(profile(), enrolment(), "judge-2026-01-01", state(), questions());
 
         assertAll(
                 () -> assertEquals(1, audit.events().size()),
@@ -197,8 +202,42 @@ class JudgmentEndpointTest {
                 () -> assertFalse(audit.text().contains(QUESTION)),
                 () -> assertFalse(logs.text().contains(BASE_TASK_STATE)),
                 () -> assertFalse(logs.text().contains(QUESTION)),
+                () -> assertFalse(answers.ascending().outcome().detail().contains(BASE_TASK_STATE),
+                        "the error text carries no part of the body"),
                 () -> assertTrue(audit.text().contains("judgment_task_completed")),
                 () -> assertTrue(audit.text().contains("judge-2026-01-01")));
+    }
+
+    @Test
+    @DisplayName("a program on the port that is not the enrolled one refuses the task before a request")
+    void refusesAForeignProgram() {
+        responder = request -> json(answer("judge-2026-01-01"));
+        var foreign = new JudgmentEndpoint(new JudgmentClient(key -> Optional.empty(), SecretRegistry.none()),
+                (host, port) -> SocketOwner.Lookup.found("/usr/local/bin/other"), audit, Clock.systemUTC());
+
+        var answers = foreign.task(profile(), enrolment(), "judge-2026-01-01", state(), questions());
+
+        assertAll(
+                () -> assertFalse(answers.answered()),
+                () -> assertEquals(EndpointOutcome.Reason.HARNESS_NOT_ENROLLED,
+                        answers.ascending().outcome().reason()),
+                () -> assertEquals(0, requests.size(), "no task text reaches a program the operator did not enrol"),
+                () -> assertEquals("harness_not_enrolled", answers.status()));
+    }
+
+    @Test
+    @DisplayName("an entity that does not fit the context budget closes the task before a request")
+    void refusesAnEntityThatDoesNotFit() {
+        responder = request -> json(answer("judge-2026-01-01"));
+        var huge = JsonNode.object(Map.of("finding", JsonNode.string("x".repeat(40_000))));
+
+        var answers = endpoint().task(profile(), enrolment(), "judge-2026-01-01", huge, questions());
+
+        assertAll(
+                () -> assertFalse(answers.answered()),
+                () -> assertEquals(EndpointOutcome.Reason.INPUT_TOO_LARGE, answers.ascending().outcome().reason()),
+                () -> assertEquals(0, requests.size()),
+                () -> assertEquals("input_too_large", answers.status()));
     }
 
     /** How the server answers the request. */

@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import de.cuioss.test.mockwebserver.EnableMockWebServer;
 import java.net.URI;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +42,7 @@ import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.runtime.credentials.SecretRegistry;
 import de.planmarshall.runtime.credentials.TokenLaneCredential;
+import de.planmarshall.runtime.launch.HarnessEnrolment;
 
 /**
  * The remote form of a judgment endpoint (Client Profiles § Remote Form): the Token Lane secret is sent only to the
@@ -96,12 +98,18 @@ class JudgmentEndpointRemoteTest {
     }
 
     private JudgmentEndpoint endpoint(TokenLaneCredential credential) {
-        return new JudgmentEndpoint(new JudgmentClient(credential, registry, JudgmentTestTls.trusting()), audit,
+        return new JudgmentEndpoint(new JudgmentClient(credential, registry, JudgmentTestTls.trusting()),
+                (host, port) -> SocketOwner.Lookup.notFound("the remote form has no serving program"), audit,
                 Clock.systemUTC());
     }
 
     private JudgmentEndpoint endpoint() {
         return endpoint(key -> Optional.of(new TokenLaneCredential.Entry(SECRET, URI.create(origin()))));
+    }
+
+    private HarnessEnrolment enrolment() {
+        return HarnessEnrolment.endpoint("hosted-judge", origin(), KEY, Instant.EPOCH,
+                new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED, Map.of()));
     }
 
     private static JsonNode state() {
@@ -133,7 +141,7 @@ class JudgmentEndpointRemoteTest {
     void ownOriginSucceeds() throws Exception {
         responder = request -> json(answer());
 
-        var answers = endpoint().task(profile(), MODEL, state(), questions());
+        var answers = endpoint().task(profile(), enrolment(), MODEL, state(), questions());
 
         var first = server.takeRequest(2, TimeUnit.SECONDS);
         assertAll(
@@ -150,12 +158,12 @@ class JudgmentEndpointRemoteTest {
         var other = "https://127.0.0.1:" + server.getPort() + "/v1/systemone";
         responder = request -> redirect(other);
 
-        var answers = endpoint().task(profile(), MODEL, state(), questions());
+        var answers = endpoint().task(profile(), enrolment(), MODEL, state(), questions());
 
         assertAll(
                 () -> assertFalse(answers.answered()),
                 () -> assertEquals(EndpointOutcome.Reason.REDIRECT_REFUSED, answers.ascending().outcome().reason()),
-                () -> assertEquals(EndpointOutcome.Fate.REFUSED, answers.ascending().outcome().fate()),
+                () -> assertEquals(EndpointOutcome.Fate.ENDED, answers.ascending().outcome().fate()),
                 () -> assertEquals(1, requests.size(), "the redirect target received no request"),
                 () -> assertEquals("Bearer " + SECRET, requests.getFirst().getHeaders().get("Authorization")),
                 () -> assertFalse(logs.text().contains(SECRET)),
@@ -164,18 +172,28 @@ class JudgmentEndpointRemoteTest {
 
     @Test
     @DisplayName("a redirect to http receives no secret and ends the attempt")
-    void redirectToHttp() {
-        var cleartext = "http://localhost:" + server.getPort() + "/v1/systemone";
-        responder = request -> redirect(cleartext);
+    void redirectToHttp() throws Exception {
+        try (var cleartext = new MockWebServer()) {
+            cleartext.start();
+            try {
+                var location = cleartext.url("/v1/systemone").toString();
+                responder = request -> redirect(location);
 
-        var answers = endpoint().task(profile(), MODEL, state(), questions());
+                var answers = endpoint().task(profile(), enrolment(), MODEL, state(), questions());
 
-        assertAll(
-                () -> assertFalse(answers.answered()),
-                () -> assertEquals(EndpointOutcome.Reason.REDIRECT_REFUSED, answers.ascending().outcome().reason()),
-                () -> assertEquals(1, requests.size()),
-                () -> assertFalse(logs.text().contains(SECRET)),
-                () -> assertFalse(audit.text().contains(SECRET)));
+                assertAll(
+                        () -> assertFalse(answers.answered()),
+                        () -> assertEquals(EndpointOutcome.Reason.REDIRECT_REFUSED,
+                                answers.ascending().outcome().reason()),
+                        () -> assertEquals(1, requests.size()),
+                        () -> assertEquals(0, cleartext.getRequestCount(),
+                                "the cleartext target received no request, so it received no secret"),
+                        () -> assertFalse(logs.text().contains(SECRET)),
+                        () -> assertFalse(audit.text().contains(SECRET)));
+            } finally {
+                cleartext.close();
+            }
+        }
     }
 
     @Test
@@ -183,7 +201,7 @@ class JudgmentEndpointRemoteTest {
     void missingCredential() {
         responder = request -> json(answer());
 
-        var answers = endpoint(key -> Optional.empty()).task(profile(), MODEL, state(), questions());
+        var answers = endpoint(key -> Optional.empty()).task(profile(), enrolment(), MODEL, state(), questions());
 
         assertAll(
                 () -> assertFalse(answers.answered()),
@@ -199,7 +217,7 @@ class JudgmentEndpointRemoteTest {
         var foreign = (TokenLaneCredential) key -> Optional.of(
                 new TokenLaneCredential.Entry(SECRET, URI.create("https://other.example.test")));
 
-        var answers = endpoint(foreign).task(profile(), MODEL, state(), questions());
+        var answers = endpoint(foreign).task(profile(), enrolment(), MODEL, state(), questions());
 
         assertAll(
                 () -> assertFalse(answers.answered()),
@@ -215,7 +233,7 @@ class JudgmentEndpointRemoteTest {
                 + "\"answers\":{\"q-1\":{\"choice\":\"a\",\"probabilities\":{\"a\":0.9,\"b\":0.12}}},"
                 + "\"usage\":{\"input_tokens\":120,\"output_tokens\":3}}");
 
-        var answers = endpoint().task(profile(), MODEL, state(), questions());
+        var answers = endpoint().task(profile(), enrolment(), MODEL, state(), questions());
 
         assertAll(
                 () -> assertEquals(EndpointOutcome.Reason.INVALID_ANSWER, answers.ascending().outcome().reason()),
