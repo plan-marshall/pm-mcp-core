@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted
+Superseded by link:007-the-plan-unit-calls-its-phases.adoc[ADR 007]
 
 == Date
 

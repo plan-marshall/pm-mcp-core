@@ -160,7 +160,7 @@ Holder: `de.planmarshall.workflow.log.WorkflowLogMessages`.
 [cols="1,1,2,2", options="header"]
 |===
 |ID |Component |Message |Description
-|PM_WORKFLOW-1 |ProjectUnitLoader |Units of project '%s' verified: %s units |Logged when a load of a project's units from `.marshall/config/` found no finding (`PM-IMPL-5`); names the project id and the number of verified units, the merged plan unit counting as one
+|PM_WORKFLOW-1 |ProjectUnitLoader |Units of project '%s' verified: %s units |Logged when a load of a project's units from `.marshall/config/` found no finding (`PM-IMPL-5`); names the project id and the number of verified units, the plan unit and each phase sub-workflow counting as one
 |PM_WORKFLOW-2 |PlanInstanceStore |Plan instance version %s of plan '%s' recorded for the event '%s' |Logged when a composed version of a plan instance is staged in the caller's scope transaction (`PM-IMPL-5`), together with its line of `instance/composition.jsonl` and the texts of the sub-units it is the first version to name; names the version, the plan id and the composition event. The files are written when the caller commits the transaction
 |===
 
