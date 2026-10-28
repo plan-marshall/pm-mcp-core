@@ -124,7 +124,6 @@ class WorkflowPrinterTest {
             migrate git.old -> git.work
 
             state git.work
-                phase inherit
                 skill pm/git/work
                 facts git.read-state
                 job llm change role writer each git.items ask
@@ -133,12 +132,10 @@ class WorkflowPrinterTest {
                     lost -> git.end
 
             state git.vote
-                phase inherit
                 job llm decision role each git.roles
                     decided -> git.build
 
             state git.build
-                phase inherit
                 composite_job git.build-all
                     done -> git.invoke
                         completes git:build as done
@@ -146,7 +143,6 @@ class WorkflowPrinterTest {
                         completes git:build as failed
 
             state git.invoke
-                phase inherit
                 call git.push(mode = fast, tries = 2, picks = [a, b])
                     done -> git.ask
                         guard result.pushed
@@ -154,13 +150,11 @@ class WorkflowPrinterTest {
                         guard not result.pushed
 
             state git.ask
-                phase inherit
                 question review
                     approve -> git.choose
                     revise -> git.choose
 
             state git.choose
-                phase inherit
                 link alt pick:<entity> [submit] (note: text[1..80]?, size: int, kinds: list<schema[kind]>)
                     guard (in_worktree or has_open_findings) and not predicate:git.ready
                     depends_on_config [project.review.currency]
@@ -168,7 +162,6 @@ class WorkflowPrinterTest {
                         done -> git.end
 
             state git.end terminal done success
-                phase inherit
             """;
 
     private static WorkflowDefinition parse(String resource, String source) {
@@ -195,10 +188,10 @@ class WorkflowPrinterTest {
 
     /** A workspace unit with the given frontmatter whose only state rests on the given links. */
     private static WorkflowDefinition unitWith(UnitFrontmatter frontmatter, LinkSpec... links) {
-        var state = new StateNode("demo.begin", "setup", Optional.empty(), Optional.empty(), Optional.empty(),
+        var state = new StateNode("demo.begin", Optional.empty(), Optional.empty(), Optional.empty(),
                 new StateBehavior.InteractiveLinks(List.of(links)), NOWHERE);
         return new WorkflowDefinition(frontmatter, "demo", 1, WorkflowScope.WORKSPACE, List.of(), Optional.empty(),
-                Optional.empty(), Map.of(), Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(),
+                Optional.empty(), Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(),
                 Optional.of("demo.begin"), Map.of(), List.of(), Map.of("demo.begin", state), NOWHERE);
     }
 
@@ -486,7 +479,6 @@ class WorkflowPrinterTest {
                     start demo.end
 
                     state demo.end terminal done success
-                        phase setup
                     """;
             var definition = parseProject("derived.pmwf", source);
 

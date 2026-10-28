@@ -86,17 +86,14 @@ class SubWorkflowExecutionTest {
             entry main -> sub.wait
 
             state sub.wait
-                phase inherit
                 job test.build
                     succeeded -> sub.done
                     failed -> sub.stepped-out
                     cancelled -> sub.stepped-out
 
             state sub.done terminal done success
-                phase inherit
 
             state sub.stepped-out terminal stepped_out stepped_out
-                phase inherit
             """;
 
     private static final String SUB_INNER = """
@@ -116,7 +113,6 @@ class SubWorkflowExecutionTest {
             entry main -> inner.choose
 
             state inner.choose
-                phase inherit
                 skill pm/test/choose
                 link next proceed ()
                     do test.proceed
@@ -124,10 +120,8 @@ class SubWorkflowExecutionTest {
                         failed -> inner.stepped-out
 
             state inner.done terminal done success
-                phase inherit
 
             state inner.stepped-out terminal stepped_out stepped_out
-                phase inherit
             """;
 
     /**
@@ -153,13 +147,11 @@ class SubWorkflowExecutionTest {
             entry main -> outer.invoke
 
             state outer.invoke
-                phase inherit
                 call sub.inner
                     done -> outer.done
                     stepped_out -> outer.recover
 
             state outer.recover
-                phase inherit
                 skill pm/test/recover
                 link next proceed ()
                     do test.proceed
@@ -167,10 +159,8 @@ class SubWorkflowExecutionTest {
                         failed -> outer.stepped-out
 
             state outer.done terminal done success
-                phase inherit
 
             state outer.stepped-out terminal stepped_out stepped_out
-                phase inherit
             """;
 
     private static final String ENTITY_TOP = """
@@ -188,26 +178,22 @@ class SubWorkflowExecutionTest {
             start ent.invoke
 
             state ent.invoke
-                phase execute
                 call sub.outer
                     done -> ent.done
                     stepped_out -> ent.fallback
 
             state ent.fallback
-                phase execute
                 job test.build
                     succeeded -> ent.done
                     failed -> ent.done
                     cancelled -> ent.done
 
             state ent.done terminal done success
-                phase execute
             """;
 
     /** A plan state that calls {@code sub.args} with every kind of bound argument. */
     private static final String CALL_ARGS = """
             state execute.invoke
-                phase execute
                 call sub.args(mode = strict, rounds = 2, targets = [origin, mirror])
                     done -> completed
                     stepped_out -> plan.return
@@ -238,24 +224,20 @@ class SubWorkflowExecutionTest {
             entry repair -> two.repair
 
             state two.review
-                phase inherit
                 job test.build
                     succeeded -> two.done
                     failed -> two.stepped-out
                     cancelled -> two.stepped-out
 
             state two.repair
-                phase inherit
                 job test.build
                     succeeded -> two.done
                     failed -> two.stepped-out
                     cancelled -> two.stepped-out
 
             state two.done terminal done success
-                phase inherit
 
             state two.stepped-out terminal stepped_out stepped_out
-                phase inherit
             """;
 
     private final EngineFixtures fixtures = new EngineFixtures();
@@ -264,7 +246,6 @@ class SubWorkflowExecutionTest {
     private WorkflowEngine twoEntriesEngine(String callLine) {
         return fixtures.engine(callingPlan("execute.invoke", """
                 state execute.invoke
-                    phase execute
                     %s
                         done -> completed
                         stepped_out -> plan.return
@@ -278,7 +259,6 @@ class SubWorkflowExecutionTest {
     private WorkflowEngine catalogEngine(String callLine, WorkflowDefinition verifiedCallee) {
         var plan = callingPlan("execute.invoke", """
                 state execute.invoke
-                    phase execute
                     %s
                         done -> completed
                         stepped_out -> plan.return
@@ -335,14 +315,11 @@ class SubWorkflowExecutionTest {
                 entry main -> d%1$d.step
 
                 state d%1$d.step
-                    phase inherit
                 """.formatted(depth) + body + """
 
                 state d%1$d.done terminal done success
-                    phase inherit
 
                 state d%1$d.stepped-out terminal stepped_out stepped_out
-                    phase inherit
                 """.formatted(depth));
     }
 
@@ -365,7 +342,7 @@ class SubWorkflowExecutionTest {
             assertAll(
                     () -> assertEquals("sub.wait", resting.stateId()),
                     () -> assertEquals(EXECUTE, resting.status().phase()),
-                    () -> assertEquals(List.of(new WorkflowStatus.CallFrame("plan", "execute.invoke", EXECUTE,
+                    () -> assertEquals(List.of(new WorkflowStatus.CallFrame("plan", "execute.invoke",
                             "sub.args", "main", expectedArgs, pushedAt)), resting.status().callStack()));
         }
 
@@ -468,7 +445,6 @@ class SubWorkflowExecutionTest {
         void shouldNestFourDeep() {
             var engine = fixtures.engine(callingPlan("execute.invoke", """
                     state execute.invoke
-                        phase execute
                         call sub.d1
                             done -> completed
                             stepped_out -> plan.return
@@ -508,7 +484,6 @@ class SubWorkflowExecutionTest {
             fixtures.mark.then(StepOutcome.DONE, result);
             var engine = fixtures.engine(callingPlan("execute.commit", """
                     state execute.commit
-                        phase execute
                         call sub.commit
                             done -> completed
                                 guard result.pushed
@@ -517,7 +492,6 @@ class SubWorkflowExecutionTest {
                             stepped_out -> plan.return
 
                     state execute.local
-                        phase execute
                         job test.build
                             succeeded -> completed
                             failed -> handed_back
@@ -560,13 +534,11 @@ class SubWorkflowExecutionTest {
                             entry main -> mid.invoke
 
                             state mid.invoke
-                                phase inherit
                                 call sub.commit
                                     done -> mid.done
                                     stepped_out -> mid.hold
 
                             state mid.hold
-                                phase inherit
                                 skill pm/test/hold
                                 link next proceed ()
                                     do test.proceed
@@ -574,10 +546,8 @@ class SubWorkflowExecutionTest {
                                         failed -> mid.stepped-out
 
                             state mid.done terminal done success
-                                phase inherit
 
                             state mid.stepped-out terminal stepped_out stepped_out
-                                phase inherit
                             """), parse("sub.pmwf", SUB_COMMIT));
 
             var resting = engine.start(JournalScopeType.PLAN, PLAN_ID);
@@ -602,7 +572,9 @@ class SubWorkflowExecutionTest {
                     () -> assertEquals("outer.recover", stepped.status().state()),
                     () -> assertEquals(List.of("sub.outer"), stepped.status().callStack().stream()
                             .map(WorkflowStatus.CallFrame::subworkflowId).toList()),
-                    () -> assertEquals(EXECUTE, stepped.status().phase()));
+                    // the root is an entity unit, which carries no phase of its own: the plan scope keeps the phase
+                    // it opened at
+                    () -> assertEquals("phase-1-init", stepped.status().phase()));
         }
 
         @Test
@@ -668,25 +640,26 @@ class SubWorkflowExecutionTest {
     @DisplayName("CallStack value")
     class CallStackValue {
 
-        private final CallFrame frame = new CallFrame("plan", "execute.invoke", EXECUTE, "sub.args", "main",
+        private final CallFrame frame = new CallFrame("plan", "execute.invoke", "sub.args", "main",
                 Map.of("mode", new CallValue.EnumValue("strict")), T0.toString());
 
         @Test
-        @DisplayName("Should push to four frames and refuse a fifth")
+        @DisplayName("Should push to five frames, the phase level adding one, and refuse a sixth")
         void shouldBoundDepth() {
-            var full = CallStack.empty().push(frame).push(frame).push(frame).push(frame);
-            var fiveFrames = List.of(frame, frame, frame, frame, frame);
+            var full = CallStack.empty().push(frame).push(frame).push(frame).push(frame).push(frame);
+            var sixFrames = List.of(frame, frame, frame, frame, frame, frame);
 
             assertAll(
+                    () -> assertEquals(5, CallStack.MAX_DEPTH),
                     () -> assertEquals(CallStack.MAX_DEPTH, full.depth()),
                     () -> assertThrows(IllegalStateException.class, () -> full.push(frame)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new CallStack(fiveFrames)));
+                    () -> assertThrows(IllegalArgumentException.class, () -> new CallStack(sixFrames)));
         }
 
         @Test
         @DisplayName("Should pop exactly one frame, unwind every frame top first, and refuse to pop an empty stack")
         void shouldPopAndUnwind() {
-            var other = new CallFrame("sub.args", "sub.wait", EXECUTE, "sub.commit", "main", Map.of(), T0.toString());
+            var other = new CallFrame("sub.args", "sub.wait", "sub.commit", "main", Map.of(), T0.toString());
             var stack = CallStack.empty().push(frame).push(other);
 
             var popped = stack.pop();
@@ -708,7 +681,7 @@ class SubWorkflowExecutionTest {
             args.put("mode", new CallValue.EnumValue("strict"));
             args.put("rounds", new CallValue.IntValue(3));
             args.put("targets", new CallValue.EnumList(List.of("origin", "mirror")));
-            var stack = CallStack.empty().push(new CallFrame("plan", "execute.invoke", EXECUTE, "sub.args", "repair",
+            var stack = CallStack.empty().push(new CallFrame("plan", "execute.invoke", "sub.args", "repair",
                     args, T0.toString()));
 
             var stored = stack.toStore();
@@ -721,7 +694,7 @@ class SubWorkflowExecutionTest {
         @Test
         @DisplayName("Should refuse a stored integer argument outside the range of a call value")
         void shouldRefuseOversizedInteger() {
-            var stored = new WorkflowStatus.CallFrame("plan", "execute.invoke", EXECUTE, "sub.args", "main",
+            var stored = new WorkflowStatus.CallFrame("plan", "execute.invoke", "sub.args", "main",
                     Map.of("rounds", new BoundArg.IntegerArg(Long.MAX_VALUE)), T0);
             var storedFrames = List.of(stored);
 

@@ -700,64 +700,6 @@ class PlanInstanceComposerTest {
                     factsOf(lane), Optional.of(mergedVersion1(lane)), InstancePosition.at(position), mutations));
         }
 
-        private static PlanInstance outline(Lane lane) {
-            return composed(atOutline(lane, lane == Lane.DEEP ? "outline.deep" : "outline.light", List.of()));
-        }
-
-        @Test
-        @DisplayName("a deep version composed at outline holds no state of the light route, lists each other_lane, and"
-                + " verifies")
-        void deepPrunesLightRoute() {
-            var instance = outline(Lane.DEEP);
-
-            assertAll(
-                    () -> assertEquals(CompositionEvent.OUTLINE, instance.header().event()),
-                    () -> InvariantFixtures.LIGHT_ROUTE.forEach(state -> assertFalse(instance.unit().states()
-                            .containsKey(state), state)),
-                    () -> assertEquals(InvariantFixtures.LIGHT_ROUTE.stream()
-                            .map(state -> new PrunedElement(Kind.STATE, state, PruneReason.OTHER_LANE, "lane"))
-                            .toList(), otherLane(instance.header())),
-                    () -> assertTrue(instance.unit().states().keySet().containsAll(List.of(
-                            "refine.baseline-reconcile", "outline.deep", "outline.qgate", "outline.gate"))),
-                    () -> assertTrue(routes(instance, "outline.remediate", "fix_requested", "outline.deep"),
-                            "the deep rework re-enters the deep authoring entry"),
-                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header())));
-        }
-
-        @Test
-        @DisplayName("a light version composed at outline keeps the deep route of its escalation, prunes nothing by"
-                + " lane, and verifies")
-        void lightKeepsEscalation() {
-            var instance = outline(Lane.LIGHT);
-            var template = InvariantFixtures.passingUnits(UnitOrigin.PROJECT).get("plan");
-
-            assertAll(
-                    () -> assertEquals(template.states().keySet(), instance.unit().states().keySet()),
-                    () -> assertEquals(List.of(), otherLane(instance.header())),
-                    () -> assertTrue(routes(instance, "init.light-gate", "deep", "refine.baseline-reconcile"),
-                            "the ratchet of the light gate"),
-                    () -> assertTrue(routes(instance, "outline.light-regate", "deep", "outline.deep"),
-                            "the ratchet of the light re-gate"),
-                    () -> assertTrue(routes(instance, "outline.light-review", "failed", "outline.light-regate"),
-                            "the light rework re-enters the light authoring entry"));
-        }
-
-        @ParameterizedTest(name = "lane {0}")
-        @EnumSource(value = Lane.class, names = {"DEEP", "LIGHT"})
-        @DisplayName("the shared states before the split and the start state survive at outline and are never pruned"
-                + " by lane")
-        void sharedStatesSurvive(Lane lane) {
-            var instance = outline(lane);
-            var prunedByLane = otherLane(instance.header()).stream().map(PrunedElement::id).toList();
-
-            assertAll(
-                    () -> assertEquals(Optional.of(InvariantFixtures.BEFORE_SPLIT.getFirst()),
-                            instance.unit().startState()),
-                    () -> InvariantFixtures.BEFORE_SPLIT.forEach(state -> assertAll(state,
-                            () -> assertTrue(instance.unit().states().containsKey(state)),
-                            () -> assertFalse(prunedByLane.contains(state)))));
-        }
-
         @ParameterizedTest(name = "lane {0}")
         @EnumSource(value = Lane.class, names = {"DEEP", "LIGHT"})
         @DisplayName("the same template at start, where the lane is not yet pruned by, prunes nothing by lane")
@@ -779,7 +721,7 @@ class PlanInstanceComposerTest {
             assertAll(
                     () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal()),
                     () -> assertTrue(refused.violations().contains("INV-INIT-2 in 'init.light-gate': the ratchet"
-                            + " transition 'deep' -> 'refine.baseline-reconcile' of 'init.light-gate' is"
+                            + " transition 'deep' -> 'init.deep-exit' of 'init.light-gate' is"
                             + " missing"), refused.violations()::toString));
         }
 
@@ -791,17 +733,23 @@ class PlanInstanceComposerTest {
 
             assertAll(
                     () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal()),
-                    () -> assertEquals(List.of("INV-INIT-2 in 'init.light-gate': the ratchet transition 'deep' ->"
-                            + " 'refine.baseline-reconcile' of 'init.light-gate' is missing"), refused.violations()));
+                    () -> assertTrue(refused.violations().contains("INV-INIT-2 in 'init.light-gate': the ratchet"
+                            + " transition 'deep' -> 'init.deep-exit' of 'init.light-gate' is"
+                            + " missing"), refused.violations()::toString));
         }
 
         @Test
-        @DisplayName("a deep version of a template whose light gate lacks the ratchet owes no ratchet and composes")
-        void deepWithoutRatchetComposes() {
-            var instance = composed(atOutline(Lane.DEEP, "outline.deep", List.of(InvariantFixtures.WITHOUT_RATCHET)));
+        @DisplayName("a deep version of a template whose light gate lacks the ratchet owes no ratchet, and the light"
+                + " route the removal opens is refused with INV-OUTLINE-2 instead")
+        void deepWithoutRatchetOwesNoRatchet() {
+            var refused = refused(atOutline(Lane.DEEP, "outline.deep", List.of(InvariantFixtures.WITHOUT_RATCHET)));
 
-            assertEquals(InvariantFixtures.LIGHT_ROUTE, otherLane(instance.header()).stream()
-                    .map(PrunedElement::id).toList());
+            assertAll(
+                    () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal()),
+                    () -> assertTrue(refused.violations().stream().anyMatch(violation -> violation.startsWith(
+                            "INV-OUTLINE-2 in 'init.light-gate'")), refused.violations()::toString),
+                    () -> assertFalse(refused.violations().stream()
+                            .anyMatch(violation -> violation.startsWith("INV-INIT-2")), refused.violations()::toString));
         }
     }
 

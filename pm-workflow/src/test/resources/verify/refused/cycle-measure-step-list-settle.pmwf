@@ -7,21 +7,19 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: STEP_COMPLETION state verify.entry line 20
+# expect: STEP_COMPLETION state verify.entry line 19
 # The pass of the dispatch hub through verify.two returns to it without settling a step.
 workflow verify.cycle-measure-step-list-settle version 1 format 1
 scope plan
 start verify.entry
 
 state verify.entry
-    phase verify
     auto test.next-step
         first -> verify.one
         second -> verify.two
         settled -> verify.done
 
 state verify.one
-    phase verify
     auto test.prepare
         done -> verify.entry
             completes step:one as done
@@ -29,10 +27,8 @@ state verify.one
             completes step:one as skipped
 
 state verify.two
-    phase verify
     auto test.prepare
         done -> verify.entry
         skipped -> verify.entry
 
 state verify.done terminal done success
-    phase verify

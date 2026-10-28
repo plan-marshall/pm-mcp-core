@@ -7,22 +7,19 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: EXIT_PATH state verify.stuck line 21
+# expect: EXIT_PATH state verify.stuck line 20
 workflow verify.exit-path-workspace version 1 format 1
 scope workspace
 start verify.entry
 
 state verify.entry
-    phase setup
     auto test.prepare
         done -> verify.stuck
         skipped -> verify.done
 
 state verify.stuck
-    phase setup
     auto test.prepare
         done -> verify.done
         skipped -> verify.done
 
 state verify.done terminal done success
-    phase setup

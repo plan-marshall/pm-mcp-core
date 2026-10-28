@@ -195,7 +195,6 @@ class DeclarationBoundsTest {
                     start demo.end
 
                     state demo.end terminal done success
-                        phase inherit
                     """.formatted(kind);
             return WorkflowParser.parse("kinds.pmwf", source, UnitOrigin.PROJECT);
         }
@@ -307,12 +306,10 @@ class DeclarationBoundsTest {
                 entry main -> %2$s.pass
 
                 state %2$s.pass
-                    phase inherit
                     auto test.proceed
                         done -> %2$s.done
 
                 state %2$s.done terminal continue success
-                    phase inherit
                 """.formatted(id, prefix, String.join("\n", declarations));
     }
 

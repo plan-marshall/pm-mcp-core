@@ -7,17 +7,15 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: MODEL_JOB_OUTCOMES state verify.entry line 20
+# expect: MODEL_JOB_OUTCOMES state verify.entry line 19
 workflow verify.model-job-outcome-unknown version 1 format 1
 scope plan
 start verify.entry
 
 state verify.entry
-    phase verify
     job llm change role reviewer
         approved -> verify.done
         lost -> verify.done
         vanished -> verify.done
 
 state verify.done terminal done success
-    phase verify

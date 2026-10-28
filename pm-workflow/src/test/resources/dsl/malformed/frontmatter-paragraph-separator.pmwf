@@ -15,4 +15,3 @@ workflow demo version 1 format 1
 scope subworkflow
 start demo.begin
 state demo.begin terminal done success
-    phase inherit

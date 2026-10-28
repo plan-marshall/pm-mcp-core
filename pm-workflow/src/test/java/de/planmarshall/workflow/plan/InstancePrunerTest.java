@@ -57,7 +57,6 @@ class InstancePrunerTest {
             start setup.wait
 
             state setup.wait
-                phase setup
                 link next skip_wait ()
                     do setup.skip
                         done -> setup.left
@@ -66,7 +65,6 @@ class InstancePrunerTest {
                         done -> setup.left
 
             state setup.left terminal left indeterminate
-                phase setup
             """;
 
     private static WorkflowDefinition planTemplate() {

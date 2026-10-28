@@ -90,16 +90,13 @@ final class EngineFixtures {
             entry main -> sub.work
 
             state sub.work
-                phase inherit
                 auto test.mark
                     done -> sub.done
                     failed -> sub.stepped-out
 
             state sub.done terminal done success
-                phase inherit
 
             state sub.stepped-out terminal stepped_out stepped_out
-                phase inherit
             """;
 
     /** The transitions of every fate of {@code test.fate} but {@code succeeded} and {@code killed}. */
@@ -119,30 +116,25 @@ final class EngineFixtures {
      */
     static final String WAIT_STATES = """
             state execute.enqueue
-                phase execute
                 auto test.enqueue
                     started -> execute.run
                     skipped -> execute.review
 
             state execute.run
-                phase execute
                 job test.fate
                     succeeded -> execute.review
                     killed -> handed_back
             %s
             state execute.review
-                phase execute
                 job llm change role reviewer
                     approved -> execute.ask
                     lost -> handed_back
 
             state execute.ask
-                phase execute
                 question clarification
                     answered -> execute.backoff
 
             state execute.backoff
-                phase execute
                 composite_job test.backoff
                     succeeded -> completed
                     failed -> handed_back
@@ -153,10 +145,8 @@ final class EngineFixtures {
     static final String PLAN_TERMINALS = """
 
             state completed terminal merged success
-                phase completed
 
             state handed_back terminal handed_back failure
-                phase completed
             """;
 
     /**
@@ -169,7 +159,6 @@ final class EngineFixtures {
     static final String PLAN_RETURN = """
 
             state plan.return
-                phase execute
                 auto test.step
                     done -> handed_back
                     failed -> handed_back
@@ -219,19 +208,16 @@ final class EngineFixtures {
             start workspace.idle
 
             state workspace.idle
-                phase inherit
                 auto test.step
                     done -> workspace.enrich
                     failed -> workspace.review
 
             state workspace.enrich
-                phase inherit
                 job llm enrich-module role architect each test.list-modules
                     approved -> workspace.idle
                     lost -> workspace.idle
 
             state workspace.review
-                phase inherit
                 job llm lessons-review role lessons
                     reviewed -> workspace.idle
                     infeasible -> workspace.idle
@@ -376,7 +362,7 @@ final class EngineFixtures {
      */
     static WorkflowStatus.CallFrame frame(String callerWorkflowId, String callerStateId, String subworkflowId,
             String entry) {
-        return new WorkflowStatus.CallFrame(callerWorkflowId, callerStateId, EXECUTE, subworkflowId, entry, Map.of(),
+        return new WorkflowStatus.CallFrame(callerWorkflowId, callerStateId, subworkflowId, entry, Map.of(),
                 T0);
     }
 

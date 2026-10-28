@@ -13,17 +13,13 @@ scope plan
 start verify.entry
 
 state verify.entry
-    phase verify
     call test.depth5()
         done -> verify.done
         stepped_out -> plan.return
         stepped_out -> finalize.hand-back
 
 state plan.return terminal returned failure
-    phase verify
 
 state finalize.hand-back terminal handed_back failure
-    phase verify
 
 state verify.done terminal done success
-    phase verify
