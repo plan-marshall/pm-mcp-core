@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
@@ -138,5 +139,26 @@ class EndpointProfileValidatorTest {
         assertAll(
                 () -> assertNull(profile.endpoint().readinessPath()),
                 () -> assertEquals("/api/tags", profile.endpoint().readinessOrModelsPath()));
+    }
+
+    @Test
+    @DisplayName("the weights probe is read from either kind of profile")
+    void weightsProbeOfEitherKind() {
+        var endpoint = EndpointProfileFixtures.valid();
+        var client = ProfileValidator.validate(ProfileFixtures.validBytes(), "profiles/acme-cli.json",
+                ProfileRules.none());
+        var probe = new LinkedHashMap<String, Object>();
+        probe.put("source", "models_listing");
+        probe.put("pointer", "/digest");
+        probe.put("argv", null);
+        probe.put("pattern", null);
+        var clientWithProbe = ProfileValidator.validate(
+                ProfileFixtures.valid().set("/headless/weights_probe", probe).bytes(), "profiles/acme-cli.json",
+                ProfileRules.none());
+
+        assertAll(
+                () -> assertEquals("models_listing", EndpointProfile.weightsProbeOf(endpoint).source()),
+                () -> assertNull(EndpointProfile.weightsProbeOf(client)),
+                () -> assertEquals("/digest", EndpointProfile.weightsProbeOf(clientWithProbe).pointer()));
     }
 }
