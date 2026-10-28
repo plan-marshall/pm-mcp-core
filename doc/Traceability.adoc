@@ -1358,18 +1358,34 @@ model tiers, the context-budget fallback, the idle wakeups, the resumability tha
 the harness's ask-user tool that no role may name — projected from the profile document; a role of a class the harness
 cannot run is invalid with `harness_class_not_runnable`, and the steward takes its model from the harness's tier
 `standard`. Also the endpoint profile of the same sets: `profile_kind: "endpoint"`, its closed document, the locality
-combinations the schema cannot express, and the projection the runtime reads (Client Profiles § Endpoint Harness; ADRs
-core-profile/010, /011 and /012). Not implemented here: the translation of skills, links and prompts, and the composition
-of a launch from the `headless` block, which belong to the host-integration and worker-launch packages):
+combinations the schema cannot express — the remote form of the protocol `system_one` included — and the projection the
+runtime reads (Client Profiles § Endpoint Harness, § Judgment Endpoint; ADRs core-profile/010, /011 and /012). Also the
+protocol `system_one`: the two typed requests of a judgment task with the options in opposite orders, the server's check
+of each answer against the requested versioned id and the question's options, the remote form's credential read at the
+moment of a request and sent only to the entry's origin without a redirect, the one record of a task, and the
+verification differences of a judgment endpoint (ADRs runtime-endpoint/005, /006 and /007). Not implemented here: the
+translation of skills, links and prompts, the composition of a launch from the `headless` block, the vote built on the two
+answers, and the calibration of a declaration, which belong to the host-integration, worker-launch and judgment-votes
+packages):
 link:../pm-core/src/main/java/de/planmarshall/core/role/HarnessProfile.java[HarnessProfile],
 link:../pm-core/src/main/java/de/planmarshall/core/role/RoleValidation.java[RoleValidation],
 link:../pm-core/src/main/java/de/planmarshall/core/role/RoleCatalog.java[RoleCatalog],
 link:../pm-core/src/main/java/de/planmarshall/core/role/StewardConfiguration.java[StewardConfiguration],
 link:../pm-core/src/main/java/de/planmarshall/core/profile/EndpointProfile.java[EndpointProfile],
+link:../pm-core/src/main/java/de/planmarshall/core/profile/ProfileStages.java[ProfileStages],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointRequest.java[EndpointRequest],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointOutcome.java[EndpointOutcome],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointHarness.java[EndpointHarness],
-link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointVerification.java[EndpointVerification]
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointVerification.java[EndpointVerification],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/SystemOneRequest.java[SystemOneRequest],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/SystemOneAnswer.java[SystemOneAnswer],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/JudgmentClient.java[JudgmentClient],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/JudgmentEndpoint.java[JudgmentEndpoint],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/JudgmentVerification.java[JudgmentVerification],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/TokenLaneCredential.java[TokenLaneCredential],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolment.java[HarnessEnrolment],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolmentStore.java[HarnessEnrolmentStore],
+link:../pm-core/src/main/java/de/planmarshall/core/service/AuditEvent.java[AuditEvent]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/RoleValidationTableTest.java[RoleValidationTableTest],
 link:../pm-core/src/test/java/de/planmarshall/core/role/RoleEffectiveConfigurationTest.java[RoleEffectiveConfigurationTest],
@@ -1378,11 +1394,24 @@ link:../pm-core/src/test/java/de/planmarshall/core/role/HarnessProfileEndpointTe
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointRequestTest.java[EndpointRequestTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointOutcomeTest.java[EndpointOutcomeTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointHarnessTest.java[EndpointHarnessTest],
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointVerificationTest.java[EndpointVerificationTest]
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointVerificationTest.java[EndpointVerificationTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/SystemOneRequestTest.java[SystemOneRequestTest] (the
+options of both requests in opposite orders, the protocol's members alone, the context budget),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/SystemOneAnswerTest.java[SystemOneAnswerTest] (the
+requested model id, the probabilities' sum within 0.01, `confidence` never read),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/JudgmentEndpointTest.java[JudgmentEndpointTest] (the
+alias refused, the `429` not retried, the probabilities that do not sum, the body out of the log and the audit record),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/JudgmentEndpointRemoteTest.java[JudgmentEndpointRemoteTest]
+(the entry's own origin succeeding with the bearer secret, a redirect to another origin and to `http` receiving none),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/JudgmentVerificationTest.java[JudgmentVerificationTest]
 
 Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Artifacts Developer Guide],
 link:../pm-core/doc/developer/core-profile.adoc#_endpoint_profiles[Profile Loader and Schema Developer Guide § Endpoint
-profiles]
+profiles], link:../pm-runtime/doc/developer/runtime-endpoint.adoc[Endpoint Harness Developer Guide] (§ The judgment
+endpoint), ADRs
+link:../pm-runtime/doc/adr/runtime-endpoint/005-remote-endpoint-enrolment-records-origin-and-credential-key.adoc[005],
+link:../pm-runtime/doc/adr/runtime-endpoint/006-system-one-through-cui-http-pinned-origin-no-redirect.adoc[006] and
+link:../pm-runtime/doc/adr/runtime-endpoint/007-judgment-verification-without-classes-and-with-billed-limits.adoc[007]
 
 [#PM-CLIENT-5]
 === PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy

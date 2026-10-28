@@ -17,7 +17,8 @@ import java.util.Objects;
 
 /**
  * The validated values of an endpoint profile (PM-CLIENT-2, Client Profiles § Endpoint Profile Schema): the profile of
- * a model this machine serves on the loopback interface.
+ * a model this machine serves on the loopback interface, or of the remote form of the protocol {@code system_one} that
+ * one hosted service answers (Client Profiles § Remote Form).
  * <p>
  * The projection reads what the runtime needs and nothing else: the serving program and its identity, the endpoint
  * block with its request settings, the model tiers and the weights probe. It is made from a document
@@ -91,15 +92,46 @@ Endpoint endpoint, Map<String, String> modelTiers, WeightsProbe weightsProbe) {
      * @param contextTokens         the largest request the endpoint accepts
      * @param answerReserveTokens   the part of {@code contextTokens} kept for the answer
      * @param requestTimeoutSeconds the timeout of one request
+     * @param credentialKey         the Token Lane credential entry a {@code remote} endpoint reads; {@code null} in the
+     *                              loopback form
      * @since 0.1
      */
     public record Endpoint(String protocol, String locality, String baseUrl, String readinessPath, String modelsPath,
     String modelsPointer, String resultSchema, int contextTokens, int answerReserveTokens,
-    int requestTimeoutSeconds) {
+    int requestTimeoutSeconds, String credentialKey) {
+
+        /**
+         * @param protocol              {@code openai_chat} or {@code system_one}
+         * @param locality              {@code loopback} or {@code remote}
+         * @param baseUrl               the origin of the endpoint
+         * @param readinessPath         the readiness path; {@code null} when the models path is the readiness check
+         * @param modelsPath            the path of the models listing
+         * @param modelsPointer         the JSON Pointer to the model array in the listing
+         * @param resultSchema          what the endpoint does with a result schema
+         * @param contextTokens         the largest request the endpoint accepts
+         * @param answerReserveTokens   the part of {@code contextTokens} kept for the answer
+         * @param requestTimeoutSeconds the timeout of one request
+         */
+        public Endpoint(String protocol, String locality, String baseUrl, String readinessPath, String modelsPath,
+                String modelsPointer, String resultSchema, int contextTokens, int answerReserveTokens,
+                int requestTimeoutSeconds) {
+            this(protocol, locality, baseUrl, readinessPath, modelsPath, modelsPointer, resultSchema, contextTokens,
+                    answerReserveTokens, requestTimeoutSeconds, null);
+        }
 
         /** The context budget of a role on the harness: {@code context_tokens} less {@code answer_reserve_tokens}. */
         public int contextBudgetTokens() {
             return contextTokens - answerReserveTokens;
+        }
+
+        /** @return whether the endpoint is the remote form of one service, enrolled by the operator only */
+        public boolean remote() {
+            return "remote".equals(locality);
+        }
+
+        /** @return whether the endpoint speaks the protocol {@code system_one}, the judgment endpoint */
+        public boolean judgment() {
+            return "system_one".equals(protocol);
         }
 
         /** @return the readiness path, or the models path when the profile declares none */
@@ -204,7 +236,8 @@ Endpoint endpoint, Map<String, String> modelTiers, WeightsProbe weightsProbe) {
                 block.member("result_schema").flatMap(JsonNode::text).orElseThrow(),
                 integer(block, "context_tokens"),
                 integer(block, "answer_reserve_tokens"),
-                integer(block, "request_timeout_seconds"));
+                integer(block, "request_timeout_seconds"),
+                member(block, "credential_key"));
     }
 
     private static Map<String, String> tiers(JsonNode profile) {

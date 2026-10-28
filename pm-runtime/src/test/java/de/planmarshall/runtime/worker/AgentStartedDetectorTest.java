@@ -82,7 +82,10 @@ class AgentStartedDetectorTest {
         child = startChild();
         var executable = realPath();
         var detector = new AgentStartedDetector(environment, ProcessExecutables.system(),
-                () -> List.of(enrolment(executable, sha256(executable))), ending);
+                () -> List.of(HarnessEnrolment.endpoint("hosted-judge", "https://judge.example.test", "judge-token",
+                                Instant.EPOCH, new HarnessEnrolment.UsageReport(
+                                        HarnessEnrolment.UsageSource.DECLARED, Map.of())),
+                        enrolment(executable, sha256(executable))), ending);
 
         var matched = detector.detect(generation, ProcessHandle.current().pid(), task());
         var again = detector.detect(generation, ProcessHandle.current().pid(), task());

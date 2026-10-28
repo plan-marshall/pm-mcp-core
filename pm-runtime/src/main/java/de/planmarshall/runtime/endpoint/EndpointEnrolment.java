@@ -94,9 +94,7 @@ public final class EndpointEnrolment {
             return new Refreshed(enrolled, List.of(), false,
                     "%d of %d models read, no identity changed".formatted(read, models.size()));
         }
-        var updated = new HarnessEnrolment(enrolled.clientId(), enrolled.executablePath(), enrolled.sha256(),
-                enrolled.version(), enrolled.enrolledAt(), clock.instant(), enrolled.usageReport(), enrolled.events(),
-                weights);
+        var updated = enrolled.withWeights(weights, clock.instant());
         var written = writer.enrol(updated);
         changed.forEach((model, oldIdentity) -> audit.append(
                 AuditEvent.harnessWeightsUpdated(enrolled.clientId(), model, oldIdentity, weights.get(model).weightsId())));

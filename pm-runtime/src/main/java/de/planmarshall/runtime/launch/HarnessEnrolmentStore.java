@@ -66,6 +66,23 @@ public final class HarnessEnrolmentStore {
     private static final Set<PosixFilePermission> OWNER_ONLY = PosixFilePermissions.fromString("rw-------");
     private static final String HARNESSES = "harnesses";
     private static final String FORMAT_VERSION_MEMBER = "format_version";
+    private static final String ENDPOINT = "endpoint";
+    private static final String EXECUTABLE_PATH = "executable_path";
+    private static final String SHA256 = "sha256";
+    private static final String VERSION = "version";
+    private static final String ENROLLED_AT = "enrolled_at";
+    private static final String UPDATED_AT = "updated_at";
+    private static final String WEIGHTS = "weights";
+    private static final String USAGE_REPORT = "usage_report";
+    private static final String EVENTS = "events";
+
+    /** The members of a serving program's entry. */
+    private static final Set<String> PROGRAM_MEMBERS = Set.of(EXECUTABLE_PATH, SHA256, VERSION, ENROLLED_AT,
+            UPDATED_AT, WEIGHTS, USAGE_REPORT, EVENTS);
+
+    /** The members of a remote endpoint's entry. */
+    private static final Set<String> ENDPOINT_MEMBERS = Set.of(ENDPOINT, ENROLLED_AT, UPDATED_AT, WEIGHTS,
+            USAGE_REPORT, EVENTS);
 
     private final Path base;
     private final Path file;
@@ -242,13 +259,41 @@ public final class HarnessEnrolmentStore {
     }
 
     private static HarnessEnrolment entry(String clientId, JsonNode node) {
-        return new HarnessEnrolment(clientId, Path.of(text(node, "executable_path")), text(node, "sha256"),
-                text(node, "version"), Instant.parse(text(node, "enrolled_at")), Instant.parse(text(node,
-                        "updated_at")), usageReport(node), events(node), weights(node));
+        var binding = node.member(ENDPOINT).orElse(null);
+        if (binding != null) {
+            if (!binding.isObject()) {
+                throw new IllegalArgumentException("the member '%s' is not an object".formatted(ENDPOINT));
+            }
+            onlyMembers(node, clientId, ENDPOINT_MEMBERS);
+            return new HarnessEnrolment(clientId, null, null, null, Instant.parse(text(node, ENROLLED_AT)),
+                    Instant.parse(text(node, UPDATED_AT)), usageReport(node), events(node), weights(node),
+                    new HarnessEnrolment.Binding(text(binding, "origin"), text(binding, "credential_key")));
+        }
+        onlyMembers(node, clientId, PROGRAM_MEMBERS);
+        return new HarnessEnrolment(clientId, Path.of(text(node, EXECUTABLE_PATH)), text(node, SHA256),
+                text(node, VERSION), Instant.parse(text(node, ENROLLED_AT)),
+                Instant.parse(text(node, UPDATED_AT)), usageReport(node), events(node), weights(node));
+    }
+
+    /**
+     * @param node     the entry
+     * @param clientId the client id, for the refusal
+     * @param allowed  the members of the form the entry takes
+     * @throws IllegalArgumentException if the entry carries a member of the other form or an undeclared one, so a mixed
+     *                                  entry is refused instead of being read as one of its halves
+     */
+    private static void onlyMembers(JsonNode node, String clientId, Set<String> allowed) {
+        for (var member : node.members().keySet()) {
+            if (!allowed.contains(member)) {
+                throw new IllegalArgumentException(
+                        "the entry '%s' carries the member '%s', which is not a member of the entry's form"
+                                .formatted(clientId, member));
+            }
+        }
     }
 
     private static HarnessEnrolment.UsageReport usageReport(JsonNode node) {
-        var report = requiredObject(node, "usage_report");
+        var report = requiredObject(node, USAGE_REPORT);
         var figures = new LinkedHashMap<String, String>();
         requiredObject(report, "figures").members()
                 .forEach((figure, result) -> figures.put(figure, textValue(result, "the figure '%s'".formatted(figure))));
@@ -293,14 +338,14 @@ public final class HarnessEnrolmentStore {
 
     private static Map<String, String> events(JsonNode node) {
         var results = new LinkedHashMap<String, String>();
-        requiredObject(node, "events").members().forEach((kind, result) -> results.put(kind,
+        requiredObject(node, EVENTS).members().forEach((kind, result) -> results.put(kind,
                 textValue(result, "the event '%s'".formatted(kind))));
         return results;
     }
 
     private static Map<String, HarnessEnrolment.Weights> weights(JsonNode node) {
         var weights = new LinkedHashMap<String, HarnessEnrolment.Weights>();
-        node.member("weights").ifPresent(value -> {
+        node.member(WEIGHTS).ifPresent(value -> {
             if (!value.isObject()) {
                 throw new IllegalArgumentException("the member 'weights' is not an object");
             }
@@ -352,11 +397,16 @@ public final class HarnessEnrolmentStore {
 
     private static JsonNode entry(HarnessEnrolment enrolment) {
         var members = new LinkedHashMap<String, JsonNode>();
-        members.put("executable_path", JsonNode.string(enrolment.executablePath().toString()));
-        members.put("sha256", JsonNode.string(enrolment.sha256()));
-        members.put("version", JsonNode.string(enrolment.version()));
-        members.put("enrolled_at", JsonNode.string(enrolment.enrolledAt().toString()));
-        members.put("updated_at", JsonNode.string(enrolment.updatedAt().toString()));
+        if (enrolment.binding() != null) {
+            members.put(ENDPOINT, JsonNode.object(Map.of("origin", JsonNode.string(enrolment.binding().origin()),
+                    "credential_key", JsonNode.string(enrolment.binding().credentialKey()))));
+        } else {
+            members.put(EXECUTABLE_PATH, JsonNode.string(enrolment.executablePath().toString()));
+            members.put(SHA256, JsonNode.string(enrolment.sha256()));
+            members.put(VERSION, JsonNode.string(enrolment.version()));
+        }
+        members.put(ENROLLED_AT, JsonNode.string(enrolment.enrolledAt().toString()));
+        members.put(UPDATED_AT, JsonNode.string(enrolment.updatedAt().toString()));
         var figures = new TreeMap<String, JsonNode>();
         enrolment.usageReport().figures().forEach((figure, result) -> figures.put(figure, JsonNode.string(result)));
         var report = new LinkedHashMap<String, JsonNode>();
@@ -372,15 +422,15 @@ public final class HarnessEnrolmentStore {
             }
             report.put("start_context", JsonNode.array(contexts));
         }
-        members.put("usage_report", JsonNode.object(report));
+        members.put(USAGE_REPORT, JsonNode.object(report));
         var events = new TreeMap<String, JsonNode>();
         enrolment.events().forEach((kind, result) -> events.put(kind, JsonNode.string(result)));
-        members.put("events", JsonNode.object(events));
+        members.put(EVENTS, JsonNode.object(events));
         if (!enrolment.weights().isEmpty()) {
             var weights = new TreeMap<String, JsonNode>();
             enrolment.weights().forEach((model, value) -> weights.put(model, JsonNode.object(Map.of("weights_id",
                     JsonNode.string(value.weightsId()), "read_at", JsonNode.string(value.readAt().toString())))));
-            members.put("weights", JsonNode.object(weights));
+            members.put(WEIGHTS, JsonNode.object(weights));
         }
         return JsonNode.object(members);
     }

@@ -171,27 +171,6 @@ Source:: plan-marshall defect process-compliance inbox module-budget-campaign-co
 
 == Endpoint Harness
 
-[#PM-WATCH-CLIENT-15]
-=== PM-WATCH-CLIENT-15: A remote endpoint is addressed by a versioned id, holds a key for one origin, and logs no body
-
-Anchor:: link:../specification/client-profiles/04-judgment-endpoint.adoc#system-one-request[Client Profiles § The Request and the Answer],
-link:../specification/client-profiles/04-judgment-endpoint.adoc#remote-form[§ Remote Form],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CRED-5[PM-CRED-5]
-Hazard:: A hosted service moves its alias (`latest`, `preview`) to a new release without a change of the caller, so a
-qualification record and a decision calibration outlive the model they graded. The request body carries the facts of a
-task, and a client library's debug logging or an error report quotes it. A redirect, a proxy setting, or an
-operator-edited `base_url` can send the key to another origin. A service that is overloaded (`429`, `529`) invites a
-client library to retry inside an attempt, past the deadline of the vote. The answer's `confidence` member reads like
-a probability.
-Guard:: The verification sends the role's model id and refuses an id the service answers with another id
-(`model_alias`); every answer is checked for the requested id, so a silent re-route ends the attempt. A request to an
-origin other than the credential entry's, and a redirect to another origin or to `http`, sends no secret and ends the
-attempt (matched control: the entry's own origin succeeds). No log, audit line, or error text holds a request body or
-the key (a fixture whose answer echoes the body). The runtime retries nothing inside an attempt; the task's re-offer
-budget decides. Fixtures: a stub that answers an alias request with a versioned id, one that answers `429` with a
-`retry-after`, one that redirects to another origin, and one whose probabilities do not sum to `1`.
-Source:: Article analysis `first-level-thinker` of plan-marshall-documentation.
-
 [#PM-WATCH-CLIENT-16]
 === PM-WATCH-CLIENT-16: A worker's isolation covers the operator's own instruction files and skills
 

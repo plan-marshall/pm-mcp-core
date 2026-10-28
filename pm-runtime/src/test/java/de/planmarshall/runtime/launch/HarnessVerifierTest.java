@@ -73,6 +73,18 @@ class HarnessVerifierTest {
     }
 
     @Test
+    @DisplayName("an endpoint-form entry of the client refuses the launch as not enrolled")
+    void endpointEntry() {
+        store.enrol(HarnessEnrolment.endpoint("claude", "https://judge.example.test", "judge-token", NOW,
+                new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED, Map.of())));
+
+        var verification = verifier().verify("claude", LaunchFixtures.block());
+
+        assertEquals(LaunchRefusal.HARNESS_NOT_ENROLLED, refusal(verification));
+        assertTrue(audit.stream().noneMatch(event -> AuditEvent.HARNESS_UPDATED.equals(event.event())));
+    }
+
+    @Test
     @DisplayName("a tampered store refuses the launch and is audited")
     void tampered() throws Exception {
         store.enrol(enrolment(digest(), "1.5.0"));

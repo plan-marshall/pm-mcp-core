@@ -19,6 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import de.cuioss.test.mockwebserver.EnableMockWebServer;
 import java.net.Inet6Address;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import mockwebserver3.Dispatcher;
 import mockwebserver3.MockResponse;
@@ -29,6 +31,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.profile.JsonDocument;
+import de.planmarshall.runtime.launch.HarnessEnrolment;
 
 /**
  * One task on an endpoint harness (PM-CLIENT-2, Client Profiles § The Request, § Enrolment): the owner check refuses a
@@ -66,6 +69,21 @@ class EndpointHarnessTest {
 
     private static SocketOwner owner(String executablePath) {
         return (host, port) -> SocketOwner.Lookup.found(executablePath);
+    }
+
+    @Test
+    @DisplayName("an endpoint-form enrolment is refused before any request")
+    void endpointEnrolmentRefused() {
+        var harness = new EndpointHarness(new EndpointClient(), owner(EndpointFixtures.executablePath()));
+        var enrolled = HarnessEnrolment.endpoint("local-runner", "https://judge.example.test", "judge-token",
+                Instant.EPOCH, new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED, Map.of()));
+
+        var outcome = harness.task(EndpointFixtures.profile(base()), enrolled, request(), null);
+
+        assertAll(
+                () -> assertEquals(EndpointOutcome.Fate.REFUSED, outcome.fate()),
+                () -> assertEquals(EndpointOutcome.Reason.HARNESS_NOT_ENROLLED, outcome.reason()),
+                () -> assertEquals(0, server.getRequestCount()));
     }
 
     @Test

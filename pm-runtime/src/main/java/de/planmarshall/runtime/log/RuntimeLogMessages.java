@@ -369,6 +369,17 @@ public final class RuntimeLogMessages {
                 .identifier(38)
                 .template("Worker generation '%s' of role '%s' recycled for '%s'")
                 .build();
+
+        /**
+         * Logged when a judgment task of an endpoint harness answered both requests of the task; names the model, the
+         * endpoint, the input and output tokens the answers measured and the duration. Never the request body or the
+         * credential.
+         */
+        public static final LogRecord JUDGMENT_TASK_ANSWERED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(39)
+                .template("Judgment task of model '%s' on the endpoint '%s' answered (input %s, output %s, %s ms)")
+                .build();
     }
 
     /** WARN level messages. */

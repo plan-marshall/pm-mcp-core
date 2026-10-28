@@ -159,6 +159,8 @@ public final class ProfileValidator {
     private static final String PTR_MIN_DAEMON_VERSION = "/min_daemon_version";
     private static final String PTR_IDENTITY = "/identity";
     private static final String PTR_EXECUTABLE = "/executable";
+    private static final String PTR_UPDATE_EVIDENCE = "/update_evidence";
+    private static final String PTR_BASE_URL = "/endpoint/base_url";
     private static final String PTR_SOURCE = "/source";
     private static final String PTR_BUNDLED = "/bundled";
     private static final String PTR_ARGV = "/argv";
@@ -230,6 +232,9 @@ public final class ProfileValidator {
     private static final String MODEL_READABLE_CHARACTERS = " _.:/-$=,()\"{}<>";
 
     private static final Pattern CLIENT_ID = Pattern.compile("^[a-z][a-z0-9-]{0,31}$");
+
+    /** The credential-key grammar of the endpoint profile's {@code credential_key}. */
+    private static final Pattern CREDENTIAL_KEY = Pattern.compile("^[a-z][a-z0-9-]{1,31}$");
     private static final Pattern VARIABLE = Pattern.compile("^[A-Z][A-Z0-9_]{0,63}$");
     private static final Pattern VERSION = Pattern.compile("^\\d+\\.\\d+\\.\\d+(-[A-Za-z0-9.-]+)?$");
     private static final Pattern EXECUTABLE = Pattern.compile("^[a-z][a-z0-9-]*$");
@@ -244,6 +249,9 @@ public final class ProfileValidator {
     private static final Pattern ENDPOINT_PATH = Pattern.compile("^/[A-Za-z0-9._/-]{0,127}$");
     private static final Pattern LOOPBACK_URL = Pattern.compile("^http://(127\\.0\\.0\\.1|\\[::1\\]):(\\d{1,5})$");
     private static final Pattern HTTPS_URL = Pattern.compile("^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:\\d{1,5})?$");
+
+    /** The port of an {@code https} URL, for the range check the pattern cannot express. */
+    private static final Pattern HTTPS_PORT = Pattern.compile(":(\\d{1,5})$");
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{([^{}]*)\\}\\}");
 
     private ProfileValidator() {
@@ -378,12 +386,18 @@ public final class ProfileValidator {
             }
             var evidenceNode = required(profile, "", NAME_UPDATE_EVIDENCE);
             if (!evidenceNode.isNull()) {
-                updateEvidence(evidenceNode, "/update_evidence");
+                updateEvidence(evidenceNode, PTR_UPDATE_EVIDENCE);
             }
             var block = endpointBlock(required(profile, "", NAME_ENDPOINT), "/endpoint");
             modelTiers(required(profile, "", NAME_MODEL_TIERS), "/model_tiers");
-            weightsProbe(required(profile, "", NAME_WEIGHTS_PROBE), "/weights_probe");
-            localityRules(block, executable, hasIdentity);
+            var weightsNode = required(profile, "", NAME_WEIGHTS_PROBE);
+            weightsProbe(weightsNode, "/weights_probe");
+            localityRules(block, executable, hasIdentity, !evidenceNode.isNull(), usesArgvProbe(weightsNode));
+        }
+
+        /** @return whether the profile's weights probe runs a program of this machine */
+        private static boolean usesArgvProbe(JsonNode probe) {
+            return !probe.isNull() && "argv".equals(probe.member(NAME_SOURCE).flatMap(JsonNode::text).orElse(null));
         }
 
         /**
@@ -397,11 +411,11 @@ public final class ProfileValidator {
                     Set.of("loopback", "remote"));
             var baseUrl = text(required(endpoint, pointer, NAME_BASE_URL), pointer + "/base_url", NAME_BASE_URL, 256);
             if (!LOOPBACK_URL.matcher(baseUrl).matches() && !HTTPS_URL.matcher(baseUrl).matches()) {
-                throw invalid(pointer + "/base_url", "not an endpoint URL: '%s'".formatted(baseUrl));
+                throw invalid(PTR_BASE_URL, "not an endpoint URL: '%s'".formatted(baseUrl));
             }
             var credential = optionalText(optional(endpoint, NAME_CREDENTIAL_KEY), pointer + "/credential_key",
                     NAME_CREDENTIAL_KEY, 32);
-            if (credential != null && !CLIENT_ID.matcher(credential).matches()) {
+            if (credential != null && !CREDENTIAL_KEY.matcher(credential).matches()) {
                 throw invalid(pointer + "/credential_key", "not a credential key: '%s'".formatted(credential));
             }
             endpointPath(optional(endpoint, NAME_READINESS_PATH), pointer + "/readiness_path", NAME_READINESS_PATH);
@@ -428,30 +442,68 @@ public final class ProfileValidator {
         }
 
         /**
-         * Refuses the combinations of {@code locality} the schema cannot express: the remote form and the protocol
-         * {@code system_one} belong to the package {@code judgment-endpoint} and are refused until it is done; a
-         * loopback endpoint names a plain {@code http} loopback URL, no credential, and the serving program and its
-         * identity.
+         * Refuses the combinations of {@code locality} the schema cannot express (Client Profiles § Endpoint Profile
+         * Schema, § Remote Form). A loopback endpoint names a plain {@code http} loopback URL, no credential, and the
+         * serving program and its identity. The remote form is the protocol {@code system_one}'s: it names one {@code
+         * https} origin and the Token Lane credential entry it reads, and has no serving program, no identity and no
+         * update evidence, because no owner check applies to a service.
          */
-        private void localityRules(EndpointBlock block, String executable, boolean hasIdentity) {
+        private void localityRules(EndpointBlock block, String executable, boolean hasIdentity,
+                boolean hasUpdateEvidence, boolean hasArgvWeightsProbe) {
             if ("remote".equals(block.locality())) {
+                remoteRules(block, executable, hasIdentity, hasUpdateEvidence, hasArgvWeightsProbe);
+            } else {
+                loopbackRules(block, executable, hasIdentity);
+            }
+        }
+
+        private void remoteRules(EndpointBlock block, String executable, boolean hasIdentity,
+                boolean hasUpdateEvidence, boolean hasArgvWeightsProbe) {
+            if (hasArgvWeightsProbe) {
+                throw invalid("/weights_probe/source",
+                        "a remote endpoint reads its weights identity from the models listing, never from a program "
+                                + "of this machine");
+            }
+            if (!"system_one".equals(block.protocol())) {
                 throw invalid("/endpoint/locality",
-                        "the remote form is the judgment endpoint's; this package refuses it until that package is done");
+                        "the remote form is the protocol system_one's; an openai_chat endpoint is a loopback one");
             }
-            if ("system_one".equals(block.protocol())) {
-                throw invalid("/endpoint/protocol",
-                        "the protocol system_one is the judgment endpoint's; this package refuses it until that "
-                                + "package is done");
+            if (!HTTPS_URL.matcher(block.baseUrl()).matches()) {
+                throw invalid(PTR_BASE_URL,
+                        "a remote endpoint names the https origin of one service: '%s'".formatted(block.baseUrl()));
             }
+            var port = HTTPS_PORT.matcher(block.baseUrl());
+            if (port.find()) {
+                var value = Integer.parseInt(port.group(1));
+                if (value < 1 || value > 65535) {
+                    throw invalid(PTR_BASE_URL, "not a port: %d".formatted(value));
+                }
+            }
+            if (block.credentialKey() == null) {
+                throw invalid("/endpoint/credential_key",
+                        "a remote endpoint names the Token Lane credential entry it reads");
+            }
+            if (executable != null) {
+                throw invalid(PTR_EXECUTABLE, "a remote endpoint has a null executable");
+            }
+            if (hasIdentity) {
+                throw invalid(PTR_IDENTITY, "a remote endpoint has a null identity");
+            }
+            if (hasUpdateEvidence) {
+                throw invalid(PTR_UPDATE_EVIDENCE, "a remote endpoint has a null update_evidence");
+            }
+        }
+
+        private void loopbackRules(EndpointBlock block, String executable, boolean hasIdentity) {
             var loopback = LOOPBACK_URL.matcher(block.baseUrl());
             if (!loopback.matches()) {
-                throw invalid("/endpoint/base_url",
+                throw invalid(PTR_BASE_URL,
                         "a loopback endpoint names http://127.0.0.1:<port> or http://[::1]:<port>: '%s'"
                                 .formatted(block.baseUrl()));
             }
             var port = Integer.parseInt(loopback.group(2));
             if (port < 1 || port > 65535) {
-                throw invalid("/endpoint/base_url", "not a port: %d".formatted(port));
+                throw invalid(PTR_BASE_URL, "not a port: %d".formatted(port));
             }
             if (block.credentialKey() != null) {
                 throw invalid("/endpoint/credential_key", "a loopback endpoint has a null credential_key");
@@ -578,7 +630,7 @@ public final class ProfileValidator {
             var supported = text(required(headless, pointer, NAME_SUPPORTED_VERSIONS), pointer + "/supported_versions",
                     NAME_SUPPORTED_VERSIONS, 256);
             SupportedVersions.parse(supported, document, pointer + "/supported_versions");
-            updateEvidence(required(headless, pointer, NAME_UPDATE_EVIDENCE), pointer + "/update_evidence");
+            updateEvidence(required(headless, pointer, NAME_UPDATE_EVIDENCE), pointer + PTR_UPDATE_EVIDENCE);
             enumValue(required(headless, pointer, NAME_AGENT_MODE), pointer + "/agent_mode", NAME_AGENT_MODE,
                     Set.of("inline", "flags"));
             launchArguments(required(headless, pointer, "argv"), pointer + PTR_ARGV, "argv", SLOTS);

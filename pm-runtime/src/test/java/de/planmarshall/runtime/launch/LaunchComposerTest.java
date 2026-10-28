@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
@@ -228,12 +229,29 @@ class LaunchComposerTest {
         return new LaunchComposer().compose(request(role, fresh, LaunchRequest.WorkdirKind.PLAN_WORKTREE, freeText));
     }
 
+    @Test
+    @DisplayName("an endpoint-form enrolment composes no worker launch")
+    void endpointEnrolmentComposesNoWorker() {
+        var role = roleWithoutResume(RoleClass.ZERO_TOOL);
+        var enrolled = HarnessEnrolment.endpoint("claude", "https://judge.example.test", "judge-token",
+                LaunchFixtures.clock().instant(), new HarnessEnrolment.UsageReport(
+                        HarnessEnrolment.UsageSource.DECLARED, Map.of()));
+        var request = request(role, true, LaunchRequest.WorkdirKind.PLAN_WORKTREE, false, enrolled);
+
+        assertThrows(LaunchComposer.CompositionException.class, () -> new LaunchComposer().compose(request));
+    }
+
     private LaunchRequest request(EffectiveRole role, boolean fresh, LaunchRequest.WorkdirKind kind,
             boolean freeText) {
+        return request(role, fresh, kind, freeText, LaunchFixtures.enrolment(LaunchFixtures
+                .enrolmentPath(root), LaunchFixtures.EXECUTABLE_DIGEST, "1.5.0"));
+    }
+
+    private LaunchRequest request(EffectiveRole role, boolean fresh, LaunchRequest.WorkdirKind kind,
+            boolean freeText, HarnessEnrolment enrolment) {
         var jobPrivate = root.resolve("run/jobs").resolve(GENERATION);
         var workdir = kind == LaunchRequest.WorkdirKind.JOB_PRIVATE ? null : root.resolve("worktree");
-        return new LaunchRequest(role, LaunchFixtures.block(), LaunchFixtures.enrolment(LaunchFixtures
-                        .enrolmentPath(root), LaunchFixtures.EXECUTABLE_DIGEST, "1.5.0"), GENERATION,
+        return new LaunchRequest(role, LaunchFixtures.block(), enrolment, GENERATION,
                 root.resolve("runtime"), jobPrivate, kind, kind == LaunchRequest.WorkdirKind.PLAN_WORKTREE
                         ? "29-worker-launch" : null, workdir, root.resolve("daemon.sock"), LaunchFixtures.SHIM, skills,
                 fresh, freeText, List.of("skill://pm/state/outline/SKILL.md"), List.of(

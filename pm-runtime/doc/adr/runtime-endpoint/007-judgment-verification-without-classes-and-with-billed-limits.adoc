@@ -1,0 +1,54 @@
+= ADR 007: A Judgment Endpoint Is Verified Without the classes Stage and Bisects Its Limit Only on Request
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-28
+
+== Context
+
+Client Profiles § Verification of a Judgment Endpoint states the stages of an endpoint with three differences: `identity`
+reads the models listing with the credential and checks that the role's model is listed, and only a loopback form also
+runs the version probe and the owner check; `launch` sends one typed request of two options in both orders, checks that
+the answer validates and that both orders name the same options, sends a request whose criteria the instructions
+contradict and a request with one option only and records the answers, and refuses a service that answers free text, so
+`result_schema` is `enforced`; `classes` does not apply; `limits` bisects between `1024` tokens and the service's refusal,
+and on a remote form only on the operator's explicit choice, because every request is billed.
+
+The package had to decide how the stage list and the answers the stages record are carried by the verification record,
+whose `EndpointVerification` held four stages and whose `EndpointLaunch` held no probe results.
+
+== Decision
+
+`ProfileStages` carries two stage lists, `ENDPOINT_STAGES` and `JUDGMENT_STAGES` (identity, launch, limits), selected by
+`stagesFor(protocol)`. `EndpointVerification` holds the stage list it ran and admits a `null` `classes` exactly when the
+list does not name it, so the status map of a judgment endpoint has no `classes` entry and no record claims a stage the
+protocol has not. `EndpointLaunch` carries the answers of the probes by name. `JudgmentVerification` runs the stages:
+identity without an executable on the remote form, launch with the four probes, no classes, and limits only when the
+caller passes the operator's choice. A service that answers free text fails the launch stage and measures `result_schema`
+as `none`, so the draft is refused.
+
+== Alternatives Considered
+
+Recording `classes` as passed for a judgment endpoint was considered and not taken: it would claim a stage the protocol
+cannot have and hide a regression that sends tools. Keeping four stages and marking classes `not_applicable` in the
+status map was considered and not taken: the schema of the verification record names the stages that ran, and a stage
+that did not run is absent there. Running the limits bisection on a remote form by default was considered and not taken:
+Credential & Enrolment § Closed List makes every request a billed outbound call.
+
+== Consequences
+
+- A judgment endpoint's verification record has three stage statuses; `classes` is absent, and its probe answers travel in
+  the launch stage's `probes`.
+- The `limits` stage on a remote form is the operator's act; a profile without it keeps `context_tokens` as the operator
+  declared it.
+- A later protocol with a different stage set adds its list to `ProfileStages` and its verifier, not a flag on this one.
+
+== Source
+
+Pull request for the work package `doc/plans/judgment-endpoint.adoc` (deleted by the pull request that lands this
+decision); Client Profiles § Verification of a Judgment Endpoint.

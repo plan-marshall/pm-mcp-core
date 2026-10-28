@@ -177,16 +177,10 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:operator-reports.adoc[`operator-reports`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (the archives of plans); link:epic-resource-and-release.adoc[`epic-resource-and-release`] (the archives of epics, the release; the unenrolment); link:chat.adoc[`chat`] (ended work, read-only); link:runtime-metrics.adoc[`runtime-metrics`] (the token figures kept); link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the machine's settings); link:project-onboarding-unit.adoc[`project-onboarding-unit`] (the project's values)
 |Milestone 10; the client work of `pm-mcp-clients`
 
-|link:judgment-endpoint.adoc[`judgment-endpoint`]
-|The judgment endpoint: typed questions answered with a probability per option by a hosted service or a model served in the same format
-|`open`
-|nothing
-|Milestone 14
-
 |link:judgment-votes.adoc[`judgment-votes`]
 |A judgment role votes: two requests, the confidence from the lower probability, a rationale composed by the server, the class rule, and the calibration form
 |`open`
-|link:judgment-endpoint.adoc[`judgment-endpoint`]; link:decision-engine.adoc[`decision-engine`] (the vote members of the decision record); link:decision-quorum-and-calibration.adoc[`decision-quorum-and-calibration`] (the decision declarations, the adjudication unit, and the calibration)
+|link:decision-engine.adoc[`decision-engine`] (the vote members of the decision record); link:decision-quorum-and-calibration.adoc[`decision-quorum-and-calibration`] (the decision declarations, the adjudication unit, and the calibration)
 |Milestone 14
 
 |link:own-calls.adoc[`own-calls`]

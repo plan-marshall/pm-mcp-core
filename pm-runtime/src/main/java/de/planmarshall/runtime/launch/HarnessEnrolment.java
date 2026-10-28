@@ -30,24 +30,48 @@ import de.planmarshall.core.role.RoleClass;
  * the SHA-256 and the version of the last accepted probe, the instants of the enrolment and of the last accepted
  * self-update, the usage report of the harness and, where its profile declares a weights probe, the weights identity of
  * the models it serves. The store records nothing else: never an environment value, a variable name or a credential.
+ * <p>
+ * The remote form of a judgment endpoint has no serving program (Client Profiles § Remote Form), so its entry carries a
+ * {@link Binding} of the origin and the credential key instead of the program's path, digest and version; the two forms
+ * are exclusive (ADR runtime-endpoint/005).
  *
  * @param clientId       the client id of the enrolled harness
- * @param executablePath the resolved absolute path of the executable
- * @param sha256         the lowercase-hex SHA-256 of the executable at the last accepted probe
- * @param version        the version the profile's version probe reported
+ * @param executablePath the resolved absolute path of the executable; {@code null} for a remote endpoint
+ * @param sha256         the lowercase-hex SHA-256 of the executable at the last accepted probe; {@code null} for a
+ *                       remote endpoint
+ * @param version        the version the profile's version probe reported; {@code null} for a remote endpoint
  * @param enrolledAt     when the harness was enrolled
  * @param updatedAt      when the last self-update was accepted; equal to {@code enrolledAt} before the first
  * @param usageReport    what the harness reports of its usage
  * @param events         the per-kind results of the profile's {@code events} stage, {@code reported} or {@code missing}
  * @param weights        the weights identity per model; empty when the profile declares no weights probe
+ * @param binding        the origin and credential key of a remote endpoint; {@code null} for a serving program
  * @since 0.1
  */
 public record HarnessEnrolment(String clientId, Path executablePath, String sha256, String version, Instant enrolledAt,
-Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<String, Weights> weights) {
+Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<String, Weights> weights,
+Binding binding) {
 
     private static final Pattern CLIENT_ID = Pattern.compile("^[a-z][a-z0-9-]{1,31}$");
     private static final Pattern DIGEST = Pattern.compile("[0-9a-f]{64}");
+    private static final Pattern ORIGIN = Pattern.compile("^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:\\d{1,5})?$");
     private static final Set<String> EVENT_RESULTS = Set.of("reported", "missing");
+
+    /**
+     * @param clientId       the client id of the enrolled harness
+     * @param executablePath the resolved absolute path of the executable
+     * @param sha256         the lowercase-hex SHA-256 of the executable
+     * @param version        the version the profile's version probe reported
+     * @param enrolledAt     when the harness was enrolled
+     * @param updatedAt      when the last self-update was accepted
+     * @param usageReport    what the harness reports of its usage
+     * @param events         the per-kind results of the profile's {@code events} stage
+     * @param weights        the weights identity per model
+     */
+    public HarnessEnrolment(String clientId, Path executablePath, String sha256, String version, Instant enrolledAt,
+            Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<String, Weights> weights) {
+        this(clientId, executablePath, sha256, version, enrolledAt, updatedAt, usageReport, events, weights, null);
+    }
 
     /** Copies the collections and refuses a malformed entry. */
     public HarnessEnrolment {
@@ -55,17 +79,21 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
         if (!CLIENT_ID.matcher(clientId).matches()) {
             throw new IllegalArgumentException("Not a client id: " + clientId);
         }
-        Objects.requireNonNull(executablePath, "executablePath");
-        if (!executablePath.isAbsolute()) {
-            throw new IllegalArgumentException("The executable path is not absolute: " + executablePath);
-        }
-        Objects.requireNonNull(sha256, "sha256");
-        if (!DIGEST.matcher(sha256).matches()) {
-            throw new IllegalArgumentException("Not a SHA-256: " + sha256);
-        }
-        Objects.requireNonNull(version, "version");
-        if (version.isEmpty()) {
-            throw new IllegalArgumentException("An enrolment names its version");
+        if (binding == null) {
+            Objects.requireNonNull(executablePath, "executablePath");
+            if (!executablePath.isAbsolute()) {
+                throw new IllegalArgumentException("The executable path is not absolute: " + executablePath);
+            }
+            Objects.requireNonNull(sha256, "sha256");
+            if (!DIGEST.matcher(sha256).matches()) {
+                throw new IllegalArgumentException("Not a SHA-256: " + sha256);
+            }
+            Objects.requireNonNull(version, "version");
+            if (version.isEmpty()) {
+                throw new IllegalArgumentException("An enrolment names its version");
+            }
+        } else if (executablePath != null || sha256 != null || version != null) {
+            throw new IllegalArgumentException("A remote endpoint has no serving program to enrol");
         }
         Objects.requireNonNull(enrolledAt, "enrolledAt");
         Objects.requireNonNull(updatedAt, "updatedAt");
@@ -82,14 +110,75 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
     }
 
     /**
+     * @param clientId      the client id of the endpoint profile
+     * @param origin        the {@code https} origin of the service, the profile's {@code base_url}
+     * @param credentialKey the Token Lane credential entry the runtime reads for it
+     * @param enrolledAt    when the endpoint was enrolled
+     * @param usageReport   what the endpoint reports of its usage
+     * @return the enrolment of the remote form, which records the origin and the credential key and no program
+     */
+    public static HarnessEnrolment endpoint(String clientId, String origin, String credentialKey, Instant enrolledAt,
+            UsageReport usageReport) {
+        return new HarnessEnrolment(clientId, null, null, null, enrolledAt, enrolledAt,
+                Objects.requireNonNull(usageReport, "usageReport"), Map.of(), Map.of(),
+                new Binding(origin, credentialKey));
+    }
+
+    /** @return whether this entry is the remote form of a judgment endpoint */
+    public boolean isEndpoint() {
+        return binding != null;
+    }
+
+    /**
+     * @param weights   the weights identity per model after a read
+     * @param updatedAt the instant the enrolment was rewritten
+     * @return the entry with the new weights, of either form
+     */
+    public HarnessEnrolment withWeights(Map<String, Weights> weights, Instant updatedAt) {
+        return new HarnessEnrolment(clientId, executablePath, sha256, version, enrolledAt, updatedAt, usageReport,
+                events, weights, binding);
+    }
+
+    /**
      * @param version  the version probed after an accepted self-update
      * @param sha256   the digest of the changed executable
      * @param updateTo the instant of the accepted self-update
      * @return the entry with the new build of the same harness
+     * @throws IllegalStateException if this entry is a remote endpoint, which has no executable to self-update
      */
     public HarnessEnrolment updated(String version, String sha256, Instant updateTo) {
+        if (binding != null) {
+            throw new IllegalStateException("A remote endpoint has no executable to self-update: " + clientId);
+        }
         return new HarnessEnrolment(clientId, executablePath, sha256, version, enrolledAt, updateTo, usageReport,
                 events, weights);
+    }
+
+    /**
+     * The origin and the credential key of a remote endpoint's enrolment (Client Profiles § Remote Form): there is no
+     * serving program, so no owner check applies and no program is started, stopped or configured.
+     *
+     * @param origin        the {@code https} origin of the one service
+     * @param credentialKey the Token Lane credential entry the runtime reads at the moment of a request
+     * @since 0.1
+     */
+    public record Binding(String origin, String credentialKey) {
+
+        /**
+         * @throws NullPointerException     if a value is {@code null}
+         * @throws IllegalArgumentException if the origin is not an {@code https} origin or the key is not a credential
+         *                                  key
+         */
+        public Binding {
+            Objects.requireNonNull(origin, "origin");
+            Objects.requireNonNull(credentialKey, "credentialKey");
+            if (!ORIGIN.matcher(origin).matches()) {
+                throw new IllegalArgumentException("Not an https origin: " + origin);
+            }
+            if (!CLIENT_ID.matcher(credentialKey).matches()) {
+                throw new IllegalArgumentException("Not a credential key: " + credentialKey);
+            }
+        }
     }
 
     /** What the harness reports of its usage (PM-CLIENT-2, Tokens, Not Money). */
