@@ -550,6 +550,7 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
      * @param endpoint       the origin of the endpoint, scheme, host and port only
      * @param model          the versioned model id of the role
      * @param status         the status the task ended with
+     * @param answered       whether both requests of the task answered with a valid answer
      * @param inputTokens    the input tokens the answers measured
      * @param outputTokens   the output tokens the answers measured
      * @param durationMillis how long the task took
@@ -557,8 +558,8 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
      * @throws NullPointerException if a value is {@code null}
      * @since 0.1
      */
-    public static AuditEvent judgmentTaskCompleted(String endpoint, String model, String status, long inputTokens,
-            long outputTokens, long durationMillis) {
+    public static AuditEvent judgmentTaskCompleted(String endpoint, String model, String status, boolean answered,
+            long inputTokens, long outputTokens, long durationMillis) {
         var details = new HashMap<String, Object>();
         details.put(DETAIL_ENDPOINT, Objects.requireNonNull(endpoint, DETAIL_ENDPOINT));
         details.put(DETAIL_MODEL, Objects.requireNonNull(model, DETAIL_MODEL));
@@ -567,7 +568,7 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
         details.put(DETAIL_OUTPUT_TOKENS, outputTokens);
         details.put(DETAIL_DURATION_MS, durationMillis);
         return new AuditEvent(JUDGMENT_TASK_COMPLETED, CATEGORY_OPERATOR,
-                OUTCOME_SUCCEEDED.equals(status) ? OUTCOME_SUCCEEDED : OUTCOME_FAILED, details);
+                answered ? OUTCOME_SUCCEEDED : OUTCOME_FAILED, details);
     }
 
     private static AuditEvent refusal(String event, String category, String projectId, String reason) {

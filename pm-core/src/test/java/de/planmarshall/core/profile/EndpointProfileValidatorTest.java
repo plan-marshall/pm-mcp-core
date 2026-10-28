@@ -127,7 +127,10 @@ class EndpointProfileValidatorTest {
             "a remote endpoint names an identity | \"identity\": null | \"identity\": {\"version_probe\": "
                     + "[\"--version\"], \"version_pattern\": \"version ([0-9.]+)\"} | /identity",
             "a remote endpoint names update evidence | \"update_evidence\": null | \"update_evidence\": "
-                    + "{\"method\": \"none\", \"signer\": null} | /update_evidence"
+                    + "{\"method\": \"none\", \"signer\": null} | /update_evidence",
+            "a remote endpoint runs an argv weights probe | \"weights_probe\": null | \"weights_probe\": "
+                    + "{\"source\": \"argv\", \"pointer\": null, \"argv\": [\"probe\", \"{{model}}\"], "
+                    + "\"pattern\": \"(.*)\"} | /weights_probe/source"
     })
     @DisplayName("a rule the remote form states refuses the profile with the member named")
     void remoteRefusedWithMemberNamed(String name, String from, String to, String pointer) {

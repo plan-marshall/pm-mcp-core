@@ -138,7 +138,9 @@ class JudgmentEndpointTest {
                 () -> assertTrue(second.getBody().utf8().indexOf("\"b\":") < second.getBody().utf8()
                         .indexOf("\"a\":")),
                 () -> assertEquals("/v1/systemone", first.getTarget()),
-                () -> assertEquals("a", answers.ascending().answer().answers().get("q-1").choice()));
+                () -> assertEquals("a", answers.ascending().answer().answers().get("q-1").choice()),
+                () -> assertEquals("succeeded", audit.only().outcome(),
+                        "an answered task is a succeeded record"));
     }
 
     @Test

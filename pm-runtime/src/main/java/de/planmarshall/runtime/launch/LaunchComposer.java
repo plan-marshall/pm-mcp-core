@@ -72,6 +72,10 @@ public final class LaunchComposer {
      */
     public WorkerLaunch compose(LaunchRequest request) {
         Objects.requireNonNull(request, "request");
+        if (request.enrolment().isEndpoint()) {
+            throw new CompositionException("the harness '%s' is a remote endpoint and launches no worker"
+                    .formatted(request.enrolment().clientId()));
+        }
         var role = request.role();
         var block = request.block();
         var roleClass = role.roleClass();
@@ -292,10 +296,6 @@ public final class LaunchComposer {
         if (filled.isEmpty()) {
             throw new CompositionException("the argument template of '%s' rendered empty".formatted(roleClass
                     .wireName()));
-        }
-        if (request.enrolment().isEndpoint()) {
-            throw new CompositionException("the harness '%s' is a remote endpoint and launches no worker"
-                    .formatted(request.enrolment().clientId()));
         }
         filled.add(0, request.enrolment().executablePath().toString());
         if (mayResume(request)) {

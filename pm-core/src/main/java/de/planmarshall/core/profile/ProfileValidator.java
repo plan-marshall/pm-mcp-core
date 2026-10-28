@@ -387,8 +387,14 @@ public final class ProfileValidator {
             }
             var block = endpointBlock(required(profile, "", NAME_ENDPOINT), "/endpoint");
             modelTiers(required(profile, "", NAME_MODEL_TIERS), "/model_tiers");
-            weightsProbe(required(profile, "", NAME_WEIGHTS_PROBE), "/weights_probe");
-            localityRules(block, executable, hasIdentity, !evidenceNode.isNull());
+            var weightsNode = required(profile, "", NAME_WEIGHTS_PROBE);
+            weightsProbe(weightsNode, "/weights_probe");
+            localityRules(block, executable, hasIdentity, !evidenceNode.isNull(), usesArgvProbe(weightsNode));
+        }
+
+        /** @return whether the profile's weights probe runs a program of this machine */
+        private static boolean usesArgvProbe(JsonNode probe) {
+            return !probe.isNull() && "argv".equals(probe.member(NAME_SOURCE).flatMap(JsonNode::text).orElse(null));
         }
 
         /**
@@ -440,16 +446,21 @@ public final class ProfileValidator {
          * update evidence, because no owner check applies to a service.
          */
         private void localityRules(EndpointBlock block, String executable, boolean hasIdentity,
-                boolean hasUpdateEvidence) {
+                boolean hasUpdateEvidence, boolean hasArgvWeightsProbe) {
             if ("remote".equals(block.locality())) {
-                remoteRules(block, executable, hasIdentity, hasUpdateEvidence);
+                remoteRules(block, executable, hasIdentity, hasUpdateEvidence, hasArgvWeightsProbe);
             } else {
                 loopbackRules(block, executable, hasIdentity);
             }
         }
 
         private void remoteRules(EndpointBlock block, String executable, boolean hasIdentity,
-                boolean hasUpdateEvidence) {
+                boolean hasUpdateEvidence, boolean hasArgvWeightsProbe) {
+            if (hasArgvWeightsProbe) {
+                throw invalid("/weights_probe/source",
+                        "a remote endpoint reads its weights identity from the models listing, never from a program "
+                                + "of this machine");
+            }
             if (!"system_one".equals(block.protocol())) {
                 throw invalid("/endpoint/locality",
                         "the remote form is the protocol system_one's; an openai_chat endpoint is a loopback one");

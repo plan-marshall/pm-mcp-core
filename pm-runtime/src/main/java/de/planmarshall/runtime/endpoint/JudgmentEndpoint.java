@@ -177,8 +177,10 @@ public final class JudgmentEndpoint {
             return new Attempt(EndpointOutcome.ended(EndpointOutcome.Reason.TIMEOUT, response.detail()), null);
         }
         if (!response.successful()) {
-            return new Attempt(EndpointOutcome.ended(EndpointOutcome.Reason.HTTP_ERROR,
-                    "HTTP %d".formatted(response.status())), null);
+            var detail = response.failure() == EndpointClient.Failure.NONE
+                    ? "HTTP %d".formatted(response.status())
+                    : response.detail();
+            return new Attempt(EndpointOutcome.ended(EndpointOutcome.Reason.HTTP_ERROR, detail), null);
         }
         var read = SystemOneAnswer.read(response.body(), model, options);
         if (!read.isValid()) {
@@ -200,7 +202,8 @@ public final class JudgmentEndpoint {
         var duration = Math.max(0, clock.millis() - started);
         var input = tokens(answers, true);
         var output = tokens(answers, false);
-        audit.append(AuditEvent.judgmentTaskCompleted(endpoint, model, status, input, output, duration));
+        audit.append(AuditEvent.judgmentTaskCompleted(endpoint, model, status, answers.answered(), input, output,
+                duration));
         if (answers.answered()) {
             LOGGER.info(RuntimeLogMessages.INFO.JUDGMENT_TASK_ANSWERED, model, endpoint, input, output, duration);
         } else if (answers.request() != null) {
