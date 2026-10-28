@@ -212,12 +212,13 @@ class JudgmentEndpointRemoteTest {
     @DisplayName("an answer that echoes the request body leaves neither the body nor the key in a log or audit line")
     void leavesBodyAndKeyOut() {
         responder = request -> json("{\"model\":\"" + MODEL + "\",\"echo\":" + request.getBody().utf8() + ","
-                + "\"answers\":{\"q-1\":{\"choice\":\"a\",\"probabilities\":{\"a\":0.75,\"b\":0.25}}},"
+                + "\"answers\":{\"q-1\":{\"choice\":\"a\",\"probabilities\":{\"a\":0.9,\"b\":0.12}}},"
                 + "\"usage\":{\"input_tokens\":120,\"output_tokens\":3}}");
 
-        endpoint().task(profile(), MODEL, state(), questions());
+        var answers = endpoint().task(profile(), MODEL, state(), questions());
 
         assertAll(
+                () -> assertEquals(EndpointOutcome.Reason.INVALID_ANSWER, answers.ascending().outcome().reason()),
                 () -> assertEquals(1, audit.events().size()),
                 () -> assertFalse(audit.text().contains(STATE)),
                 () -> assertFalse(logs.text().contains(STATE)),
