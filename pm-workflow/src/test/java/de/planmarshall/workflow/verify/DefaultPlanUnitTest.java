@@ -43,7 +43,6 @@ import de.planmarshall.workflow.dsl.WorkflowParser;
 class DefaultPlanUnitTest {
 
     private static final String PHASE_FIVE = "phase-5-execute";
-    private static final String LAND = "land";
 
     private static WorkflowDefinition unit(String id) {
         return InvariantFixtures.defaultUnits().get(id);

@@ -75,9 +75,6 @@ class CompiledInvariantsTest {
     /** The header of the plan unit, where a violation of the unit as a whole is located. */
     private static final String PLAN_HEADER = "workflow plan version 1 format 1";
 
-    /** The header of the init phase unit, where a violation of that unit as a whole is located. */
-    private static final String INIT_HEADER = "workflow phase-1-init version 1 format 1";
-
     /** The lane of a template, unknown, which {@code ProjectUnitLoader} checks a project unit with. */
     private static final Optional<String> UNKNOWN_LANE = Optional.empty();
 

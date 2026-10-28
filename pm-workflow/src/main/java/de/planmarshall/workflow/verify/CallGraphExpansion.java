@@ -89,23 +89,44 @@ final class CallGraphExpansion {
      * @return the expansion of the root and of every unit reachable from it
      */
     static CallGraphExpansion of(WorkflowDefinition root, Map<String, WorkflowDefinition> callable) {
+        var units = reachableUnits(root, callable);
+        var states = new LinkedHashMap<String, StateNode>();
+        var owners = new LinkedHashMap<String, String>();
+        collect(states, owners, units);
+        return new CallGraphExpansion(Collections.unmodifiableMap(units), Collections.unmodifiableMap(states),
+                Collections.unmodifiableMap(owners), Collections.unmodifiableMap(carriedPhases(root, units)),
+                graph(units));
+    }
+
+    /**
+     * @return the root and every unit a call of a reachable unit enters, the root first
+     */
+    private static Map<String, WorkflowDefinition> reachableUnits(WorkflowDefinition root,
+            Map<String, WorkflowDefinition> callable) {
         var units = new LinkedHashMap<String, WorkflowDefinition>();
         var order = new ArrayDeque<WorkflowDefinition>();
         units.put(root.id(), root);
         order.add(root);
         while (!order.isEmpty()) {
-            var current = order.poll();
-            for (var state : current.states().values()) {
-                if (state.behavior() instanceof StateBehavior.SubWorkflowCall call) {
-                    var callee = callable.get(call.subWorkflowId());
-                    if (callee != null && units.putIfAbsent(callee.id(), callee) == null) {
-                        order.add(callee);
-                    }
+            addCallees(order.poll(), callable, units, order);
+        }
+        return units;
+    }
+
+    private static void addCallees(WorkflowDefinition unit, Map<String, WorkflowDefinition> callable,
+            Map<String, WorkflowDefinition> units, ArrayDeque<WorkflowDefinition> order) {
+        for (var state : unit.states().values()) {
+            if (state.behavior() instanceof StateBehavior.SubWorkflowCall call) {
+                var callee = callable.get(call.subWorkflowId());
+                if (callee != null && units.putIfAbsent(callee.id(), callee) == null) {
+                    order.add(callee);
                 }
             }
         }
-        var states = new LinkedHashMap<String, StateNode>();
-        var owners = new LinkedHashMap<String, String>();
+    }
+
+    private static void collect(Map<String, StateNode> states, Map<String, String> owners,
+            Map<String, WorkflowDefinition> units) {
         for (var definition : units.values()) {
             for (var state : definition.states().values()) {
                 if (states.putIfAbsent(state.id(), state) == null) {
@@ -113,9 +134,6 @@ final class CallGraphExpansion {
                 }
             }
         }
-        return new CallGraphExpansion(Collections.unmodifiableMap(units), Collections.unmodifiableMap(states),
-                Collections.unmodifiableMap(owners), Collections.unmodifiableMap(carriedPhases(root, units)),
-                graph(units));
     }
 
     /**
@@ -167,29 +185,48 @@ final class CallGraphExpansion {
         rootPhase.ifPresent(phase -> phases.put(root.id(), phase));
         queue.add(Map.entry(root.id(), rootPhase));
         while (!queue.isEmpty()) {
-            var current = queue.poll();
-            if (!seen.add(current.getKey())) {
-                continue;
-            }
-            var definition = units.get(current.getKey());
-            if (definition == null) {
-                continue;
-            }
-            for (var state : definition.states().values()) {
-                if (state.behavior() instanceof StateBehavior.SubWorkflowCall call
-                        && units.containsKey(call.subWorkflowId())) {
-                    var phase = Phase.ofUnit(call.subWorkflowId()).or(() -> current.getValue());
-                    phase.ifPresent(found -> phases.putIfAbsent(call.subWorkflowId(), found));
-                    queue.add(Map.entry(call.subWorkflowId(), phase));
-                }
-            }
+            carry(queue, units, phases, seen);
         }
         return phases;
+    }
+
+    /**
+     * Carries the phase of one queued frame into the sub-workflows it calls, and queues them.
+     */
+    private static void carry(ArrayDeque<Map.Entry<String, Optional<Phase>>> queue,
+            Map<String, WorkflowDefinition> units, Map<String, Phase> phases, Set<String> seen) {
+        var current = queue.poll();
+        if (!seen.add(current.getKey())) {
+            return;
+        }
+        var definition = units.get(current.getKey());
+        if (definition == null) {
+            return;
+        }
+        for (var state : definition.states().values()) {
+            if (state.behavior() instanceof StateBehavior.SubWorkflowCall call
+                    && units.containsKey(call.subWorkflowId())) {
+                var phase = Phase.ofUnit(call.subWorkflowId()).or(current::getValue);
+                phase.ifPresent(found -> phases.putIfAbsent(call.subWorkflowId(), found));
+                queue.add(Map.entry(call.subWorkflowId(), phase));
+            }
+        }
     }
 
     private static UnitGraph graph(Map<String, WorkflowDefinition> units) {
         var successors = new LinkedHashMap<String, Set<String>>();
         var predecessors = new LinkedHashMap<String, Set<String>>();
+        seedEdges(successors, predecessors, units);
+        linkCallEdges(units, successors);
+        indexPredecessors(predecessors, successors);
+        return freeze(successors, predecessors);
+    }
+
+    /**
+     * Seeds every state of the expansion with the targets of its own transitions.
+     */
+    private static void seedEdges(Map<String, Set<String>> successors, Map<String, Set<String>> predecessors,
+            Map<String, WorkflowDefinition> units) {
         for (var definition : units.values()) {
             for (var state : definition.states().values()) {
                 var targets = new LinkedHashSet<String>();
@@ -200,6 +237,13 @@ final class CallGraphExpansion {
                 successors.put(state.id(), targets);
             }
         }
+    }
+
+    /**
+     * Replaces the transitions of every call state by the edge into its callee's entry and routes the callee's
+     * terminals back to the calling states.
+     */
+    private static void linkCallEdges(Map<String, WorkflowDefinition> units, Map<String, Set<String>> successors) {
         for (var definition : units.values()) {
             for (var state : definition.states().values()) {
                 if (state.behavior() instanceof StateBehavior.SubWorkflowCall call) {
@@ -209,16 +253,23 @@ final class CallGraphExpansion {
                             successors.get(state.id()).clear();
                             successors.get(state.id()).add(entry);
                         });
-                        returnEdges(units, state, call, callee, successors);
+                        returnEdges(units, state, callee, successors);
                     }
                 }
             }
         }
+    }
+
+    private static void indexPredecessors(Map<String, Set<String>> predecessors,
+            Map<String, Set<String>> successors) {
         for (var entry : successors.entrySet()) {
             for (var target : entry.getValue()) {
                 predecessors.computeIfAbsent(target, id -> new LinkedHashSet<>()).add(entry.getKey());
             }
         }
+    }
+
+    private static UnitGraph freeze(Map<String, Set<String>> successors, Map<String, Set<String>> predecessors) {
         var successorsCopy = new LinkedHashMap<String, Set<String>>();
         successors.forEach((id, targets) -> successorsCopy.put(id, Collections.unmodifiableSet(targets)));
         var predecessorsCopy = new LinkedHashMap<String, Set<String>>();
@@ -230,31 +281,44 @@ final class CallGraphExpansion {
      * Routes every terminal of the callee back to the targets the calling states route its outcome to.
      */
     private static void returnEdges(Map<String, WorkflowDefinition> units, StateNode caller,
-            StateBehavior.SubWorkflowCall call, WorkflowDefinition callee, Map<String, Set<String>> successors) {
-        var callSites = units.values().stream()
-                .flatMap(definition -> definition.states().values().stream())
-                .filter(state -> state.behavior() instanceof StateBehavior.SubWorkflowCall site
-                        && callee.id().equals(site.subWorkflowId()))
-                .toList();
-        for (var terminal : callee.states().values()) {
-            var outcome = terminal.terminalOutcome();
-            if (outcome.isEmpty()) {
-                continue;
-            }
-            for (var site : callSites) {
-                for (var transition : UnitGraph.allTransitions(site.behavior())) {
-                    if (outcome.get().id().equals(transition.outcomeName())) {
-                        successors.get(terminal.id()).add(transition.targetStateId());
-                    }
-                }
-            }
-        }
+            WorkflowDefinition callee, Map<String, Set<String>> successors) {
+        var callSites = callSites(units, callee.id());
         if (callSites.isEmpty()) {
             return;
         }
+        for (var terminal : callee.states().values()) {
+            routeTerminal(terminal, callSites, successors);
+        }
         for (var transition : UnitGraph.allTransitions(caller.behavior())) {
-            if (!successors.containsKey(transition.targetStateId())) {
-                successors.computeIfAbsent(transition.targetStateId(), id -> new LinkedHashSet<>());
+            successors.computeIfAbsent(transition.targetStateId(), id -> new LinkedHashSet<>());
+        }
+    }
+
+    /**
+     * @return every state of the expansion that calls the given unit, in declaration order
+     */
+    private static List<StateNode> callSites(Map<String, WorkflowDefinition> units, String calleeId) {
+        return units.values().stream()
+                .flatMap(definition -> definition.states().values().stream())
+                .filter(state -> state.behavior() instanceof StateBehavior.SubWorkflowCall site
+                        && calleeId.equals(site.subWorkflowId()))
+                .toList();
+    }
+
+    /**
+     * Adds to a terminal of the callee an edge into every target the call sites route its outcome to.
+     */
+    private static void routeTerminal(StateNode terminal, List<StateNode> callSites,
+            Map<String, Set<String>> successors) {
+        var outcome = terminal.terminalOutcome();
+        if (outcome.isEmpty()) {
+            return;
+        }
+        for (var site : callSites) {
+            for (var transition : UnitGraph.allTransitions(site.behavior())) {
+                if (outcome.get().id().equals(transition.outcomeName())) {
+                    successors.get(terminal.id()).add(transition.targetStateId());
+                }
             }
         }
     }
