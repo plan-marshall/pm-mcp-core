@@ -46,11 +46,11 @@ List<String> notYetSpecified) {
 
     /**
      * @param rowDoneWhen the {@code done_when} of the epic's plan row
-     * @return the claims a plan the epic started must land, the row's check last
+     * @return the claims a plan the epic started must land: the row's check and each of the epic's non-goals
      */
     public List<String> requiredClaims(String rowDoneWhen) {
         Objects.requireNonNull(rowDoneWhen, "rowDoneWhen");
-        var claims = new ArrayList<String>(doneWhen);
+        var claims = new ArrayList<String>();
         claims.add(rowDoneWhen);
         claims.addAll(nonGoals);
         return List.copyOf(claims);

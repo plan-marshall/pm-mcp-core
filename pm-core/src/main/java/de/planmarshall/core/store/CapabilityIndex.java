@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +43,7 @@ public final class CapabilityIndex implements IntentAcceptance.CapabilityFacts {
     private final Map<String, CapabilitySpec> capabilities;
 
     private CapabilityIndex(Map<String, CapabilitySpec> capabilities) {
-        this.capabilities = Map.copyOf(new LinkedHashMap<>(capabilities));
+        this.capabilities = Collections.unmodifiableMap(new LinkedHashMap<>(capabilities));
     }
 
     /**
@@ -58,11 +59,12 @@ public final class CapabilityIndex implements IntentAcceptance.CapabilityFacts {
             return new CapabilityIndex(Map.of());
         }
         var capabilities = new LinkedHashMap<String, CapabilitySpec>();
-        try (Stream<Path> files = Files.list(directory)) {
-            for (var file : files.filter(path -> path.getFileName().toString().endsWith(SUFFIX)).sorted().toList()) {
+        try (Stream<Path> files = Files.walk(directory)) {
+            for (var file : files.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().endsWith(SUFFIX)).sorted().toList()) {
                 var spec = CapabilitySpec.read(file, Files.readAllBytes(file));
-                var name = file.getFileName().toString().substring(0, file.getFileName().toString().length()
-                        - SUFFIX.length());
+                var relative = directory.relativize(file).toString().replace(file.getFileSystem().getSeparator(), "/");
+                var name = relative.substring(0, relative.length() - SUFFIX.length());
                 if (!spec.capability().equals(name)) {
                     throw StoreRefusal.unreadable(file, CapabilitySpec.FORMAT_VERSION,
                             "the spec names the capability '%s', but its file is '%s'".formatted(spec.capability(), name),

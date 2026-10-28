@@ -62,6 +62,30 @@ class SimplifyStepTest {
         }
     }
 
+    @DisplayName("Two added hunks separated by unchanged code are never joined into one run")
+    @Test
+    void addedRangesAreSeparateRuns() {
+        var tree = List.of(new SourceFile("old/Library.java", code(300), List.of()));
+        var text = code(30) + "\n" + code(40) + "\n" + code(30);
+        var changed = List.of(new SourceFile("new/Copy.java", text,
+                List.of(new LineRange(1, 1), new LineRange(3, 3))));
+
+        assertTrue(CloneDetector.detect(changed, tree).isEmpty());
+    }
+
+    @DisplayName("A text block before the added lines keeps the reported line range right")
+    @Test
+    void textBlockKeepsTheLineNumbers() {
+        var tree = List.of(new SourceFile("old/Library.java", code(200), List.of()));
+        var text = "String text = \"\"\"\n    body\n    \"\"\";\n" + code(60);
+        var candidates = CloneDetector.detect(
+                List.of(new SourceFile("new/Copy.java", text, List.of(new LineRange(4, 4)))), tree);
+
+        assertEquals(1, candidates.size());
+        assertEquals(4, candidates.getFirst().addedRange().first());
+        assertEquals(4, candidates.getFirst().addedRange().last());
+    }
+
     @DisplayName("A run that only repeats itself is no candidate")
     @Test
     void selfRepeatIsNoCandidate() {

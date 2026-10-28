@@ -200,14 +200,10 @@ public final class IntentAcceptance {
             return new Refused(claims.get());
         }
         IntentStore base;
-        if (before == null) {
-            base = IntentStore.first(next);
-        } else {
-            try {
-                base = before.accept(next);
-            } catch (IllegalArgumentException e) {
-                return new Refused(e.getMessage());
-            }
+        try {
+            base = before == null ? IntentStore.first(next) : before.accept(next);
+        } catch (IllegalArgumentException e) {
+            return new Refused(e.getMessage());
         }
         return new Accepted(base);
     }
@@ -254,7 +250,13 @@ public final class IntentAcceptance {
         if (evidence == null || evidence.startsWith("pm://")) {
             return Optional.empty();
         }
-        if (!Files.exists(context.treeRoot().resolve(evidence))) {
+        var root = context.treeRoot().toAbsolutePath().normalize();
+        var resolved = root.resolve(evidence).normalize();
+        if (Path.of(evidence).isAbsolute() || !resolved.startsWith(root)) {
+            return Optional.of("the fact decision '%s' names the evidence '%s', which lies outside the tree"
+                    .formatted(decision.id(), evidence));
+        }
+        if (!Files.exists(resolved)) {
             return Optional.of("the fact decision '%s' names the evidence '%s', which does not exist in the tree"
                     .formatted(decision.id(), evidence));
         }

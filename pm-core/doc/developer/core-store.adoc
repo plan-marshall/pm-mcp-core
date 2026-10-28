@@ -1688,8 +1688,8 @@ transaction on the plan lock.
 `IntentAcceptance` checks what needs the plan: an `operator` or `quorum` decision cites a part of an answered question
 record of this plan through the matching channel, a `fact` decision names an evidence path that exists (or a `pm://`
 URI), a capability link's `added`, `modified` or `removed` requirement agrees with the tree's fingerprints, and every
-claim an epic seeds appears among the `source_claims`. `EpicIntent` derives those claims from the epic's `done_when` and
-non-goals plus the plan row's own `done_when`.
+claim an epic seeds appears among the `source_claims`. `EpicIntent` derives those claims from the plan row's own
+`done_when` and the epic's non-goals.
 
 `ClarifiedRequestRenderer` renders `## Clarified Request` from the current record, each item with its identifier, and
 lists the model's own calls under their own heading. `EarsForm` is the grammar: the structural words `WHERE`, `WHILE`,

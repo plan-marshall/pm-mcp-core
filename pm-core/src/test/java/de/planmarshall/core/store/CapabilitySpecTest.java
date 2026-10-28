@@ -128,6 +128,21 @@ class CapabilitySpecTest {
                 () -> new Requirement("round-trip", "the record round-trips", scenarios, "plan-a", verifiedBy));
     }
 
+    @DisplayName("A nested capability spec is read under its path name")
+    @Test
+    void indexReadsANestedCapability(@TempDir Path root) throws Exception {
+        var spec = new CapabilitySpec("http/headers", "The HTTP header parsing of the client",
+                List.of(requirement("round-trip", "plan-a", List.of())));
+        var directory = root.resolve(".marshall/capabilities/http");
+        Files.createDirectories(directory);
+        Files.write(directory.resolve("headers.json"), CapabilitySpec.write(spec));
+
+        var index = CapabilityIndex.read(root);
+
+        assertTrue(index.capability("http/headers").isPresent());
+        assertTrue(index.fingerprint("http/headers", "round-trip").isPresent());
+    }
+
     @DisplayName("The canonical JSON of a requirement sorts its object keys")
     @Test
     void canonicalJsonSortsKeys() {

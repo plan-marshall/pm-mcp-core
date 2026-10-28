@@ -119,8 +119,8 @@ class SelfReviewSubmissionTest {
                 criterion("AC-1", CriterionKind.NEW, VerifiedBy.TEST),
                 criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.TEST));
         var results = List.of(
-                new ItemResult("AC-1", Verdict.MET, null),
-                new ItemResult("AC-2", Verdict.MET, null),
+                new ItemResult("AC-1", Verdict.MET, "IntentRecordTest.revisionMovesCurrentToHistory"),
+                new ItemResult("AC-2", Verdict.MET, "OutlineRecordTest.roundTripsAndRenders"),
                 new ItemResult("NG-1", Verdict.RESPECTED, null),
                 new ItemResult("DC-1", Verdict.FOLLOWED, "The record is one file beside request.md"));
         assertInstanceOf(Accepted.class,
@@ -143,6 +143,14 @@ class SelfReviewSubmissionTest {
         assertInstanceOf(Refused.class, SelfReviewSubmission.validate(new SelfReviewSubmission(duplicate), intentRecord()));
     }
 
+    @DisplayName("A met criterion without evidence is refused")
+    @Test
+    void refusesMetCriterionWithoutEvidence() {
+        var results = replace(clean(), new ItemResult("AC-1", Verdict.MET, " "));
+        assertInstanceOf(Refused.class, SelfReviewSubmission.validate(new SelfReviewSubmission(results),
+                intentRecord()));
+    }
+
     @DisplayName("A not-met criterion is a finding")
     @Test
     void notMetCriterionIsAFinding() {
@@ -153,8 +161,8 @@ class SelfReviewSubmissionTest {
 
     private static SelfReviewSubmission clean() {
         return new SelfReviewSubmission(List.of(
-                new ItemResult("AC-1", Verdict.MET, null),
-                new ItemResult("AC-2", Verdict.MET, null),
+                new ItemResult("AC-1", Verdict.MET, "IntentRecordTest.revisionMovesCurrentToHistory"),
+                new ItemResult("AC-2", Verdict.MET, "OutlineRecordTest.roundTripsAndRenders"),
                 new ItemResult("CN-1", Verdict.RESPECTED, "The store writes once, under the plan lock"),
                 new ItemResult("NG-1", Verdict.RESPECTED, null),
                 new ItemResult("DC-1", Verdict.FOLLOWED, "The record is one file beside request.md")));

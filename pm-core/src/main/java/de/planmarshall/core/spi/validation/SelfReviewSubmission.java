@@ -245,16 +245,21 @@ public record SelfReviewSubmission(List<ItemResult> results) {
             return Optional.of("the result names '%s', which the record does not hold"
                     .formatted(result.itemId()));
         }
-        var kind = kindOf(result.itemId()).orElseThrow();
-        if (!admitted(kind, result.verdict())) {
-            return Optional.of("the %s '%s' cannot be '%s'".formatted(kind.name().toLowerCase(
+        var kind = kindOf(result.itemId());
+        if (kind.isEmpty()) {
+            return Optional.of("the result names '%s', which is no criterion, constraint, non-goal or decision"
+                    .formatted(result.itemId()));
+        }
+        if (!admitted(kind.orElseThrow(), result.verdict())) {
+            return Optional.of("the %s '%s' cannot be '%s'".formatted(kind.orElseThrow().name().toLowerCase(
                     Locale.ROOT), result.itemId(), result.verdict().wireName()));
         }
-        var needsEvidence = kind == ItemKind.CONSTRAINT && result.verdict() == Verdict.RESPECTED
-                || kind == ItemKind.DECISION && result.verdict() == Verdict.FOLLOWED;
+        var needsEvidence = kind.orElseThrow() == ItemKind.CRITERION && result.verdict() == Verdict.MET
+                || kind.orElseThrow() == ItemKind.CONSTRAINT && result.verdict() == Verdict.RESPECTED
+                || kind.orElseThrow() == ItemKind.DECISION && result.verdict() == Verdict.FOLLOWED;
         if (needsEvidence && (result.evidence() == null || result.evidence().isBlank())) {
             return Optional.of("the %s '%s' is '%s' and names its evidence".formatted(
-                    kind.name().toLowerCase(Locale.ROOT), result.itemId(),
+                    kind.orElseThrow().name().toLowerCase(Locale.ROOT), result.itemId(),
                     result.verdict().wireName()));
         }
         return Optional.empty();

@@ -91,7 +91,15 @@ public final class CloneDetector {
     }
 
     private static List<CloneCandidate> detectIn(SourceFile file, Map<String, Occurrence> index) {
-        var added = addedTokens(file);
+        var candidates = new ArrayList<CloneCandidate>();
+        for (var added : addedRuns(file)) {
+            candidates.addAll(detectRuns(file, added, index));
+        }
+        return candidates;
+    }
+
+    private static List<CloneCandidate> detectRuns(SourceFile file, List<Token> added,
+            Map<String, Occurrence> index) {
         var candidates = new ArrayList<CloneCandidate>();
         var start = 0;
         while (start + CloneCandidate.MIN_TOKENS <= added.size()) {
@@ -113,13 +121,19 @@ public final class CloneDetector {
         return candidates;
     }
 
-    private static List<Token> addedTokens(SourceFile file) {
+    /**
+     * The added tokens, one run per added range: two hunks separated by unchanged code are never joined into one run,
+     * so a candidate's range and its token run never span a gap of unchanged code.
+     */
+    private static List<List<Token>> addedRuns(SourceFile file) {
         var tokens = Tokenizer.tokenize(file.text());
         if (file.addedRanges().isEmpty()) {
-            return tokens;
+            return List.of(tokens);
         }
-        return tokens.stream().filter(token -> file.addedRanges().stream()
-                .anyMatch(range -> token.line() >= range.first() && token.line() <= range.last())).toList();
+        return file.addedRanges().stream()
+                .map(range -> tokens.stream()
+                        .filter(token -> token.line() >= range.first() && token.line() <= range.last()).toList())
+                .toList();
     }
 
     private static LineRange range(List<Token> tokens, int start, int length) {
@@ -164,8 +178,11 @@ public final class CloneDetector {
                     index = cursor.index();
                     line = cursor.line();
                 } else if (character == '"' || character == '\'') {
-                    index = skipLiteral(text, index, character);
-                    tokens.add(new Token(TEXT, line));
+                    var startLine = line;
+                    var cursor = skipLiteral(text, index, character, line);
+                    index = cursor.index();
+                    line = cursor.line();
+                    tokens.add(new Token(TEXT, startLine));
                 } else if (Character.isDigit(character)) {
                     index = skipNumber(text, index);
                     tokens.add(new Token(LITERAL, line));
@@ -222,19 +239,30 @@ public final class CloneDetector {
         private record Cursor(int index, int line) {
         }
 
-        private static int skipLiteral(String text, int start, char quote) {
-            var index = start + 1;
+        private static Cursor skipLiteral(String text, int start, char quote, int startLine) {
+            var textBlock = quote == '"' && text.startsWith("\"\"\"", start);
+            var index = start + (textBlock ? 3 : 1);
+            var line = startLine;
             while (index < text.length()) {
                 var character = text.charAt(index);
                 if (character == '\\') {
+                    if (index + 1 < text.length() && text.charAt(index + 1) == '\n') {
+                        line++;
+                    }
                     index += 2;
-                } else if (character == quote) {
-                    return index + 1;
+                } else if (textBlock ? text.startsWith("\"\"\"", index) : character == quote) {
+                    return new Cursor(index + (textBlock ? 3 : 1), line);
+                } else if (character == '\n') {
+                    if (!textBlock) {
+                        return new Cursor(index, line);
+                    }
+                    line++;
+                    index++;
                 } else {
                     index++;
                 }
             }
-            return text.length();
+            return new Cursor(text.length(), line);
         }
     }
 }

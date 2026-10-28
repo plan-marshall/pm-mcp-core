@@ -398,7 +398,11 @@ public class OutlineCodec {
     }
 
     private static Integer readNumber(JsonParser parser, String name) throws IOException {
-        return Math.toIntExact(integer(parser, name));
+        try {
+            return Math.toIntExact(integer(parser, name));
+        } catch (ArithmeticException e) {
+            throw unreadable("'%s' is out of the integer range".formatted(name), e);
+        }
     }
 
     private static Profile readProfile(JsonParser parser, String name) throws IOException {
@@ -524,7 +528,13 @@ public class OutlineCodec {
 
     private static Map<Integer, DeliveryStatus> byNumber(Map<String, DeliveryStatus> byKey) {
         var statuses = new LinkedHashMap<Integer, DeliveryStatus>();
-        byKey.forEach((key, status) -> statuses.put(Integer.valueOf(key), status));
+        byKey.forEach((key, status) -> {
+            try {
+                statuses.put(Integer.valueOf(key), status);
+            } catch (NumberFormatException e) {
+                throw unreadable("'%s' is no deliverable number".formatted(key), e);
+            }
+        });
         return statuses;
     }
 }

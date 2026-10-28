@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
@@ -128,6 +129,25 @@ class BuilderCheckTest {
                 () -> new Question(Sort.OPERATOR, "no", List.of(), null));
         assertThrows(IllegalArgumentException.class,
                 () -> new Question(Sort.MINOR, "Where does it live?", List.of(), "no"));
+    }
+
+    @DisplayName("A builder that would exceed the decision bound is refused, not thrown")
+    @Test
+    void refusesMinorCallsBeyondTheDecisionBound() {
+        var base = intentRecord();
+        var decisions = new ArrayList<Decision>();
+        for (var index = 1; index <= 30; index++) {
+            decisions.add(new Decision("DC-" + index, "Decision " + index, List.of(), Decider.MODEL, null, null, null));
+        }
+        var full = new IntentRecord(base.why(), base.goal(), base.criteria(), base.currentBehaviour(),
+                base.nonGoals(), base.constraints(), decisions, base.assumptions(), base.openQuestions(),
+                base.deferred(), base.sourceClaims());
+        var question = new Question(Sort.MINOR, "The record does not say where the file lives", List.of("AC-1"),
+                "Place the file beside request.md");
+
+        var refused = assertInstanceOf(Refused.class,
+                BuilderCheck.validate(new Submission(List.of(question)), full));
+        assertTrue(refused.detail().contains("more than the 30"));
     }
 
     @DisplayName("The facts are an immutable map")

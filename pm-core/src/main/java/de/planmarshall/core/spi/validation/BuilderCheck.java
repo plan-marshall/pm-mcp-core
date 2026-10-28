@@ -152,11 +152,15 @@ public final class BuilderCheck {
     private BuilderCheck() {
     }
 
-    /**
-     * The longest minor decision the record's decision text holds beside the marker: the record's 500-character text
-     * bound less the 24 characters of "from the builder check: " and a margin.
-     */
+    /** The longest minor decision the record's decision text holds beside the marker: the record's 500-character text
+     * bound less the 24 characters of "from the builder check: " and a margin. */
     private static final int MAX_MINOR_DECISION = 400;
+
+    /** The most decisions an intent record holds. */
+    private static final int MAX_DECISIONS = 30;
+
+    /** The highest decision identifier the schema admits. */
+    private static final int MAX_DECISION_NUMBER = 9999;
 
     /** The name of the record parameter, as a null refusal names it. */
     private static final String INTENT_RECORD = "intentRecord";
@@ -176,6 +180,20 @@ public final class BuilderCheck {
             if (refusal.isPresent()) {
                 return new Refused(refusal.get());
             }
+        }
+        var minor = submission.questions().stream().filter(question -> question.sort() == Sort.MINOR).count();
+        var highest = intentRecord.decisions().stream()
+                .filter(decision -> decision.id().startsWith("DC-"))
+                .mapToInt(decision -> Integer.parseInt(decision.id().substring(3)))
+                .max()
+                .orElse(0);
+        if (intentRecord.decisions().size() + minor > MAX_DECISIONS) {
+            return new Refused("the record holds %d decisions and the builder adds %d, more than the %d a record may hold"
+                    .formatted(intentRecord.decisions().size(), minor, MAX_DECISIONS));
+        }
+        if (highest + minor > MAX_DECISION_NUMBER) {
+            return new Refused("the builder's %d decisions would exceed the highest decision identifier DC-%d"
+                    .formatted(minor, MAX_DECISION_NUMBER));
         }
         var operatorQuestions = submission.questions().stream().filter(question -> question.sort() == Sort.OPERATOR)
                 .toList();
