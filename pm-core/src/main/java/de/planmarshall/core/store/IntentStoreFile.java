@@ -69,13 +69,13 @@ public final class IntentStoreFile {
         Objects.requireNonNull(next, "next");
         Objects.requireNonNull(context, "context");
         if (!transaction.scope().equals(scope)) {
-            throw new IllegalArgumentException("The transaction of the %s scope %s is not the transaction of the plan "
-                    + "scope %s".formatted(transaction.scope().type().wireName(), transaction.scope().scopeId(),
+            throw new IllegalArgumentException(("The transaction of the %s scope %s is not the transaction of the plan "
+                    + "scope %s").formatted(transaction.scope().type().wireName(), transaction.scope().scopeId(),
                     scope.scopeId()));
         }
         if (!context.planId().equals(scope.scopeId())) {
-            throw new IllegalArgumentException("The acceptance of the plan '%s' is not the acceptance of the plan scope "
-                    + "'%s'".formatted(context.planId(), scope.scopeId()));
+            throw new IllegalArgumentException(("The acceptance of the plan '%s' is not the acceptance of the plan scope "
+                    + "'%s'").formatted(context.planId(), scope.scopeId()));
         }
         var file = store();
         var before = StoreSnapshot.read(file).content().map(document -> IntentCodec.read(file, document)).orElse(null);

@@ -61,8 +61,8 @@ public final class OutlineStoreFile {
         Objects.requireNonNull(transaction, "transaction");
         Objects.requireNonNull(next, "next");
         if (!transaction.scope().equals(scope)) {
-            throw new IllegalArgumentException("The transaction of the %s scope %s is not the transaction of the plan "
-                    + "scope %s".formatted(transaction.scope().type().wireName(), transaction.scope().scopeId(),
+            throw new IllegalArgumentException(("The transaction of the %s scope %s is not the transaction of the plan "
+                    + "scope %s").formatted(transaction.scope().type().wireName(), transaction.scope().scopeId(),
                     scope.scopeId()));
         }
         var file = store();

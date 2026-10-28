@@ -112,7 +112,7 @@ public class OutlineCodec {
     private static final String FIELD_PATTERN = "pattern";
 
     /** The schema's key pattern of the server-owned deliverable state, before conversion to a number. */
-    private static final Pattern DELIVERABLE_STATUS_KEY = Pattern.compile("[1-9][0-9]?");
+    private static final Pattern DELIVERABLE_STATUS_KEY = Pattern.compile("[1-9]\\d?");
 
     /**
      * @param store the store

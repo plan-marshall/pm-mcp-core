@@ -259,7 +259,7 @@ public final class IntentAcceptance {
                 return Optional.of("the fact decision '%s' names the evidence '%s', which lies outside the tree"
                         .formatted(decision.id(), evidence));
             }
-        } catch (InvalidPathException e) {
+        } catch (InvalidPathException _) {
             return Optional.of("the fact decision '%s' names the evidence '%s', which is no path"
                     .formatted(decision.id(), evidence));
         }

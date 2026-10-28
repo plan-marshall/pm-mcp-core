@@ -193,8 +193,8 @@ class OutlineRecordTest {
         var store = OutlineStore.first(revision(1, valid()));
         var document = new String(OutlineCodec.write(store), StandardCharsets.UTF_8)
                 .replace("\"1\":", "\"01\":");
-        assertThrows(StoreRefusal.class, () -> OutlineCodec.read(FILE,
-                document.getBytes(StandardCharsets.UTF_8)));
+        var bytes = document.getBytes(StandardCharsets.UTF_8);
+        assertThrows(StoreRefusal.class, () -> OutlineCodec.read(FILE, bytes));
     }
 
     @DisplayName("The reader refuses a document of another format version")
