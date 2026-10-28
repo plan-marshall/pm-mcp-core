@@ -179,7 +179,7 @@ public final class EndpointVerification {
             var outcome = EndpointOutcome.accept(client.post(profile, EndpointClient.CHAT_PATH, request.body()), null);
             if (outcome.fate() == EndpointOutcome.Fate.ANSWERED) {
                 var figure = outcome.usage().totalTokens().orElse(middle);
-                best = (int) Math.min(MAXIMUM_CONTEXT_TOKENS, Math.max(best, Math.max(figure, middle)));
+                best = Math.clamp(Math.max(best, Math.max(figure, middle)), 0, MAXIMUM_CONTEXT_TOKENS);
                 low = middle + 1;
             } else {
                 high = middle - 1;
