@@ -73,8 +73,31 @@ Set<String> filingSteps = FinalizePipelineValidator.findingSources(roster);
 `FinalizeFixtures` builds descriptors and a passing roster written for the tests, never copied from the shipped content.
 `FinalizePipelineValidatorTest` refuses one roster per checkable rule and enumerates the hooks; `FinalizeStepDescriptorTest` covers immutability and the refusal of `null`.
 
+== The Simplify Step
+
+`default:finalize-step-simplify` is the read-only review of the touched code (Phase Workflows § Finalize Step Ordering
+Bands, the `simplify` row). `SimplifyStep.descriptor()` declares it: order `5`, not source-mutating, head-dependent
+with the footprint as its input scope, the persona `review-simplify`, lane class `prunable` with the prune reason
+`land_lane`, and no finding source. The roster validator accepts it as it is.
+
+`SimplifyStep.reviewTask()` states the review task's shape: the role `review-simplify`, the vocabulary
+`skill://pm/finalize/simplify`, no write tool and never the plan's writer slot. `reviewFacts(candidates)` carries the
+clone candidates; a candidate is evidence for the restraint ladder's "is it already in the codebase?", never a finding.
+
+`CloneDetector` computes the candidates before the task, in-process and without a model: it tokenizes the added lines
+and the rest of the tree, normalizes identifiers to `i` and numeric and string literals to `l` and `s`, and reports
+every run of at least `CloneCandidate.MIN_TOKENS` (`50`) tokens that repeats the tree, at most
+`CloneCandidate.MAX_CANDIDATES` (`20`), the longest first. Comments and white space are not tokens.
+
+`SimplifyStep.record(proposals, firstNumber)` records a `submit:simplify` as `ProposalRecord`s (`SP-<n>`, disposition
+`open`). `SimplifyStep.apply(records, accepted)` applies the accepted subset: every accepted proposal becomes
+`accepted`, every other open one `declined`, and `ApplyResult.applied()` tells the caller to route the change through
+`finalize.settle-commit`; an accepted id that is no open proposal of the firing is refused.
+
 == Specification Tracing
 
 * Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
-* Specification: link:../../../doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc[Phase Workflows specification, part 05]
-* Decisions: `pm-workflow/doc/adr/workflow-finalize/` ADRs 001 to 003
+* Specification: link:../../../doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc[Phase Workflows specification, part 05],
+  link:../../../doc/specification/phase-workflows/04-finalize-step-bands.adoc#finalize-step-bands[§ Finalize Step Ordering Bands]
+* Decisions: `pm-workflow/doc/adr/workflow-finalize/` ADRs 001 to 004, the last on the clone candidates as evidence
+  (link:../adr/workflow-finalize/004-clone-candidates-are-evidence-never-findings.adoc[ADR 004])

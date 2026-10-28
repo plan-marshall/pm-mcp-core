@@ -1,0 +1,57 @@
+= ADR 003: The EARS Keywords Are Uppercase Structural Tokens
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-27
+
+== Context
+
+A criterion of the intent record is written in EARS form but in the project's model language: a German project writes
+`WHEN ein Plan verfeinert wird THE System SHALL den Datensatz schreiben`. The structural words (`WHERE`, `WHILE`, `WHEN`,
+`IF … THEN`, `THE … SHALL`, `CONTINUE TO`) stay English and upper case, the clause text between them is the model
+language.
+
+The implementation watch item `PM-WATCH-PHASE-106` named the two failure directions: a check that matches lower-case
+keywords refuses a valid German criterion, and a check that requires English text refuses every criterion of a German
+project, while a check that reads any occurrence of "when" and "shall" as structure accepts prose.
+
+== Decision
+
+`EarsForm` reads only the uppercase structural tokens. It finds their first occurrence, refuses a repeated keyword, checks
+the precondition order `WHERE`, `WHILE`, `WHEN`, then the optional `IF … THEN`, then `THE <system> SHALL <response>`,
+and requires a clause between the keywords. A lower-case `when`, `then`, `the` or `shall` is clause text, never a
+keyword: a criterion that relies on it lacks the uppercase structure and is refused for that missing structure, not for
+the language of its words.
+
+A criterion of kind `unchanged` carries a response that begins with `CONTINUE TO`; every other kind must not.
+
+== Alternatives Considered
+
+1. **Match keywords case-insensitively**:
+*Rejected*: the word "when" occurs in ordinary prose, and the check would accept a sentence that states no response.
+
+2. **Require English clause text**:
+*Rejected*: it refuses every criterion of a German project, which the operator's language setting permits.
+
+3. **Disable the EARS check for a non-English project**:
+*Rejected*: the check is the only thing that tells a decision from a criterion; a project that turns it off loses the
+guarantee for every plan.
+
+== Consequences
+
+* A German criterion is accepted and an English one is accepted; a prose sentence is refused for its missing structure.
+* The check names the keyword or the missing part in its refusal, so the refine task can correct the criterion.
+* A model language that writes its clause text in all capitals could collide with a structural word; the tokens are the
+  documented exception and the role skill states it.
+
+== Source
+
+* Phase Workflows Specification, § The Intent Record, server check 1
+* Implementation watch, `PM-WATCH-PHASE-106` (retired by this decision)
+* PM-WF-10
+* `doc/plans/phase-sub-workflows.adoc`

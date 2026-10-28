@@ -561,6 +561,45 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/ast/AstNodeModelTest.
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/SubWorkflowExecutionTest.java[SubWorkflowExecutionTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineResumeTest.java[EngineResumeTest]
 
+Implementation (the planning phases' records and their checks: the plan's intent record `intent.json` with its `intent-record` schema, its EARS form, its true deciders, the epic's required claims and its revision history in `history[]`; the outline record `outline.json` with its `outline-record` schema and the `outline.md` rendered from it; the outline's `satisfies` coverage and the refusal of an `unchanged` guard downstream of the change it guards; the builder check's submission and its conversation-free facts; the self-review's constraint, non-goal and decision results; the capability spec and the index of a tree's specs; and the read-only simplify step with the clone candidates the server computes and the apply of the accepted subset): link:../pm-core/src/main/java/de/planmarshall/core/store/IntentRecord.java[IntentRecord],
+link:../pm-core/src/main/java/de/planmarshall/core/store/IntentStore.java[IntentStore],
+link:../pm-core/src/main/java/de/planmarshall/core/store/IntentCodec.java[IntentCodec],
+link:../pm-core/src/main/java/de/planmarshall/core/store/IntentAcceptance.java[IntentAcceptance],
+link:../pm-core/src/main/java/de/planmarshall/core/store/ClarifiedRequestRenderer.java[ClarifiedRequestRenderer],
+link:../pm-core/src/main/java/de/planmarshall/core/store/EpicIntent.java[EpicIntent],
+link:../pm-core/src/main/java/de/planmarshall/core/store/EarsForm.java[EarsForm],
+link:../pm-core/src/main/java/de/planmarshall/core/store/OutlineRecord.java[OutlineRecord],
+link:../pm-core/src/main/java/de/planmarshall/core/store/OutlineStore.java[OutlineStore],
+link:../pm-core/src/main/java/de/planmarshall/core/store/OutlineCodec.java[OutlineCodec],
+link:../pm-core/src/main/java/de/planmarshall/core/store/OutlineRenderer.java[OutlineRenderer],
+link:../pm-core/src/main/java/de/planmarshall/core/spi/validation/OutlineValidator.java[OutlineValidator],
+link:../pm-core/src/main/java/de/planmarshall/core/spi/validation/BuilderCheck.java[BuilderCheck],
+link:../pm-core/src/main/java/de/planmarshall/core/spi/validation/SelfReviewSubmission.java[SelfReviewSubmission],
+link:../pm-core/src/main/java/de/planmarshall/core/store/CapabilitySpec.java[CapabilitySpec],
+link:../pm-core/src/main/java/de/planmarshall/core/store/CapabilityIndex.java[CapabilityIndex],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/finalize/SimplifyStep.java[SimplifyStep],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/finalize/CloneDetector.java[CloneDetector],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/finalize/ProposalRecord.java[ProposalRecord]
+
+Verified by (the planning phases' records and their checks): link:../pm-core/src/test/java/de/planmarshall/core/store/IntentRecordTest.java[IntentRecordTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/EarsFormTest.java[EarsFormTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/OutlineRecordTest.java[OutlineRecordTest],
+link:../pm-core/src/test/java/de/planmarshall/core/spi/validation/BuilderCheckTest.java[BuilderCheckTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/CapabilitySpecTest.java[CapabilitySpecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/spi/validation/OutlineCoverageTest.java[OutlineCoverageTest],
+link:../pm-core/src/test/java/de/planmarshall/core/spi/validation/SelfReviewSubmissionTest.java[SelfReviewSubmissionTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/finalize/SimplifyStepTest.java[SimplifyStepTest]
+
+Documentation (the planning phases' records and their checks): link:../pm-core/doc/developer/core-store.adoc#_the_intent_record[Scope Stores Developer Guide § The Intent Record],
+link:../pm-core/doc/developer/core-store.adoc#_the_outline_record[§ The Outline Record],
+link:../pm-core/doc/developer/core-store.adoc#_capability_specs[§ Capability Specs],
+link:../pm-core/doc/developer/core-spi.adoc#_model_submission_validators[Core SPI Developer Guide § Model Submission Validators],
+link:../pm-workflow/doc/developer/workflow-finalize.adoc#_the_simplify_step[Finalize Pipeline Developer Guide § The Simplify Step],
+link:../pm-core/doc/adr/core-store/049-intent-and-outline-records-are-revision-stores.adoc[ADR core-store/049],
+link:../pm-core/doc/adr/core-spi/003-ears-keywords-are-uppercase-structural-tokens.adoc[ADR core-spi/003],
+link:../pm-core/doc/adr/core-spi/004-the-self-review-judges-constraints-beside-criteria.adoc[ADR core-spi/004],
+link:../pm-workflow/doc/adr/workflow-finalize/004-clone-candidates-are-evidence-never-findings.adoc[ADR workflow-finalize/004]
+
 Implementation (the entries of a called unit, as far as the library modules carry them: the `entry <name> -> <state>` bindings of a unit with entries and the entry a `call` names, parsed into and printed from the tree; a call enters the callee at the state its entry binds, the entry it names or the callee's sole entry, and the frame it pushes records that entry, which the workflow state store writes and reads in every `call_stack` frame in format version 1; the verifier refuses a call to a unit without entries and a call that names an unknown entry or omits the entry of a callee with several, and checks every call against the exits its callee declares plus `stepped_out`): link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/StateBehavior.java[StateBehavior],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/CallFrame.java[CallFrame],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/WorkflowParser.java[WorkflowParser],
@@ -1542,6 +1581,16 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineEventTes
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/LoopBackBudgetTest.java[LoopBackBudgetTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/diagram/WorkflowDiagramGeneratorTest.java[WorkflowDiagramGeneratorTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/diagram/StateKindTest.java[StateKindTest]
+
+Implementation (the named parameter schemas `intent-record` and `outline-record` of the registry, and the simplify step's descriptor in the finalize roster): link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/SchemaRegistry.java[SchemaRegistry],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/finalize/SimplifyStep.java[SimplifyStep],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/finalize/FinalizeStepDescriptor.java[FinalizeStepDescriptor]
+
+Verified by (the schema registry and the simplify descriptor): link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/RegistriesAndRecordsTest.java[RegistriesAndRecordsTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/finalize/SimplifyStepTest.java[SimplifyStepTest]
+
+Documentation (the simplify step): link:../pm-workflow/doc/developer/workflow-finalize.adoc#_the_simplify_step[Finalize Pipeline Developer Guide § The Simplify Step],
+link:../pm-workflow/doc/adr/workflow-finalize/004-clone-candidates-are-evidence-never-findings.adoc[ADR workflow-finalize/004]
 
 Implementation (the project-owned units and the compiled invariants: the loader of the default units from a classpath root the assembly names, the merge of the phase files into the plan unit with its part versions and the recorded `derived_from`, and the loader of a project's units from `.marshall/config/`, which confines every path, bounds every unit file at 1048576 bytes, refuses an author equal to the reserved one after NFKC normalisation, removal of its format characters, stripping and case folding, refuses another DSL format, verifies Rules 1-12, the declarations within their compiled bounds, the finalize pipeline over the project roster, the thirty compiled invariants against the default unit of the same id (among them the remediation invariants over the six remediation units, without a spend unit, and `INV-FIN-5`, which checks only that every path to the merge passes `finalize.merge-gate`) and the binding of the project steps, and returns every verified unit or every finding with file and line, refusing the lifecycle with `config_invalid` and never falling back to a default unit; the finalize step descriptor and the validator of the pipeline rules; the parts of `INV-GEN-2`, `INV-GEN-4` and `INV-REM-6` that need runtime facts, the `work_performed` clause of the validator's rule 6, its rule 7, the write-time refusal of its rule 8, the reading of `workflow.json` and the enrolment for the project steps, and the check of the shipped default units are not implemented yet): link:../pm-workflow/src/main/java/de/planmarshall/workflow/unit/DefaultUnitLoader.java[DefaultUnitLoader],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/unit/PlanUnitMerger.java[PlanUnitMerger],

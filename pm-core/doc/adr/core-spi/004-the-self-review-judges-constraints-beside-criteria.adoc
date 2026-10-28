@@ -1,0 +1,62 @@
+= ADR 004: The Self-Review Judges Constraints, Non-Goals and Decisions Beside the Criteria
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-27
+
+== Context
+
+A constraint `CN-<n>` rules out what no criterion states: a plan can meet every criterion as written and still break the
+constraint the operator stated. Implementation watch `PM-WATCH-PHASE-111` recorded the first-run case in which the
+specification and every test accepted a fallback that hides items, and only the review against the constraint caught it.
+The same holds for a non-goal `NG-<n>` a change crosses and a decision `DC-<n>` the code departs from without an own call
+naming it.
+
+A review that returns results for the criteria alone therefore passes the plan; a result `respected` without evidence is
+as good as no result; and a submission that lists the criteria and leaves out the constraints is accepted when the
+omission check covers criteria only.
+
+== Decision
+
+`SelfReviewSubmission` requires one result per criterion, constraint, non-goal and decision of the intent record, in the
+record's own identifiers. A missing item is refused naming it. A constraint that is `respected` and a decision that is
+`followed` carry their evidence; a `violated` constraint, a `crossed` non-goal, a `departed` decision and a `not_met`
+criterion are findings and the round is not clean; a `not_verified` item is a non-blocking finding, so the round is
+`clean_unverified`, never clean.
+
+The builder check's submission is the same kind of judgment from the other side: `BuilderCheck` refuses a `minor` answer
+to a question that names a constraint or more than one criterion, because whether a default the operator accepted permits
+what the constraint rules out is the operator's decision, never the builder's own call.
+
+== Alternatives Considered
+
+1. **Judge the criteria only and let the Q-Gate judge the constraints**:
+*Rejected*: the Q-Gate judges the outline and the tasks, not the code; the constraint needs a judgment against the
+implementation, which is the self-review's position.
+
+2. **Accept a `respected` result without evidence**:
+*Rejected*: it lets a model assert the constraint without naming where the code keeps it, which is the failure the
+watch item records.
+
+3. **Treat `not_verified` as a finding**:
+*Rejected*: the specification makes it a non-blocking finding (`clean_unverified`), so a part that cannot be judged does
+not strand the plan; the gap is visible in the round's status.
+
+== Consequences
+
+* A submission that omits a constraint, non-goal or decision is refused naming the item, so the review cannot silently
+  narrow its scope.
+* The evidence requirement makes a `respected` result checkable by the operator.
+* The round's status distinguishes clean, clean-unverified and findings, which the finalize step routes on.
+
+== Source
+
+* Phase Workflows Specification, § Finalize Step Ordering Bands (`pre-submission-self-review`) and § Builder Check
+* Implementation watch, `PM-WATCH-PHASE-111` (retired by this decision)
+* PM-WF-10
+* `doc/plans/phase-sub-workflows.adoc`

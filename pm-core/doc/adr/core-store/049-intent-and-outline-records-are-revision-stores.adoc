@@ -1,0 +1,62 @@
+= ADR 049: The Intent and Outline Records Are Immutable Revision Stores
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-27
+
+== Context
+
+The plan's intent record (`intent.json`) and outline record (`outline.json`) are written by the transaction that accepts a
+submission: `submit:refine`, the light `submit:outline`, a re-planning that changes intent, and an outline `submit:outline`
+or `replan.apply`. Every one of those is a new revision of the same plan document, and the specification requires that a
+revision which changes intent must not rewrite the statement the plan was built from: an amendment that changes a
+criterion bound to a capability is folded before the capability specs are written, and a removed deliverable stays in the
+outline with its state.
+
+Two readings were open: the store could overwrite the current record, with the plan's history kept elsewhere, or the
+record file itself could carry its revisions. The second keeps the plan's source directory self-describing and makes the
+accepting transaction one atomic rename of one file.
+
+== Decision
+
+`IntentStore` and `OutlineStore` are immutable revision stores. Each holds `current` and `history[]`; `accept(Revision)`
+refuses a revision that does not follow the current one, appends the current revision to the history without changing it,
+and returns a new store. The outline additionally carries the server-owned `deliverable_status`, so a deliverable a
+re-planning deferred or removed keeps its state and its content.
+
+An intent identifier that an earlier revision removed is never reused for another item: `IntentStore` collects the
+identifiers the history held and the current revision no longer holds, and refuses a new revision that reintroduces one.
+The accepting transaction is `IntentStoreFile`/`OutlineStoreFile` on the plan lock, so two submissions never interleave.
+
+== Alternatives Considered
+
+1. **Overwrite the current record and keep history in `status.json`**:
+*Rejected*: two files would have to agree on every acceptance, and the plan's source directory would no longer say what
+the plan was built from.
+
+2. **Allow an identifier to be reused once it was removed**:
+*Rejected*: a later phase that cites `AC-3` could silently mean another item than the one the outline named; the
+identifier is the only join key between the record, the outline's `satisfies` and the self-review.
+
+3. **Store the records in the workflow state store**:
+*Rejected*: the records are plan sources, beside `request.md`, and the state store is runtime state that is archived with
+the plan; the specification places both under the plan's source directory.
+
+== Consequences
+
+* A reader sees the current record and its whole revision history in one document.
+* The accepting transaction is one atomic rename under the plan lock; a refusal writes nothing.
+* An identifier's meaning is stable for the plan's whole life, at the cost that a record cannot renumber its items.
+* The `history[]` grows with every acceptance; the plan's archive carries it.
+
+== Source
+
+* Store Schemas Specification, § Intent Record and § Outline Record (`plan-marshall-documentation`)
+* Phase Workflows Specification, § The Intent Record, Revisions
+* PM-WF-10, PM-IMPL-7
+* `doc/plans/phase-sub-workflows.adoc`
