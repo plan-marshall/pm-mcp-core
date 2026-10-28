@@ -133,7 +133,9 @@ public final class PlanInstanceComposer {
         var pruned = InstancePruner.prune(request.template(), effects, bound, request.waivers(),
                 request.verificationSteps(), request.finalizeSteps(), lanePruned);
         var version = request.nextVersion();
-        var missing = request.position().missingFrom(pruned.states().keySet());
+        var positionStates = new LinkedHashSet<>(pruned.states().keySet());
+        request.subUnits().forEach(subUnit -> subUnit.definition().states().keySet().forEach(positionStates::add));
+        var missing = request.position().missingFrom(positionStates);
         if (!missing.isEmpty()) {
             return new CompositionResult.Refused(CompositionResult.Refusal.POSITION_NOT_CONTAINED, missing.stream()
                     .map(state -> "position: version %d does not contain the state '%s'".formatted(version, state))

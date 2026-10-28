@@ -126,6 +126,14 @@ state finalize.archive-plan
             completes default:archive-plan as done
         returned -> returned
             completes default:archive-plan as done
+        reentry -> finalize.reentry
+            completes default:archive-plan as done
+
+state finalize.reentry
+    auto test.proceed
+        done -> finalize.reentry-exit
+
+state finalize.reentry-exit terminal reentry success
 
 state completed terminal completed success
 
