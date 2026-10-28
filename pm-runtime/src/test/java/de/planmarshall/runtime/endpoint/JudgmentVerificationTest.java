@@ -168,12 +168,48 @@ class JudgmentVerificationTest {
                 () -> assertEquals("passed", chosen.stageStatuses().get("limits")));
     }
 
+    @Test
+    @DisplayName("the limits stage takes a 400 with max_tokens_exceeded as its bound")
+    void limitsBoundAtTheSizeRefusal() {
+        responder = request -> "/v1/models".equals(request.getTarget()) ? listing()
+                : request.getBody().utf8().length() > 20_000
+                ? new MockResponse.Builder().code(400)
+                .body("{\"error\":\"max_tokens_exceeded\"}").build()
+                : probeAnswer(request);
+
+        var result = verification().verify(profile(), MODEL, true);
+
+        assertAll(
+                () -> assertTrue(result.limits().passed()),
+                () -> assertTrue(result.limits().contextTokens() >= JudgmentVerification.MINIMUM_CONTEXT_TOKENS),
+                () -> assertTrue(result.limits().contextTokens() < JudgmentVerification.MAXIMUM_CONTEXT_TOKENS));
+    }
+
+    @Test
+    @DisplayName("a refusal that is not the size ends the limits stage without a bound")
+    void limitsFailOnAnotherRefusal() {
+        responder = request -> "/v1/models".equals(request.getTarget()) ? listing()
+                : request.getBody().utf8().length() > 20_000
+                ? new MockResponse.Builder().code(500).body("{\"error\":\"boom\"}").build()
+                : probeAnswer(request);
+
+        var result = verification().verify(profile(), MODEL, true);
+
+        assertAll(
+                () -> assertFalse(result.limits().passed()),
+                () -> assertEquals("not_run", result.stageStatuses().get("limits")),
+                () -> assertFalse(result.refusesDraft(), "the limits stage records, it does not refuse the draft"));
+    }
+
     private static MockResponse probeAnswer(RecordedRequest request) {
         var body = request.getBody().utf8();
+        var input = body.length() / EndpointRequest.CHARS_PER_TOKEN;
         if (body.contains("\"only\"")) {
             return json("{\"model\":\"" + MODEL + "\",\"answers\":{\"probe\":{\"choice\":\"only\","
-                    + "\"probabilities\":{\"only\":1}}},\"usage\":{\"input_tokens\":120,\"output_tokens\":2}}");
+                    + "\"probabilities\":{\"only\":1}}},\"usage\":{\"input_tokens\":" + input + ",\"output_tokens\":2}}");
         }
-        return json(typedAnswer("probe", "alpha", "beta"));
+        return json("{\"model\":\"" + MODEL + "\",\"answers\":{\"probe\":{\"choice\":\"alpha\","
+                + "\"probabilities\":{\"alpha\":0.6,\"beta\":0.4}}},\"usage\":{\"input_tokens\":" + input + ","
+                + "\"output_tokens\":2}}");
     }
 }

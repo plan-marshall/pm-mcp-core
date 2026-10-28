@@ -121,6 +121,8 @@ class EndpointProfileValidatorTest {
                     + "| /endpoint/base_url",
             "a remote endpoint names no credential key | \"credential_key\": \"judge-token\" | \"credential_key\": "
                     + "null | /endpoint/credential_key",
+            "a remote endpoint names a one-character credential key | \"credential_key\": \"judge-token\" | "
+                    + "\"credential_key\": \"x\" | /endpoint/credential_key",
             "a remote endpoint names an executable | \"executable\": null | \"executable\": \"ollama\" | /executable",
             "a remote endpoint names an identity | \"identity\": null | \"identity\": {\"version_probe\": "
                     + "[\"--version\"], \"version_pattern\": \"version ([0-9.]+)\"} | /identity",

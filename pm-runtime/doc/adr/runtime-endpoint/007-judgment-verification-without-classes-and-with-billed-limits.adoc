@@ -50,5 +50,5 @@ Credential & Enrolment § Closed List makes every request a billed outbound call
 
 == Source
 
-Pull request for the work package `doc/plans/judgment-endpoint.adoc`; Client Profiles § Verification of a Judgment
-Endpoint.
+Pull request for the work package `doc/plans/judgment-endpoint.adoc` (deleted by the pull request that lands this
+decision); Client Profiles § Verification of a Judgment Endpoint.

@@ -277,7 +277,8 @@ public final class HarnessEnrolmentStore {
         for (var member : node.members().keySet()) {
             if (!allowed.contains(member)) {
                 throw new IllegalArgumentException(
-                        "the entry '%s' carries the member '%s' of the other form".formatted(clientId, member));
+                        "the entry '%s' carries the member '%s', which is not a member of the entry's form"
+                                .formatted(clientId, member));
             }
         }
     }

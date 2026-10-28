@@ -98,8 +98,9 @@ public final class JudgmentEndpoint {
         }
         var composed = SystemOneRequest.compose(profile, model, state, questions);
         if (!composed.isComposed()) {
-            var refused = new Attempt(EndpointOutcome.refused(EndpointOutcome.Reason.INPUT_TOO_LARGE,
-                    composed.detail()), null);
+            var refused = new Attempt(EndpointOutcome.refused(composed.refusal() == SystemOneRequest.Refusal
+                    .ENTITY_EXCEEDS_BUDGET ? EndpointOutcome.Reason.INPUT_TOO_LARGE
+                    : EndpointOutcome.Reason.REQUEST_REFUSED, composed.detail()), null);
             var refusal = new Answers(null, refused, null);
             record(profile, model, refusal, started);
             return refusal;
@@ -202,7 +203,7 @@ public final class JudgmentEndpoint {
         audit.append(AuditEvent.judgmentTaskCompleted(endpoint, model, status, input, output, duration));
         if (answers.answered()) {
             LOGGER.info(RuntimeLogMessages.INFO.JUDGMENT_TASK_ANSWERED, model, endpoint, input, output, duration);
-        } else {
+        } else if (answers.request() != null) {
             LOGGER.warn(RuntimeLogMessages.WARN.ENDPOINT_ATTEMPT_ENDED, model, endpoint, answers.detail());
         }
     }
@@ -267,8 +268,11 @@ public final class JudgmentEndpoint {
             if (answered()) {
                 return EndpointOutcome.Fate.ANSWERED.wireName();
             }
-            return ascending.answered() ? descending.outcome().reason().wireName()
-                    : ascending.outcome().reason().wireName();
+            if (!ascending.answered()) {
+                return ascending.outcome().reason().wireName();
+            }
+            return descending == null ? EndpointOutcome.Fate.ENDED.wireName()
+                    : descending.outcome().reason().wireName();
         }
 
         /** @return what ended the task, for a record */

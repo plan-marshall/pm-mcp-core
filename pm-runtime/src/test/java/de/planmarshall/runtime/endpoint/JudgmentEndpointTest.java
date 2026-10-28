@@ -98,7 +98,7 @@ class JudgmentEndpointTest {
     }
 
     private static HarnessEnrolment enrolment() {
-        return EndpointFixtures.enrolment();
+        return EndpointFixtures.enrolled("local-judge", EndpointFixtures.executablePath());
     }
 
     private static JsonNode state() {
@@ -154,6 +154,9 @@ class JudgmentEndpointTest {
                 () -> assertEquals(EndpointOutcome.Fate.ENDED, answers.ascending().outcome().fate()),
                 () -> assertEquals(1, requests.size()),
                 () -> assertEquals("model_alias", answers.status()),
+                () -> assertFalse(answers.ascending().outcome().detail().contains(BASE_TASK_STATE),
+                        "the error text carries no part of the body"),
+                () -> assertTrue(answers.ascending().outcome().detail().contains("another model id")),
                 () -> assertEquals("failed", audit.only().outcome()));
     }
 
@@ -202,10 +205,24 @@ class JudgmentEndpointTest {
                 () -> assertFalse(audit.text().contains(QUESTION)),
                 () -> assertFalse(logs.text().contains(BASE_TASK_STATE)),
                 () -> assertFalse(logs.text().contains(QUESTION)),
-                () -> assertFalse(answers.ascending().outcome().detail().contains(BASE_TASK_STATE),
-                        "the error text carries no part of the body"),
+                () -> assertTrue(answers.answered(), "the echoed answer is valid, so only the read-outs are at stake"),
                 () -> assertTrue(audit.text().contains("judgment_task_completed")),
                 () -> assertTrue(audit.text().contains("judge-2026-01-01")));
+    }
+
+    @Test
+    @DisplayName("a program whose build is not the enrolled one refuses the task before a request")
+    void refusesAnotherBuild() {
+        responder = request -> json(answer("judge-2026-01-01"));
+        var previousBuild = EndpointFixtures.enrolment(EndpointFixtures.executablePath());
+
+        var answers = endpoint().task(profile(), previousBuild, "judge-2026-01-01", state(), questions());
+
+        assertAll(
+                () -> assertFalse(answers.answered()),
+                () -> assertEquals(EndpointOutcome.Reason.HARNESS_NOT_ENROLLED,
+                        answers.ascending().outcome().reason()),
+                () -> assertEquals(0, requests.size()));
     }
 
     @Test

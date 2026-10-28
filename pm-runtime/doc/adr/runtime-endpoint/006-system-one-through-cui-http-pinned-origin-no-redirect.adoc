@@ -58,5 +58,6 @@ concentrated the distribution is, not how likely the option is right.
 
 == Source
 
-Pull request for the work package `doc/plans/judgment-endpoint.adoc`; Client Profiles § The Request and Answer, § Remote
-Form; Credentials & Enrolment § Provider Credentials and § Closed List of Outbound Calls.
+Pull request for the work package `doc/plans/judgment-endpoint.adoc` (deleted by the pull request that lands this
+decision); Client Profiles § The Request and Answer, § Remote Form; Credentials & Enrolment § Provider Credentials and §
+Closed List of Outbound Calls.

@@ -175,25 +175,61 @@ class JudgmentEndpointRemoteTest {
     void redirectToHttp() throws Exception {
         try (var cleartext = new MockWebServer()) {
             cleartext.start();
-            try {
-                var location = cleartext.url("/v1/systemone").toString();
-                responder = request -> redirect(location);
+            var location = cleartext.url("/v1/systemone").toString();
+            responder = request -> redirect(location);
 
-                var answers = endpoint().task(profile(), enrolment(), MODEL, state(), questions());
+            var answers = endpoint().task(profile(), enrolment(), MODEL, state(), questions());
 
-                assertAll(
-                        () -> assertFalse(answers.answered()),
-                        () -> assertEquals(EndpointOutcome.Reason.REDIRECT_REFUSED,
-                                answers.ascending().outcome().reason()),
-                        () -> assertEquals(1, requests.size()),
-                        () -> assertEquals(0, cleartext.getRequestCount(),
-                                "the cleartext target received no request, so it received no secret"),
-                        () -> assertFalse(logs.text().contains(SECRET)),
-                        () -> assertFalse(audit.text().contains(SECRET)));
-            } finally {
-                cleartext.close();
-            }
+            assertAll(
+                    () -> assertFalse(answers.answered()),
+                    () -> assertEquals(EndpointOutcome.Reason.REDIRECT_REFUSED,
+                            answers.ascending().outcome().reason()),
+                    () -> assertEquals(1, requests.size()),
+                    () -> assertEquals(0, cleartext.getRequestCount(),
+                            "the cleartext target received no request, so it received no secret"),
+                    () -> assertFalse(logs.text().contains(SECRET)),
+                    () -> assertFalse(audit.text().contains(SECRET)));
         }
+    }
+
+    @Test
+    @DisplayName("a program-form enrolment refuses the remote task before a request")
+    void refusesAProgramEnrolment() {
+        responder = request -> json(answer());
+
+        var answers = endpoint().task(profile(), EndpointFixtures.enrolment(), MODEL, state(), questions());
+
+        assertAll(
+                () -> assertEquals(EndpointOutcome.Reason.HARNESS_NOT_ENROLLED, answers.ascending().outcome().reason()),
+                () -> assertEquals(0, requests.size()));
+    }
+
+    @Test
+    @DisplayName("an enrolment of another origin refuses the remote task before a request")
+    void refusesAnotherOrigin() {
+        responder = request -> json(answer());
+        var other = HarnessEnrolment.endpoint("hosted-judge", "https://other.example.test", KEY, Instant.EPOCH,
+                new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED, Map.of()));
+
+        var answers = endpoint().task(profile(), other, MODEL, state(), questions());
+
+        assertAll(
+                () -> assertEquals(EndpointOutcome.Reason.HARNESS_NOT_ENROLLED, answers.ascending().outcome().reason()),
+                () -> assertEquals(0, requests.size()));
+    }
+
+    @Test
+    @DisplayName("an enrolment of another credential entry refuses the remote task before a request")
+    void refusesAnotherCredential() {
+        responder = request -> json(answer());
+        var other = HarnessEnrolment.endpoint("hosted-judge", origin(), "judge-token-old", Instant.EPOCH,
+                new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED, Map.of()));
+
+        var answers = endpoint().task(profile(), other, MODEL, state(), questions());
+
+        assertAll(
+                () -> assertEquals(EndpointOutcome.Reason.HARNESS_NOT_ENROLLED, answers.ascending().outcome().reason()),
+                () -> assertEquals(0, requests.size()));
     }
 
     @Test
@@ -237,6 +273,8 @@ class JudgmentEndpointRemoteTest {
 
         assertAll(
                 () -> assertEquals(EndpointOutcome.Reason.INVALID_ANSWER, answers.ascending().outcome().reason()),
+                () -> assertFalse(answers.ascending().outcome().detail().contains(STATE),
+                        "the error text carries no part of the body"),
                 () -> assertEquals(1, audit.events().size()),
                 () -> assertFalse(audit.text().contains(STATE)),
                 () -> assertFalse(logs.text().contains(STATE)),

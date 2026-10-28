@@ -168,8 +168,9 @@ program, so its enrolment carries the origin and the credential key instead of t
 
 To run a task, compose an `EndpointRequest` for the profile, the model of the role's effective configuration and the
 task, then hand the harness's enrolment and the request to `EndpointHarness.task`. For a judgment task, compose the
-questions and hand them with the facts and the model id to `JudgmentEndpoint.task`; the vote built on the two answers is
-`judgment-votes`'s.
+questions and hand the endpoint's enrolment, the questions, the facts and the model id to `JudgmentEndpoint.task`: the
+loopback form then runs the owner check of the endpoint harness before its first request, and the remote form checks that
+the enrolment carries the profile's origin and credential key. The vote built on the two answers is `judgment-votes`'s.
 
 A new protocol is a change of the closed `protocol` list of the endpoint profile and of the code, made once for all
 endpoints: a new `EndpointClient` call for its request format, and the answer reading in `EndpointOutcome` — or, for a

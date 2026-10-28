@@ -129,7 +129,9 @@ public final class SystemOneRequest {
     /** Why a task cannot be composed. The set is closed. */
     public enum Refusal {
         /** The entity alone exceeds the harness's context budget. */
-        ENTITY_EXCEEDS_BUDGET("input_too_large");
+        ENTITY_EXCEEDS_BUDGET("input_too_large"),
+        /** The task asks no question, or names one twice. */
+        TASK_INVALID("task_invalid");
 
         private final String wireName;
 
@@ -193,13 +195,13 @@ public final class SystemOneRequest {
         Objects.requireNonNull(state, "state");
         Objects.requireNonNull(questions, "questions");
         if (questions.isEmpty()) {
-            throw new IllegalArgumentException("A judgment task asks at least one question");
+            return Result.refused(Refusal.TASK_INVALID, "the task asks no question");
         }
         var questionIds = new LinkedHashSet<String>();
         for (var question : questions) {
             if (!questionIds.add(question.questionId())) {
-                throw new IllegalArgumentException(
-                        "The task names the question '%s' twice".formatted(question.questionId()));
+                return Result.refused(Refusal.TASK_INVALID,
+                        "the task names the question '%s' twice".formatted(question.questionId()));
             }
         }
         var ascending = body(model, state, questions, true);

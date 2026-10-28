@@ -177,15 +177,16 @@ public final class JudgmentVerification {
             sent++;
             var read = probe(profile, model, fillerState(middle),
                     twoOptionsQuestion("Which option holds for the state?"), true);
-            if (read.status() == 400) {
+            if (read.status() == 400 && read.body().contains("max_tokens_exceeded")) {
                 high = middle - 1;
             } else if (read.valid()) {
                 var measured = read.answer().usage().inputTokens();
-                var figure = measured.isMeasured() ? measured.value() : 0;
-                best = Math.clamp(Math.max(best, Math.max(figure, middle)), 0, MAXIMUM_CONTEXT_TOKENS);
+                // The stage counts with usage.input_tokens; only an answer that reports none falls back to the size.
+                best = Math.clamp(Math.max(best, measured.isMeasured() ? measured.value() : middle), 0,
+                        MAXIMUM_CONTEXT_TOKENS);
                 low = middle + 1;
             } else {
-                // An answer the service refused for another reason than its size is no measured bound of the limit.
+                // Any other refusal is no measured bound of the limit: the stage records what it settled and stops.
                 return new ProfileStages.EndpointLimits(false, best);
             }
         }
@@ -197,11 +198,11 @@ public final class JudgmentVerification {
         var body = SystemOneRequest.body(model, state, List.of(question), ascending);
         var response = client.post(profile, SystemOneRequest.PATH, body);
         if (!response.successful()) {
-            return new Probe(false, null, response.status());
+            return new Probe(false, null, response.status(), response.body());
         }
         var read = SystemOneAnswer.read(response.body(), model,
                 Map.of(question.questionId(), question.ascendingKeys()));
-        return new Probe(read.isValid(), read.answer(), response.status());
+        return new Probe(read.isValid(), read.answer(), response.status(), response.body());
     }
 
     private static boolean sameOptions(SystemOneAnswer.Answer left, SystemOneAnswer.Answer right) {
@@ -272,10 +273,11 @@ public final class JudgmentVerification {
         return tiers.isEmpty() ? models : List.copyOf(tiers);
     }
 
-    /** The reading of one probe request: whether it validated, its answer, and the status the service answered with. */
-    private record Probe(boolean valid, SystemOneAnswer.Answer answer, int status) {
+    /** The reading of one probe request: whether it validated, its answer, the status and the body of the answer. */
+    private record Probe(boolean valid, SystemOneAnswer.Answer answer, int status, String body) {
 
         Probe {
+            Objects.requireNonNull(body, "body");
             if (valid && answer == null) {
                 throw new IllegalArgumentException("A valid probe carries its answer");
             }

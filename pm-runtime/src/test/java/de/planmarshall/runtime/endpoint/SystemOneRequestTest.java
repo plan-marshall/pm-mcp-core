@@ -12,7 +12,6 @@ package de.planmarshall.runtime.endpoint;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
@@ -105,11 +104,16 @@ class SystemOneRequestTest {
     @Test
     @DisplayName("a task asks at least one question and names each once")
     void refusesAnEmptyOrAmbiguousTask() {
+        var empty = SystemOneRequest.compose(profile(8192), MODEL, state(), List.of());
+        var ambiguous = SystemOneRequest.compose(profile(8192), MODEL, state(),
+                List.of(questions().getFirst(), questions().getFirst()));
+
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> SystemOneRequest.compose(profile(8192), MODEL, state(), List.of())),
-                () -> assertThrows(IllegalArgumentException.class, () -> SystemOneRequest.compose(profile(8192), MODEL,
-                        state(), List.of(questions().getFirst(), questions().getFirst()))));
+                () -> assertFalse(empty.isComposed()),
+                () -> assertEquals(SystemOneRequest.Refusal.TASK_INVALID, empty.refusal()),
+                () -> assertFalse(ambiguous.isComposed()),
+                () -> assertEquals(SystemOneRequest.Refusal.TASK_INVALID, ambiguous.refusal()),
+                () -> assertTrue(ambiguous.detail().contains("twice")));
     }
 
     @Test
