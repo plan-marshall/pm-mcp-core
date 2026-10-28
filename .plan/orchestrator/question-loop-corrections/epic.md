@@ -37,8 +37,8 @@ when the three plans have landed and the roadmap item of Milestone 4 can be chec
   Watches). Its sixth deliverable follows the OpenCode 2.x worker of #206 and documentation #125.
 - PLAN-03 — runs in `plan-marshall-mcp` (the package `question-loop-follow-up` as PLAN-02 leaves it); its surface lies
   outside this repository, so the gate reads it as indeterminate and sequences it. It is launched by the operator's word
-  after PLAN-01 and PLAN-02 have landed and the operator accepted the run budget the package asks for. PLAN-02 landed
-  2026-10-28; PLAN-01 (`pm-mcp-core` #213) was still open.
+  after PLAN-01 and PLAN-02 have landed and the operator accepted the run budget the package asks for. PLAN-02 and PLAN-01
+  both landed 2026-10-28; only the run budget (and the data-home choice the package records) is still open.
 
 ## Decisions
 
@@ -69,6 +69,13 @@ when the three plans have landed and the roadmap item of Milestone 4 can be chec
   Consequence for this epic: PLAN-03 no longer changes any specification of this repository; the settled values go to
   `client-profile-measured-values`. PLAN-03's Expected Surface lost two paths and its Deliverable 4 was rewritten in the
   same act (two verdicts persisted).
+- 2026-10-28 — PLAN-01 landed (`pm-mcp-core` #213, `3c4e58fd`; `plan-marshall-documentation` #127, `fa69be3`). Its seven
+  declared paths are exactly the paths changed. Two deliverables are not clean: D3 omitted the limit that the OpenCode runs
+  had no inline settings (the plan read the older main-checkout copy of its spec, `spec_differ: true`), and the plan-level
+  clause `BROKEN LINKS 0` failed on merged `main` for reasons outside the diff. Operator decisions the plan recorded: it
+  ran across two repositories, a fifth and final self-review round, and #127 merged without a review bot through
+  `gh pr merge` directly. Consequence for this epic: PLAN-03 may extend `evaluation.adoc` on the corrected rows; the
+  missing limit is offered to the operator as a one-sentence direct pull request (see Open Defects).
 - 2026-10-27 — The `pm-mcp-core` executor in the main checkout was stale (0.1.1924 against the registry's 0.1.2017) and
   was regenerated from the plugin cache before scaffolding; the old file is kept in the session scratchpad. The shared
   ledger worktree was fast-forwarded from #78 to `origin/main` (#195), with no pending paths.
@@ -81,12 +88,28 @@ when the three plans have landed and the roadmap item of Milestone 4 can be chec
   against a source. — source: landing review 2026-10-27 (PLAN-01 records it, PLAN-02 prevents a repeat). PLAN-02 landed
   2026-10-28: the follow-up package now names the evidence store (the branch `question-loop-follow-up` of
   `cuioss/plan-marshall-telemetry`) and checks it in its Done When; the branch does not exist until PLAN-03 creates it.
-  PLAN-01 (`pm-mcp-core` #213, open on 2026-10-28) records the loss.
+  PLAN-01 (`pm-mcp-core` #213, merged 2026-10-28) records the loss. Resolved for this epic.
 - The landing of PLAN-02 (`rb-02-revise-follow-up-package-001.md`) is incomplete: `total_tokens` is `unknown`, so its
   token total is unobserved, not zero. It was reconciled as far as its facts go; a manual paste from that run may still
   surface the token figure. — source: `inbox landing-check`, 2026-10-28
 
+- The landing of PLAN-01 (`rb-01-correct-question-loop-results-001.md`) is incomplete the same way: `total_tokens` is
+  `unknown`. — source: `inbox landing-check`, 2026-10-28
+- The Limits of `evaluation.adoc` (`plan-marshall-documentation` `main`) do not say that the OpenCode runs of the smoke
+  run had no inline settings (`headless.inline_settings`, core #206); the file holds no occurrence of "inline". PLAN-01
+  was to add it and to check which settings the experiment code's OpenCode launch set; it ran from the older spec copy.
+  — source: PLAN-01 analysis 2026-10-28. Fix: a one-sentence direct pull request in the documentation repository, or fold
+  into PLAN-03; the operator decides.
+- Merged `main` fails `BROKEN LINKS 0` (the landing reports 12 and four undefined watch ids; this analysis confirmed
+  `PM-WATCH-CLIENT-14` cited at `model-work/01-roles-and-configuration.adoc:357` and not defined in
+  `implementation-watch/client-profiles.adoc`). None comes from this epic's diffs; the owners are the plans that removed
+  the watch items. — source: PLAN-01 landing, partly verified 2026-10-28.
+
 ## Watches
+
+- Launching a plan from the main checkout reads that checkout's copy of the spec, which is older than the ledger copy
+  when the orchestrator has incorporated changes (PLAN-01's landing: `spec_differ: true`, and its D3 limit was lost to it).
+  Before PLAN-03 is emitted, compare the two copies or hand the ledger copy over. — retire when PLAN-03 is launched.
 
 - `pm-mcp-core-m2-m4` PLAN-73 (`question-continuation`) read `question-loop-verification` as `done` and its
   dependencies as met, although no `headless.resumability`, `questions` or bound value was settled. A finding was sent to

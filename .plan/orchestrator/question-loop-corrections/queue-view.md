@@ -4,17 +4,15 @@
 
 ## START HERE
 
-**Resume anchor**: PLAN-02 shipped 2026-10-28 (pm-mcp-core #212, plan-marshall-mcp #110); PLAN-01 still running, its pull request pm-mcp-core #213 is open. NEXT: when #213 merges and PLAN-01 sends its landing, run /plan-orchestrator analyze. PLAN-03 waits for PLAN-01's landing and the operator's run budget (about 55 USD, about 240 h, task 6 of the package); it changes no specification here any more, values go to client-profile-measured-values. Ledger NOT landed: a land PR (#216) from another session is open on chore/orchestrator-ledger, so run /plan-orchestrator land once it has merged. Open: no package for the Milestone 14 OpenCode 2.x items.
+**Resume anchor**: PLAN-01 and PLAN-02 shipped 2026-10-28 (core #213 and #212; mcp #110; documentation #127). PLAN-03 stays staged: it waits for the operator's run budget (about 55 USD, about 240 h, task 6 of the package) and the data-home choice; compare the ledger and main-checkout copies of its spec before it is emitted. Open: the no-inline-settings limit missing from evaluation.adoc (one-sentence direct PR or fold into PLAN-03), no package for the Milestone 14 OpenCode 2.x items, merged main fails BROKEN LINKS 0 for pre-existing causes. Ledger: land it with /plan-orchestrator land.
 **Phase**: orchestrating
-**Running**:
-- PLAN-01 (WS-01)
 **Queue** (staged, in order):
 1. PLAN-03 (WS-02)
+- PLAN-01 (WS-01) — plan=rb-01-correct-question-loop-results — PR #213 — landing=landings/PLAN-01.md — status: shipped
 - PLAN-02 (WS-02) — plan=rb-02-revise-follow-up-package — PR #212 — landing=landings/PLAN-02.md — status: shipped
 
 ## Ordered Queue
 
 | # | Plan | Workstream | Status | Surface (expected) | Lane |
 |---|------|------------|--------|--------------------|------|
-| 1 | PLAN-01 | WS-01 | running | ../plan-marshall-documentation/doc/developer/question-loop-experiment.adoc; ../plan-marshall-documentation/doc/discussions/open-questions.adoc; ../plan-marshall-documentation/doc/specification/evaluation.adoc; doc/specification/client-profiles/01-profile-schema.adoc; doc/specification/client-profiles/02-placeholders.adoc; doc/specification/model-work/01-roles-and-configuration.adoc; doc/specification/model-work/06-envelopes-questions-deadlines.adoc | runbook |
-| 2 | PLAN-03 | WS-02 | staged | ../plan-marshall-documentation/doc/specification/evaluation.adoc; ../plan-marshall-mcp/doc/plans/question-loop-follow-up.adoc; ../plan-marshall-mcp/pm-e2e/src/test/java/de/planmarshall/e2e/ | plan-marshall |
+| 1 | PLAN-03 | WS-02 | staged | ../plan-marshall-documentation/doc/specification/evaluation.adoc; ../plan-marshall-mcp/doc/plans/question-loop-follow-up.adoc; ../plan-marshall-mcp/pm-e2e/src/test/java/de/planmarshall/e2e/ | plan-marshall |

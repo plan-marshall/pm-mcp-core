@@ -84,9 +84,11 @@ evidence store.
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-02 (landed 2026-10-28; the package it implements), PLAN-01 (the corrected evaluation rows it
-  extends; its pull request `pm-mcp-core` #213 was open on 2026-10-28).
-- Overlaps with: PLAN-01 on `evaluation.adoc` — sequenced after it. The shared Client Profiles 01 and Model Work 01 paths
+- Depends on: PLAN-02 (landed 2026-10-28; the package it implements), PLAN-01 (landed 2026-10-28: `pm-mcp-core` #213,
+  `plan-marshall-documentation` #127; the corrected evaluation rows it extends). The Limits of `evaluation.adoc` still lack
+  the statement that the OpenCode runs had no inline settings; this plan states it with the figures it publishes if no
+  earlier pull request has.
+- Overlaps with: PLAN-01 on `evaluation.adoc` — now sequenced, PLAN-01 is on `main`. The shared Client Profiles 01 and Model Work 01 paths
   left this spec with the rescope above.
 - Hands over to: `pm-mcp-core` / `client-profile-measured-values`, which carries the settled values into the
   specifications and the profile schema, and to `pm-mcp-clients` (`pm-api`), where the shipped profile documents live and

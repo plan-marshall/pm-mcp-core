@@ -2,10 +2,10 @@
   "id": "PLAN-01",
   "slug": "correct-question-loop-results",
   "workstream": "WS-01",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-01-correct-question-loop-results",
+  "pr": "#213",
+  "landing": "landings/PLAN-01.md",
   "seq": 1
 }
