@@ -120,8 +120,8 @@ received, a profile offered for a later release. Validation then accepts exactly
 A failure is a `ProfileRefusal` carrying the document and the JSON Pointer of the value, and it refuses the document as
 a whole. The runtime never runs on a part of a profile.
 
-The `usage` block is `token-usage`'s: this validator checks its shape and leaves the meaning of a figure (including the
-rule that `input_tokens` and `output_tokens` are never `not_applicable`) to that package and to the stage `usage`.
+The shape of the `usage` block is validated here; its meaning (including the
+rule that `input_tokens` and `output_tokens` are never `not_applicable`) belongs to `ProfileStages` and to the stage `usage`.
 
 == Resolution, Record and Sidecar
 

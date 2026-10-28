@@ -497,19 +497,20 @@ link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeBudget.java[Pr
 link:../pm-core/src/main/java/de/planmarshall/core/store/ChangeLedger.java[ChangeLedger],
 link:../pm-core/src/main/java/de/planmarshall/core/store/QualificationSettingsStore.java[QualificationSettingsStore]
 
-Implementation (the token split and the coverage aggregate every view calls, and the token facts of a plan and an epic,
-added by the work package `token-usage`):
+Implementation (the token split and the coverage aggregate every view calls, and the token facts of a plan and an epic):
 link:../pm-core/src/main/java/de/planmarshall/core/store/HarnessUsage.java[HarnessUsage],
 link:../pm-core/src/main/java/de/planmarshall/core/store/UsageAggregate.java[UsageAggregate],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanTokens.java[PlanTokens],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/epic/EpicTokens.java[EpicTokens]
+
+The consumer of `PlanTokens` and `EpicTokens` — the `tokens.changed` event and the tokens of a running plan and of an epic with the split and the coverage — and the decision-calibration record's token split are owed to `process-and-overview` and `decision-quorum-and-calibration`; the recorded harness runs, the repeated usage evaluation and the install-path handoff `UsageResult` to `UsageReport` are owed to `machine-onboarding-unit`.
 
 Verified by (the token split and the coverage aggregate):
 link:../pm-core/src/test/java/de/planmarshall/core/store/UsageAggregateTest.java[UsageAggregateTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanTokensTest.java[PlanTokensTest],
 link:../pm-core/src/test/java/de/planmarshall/core/profile/ShippedUsageFixturesTest.java[ShippedUsageFixturesTest]
 
-Documentation (the token usage of the work package `token-usage`):
+Documentation (the token usage):
 link:../pm-core/doc/developer/core-store.adoc[Store Developer Guide],
 link:../pm-workflow/doc/developer/workflow-plan.adoc[Plan Composition Developer Guide],
 link:../pm-core/doc/adr/core-store/048-token-split-derived-on-read-and-the-coverage-aggregate.adoc[ADR core-store/048],
@@ -1401,11 +1402,13 @@ link:../pm-core/src/main/java/de/planmarshall/core/profile/ProfileStages.java[Pr
 link:../pm-core/src/main/java/de/planmarshall/core/profile/SupportedVersions.java[SupportedVersions],
 link:../pm-core/src/main/java/de/planmarshall/core/profile/ShippedProfiles.java[ShippedProfiles]
 
-Implementation (the start context and the usage coverage of the stage `usage`, added by the work package `token-usage`):
+Implementation (the start context and the usage coverage of the stage `usage`):
 link:../pm-core/src/main/java/de/planmarshall/core/profile/ProfileStages.java[ProfileStages],
 link:../pm-core/src/main/java/de/planmarshall/core/profile/VerificationRecord.java[VerificationRecord],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolment.java[HarnessEnrolment],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolmentStore.java[HarnessEnrolmentStore]
+
+The install path that hands the verification's `UsageResult` to the enrolment's `UsageReport` (`UsageReport.of` is the mapping boundary), and the recorded output of each harness and version as a parsing fixture, are owed to `machine-onboarding-unit`.
 
 Verified by (the start context and the usage coverage):
 link:../pm-core/src/test/java/de/planmarshall/core/profile/VerificationRecordTest.java[VerificationRecordTest],
@@ -1965,8 +1968,7 @@ link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerProtocol.j
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/ModelSlots.java[ModelSlots],
 link:../pm-core/src/main/java/de/planmarshall/core/store/WorkerState.java[WorkerState]
 
-Implementation (the usage figures a turn keeps raw — the five token components, `tool_uses` and the reported cost —
-added by the work package `token-usage`):
+Implementation (the usage figures a turn keeps raw — the five token components, `tool_uses` and the reported cost):
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/ActivityEventMapper.java[ActivityEventMapper]
 
 Verified by (the turn's usage figures):
