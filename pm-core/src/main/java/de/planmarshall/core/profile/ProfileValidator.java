@@ -159,6 +159,8 @@ public final class ProfileValidator {
     private static final String PTR_MIN_DAEMON_VERSION = "/min_daemon_version";
     private static final String PTR_IDENTITY = "/identity";
     private static final String PTR_EXECUTABLE = "/executable";
+    private static final String PTR_UPDATE_EVIDENCE = "/update_evidence";
+    private static final String PTR_BASE_URL = "/endpoint/base_url";
     private static final String PTR_SOURCE = "/source";
     private static final String PTR_BUNDLED = "/bundled";
     private static final String PTR_ARGV = "/argv";
@@ -381,7 +383,7 @@ public final class ProfileValidator {
             }
             var evidenceNode = required(profile, "", NAME_UPDATE_EVIDENCE);
             if (!evidenceNode.isNull()) {
-                updateEvidence(evidenceNode, "/update_evidence");
+                updateEvidence(evidenceNode, PTR_UPDATE_EVIDENCE);
             }
             var block = endpointBlock(required(profile, "", NAME_ENDPOINT), "/endpoint");
             modelTiers(required(profile, "", NAME_MODEL_TIERS), "/model_tiers");
@@ -400,7 +402,7 @@ public final class ProfileValidator {
                     Set.of("loopback", "remote"));
             var baseUrl = text(required(endpoint, pointer, NAME_BASE_URL), pointer + "/base_url", NAME_BASE_URL, 256);
             if (!LOOPBACK_URL.matcher(baseUrl).matches() && !HTTPS_URL.matcher(baseUrl).matches()) {
-                throw invalid(pointer + "/base_url", "not an endpoint URL: '%s'".formatted(baseUrl));
+                throw invalid(PTR_BASE_URL, "not an endpoint URL: '%s'".formatted(baseUrl));
             }
             var credential = optionalText(optional(endpoint, NAME_CREDENTIAL_KEY), pointer + "/credential_key",
                     NAME_CREDENTIAL_KEY, 32);
@@ -440,38 +442,47 @@ public final class ProfileValidator {
         private void localityRules(EndpointBlock block, String executable, boolean hasIdentity,
                 boolean hasUpdateEvidence) {
             if ("remote".equals(block.locality())) {
-                if (!"system_one".equals(block.protocol())) {
-                    throw invalid("/endpoint/locality",
-                            "the remote form is the protocol system_one's; an openai_chat endpoint is a loopback one");
-                }
-                if (!HTTPS_URL.matcher(block.baseUrl()).matches()) {
-                    throw invalid("/endpoint/base_url",
-                            "a remote endpoint names the https origin of one service: '%s'".formatted(block.baseUrl()));
-                }
-                if (block.credentialKey() == null) {
-                    throw invalid("/endpoint/credential_key",
-                            "a remote endpoint names the Token Lane credential entry it reads");
-                }
-                if (executable != null) {
-                    throw invalid(PTR_EXECUTABLE, "a remote endpoint has a null executable");
-                }
-                if (hasIdentity) {
-                    throw invalid(PTR_IDENTITY, "a remote endpoint has a null identity");
-                }
-                if (hasUpdateEvidence) {
-                    throw invalid("/update_evidence", "a remote endpoint has a null update_evidence");
-                }
-                return;
+                remoteRules(block, executable, hasIdentity, hasUpdateEvidence);
+            } else {
+                loopbackRules(block, executable, hasIdentity);
             }
+        }
+
+        private void remoteRules(EndpointBlock block, String executable, boolean hasIdentity,
+                boolean hasUpdateEvidence) {
+            if (!"system_one".equals(block.protocol())) {
+                throw invalid("/endpoint/locality",
+                        "the remote form is the protocol system_one's; an openai_chat endpoint is a loopback one");
+            }
+            if (!HTTPS_URL.matcher(block.baseUrl()).matches()) {
+                throw invalid(PTR_BASE_URL,
+                        "a remote endpoint names the https origin of one service: '%s'".formatted(block.baseUrl()));
+            }
+            if (block.credentialKey() == null) {
+                throw invalid("/endpoint/credential_key",
+                        "a remote endpoint names the Token Lane credential entry it reads");
+            }
+            if (executable != null) {
+                throw invalid(PTR_EXECUTABLE, "a remote endpoint has a null executable");
+            }
+            if (hasIdentity) {
+                throw invalid(PTR_IDENTITY, "a remote endpoint has a null identity");
+            }
+            if (hasUpdateEvidence) {
+                throw invalid(PTR_UPDATE_EVIDENCE, "a remote endpoint has a null update_evidence");
+            }
+        }
+
+        private void loopbackRules(EndpointBlock block, String executable, boolean hasIdentity) {
             var loopback = LOOPBACK_URL.matcher(block.baseUrl());
             if (!loopback.matches()) {
-                throw invalid("/endpoint/base_url",
+                throw invalid(PTR_BASE_URL,
                         "a loopback endpoint names http://127.0.0.1:<port> or http://[::1]:<port>: '%s'"
                                 .formatted(block.baseUrl()));
             }
             var port = Integer.parseInt(loopback.group(2));
             if (port < 1 || port > 65535) {
-                throw invalid("/endpoint/base_url", "not a port: %d".formatted(port));
+                throw invalid(PTR_BASE_URL, "not a port: %d".formatted(port));
             }
             if (block.credentialKey() != null) {
                 throw invalid("/endpoint/credential_key", "a loopback endpoint has a null credential_key");

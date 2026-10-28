@@ -330,8 +330,8 @@ class JudgmentEndpointRemoteTest {
         private final SimpleFormatter formatter = new SimpleFormatter();
 
         @Override
-        public void publish(LogRecord record) {
-            lines.add(formatter.format(record));
+        public void publish(LogRecord logRecord) {
+            lines.add(formatter.format(logRecord));
         }
 
         @Override

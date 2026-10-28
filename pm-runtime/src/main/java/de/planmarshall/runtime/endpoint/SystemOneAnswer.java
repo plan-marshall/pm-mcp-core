@@ -45,6 +45,15 @@ public final class SystemOneAnswer {
     private static final BigDecimal ZERO = BigDecimal.ZERO;
     private static final BigDecimal ONE = BigDecimal.ONE;
 
+    /** The member names of the protocol's answer, spelled once. */
+    private static final String MODEL = "model";
+    private static final String ANSWERS = "answers";
+    private static final String CHOICE = "choice";
+    private static final String PROBABILITIES = "probabilities";
+    private static final String USAGE = "usage";
+    private static final String INPUT_TOKENS = "input_tokens";
+    private static final String OUTPUT_TOKENS = "output_tokens";
+
     /**
      * One answer of a question: the chosen {@code branch_key} and the probability of each option.
      *
@@ -55,9 +64,9 @@ public final class SystemOneAnswer {
 
         /** Copies the probabilities and refuses a missing choice. */
         public QuestionAnswer {
-            Objects.requireNonNull(choice, "choice");
+            Objects.requireNonNull(choice, CHOICE);
             probabilities = Collections.unmodifiableMap(
-                    new LinkedHashMap<>(Objects.requireNonNull(probabilities, "probabilities")));
+                    new LinkedHashMap<>(Objects.requireNonNull(probabilities, PROBABILITIES)));
         }
     }
 
@@ -72,9 +81,9 @@ public final class SystemOneAnswer {
 
         /** Copies the answers and refuses a missing value. */
         public Answer {
-            Objects.requireNonNull(model, "model");
-            answers = Collections.unmodifiableMap(new LinkedHashMap<>(Objects.requireNonNull(answers, "answers")));
-            Objects.requireNonNull(usage, "usage");
+            Objects.requireNonNull(model, MODEL);
+            answers = Collections.unmodifiableMap(new LinkedHashMap<>(Objects.requireNonNull(answers, ANSWERS)));
+            Objects.requireNonNull(usage, USAGE);
         }
 
         /**
@@ -86,11 +95,10 @@ public final class SystemOneAnswer {
             answers.forEach((questionId, answer) -> {
                 var probabilities = new LinkedHashMap<String, JsonNode>();
                 answer.probabilities().forEach((option, value) -> probabilities.put(option, JsonNode.decimal(value)));
-                answersNode.put(questionId, JsonNode.object(Map.of("choice", JsonNode.string(answer.choice()),
-                        "probabilities", JsonNode.object(probabilities))));
+                answersNode.put(questionId, JsonNode.object(Map.of(CHOICE, JsonNode.string(answer.choice()),
+                        PROBABILITIES, JsonNode.object(probabilities))));
             });
-            return JsonNode.object(Map.of("model", JsonNode.string(model), "answers",
-                    JsonNode.object(answersNode)));
+            return JsonNode.object(Map.of(MODEL, JsonNode.string(model), ANSWERS, JsonNode.object(answersNode)));
         }
     }
 
@@ -169,7 +177,7 @@ public final class SystemOneAnswer {
         if (!document.isObject()) {
             return Read.refused(Refusal.INVALID_ANSWER, "the answer is not a JSON object");
         }
-        var model = document.member("model").flatMap(JsonNode::text);
+        var model = document.member(MODEL).flatMap(JsonNode::text);
         if (model.isEmpty()) {
             return Read.refused(Refusal.INVALID_ANSWER, "the answer names no model");
         }
@@ -177,52 +185,66 @@ public final class SystemOneAnswer {
             return Read.refused(Refusal.MODEL_ALIAS,
                     "the answer names another model id than the requested one");
         }
-        var answers = document.member("answers").filter(JsonNode::isObject).orElse(null);
+        var answers = document.member(ANSWERS).filter(JsonNode::isObject).orElse(null);
         if (answers == null) {
             return Read.refused(Refusal.INVALID_ANSWER, "the answer holds no answers object");
         }
         var read = new LinkedHashMap<String, QuestionAnswer>();
         for (var entry : options.entrySet()) {
-            var questionId = entry.getKey();
-            var question = answers.member(questionId).filter(JsonNode::isObject).orElse(null);
-            if (question == null) {
-                return Read.refused(Refusal.INVALID_ANSWER,
-                        "the answer holds no answer to question '%s'".formatted(questionId));
+            var checked = question(answers, entry.getKey(), entry.getValue());
+            if (checked.refusal() != null) {
+                return Read.refused(checked.refusal(), checked.detail());
             }
-            var choice = question.member("choice").flatMap(JsonNode::text).orElse(null);
-            if (choice == null || !entry.getValue().contains(choice)) {
-                return Read.refused(Refusal.INVALID_ANSWER,
-                        "the choice of question '%s' is not one of its options".formatted(questionId));
-            }
-            var probabilities = question.member("probabilities").filter(JsonNode::isObject).orElse(null);
-            if (probabilities == null) {
-                return Read.refused(Refusal.INVALID_ANSWER,
-                        "the answer to question '%s' holds no probabilities".formatted(questionId));
-            }
-            var figures = new LinkedHashMap<String, BigDecimal>();
-            var sum = ZERO;
-            for (var probability : probabilities.members().entrySet()) {
-                if (!entry.getValue().contains(probability.getKey())) {
-                    return Read.refused(Refusal.INVALID_ANSWER,
-                            "the probabilities of question '%s' name an option it does not have"
-                                    .formatted(questionId));
-                }
-                var value = probability.getValue().decimalValue().orElse(null);
-                if (value == null || value.compareTo(ZERO) < 0 || value.compareTo(ONE) > 0) {
-                    return Read.refused(Refusal.INVALID_ANSWER,
-                            "a probability of question '%s' is not between 0 and 1".formatted(questionId));
-                }
-                figures.put(probability.getKey(), value);
-                sum = sum.add(value);
-            }
-            if (sum.subtract(ONE).abs().compareTo(SUM_TOLERANCE) > 0) {
-                return Read.refused(Refusal.INVALID_ANSWER,
-                        "the probabilities of question '%s' do not sum to 1 within %s".formatted(questionId,
-                                SUM_TOLERANCE.toPlainString()));
-            }
-            read.put(questionId, new QuestionAnswer(choice, figures));
+            read.put(entry.getKey(), checked.answer());
         }
         return Read.valid(new Answer(model.get(), read, usage(document)));
+    }
+
+    private static Checked question(JsonNode answers, String questionId, List<String> options) {
+        var question = answers.member(questionId).filter(JsonNode::isObject).orElse(null);
+        if (question == null) {
+            return Checked.refused("the answer holds no answer to question '%s'".formatted(questionId));
+        }
+        var choice = question.member(CHOICE).flatMap(JsonNode::text).orElse(null);
+        if (choice == null || !options.contains(choice)) {
+            return Checked.refused("the choice of question '%s' is not one of its options".formatted(questionId));
+        }
+        var probabilities = question.member(PROBABILITIES).filter(JsonNode::isObject).orElse(null);
+        if (probabilities == null) {
+            return Checked.refused("the answer to question '%s' holds no probabilities".formatted(questionId));
+        }
+        var figures = new LinkedHashMap<String, BigDecimal>();
+        var sum = ZERO;
+        for (var probability : probabilities.members().entrySet()) {
+            if (!options.contains(probability.getKey())) {
+                return Checked.refused(
+                        "the probabilities of question '%s' name an option it does not have".formatted(questionId));
+            }
+            var value = probability.getValue().decimalValue().orElse(null);
+            if (value == null || value.compareTo(ZERO) < 0 || value.compareTo(ONE) > 0) {
+                return Checked.refused(
+                        "a probability of question '%s' is not between 0 and 1".formatted(questionId));
+            }
+            figures.put(probability.getKey(), value);
+            sum = sum.add(value);
+        }
+        if (sum.subtract(ONE).abs().compareTo(SUM_TOLERANCE) > 0) {
+            return Checked.refused("the probabilities of question '%s' do not sum to 1 within %s"
+                    .formatted(questionId, SUM_TOLERANCE.toPlainString()));
+        }
+        return Checked.valid(new QuestionAnswer(choice, figures));
+    }
+
+    /** The reading of one question's answer, or why it is refused. */
+    private record Checked(QuestionAnswer answer, Refusal refusal, String detail) {
+
+        static Checked valid(QuestionAnswer answer) {
+            return new Checked(answer, null, "valid");
+        }
+
+        static Checked refused(String detail) {
+            return new Checked(null, Refusal.INVALID_ANSWER, detail);
+        }
     }
 
     /**
@@ -230,11 +252,11 @@ public final class SystemOneAnswer {
      * task like the usage of any endpoint; a count the answer lacks is {@code unmeasured}.
      */
     private static HarnessUsage usage(JsonNode answer) {
-        return HarnessUsage.fromEndpoint(figure(answer, "input_tokens"), figure(answer, "output_tokens"));
+        return HarnessUsage.fromEndpoint(figure(answer, INPUT_TOKENS), figure(answer, OUTPUT_TOKENS));
     }
 
     private static OptionalLong figure(JsonNode answer, String member) {
-        var node = answer.member("usage").flatMap(value -> value.member(member)).orElse(null);
+        var node = answer.member(USAGE).flatMap(value -> value.member(member)).orElse(null);
         return node == null ? OptionalLong.empty() : node.integerValue();
     }
 }

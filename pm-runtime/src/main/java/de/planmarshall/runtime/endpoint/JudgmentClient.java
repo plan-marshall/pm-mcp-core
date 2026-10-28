@@ -109,26 +109,37 @@ public final class JudgmentClient {
         if (!profile.endpoint().judgment()) {
             return refusal(profile, path, "not the protocol system_one");
         }
-        var uri = uri(profile, path);
-        var endpoint = profile.endpoint();
-        final String authorization;
-        if (endpoint.remote()) {
-            var entry = credentials.entry(endpoint.credentialKey()).orElse(null);
-            if (entry == null) {
-                return refusal(profile, path, "the credential entry '%s' is missing".formatted(
-                        endpoint.credentialKey()));
-            }
-            if (!TokenLaneCredential.origin(URI.create(endpoint.baseUrl())).equals(entry.origin())) {
-                return refusal(profile, path, "the credential entry's origin is not the profile's base_url");
-            }
-            redaction.register(entry.secret());
-            authorization = "Bearer " + entry.secret();
-        } else {
-            if (!EndpointClient.loopback(uri)) {
-                return refusal(profile, path, "not a loopback address");
-            }
-            authorization = null;
+        var credential = credential(profile, path);
+        if (credential.refusal() != null) {
+            return credential.refusal();
         }
+        return transport(profile, uri(profile, path), body, credential.authorization());
+    }
+
+    /**
+     * @return the authorization header the request carries, or the refusal that ends the attempt before it is sent
+     */
+    private Credential credential(EndpointProfile profile, String path) {
+        var endpoint = profile.endpoint();
+        if (!endpoint.remote()) {
+            return EndpointClient.loopback(uri(profile, path)) ? new Credential(null, null)
+                    : new Credential(null, refusal(profile, path, "not a loopback address"));
+        }
+        var entry = credentials.entry(endpoint.credentialKey()).orElse(null);
+        if (entry == null) {
+            return new Credential(null, refusal(profile, path, "the credential entry '%s' is missing"
+                    .formatted(endpoint.credentialKey())));
+        }
+        if (!TokenLaneCredential.origin(URI.create(endpoint.baseUrl())).equals(entry.origin())) {
+            return new Credential(null,
+                    refusal(profile, path, "the credential entry's origin is not the profile's base_url"));
+        }
+        redaction.register(entry.secret());
+        return new Credential("Bearer " + entry.secret(), null);
+    }
+
+    private EndpointClient.Response transport(EndpointProfile profile, URI uri, String body, String authorization) {
+        var endpoint = profile.endpoint();
         try (var handler = handler(uri, endpoint)) {
             var request = handler.requestBuilder().uri(uri).header("Content-Type", MEDIA_TYPE);
             if (authorization != null) {
@@ -159,6 +170,10 @@ public final class JudgmentClient {
             Thread.currentThread().interrupt();
             return failure(uri, EndpointClient.Failure.UNREACHABLE, "interrupted");
         }
+    }
+
+    /** The authorization header of one request, or the refusal that ends the attempt before it is sent. */
+    private record Credential(String authorization, EndpointClient.Response refusal) {
     }
 
     private HttpHandler handler(URI uri, EndpointProfile.Endpoint endpoint) {

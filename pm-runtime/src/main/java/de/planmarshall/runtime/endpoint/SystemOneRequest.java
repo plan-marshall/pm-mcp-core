@@ -100,11 +100,8 @@ public final class SystemOneRequest {
          * @return the branch keys in the order the request lists them
          */
         public List<String> keys(boolean ascending) {
-            var keys = new ArrayList<>(ascendingKeys());
-            if (!ascending) {
-                Collections.reverse(keys);
-            }
-            return List.copyOf(keys);
+            var keys = ascendingKeys();
+            return ascending ? keys : keys.reversed();
         }
     }
 

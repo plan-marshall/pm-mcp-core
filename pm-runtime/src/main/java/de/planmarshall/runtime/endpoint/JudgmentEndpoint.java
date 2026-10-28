@@ -93,7 +93,7 @@ public final class JudgmentEndpoint {
                     null);
             var refusal = new Answers(null, refused, null);
             logLaunchRefusal(profile, notEnrolled);
-            record(profile, model, refusal, started);
+            appendRecord(profile, model, refusal, started);
             return refusal;
         }
         var composed = SystemOneRequest.compose(profile, model, state, questions);
@@ -102,7 +102,7 @@ public final class JudgmentEndpoint {
                     .ENTITY_EXCEEDS_BUDGET ? EndpointOutcome.Reason.INPUT_TOO_LARGE
                     : EndpointOutcome.Reason.REQUEST_REFUSED, composed.detail()), null);
             var refusal = new Answers(null, refused, null);
-            record(profile, model, refusal, started);
+            appendRecord(profile, model, refusal, started);
             return refusal;
         }
         var options = SystemOneRequest.options(questions);
@@ -112,7 +112,7 @@ public final class JudgmentEndpoint {
             descending = attempt(profile, model, composed.request().descending(), options);
         }
         var answers = new Answers(composed.request(), ascending, descending);
-        record(profile, model, answers, started);
+        appendRecord(profile, model, answers, started);
         return answers;
     }
 
@@ -194,7 +194,7 @@ public final class JudgmentEndpoint {
     /**
      * Appends the one record of the task and logs its status, both without a body or a credential.
      */
-    private void record(EndpointProfile profile, String model, Answers answers, long started) {
+    private void appendRecord(EndpointProfile profile, String model, Answers answers, long started) {
         var endpoint = EndpointClient.shown(URI.create(profile.endpoint().baseUrl()));
         var status = answers.status();
         var duration = Math.max(0, clock.millis() - started);

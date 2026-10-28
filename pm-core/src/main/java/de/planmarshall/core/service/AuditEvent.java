@@ -560,9 +560,9 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     public static AuditEvent judgmentTaskCompleted(String endpoint, String model, String status, long inputTokens,
             long outputTokens, long durationMillis) {
         var details = new HashMap<String, Object>();
-        details.put(DETAIL_ENDPOINT, Objects.requireNonNull(endpoint, "endpoint"));
-        details.put(DETAIL_MODEL, Objects.requireNonNull(model, "model"));
-        details.put(DETAIL_STATUS, Objects.requireNonNull(status, "status"));
+        details.put(DETAIL_ENDPOINT, Objects.requireNonNull(endpoint, DETAIL_ENDPOINT));
+        details.put(DETAIL_MODEL, Objects.requireNonNull(model, DETAIL_MODEL));
+        details.put(DETAIL_STATUS, Objects.requireNonNull(status, DETAIL_STATUS));
         details.put(DETAIL_INPUT_TOKENS, inputTokens);
         details.put(DETAIL_OUTPUT_TOKENS, outputTokens);
         details.put(DETAIL_DURATION_MS, durationMillis);

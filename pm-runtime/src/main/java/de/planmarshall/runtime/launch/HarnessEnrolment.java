@@ -54,7 +54,7 @@ Binding binding) {
 
     private static final Pattern CLIENT_ID = Pattern.compile("^[a-z][a-z0-9-]{1,31}$");
     private static final Pattern DIGEST = Pattern.compile("[0-9a-f]{64}");
-    private static final Pattern ORIGIN = Pattern.compile("^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?$");
+    private static final Pattern ORIGIN = Pattern.compile("^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:\\d{1,5})?$");
     private static final Set<String> EVENT_RESULTS = Set.of("reported", "missing");
 
     /**

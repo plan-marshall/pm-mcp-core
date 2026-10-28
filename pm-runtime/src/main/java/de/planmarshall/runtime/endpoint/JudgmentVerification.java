@@ -23,6 +23,7 @@ import de.planmarshall.core.profile.EndpointProfile;
 import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.profile.JsonPointer;
+import de.planmarshall.core.profile.ProfileRefusal;
 import de.planmarshall.core.profile.ProfileStages;
 import de.planmarshall.runtime.launch.HarnessVerifier;
 
@@ -54,6 +55,9 @@ public final class JudgmentVerification {
 
     /** The question the {@code launch} and {@code limits} stages send. */
     public static final String PROBE_QUESTION = "probe";
+
+    /** The instructions of the two-option probe. */
+    private static final String PROBE_INSTRUCTIONS = "Which option holds for the state?";
 
     private static final String ENFORCED = "enforced";
     private static final String NONE = "none";
@@ -143,10 +147,8 @@ public final class JudgmentVerification {
     private ProfileStages.EndpointLaunch launch(EndpointProfile profile, String model) {
         var ready = client.get(profile, profile.endpoint().readinessOrModelsPath()).successful();
         var probes = new LinkedHashMap<String, String>();
-        var ascending = probe(profile, model, probeState(), twoOptionsQuestion("Which option holds for the state?"),
-                true);
-        var descending = probe(profile, model, probeState(), twoOptionsQuestion("Which option holds for the state?"),
-                false);
+        var ascending = probe(profile, model, probeState(), twoOptionsQuestion(PROBE_INSTRUCTIONS), true);
+        var descending = probe(profile, model, probeState(), twoOptionsQuestion(PROBE_INSTRUCTIONS), false);
         probes.put("two_options_ascending", describe(ascending));
         probes.put("two_options_descending", describe(descending));
         var sameOptions = ascending.valid() && descending.valid()
@@ -175,8 +177,7 @@ public final class JudgmentVerification {
         while (low <= high && sent < MAXIMUM_BISECTION_PROBES) {
             var middle = low + (high - low) / 2;
             sent++;
-            var read = probe(profile, model, fillerState(middle),
-                    twoOptionsQuestion("Which option holds for the state?"), true);
+            var read = probe(profile, model, fillerState(middle), twoOptionsQuestion(PROBE_INSTRUCTIONS), true);
             if (read.status() == 400 && read.body().contains("max_tokens_exceeded")) {
                 high = middle - 1;
             } else if (read.valid()) {
@@ -229,7 +230,7 @@ public final class JudgmentVerification {
     }
 
     private static JsonNode probeState() {
-        return JsonNode.object(Map.of("probe", JsonNode.bool(true)));
+        return JsonNode.object(Map.of(PROBE_QUESTION, JsonNode.bool(true)));
     }
 
     private static JsonNode fillerState(int tokens) {
@@ -253,9 +254,7 @@ public final class JudgmentVerification {
         try {
             var document = JsonDocument.parse(response.body().getBytes(StandardCharsets.UTF_8), "models");
             return JsonPointer.resolve(document, profile.endpoint().modelsPointer(), "models listing");
-        }
-        /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
-        catch (RuntimeException _) {
+        } catch (ProfileRefusal | IllegalArgumentException _) {
             return JsonNode.nullValue();
         }
     }

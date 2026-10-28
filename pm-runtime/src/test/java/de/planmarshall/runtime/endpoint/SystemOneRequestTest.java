@@ -66,7 +66,7 @@ class SystemOneRequestTest {
 
     @Test
     @DisplayName("a request holds the model, the state and the questions, and nothing else")
-    void sendsNothingElse() throws Exception {
+    void sendsNothingElse() {
         var body = SystemOneRequest.compose(profile(8192), MODEL, state(), questions()).request().ascending();
         var document = JsonDocument.parse(body.getBytes(StandardCharsets.UTF_8), "request");
 
@@ -82,7 +82,7 @@ class SystemOneRequestTest {
 
     @Test
     @DisplayName("a question carries the type choice, its instructions and its criteria")
-    void questionShape() throws Exception {
+    void questionShape() {
         var body = SystemOneRequest.compose(profile(8192), MODEL, state(), questions()).request().ascending();
         var document = JsonDocument.parse(body.getBytes(StandardCharsets.UTF_8), "request");
         var question = document.member("questions").flatMap(value -> value.member("q-1")).orElseThrow();
