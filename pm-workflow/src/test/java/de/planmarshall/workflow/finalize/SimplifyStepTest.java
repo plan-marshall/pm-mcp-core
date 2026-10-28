@@ -103,8 +103,8 @@ class SimplifyStepTest {
     @DisplayName("Proposals are recorded as SP-<n> records, open, and never reused")
     @Test
     void proposalsAreRecordedOpen() {
-        var first = SimplifyStep.record(List.of(proposal("one"), proposal("two")), 1);
-        var second = SimplifyStep.record(List.of(proposal("three")), 3);
+        var first = SimplifyStep.recordProposals(List.of(proposal("one"), proposal("two")), 1);
+        var second = SimplifyStep.recordProposals(List.of(proposal("three")), 3);
 
         assertEquals(List.of("SP-1", "SP-2"), first.stream().map(ProposalRecord::proposalId).toList());
         assertEquals("SP-3", second.getFirst().proposalId());
@@ -116,7 +116,7 @@ class SimplifyStepTest {
     @DisplayName("The apply task applies the accepted subset and declines every other proposal")
     @Test
     void applyAcceptsTheSubsetAndDeclinesTheRest() {
-        var records = SimplifyStep.record(List.of(proposal("one"), proposal("two"), proposal("three")), 1);
+        var records = SimplifyStep.recordProposals(List.of(proposal("one"), proposal("two"), proposal("three")), 1);
 
         var result = SimplifyStep.apply(records, List.of("SP-2"));
 
@@ -130,7 +130,7 @@ class SimplifyStepTest {
     @DisplayName("An empty accepted set declines every proposal and routes nowhere")
     @Test
     void emptyAcceptedSetDeclinesEverything() {
-        var records = SimplifyStep.record(List.of(proposal("one"), proposal("two")), 1);
+        var records = SimplifyStep.recordProposals(List.of(proposal("one"), proposal("two")), 1);
         var result = SimplifyStep.apply(records, List.of());
 
         assertFalse(result.applied());
@@ -140,7 +140,7 @@ class SimplifyStepTest {
     @DisplayName("An accepted id that is no open proposal of the firing is refused")
     @Test
     void unknownAcceptedIdIsRefused() {
-        var records = SimplifyStep.record(List.of(proposal("one")), 1);
+        var records = SimplifyStep.recordProposals(List.of(proposal("one")), 1);
         var unknownId = List.of("SP-9");
         assertThrows(IllegalArgumentException.class, () -> SimplifyStep.apply(records, unknownId));
         var applied = SimplifyStep.apply(records, List.of("SP-1"));

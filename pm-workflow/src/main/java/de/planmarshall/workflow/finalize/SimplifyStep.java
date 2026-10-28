@@ -104,7 +104,7 @@ public final class SimplifyStep {
      * @return the records, in submission order
      * @throws IllegalArgumentException if the first number is below 1
      */
-    public static List<ProposalRecord> record(List<SimplifyProposal> proposals, int firstNumber) {
+    public static List<ProposalRecord> recordProposals(List<SimplifyProposal> proposals, int firstNumber) {
         Objects.requireNonNull(proposals, PROPOSALS);
         if (firstNumber < 1) {
             throw new IllegalArgumentException("the first proposal number is at least 1: " + firstNumber);

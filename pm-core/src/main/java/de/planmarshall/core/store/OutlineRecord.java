@@ -169,7 +169,7 @@ List<Deliverable> deliverables) {
         /** A reduction of technical debt. */
         TECH_DEBT("tech_debt"),
         /** A verification without a change. */
-        VERIFICATION("verification");
+        VERIFICATION(VERIFICATION_WIRE);
 
         private final String wireName;
 

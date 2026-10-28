@@ -86,12 +86,12 @@ public record CapabilitySpec(String capability, String purpose, List<Requirement
      * @throws NullPointerException     if a value is {@code null}
      */
     public CapabilitySpec {
-        Objects.requireNonNull(capability, "capability");
-        Objects.requireNonNull(purpose, "purpose");
+        Objects.requireNonNull(capability, FIELD_CAPABILITY);
+        Objects.requireNonNull(purpose, FIELD_PURPOSE);
         if (purpose.length() < 20 || purpose.length() > 1000) {
             throw new IllegalArgumentException("a purpose is 20 to 1000 characters: " + purpose.length());
         }
-        Objects.requireNonNull(requirements, "requirements");
+        Objects.requireNonNull(requirements, FIELD_REQUIREMENTS);
         requirements = List.copyOf(requirements);
         var names = new HashSet<String>();
         for (var requirement : requirements) {
@@ -287,7 +287,7 @@ public record CapabilitySpec(String capability, String purpose, List<Requirement
                         throw new IllegalArgumentException(
                                 "the requirement '%s' is not in EARS form: %s".formatted(name, reason));
                     });
-            Objects.requireNonNull(scenarios, "scenarios");
+            Objects.requireNonNull(scenarios, FIELD_SCENARIOS);
             scenarios = List.copyOf(scenarios);
             if (scenarios.isEmpty()) {
                 throw new IllegalArgumentException("the requirement '%s' holds no scenario".formatted(name));

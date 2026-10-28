@@ -89,7 +89,7 @@ and the rest of the tree, normalizes identifiers to `i` and numeric and string l
 every run of at least `CloneCandidate.MIN_TOKENS` (`50`) tokens that repeats the tree, at most
 `CloneCandidate.MAX_CANDIDATES` (`20`), the longest first. Comments and white space are not tokens.
 
-`SimplifyStep.record(proposals, firstNumber)` records a `submit:simplify` as `ProposalRecord`s (`SP-<n>`, disposition
+`SimplifyStep.recordProposals(proposals, firstNumber)` records a `submit:simplify` as `ProposalRecord`s (`SP-<n>`, disposition
 `open`). `SimplifyStep.apply(records, accepted)` applies the accepted subset: every accepted proposal becomes
 `accepted`, every other open one `declined`, and `ApplyResult.applied()` tells the caller to route the change through
 `finalize.settle-commit`; an accepted id that is no open proposal of the firing is refused.
