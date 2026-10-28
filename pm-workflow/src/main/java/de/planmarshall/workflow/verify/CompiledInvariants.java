@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -250,7 +251,7 @@ public final class CompiledInvariants {
         return rules.violations().stream().map(violation -> {
             var id = (PLAN_UNIT.equals(unit.id()) || Phase.FINALIZE.unitId().equals(unit.id()))
                     && violation.rule() == VerificationRule.STEP_COMPLETION
-                            ? InvariantId.INV_FIN_3 : InvariantId.INV_GEN_1;
+                    ? InvariantId.INV_FIN_3 : InvariantId.INV_GEN_1;
             return new InvariantViolation(id, violation.stateId(), violation.location(), "Rule %d (%s): %s".formatted(
                     violation.rule().specificationRule(), violation.rule(), violation.message()));
         }).toList();
@@ -602,9 +603,9 @@ public final class CompiledInvariants {
             var owner = expansion.owners().get(stateId);
             var phase = owner == null ? null : expansion.phases().get(owner);
             if (phase != null) {
-                return Optional.of(phase.name().toLowerCase(java.util.Locale.ROOT));
+                return Optional.of(phase.name().toLowerCase(Locale.ROOT));
             }
-            return Phase.ofCallState(stateId).map(found -> found.name().toLowerCase(java.util.Locale.ROOT));
+            return Phase.ofCallState(stateId).map(found -> found.name().toLowerCase(Locale.ROOT));
         }
 
         /**

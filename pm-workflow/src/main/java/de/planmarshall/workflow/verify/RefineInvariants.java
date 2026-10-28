@@ -18,7 +18,6 @@ import java.util.Queue;
 import java.util.Set;
 
 import de.planmarshall.workflow.ast.StateNode;
-import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.verify.CompiledInvariants.Check;
 import de.planmarshall.workflow.verify.CompiledInvariants.Context;
 import de.planmarshall.workflow.verify.CompiledInvariants.Edge;

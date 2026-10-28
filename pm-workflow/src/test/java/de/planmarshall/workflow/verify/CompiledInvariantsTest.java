@@ -205,7 +205,7 @@ class CompiledInvariantsTest {
             var units = refusing.units();
             var expectedLine = InvariantFixtures.lineOf(refusing.anchorText(), refusing.anchor());
 
-            var found = new java.util.ArrayList<InvariantViolation>();
+            var found = new ArrayList<InvariantViolation>();
             for (var unit : units.values()) {
                 var rules = InvariantFixtures.validator().verify(unit);
                 found.addAll(InvariantFixtures.invariants().check(unit, units.values(), rules,

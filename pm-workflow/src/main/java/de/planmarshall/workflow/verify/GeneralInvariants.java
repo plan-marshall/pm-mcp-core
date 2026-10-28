@@ -98,16 +98,16 @@ final class GeneralInvariants {
                     .formatted(describeStart(unit.startState()), describeStart(reference.startState())));
         }
         compareInterface(context, unit, reference);
-        for (var terminal : context.referenceStates()) {
-            if (Context.isTerminal(terminal) && context.state(terminal.id()).filter(Context::isTerminal).isEmpty()) {
+        for (var terminal : context.referenceOwnStates()) {
+            if (Context.isTerminal(terminal) && context.ownState(terminal.id()).filter(Context::isTerminal).isEmpty()) {
                 context.reportUnit(id, "the terminal state '%s' of the default unit is missing".formatted(terminal.id()));
             }
         }
-        for (var state : context.states()) {
+        for (var state : context.ownStates()) {
             if (!Context.isTerminal(state)) {
                 continue;
             }
-            var counterpart = context.referenceState(state.id()).filter(Context::isTerminal);
+            var counterpart = context.referenceOwnState(state.id()).filter(Context::isTerminal);
             if (counterpart.isEmpty()) {
                 context.reportState(id, state, "the terminal state '%s' is not a terminal state of the default unit"
                         .formatted(state.id()));

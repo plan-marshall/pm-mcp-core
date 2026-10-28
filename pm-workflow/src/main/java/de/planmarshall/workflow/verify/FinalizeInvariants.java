@@ -23,7 +23,6 @@ import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.StepCompletionStatus;
-import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.LaneClass;
 import de.planmarshall.workflow.verify.CompiledInvariants.Check;
@@ -263,11 +262,11 @@ final class FinalizeInvariants {
             }
             var lateCall = source.behavior() instanceof StateBehavior.SubWorkflowCall
                     && context.ownerOf(source.id()).flatMap(Phase::ofUnit)
-                            .filter(phase -> phase == Phase.EXECUTE || phase == Phase.FINALIZE).isPresent();
+                    .filter(phase -> phase == Phase.EXECUTE || phase == Phase.FINALIZE).isPresent();
             if (lateCall && CompiledInvariants.STEPPED_OUT.equals(transition.outcomeName())
                     && !CompiledInvariants.HAND_BACK.equals(transition.targetStateId())
                     && !RemediationInvariants.isFallbackExit(context, transition.targetStateId(),
-                            CompiledInvariants.HAND_BACK)) {
+                    CompiledInvariants.HAND_BACK)) {
                 context.reportTransition(id, source, transition, "the call state '%s' routes '%s' to '%s', not to '%s'"
                         .formatted(source.id(), CompiledInvariants.STEPPED_OUT, transition.targetStateId(),
                                 CompiledInvariants.HAND_BACK));
@@ -299,6 +298,6 @@ final class FinalizeInvariants {
             OutcomeTransition transition) {
         return ARCHIVE_PLAN.equals(source.id()) || context.returnsThrough(source, transition, ARCHIVE_PLAN)
                 || (!(source.behavior() instanceof StateBehavior.SubWorkflowCall)
-                        && context.dominates(ARCHIVE_PLAN, source.id()));
+                && context.dominates(ARCHIVE_PLAN, source.id()));
     }
 }

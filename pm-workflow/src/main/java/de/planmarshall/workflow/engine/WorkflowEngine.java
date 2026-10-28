@@ -17,6 +17,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -605,7 +606,7 @@ public final class WorkflowEngine {
         }
         var segment = stateId.substring(0, dot);
         return Arrays.stream(Phase.values())
-                .filter(phase -> phase.name().toLowerCase(java.util.Locale.ROOT).equals(segment)).findFirst();
+                .filter(phase -> phase.name().toLowerCase(Locale.ROOT).equals(segment)).findFirst();
     }
 
     private static String phaseOf(WorkflowDefinition currentUnit, String stateId, CallStack stack,

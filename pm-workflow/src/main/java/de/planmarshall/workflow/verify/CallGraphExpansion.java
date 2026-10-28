@@ -10,6 +10,7 @@
 package de.planmarshall.workflow.verify;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import de.planmarshall.workflow.ast.OutcomeTransition;
 import de.planmarshall.workflow.ast.Phase;
@@ -74,7 +76,7 @@ final class CallGraphExpansion {
      */
     static CallGraphExpansion single(WorkflowDefinition unit) {
         return new CallGraphExpansion(Map.of(unit.id(), unit), unit.states(),
-                unit.states().keySet().stream().collect(java.util.stream.Collectors.toMap(id -> id, id -> unit.id(),
+                unit.states().keySet().stream().collect(Collectors.toMap(id -> id, id -> unit.id(),
                         (left, right) -> left, LinkedHashMap::new)),
                 carriedPhases(unit, Map.of(unit.id(), unit)), UnitGraph.of(unit));
     }
@@ -282,7 +284,7 @@ final class CallGraphExpansion {
      * @return the transitions of the expansion, each with its source state
      */
     List<CompiledInvariants.Edge> edges() {
-        var edges = new java.util.ArrayList<CompiledInvariants.Edge>();
+        var edges = new ArrayList<CompiledInvariants.Edge>();
         for (var state : states.values()) {
             for (var transition : UnitGraph.allTransitions(state.behavior())) {
                 edges.add(new CompiledInvariants.Edge(state, transition));

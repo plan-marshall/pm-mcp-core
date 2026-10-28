@@ -13,6 +13,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import de.planmarshall.workflow.ast.Phase;
+
 /**
  * The closed list of the compiled invariants every project-owned unit satisfies (PM-IMPL-5, PM-WF-16). Every
  * {@link InvariantViolation} names exactly one of them; this enum is the only source of the invariant vocabulary.
@@ -24,7 +26,8 @@ import java.util.Optional;
  * <p>
  * A unit pattern is a unit identifier, {@value #ALL_UNITS} for every unit, or a namespace followed by {@code .*} for
  * every unit of the namespace, for example {@code remediation.*}. The phase invariants apply to the merged plan unit
- * {@value #PLAN_UNIT}, which holds the states of every phase file.
+ * {@value #PLAN_UNIT}, which calls the phases, and to the phase sub-workflow whose states they judge, so a phase unit
+ * is held to its own part of the guarantee and the plan unit to the guarantee over the composed graph.
  *
  * @since 0.1
  */
@@ -58,52 +61,52 @@ public enum InvariantId {
     INV_GEN_5("INV-GEN-5", List.of(InvariantId.ALL_UNITS), null),
 
     /** {@code init.classify} on every path, init questions return to it, the stamps before {@code init.ready}. */
-    INV_INIT_1("INV-INIT-1", List.of(InvariantId.PLAN_UNIT), null),
+    INV_INIT_1("INV-INIT-1", List.of(InvariantId.PLAN_UNIT, Phase.INIT.unitId()), null),
 
     /**
      * Per lane: the light lane passes {@code init.light-gate} and {@code outline.light-regate} wherever
      * {@code outline.light} is present; the ratchet is present for the lane {@code light} or an unknown lane.
      */
-    INV_INIT_2("INV-INIT-2", List.of(InvariantId.PLAN_UNIT), null),
+    INV_INIT_2("INV-INIT-2", List.of(InvariantId.PLAN_UNIT, Phase.INIT.unitId()), null),
 
     /** Every deep path passes {@code refine.baseline-reconcile} and {@code refine.analyze}; the lesson Q-Gate. */
-    INV_REFINE_1("INV-REFINE-1", List.of(InvariantId.PLAN_UNIT), null),
+    INV_REFINE_1("INV-REFINE-1", List.of(InvariantId.PLAN_UNIT, Phase.REFINE.unitId()), null),
 
     /** {@code outline.gate} on every path into Phase 4; the review question's {@code approve} the only other way. */
-    INV_OUTLINE_1("INV-OUTLINE-1", List.of(InvariantId.PLAN_UNIT), null),
+    INV_OUTLINE_1("INV-OUTLINE-1", List.of(InvariantId.PLAN_UNIT, Phase.OUTLINE.unitId()), null),
 
     /** {@code outline.qgate} on every deep path to the gate; {@code blocking} calls the Q-Gate remediation. */
-    INV_OUTLINE_2("INV-OUTLINE-2", List.of(InvariantId.PLAN_UNIT), null),
+    INV_OUTLINE_2("INV-OUTLINE-2", List.of(InvariantId.PLAN_UNIT, Phase.OUTLINE.unitId()), null),
 
     /** Every path into Phase 5 passes the derivation, {@code plan.qgate} and the composition. */
-    INV_PLAN_1("INV-PLAN-1", List.of(InvariantId.PLAN_UNIT), null),
+    INV_PLAN_1("INV-PLAN-1", List.of(InvariantId.PLAN_UNIT, Phase.PLAN.unitId()), null),
 
     /** The worktree initialization precedes every envelope task, commit and build. */
-    INV_EXEC_1("INV-EXEC-1", List.of(InvariantId.PLAN_UNIT), null),
+    INV_EXEC_1("INV-EXEC-1", List.of(InvariantId.PLAN_UNIT, Phase.EXECUTE.unitId()), null),
 
     /** Commits only through {@code git.commit_and_push}; the deliverable build, the verify sweep and exit barrier. */
-    INV_EXEC_2("INV-EXEC-2", List.of(InvariantId.PLAN_UNIT), null),
+    INV_EXEC_2("INV-EXEC-2", List.of(InvariantId.PLAN_UNIT, Phase.EXECUTE.unitId()), null),
 
     /** Serial envelopes: one envelope task state, reacting only through {@code execute.evaluate-envelope-return}. */
-    INV_EXEC_3("INV-EXEC-3", List.of(InvariantId.PLAN_UNIT), null),
+    INV_EXEC_3("INV-EXEC-3", List.of(InvariantId.PLAN_UNIT, Phase.EXECUTE.unitId()), null),
 
     /** Every mandatory step of the default roster is completed by the unit. */
-    INV_FIN_1("INV-FIN-1", List.of(InvariantId.PLAN_UNIT), null),
+    INV_FIN_1("INV-FIN-1", List.of(InvariantId.PLAN_UNIT, Phase.FINALIZE.unitId()), null),
 
     /** The finalize pipeline validator holds over the project roster. */
-    INV_FIN_2("INV-FIN-2", List.of(InvariantId.PLAN_UNIT), null),
+    INV_FIN_2("INV-FIN-2", List.of(InvariantId.PLAN_UNIT, Phase.FINALIZE.unitId()), null),
 
     /** Completion once per firing (Rule 9). */
-    INV_FIN_3("INV-FIN-3", List.of(InvariantId.PLAN_UNIT), null),
+    INV_FIN_3("INV-FIN-3", List.of(InvariantId.PLAN_UNIT, Phase.FINALIZE.unitId()), null),
 
     /** The push barrier is the only push before the pull request; {@code finalize.create-pr} is reached. */
-    INV_FIN_4("INV-FIN-4", List.of(InvariantId.PLAN_UNIT), null),
+    INV_FIN_4("INV-FIN-4", List.of(InvariantId.PLAN_UNIT, Phase.FINALIZE.unitId()), null),
 
     /** Every path to the merge passes {@code finalize.merge-gate}. */
-    INV_FIN_5("INV-FIN-5", List.of(InvariantId.PLAN_UNIT), null),
+    INV_FIN_5("INV-FIN-5", List.of(InvariantId.PLAN_UNIT, Phase.FINALIZE.unitId()), null),
 
     /** Branch cleanup on the merge, the one fallback, the landing, and {@code finalize.archive-plan} last. */
-    INV_FIN_6("INV-FIN-6", List.of(InvariantId.PLAN_UNIT), null),
+    INV_FIN_6("INV-FIN-6", List.of(InvariantId.PLAN_UNIT, Phase.FINALIZE.unitId()), null),
 
     /** The adjudication unit equals the default except its declarations, which lie within their bounds. */
     INV_ADJ_1("INV-ADJ-1", List.of("adjudicate.decisions"), null),

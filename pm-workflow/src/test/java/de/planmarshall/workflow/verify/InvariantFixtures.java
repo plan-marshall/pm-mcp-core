@@ -31,8 +31,6 @@ import de.planmarshall.core.spi.PrimitiveOutcome;
 import de.planmarshall.core.spi.PrimitiveRegistry;
 import de.planmarshall.core.spi.PrimitiveResult;
 import de.planmarshall.core.spi.WorkflowExecutionContext;
-import de.planmarshall.workflow.ast.StateMigration;
-import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.dsl.ParseResult;

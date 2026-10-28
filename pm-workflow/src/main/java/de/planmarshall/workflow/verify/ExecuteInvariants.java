@@ -179,7 +179,7 @@ final class ExecuteInvariants {
             var target = context.state(transition.targetStateId());
             var entersPhaseSix = !AFTER_PHASE_FIVE.contains(context.phaseOf(source).orElse(""))
                     && target.filter(state -> context.inPhase(state, CompiledInvariants.PHASE_FINALIZE))
-                            .isPresent();
+                    .isPresent();
             if (!entersPhaseSix || PHASE_SIX_SOURCES.contains(source.id()) || FALLBACKS.contains(target.get().id())
                     || INIT_READY.equals(source.id()) && ADOPT_PR.equals(target.get().id())
                     || context.referenceHasTransition(source.id(), transition.outcomeName(), target.get().id())) {
