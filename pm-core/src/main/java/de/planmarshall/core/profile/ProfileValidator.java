@@ -383,7 +383,7 @@ public final class ProfileValidator {
             var block = endpointBlock(required(profile, "", NAME_ENDPOINT), "/endpoint");
             modelTiers(required(profile, "", NAME_MODEL_TIERS), "/model_tiers");
             weightsProbe(required(profile, "", NAME_WEIGHTS_PROBE), "/weights_probe");
-            localityRules(block, executable, hasIdentity);
+            localityRules(block, executable, hasIdentity, !evidenceNode.isNull());
         }
 
         /**
@@ -428,20 +428,37 @@ public final class ProfileValidator {
         }
 
         /**
-         * Refuses the combinations of {@code locality} the schema cannot express: the remote form and the protocol
-         * {@code system_one} belong to the package {@code judgment-endpoint} and are refused until it is done; a
-         * loopback endpoint names a plain {@code http} loopback URL, no credential, and the serving program and its
-         * identity.
+         * Refuses the combinations of {@code locality} the schema cannot express (Client Profiles § Endpoint Profile
+         * Schema, § Remote Form). A loopback endpoint names a plain {@code http} loopback URL, no credential, and the
+         * serving program and its identity. The remote form is the protocol {@code system_one}'s: it names one {@code
+         * https} origin and the Token Lane credential entry it reads, and has no serving program, no identity and no
+         * update evidence, because no owner check applies to a service.
          */
-        private void localityRules(EndpointBlock block, String executable, boolean hasIdentity) {
+        private void localityRules(EndpointBlock block, String executable, boolean hasIdentity,
+                boolean hasUpdateEvidence) {
             if ("remote".equals(block.locality())) {
-                throw invalid("/endpoint/locality",
-                        "the remote form is the judgment endpoint's; this package refuses it until that package is done");
-            }
-            if ("system_one".equals(block.protocol())) {
-                throw invalid("/endpoint/protocol",
-                        "the protocol system_one is the judgment endpoint's; this package refuses it until that "
-                                + "package is done");
+                if (!"system_one".equals(block.protocol())) {
+                    throw invalid("/endpoint/locality",
+                            "the remote form is the protocol system_one's; an openai_chat endpoint is a loopback one");
+                }
+                if (!HTTPS_URL.matcher(block.baseUrl()).matches()) {
+                    throw invalid("/endpoint/base_url",
+                            "a remote endpoint names the https origin of one service: '%s'".formatted(block.baseUrl()));
+                }
+                if (block.credentialKey() == null) {
+                    throw invalid("/endpoint/credential_key",
+                            "a remote endpoint names the Token Lane credential entry it reads");
+                }
+                if (executable != null) {
+                    throw invalid(PTR_EXECUTABLE, "a remote endpoint has a null executable");
+                }
+                if (hasIdentity) {
+                    throw invalid(PTR_IDENTITY, "a remote endpoint has a null identity");
+                }
+                if (hasUpdateEvidence) {
+                    throw invalid("/update_evidence", "a remote endpoint has a null update_evidence");
+                }
+                return;
             }
             var loopback = LOOPBACK_URL.matcher(block.baseUrl());
             if (!loopback.matches()) {

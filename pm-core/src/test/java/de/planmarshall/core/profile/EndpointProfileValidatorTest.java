@@ -86,9 +86,6 @@ class EndpointProfileValidatorTest {
             "a loopback endpoint names no executable | \"executable\": \"ollama\" | \"executable\": null | /executable",
             "a loopback endpoint names no identity | \"identity\": {\"version_probe\": [\"--version\"], "
                     + "\"version_pattern\": \"version ([0-9.]+)\"} | \"identity\": null | /identity",
-            "the remote form is refused | \"locality\": \"loopback\" | \"locality\": \"remote\" | /endpoint/locality",
-            "the protocol system_one is refused | \"protocol\": \"openai_chat\" | \"protocol\": \"system_one\" "
-                    + "| /endpoint/protocol",
             "the models pointer is not a pointer | \"models_pointer\": \"/models\" | \"models_pointer\": \"models\" "
                     + "| /endpoint/models_pointer",
             "an endpoint path is not a path | \"readiness_path\": \"/api/tags\" | \"readiness_path\": \"api/tags\" "
@@ -116,16 +113,71 @@ class EndpointProfileValidatorTest {
                         ProfileValidator.validate(profile.document(), "shipped", ProfileRules.none())))));
     }
 
-    @Test
-    @DisplayName("a remote-form document is structurally admissible before the locality rule refuses it")
-    void remoteFormRefusedWithTheLocalityMember() {
-        var document = EndpointProfileFixtures.variant("\"locality\": \"loopback\"", "\"locality\": \"remote\"")
-                .replace("\"credential_key\": null", "\"credential_key\": \"remote-token\"")
-                .replace("http://127.0.0.1:11434", "https://runner.example.test");
+    @ParameterizedTest(name = "{0}")
+    @CsvSource(delimiter = '|', value = {
+            "the remote form is not the protocol system_one | \"protocol\": \"system_one\" | \"protocol\": "
+                    + "\"openai_chat\" | /endpoint/locality",
+            "a remote endpoint names an http origin | https://judge.example.test | http://127.0.0.1:11434 "
+                    + "| /endpoint/base_url",
+            "a remote endpoint names no credential key | \"credential_key\": \"judge-token\" | \"credential_key\": "
+                    + "null | /endpoint/credential_key",
+            "a remote endpoint names an executable | \"executable\": null | \"executable\": \"ollama\" | /executable",
+            "a remote endpoint names an identity | \"identity\": null | \"identity\": {\"version_probe\": "
+                    + "[\"--version\"], \"version_pattern\": \"version ([0-9.]+)\"} | /identity",
+            "a remote endpoint names update evidence | \"update_evidence\": null | \"update_evidence\": "
+                    + "{\"method\": \"none\", \"signer\": null} | /update_evidence"
+    })
+    @DisplayName("a rule the remote form states refuses the profile with the member named")
+    void remoteRefusedWithMemberNamed(String name, String from, String to, String pointer) {
+        var document = EndpointProfileFixtures.remoteVariant(from, to);
 
         var refusal = assertThrows(ProfileRefusal.class, () -> EndpointProfileFixtures.validate(document));
 
-        assertEquals("/endpoint/locality", refusal.pointer());
+        assertAll(
+                () -> assertEquals(pointer, refusal.pointer()),
+                () -> assertEquals(ProfileRefusal.Outcome.PROFILE_INVALID, refusal.outcome()));
+    }
+
+    @Test
+    @DisplayName("a remote-form document validates and projects the credential key it reads")
+    void remoteFormValidated() {
+        var profile = EndpointProfile.of(EndpointProfileFixtures.remote());
+
+        assertAll(
+                () -> assertEquals("hosted-judge", profile.clientId()),
+                () -> assertNull(profile.executable()),
+                () -> assertNull(profile.identity()),
+                () -> assertNull(profile.updateEvidence()),
+                () -> assertEquals("system_one", profile.endpoint().protocol()),
+                () -> assertEquals("remote", profile.endpoint().locality()),
+                () -> assertEquals("https://judge.example.test", profile.endpoint().baseUrl()),
+                () -> assertEquals("judge-token", profile.endpoint().credentialKey()),
+                () -> assertTrue(profile.endpoint().remote()),
+                () -> assertTrue(profile.endpoint().judgment()),
+                () -> assertEquals(7680, profile.endpoint().contextBudgetTokens()));
+    }
+
+    @Test
+    @DisplayName("the protocol system_one is admitted on a loopback endpoint too")
+    void judgmentOnLoopbackAdmitted() {
+        var document = EndpointProfileFixtures.variant("\"protocol\": \"openai_chat\"",
+                "\"protocol\": \"system_one\"");
+
+        var profile = EndpointProfile.of(EndpointProfileFixtures.validate(document));
+
+        assertAll(
+                () -> assertTrue(profile.endpoint().judgment()),
+                () -> assertFalse(profile.endpoint().remote()),
+                () -> assertNull(profile.endpoint().credentialKey()));
+    }
+
+    @Test
+    @DisplayName("the stage list of a judgment endpoint leaves the classes stage out")
+    void judgmentStages() {
+        assertAll(
+                () -> assertEquals(List.of("identity", "launch", "classes", "limits"),
+                        ProfileStages.stagesFor("openai_chat")),
+                () -> assertEquals(List.of("identity", "launch", "limits"), ProfileStages.stagesFor("system_one")));
     }
 
     @Test

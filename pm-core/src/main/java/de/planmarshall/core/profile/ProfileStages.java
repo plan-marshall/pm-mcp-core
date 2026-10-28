@@ -527,6 +527,18 @@ public final class ProfileStages {
     /** The stages of the verification of an endpoint, in the order they run. */
     public static final List<String> ENDPOINT_STAGES = List.of(IDENTITY, LAUNCH, CLASSES, LIMITS);
 
+    /** The stages of the verification of a judgment endpoint (Client Profiles § Verification of a Judgment Endpoint). */
+    public static final List<String> JUDGMENT_STAGES = List.of(IDENTITY, LAUNCH, LIMITS);
+
+    /**
+     * @param protocol the profile's {@code endpoint.protocol}
+     * @return the stages the verification of an endpoint of that protocol runs: a judgment endpoint has no {@code
+     *         classes} stage, because the server never sends tools
+     */
+    public static List<String> stagesFor(String protocol) {
+        return "system_one".equals(protocol) ? JUDGMENT_STAGES : ENDPOINT_STAGES;
+    }
+
     /** The status of one value the endpoint stages write into the verification record. The set is closed. */
     public enum EndpointValueStatus {
         /** The stage observed the value on the endpoint. */
@@ -582,8 +594,9 @@ public final class ProfileStages {
         public EndpointIdentity {
             models = List.copyOf(models);
             weights = Collections.unmodifiableMap(new LinkedHashMap<>(weights));
-            if (passed && executablePath == null) {
-                throw new IllegalArgumentException("A passed identity stage names the executable it found");
+            if (passed && executablePath == null && models.isEmpty()) {
+                throw new IllegalArgumentException("A passed identity stage names the program it found or the listing "
+                        + "it read");
             }
         }
 
@@ -600,9 +613,12 @@ public final class ProfileStages {
      * @param readiness    whether the endpoint answered its readiness check
      * @param resultSchema the measured value, {@code enforced}, {@code advisory} or {@code none}
      * @param streamingOff whether the answer was a single document rather than an event stream
+     * @param probes       the answers of the probes the stage sent, by probe name; empty for the protocols that send
+     *                     none
      * @since 0.1
      */
-    public record EndpointLaunch(boolean passed, boolean readiness, String resultSchema, boolean streamingOff) {
+    public record EndpointLaunch(boolean passed, boolean readiness, String resultSchema, boolean streamingOff,
+    Map<String, String> probes) {
 
         /** The measured result schema, closed because the record writes it as a value. */
         private static final Set<String> SCHEMAS = Set.of("enforced", "advisory", "none");
@@ -616,6 +632,17 @@ public final class ProfileStages {
             if (!SCHEMAS.contains(resultSchema)) {
                 throw new IllegalArgumentException("Not a measured result schema: " + resultSchema);
             }
+            probes = Collections.unmodifiableMap(new LinkedHashMap<>(Objects.requireNonNull(probes, "probes")));
+        }
+
+        /**
+         * @param passed       whether the endpoint answered the base task with a valid document
+         * @param readiness    whether the endpoint answered its readiness check
+         * @param resultSchema the measured value
+         * @param streamingOff whether the answer was a single document
+         */
+        public EndpointLaunch(boolean passed, boolean readiness, String resultSchema, boolean streamingOff) {
+            this(passed, readiness, resultSchema, streamingOff, Map.of());
         }
     }
 
@@ -658,25 +685,62 @@ public final class ProfileStages {
     }
 
     /**
-     * The result of the four stages of an endpoint's verification.
+     * The result of the stages of an endpoint's verification. A judgment endpoint runs no {@code classes} stage
+     * (Client Profiles § Verification of a Judgment Endpoint), so its result carries none.
      *
      * @param identity the stage {@code identity}
      * @param launch   the stage {@code launch}
-     * @param classes  the stage {@code classes}
+     * @param classes  the stage {@code classes}; {@code null} when the protocol has no such stage
      * @param limits   the stage {@code limits}
+     * @param stages   the stages this verification ran, in the order they ran
      * @since 0.1
      */
     public record EndpointVerification(EndpointIdentity identity, EndpointLaunch launch, EndpointClasses classes,
-    EndpointLimits limits) {
+    EndpointLimits limits, List<String> stages) {
 
         /**
-         * @throws NullPointerException if a stage is {@code null}
+         * @throws NullPointerException     if a stage that applies is {@code null}
+         * @throws IllegalArgumentException if the stage list is not one of an endpoint's, or a stage is present that the
+         *                                  list does not name
          */
         public EndpointVerification {
             Objects.requireNonNull(identity, IDENTITY);
             Objects.requireNonNull(launch, LAUNCH);
-            Objects.requireNonNull(classes, CLASSES);
             Objects.requireNonNull(limits, LIMITS);
+            stages = List.copyOf(stages);
+            if (!ENDPOINT_STAGES.equals(stages) && !JUDGMENT_STAGES.equals(stages)) {
+                throw new IllegalArgumentException("Not a stage list of an endpoint: " + stages);
+            }
+            if (stages.contains(CLASSES) != (classes != null)) {
+                throw new IllegalArgumentException("The classes stage is present exactly when the stages name it");
+            }
+        }
+
+        /**
+         * @param identity the stage {@code identity}
+         * @param launch   the stage {@code launch}
+         * @param classes  the stage {@code classes}
+         * @param limits   the stage {@code limits}
+         */
+        public EndpointVerification(EndpointIdentity identity, EndpointLaunch launch, EndpointClasses classes,
+                EndpointLimits limits) {
+            this(identity, launch, classes, limits, ENDPOINT_STAGES);
+        }
+
+        /**
+         * @param identity the stage {@code identity}
+         * @param launch   the stage {@code launch}
+         * @param limits   the stage {@code limits}
+         * @return the verification of a judgment endpoint, which runs no {@code classes} stage
+         */
+        public static EndpointVerification judgment(EndpointIdentity identity, EndpointLaunch launch,
+                EndpointLimits limits) {
+            return new EndpointVerification(identity, launch, null, limits, JUDGMENT_STAGES);
+        }
+
+        /** @return whether this verification ran the stages of a judgment endpoint */
+        public boolean judgment() {
+            return JUDGMENT_STAGES.equals(stages);
         }
 
         /** @return whether a failed {@code identity} or {@code launch} refuses the draft */
@@ -691,7 +755,9 @@ public final class ProfileStages {
             var statuses = new LinkedHashMap<String, String>();
             statuses.put(IDENTITY, identity.passed() ? PASSED : "failed");
             statuses.put(LAUNCH, launch.passed() ? PASSED : "failed");
-            statuses.put(CLASSES, PASSED);
+            if (classes != null) {
+                statuses.put(CLASSES, PASSED);
+            }
             statuses.put(LIMITS, limits.passed() ? PASSED : "not_run");
             return Collections.unmodifiableMap(statuses);
         }
@@ -702,7 +768,8 @@ public final class ProfileStages {
         public List<EndpointValue> values() {
             return List.of(
                     new EndpointValue("/identity", endpointStatus(identity.passed())),
-                    new EndpointValue("/executable", endpointStatus(identity.passed())),
+                    new EndpointValue("/executable",
+                            endpointStatus(identity.passed() && identity.executablePath() != null)),
                     new EndpointValue("/endpoint/models_path", endpointStatus(identity.passed())),
                     new EndpointValue("/endpoint/models_pointer", endpointStatus(identity.passed())),
                     new EndpointValue("/weights_probe", endpointStatus(identity.probeDeclared())),
