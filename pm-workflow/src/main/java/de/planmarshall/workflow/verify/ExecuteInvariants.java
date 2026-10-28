@@ -161,6 +161,9 @@ final class ExecuteInvariants {
     private static void footprintAndExit(Context context) {
         var id = InvariantId.INV_EXEC_2;
         for (var state : context.states()) {
+            if (CompiledInvariants.GIT_UNIT.equals(context.ownerOf(state.id()).orElse(""))) {
+                continue;
+            }
             if (Context.primitiveId(state).filter(COMMIT_PRIMITIVE::equals).isPresent()) {
                 context.reportState(id, state, "the state '%s' commits with '%s' instead of calling '%s'"
                         .formatted(state.id(), COMMIT_PRIMITIVE, CompiledInvariants.GIT_UNIT));

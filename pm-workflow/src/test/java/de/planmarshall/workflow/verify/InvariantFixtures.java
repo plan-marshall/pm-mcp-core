@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import de.planmarshall.core.spi.AwaitedEvent;
+import de.planmarshall.core.spi.CycleMeasure;
 import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.core.spi.Primitive;
 import de.planmarshall.core.spi.PrimitiveOutcome;
@@ -301,6 +302,8 @@ public final class InvariantFixtures {
                         TestPrimitives.EvaluateChangeOutcome.class),
                 new TestPrimitives.Fixed<>(TestPrimitives.EVALUATE_JUDGEMENT, TestPrimitives.NoParams.class,
                         TestPrimitives.JudgementOutcome.class),
+                new TestPrimitives.Measured<>(TestPrimitives.CAPPED, TestPrimitives.AttemptOutcome.class,
+                        CycleMeasure.ATTEMPT_CAP, Optional.of("exhausted")),
                 new Declared<>("test.classify", ClassifyOutcome.class),
                 new Declared<>("test.lane", LaneOutcome.class),
                 new Declared<>("test.gate", GateOutcome.class),

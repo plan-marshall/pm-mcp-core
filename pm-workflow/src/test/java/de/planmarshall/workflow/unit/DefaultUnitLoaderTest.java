@@ -226,7 +226,7 @@ class DefaultUnitLoaderTest {
                     () -> assertTrue(finding.isPresent(), result.findings()::toString),
                     () -> assertEquals(resource, finding.orElseThrow().file()),
                     () -> assertEquals(mutation.lineOf(UnitFixtures.PLAN_HEADER), finding.orElseThrow().line()),
-                    () -> assertTrue(finding.orElseThrow().message().contains(TEMP_ROOT + "init.pmwf"),
+                    () -> assertTrue(finding.orElseThrow().message().contains(TEMP_ROOT + "plan.pmwf"),
                             finding.orElseThrow()::message),
                     () -> assertEquals(Map.of(), result.units()),
                     () -> assertRefusalLogged(resource));
@@ -249,7 +249,7 @@ class DefaultUnitLoaderTest {
         }
 
         @Test
-        @DisplayName("merges no plan unit when a phase file is missing, and verifies no part on its own")
+        @DisplayName("refuses the plan unit that calls a missing phase file, and verifies no part on its own")
         void missingPhaseFile() throws Exception {
             UnitFixtures.writeUnits(temp.resolve(TEMP_ROOT));
             Files.delete(temp.resolve(TEMP_ROOT).resolve("refine.pmwf"));
@@ -257,7 +257,7 @@ class DefaultUnitLoaderTest {
             var result = loadTemp(UnitFixtures.UNIT_FILES);
 
             assertAll(
-                    () -> assertEquals(List.of(TEMP_ROOT + "refine.pmwf"),
+                    () -> assertEquals(List.of(TEMP_ROOT + "refine.pmwf", TEMP_ROOT + "plan.pmwf"),
                             result.findings().stream().map(UnitFinding::file).toList()),
                     () -> assertEquals(UnitFinding.Kind.MISSING, result.findings().getFirst().kind()),
                     () -> assertEquals(Map.of(), result.units()));

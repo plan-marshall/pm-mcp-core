@@ -75,7 +75,7 @@ final class OutlineInvariants {
                     && source.behavior() instanceof StateBehavior.QuestionWait
                     && context.inPhase(source, PHASE_OUTLINE);
             var outlineExit = context.inPhase(source, PHASE_OUTLINE) && Context.isTerminal(source);
-            if (!reviewApproval && !outlineExit) {
+            if (!reviewApproval && !outlineExit && !context.returnsThrough(source, transition, GATE)) {
                 context.reportTransition(id, source, transition,
                         "the transition '%s' -> '%s' enters Phase 4 from '%s', not from '%s' or a review approval"
                                 .formatted(transition.outcomeName(), transition.targetStateId(), source.id(), GATE));

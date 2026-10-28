@@ -491,11 +491,23 @@ final class RemediationInvariants {
      * @return {@code true} when the target is the terminal a phase sub-workflow leaves on when the plan unit turns that
      *         outcome into the given fallback state
      */
-    private static boolean isFallbackExit(Context context, String target, String fallback) {
-        var outcome = CompiledInvariants.HAND_BACK.equals(fallback) ? HAND_BACK_OUTCOME : RETURNED_OUTCOME;
-        return context.state(target).filter(Context::isTerminal)
-                .flatMap(StateNode::terminalOutcome)
-                .filter(reported -> outcome.equals(reported.id())).isPresent();
+    static boolean isFallbackExit(Context context, String target, String fallback) {
+        var accepted = CompiledInvariants.HAND_BACK.equals(fallback)
+                ? Set.of(HAND_BACK_OUTCOME, RETURNED_OUTCOME, CompiledInvariants.STEPPED_OUT)
+                : Set.of(RETURNED_OUTCOME, CompiledInvariants.STEPPED_OUT);
+        var state = context.state(target).orElse(null);
+        if (state == null) {
+            return false;
+        }
+        if (Context.isTerminal(state)) {
+            return state.terminalOutcome().map(outcome -> accepted.contains(outcome.id())).orElse(false);
+        }
+        var terminals = context.graph().forwardClosure(Set.of(target)).stream()
+                .map(context::state).flatMap(Optional::stream)
+                .filter(Context::isTerminal).toList();
+        return !terminals.isEmpty() && terminals.stream()
+                .allMatch(terminal -> terminal.terminalOutcome()
+                        .map(outcome -> accepted.contains(outcome.id())).orElse(false));
     }
 
     /**
@@ -558,11 +570,12 @@ final class RemediationInvariants {
 
     private static void accounting(Context context) {
         var id = InvariantId.INV_REM_6;
-        var remediationUnit = context.unit().id().startsWith(CompiledInvariants.REMEDIATION_PREFIX);
         var known = new LinkedHashSet<String>();
         context.referenceStates()
                 .forEach(state -> Context.primitiveId(state).ifPresent(known::add));
         for (var state : context.states()) {
+            var remediationUnit = context.ownerOf(state.id())
+                    .filter(owner -> owner.startsWith(CompiledInvariants.REMEDIATION_PREFIX)).isPresent();
             Context.primitiveId(state).filter(primitive -> primitive.startsWith(CompiledInvariants.REMEDIATION_PREFIX))
                     .filter(primitive -> !remediationUnit || !known.contains(primitive))
                     .ifPresent(primitive -> context.reportState(id, state, remediationUnit

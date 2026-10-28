@@ -10,6 +10,9 @@ author: plan-marshall
 # The plan unit, written for the invariant and unit-loader tests, never copied from the product. It carries no phase
 # and no state of a phase: every phase is the sub-workflow its call state names, `phases.init` to `phases.finalize`
 # (PM-WF-16). A loop-back is a call of a phase again; the re-entry into execute is the `reentry` outcome of finalize.
+# Every call site routes the implicit `stepped_out` to the plan's fallback `plan.return`, and the two engine-chained
+# cycles the calls form - the rework loop and the finalize re-entry - pass the capped gate `phases.rework-gate` and
+# `phases.reentry-gate`. A gate that exhausts its budget leaves through the fallback call `finalize.hand-back`.
 workflow plan version 1 format 1
 scope plan
 start phases.init
@@ -18,70 +21,92 @@ state phases.init
     call phase-1-init entry start
         deep -> phases.refine
         light -> phases.outline.light
+        stepped_out -> plan.return
 
 state phases.refine
     call phase-2-refine entry start
         done -> phases.outline
         returned -> plan.return
+        stepped_out -> plan.return
 
 state phases.outline
     call phase-3-outline entry start
         done -> phases.plan
         returned -> plan.return
+        stepped_out -> plan.return
 
 state phases.outline.light
     call phase-3-outline entry light
         done -> phases.plan
         returned -> plan.return
+        stepped_out -> plan.return
 
 state phases.outline.rework
     call phase-3-outline entry rework
         done -> phases.plan
         returned -> plan.return
+        stepped_out -> plan.return
 
 state phases.plan
     call phase-4-plan entry start
         execute -> phases.execute
         land -> phases.execute.land
-        rework -> phases.outline.rework
+        rework -> phases.rework-gate
         returned -> plan.return
+        stepped_out -> plan.return
+
+state phases.rework-gate
+    auto test.capped
+        retry -> phases.outline.rework
+        exhausted -> finalize.hand-back
 
 state phases.execute
     call phase-5-execute entry start
         done -> phases.finalize
-        rework -> phases.outline.rework
+        rework -> phases.rework-gate
         returned -> plan.return
+        stepped_out -> plan.return
 
 state phases.execute.land
     call phase-5-execute entry land
         done -> phases.finalize
+        rework -> phases.rework-gate
         returned -> plan.return
+        stepped_out -> plan.return
 
 state phases.execute.reentry
     call phase-5-execute entry reentry
         done -> phases.finalize
-        rework -> phases.outline.rework
+        rework -> phases.rework-gate
         returned -> plan.return
+        stepped_out -> plan.return
 
 state phases.finalize
     call phase-6-finalize entry start
         completed -> completed
         handed_back -> handed_back
         returned -> returned
-        reentry -> phases.execute.reentry
+        reentry -> phases.reentry-gate
         stepped_out -> plan.return
 
-state phases.finalize.adopt
-    call phase-6-finalize entry adopt
+state phases.reentry-gate
+    auto test.capped
+        retry -> phases.execute.reentry
+        exhausted -> finalize.hand-back
+
+state finalize.hand-back
+    call phase-6-finalize entry hand_back
         completed -> completed
         handed_back -> handed_back
         returned -> returned
-        reentry -> phases.execute.reentry
+        reentry -> handed_back
         stepped_out -> plan.return
 
 state plan.return
-    auto test.proceed
-        done -> phases.finalize
+    job test.build
+        succeeded -> finalize.hand-back
+        failed -> finalize.hand-back
+        cancelled -> finalize.hand-back
 
 state completed terminal completed success
 

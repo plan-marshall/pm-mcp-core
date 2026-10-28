@@ -492,15 +492,15 @@ class ProjectUnitLoaderTest {
         }
 
         @Test
-        @DisplayName("a phase file of a newer format refuses the plan unit, which is not merged from the rest")
+        @DisplayName("a phase file of a newer format is refused with its file and line, and refuses the plan unit")
         void newerPhaseFormat() {
-            var mutation = new UnitFixtures.Mutation("a newer phase file", "refine.pmwf", UnitFixtures.PLAN_HEADER,
-                    "workflow plan version 1 format 2");
+            var mutation = new UnitFixtures.Mutation("a newer phase file", "refine.pmwf",
+                    "workflow phase-2-refine version 1 format 1", "workflow phase-2-refine version 1 format 2");
 
             var result = load(mutation);
 
             assertRefused(result, UnitFinding.Kind.FORMAT, UnitFinding.FORMAT_NEWER, configPath(mutation.file()),
-                    mutation.lineOf("workflow plan"));
+                    mutation.lineOf("workflow phase-2-refine"));
         }
     }
 

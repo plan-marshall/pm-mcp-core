@@ -524,6 +524,40 @@ public final class CompiledInvariants {
             return expansion.units();
         }
 
+        /**
+         * @param stateId the identifier of a state
+         * @return the identifier of the unit that declares the state; empty when the expansion has no such state
+         */
+        Optional<String> ownerOf(String stateId) {
+            return Optional.ofNullable(expansion.owners().get(stateId));
+        }
+
+        /**
+         * Decides the call-resolved source of an edge: a transition out of a call site is the callee's return, so the
+         * state that carries it is the callee terminal that reports the outcome.
+         *
+         * @param source     the state the edge leaves
+         * @param transition the transition
+         * @param stateId    the state the returned path must pass, the terminal itself included
+         * @return {@code true} when the edge leaves a call site and every terminal of the callee that reports the
+         *         outcome is the given state or is dominated by it
+         */
+        boolean returnsThrough(StateNode source, OutcomeTransition transition, String stateId) {
+            if (!(source.behavior() instanceof StateBehavior.SubWorkflowCall call)) {
+                return false;
+            }
+            var callee = expansion.units().get(call.subWorkflowId());
+            if (callee == null) {
+                return false;
+            }
+            var terminals = callee.states().values().stream()
+                    .filter(state -> state.terminalOutcome()
+                            .map(outcome -> outcome.id().equals(transition.outcomeName())).orElse(false))
+                    .toList();
+            return !terminals.isEmpty() && terminals.stream()
+                    .allMatch(state -> stateId.equals(state.id()) || dominates(stateId, state.id()));
+        }
+
         /** @return every state of the expansion by identifier, the unit under check first */
         Map<String, StateNode> stateMap() {
             return expansion.states();
@@ -557,20 +591,21 @@ public final class CompiledInvariants {
 
         /**
          * @param stateId the identifier of a state
-         * @return the wire name of the phase of the state; empty for a unit that carries none
+         * @return the short name of the phase of the state, as {@code init} to {@code finalize}; empty for a unit that
+         *         carries none
          */
         Optional<String> phaseOf(String stateId) {
             var owner = expansion.owners().get(stateId);
             var phase = owner == null ? null : expansion.phases().get(owner);
             if (phase != null) {
-                return Optional.of(phase.wireName());
+                return Optional.of(phase.name().toLowerCase(java.util.Locale.ROOT));
             }
-            return Phase.ofCallState(stateId).map(Phase::wireName);
+            return Phase.ofCallState(stateId).map(found -> found.name().toLowerCase(java.util.Locale.ROOT));
         }
 
         /**
          * @param state a state
-         * @param phase the wire name of a phase
+         * @param phase the short name of a phase
          * @return {@code true} when the state lies in that phase
          */
         boolean inPhase(StateNode state, String phase) {

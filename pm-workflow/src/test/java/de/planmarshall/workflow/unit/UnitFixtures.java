@@ -114,7 +114,9 @@ final class UnitFixtures {
     }
 
     private static List<String> unitFiles() {
-        var files = new ArrayList<>(InvariantFixtures.PLAN_FILES);
+        var files = new ArrayList<String>();
+        files.add(InvariantFixtures.PLAN_FILE);
+        files.addAll(InvariantFixtures.PLAN_FILES);
         files.addAll(InvariantFixtures.SUB_UNIT_FILES);
         return List.copyOf(files);
     }

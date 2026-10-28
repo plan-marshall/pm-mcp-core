@@ -188,8 +188,9 @@ final class GeneralInvariants {
 
     private static void waiverDataFlow(Context context) {
         var id = InvariantId.INV_GEN_2;
-        var remediationUnit = context.unit().id().startsWith(CompiledInvariants.REMEDIATION_PREFIX);
         for (var state : context.states()) {
+            var remediationUnit = context.ownerOf(state.id())
+                    .filter(owner -> owner.startsWith(CompiledInvariants.REMEDIATION_PREFIX)).isPresent();
             var waivedTerminal = Context.isTerminal(state)
                     && state.terminalOutcome().map(outcome -> WAIVED.equals(outcome.id())).orElse(false);
             if (waivedTerminal && !remediationUnit) {

@@ -95,9 +95,10 @@ public record UnitFinding(Kind kind, String code, String file, int line, String 
     }
 
     /**
-     * Adds a parsed unit that is no part of the plan unit to the units of a load, keyed by its identifier, unless the
-     * identifier is taken: a unit that declares the identifier of an earlier unit, or {@value Phase#PLAN_UNIT},
-     * is a {@value #DUPLICATE_UNIT_ID} finding at its header and is left out.
+     * Adds a parsed unit to the units of a load, keyed by its identifier, unless the identifier is taken: a unit that
+     * declares the identifier of an earlier unit is a {@value #DUPLICATE_UNIT_ID} finding at its header and is left
+     * out, and so is a file other than {@code planFile} that declares {@value Phase#PLAN_UNIT}. The file the plan unit
+     * is located in may declare that identifier; any other file may not.
      *
      * @param units    the units of the load by identifier
      * @param unit     the parsed unit
@@ -108,6 +109,10 @@ public record UnitFinding(Kind kind, String code, String file, int line, String 
             List<UnitFinding> findings) {
         var file = unit.location().resourceName();
         if (Phase.PLAN_UNIT.equals(unit.id())) {
+            if (planFile.equals(file)) {
+                units.put(unit.id(), unit);
+                return;
+            }
             findings.add(at(Kind.RULE, DUPLICATE_UNIT_ID, unit.location(), DUPLICATE_MESSAGE.formatted(unit.id(),
                     planFile, file)));
             return;
