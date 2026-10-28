@@ -144,7 +144,7 @@ final class SubWorkflowInvariants {
                     shape(question.transitions()));
             case StateBehavior.TerminalState terminal -> terminal;
         };
-        return new StateNode(state.id(), state.terminalOutcome(), state.skillPath(),
+        return new StateNode(state.id(), state.phase(), state.terminalOutcome(), state.skillPath(),
                 state.factsPrimitiveId(), behavior, Context.nowhere());
     }
 

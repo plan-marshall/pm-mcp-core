@@ -109,6 +109,7 @@ class EngineEventTest {
         void shouldStartOrRouteRefusal() {
             var startEngine = fixtures.engine(plan("execute.build", """
                     state execute.build
+                        phase execute
                         job test.fate
                             succeeded -> completed
                             killed -> handed_back
@@ -205,6 +206,7 @@ class EngineEventTest {
         void shouldRefuseFanOut() {
             var fanOut = fixtures.engine(plan("execute.review", """
                     state execute.review
+                        phase execute
                         job llm change role reviewer each test.step
                             approved -> completed
                             lost -> handed_back

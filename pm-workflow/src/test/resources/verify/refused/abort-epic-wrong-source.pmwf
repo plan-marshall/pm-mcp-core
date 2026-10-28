@@ -7,16 +7,19 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: ABORT_TERMINAL_TARGETING state verify.entry line 18
+# expect: ABORT_TERMINAL_TARGETING state verify.entry line 19
 workflow verify.abort-epic-wrong-source version 1 format 1
 scope plan
 start verify.entry
 
 state verify.entry
+    phase verify
     auto test.land-work
         landed -> verify.done
         abort_landed -> epic.aborted
 
 state epic.aborted terminal aborted failure
+    phase aborted
 
 state verify.done terminal done success
+    phase verify

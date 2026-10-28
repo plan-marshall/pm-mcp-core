@@ -13,10 +13,13 @@ scope plan
 start verify.entry
 
 state verify.entry
+    phase verify
     call test.two-entries entry recheck
         done -> verify.done
         stepped_out -> plan.return
 
 state plan.return terminal returned failure
+    phase verify
 
 state verify.done terminal done success
+    phase verify

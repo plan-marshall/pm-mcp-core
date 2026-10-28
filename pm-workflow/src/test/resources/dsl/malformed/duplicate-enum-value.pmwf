@@ -15,3 +15,4 @@ declare channels = [Chat, mail]
 declare targets = [origin, Mirror, origin]
 start demo.begin
 state demo.begin terminal done success
+    phase inherit

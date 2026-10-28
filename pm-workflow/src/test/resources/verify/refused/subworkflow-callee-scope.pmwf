@@ -8,17 +8,20 @@ version: 0.1.0
 author: plan-marshall
 ---
 # expect: SUBWORKFLOW_CALL_CONTRACT state verify.entry line 17
-# expect: SUBWORKFLOW_CALL_CONTRACT state verify.entry line 19
+# expect: SUBWORKFLOW_CALL_CONTRACT state verify.entry line 20
 # expect: INTERFACE_CALLED_UNIT state verify.entry line 17
 workflow verify.subworkflow-callee-scope version 1 format 1
 scope plan
 start verify.entry
 
 state verify.entry
+    phase verify
     call test.workspace-unit()
         done -> verify.done
         stepped_out -> plan.return
 
 state plan.return terminal returned failure
+    phase verify
 
 state verify.done terminal done success
+    phase verify

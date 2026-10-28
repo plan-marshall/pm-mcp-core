@@ -10,27 +10,32 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: SUBWORKFLOW_CALL_CONTRACT state verify.entry line 21
+# expect: SUBWORKFLOW_CALL_CONTRACT state verify.entry line 22
 workflow remediation.stepped-out-budget-check version 1 format 1
 scope subworkflow
 entry main -> verify.entry
 
 state verify.entry
+    phase inherit
     call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
         done -> remediation-test.budget-check
         stepped_out -> remediation-test.decide
 
 state remediation-test.budget-check
+    phase inherit
     auto remediation.check-budgets
         budget_left -> remediation-test.decide
         exhausted_wait -> remediation-test.exhausted
         exhausted -> remediation-test.exhausted
 
 state remediation-test.decide
+    phase inherit
     auto test.prepare
         done -> remediation-test.resolved
         skipped -> remediation-test.exhausted
 
 state remediation-test.resolved terminal resolved success
+    phase inherit
 
 state remediation-test.exhausted terminal exhausted failure
+    phase inherit

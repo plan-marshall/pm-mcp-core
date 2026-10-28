@@ -30,7 +30,6 @@ import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.dsl.ParseResult;
 import de.planmarshall.workflow.dsl.WorkflowParser;
-import de.planmarshall.workflow.dsl.WorkflowPrinter;
 import de.planmarshall.workflow.plan.PlanInstanceHeader.Lane;
 import de.planmarshall.workflow.plan.PlanInstanceHeader.Posture;
 import de.planmarshall.workflow.unit.VerificationContext;
@@ -213,10 +212,12 @@ final class PlanFixtures {
                 entry main -> %2$s.pass
 
                 state %2$s.pass
+                    phase inherit
                     auto test.proceed
                         done -> %2$s.done
 
                 state %2$s.done terminal continue success
+                    phase inherit
                 """.formatted(id, prefix, waitAfter, outlineReview, selfMerge);
     }
 
@@ -355,40 +356,26 @@ final class PlanFixtures {
     }
 
     /**
-     * A request over the plan unit of the invariant fixtures, the project's units after the changes, and its
-     * sub-units: the plan unit calls the six phase sub-workflows and the land lane, so the phase units are sub-units
-     * of the version and no phase file is merged into the plan.
+     * A request over the merged plan unit of the invariant fixtures, the project's units after the changes, and its
+     * sub-units.
      *
      * @param event     the composition event
      * @param facts     the facts of the plan
      * @param previous  the version in force
      * @param position  the position of the plan
      * @param mutations the changes of the fixture files the project's units carry; empty for the passing units
-     * @return the request; its template is the plan unit's own file
+     * @return the request; its templates are the seven phase files
      */
     static CompositionRequest mergedRequest(CompositionEvent event, PlanFacts facts, Optional<PlanInstance> previous,
             InstancePosition position, List<InvariantFixtures.Mutation> mutations) {
         var units = InvariantFixtures.mutatedUnits(UnitOrigin.PROJECT, mutations);
-        var plan = units.get("plan");
-        var templates = List.of(new UnitReference("plan", Optional.of(InvariantFixtures.PLAN_FILE),
-                PlanFacts.sha256(WorkflowPrinter.print(plan)), UnitOrigin.PROJECT));
-        var subUnits = Stream.concat(InvariantFixtures.PLAN_FILES.stream(), InvariantFixtures.SUB_UNIT_FILES.stream())
-                .map(file -> subUnitOf(file, units.get(parse(file, InvariantFixtures.read(file),
-                        UnitOrigin.DEFAULT).id())))
-                .toList();
-        return new CompositionRequest(PLAN_ID, event, plan, templates, subUnits, facts,
+        var templates = InvariantFixtures.PLAN_FILES.stream().map(file -> new UnitReference("plan", Optional.of(file),
+                PlanFacts.sha256(InvariantFixtures.read(file)), UnitOrigin.PROJECT)).toList();
+        var subUnits = InvariantFixtures.SUB_UNIT_FILES.stream()
+                .map(file -> subUnit(file, InvariantFixtures.read(file))).toList();
+        return new CompositionRequest(PLAN_ID, event, units.get("plan"), templates, subUnits, facts,
                 PlanFacts.sha256("effective configuration"), Optional.empty(), Optional.empty(), List.of(), position,
                 previous, VERIFICATION_STEPS, FINALIZE_STEPS);
-    }
-
-    /**
-     * @param file       the file the sub-unit lives in
-     * @param definition the sub-unit of the project's units
-     * @return the sub-unit with its reference, its digest taken from its printed form
-     */
-    private static CompositionRequest.SubUnit subUnitOf(String file, WorkflowDefinition definition) {
-        return new CompositionRequest.SubUnit(new UnitReference(definition.id(), Optional.of(file),
-                PlanFacts.sha256(WorkflowPrinter.print(definition)), UnitOrigin.DEFAULT), definition);
     }
 
     /**
@@ -456,23 +443,29 @@ final class PlanFixtures {
                 entry begin -> %2$s.begin
 
                 state %2$s.begin
+                    phase inherit
                     auto test.gate
                         pass -> %2$s.ready
                         deep -> %2$s.deliver
 
                 state %2$s.deliver
+                    phase inherit
                     auto test.deliver
                         completed -> %2$s.fix
                         handed_back -> %2$s.loop
                         returned -> %2$s.returned
 
                 state %2$s.ready terminal ready success
+                    phase inherit
 
                 state %2$s.fix terminal fix_requested success
+                    phase inherit
 
                 state %2$s.loop terminal loop_back success
+                    phase inherit
 
                 state %2$s.returned terminal returned failure
+                    phase inherit
                 """.formatted(id, prefix);
     }
 }

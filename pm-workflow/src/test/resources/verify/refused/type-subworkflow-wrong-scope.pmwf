@@ -15,8 +15,10 @@ scope entity
 entry main -> verify.entry
 
 state verify.entry
+    phase verify
     auto test.prepare
         done -> verify.done
         skipped -> verify.done
 
 state verify.done terminal done success
+    phase verify

@@ -34,7 +34,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import de.cuioss.test.juli.junit5.EnableTestLogger;
-import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor;
 
 /**
@@ -74,7 +73,7 @@ class ProjectStepBindingTest {
                 Arguments.of("declared but unbound", Optional.of(COMPLETES_PROJECT_STEP), declared(), Set.of(),
                         configPath(FINALIZE_FILE), COMPLETES_PROJECT_STEP.lineOf("state finalize.create-pr")),
                 Arguments.of("declared but absent from the unit", Optional.empty(), declared(), Set.of(PROJECT_STEP),
-                        configPath("plan.pmwf"), UnitFixtures.lineOf("plan.pmwf", UnitFixtures.PLAN_HEADER)));
+                        configPath("init.pmwf"), UnitFixtures.lineOf("init.pmwf", UnitFixtures.PLAN_HEADER)));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -107,7 +106,7 @@ class ProjectStepBindingTest {
 
         assertAll(
                 () -> assertTrue(result.isVerified(), result.findings()::toString),
-                () -> assertTrue(result.units().containsKey(Phase.PLAN_UNIT)));
+                () -> assertTrue(result.units().containsKey(PlanUnitMerger.PLAN_UNIT)));
     }
 
     @Test

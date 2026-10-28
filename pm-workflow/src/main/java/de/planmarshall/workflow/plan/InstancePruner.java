@@ -32,7 +32,7 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.verify.LaneEntryIds;
 
 /**
- * Applies the effects of the composition rules, the bound axis variants and the waivers to the plan template
+ * Applies the effects of the composition rules, the bound axis variants and the waivers to the merged plan template
  * (PM-IMPL-5, PM-WF-25): it leaves out the pruned elements, binds the arguments of the policy calls and the variant of
  * each axis call site, and names every effect with its provenance. It only ever removes or rebinds what the template
  * declares; it adds no state, link, transition or argument.
@@ -90,7 +90,7 @@ final class InstancePruner {
     }
 
     /**
-     * @param template          the plan template
+     * @param template          the merged plan template
      * @param effects           the effects of the composition rules
      * @param bound             the variant bound on each plan behaviour axis
      * @param waivers           the waivers in force
@@ -248,7 +248,7 @@ final class InstancePruner {
         if (variant.variant().equals(call.subWorkflowId())) {
             return state;
         }
-        return new StateNode(state.id(), state.terminalOutcome(), state.skillPath(),
+        return new StateNode(state.id(), state.phase(), state.terminalOutcome(), state.skillPath(),
                 state.factsPrimitiveId(), new StateBehavior.SubWorkflowCall(variant.variant(), call.entry(),
                         call.paramBindings(), call.transitions()),
                 state.location());
@@ -281,7 +281,7 @@ final class InstancePruner {
                 new StateBehavior.QuestionWait(questionClass, transitions(transitions, removed));
             case StateBehavior.TerminalState terminal -> terminal;
         };
-        return new StateNode(state.id(), state.terminalOutcome(), state.skillPath(),
+        return new StateNode(state.id(), state.phase(), state.terminalOutcome(), state.skillPath(),
                 state.factsPrimitiveId(), behavior, state.location());
     }
 

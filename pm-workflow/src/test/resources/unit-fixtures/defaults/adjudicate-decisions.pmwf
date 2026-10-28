@@ -25,15 +25,19 @@ decide approach -> quorum(architect, reviewer, 75)
 start adjudicate.collect
 
 state adjudicate.collect
+    phase inherit
     auto test.proceed
         done -> adjudicate.vote
 
 state adjudicate.vote
+    phase inherit
     job llm vote role voter
         approved -> adjudicate.decided
         rejected -> adjudicate.escalated
         lost -> adjudicate.escalated
 
 state adjudicate.decided terminal decided success
+    phase inherit
 
 state adjudicate.escalated terminal escalated success
+    phase inherit

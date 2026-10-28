@@ -1,62 +1,62 @@
 ---
-name: phase-6-finalize
-description: The finalize phase sub-workflow of the plan unit.
-type: subworkflow
+name: plan
+description: A unit written for the invariant and unit-loader tests.
+type: workflow
 icon: phase.finalize
-entry: start
-entry: adopt
-entry: hand_back
-entry: post_run
-exit: completed
-exit: handed_back
-exit: returned
-exit: reentry
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# The finalize phase (Phase 6) as its own unit, written for the invariant and unit-loader tests, never copied from
+# The finalize phase (Phase 6) of the plan unit, written for the invariant and unit-loader tests, never copied from
 # the product. The push barrier is the only push before the pull request; finalize.merge-gate precedes the merge,
 # which completes the branch cleanup; the landing is completed; finalize.archive-plan alone enters the delivery
-# terminals. A plan that must go on re-enters execute: that is the `reentry` outcome of the phase, not a phase of its
-# own. The completes clauses name the mandatory steps of the test roster.
-workflow phase-6-finalize version 1 format 1
-scope subworkflow
-entry start -> finalize.push-barrier
-entry adopt -> finalize.create-pr
-entry hand_back -> finalize.hand-back
-entry post_run -> finalize.archive-plan
+# terminals. The completes clauses name the mandatory steps of the test roster.
+workflow plan version 1 format 1
+scope plan
+start finalize.push-barrier
 
 state finalize.push-barrier
+    phase finalize
     call git.commit_and_push(push_mode = push)
         done -> finalize.create-pr
-        stepped_out -> finalize.stepped-out-exit
+        stepped_out -> finalize.hand-back
 
 state finalize.create-pr
+    phase finalize
     auto test.proceed
         done -> finalize.merge-gate
             completes default:create-pr as done
 
 state finalize.merge-gate
+    phase finalize
     auto test.proceed
         done -> finalize.merge
 
 state finalize.merge
+    phase finalize
     auto test.merge
         merged -> finalize.land
             completes default:branch-cleanup as done
         not_merged -> finalize.hand-back
 
 state finalize.land
+    phase finalize
     auto test.proceed
         done -> finalize.archive-plan
             completes default:emit-landing as done
 
 state finalize.hand-back
+    phase finalize
+    auto test.proceed
+        done -> finalize.archive-plan
+
+state plan.return
+    phase finalize
     auto test.proceed
         done -> finalize.archive-plan
 
 state finalize.archive-plan
+    phase finalize
     auto test.deliver
         completed -> completed
             completes default:archive-plan as done
@@ -64,19 +64,12 @@ state finalize.archive-plan
             completes default:archive-plan as done
         returned -> returned
             completes default:archive-plan as done
-        reentry -> finalize.reentry
-            completes default:archive-plan as done
-
-state finalize.reentry
-    auto test.proceed
-        done -> finalize.reentry-exit
-
-state finalize.reentry-exit terminal reentry success
-
-state finalize.stepped-out-exit terminal stepped_out stepped_out
 
 state completed terminal completed success
+    phase finalize
 
 state handed_back terminal handed_back failure
+    phase finalize
 
 state returned terminal returned failure
+    phase finalize

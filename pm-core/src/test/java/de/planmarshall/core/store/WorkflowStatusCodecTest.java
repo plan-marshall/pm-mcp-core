@@ -61,7 +61,7 @@ class WorkflowStatusCodecTest {
     static final String DOCUMENT = "{\"format_version\":1,\"scope_type\":\"plan\",\"scope_id\":\"workflow-engine\","
             + "\"main_sha\":\"0123456789abcdef0123456789abcdef01234567\",\"phase\":\"phase-6-finalize\","
             + "\"state\":\"finalize.merge-sync\",\"call_stack\":[{\"caller_workflow_id\":\"finalize\","
-            + "\"caller_state_id\":\"finalize.settle-commit\","
+            + "\"caller_state_id\":\"finalize.settle-commit\",\"caller_phase\":\"phase-6-finalize\","
             + "\"subworkflow_id\":\"git.commit_and_push\",\"entry\":\"commit\","
             + "\"bound_args\":{\"message_mode\":\"step_or_fallback\","
             + "\"attempts\":3,\"paths\":[\"a.txt\",\"b.txt\"]},\"pushed_at\":\"2026-10-12T10:00:00Z\"}],"
@@ -223,8 +223,8 @@ class WorkflowStatusCodecTest {
                         "field 'state' of the document is missing"),
                 Arguments.of("a phase outside the schema", DOCUMENT.replace("\"phase-6-finalize\",\"state\"",
                         "\"6-finalize\",\"state\""), "'phase' has the undeclared value '6-finalize'"),
-                Arguments.of("a call stack deeper than 5", DOCUMENT.replace("\"call_stack\":[", "\"call_stack\":["
-                        + (frame() + ",").repeat(5)), "'call_stack' has 6 frames, at most 5 are allowed"),
+                Arguments.of("a call stack deeper than 4", DOCUMENT.replace("\"call_stack\":[", "\"call_stack\":["
+                        + (frame() + ",").repeat(4)), "'call_stack' has 5 frames, at most 4 are allowed"),
                 Arguments.of("a call frame without its entry", DOCUMENT.replace("\"entry\":\"commit\",", ""),
                         "field 'entry' of the call frame is missing"),
                 Arguments.of("an entry of the wrong type", DOCUMENT.replace("\"entry\":\"commit\"", "\"entry\":7"),
@@ -261,7 +261,7 @@ class WorkflowStatusCodecTest {
     }
 
     private static String frame() {
-        return "{\"caller_workflow_id\":\"w\",\"caller_state_id\":\"s\","
+        return "{\"caller_workflow_id\":\"w\",\"caller_state_id\":\"s\",\"caller_phase\":\"phase-6-finalize\","
                 + "\"subworkflow_id\":\"x\",\"entry\":\"main\",\"bound_args\":{},"
                 + "\"pushed_at\":\"2026-10-12T10:00:00Z\"}";
     }

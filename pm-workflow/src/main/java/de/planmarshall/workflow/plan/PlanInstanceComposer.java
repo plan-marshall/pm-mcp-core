@@ -48,7 +48,7 @@ import de.planmarshall.workflow.verify.WorkflowValidator;
  * else the project's, else the machine's, else the shipped plan default, {@link PlanFacts#bound(PlanFacts.Axis)}),
  * passes the declarations of every axis variant among the request's sub-units into the facts, evaluates the
  * composition rules against them, applies their prunes and bindings, the bound variants and the waivers in force to
- * the plan template ({@link InstancePruner}: each axis call site calls its bound variant, every other variant
+ * the merged plan template ({@link InstancePruner}: each axis call site calls its bound variant, every other variant
  * of the axis is a pruned call with the reason {@code plan_default} and the level as source fact; from every event
  * after {@code start} on, the lane is known and the states of the other lane are pruned with the reason
  * {@code other_lane}), and builds the
@@ -133,9 +133,7 @@ public final class PlanInstanceComposer {
         var pruned = InstancePruner.prune(request.template(), effects, bound, request.waivers(),
                 request.verificationSteps(), request.finalizeSteps(), lanePruned);
         var version = request.nextVersion();
-        var positionStates = new LinkedHashSet<>(pruned.states().keySet());
-        request.subUnits().forEach(subUnit -> subUnit.definition().states().keySet().forEach(positionStates::add));
-        var missing = request.position().missingFrom(positionStates);
+        var missing = request.position().missingFrom(pruned.states().keySet());
         if (!missing.isEmpty()) {
             return new CompositionResult.Refused(CompositionResult.Refusal.POSITION_NOT_CONTAINED, missing.stream()
                     .map(state -> "position: version %d does not contain the state '%s'".formatted(version, state))
@@ -218,9 +216,9 @@ public final class PlanInstanceComposer {
                 HeaderJson.write(header));
         return new WorkflowDefinition(instanceFrontmatter(template.frontmatter()), PLAN_UNIT, header.version(),
                 template.scope(), template.params(), template.resultSchema(), Optional.of(instance),
-                template.declarations(), template.decisions(), template.formatVersion(), template.origin(),
-                Map.<String, Integer>of(), template.startState(), template.entryBindings(), template.migrations(),
-                states, template.location());
+                template.declarations(), template.decisions(), Map.of(), template.formatVersion(), template.origin(),
+                Map.of(), template.startState(), template.entryBindings(), template.migrations(), states,
+                template.location());
     }
 
     /** The frontmatter of a composed version: the template's, with the type {@link UnitType#INSTANCE}. */
@@ -256,7 +254,7 @@ public final class PlanInstanceComposer {
                 .filter(step -> keptSteps.contains(step.name())).toList());
         pipeline.forEach(violation -> found.add("pipeline step '%s' (%s): %s".formatted(violation.stepName(),
                 violation.rule(), violation.message())));
-        invariants.check(unit, catalog, result, pipeline, lane.map(PlanInstanceHeader.Lane::wireName)).stream()
+        invariants.check(unit, result, pipeline, lane.map(PlanInstanceHeader.Lane::wireName)).stream()
                 .filter(violation -> !CompiledInvariants.reReports(violation, unit, result))
                 .forEach(violation -> found.add("%s in '%s': %s".formatted(violation.id().wireId(),
                         violation.stateId(), violation.message())));

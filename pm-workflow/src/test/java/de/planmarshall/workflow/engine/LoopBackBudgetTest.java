@@ -127,11 +127,13 @@ class LoopBackBudgetTest {
             var fixtures = new EngineFixtures();
             var engine = fixtures.engine(callingPlan("execute.commit", """
                     state execute.commit
+                        phase execute
                         call sub.commit
                             done -> execute.commit-again
                             stepped_out -> plan.return
 
                     state execute.commit-again
+                        phase execute
                         call sub.commit
                             done -> completed
                             stepped_out -> plan.return

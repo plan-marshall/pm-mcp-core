@@ -1,115 +1,43 @@
 ---
 name: plan
-description: The plan unit of the fixture corpus, calling the six phase sub-workflows.
+description: A unit written for the invariant and unit-loader tests.
 type: workflow
 icon: phase.plan
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# The plan unit, written for the invariant and unit-loader tests, never copied from the product. It carries no phase
-# and no state of a phase: every phase is the sub-workflow its call state names, `phases.init` to `phases.finalize`
-# (PM-WF-16). A loop-back is a call of a phase again; the re-entry into execute is the `reentry` outcome of finalize.
-# Every call site routes the implicit `stepped_out` to the plan's fallback `plan.return`, and the two engine-chained
-# cycles the calls form - the rework loop and the finalize re-entry - pass the capped gate `phases.rework-gate` and
-# `phases.reentry-gate`. A gate that exhausts its budget leaves through the fallback call `finalize.hand-back`.
+# The plan phase (Phase 4) of the plan unit, written for the invariant and unit-loader tests, never copied from the
+# product. Every path into Phase 5 passes the derivation, plan.qgate and the composition; the blocking verdict of
+# plan.qgate calls the Q-Gate remediation. The phase is shared by both lanes after outline.gate, so its rework re-enters
+# outline.deep, the authoring entry every lane keeps (the light lane through its escalation), never a state of the
+# light route.
 workflow plan version 1 format 1
 scope plan
-start phases.init
+start plan.derive
 
-state phases.init
-    call phase-1-init entry start
-        deep -> phases.refine
-        light -> phases.outline.light
+state plan.derive
+    phase plan
+    auto test.proceed
+        done -> plan.qgate
+
+state plan.qgate
+    phase plan
+    auto test.qgate
+        pass -> plan.compose
+        blocking -> plan.remediate
+
+state plan.remediate
+    phase plan
+    call remediation.qgate-findings(retry_budget = 2, fix_budget = 2, waiver_wait_seconds = 3600, actions = [retry, fix])
+        resolved -> plan.compose
+        waived -> plan.compose
+        exhausted -> plan.return
+        fix_requested -> outline.deep
         stepped_out -> plan.return
 
-state phases.refine
-    call phase-2-refine entry start
-        done -> phases.outline
-        returned -> plan.return
-        stepped_out -> plan.return
-
-state phases.outline
-    call phase-3-outline entry start
-        done -> phases.plan
-        returned -> plan.return
-        stepped_out -> plan.return
-
-state phases.outline.light
-    call phase-3-outline entry light
-        done -> phases.plan
-        returned -> plan.return
-        stepped_out -> plan.return
-
-state phases.outline.rework
-    call phase-3-outline entry rework
-        done -> phases.plan
-        returned -> plan.return
-        stepped_out -> plan.return
-
-state phases.plan
-    call phase-4-plan entry start
-        execute -> phases.execute
-        land -> phases.execute.land
-        rework -> phases.rework-gate
-        returned -> plan.return
-        stepped_out -> plan.return
-
-state phases.rework-gate
-    auto test.capped
-        retry -> phases.outline.rework
-        exhausted -> finalize.hand-back
-
-state phases.execute
-    call phase-5-execute entry start
-        done -> phases.finalize
-        rework -> phases.rework-gate
-        returned -> plan.return
-        stepped_out -> plan.return
-
-state phases.execute.land
-    call phase-5-execute entry land
-        done -> phases.finalize
-        rework -> phases.rework-gate
-        returned -> plan.return
-        stepped_out -> plan.return
-
-state phases.execute.reentry
-    call phase-5-execute entry reentry
-        done -> phases.finalize
-        rework -> phases.rework-gate
-        returned -> plan.return
-        stepped_out -> plan.return
-
-state phases.finalize
-    call phase-6-finalize entry start
-        completed -> completed
-        handed_back -> handed_back
-        returned -> returned
-        reentry -> phases.reentry-gate
-        stepped_out -> plan.return
-
-state phases.reentry-gate
-    auto test.capped
-        retry -> phases.execute.reentry
-        exhausted -> finalize.hand-back
-
-state finalize.hand-back
-    call phase-6-finalize entry hand_back
-        completed -> completed
-        handed_back -> handed_back
-        returned -> returned
-        reentry -> handed_back
-        stepped_out -> plan.return
-
-state plan.return
-    job test.build
-        succeeded -> finalize.hand-back
-        failed -> finalize.hand-back
-        cancelled -> finalize.hand-back
-
-state completed terminal completed success
-
-state handed_back terminal handed_back failure
-
-state returned terminal returned failure
+state plan.compose
+    phase plan
+    auto test.route
+        execute -> execute.worktree-init
+        land -> land.worktree-init

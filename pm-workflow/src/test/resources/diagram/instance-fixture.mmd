@@ -2,19 +2,23 @@
 title: "plan diagram-fixture v3 (plan)"
 ---
 stateDiagram-v2
-    state "outline.deep" as outline_deep
-    state "finalize.merge-gate" as finalize_merge_gate
-    state "finalize.hand-back" as finalize_hand_back
-    state "finalize.archive-plan" as finalize_archive_plan
-    outline_deep : auto diagram.proceed
-    finalize_merge_gate : auto diagram.ready
-    finalize_hand_back : auto diagram.proceed
-    finalize_archive_plan : terminal completed
+    state phase_outline {
+        state "outline.deep" as outline_deep
+        outline_deep : auto diagram.proceed
+    }
+    state phase_finalize {
+        state "finalize.merge-gate" as finalize_merge_gate
+        state "finalize.hand-back" as finalize_hand_back
+        state "finalize.archive-plan" as finalize_archive_plan
+        finalize_merge_gate : auto diagram.ready
+        finalize_hand_back : auto diagram.proceed
+        finalize_archive_plan : terminal completed
+        finalize_merge_gate --> finalize_archive_plan : auto / held
+        finalize_merge_gate --> finalize_hand_back : auto / not_held
+        finalize_hand_back --> finalize_archive_plan : auto / done
+    }
     [*] --> outline_deep
     outline_deep --> finalize_merge_gate : auto / done
-    finalize_merge_gate --> finalize_archive_plan : auto / held
-    finalize_merge_gate --> finalize_hand_back : auto / not_held
-    finalize_hand_back --> finalize_archive_plan : auto / done
     state "pruned" as instance_pruned {
         state "step default:analysis-roundtrip: provider_unconfigured (integrations.sonar)" as instance_pruned_1
         state "state finalize.merge-dispatch: merge_by_operator (axes.asking)" as instance_pruned_2

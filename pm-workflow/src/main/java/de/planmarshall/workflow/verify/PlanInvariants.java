@@ -41,7 +41,7 @@ final class PlanInvariants {
         var id = InvariantId.INV_PLAN_1;
         context.requirePresent(id, QGATE);
         RefineInvariants.requireRemediationOnBlocking(context, id, QGATE);
-        context.requireDominatorsOf(id, state -> context.inPhase(state, CompiledInvariants.PHASE_EXECUTE),
-                state -> context.inPhase(state, CompiledInvariants.PHASE_PLAN));
+        context.requireDominatorsOf(id, state -> CompiledInvariants.PHASE_EXECUTE.contains(state.phase()),
+                state -> CompiledInvariants.PHASE_PLAN.equals(state.phase()));
     }
 }

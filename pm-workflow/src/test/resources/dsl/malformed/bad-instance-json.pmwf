@@ -13,3 +13,4 @@ instance {"plan_id": "demo", "version": 1, "event": "plan", "input_digests": {"p
 scope plan
 start demo.begin
 state demo.begin terminal done success
+    phase init

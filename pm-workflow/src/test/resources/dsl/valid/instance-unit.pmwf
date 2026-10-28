@@ -16,7 +16,9 @@ scope plan
 start plan.run
 
 state plan.run
+    phase execute
     auto plan.execute
         done -> plan.end
 
 state plan.end terminal done success
+    phase finalize

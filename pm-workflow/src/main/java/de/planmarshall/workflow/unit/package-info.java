@@ -16,8 +16,8 @@
  * reads the project-owned units from {@code .marshall/config/}, confined to the workspace, and verifies them: the
  * DSL format, Rules 1-12 without Rule 5, the declaration bounds, the finalize pipeline over the project's roster, the
  * compiled invariants against the default units, and the agreement of the project steps with their declarations and
- * bindings. No file is merged: each unit, the plan unit and its six phase sub-workflows among them, is loaded and
- * verified on its own, so the plan unit calls its phases instead of holding their states.
+ * bindings. {@link de.planmarshall.workflow.unit.PlanUnitMerger} merges the seven phase files into the plan unit,
+ * with the part versions and the per-file {@code derived_from} revisions.
  * <p>
  * Every check reports a {@link de.planmarshall.workflow.unit.UnitFinding} with file and line, never an exception. A
  * {@link de.planmarshall.workflow.unit.UnitLoadResult} carries either every verified unit or every finding; a result

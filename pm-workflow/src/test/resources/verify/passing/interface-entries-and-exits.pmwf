@@ -17,18 +17,23 @@ entry main -> verify.entry
 entry repair -> verify.repair
 
 state verify.entry
+    phase inherit
     auto test.prepare
         done -> verify.done
         skipped -> verify.failed
 
 state verify.repair
+    phase inherit
     job test.build
         succeeded -> verify.done
         failed -> verify.failed
         cancelled -> verify.stepped-out
 
 state verify.done terminal done success
+    phase inherit
 
 state verify.failed terminal failed failure
+    phase inherit
 
 state verify.stepped-out terminal stepped_out stepped_out
+    phase inherit

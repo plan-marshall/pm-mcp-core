@@ -7,18 +7,20 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: STEP_COMPLETION state verify.entry line 18
+# expect: STEP_COMPLETION state verify.entry line 19
 workflow verify.step-completion-question-class version 1 format 1
 scope plan
 start verify.entry
 
 state verify.entry
+    phase verify
     question review
         approve -> verify.done
             completes test:step as done
         revise -> verify.decide
 
 state verify.decide
+    phase verify
     auto test.prepare
         done -> verify.done
             completes test:step as done
@@ -26,3 +28,4 @@ state verify.decide
             completes test:step as skipped
 
 state verify.done terminal done success
+    phase verify

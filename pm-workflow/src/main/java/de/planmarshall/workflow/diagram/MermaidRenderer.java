@@ -9,6 +9,7 @@
  */
 package de.planmarshall.workflow.diagram;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -18,7 +19,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 
@@ -26,9 +26,8 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * Renders a unit as a Mermaid {@code stateDiagram-v2} (PM-IMPL-5).
  * <p>
  * The states are grouped by their phase value into one composite state {@code phase_<phase>} each, in the order in
- * which the phase values are first declared; the states of a unit that carries no phase, such as a plain sub-workflow
- * or the plan unit that calls the phases, stay at the top level. Every state and every composite gets a Mermaid
- * identifier, its alias, that is unique within
+ * which the phase values are first declared; the states of phase {@code inherit} (of a sub-workflow or an entity unit)
+ * stay at the top level. Every state and every composite gets a Mermaid identifier, its alias, that is unique within
  * the diagram: the alias of a state is its identifier with {@code .} and {@code -} mapped to {@code _}, that of a
  * composite {@code phase_} followed by the phase value mapped the same way; when that alias is already taken, because
  * the grammar admits {@code build.judge}, {@code build-judge} and {@code build_judge} as distinct states, the next free
@@ -52,6 +51,7 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
 final class MermaidRenderer {
 
     private static final String INDENT = "    ";
+    private static final String INHERIT = "inherit";
     private static final String PHASE_PREFIX = "phase_";
     private static final String ACTIVE_STYLE = "classDef active fill:#90ee90";
 
@@ -75,25 +75,26 @@ final class MermaidRenderer {
 
     private void renderUnit(WorkflowDefinition definition, Optional<String> activeState) {
         var transitions = StateTransitions.of(definition);
-        var phase = Phase.ofUnit(definition.id()).map(Phase::wireName);
-        var states = List.copyOf(definition.states().values());
-        var aliases = Aliases.of(definition, phase.map(Set::of).orElse(Set.of()), transitions);
+        var groups = phaseGroups(definition);
+        var aliases = Aliases.of(definition, groups.keySet(), transitions);
         line(0, "stateDiagram-v2");
-        if (phase.isPresent()) {
-            line(1, "state " + aliases.phase(phase.get()) + " {");
-            declare(2, states, aliases);
-            states.stream().flatMap(state -> transitions.outgoing(state.id()).stream())
-                    .filter(edge -> isInsideComposite(definition, phase, edge))
-                    .forEach(edge -> line(2, transition(edge, aliases)));
-            line(1, "}");
-        } else {
-            declare(1, states, aliases);
-        }
+        groups.forEach((phase, states) -> {
+            if (INHERIT.equals(phase)) {
+                declare(1, states, aliases);
+            } else {
+                line(1, "state " + aliases.phase(phase) + " {");
+                declare(2, states, aliases);
+                states.stream().flatMap(state -> transitions.outgoing(state.id()).stream())
+                        .filter(edge -> isInsideComposite(definition, edge))
+                        .forEach(edge -> line(2, transition(edge, aliases)));
+                line(1, "}");
+            }
+        });
         definition.startState().ifPresent(start -> line(1, "[*] --> " + aliases.state(start)));
         definition.entryBindings().forEach((entry, binding) -> line(1, "[*] --> %s : entry %s"
                 .formatted(aliases.state(binding.stateId()), entry)));
         definition.states().values().stream().flatMap(state -> transitions.outgoing(state.id()).stream())
-                .filter(edge -> !isInsideComposite(definition, phase, edge))
+                .filter(edge -> !isInsideComposite(definition, edge))
                 .forEach(edge -> line(1, transition(edge, aliases)));
         activeState.ifPresent(state -> {
             line(1, ACTIVE_STYLE);
@@ -111,12 +112,23 @@ final class MermaidRenderer {
     }
 
     /**
-     * Tells whether a transition is emitted inside the composite of its source state's phase: the unit carries a phase
-     * and the target is a state of that same unit.
+     * Groups the states of a unit by phase value, the groups and the states of a group in declaration order.
      */
-    private static boolean isInsideComposite(WorkflowDefinition definition, Optional<String> phase,
-            StateTransitions.Edge edge) {
-        return phase.isPresent() && definition.states().containsKey(edge.target());
+    private static Map<String, List<StateNode>> phaseGroups(WorkflowDefinition definition) {
+        var groups = new LinkedHashMap<String, List<StateNode>>();
+        definition.states().values()
+                .forEach(state -> groups.computeIfAbsent(state.phase(), phase -> new ArrayList<>()).add(state));
+        return groups;
+    }
+
+    /**
+     * Tells whether a transition is emitted inside the composite of its source state's phase: its source and its
+     * target are states of the same phase, which is not {@code inherit}.
+     */
+    private static boolean isInsideComposite(WorkflowDefinition definition, StateTransitions.Edge edge) {
+        var phase = edge.source().phase();
+        var target = definition.states().get(edge.target());
+        return !INHERIT.equals(phase) && target != null && phase.equals(target.phase());
     }
 
     private static String transition(StateTransitions.Edge edge, Aliases aliases) {
@@ -136,9 +148,10 @@ final class MermaidRenderer {
      * The first choice for a name is its preferred form: {@code .} and {@code -} become {@code _}, and a phase value
      * is prefixed with {@code phase_}. When that identifier is already taken, the name gets the first free identifier
      * of the form {@code <preferred>_2}, {@code <preferred>_3}, … The names are allocated in a fixed order: the state
-     * identifiers in the declaration order of the unit, then the phase composite when the unit carries a phase, then
-     * any starting state or transition target that names no declared state, in the order they are referenced. An
-     * allocated identifier is never handed out again, also not to a later name whose preferred form it is.
+     * identifiers in the declaration order of the unit, then the phase values other than {@code inherit} in the order
+     * they are first declared, then any starting state or transition target that names no declared state, in the order
+     * they are referenced. An allocated identifier is never handed out again, also not to a later name whose preferred
+     * form it is.
      *
      * @param states the identifier of every state and of every referenced, undeclared target
      * @param phases the identifier of every phase composite
@@ -150,7 +163,8 @@ final class MermaidRenderer {
             var states = new LinkedHashMap<String, String>();
             var phases = new LinkedHashMap<String, String>();
             definition.states().keySet().forEach(id -> states.put(id, allocate(preferred(id), taken)));
-            phaseValues.forEach(phase -> phases.put(phase, allocate(PHASE_PREFIX + preferred(phase), taken)));
+            phaseValues.stream().filter(phase -> !INHERIT.equals(phase))
+                    .forEach(phase -> phases.put(phase, allocate(PHASE_PREFIX + preferred(phase), taken)));
             Stream.concat(definition.startingStates().stream(), definition.states().keySet().stream()
                     .flatMap(id -> transitions.outgoing(id).stream()).map(StateTransitions.Edge::target))
                     .forEach(id -> states.computeIfAbsent(id, unknown -> allocate(preferred(unknown), taken)));

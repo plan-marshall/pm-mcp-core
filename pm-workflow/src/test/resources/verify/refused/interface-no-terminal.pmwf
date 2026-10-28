@@ -13,5 +13,6 @@ scope plan
 start verify.entry
 
 state verify.entry
+    phase verify
     job llm change role reviewer
         approved -> verify.entry

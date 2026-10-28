@@ -24,23 +24,27 @@ param actions : list<enum[retry|fix|loop_back]>
 entry main -> remediation-qgate.gather
 
 state remediation-qgate.gather
+    phase inherit
     composite_job test.gather
         findings -> remediation-qgate.budget-check
         all_waived -> remediation-qgate.waived
         clean -> remediation-qgate.resolved
 
 state remediation-qgate.budget-check
+    phase inherit
     auto remediation.check-budgets
         budget_left -> remediation-qgate.decide
         exhausted_wait -> remediation-qgate.waiver-wait
         exhausted -> remediation-qgate.exhausted
 
 state remediation-qgate.decide
+    phase inherit
     auto remediation.offer-actions
         choice -> remediation-qgate.choose
         none -> remediation-qgate.exhausted
 
 state remediation-qgate.choose
+    phase inherit
     job llm remediation-decision role decider
         retry -> remediation-qgate.rerun
         fix -> remediation-qgate.apply-fix
@@ -50,40 +54,50 @@ state remediation-qgate.choose
         lost -> remediation-qgate.conservative
 
 state remediation-qgate.rerun
+    phase inherit
     job test.build
         succeeded -> remediation-qgate.resolved
         failed -> remediation-qgate.budget-check
         cancelled -> remediation-qgate.budget-check
 
 state remediation-qgate.apply-fix
+    phase inherit
     job llm change role fixer
         approved -> remediation-qgate.commit
         lost -> remediation-qgate.conservative
 
 state remediation-qgate.commit
+    phase inherit
     call git.commit_and_push(push_mode = no_push)
         done -> remediation-qgate.budget-check
         stepped_out -> remediation-qgate.budget-check
 
 state remediation-qgate.fix-requested
+    phase inherit
     auto test.proceed
         done -> remediation-qgate.handed-to-fix
 
 state remediation-qgate.conservative
+    phase inherit
     auto test.conservative
         retry -> remediation-qgate.rerun
         give_up -> remediation-qgate.exhausted
 
 state remediation-qgate.waiver-wait
+    phase inherit
     composite_job test.waiver-wait
         waived -> remediation-qgate.waived
         raised -> remediation-qgate.budget-check
         declined -> remediation-qgate.exhausted
 
 state remediation-qgate.resolved terminal resolved success
+    phase inherit
 
 state remediation-qgate.waived terminal waived success
+    phase inherit
 
 state remediation-qgate.exhausted terminal exhausted failure
+    phase inherit
 
 state remediation-qgate.handed-to-fix terminal fix_requested unsettled
+    phase inherit

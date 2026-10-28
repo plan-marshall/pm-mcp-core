@@ -215,10 +215,12 @@ class WorkflowDiagramGeneratorTest {
                     start decide.vote
 
                     state decide.vote
+                        phase inherit
                         job llm decision role each diagram.list-roles
                             approved -> decide.done
 
                     state decide.done terminal done success
+                        phase inherit
                     """);
 
             var rendered = WorkflowDiagramGenerator.renderMermaid(unit, Optional.empty());
@@ -254,14 +256,17 @@ class WorkflowDiagramGeneratorTest {
                 entry recheck -> build.review
 
                 state build.review
+                    phase inherit
                     auto diagram.proceed
                         done -> build.done
 
                 state build.repair
+                    phase inherit
                     auto diagram.proceed
                         done -> build.review
 
                 state build.done terminal done success
+                    phase inherit
                 """);
 
         @Test
@@ -310,14 +315,17 @@ class WorkflowDiagramGeneratorTest {
                     start build.judge
 
                     state build.judge
+                        phase build
                         auto diagram.proceed
                             done -> build-judge
 
                     state build-judge
+                        phase build
                         auto diagram.proceed
                             done -> build_judge
 
                     state build_judge
+                        phase build
                         auto diagram.proceed
                             done -> build.judge
                     """);
@@ -339,34 +347,39 @@ class WorkflowDiagramGeneratorTest {
         void shouldSeparatePhaseFromStateAlias() {
             var unit = DiagramFixtures.parse("phase-collision.pmwf", """
                     ---
-                    name: phase-5-execute
+                    name: diagram.phases
                     description: A unit written for the tests of pm-workflow.
-                    type: subworkflow
-                    icon: phase.execute
+                    type: system
+                    icon: workflow.default
                     modification_date: 2026-01-15
                     version: 0.1.0
                     author: plan-marshall
                     ---
-                    workflow phase-5-execute version 1 format 1
-                    scope subworkflow
-                    start phase.phase-5-execute
+                    workflow diagram.phases version 1 format 1
+                    scope workspace
+                    start phase-build
 
-                    state phase.phase-5-execute
+                    state phase-build
+                        phase build
                         auto diagram.proceed
-                            done -> execute.end
+                            done -> phase_build-2
 
-                    state execute.end terminal done success
+                    state phase_build-2
+                        phase review
+                        auto diagram.proceed
+                            done -> phase-build
                     """);
 
-            var rendered = WorkflowDiagramGenerator.renderMermaid(unit, Optional.of("execute.end"));
+            var rendered = WorkflowDiagramGenerator.renderMermaid(unit, Optional.of("phase-build"));
 
-            assertAll(() -> assertTrue(rendered.contains("state \"phase.phase-5-execute\" as phase_phase_5_execute\n"),
-                            rendered),
-                    () -> assertTrue(rendered.contains("    state phase_phase_5_execute_2 {\n"), rendered),
-                    () -> assertTrue(rendered.contains("        state \"execute.end\" as execute_end\n"), rendered),
-                    () -> assertTrue(rendered.contains("        phase_phase_5_execute --> execute_end : "), rendered),
-                    () -> assertTrue(rendered.contains("    [*] --> phase_phase_5_execute\n"), rendered),
-                    () -> assertTrue(rendered.endsWith("    class execute_end active\n"), rendered));
+            assertAll(() -> assertTrue(rendered.contains("state \"phase-build\" as phase_build\n"), rendered),
+                    () -> assertTrue(rendered.contains("state \"phase_build-2\" as phase_build_2\n"), rendered),
+                    () -> assertTrue(rendered.contains("state phase_build_3 {\n"), rendered),
+                    () -> assertTrue(rendered.contains("state phase_review {\n"), rendered),
+                    () -> assertTrue(rendered.contains("phase_build --> phase_build_2 : "), rendered),
+                    () -> assertTrue(rendered.contains("phase_build_2 --> phase_build : "), rendered),
+                    () -> assertTrue(rendered.contains("[*] --> phase_build\n"), rendered),
+                    () -> assertTrue(rendered.endsWith("class phase_build active\n"), rendered));
         }
 
         @Test
@@ -387,6 +400,7 @@ class WorkflowDiagramGeneratorTest {
                     start build_missing
 
                     state build_missing
+                        phase build
                         auto diagram.proceed
                             done -> build.missing
                     """);
@@ -540,10 +554,12 @@ class WorkflowDiagramGeneratorTest {
                     start instance.pruned
 
                     state instance.pruned
+                        phase build
                         auto diagram.proceed
                             done -> instance-pruned
 
                     state instance-pruned
+                        phase build
                         auto diagram.proceed
                             done -> instance_waived_1
                     """;
@@ -554,11 +570,11 @@ class WorkflowDiagramGeneratorTest {
 
             assertAll(() -> assertTrue(rendered.contains("state \"instance-pruned\" as instance_pruned_2\n"), rendered),
                     () -> assertTrue(rendered.contains("instance_pruned --> instance_pruned_2 : "), rendered),
-                    () -> assertTrue(rendered.contains("state \"pruned\" as instance_pruned_5 {\n"), rendered),
+                    () -> assertTrue(rendered.contains("state \"pruned\" as instance_pruned_6 {\n"), rendered),
                     () -> assertTrue(rendered.contains("as instance_pruned_1\n"), rendered),
                     () -> assertTrue(rendered.contains("as instance_pruned_2_2\n"), rendered),
                     () -> assertTrue(rendered.contains("state \"waived gates\" as instance_waived {\n"), rendered),
-                    () -> assertTrue(rendered.contains("as instance_waived_1_5\n"), rendered));
+                    () -> assertTrue(rendered.contains("as instance_waived_1_6\n"), rendered));
         }
 
         @Test
@@ -730,6 +746,7 @@ class WorkflowDiagramGeneratorTest {
                     start setup.choose
 
                     state setup.choose
+                        phase setup
                         link fix fix:lint (choice: enum[FIX|SUPPRESS], body: schema[fix-plan], count: int[0..5], \
                     size: int, items: list<text>, note: text[1..80]?)
                             do setup.fix

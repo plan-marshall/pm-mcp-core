@@ -19,21 +19,25 @@ scope plan
 start finalize.push-barrier
 
 state finalize.push-barrier
+    phase finalize
     call git.commit_and_push(push_mode = push)
         done -> finalize.create-pr
         stepped_out -> finalize.hand-back
 
 state finalize.create-pr
+    phase finalize
     auto test.proceed
         done -> phases.ask
             completes default:create-pr as done
 
 state phases.ask
+    phase finalize
     call ask.questions-only
         continue -> finalize.remediate
         stepped_out -> finalize.hand-back
 
 state finalize.remediate
+    phase finalize
     call remediation.qgate-findings(retry_budget = 1, fix_budget = 3, waiver_wait_seconds = 0, actions = [retry, fix, loop_back])
         resolved -> finalize.merge-gate
         waived -> finalize.merge-gate
@@ -42,39 +46,47 @@ state finalize.remediate
         stepped_out -> finalize.hand-back
 
 state finalize.merge-gate
+    phase finalize
     auto test.proceed
         done -> finalize.merge-barrier
 
 state finalize.merge-barrier
+    phase finalize
     auto test.merge-barrier
         pass -> finalize.merge-dispatch
         pass_hand_back -> finalize.hand-back
             completes default:branch-cleanup as done
 
 state finalize.merge-dispatch
+    phase finalize
     auto test.proceed
         done -> finalize.merge-queue-wait
 
 state finalize.merge-queue-wait
+    phase finalize
     auto test.merge
         merged -> finalize.merge-queue-exit
             completes default:branch-cleanup as done
         not_merged -> finalize.hand-back
 
 state finalize.merge-queue-exit
+    phase finalize
     auto test.proceed
         done -> finalize.land
 
 state finalize.land
+    phase finalize
     auto test.proceed
         done -> finalize.archive-plan
             completes default:emit-landing as done
 
 state finalize.hand-back
+    phase finalize
     auto test.proceed
         done -> finalize.land
 
 state finalize.archive-plan
+    phase finalize
     auto test.deliver
         completed -> completed
             completes default:archive-plan as done
@@ -82,17 +94,12 @@ state finalize.archive-plan
             completes default:archive-plan as done
         returned -> returned
             completes default:archive-plan as done
-        reentry -> finalize.reentry
-            completes default:archive-plan as done
-
-state finalize.reentry
-    auto test.proceed
-        done -> finalize.reentry-exit
-
-state finalize.reentry-exit terminal reentry success
 
 state completed terminal completed success
+    phase finalize
 
 state handed_back terminal handed_back failure
+    phase finalize
 
 state returned terminal returned failure
+    phase finalize

@@ -17,8 +17,7 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
- * The root of the tree: one complete definition unit, that is the plan unit that calls the phases, a plan instance, a
- * single-file
+ * The root of the tree: one complete definition unit, that is the merged plan workflow, a plan instance, a single-file
  * top-level workflow or one sub-workflow (PM-IMPL-5).
  * <p>
  * A unit without entries declares its starting point with {@code start <state>}; a unit with entries declares no start
@@ -30,13 +29,14 @@ import java.util.stream.Stream;
  *
  * @param frontmatter   the frontmatter the unit opens with
  * @param id            the identifier of the unit
- * @param version       the revision of the unit, counted by its own header
+ * @param version       the revision of the unit; of the merged plan unit the sum of its part versions
  * @param scope         the scope the unit runs in
  * @param params        the parameter declarations; non-empty only for a {@link WorkflowScope#SUBWORKFLOW} unit
  * @param resultSchema  the named schema of the result record a sub-workflow returns with {@code done}
  * @param instance      the parsed {@code instance} header line of a plan instance version
  * @param declarations  the {@code declare} lines by name, each with its value and the line it was read at
  * @param decisions     the {@code decide} lines by decision kind; only in the unit {@code adjudicate.decisions}
+ * @param partVersions  the version of every part file of the merged plan unit; empty otherwise
  * @param formatVersion the DSL format every file of the unit declares
  * @param origin        whether the unit is compiled into the binary or owned by the project
  * @param derivedFrom   the default revision per file a project unit derives from; empty for a default unit
@@ -57,6 +57,7 @@ Optional<String> resultSchema,
 Optional<InstanceHeader> instance,
 Map<String, ValueDeclaration> declarations,
 Map<String, DecisionDeclaration> decisions,
+Map<String, Integer> partVersions,
 int formatVersion,
 UnitOrigin origin,
 Map<String, Integer> derivedFrom,
@@ -78,6 +79,7 @@ SourceLocation location) {
      * @param instance      the parsed instance header line
      * @param declarations  the {@code declare} lines by name, each with its value and line
      * @param decisions     the {@code decide} lines by decision kind
+     * @param partVersions  the version of every part file
      * @param formatVersion the DSL format
      * @param origin        the origin of the unit
      * @param derivedFrom   the default revision per file
@@ -91,6 +93,7 @@ SourceLocation location) {
         params = List.copyOf(params);
         declarations = Collections.unmodifiableMap(new LinkedHashMap<>(declarations));
         decisions = Collections.unmodifiableMap(new LinkedHashMap<>(decisions));
+        partVersions = Collections.unmodifiableMap(new LinkedHashMap<>(partVersions));
         derivedFrom = Collections.unmodifiableMap(new LinkedHashMap<>(derivedFrom));
         entryBindings = Collections.unmodifiableMap(new LinkedHashMap<>(entryBindings));
         migrations = List.copyOf(migrations);

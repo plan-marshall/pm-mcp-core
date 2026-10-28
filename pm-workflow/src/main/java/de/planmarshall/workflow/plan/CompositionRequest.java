@@ -30,7 +30,7 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  *
  * @param planId                  the id of the plan
  * @param event                   the composition event
- * @param template                the plan template, the unit {@code plan} the instance is composed from
+ * @param template                the merged plan template, the unit {@code plan} the instance is composed from
  * @param templates               the phase units the template was merged from, by digest
  * @param subUnits                every sub-unit a call of the template may reach, with its reference
  * @param facts                   the facts of the plan, the effective configuration values included
@@ -63,7 +63,7 @@ List<Step> finalizeSteps) {
      *
      * @param planId                  the id of the plan
      * @param event                   the composition event
-     * @param template                the plan template
+     * @param template                the merged plan template
      * @param templates               the phase units by digest
      * @param subUnits                the sub-units
      * @param facts                   the facts of the plan

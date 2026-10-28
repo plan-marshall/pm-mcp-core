@@ -42,9 +42,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.workflow.ast.ParamDecl;
-import de.planmarshall.workflow.ast.Phase;
-import de.planmarshall.workflow.ast.StateBehavior;
-import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.finalize.FinalizePipelineValidator;
@@ -68,15 +65,11 @@ class CompiledInvariantsTest {
     private static final String REFINE_FILE = "refine.pmwf";
     private static final String OUTLINE_FILE = "outline.pmwf";
     private static final String PLAN_FILE = "plan.pmwf";
-    private static final String PHASE_FOUR_FILE = "phase-4-plan.pmwf";
     private static final String EXECUTE_FILE = "execute.pmwf";
     private static final String FINALIZE_FILE = "finalize.pmwf";
 
-    /** The header of the plan unit, where a violation of the unit as a whole is located. */
+    /** The header of the merged plan unit, where a violation of the unit as a whole is located. */
     private static final String PLAN_HEADER = "workflow plan version 1 format 1";
-
-    /** The header of the init phase unit, where a violation of that unit as a whole is located. */
-    private static final String INIT_HEADER = "workflow phase-1-init version 1 format 1";
 
     /** The lane of a template, unknown, which {@code ProjectUnitLoader} checks a project unit with. */
     private static final Optional<String> UNKNOWN_LANE = Optional.empty();
@@ -126,42 +119,22 @@ class CompiledInvariantsTest {
         }
 
         @Test
-        @DisplayName("the passing units are the plan unit, its seven phase units and the four project-ownable"
-                + " sub-workflows")
+        @DisplayName("the passing units are the merged plan unit and the four project-ownable sub-workflows")
         void unitSet() {
-            assertEquals(List.of(PLAN_UNIT, "phase-1-init", "phase-2-refine", "phase-3-outline", "phase-4-plan",
-                    "phase-5-execute", "land", "phase-6-finalize", "adjudicate.decisions", "replan",
-                    "git.commit_and_push", "remediation.qgate-findings"), unitIds());
+            assertEquals(List.of(PLAN_UNIT, "adjudicate.decisions", "replan", "git.commit_and_push",
+                    "remediation.qgate-findings"), unitIds());
         }
 
         @Test
-        @DisplayName("the plan unit calls the six phase sub-workflows, in phase order, at the entry its call state"
-                + " names")
-        void planUnitCallsThePhases() {
+        @DisplayName("the merge records the version of every phase file and their sum")
+        void mergedPlanUnit() {
             var plan = InvariantFixtures.defaultUnits().get(PLAN_UNIT);
-            var phases = plan.states().values().stream()
-                    .map(StateNode::behavior)
-                    .filter(StateBehavior.SubWorkflowCall.class::isInstance)
-                    .map(behavior -> ((StateBehavior.SubWorkflowCall) behavior).subWorkflowId())
-                    .distinct()
-                    .toList();
 
             assertAll(
-                    () -> assertEquals(Phase.unitIds(), phases),
-                    () -> assertEquals(Optional.of("phases.init"), plan.startState()));
-        }
-
-        @Test
-        @DisplayName("the plan unit declares no phase and no state declares one; the phase is the phase unit on the"
-                + " call stack")
-        void noStateDeclaresAPhase() {
-            var entry = InvariantFixtures.defaultUnits().get("phase-4-plan");
-
-            assertAll(
-                    () -> assertEquals(Optional.of(Phase.PLAN), Phase.ofUnit(entry.id())),
-                    () -> assertEquals(Optional.empty(), Phase.ofUnit(PLAN_UNIT)),
-                    () -> assertEquals(Optional.of(Phase.EXECUTE), Phase.ofCallState("phases.execute")),
-                    () -> assertEquals(Optional.of(Phase.FINALIZE), Phase.ofCallState("phases.finalize")));
+                    () -> assertEquals(InvariantFixtures.PLAN_FILES, List.copyOf(plan.partVersions().keySet())),
+                    () -> assertEquals(InvariantFixtures.PLAN_FILES.size(), plan.version()),
+                    () -> assertEquals(Optional.of("init.begin"), plan.startState()),
+                    () -> assertEquals(INIT_FILE, plan.location().resourceName()));
         }
     }
 
@@ -202,15 +175,12 @@ class CompiledInvariantsTest {
         @DisplayName("one refusing unit per invariant names the invariant, the file and the line")
         void refuses(InvariantId id) {
             var refusing = CASES.get(id);
-            var units = refusing.units();
+            var unit = refusing.unit();
+            var rules = InvariantFixtures.validator().verify(unit);
             var expectedLine = InvariantFixtures.lineOf(refusing.anchorText(), refusing.anchor());
 
-            var found = new ArrayList<InvariantViolation>();
-            for (var unit : units.values()) {
-                var rules = InvariantFixtures.validator().verify(unit);
-                found.addAll(InvariantFixtures.invariants().check(unit, units.values(), rules,
-                        pipelineOf(unit, refusing.projectRoster()), UNKNOWN_LANE));
-            }
+            var found = InvariantFixtures.invariants().check(unit, rules, pipelineOf(unit, refusing.projectRoster()),
+                    UNKNOWN_LANE);
 
             assertTrue(found.stream().anyMatch(violation -> violation.id() == id
                             && refusing.anchorFile().equals(violation.location().resourceName())
@@ -251,6 +221,7 @@ class CompiledInvariantsTest {
                     entry main -> unknown.done
 
                     state unknown.done terminal done success
+                        phase inherit
                     """;
             var unit = InvariantFixtures.parse("unknown.pmwf", source, UnitOrigin.PROJECT);
 
@@ -284,22 +255,21 @@ class CompiledInvariantsTest {
     @DisplayName("INV-INIT-2 per lane")
     class LightLanePerLane {
 
-        /** The location of a violation of the unit as a whole: the header of the plan unit under check. */
-        private static final InvariantLocation AT_HEADER = new InvariantLocation(InvariantId.INV_INIT_2, PLAN_FILE,
-                InvariantFixtures.lineOf(InvariantFixtures.read(PLAN_FILE), PLAN_HEADER));
+        /** The location of a violation of the unit as a whole: the header of the merged plan unit. */
+        private static final InvariantLocation AT_HEADER = new InvariantLocation(InvariantId.INV_INIT_2, INIT_FILE,
+                InvariantFixtures.lineOf(InvariantFixtures.read(INIT_FILE), PLAN_HEADER));
 
-        private static List<InvariantLocation> lightLane(Map<String, WorkflowDefinition> units,
-                Optional<String> lane) {
-            var unit = units.get(PLAN_UNIT);
+        private static List<InvariantLocation> lightLane(WorkflowDefinition unit, Optional<String> lane) {
             return InvariantFixtures.invariants()
-                    .check(unit, units.values(), InvariantFixtures.validator().verify(unit),
+                    .check(unit, InvariantFixtures.validator().verify(unit),
                             pipelineOf(unit, InvariantFixtures.defaultRoster()), lane)
                     .stream().filter(violation -> violation.id() == InvariantId.INV_INIT_2)
                     .map(InvariantLocation::of).toList();
         }
 
-        private static Map<String, WorkflowDefinition> withoutLightRoute() {
-            return InvariantFixtures.mutatedUnits(UnitOrigin.PROJECT, InvariantFixtures.WITHOUT_LIGHT_ROUTE);
+        private static WorkflowDefinition withoutLightRoute() {
+            return InvariantFixtures.mutatedUnits(UnitOrigin.PROJECT, InvariantFixtures.WITHOUT_LIGHT_ROUTE)
+                    .get(PLAN_UNIT);
         }
 
         static Stream<Optional<String>> lanesWithoutRatchet() {
@@ -314,12 +284,12 @@ class CompiledInvariantsTest {
         @MethodSource("lanesWithoutRatchet")
         @DisplayName("a unit without the light route passes for a lane that owes no ratchet")
         void withoutLightRoutePasses(Optional<String> lane) {
-            var units = withoutLightRoute();
+            var unit = withoutLightRoute();
 
             assertAll(
-                    () -> InvariantFixtures.LIGHT_ROUTE.forEach(state -> assertFalse(units.values().stream()
-                            .anyMatch(unit -> unit.states().containsKey(state)), state)),
-                    () -> assertEquals(List.of(), lightLane(units, lane)));
+                    () -> InvariantFixtures.LIGHT_ROUTE.forEach(state -> assertFalse(unit.states()
+                            .containsKey(state), state)),
+                    () -> assertEquals(List.of(), lightLane(unit, lane)));
         }
 
         @ParameterizedTest(name = "lane {0}")
@@ -340,8 +310,7 @@ class CompiledInvariantsTest {
         void withoutRatchetRefused(Optional<String> lane) {
             var mutation = InvariantFixtures.WITHOUT_RATCHET;
 
-            var found = lightLane(InvariantFixtures.mutatedUnits(UnitOrigin.PROJECT,
-                    List.of(InvariantFixtures.WITHOUT_RATCHET)), lane);
+            var found = lightLane(InvariantFixtures.mutatedUnit(mutation), lane);
 
             assertEquals(List.of(new InvariantLocation(InvariantId.INV_INIT_2, INIT_FILE,
                     InvariantFixtures.lineOf(mutation.applied(), "state init.light-gate"))), found);
@@ -351,15 +320,14 @@ class CompiledInvariantsTest {
         @MethodSource("lanesWithoutRatchet")
         @DisplayName("a unit whose light gate lacks the ratchet passes for a lane that owes no ratchet")
         void withoutRatchetPassesWhereNoneOwed(Optional<String> lane) {
-            assertEquals(List.of(), lightLane(InvariantFixtures.mutatedUnits(UnitOrigin.PROJECT,
-                    List.of(InvariantFixtures.WITHOUT_RATCHET)), lane));
+            assertEquals(List.of(), lightLane(InvariantFixtures.mutatedUnit(InvariantFixtures.WITHOUT_RATCHET), lane));
         }
 
         @Test
         @DisplayName("the light exit of init.ready a removed light route leaves is refused by Rule 2 for a caller"
                 + " without prune records")
         void unsettledLightExitRefused() {
-            var result = InvariantFixtures.validator().verify(withoutLightRoute().get("phase-1-init"));
+            var result = InvariantFixtures.validator().verify(withoutLightRoute());
 
             assertEquals(List.of("the state 'init.ready' does not route the outcome 'light' of the primitive"
                     + " 'test.lane'"), result.violations().stream()
@@ -370,7 +338,7 @@ class CompiledInvariantsTest {
         @Test
         @DisplayName("the light exit of init.ready settled by a prune record passes Rule 2")
         void settledLightExitPasses() {
-            var result = InvariantFixtures.validator().verify(withoutLightRoute().get("phase-1-init"),
+            var result = InvariantFixtures.validator().verify(withoutLightRoute(),
                     Map.of(InitInvariants.READY, Set.of(InitInvariants.LANE_LIGHT)));
 
             assertEquals(List.of(), result.violations().stream()
@@ -383,7 +351,7 @@ class CompiledInvariantsTest {
         void pathClausesForEveryLane(Optional<String> lane) {
             var refusing = CASES.get(InvariantId.INV_INIT_2);
 
-            var found = lightLane(refusing.units(), lane);
+            var found = lightLane(refusing.unit(), lane);
 
             assertEquals(List.of(new InvariantLocation(InvariantId.INV_INIT_2, refusing.anchorFile(),
                     InvariantFixtures.lineOf(refusing.anchorText(), refusing.anchor()))), found);
@@ -444,9 +412,9 @@ class CompiledInvariantsTest {
         /** @return the fixture sources with the plan unit's frontmatter declaring the given type */
         private static Map<String, String> sourcesWithPlanType(String type) {
             var sources = InvariantFixtures.sources();
-            var mutation = new Mutation("the plan unit of the type " + type, PLAN_FILE, "type: workflow",
+            var mutation = new Mutation("the plan unit of the type " + type, INIT_FILE, "type: workflow",
                     "type: " + type);
-            sources.put(PLAN_FILE, mutation.apply(sources.get(PLAN_FILE)));
+            sources.put(INIT_FILE, mutation.apply(sources.get(INIT_FILE)));
             return sources;
         }
 
@@ -479,8 +447,8 @@ class CompiledInvariantsTest {
             assertAll(
                     () -> assertEquals(List.of("the type 'instance' differs from the type '%s' of the default unit"
                             .formatted(templateType)), found.stream().map(InvariantViolation::message).toList()),
-                    () -> assertEquals(List.of(new InvariantLocation(InvariantId.INV_GEN_1, PLAN_FILE,
-                                    InvariantFixtures.lineOf(InvariantFixtures.read(PLAN_FILE), PLAN_HEADER))),
+                    () -> assertEquals(List.of(new InvariantLocation(InvariantId.INV_GEN_1, INIT_FILE,
+                                    InvariantFixtures.lineOf(InvariantFixtures.read(INIT_FILE), PLAN_HEADER))),
                             found.stream().map(InvariantLocation::of).toList()));
         }
 
@@ -561,6 +529,7 @@ class CompiledInvariantsTest {
                     start remediation-spend.resolved
 
                     state remediation-spend.resolved terminal resolved success
+                        phase inherit
                     """;
             var reference = InvariantFixtures.parse("remediation-spend.pmwf", source, UnitOrigin.DEFAULT);
             var unit = InvariantFixtures.parse("remediation-spend.pmwf", source, UnitOrigin.PROJECT);
@@ -638,13 +607,10 @@ class CompiledInvariantsTest {
     record RefusingCase(InvariantId id, String description, Optional<Mutation> mutation,
     List<FinalizeStepDescriptor> projectRoster, String anchorFile, String anchor) {
 
-        Map<String, WorkflowDefinition> units() {
-            return mutation.map(change -> InvariantFixtures.mutatedUnits(UnitOrigin.PROJECT, List.of(change)))
-                    .orElseGet(() -> InvariantFixtures.passingUnits(UnitOrigin.PROJECT));
-        }
-
         WorkflowDefinition unit() {
-            return units().get(PLAN_UNIT);
+            return mutation.map(InvariantFixtures::mutatedUnit)
+                    .orElseGet(() -> InvariantFixtures.units(InvariantFixtures.sources(), UnitOrigin.PROJECT)
+                            .get(PLAN_UNIT));
         }
 
         String anchorText() {
@@ -700,7 +666,7 @@ class CompiledInvariantsTest {
                 change(InvariantId.INV_GEN_3, "a transition targets a reserved state", INIT_FILE,
                         "done -> init.ready", "done -> init.blocked", "done -> init.blocked"),
                 changeAt(InvariantId.INV_GEN_4, "a path to the success terminal skips the main_sha stamp", INIT_FILE,
-                        "proceed -> init.stamp", "proceed -> init.ready", PLAN_FILE, "state completed terminal"),
+                        "proceed -> init.stamp", "proceed -> init.ready", FINALIZE_FILE, "state completed terminal"),
                 change(InvariantId.INV_GEN_5, "the lost outcome of the vote ends in the decided terminal",
                         ADJUDICATION_FILE, "lost -> adjudicate.escalated", "lost -> adjudicate.decided",
                         "lost -> adjudicate.decided"),
@@ -709,25 +675,25 @@ class CompiledInvariantsTest {
                 change(InvariantId.INV_INIT_2, "the light lane skips outline.light-regate", OUTLINE_FILE,
                         "done -> outline.light-regate", "done -> outline.gate", "state outline.gate"),
                 change(InvariantId.INV_REFINE_1, "the deep path leaves refine without refine.analyze", REFINE_FILE,
-                        "done -> refine.analyze", "done -> refine.return-exit", "done -> refine.return-exit"),
-                change(InvariantId.INV_OUTLINE_1, "a phase before outline enters Phase 4 past outline.gate",
-                        PLAN_FILE, "        deep -> phases.refine", "        deep -> phases.plan",
-                        "deep -> phases.plan"),
+                        "done -> refine.analyze", "done -> outline.deep", "done -> outline.deep"),
+                change(InvariantId.INV_OUTLINE_1, "a remediation result enters Phase 4 past outline.gate",
+                        OUTLINE_FILE, "resolved -> outline.gate", "resolved -> plan.derive",
+                        "resolved -> plan.derive"),
                 change(InvariantId.INV_OUTLINE_2, "the deep lane skips outline.qgate", OUTLINE_FILE,
                         "approved -> outline.qgate", "approved -> outline.gate", "approved -> outline.gate"),
-                change(InvariantId.INV_PLAN_1, "the blocking verdict of plan.qgate calls no remediation", PHASE_FOUR_FILE,
+                change(InvariantId.INV_PLAN_1, "the blocking verdict of plan.qgate calls no remediation", PLAN_FILE,
                         "blocking -> plan.remediate", "blocking -> plan.compose", "blocking -> plan.compose"),
                 changeAt(InvariantId.INV_EXEC_1, "the envelope task runs before the worktree initialization",
-                        EXECUTE_FILE, "entry start -> execute.worktree-init", "entry start -> execute.envelope",
-                        EXECUTE_FILE, "state execute.envelope"),
+                        PLAN_FILE, "execute -> execute.worktree-init", "execute -> execute.envelope", EXECUTE_FILE,
+                        "state execute.envelope"),
                 change(InvariantId.INV_EXEC_2, "the exit barrier is reached without the deliverable build",
                         EXECUTE_FILE, "done -> execute.deliverable-build", "done -> execute.verify-sweep",
                         "state execute.exit-barrier"),
                 change(InvariantId.INV_EXEC_3, "the envelope task routes lost past the envelope evaluation",
-                        EXECUTE_FILE, "lost -> execute.evaluate-envelope-return", "lost -> execute.hand-back-exit",
-                        "lost -> execute.hand-back-exit"),
+                        EXECUTE_FILE, "lost -> execute.evaluate-envelope-return", "lost -> finalize.hand-back",
+                        "lost -> finalize.hand-back"),
                 changeAt(InvariantId.INV_FIN_1, "no transition completes the mandatory step default:create-pr",
-                        FINALIZE_FILE, "\n            completes default:create-pr as done", "", PLAN_FILE,
+                        FINALIZE_FILE, "\n            completes default:create-pr as done", "", INIT_FILE,
                         PLAN_HEADER),
                 new RefusingCase(InvariantId.INV_FIN_2, "the project roster orders default:create-pr at 70",
                         Optional.empty(), collidingRoster, FINALIZE_FILE, "state finalize.create-pr"),
@@ -739,9 +705,9 @@ class CompiledInvariantsTest {
                         "push_mode = no_push", "push_mode = push", "state execute.commit"),
                 change(InvariantId.INV_FIN_5, "the merge is reached without finalize.merge-gate", FINALIZE_FILE,
                         "done -> finalize.merge-gate", "done -> finalize.merge", "state finalize.merge\n"),
-                change(InvariantId.INV_FIN_6, "the push barrier steps out into the merge", FINALIZE_FILE,
-                        "stepped_out -> finalize.stepped-out-exit", "stepped_out -> finalize.merge",
-                        "stepped_out -> finalize.merge"),
+                change(InvariantId.INV_FIN_6, "the push barrier steps out to plan.return", FINALIZE_FILE,
+                        "stepped_out -> finalize.hand-back", "stepped_out -> plan.return",
+                        "stepped_out -> plan.return"),
                 change(InvariantId.INV_ADJ_1, "the vote wait lies below its bound", ADJUDICATION_FILE,
                         "declare vote_wait_seconds = 900", "declare vote_wait_seconds = 30",
                         "declare vote_wait_seconds = 30"),
@@ -765,11 +731,11 @@ class CompiledInvariantsTest {
                         REMEDIATION_FILE, "stepped_out -> remediation-qgate.budget-check",
                         "stepped_out -> remediation-qgate.exhausted", "stepped_out -> remediation-qgate.exhausted"),
                 change(InvariantId.INV_REM_5, "an early remediation call routes exhausted past the fallback",
-                        REFINE_FILE, "exhausted -> refine.return-exit", "exhausted -> refine.done-exit",
-                        "exhausted -> refine.done-exit"),
-                change(InvariantId.INV_REM_6, "the plan unit runs a remediation primitive", PHASE_FOUR_FILE,
-                        "state plan.derive\n    auto test.proceed", "state plan.derive\n    auto remediation.offer-actions",
-                        "state plan.derive"),
+                        REFINE_FILE, "exhausted -> plan.return", "exhausted -> outline.deep",
+                        "exhausted -> outline.deep"),
+                change(InvariantId.INV_REM_6, "the plan unit runs a remediation primitive", PLAN_FILE,
+                        "state plan.derive\n    phase plan\n    auto test.proceed",
+                        "state plan.derive\n    phase plan\n    auto remediation.offer-actions", "state plan.derive"),
                 change(InvariantId.INV_REM_7, "the decision offers its choice past the decision task",
                         REMEDIATION_FILE, "choice -> remediation-qgate.choose", "choice -> remediation-qgate.rerun",
                         "state remediation-qgate.decide"));

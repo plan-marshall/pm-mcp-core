@@ -46,9 +46,6 @@ final class OutlineInvariants {
     /** The phase value of the outline phase. */
     private static final String PHASE_OUTLINE = "outline";
 
-    /** The first state of the plan phase, which every path into Phase 4 passes. */
-    private static final String PHASE_FOUR_ENTRY = "plan.derive";
-
     private OutlineInvariants() {
     }
 
@@ -61,21 +58,19 @@ final class OutlineInvariants {
     private static void gateIntoPhaseFour(Context context) {
         var id = InvariantId.INV_OUTLINE_1;
         context.requirePresent(id, GATE);
-        context.requireDominance(id, GATE, PHASE_FOUR_ENTRY);
-        for (var edge : context.allEdges()) {
+        for (var edge : Context.edges(context.unit())) {
             var source = edge.source();
             var transition = edge.transition();
-            var entersPhaseFour = !context.inPhase(source, CompiledInvariants.PHASE_PLAN) && context
+            var entersPhaseFour = !CompiledInvariants.PHASE_PLAN.equals(source.phase()) && context
                     .state(transition.targetStateId())
-                    .filter(target -> context.inPhase(target, CompiledInvariants.PHASE_PLAN)).isPresent();
+                    .filter(target -> CompiledInvariants.PHASE_PLAN.equals(target.phase())).isPresent();
             if (!entersPhaseFour || GATE.equals(source.id())) {
                 continue;
             }
             var reviewApproval = APPROVE.equals(transition.outcomeName())
                     && source.behavior() instanceof StateBehavior.QuestionWait
-                    && context.inPhase(source, PHASE_OUTLINE);
-            var outlineExit = context.inPhase(source, PHASE_OUTLINE) && Context.isTerminal(source);
-            if (!reviewApproval && !outlineExit && !context.returnsThrough(source, transition, GATE)) {
+                    && PHASE_OUTLINE.equals(source.phase());
+            if (!reviewApproval) {
                 context.reportTransition(id, source, transition,
                         "the transition '%s' -> '%s' enters Phase 4 from '%s', not from '%s' or a review approval"
                                 .formatted(transition.outcomeName(), transition.targetStateId(), source.id(), GATE));

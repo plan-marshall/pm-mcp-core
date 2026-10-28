@@ -38,11 +38,13 @@ class MachineResidentUnitTest {
     void residentUnitPasses() {
         var unit = machineUnit("""
                 state onboard.entry
+                    phase machine
                     link next start ()
                         do test.proceed
                             done -> onboard.completed
 
                 state onboard.completed
+                    phase machine
                     link next reconfigure ()
                         do test.proceed
                             done -> onboard.entry
@@ -57,6 +59,7 @@ class MachineResidentUnitTest {
     void stateWithoutPathBackIsRefused() {
         var unit = machineUnit("""
                 state onboard.entry
+                    phase machine
                     link next start ()
                         do test.proceed
                             done -> onboard.completed
@@ -65,11 +68,13 @@ class MachineResidentUnitTest {
                             done -> onboard.orphan
 
                 state onboard.completed
+                    phase machine
                     link next reconfigure ()
                         do test.proceed
                             done -> onboard.entry
 
                 state onboard.orphan
+                    phase machine
                     link next loop ()
                         do test.proceed
                             done -> onboard.orphan
@@ -86,6 +91,7 @@ class MachineResidentUnitTest {
     void missingRestingStateIsRefused() {
         var unit = machineUnit("""
                 state onboard.entry
+                    phase machine
                     link next start ()
                         do test.proceed
                             done -> onboard.entry
@@ -102,16 +108,19 @@ class MachineResidentUnitTest {
     void terminalIsRefused() {
         var unit = machineUnit("""
                 state onboard.entry
+                    phase machine
                     link next start ()
                         do test.proceed
                             done -> onboard.completed
 
                 state onboard.completed
+                    phase machine
                     link next reconfigure ()
                         do test.proceed
                             done -> onboard.entry
 
                 state onboard.stopped terminal stopped failure
+                    phase machine
                 """);
 
         var violations = validator.verify(unit).violations();

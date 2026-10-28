@@ -15,6 +15,7 @@ import java.util.Optional;
  * A state of a workflow unit (PM-IMPL-5).
  *
  * @param id               the identifier of the state
+ * @param phase            the short name of the phase, or {@code inherit} in a sub-workflow or an entity unit
  * @param terminalOutcome  the outcome the state reports; present if and only if the state is terminal
  * @param skillPath        the skill the state names in its {@code skill} clause
  * @param factsPrimitiveId the primitive of its {@code facts} clause
@@ -24,6 +25,7 @@ import java.util.Optional;
  */
 public record StateNode(
 String id,
+String phase,
 Optional<TerminalOutcome> terminalOutcome,
 Optional<String> skillPath,
 Optional<String> factsPrimitiveId,

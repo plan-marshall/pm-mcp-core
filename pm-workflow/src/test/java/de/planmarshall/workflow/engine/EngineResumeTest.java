@@ -75,31 +75,38 @@ class EngineResumeTest {
             entry main -> work.run
 
             state work.run
+                phase inherit
                 job test.fate
                     succeeded -> work.done
                     killed -> work.stepped-out
             %s
             state work.done terminal done success
+                phase inherit
 
             state work.stepped-out terminal stepped_out stepped_out
+                phase inherit
             """.formatted(OTHER_FATES.replace("handed_back", "work.stepped-out"));
 
     private static final String RESUME_STATES = """
             state execute.invoke
+                phase execute
                 call sub.worker
                     done -> execute.review
                     stepped_out -> plan.return
 
             state execute.review
+                phase execute
                 job llm change role reviewer
                     approved -> execute.ask
                     lost -> handed_back
 
             state execute.ask
+                phase execute
                 question clarification
                     answered -> execute.backoff
 
             state execute.backoff
+                phase execute
                 composite_job test.backoff
                     succeeded -> completed
                     failed -> handed_back

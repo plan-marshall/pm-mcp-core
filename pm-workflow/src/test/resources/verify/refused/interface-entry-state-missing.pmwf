@@ -17,8 +17,10 @@ entry main -> verify.entry
 entry review -> verify.missing
 
 state verify.entry
+    phase inherit
     auto test.prepare
         done -> verify.done
         skipped -> verify.done
 
 state verify.done terminal done success
+    phase inherit

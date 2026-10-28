@@ -15,11 +15,14 @@ scope subworkflow
 entry main -> verify.entry
 
 state verify.entry
+    phase inherit
     call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
         done -> verify.done
             guard result.pushed
         stepped_out -> verify.stepped-out
 
 state verify.done terminal done success
+    phase inherit
 
 state verify.stepped-out terminal stepped_out stepped_out
+    phase inherit

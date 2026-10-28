@@ -15,7 +15,6 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 
 /**
@@ -123,7 +122,7 @@ final class InstanceMermaidRenderer {
             var preferredForms = new HashSet<String>();
             names.forEach(name -> preferredForms.add(preferred(name)));
             var phases = new HashSet<String>();
-            Phase.ofUnit(unit.id()).map(Phase::wireName).ifPresent(phases::add);
+            unit.states().values().forEach(state -> phases.add(state.phase()));
             phases.forEach(phase -> preferredForms.add(PHASE_PREFIX + preferred(phase)));
             return new Identifiers(preferredForms, names.size() + phases.size() + 1, new HashSet<>());
         }

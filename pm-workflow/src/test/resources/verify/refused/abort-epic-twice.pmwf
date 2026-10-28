@@ -7,17 +7,19 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: ABORT_TERMINAL_TARGETING state epic.next-work line 28
+# expect: ABORT_TERMINAL_TARGETING state epic.next-work line 30
 workflow verify.abort-epic-twice version 1 format 1
 scope entity
 start verify.entry
 
 state verify.entry
+    phase verify
     auto test.prepare
         done -> epic.next-work
         skipped -> verify.done
 
 state epic.next-work
+    phase verify
     link next land ()
         do test.land-work
             landed -> verify.done
@@ -28,5 +30,7 @@ state epic.next-work
             abort_landed -> epic.aborted
 
 state epic.aborted terminal aborted failure
+    phase aborted
 
 state verify.done terminal done success
+    phase verify

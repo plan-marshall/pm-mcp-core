@@ -29,8 +29,7 @@
  * {@link de.planmarshall.workflow.verify.FuzzConfiguration}, and the same configuration gives the same report.</li>
  * <li><b>Compiled invariants</b>: {@link de.planmarshall.workflow.verify.CompiledInvariants} checks a project-owned
  * unit against the closed list {@link de.planmarshall.workflow.verify.InvariantId} ({@code INV-GEN-*} for every unit,
- * the phase invariants {@code INV-INIT-*} to {@code INV-FIN-*} and {@code INV-REM-5} for the plan unit over the
- * call-resolved graph of its calls and for the phase unit whose states they judge, and
+ * the phase invariants {@code INV-INIT-*} to {@code INV-FIN-*} and {@code INV-REM-5} for the merged plan unit, and
  * {@code INV-ADJ-1}, {@code INV-REPLAN-1}, {@code INV-GIT-1} and {@code INV-REM-*} for their sub-workflows). The default
  * unit of the same identifier is the reference: the unit may tighten what the default unit guarantees but never open
  * a path the default unit does not have. One package-private checker class per phase or unit kind holds the checks

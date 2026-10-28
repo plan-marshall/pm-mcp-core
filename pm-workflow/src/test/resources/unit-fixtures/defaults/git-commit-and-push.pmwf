@@ -18,22 +18,27 @@ param push_mode : enum[push|no_push]
 entry main -> git.collect
 
 state git.collect
+    phase inherit
     auto test.proceed
         done -> git.check
 
 state git.check
+    phase inherit
     auto test.proceed
         done -> git.message
 
 state git.message
+    phase inherit
     auto test.proceed
         done -> git.commit
 
 state git.commit
+    phase inherit
     auto git.stage-and-commit
         committed -> git.push
 
 state git.push
+    phase inherit
     auto git.execute-push
         pushed -> git.verify
         skipped -> git.verify
@@ -41,14 +46,18 @@ state git.push
         push_state_unknown -> git.stepped-out
 
 state git.lease-push
+    phase inherit
     auto git.push-with-lease
         pushed -> git.verify
         push_state_unknown -> git.stepped-out
 
 state git.verify
+    phase inherit
     auto test.proceed
         done -> git.done
 
 state git.done terminal done success
+    phase inherit
 
 state git.stepped-out terminal stepped_out stepped_out
+    phase inherit

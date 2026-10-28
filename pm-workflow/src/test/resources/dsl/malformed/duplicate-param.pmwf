@@ -14,3 +14,4 @@ param mode : enum[fast|slow]
 param mode : int
 start demo.begin
 state demo.begin terminal done success
+    phase inherit

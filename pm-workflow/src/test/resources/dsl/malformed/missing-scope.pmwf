@@ -11,3 +11,4 @@ author: plan-marshall
 workflow demo version 1 format 1
 start demo.begin
 state demo.begin terminal done success
+    phase init

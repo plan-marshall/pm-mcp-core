@@ -13,9 +13,11 @@ scope plan
 start verify.entry
 
 state verify.entry
+    phase verify
     auto test.next-step
         first -> verify.done
         second -> verify.done
         settled -> verify.done
 
 state verify.done terminal done success
+    phase verify

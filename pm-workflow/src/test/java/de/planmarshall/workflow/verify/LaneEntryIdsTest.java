@@ -26,14 +26,12 @@ import de.planmarshall.workflow.ast.UnitOrigin;
 class LaneEntryIdsTest {
 
     @Test
-    @DisplayName("the default units declare a state under each lane entry id")
+    @DisplayName("the default plan unit declares a state under each lane entry id")
     void entriesAreStatesOfTheDefaultPlanUnit() {
-        var units = InvariantFixtures.passingUnits(UnitOrigin.DEFAULT);
-        var states = units.values().stream()
-                .flatMap(unit -> unit.states().keySet().stream()).toList();
+        var plan = InvariantFixtures.passingUnits(UnitOrigin.DEFAULT).get("plan");
 
         assertAll(
-                () -> assertTrue(states.contains(LaneEntryIds.DEEP_ENTRY), LaneEntryIds.DEEP_ENTRY),
-                () -> assertTrue(states.contains(LaneEntryIds.LIGHT_ENTRY), LaneEntryIds.LIGHT_ENTRY));
+                () -> assertTrue(plan.states().containsKey(LaneEntryIds.DEEP_ENTRY), LaneEntryIds.DEEP_ENTRY),
+                () -> assertTrue(plan.states().containsKey(LaneEntryIds.LIGHT_ENTRY), LaneEntryIds.LIGHT_ENTRY));
     }
 }

@@ -15,8 +15,10 @@ scope subworkflow
 entry main -> verify.entry
 
 state verify.entry
+    phase inherit
     link next proceed ()
         do test.proceed
             done -> verify.done
 
 state verify.done terminal done success
+    phase inherit

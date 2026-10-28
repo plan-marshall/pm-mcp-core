@@ -13,8 +13,10 @@ scope plan
 start verify.entry
 
 state verify.entry
+    phase verify
     auto test.next-work
         archive_uncommitted -> verify.done
         archived -> verify.done
 
 state verify.done terminal done success
+    phase verify

@@ -7,16 +7,18 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: OUTCOME_COVERAGE state verify.entry line 20
+# expect: OUTCOME_COVERAGE state verify.entry line 21
 # A plan unit whose auto state routes an outcome its primitive does not have.
 workflow verify.outcome-unknown version 1 format 1
 scope plan
 start verify.entry
 
 state verify.entry
+    phase verify
     auto test.prepare
         done -> verify.done
         skipped -> verify.done
         vanished -> verify.done
 
 state verify.done terminal done success
+    phase verify

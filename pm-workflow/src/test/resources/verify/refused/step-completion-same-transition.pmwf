@@ -7,7 +7,7 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: STEP_COMPLETION state verify.entry line 22
+# expect: STEP_COMPLETION state verify.entry line 23
 # One transition completes the step twice. The firing walk reads the completions of a
 # transition once, so only the same-transition check refuses this; step-completion-firing.pmwf
 # pins the duplicate across two transitions of one firing.
@@ -16,6 +16,7 @@ scope plan
 start verify.entry
 
 state verify.entry
+    phase verify
     auto test.prepare
         done -> verify.done
             completes test:step as done
@@ -24,3 +25,4 @@ state verify.entry
             completes test:step as skipped
 
 state verify.done terminal done success
+    phase verify

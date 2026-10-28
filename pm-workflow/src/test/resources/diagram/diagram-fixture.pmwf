@@ -19,6 +19,7 @@ scope subworkflow
 start review.entry
 
 state review.entry
+    phase review
     skill pm/diagram/entry
     link next proceed ()
         do diagram.proceed
@@ -34,34 +35,40 @@ state review.entry
             done -> review.ask
 
 state review.prepare
+    phase review
     auto diagram.prepare
         done -> build.compile
         skipped -> build.compose
 
 state build.compile
+    phase build
     job diagram.build
         succeeded -> build.compose
         failed -> diagram.failed
         cancelled -> diagram.failed
 
 state build.compose
+    phase build
     composite_job diagram.build
         succeeded -> build.implement
         failed -> diagram.failed
         cancelled -> diagram.failed
 
 state build.implement
+    phase build
     job llm change role implementer each diagram.list-changes
     consult role reviewer
         approved -> build.judge
         lost -> diagram.failed
 
 state build.judge
+    phase build
     job llm change role reviewer
         approved -> build.commit
         lost -> diagram.failed
 
 state build.commit
+    phase build
     call diagram.callee
         done -> diagram.done
             guard result.pushed
@@ -70,9 +77,12 @@ state build.commit
         stepped_out -> diagram.failed
 
 state review.ask
+    phase review
     question clarification
         answered -> review.entry
 
 state diagram.done terminal done success
+    phase inherit
 
 state diagram.failed terminal failed failure
+    phase inherit

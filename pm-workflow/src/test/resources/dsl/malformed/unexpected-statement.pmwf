@@ -13,3 +13,4 @@ scope plan
 start demo.begin
 declare rounds = 2
 state demo.begin terminal done success
+    phase init

@@ -49,6 +49,7 @@ class WorkflowValidatorTest {
     private static final String DONE_TERMINAL = """
 
             state verify.done terminal done success
+                phase verify
             """;
 
     /**
@@ -221,6 +222,8 @@ class WorkflowValidatorTest {
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "result-guard-single-done.pmwf"),
             new Check("Rule 6: the parameter bindings of a call match the callee's parameters",
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "subworkflow-param-binding.pmwf"),
+            new Check("Rule 6: phase inherit is admitted only in sub-workflow and entity units",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "phase-inherit-outside.pmwf"),
             new Check("Rule 6: a resting link state of a sub-workflow declares a skill",
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "subworkflow-link-without-skill.pmwf"),
             new Check("Rule 6: stepped_out never targets a success terminal and fits the scope's target rule",
@@ -231,7 +234,7 @@ class WorkflowValidatorTest {
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "stepped-out-terminal-class.pmwf"),
             new Check("Rule 7: the call graph is acyclic",
                     VerificationRule.CALL_GRAPH_DAG, "call-graph-cycle.pmwf"),
-            new Check("Rule 7: the call graph is at most five frames deep",
+            new Check("Rule 7: the call graph is at most four calls deep",
                     VerificationRule.CALL_GRAPH_DAG, "call-graph-depth.pmwf"),
             new Check("Rule 8: every path to a state requiring an artifact passes a producer",
                     VerificationRule.GATE_PRODUCER_COVERAGE, "gate-producer-missing.pmwf"),
@@ -446,39 +449,47 @@ class WorkflowValidatorTest {
                     Arguments.of("epic.aborted targeted by abort_landed of epic.next-work, matched with "
                             + "abort-epic-wrong-source.pmwf", "verify.inline", "plan", """
                             state verify.entry
+                                phase verify
                                 auto test.prepare
                                     done -> epic.next-work
                                     skipped -> verify.done
 
                             state epic.next-work
+                                phase verify
                                 auto test.land-work
                                     landed -> verify.done
                                     abort_landed -> epic.aborted
 
                             state epic.aborted terminal aborted failure
+                                phase aborted
                             """ + DONE_TERMINAL),
                     Arguments.of("a call graph exactly four calls deep, matched with call-graph-depth.pmwf",
                             "verify.inline", "plan", """
                             state verify.entry
+                                phase verify
                                 call test.depth2()
                                     done -> verify.done
                                     stepped_out -> plan.return
 
                             state plan.return terminal returned failure
+                                phase verify
                             """ + DONE_TERMINAL),
                     Arguments.of("a producer on every path to the consumer, matched with gate-producer-missing.pmwf",
                             "verify.inline", "plan", """
                             state verify.entry
+                                phase verify
                                 auto test.produce
                                     done -> verify.consume
 
                             state verify.consume
+                                phase verify
                                 auto test.consume
                                     done -> verify.done
                             """ + DONE_TERMINAL),
                     Arguments.of("the escalate link request_waiver, matched with link-escalate-id.pmwf",
                             "verify.inline", "workspace", """
                             state verify.entry
+                                phase verify
                                 link escalate request_waiver (note: text[1..80], comment: text)
                                     do test.choose
                                         chosen -> verify.done
@@ -487,11 +498,13 @@ class WorkflowValidatorTest {
                     Arguments.of("a job-starting outcome into a job state, matched with job-starting-outcome.pmwf",
                             "verify.inline", "plan", """
                             state verify.entry
+                                phase verify
                                 auto test.enqueue
                                     enqueued -> verify.build
                                     skipped -> verify.done
 
                             state verify.build
+                                phase verify
                                 job test.build
                                     succeeded -> verify.done
                                     failed -> verify.done
@@ -500,6 +513,7 @@ class WorkflowValidatorTest {
                     Arguments.of("role each in adjudicate.decisions, matched with role-each-outside-adjudicate.pmwf",
                             "adjudicate.decisions", "plan", """
                             state verify.entry
+                                phase verify
                                 job llm change role each test.list-roles
                                     approved -> verify.done
                                     lost -> verify.done
@@ -507,6 +521,7 @@ class WorkflowValidatorTest {
                     Arguments.of("the default lost route of a plan unit, matched with model-job-lost-undeclared.pmwf",
                             "verify.inline", "plan", """
                             state verify.entry
+                                phase verify
                                 job llm change role reviewer
                                     approved -> verify.done
                             """ + DONE_TERMINAL),
@@ -514,12 +529,14 @@ class WorkflowValidatorTest {
                             + " another sub-workflow, matched with model-job-lost-mixed-callers.pmwf",
                             TestPrimitives.PLAN_ONLY_INNER, "subworkflow", """
                             state verify.entry
+                                phase inherit
                                 job llm change role reviewer
                                     approved -> verify.done
                             """ + DONE_TERMINAL),
                     Arguments.of("a guarded complementary done pair on a call to a callee with a result schema,"
                             + " matched with result-guard-callee-without-schema.pmwf", "verify.inline", "subworkflow", """
                             state verify.entry
+                                phase inherit
                                 call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
                                     done -> verify.done
                                         guard result.pushed
@@ -528,31 +545,37 @@ class WorkflowValidatorTest {
                                     stepped_out -> verify.stepped-out
 
                             state verify.stepped-out terminal stepped_out stepped_out
+                                phase inherit
                             """ + DONE_TERMINAL),
                     Arguments.of("stepped_out of a call in a remediation unit routed to its budget re-check, matched"
                             + " with stepped-out-remediation-budget-check.pmwf", "remediation.inline", "subworkflow", """
                             state verify.entry
+                                phase inherit
                                 call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
                                     done -> verify.done
                                     stepped_out -> remediation-inline.budget-check
 
                             state remediation-inline.budget-check
+                                phase inherit
                                 auto remediation.check-budgets
                                     budget_left -> verify.done
                                     exhausted_wait -> verify.exhausted
                                     exhausted -> verify.exhausted
 
                             state verify.exhausted terminal exhausted failure
+                                phase inherit
                             """ + DONE_TERMINAL),
                     Arguments.of("a firing that passes another step's opening before it completes its step, matched"
                             + " with step-completion-firing-per-step.pmwf", "verify.inline", "plan", """
                             state verify.entry
+                                phase verify
                                 auto test.prepare
                                     done -> finalize.review-cap-check
                                     skipped -> verify.done
                                         completes step:a as skipped
 
                             state finalize.review-cap-check
+                                phase verify
                                 auto test.prepare
                                     done -> verify.after
                                         completes step:b as done
@@ -560,6 +583,7 @@ class WorkflowValidatorTest {
                                         completes step:b as skipped
 
                             state verify.after
+                                phase verify
                                 auto test.proceed
                                     done -> verify.done
                                         completes step:a as done
@@ -567,12 +591,14 @@ class WorkflowValidatorTest {
                     Arguments.of("a re-entry into the opening that continues the open firing, matched with"
                             + " step-completion-firing-per-step.pmwf", "verify.inline", "plan", """
                             state verify.entry
+                                phase verify
                                 auto test.prepare
                                     done -> verify.work
                                     skipped -> verify.done
                                         completes step:s as skipped
 
                             state verify.work
+                                phase verify
                                 job test.build
                                     succeeded -> verify.done
                                         completes step:s as done
@@ -583,12 +609,14 @@ class WorkflowValidatorTest {
                     Arguments.of("a completion on the loop-back into the opening and on every other path of its"
                             + " firing, matched with step-completion-loop-back-opening.pmwf", "verify.inline", "plan", """
                             state verify.entry
+                                phase verify
                                 auto test.prepare
                                     done -> verify.work
                                     skipped -> verify.done
                                         completes step:s as skipped
 
                             state verify.work
+                                phase verify
                                 job test.build
                                     succeeded -> verify.done
                                         completes step:s as done
@@ -600,6 +628,7 @@ class WorkflowValidatorTest {
                     Arguments.of("skipped on a task's infeasible and on lost, matched with"
                             + " step-completion-skipped-route.pmwf", "verify.inline", "plan", """
                             state verify.entry
+                                phase verify
                                 job llm repair role implementer
                                     repaired -> verify.done
                                         completes step:s as done
@@ -611,12 +640,14 @@ class WorkflowValidatorTest {
                     Arguments.of("a dispatch hub every pass of which settles one step, matched with"
                             + " cycle-measure-step-list-settle.pmwf", "verify.inline", "plan", """
                             state verify.entry
+                                phase verify
                                 auto test.next-step
                                     first -> verify.one
                                     second -> verify.two
                                     settled -> verify.done
 
                             state verify.one
+                                phase verify
                                 auto test.prepare
                                     done -> verify.entry
                                         completes step:one as done
@@ -624,6 +655,7 @@ class WorkflowValidatorTest {
                                         completes step:one as skipped
 
                             state verify.two
+                                phase verify
                                 auto test.prepare
                                     done -> verify.entry
                                         completes step:two as done
@@ -633,16 +665,19 @@ class WorkflowValidatorTest {
                     Arguments.of("ARCHIVE_STEPS on an archive path that commits and lands, matched with"
                             + " cycle-measure-archive-commit-path.pmwf", "verify.inline", "epic", """
                             state verify.entry
+                                phase verify
                                 auto test.next-work
                                     archive_uncommitted -> verify.commit
                                     archived -> verify.done
 
                             state verify.commit
+                                phase verify
                                 call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
                                     done -> verify.land
                                     stepped_out -> verify.land
 
                             state verify.land
+                                phase verify
                                 job test.build
                                     succeeded -> verify.entry
                                     failed -> verify.entry
@@ -651,6 +686,7 @@ class WorkflowValidatorTest {
                     Arguments.of("the engine-made asked of an ask state, matched with model-job-asked-declared.pmwf",
                             "verify.inline", "plan", """
                             state verify.entry
+                                phase verify
                                 job llm change role reviewer ask
                                     approved -> verify.done
                                     lost -> verify.done
@@ -676,6 +712,7 @@ class WorkflowValidatorTest {
         void shouldReportEveryUnregisteredSite() {
             var definition = unit("workspace", """
                     state verify.entry
+                        phase verify
                         facts test.missing
                         link next proceed ()
                             guard in_worktree and predicate:test.missing
@@ -683,10 +720,12 @@ class WorkflowValidatorTest {
                                 done -> verify.waiting
 
                     state verify.waiting
+                        phase verify
                         job test.missing
                             done -> verify.composite
 
                     state verify.composite
+                        phase verify
                         composite_job test.missing
                             done -> verify.done
                             failed -> verify.entry
@@ -717,6 +756,7 @@ class WorkflowValidatorTest {
         void shouldCompareFreeParameters(String params, int count, String fragment) {
             var definition = unit("workspace", """
                     state verify.entry
+                        phase verify
                         link submit choose [submit] %s
                             do test.choose
                                 chosen -> verify.done
@@ -746,7 +786,7 @@ class WorkflowValidatorTest {
         })
         @DisplayName("Should refuse every gap of the bijection with the outcome enum")
         void shouldRefuseGaps(String description, String body, String fragment) {
-            var states = "state verify.entry\n" + body.replace('|', '\n') + "\n";
+            var states = "state verify.entry\nphase verify\n" + body.replace('|', '\n') + "\n";
 
             var found = violations(unit("workspace", states + DONE_TERMINAL));
 
@@ -757,7 +797,7 @@ class WorkflowValidatorTest {
 
         /** A job state whose {@code cancelled} led into a state a composition pruned, so the transition is gone. */
         private static WorkflowDefinition withoutCancelled() {
-            return unit("workspace", "state verify.entry\njob test.build\n"
+            return unit("workspace", "state verify.entry\nphase verify\njob test.build\n"
                     + "succeeded -> verify.done\nfailed -> verify.done\n" + DONE_TERMINAL);
         }
 
@@ -798,13 +838,16 @@ class WorkflowValidatorTest {
         void shouldExemptAbortTerminals() {
             var definition = unit("plan", """
                     state verify.entry
+                        phase verify
                         auto test.prepare
                             done -> verify.done
                             skipped -> verify.done
 
                     state plan.aborted terminal aborted failure
+                        phase aborted
 
                     state epic.aborted terminal aborted failure
+                        phase aborted
                     """ + DONE_TERMINAL);
 
             assertEquals(List.of(), violations(definition));
@@ -821,6 +864,7 @@ class WorkflowValidatorTest {
          */
         private static final String BRANCH = """
                 state verify.entry
+                    phase verify
                     auto test.prepare
                         done -> verify.rest
                         skipped -> verify.done
@@ -834,6 +878,7 @@ class WorkflowValidatorTest {
          */
         private static final String SELF_LINK = BRANCH + """
                 state verify.rest
+                    phase verify
                     skill pm/verify/start
                     link submit choose [submit] (note: text[1..80], comment: text)
                         do test.choose
@@ -857,6 +902,7 @@ class WorkflowValidatorTest {
         void shouldExitThroughDefaultLost(boolean declaresLost, int count) {
             var definition = unit("plan", BRANCH + """
                     state verify.rest
+                        phase verify
                         job llm change role reviewer
                             approved -> verify.rest
                     """ + (declaresLost ? "        lost -> verify.rest\n" : "") + DONE_TERMINAL);
@@ -873,12 +919,14 @@ class WorkflowValidatorTest {
         void shouldReturnToStartInWorkspace(String doneTarget, int count) {
             var definition = unit("workspace", """
                     state verify.entry
+                        phase setup
                         link submit work [submit] (note: text[1..80], comment: text)
                             do test.choose
                                 chosen -> verify.stuck
                                 declined -> verify.done
 
                     state verify.stuck
+                        phase setup
                         auto test.prepare
                             done -> %s
                             skipped -> %s
@@ -895,17 +943,20 @@ class WorkflowValidatorTest {
         void shouldExemptTerminalStatesInWorkspace() {
             var definition = unit("workspace", """
                     state verify.entry
+                        phase setup
                         link submit work [submit] (note: text[1..80], comment: text)
                             do test.choose
                                 chosen -> verify.stuck
                                 declined -> verify.stuck
 
                     state verify.stuck
+                        phase setup
                         auto test.prepare
                             done -> verify.entry
                             skipped -> verify.done
 
                     state plan.aborted terminal aborted failure
+                        phase aborted
                     """ + DONE_TERMINAL);
 
             assertEquals(List.of(), violations(definition));
@@ -922,6 +973,7 @@ class WorkflowValidatorTest {
         void shouldRefuseDeclaredStepOut(String scope, int count) {
             var definition = unit(scope, """
                     state verify.entry
+                        phase verify
                         skill pm/verify/start
                         link next step_out ()
                             do test.proceed
@@ -944,6 +996,7 @@ class WorkflowValidatorTest {
         void shouldPassSubmitLinkWithEvent() {
             var definition = unit("subworkflow", """
                     state verify.entry
+                        phase inherit
                         skill pm/verify/start
                         link submit choose [submit] (note: text[1..80], comment: text)
                             do test.choose
@@ -959,11 +1012,13 @@ class WorkflowValidatorTest {
         void shouldRefuseEngineChainedCycleWithoutMeasure() {
             var definition = unit("subworkflow", """
                     state verify.entry
+                        phase inherit
                         auto test.prepare
                             done -> verify.second
                             skipped -> verify.done
 
                     state verify.second
+                        phase inherit
                         auto test.prepare
                             done -> verify.entry
                             skipped -> verify.done
@@ -1004,6 +1059,7 @@ class WorkflowValidatorTest {
                     start verify.entry
                     %s
                     state verify.entry
+                        phase verify
                         auto test.prepare
                             done -> verify.done
                             skipped -> verify.done
@@ -1044,10 +1100,12 @@ class WorkflowValidatorTest {
         void shouldReportEveryDefectInOrder() {
             var definition = unit("workspace", """
                     state verify.entry
+                        phase verify
                         auto test.missing
                             done -> verify.done
 
                     state verify.orphan
+                        phase verify
                         link next proceed ()
                             do test.proceed
                                 done -> verify.orphan

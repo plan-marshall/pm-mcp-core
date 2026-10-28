@@ -19,6 +19,7 @@ scope entity
 start verify.entry
 
 state verify.entry
+    phase verify
     link next proceed ()
         do test.proceed
             done -> verify.gate
@@ -28,14 +29,17 @@ state verify.entry
             done -> verify.prepare
 
 state verify.prepare
+    phase verify
     auto test.prepare
         done -> verify.gate
         skipped -> verify.done
 
 state verify.gate
+    phase verify
     link next enter ()
         guard in_worktree
         do test.proceed
             done -> verify.done
 
 state verify.done terminal done success
+    phase verify

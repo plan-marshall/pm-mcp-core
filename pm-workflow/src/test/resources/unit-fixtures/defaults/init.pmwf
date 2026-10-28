@@ -1,50 +1,48 @@
 ---
-name: phase-1-init
-description: The init phase sub-workflow of the plan unit.
-type: subworkflow
+name: plan
+description: A unit written for the invariant and unit-loader tests.
+type: workflow
 icon: phase.init
-entry: start
-exit: deep
-exit: light
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# The init phase as its own unit, written for the invariant and unit-loader tests, never copied from the product.
+# The init phase of the plan unit, written for the invariant and unit-loader tests, never copied from the product.
 # Every path into init.ready passes init.classify and the main_sha stamp; the init question returns every answer to
-# init.classify; the light lane passes init.light-gate, whose deep outcome is the light -> deep ratchet. The lanes
-# leave the phase on an exit: `deep` into refine, `light` into the light lane of outline.
-workflow phase-1-init version 1 format 1
-scope subworkflow
-entry start -> init.begin
+# init.classify; the light lane passes init.light-gate, whose deep outcome is the light -> deep ratchet.
+workflow plan version 1 format 1
+scope plan
+start init.begin
 
 state init.begin
+    phase init
     auto test.proceed
         done -> init.classify
 
 state init.classify
+    phase init
     auto test.classify
         proceed -> init.stamp
         unclear -> init.clarify
 
 state init.clarify
+    phase init
     question init
         answered -> init.classify
 
 state init.stamp
+    phase init
     auto test.proceed
         done -> init.ready
 
 state init.ready
+    phase init
     auto test.lane
-        deep -> init.deep-exit
+        deep -> refine.baseline-reconcile
         light -> init.light-gate
 
 state init.light-gate
+    phase init
     auto test.gate
-        pass -> init.light-exit
-        deep -> init.deep-exit
-
-state init.deep-exit terminal deep success
-
-state init.light-exit terminal light success
+        pass -> outline.light
+        deep -> refine.baseline-reconcile

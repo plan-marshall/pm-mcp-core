@@ -67,11 +67,13 @@ class WorkflowEngineTest {
 
     private static final String CHAIN = """
             state execute.first
+                phase execute
                 auto test.step
                     done -> execute.second
                     failed -> handed_back
 
             state execute.second
+                phase execute
                 auto test.mark
                     done -> completed
                     failed -> handed_back
@@ -79,16 +81,19 @@ class WorkflowEngineTest {
 
     private static final String CHAIN_TO_JOB = """
             state execute.first
+                phase execute
                 auto test.step
                     done -> execute.second
                     failed -> execute.build
 
             state execute.second
+                phase execute
                 auto test.mark
                     done -> execute.build
                     failed -> execute.build
 
             state execute.build
+                phase execute
                 job test.build
                     succeeded -> completed
                     failed -> handed_back
@@ -98,6 +103,7 @@ class WorkflowEngineTest {
     /** A call whose step-out enters the plan's fallback state, the one target Rule 6 admits in a plan unit. */
     private static final String CALL_COMMIT = """
             state execute.commit
+                phase execute
                 call sub.commit
                     done -> completed
                     stepped_out -> plan.return
@@ -157,10 +163,12 @@ class WorkflowEngineTest {
                     start epic.next-work
 
                     state epic.next-work
+                        phase epic
                         auto test.next-work
                             abort_landed -> epic.aborted
 
                     state epic.aborted terminal aborted failure
+                        phase aborted
                     """));
 
             var ended = assertInstanceOf(EngineStep.Ended.class, engine.start(JournalScopeType.EPIC, "engine-epic"));
@@ -244,7 +252,7 @@ class WorkflowEngineTest {
         }
 
         @Test
-        @DisplayName("Should start a unit that carries no phase at the workspace phase")
+        @DisplayName("Should start an entity unit that inherits its phase in the workspace scope only")
         void shouldInheritWorkspacePhaseAtStart() {
             var engine = fixtures.engine(parse("entity.pmwf", """
                     ---
@@ -261,18 +269,22 @@ class WorkflowEngineTest {
                     start ent.wait
 
                     state ent.wait
+                        phase inherit
                         job test.build
                             succeeded -> ent.done
                             failed -> ent.done
                             cancelled -> ent.done
 
                     state ent.done terminal done success
+                        phase inherit
                     """));
 
             var resting = engine.start(JournalScopeType.WORKSPACE, null);
 
             assertAll(
-                    () -> assertEquals("workspace", resting.status().phase()));
+                    () -> assertEquals("workspace", resting.status().phase()),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> engine.start(JournalScopeType.PLAN, PLAN_ID)));
         }
     }
 
@@ -285,11 +297,13 @@ class WorkflowEngineTest {
         void shouldRefuseUnverifiedUnit() {
             var unverified = plan("execute.first", """
                     state execute.first
+                        phase execute
                         auto test.step
                             done -> completed
                     """);
             var corrected = plan("execute.first", """
                     state execute.first
+                        phase execute
                         auto test.step
                             done -> completed
                             failed -> handed_back
@@ -353,28 +367,34 @@ class WorkflowEngineTest {
                 entry main -> sub.attempt
 
                 state sub.attempt
+                    phase inherit
                     auto test.cap
                         again -> sub.attempt
                         spent -> sub.wait
 
                 state sub.wait
+                    phase inherit
                     job test.build
                         succeeded -> sub.finish
                         failed -> sub.stepped-out
                         cancelled -> sub.stepped-out
 
                 state sub.finish
+                    phase inherit
                     auto test.step
                         done -> sub.done
                         failed -> sub.stepped-out
 
                 state sub.done terminal done success
+                    phase inherit
 
                 state sub.stepped-out terminal stepped_out stepped_out
+                    phase inherit
                 """;
 
         private static final String CALL_RETRY = """
                 state execute.retry-call
+                    phase execute
                     call sub.retry
                         done -> completed
                         stepped_out -> plan.return
@@ -442,11 +462,13 @@ class WorkflowEngineTest {
                     var failedTarget = index % 2 == 0 ? next : held;
                     states.append("""
                             state execute.s%d
+                                phase execute
                                 auto test.step
                                     done -> %s
                                     failed -> %s
 
                             state %s
+                                phase execute
                                 job test.build
                                     succeeded -> completed
                                     failed -> handed_back
@@ -506,6 +528,16 @@ class WorkflowEngineTest {
                             () -> engine.advance(unknownFrame)).reason()));
         }
 
+        @Test
+        @DisplayName("Should fail with unresolved_name for a phase the status store has no value for")
+        void shouldFaultOnUnknownPhase() {
+            var engine = fixtures.engine(plan("review.first", CHAIN.replace("execute", "review")));
+
+            var fault = assertThrows(InternalFaultException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID));
+
+            assertEquals(Reason.UNRESOLVED_NAME, fault.reason());
+        }
+
         /*
          * A returned outcome no result guard routes is not reachable in a verified unit: Rule 6 admits a guarded 'done'
          * only as the complementary pair, of which exactly one guard holds over any result record. A returned outcome
@@ -535,6 +567,7 @@ class WorkflowEngineTest {
             fixtures.jobStarter.refusing = true;
             var engine = fixtures.engine(plan("execute.build", """
                     state execute.build
+                        phase execute
                         job test.build
                             succeeded -> completed
                             failed -> handed_back
@@ -551,11 +584,13 @@ class WorkflowEngineTest {
         void shouldFaultOnUnboundedChain() {
             var engine = fixtures.engine(plan("execute.loop", """
                     state execute.loop
+                        phase execute
                         auto test.cap
                             again -> execute.loop
                             spent -> execute.after
 
                     state execute.after
+                        phase execute
                         auto test.step
                             done -> completed
                             failed -> handed_back

@@ -16,13 +16,16 @@ entry main -> verify.entry
 entry review -> verify.second
 
 state verify.entry
+    phase inherit
     auto test.prepare
         done -> verify.done
         skipped -> verify.done
 
 state verify.second
+    phase inherit
     auto test.prepare
         done -> verify.done
         skipped -> verify.done
 
 state verify.done terminal done success
+    phase inherit

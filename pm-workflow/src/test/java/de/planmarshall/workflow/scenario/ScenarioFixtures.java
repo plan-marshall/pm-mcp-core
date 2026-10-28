@@ -96,11 +96,13 @@ final class ScenarioFixtures {
             start execute.prepare
 
             state execute.prepare
+                phase execute
                 auto scenario.prepare
                     done -> execute.build
                     failed -> handed_back
 
             state execute.build
+                phase execute
                 job scenario.build
                     succeeded -> execute.review
                     failed -> handed_back
@@ -112,23 +114,28 @@ final class ScenarioFixtures {
                     indeterminate -> handed_back
 
             state execute.review
+                phase execute
                 job llm change role reviewer
                     approved -> execute.ask
                     rejected -> handed_back
                     lost -> handed_back
 
             state execute.ask
+                phase execute
                 question review
                     approve -> execute.confirm
                     revise -> completed
 
             state execute.confirm
+                phase execute
                 question clarification
                     answered -> completed
 
             state completed terminal merged success
+                phase completed
 
             state handed_back terminal handed_back failure
+                phase completed
             """;
 
     /** The clock of the engine and of the transactions. */

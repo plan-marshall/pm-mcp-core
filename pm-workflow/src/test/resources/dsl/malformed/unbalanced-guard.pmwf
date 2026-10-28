@@ -7,11 +7,12 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: STRUCTURE line 16
+# expect: STRUCTURE line 17
 workflow demo version 1 format 1
 scope workspace
 start demo.choose
 state demo.choose
+    phase setup
     link next proceed ()
         guard (in_worktree and has_open_findings
         do demo.proceed

@@ -40,6 +40,7 @@ class OperatorWaitTest {
 
     private static final String STATES = """
             state execute.wait
+                phase execute
                 link next proceed ()
                     do test.proceed
                         done -> execute.build
@@ -50,6 +51,7 @@ class OperatorWaitTest {
                         failed -> handed_back
 
             state execute.build
+                phase execute
                 job test.build
                     succeeded -> completed
                     failed -> handed_back

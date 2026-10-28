@@ -83,18 +83,6 @@ final class UnitGraph {
     }
 
     /**
-     * Builds a graph from explicit edges: the call-resolved graph of a unit and the sub-workflows it calls
-     * ({@link CallGraphExpansion}) states its successors and predecessors itself.
-     *
-     * @param successors   the successors of every state, in declaration order
-     * @param predecessors the predecessors of every state, in declaration order
-     * @return the graph over those edges
-     */
-    static UnitGraph of(Map<String, Set<String>> successors, Map<String, Set<String>> predecessors) {
-        return new UnitGraph(successors, predecessors);
-    }
-
-    /**
      * @param stateId a state of the unit
      * @return the targets of its transitions in declaration order; empty for a terminal or an unknown state
      */

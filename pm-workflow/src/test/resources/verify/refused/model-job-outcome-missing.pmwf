@@ -13,7 +13,9 @@ scope plan
 start verify.entry
 
 state verify.entry
+    phase verify
     job llm change role reviewer
         lost -> verify.done
 
 state verify.done terminal done success
+    phase verify

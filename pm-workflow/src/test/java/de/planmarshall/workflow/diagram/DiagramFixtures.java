@@ -219,6 +219,7 @@ final class DiagramFixtures {
                 entry main -> callee.done
 
                 state callee.done terminal done success
+                    phase inherit
                 """);
         return new WorkflowValidator(registry, List.of(), entityKinds, QuestionClassRegistry.defaults(),
                 SchemaRegistry.defaults(), WorkflowCatalog.of(callee));

@@ -9,17 +9,20 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: SUBWORKFLOW_CALL_CONTRACT state verify.entry line 20
+# expect: SUBWORKFLOW_CALL_CONTRACT state verify.entry line 21
 workflow verify.result-guard-not-done version 1 format 1
 scope subworkflow
 entry main -> verify.entry
 
 state verify.entry
+    phase inherit
     call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
         done -> verify.done
         stepped_out -> verify.stepped-out
             guard result.pushed
 
 state verify.done terminal done success
+    phase inherit
 
 state verify.stepped-out terminal stepped_out stepped_out
+    phase inherit

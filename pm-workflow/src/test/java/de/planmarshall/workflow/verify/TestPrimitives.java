@@ -257,13 +257,16 @@ final class TestPrimitives {
                 entry main -> git.push
 
                 state git.push
+                    phase inherit
                     auto test.prepare
                         done -> git.done
                         skipped -> git.stepped-out
 
                 state git.done terminal done success
+                    phase inherit
 
                 state git.stepped-out terminal stepped_out stepped_out
+                    phase inherit
                 """);
         var depth5 = VerifyFixtures.parseSource("test.depth5.pmwf", """
                 ---
@@ -282,6 +285,7 @@ final class TestPrimitives {
                 entry main -> depth5.done
 
                 state depth5.done terminal done success
+                    phase inherit
                 """);
         var depth4 = depthUnit(4, "test.depth5");
         var depth3 = depthUnit(3, "test.depth4");
@@ -304,13 +308,16 @@ final class TestPrimitives {
                 entry main -> verify.entry
 
                 state verify.entry
+                    phase inherit
                     call verify.call-cycle()
                         done -> verify.done
                         stepped_out -> verify.stepped-out
 
                 state verify.done terminal done success
+                    phase inherit
 
                 state verify.stepped-out terminal stepped_out stepped_out
+                    phase inherit
                 """);
         var entity = VerifyFixtures.parseSource("entity.pmwf", """
                 ---
@@ -328,6 +335,7 @@ final class TestPrimitives {
                 start entity.completed
 
                 state entity.completed terminal submitted success
+                    phase inherit
                 """);
         var linksInner = VerifyFixtures.parseSource("test.links-inner.pmwf", """
                 ---
@@ -346,12 +354,14 @@ final class TestPrimitives {
                 entry main -> inner.rest
 
                 state inner.rest
+                    phase inherit
                     skill pm/verify/start
                     link next proceed ()
                         do test.proceed
                             done -> inner.done
 
                 state inner.done terminal done success
+                    phase inherit
                 """);
         var linksOuter = VerifyFixtures.parseSource("test.links-outer.pmwf", """
                 ---
@@ -370,13 +380,16 @@ final class TestPrimitives {
                 entry main -> outer.step
 
                 state outer.step
+                    phase inherit
                     call test.links-inner()
                         done -> outer.done
                         stepped_out -> outer.stepped-out
 
                 state outer.done terminal done success
+                    phase inherit
 
                 state outer.stepped-out terminal stepped_out stepped_out
+                    phase inherit
                 """);
         var remediation = VerifyFixtures.parseSource("remediation.test-waiver.pmwf", """
                 ---
@@ -396,13 +409,16 @@ final class TestPrimitives {
                 entry main -> remediation.decide
 
                 state remediation.decide
+                    phase inherit
                     auto test.prepare
                         done -> remediation.done
                         skipped -> remediation.waived
 
                 state remediation.done terminal done success
+                    phase inherit
 
                 state remediation.waived terminal waived success
+                    phase inherit
                 """);
         var workspaceUnit = VerifyFixtures.parseSource("test.workspace-unit.pmwf", """
                 ---
@@ -419,6 +435,7 @@ final class TestPrimitives {
                 start workspace.done
 
                 state workspace.done terminal done success
+                    phase setup
                 """);
         return new WorkflowCatalog(List.of(commitAndPush, depth1, depth2, depth3, depth4, depth5, callCycle,
                 remediation, entity, linksInner, linksOuter, workspaceUnit, planCaller(), epicCaller(),
@@ -446,18 +463,22 @@ final class TestPrimitives {
                 entry repair -> two.repair
 
                 state two.review
+                    phase inherit
                     auto test.prepare
                         done -> two.done
                         skipped -> two.stepped-out
 
                 state two.repair
+                    phase inherit
                     auto test.prepare
                         done -> two.done
                         skipped -> two.stepped-out
 
                 state two.done terminal done success
+                    phase inherit
 
                 state two.stepped-out terminal stepped_out stepped_out
+                    phase inherit
                 """);
     }
 
@@ -482,6 +503,7 @@ final class TestPrimitives {
                 start task.done
 
                 state task.done terminal done success
+                    phase inherit
                 """);
     }
 
@@ -502,18 +524,22 @@ final class TestPrimitives {
                 start plan-caller.outer
 
                 state plan-caller.outer
+                    phase verify
                     call test.plan-only-outer()
                         done -> plan-caller.mixed
                         stepped_out -> plan.return
 
                 state plan-caller.mixed
+                    phase verify
                     call verify.model-job-lost-mixed-callers()
                         done -> plan-caller.done
                         stepped_out -> plan.return
 
                 state plan.return terminal returned failure
+                    phase verify
 
                 state plan-caller.done terminal done success
+                    phase verify
                 """);
     }
 
@@ -534,17 +560,20 @@ final class TestPrimitives {
                 start epic-caller.mixed
 
                 state epic-caller.mixed
+                    phase verify
                     call verify.model-job-lost-mixed-callers()
                         done -> epic-caller.done
                         stepped_out -> epic-caller.rest
 
                 state epic-caller.rest
+                    phase verify
                     job test.build
                         succeeded -> epic-caller.done
                         failed -> epic-caller.done
                         cancelled -> epic-caller.done
 
                 state epic-caller.done terminal done success
+                    phase verify
                 """);
     }
 
@@ -567,13 +596,16 @@ final class TestPrimitives {
                 entry main -> plan-only-outer.inner
 
                 state plan-only-outer.inner
+                    phase inherit
                     call test.plan-only-inner()
                         done -> plan-only-outer.done
                         stepped_out -> plan-only-outer.stepped-out
 
                 state plan-only-outer.done terminal done success
+                    phase inherit
 
                 state plan-only-outer.stepped-out terminal stepped_out stepped_out
+                    phase inherit
                 """);
     }
 
@@ -596,10 +628,12 @@ final class TestPrimitives {
                 entry main -> plan-only-inner.review
 
                 state plan-only-inner.review
+                    phase inherit
                     job llm change role reviewer
                         approved -> plan-only-inner.done
 
                 state plan-only-inner.done terminal done success
+                    phase inherit
                 """);
     }
 
@@ -622,13 +656,16 @@ final class TestPrimitives {
                 entry main -> depth%1$d.step
 
                 state depth%1$d.step
+                    phase inherit
                     call %2$s()
                         done -> depth%1$d.done
                         stepped_out -> depth%1$d.stepped-out
 
                 state depth%1$d.done terminal done success
+                    phase inherit
 
                 state depth%1$d.stepped-out terminal stepped_out stepped_out
+                    phase inherit
                 """.formatted(depth, callee));
     }
 

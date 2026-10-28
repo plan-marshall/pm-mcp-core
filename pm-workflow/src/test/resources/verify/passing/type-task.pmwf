@@ -13,8 +13,10 @@ scope entity
 start verify.entry
 
 state verify.entry
+    phase inherit
     auto test.prepare
         done -> verify.submitted
         skipped -> verify.submitted
 
 state verify.submitted terminal submitted success
+    phase inherit

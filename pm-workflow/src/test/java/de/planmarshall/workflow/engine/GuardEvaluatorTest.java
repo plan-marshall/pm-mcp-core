@@ -163,6 +163,7 @@ class GuardEvaluatorTest {
                     start session.choose
 
                     state session.choose
+                        phase inherit
                         skill pm/test/choose
                         link next free ()
                             do test.proceed
@@ -175,6 +176,7 @@ class GuardEvaluatorTest {
                                 failed -> session.done
 
                     state session.done terminal done success
+                        phase inherit
                     """);
             return ((StateBehavior.InteractiveLinks) unit.states().get("session.choose").behavior()).links();
         }

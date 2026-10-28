@@ -59,7 +59,7 @@ final class AstWithoutLocations {
                 definition.scope(),
                 definition.params().stream().map(p -> new ParamDecl(p.name(), p.type(), NOWHERE)).toList(),
                 definition.resultSchema(), definition.instance(), declarations, decisions,
-                definition.formatVersion(), definition.origin(), definition.derivedFrom(),
+                definition.partVersions(), definition.formatVersion(), definition.origin(), definition.derivedFrom(),
                 definition.startState(), entryBindings,
                 definition.migrations().stream()
                         .map(m -> new StateMigration(m.oldStateId(), m.newStateId(), NOWHERE)).toList(),
@@ -81,7 +81,7 @@ final class AstWithoutLocations {
     }
 
     private static StateNode strip(StateNode state) {
-        return new StateNode(state.id(), state.terminalOutcome(), state.skillPath(),
+        return new StateNode(state.id(), state.phase(), state.terminalOutcome(), state.skillPath(),
                 state.factsPrimitiveId(), strip(state.behavior()), NOWHERE);
     }
 

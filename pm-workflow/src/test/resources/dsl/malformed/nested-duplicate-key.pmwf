@@ -14,3 +14,4 @@ instance {"event":"plan","inputs":{"composition_rules":{"digest":"d","revision":
 scope plan
 start demo.begin
 state demo.begin terminal done success
+    phase init
