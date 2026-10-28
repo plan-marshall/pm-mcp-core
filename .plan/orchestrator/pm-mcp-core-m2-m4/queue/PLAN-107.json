@@ -2,10 +2,10 @@
   "id": "PLAN-107",
   "slug": "token-usage-closure",
   "workstream": "WS-04",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-107-token-usage-closure",
+  "pr": "#215",
+  "landing": "landings/PLAN-107.md",
   "seq": 107
 }
