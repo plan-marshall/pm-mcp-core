@@ -267,12 +267,32 @@ that breaks exactly that rule, with the key and the line.
 * *A rule without a rejected case is not tested.* Every rule key of a validator has a test case with a text that breaks
   exactly that rule and asserts the key and the line.
 
+== Model Submission Validators
+
+Three validators judge a model's submission against the plan's intent record, beside the text validators of the
+previous section. They return the accepted value or a refusal that names the item; none mutates a store.
+
+* `OutlineValidator#validate(OutlineRecord, IntentRecord)` — the `satisfies` coverage and the downstream guard of an
+  `unchanged` criterion verified by `test` (Phase Workflows § 6).
+* `BuilderCheck` — the builder check's submission: every question is sorted, every item it names is in the record, and
+  a question that names a constraint or more than one criterion is the operator's, never the builder's own call. Its
+  `facts` carry the intent record and the capability index only, and a `minor` question becomes a decision of decider
+  `model`, marked as the builder check's.
+* `SelfReviewSubmission` — one result per criterion, constraint, non-goal and decision. A missing item is refused
+  naming it; a respected constraint and a followed decision name their evidence; a violated constraint, a crossed
+  non-goal, a departed decision and a not-met criterion are findings, and a not-verified item is a non-blocking
+  finding, so the round is `clean_unverified`, never clean.
+
 == Specification Tracing
 
 * Specification: link:{docs}/specification/module-structure.adoc[Module Structure Specification] (the primitive SPI and
   the engine ports), link:{spec}/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static
-  Verification Rules] (the content validators of a submitted text)
+  Verification Rules] (the content validators of a submitted text), link:{spec}/phase-workflows/01-planning-phases-1-2.adoc#intent-record[Phase Workflows § The Intent Record],
+  link:{spec}/phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-satisfies[§ 6 `satisfies` Coverage] and
+  link:{spec}/phase-workflows/01-planning-phases-1-2.adoc#builder-check[§ Builder Check] (the submission validators)
 * Decisions: link:../adr/core-spi/001-typed-primitive-spi-refused-at-registration.adoc[ADR 001] the typed primitive SPI
   refused at registration, link:../adr/core-spi/002-content-validators-report-violations-as-values.adoc[ADR 002]
-  content validators report violations as values
+  content validators report violations as values, link:../adr/core-spi/003-ears-keywords-are-uppercase-structural-tokens.adoc[ADR 003]
+  the EARS keywords are uppercase structural tokens, link:../adr/core-spi/004-the-self-review-judges-constraints-beside-criteria.adoc[ADR 004]
+  the self-review judges constraints, non-goals and decisions beside the criteria
 * The store that binds the ports: link:core-store.adoc[`core.store`]

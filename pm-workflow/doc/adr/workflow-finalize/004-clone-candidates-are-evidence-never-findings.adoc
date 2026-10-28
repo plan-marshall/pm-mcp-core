@@ -1,0 +1,61 @@
+= ADR 004: Clone Candidates Are Evidence, Never Findings
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-27
+
+== Context
+
+The `finalize.simplify` step asks whether the plan's added code duplicates a facility already in the codebase, the
+standard library, the platform or an installed dependency. A deterministic signal helps the review: the server can detect
+the runs of the added lines that repeat the rest of the tree, in-process and without a model.
+
+That signal is imperfect. A run of tokens that repeats an existing file can be the right shape for the job, a deliberate
+mirror of an external contract, or a test fixture; only a reader of the code can tell. If the detector filed findings,
+every repetition would enter the remediation pipeline, and the step would block a plan for a coincidence of token streams.
+
+== Decision
+
+The detector reports *clone candidates* (`CloneDetector`, `CloneCandidate`): token-based, identifiers normalized to `i`,
+numeric and string literals to `l` and `s`, a run of at least `50` tokens that repeats the tree, at most `20`, the longest
+first. The candidates travel to the read-only review task as `facts.clone_candidates`.
+
+A candidate is evidence for the restraint ladder's "is it already in the codebase?", never a finding. The step declares
+no finding source (`filesFindings` is empty), the review task carries no write tool and never takes the plan's writer
+slot, and the task either proposes to use the existing facility or states in its submission why the repetition stays. The
+proposals are recorded as `SP-<n>` records; only the accepted subset is applied, every other proposal is `declined`, and
+the applied change routes through `finalize.settle-commit` like every other change.
+
+== Alternatives Considered
+
+1. **File a finding per candidate**:
+*Rejected*: a finding blocks the plan and calls the remediation policy; a token-run coincidence is not a defect, and the
+step would be unwaivable noise.
+
+2. **Let the review task run the detection itself**:
+*Rejected*: the task has no build tool and no deterministic view of the tree; the server computes the candidates once,
+before the task, so two reviews of the same head see the same evidence.
+
+3. **Compare only exact text**:
+*Rejected*: a copy with renamed variables and changed constants is exactly the duplication the ladder asks about, and
+exact matching would miss it.
+
+== Consequences
+
+* The review task starts from evidence it did not have to produce, and the operator can see why a proposal was made.
+* A repetition the task decides to keep leaves a stated reason in the submission rather than a silent pass.
+* The threshold and the cap are constants of `CloneCandidate`; the tests pin `49` and `50` tokens and the longest-first
+  order, so a change of the signal is visible.
+* The detector is a token approximation: it can report a run that is not a semantic copy, which is why the candidate is
+  evidence and not a finding.
+
+== Source
+
+* Phase Workflows Specification, § Finalize Step Ordering Bands, the `simplify` row
+* PM-IMPL-5
+* `doc/plans/phase-sub-workflows.adoc`
