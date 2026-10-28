@@ -388,6 +388,13 @@ class IntentRecordTest {
                 List.of(fix, unchanged), "the record was prose before", valid().nonGoals(), valid().constraints(),
                 valid().decisions(), valid().assumptions(), valid().openQuestions(), valid().deferred(),
                 valid().sourceClaims()));
+
+        var conforming = new IntentRecord(valid().why(), valid().goal(), List.of(fix, unchanged),
+                "WHEN a plan is refined THEN THE system writes the record as prose", valid().nonGoals(),
+                valid().constraints(), valid().decisions(), valid().assumptions(), valid().openQuestions(),
+                valid().deferred(), valid().sourceClaims());
+        assertInstanceOf(Accepted.class,
+                accept(null, IntentSubmission.REFINE, revision(1, conforming), context(FILE)));
     }
 
     private static Outcome accept(IntentStore before, IntentSubmission submission, Revision revision,

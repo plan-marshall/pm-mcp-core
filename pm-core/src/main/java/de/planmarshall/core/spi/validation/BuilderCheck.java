@@ -152,7 +152,10 @@ public final class BuilderCheck {
     private BuilderCheck() {
     }
 
-    /** The longest minor decision the record's decision text holds beside the marker. */
+    /**
+     * The longest minor decision the record's decision text holds beside the marker: the record's 500-character text
+     * bound less the 24 characters of "from the builder check: " and a margin.
+     */
     private static final int MAX_MINOR_DECISION = 400;
 
     /**
@@ -205,8 +208,8 @@ public final class BuilderCheck {
         }
         if (question.sort() == Sort.MINOR && question.decision().length() > MAX_MINOR_DECISION) {
             return Optional.of(
-                    "the minor decision is longer than %d characters, which no decision of the record holds"
-                            .formatted(MAX_MINOR_DECISION));
+                    "the minor decision is longer than %d characters, so the decision marked as the builder check's "
+                            + "would exceed the record's decision text".formatted(MAX_MINOR_DECISION));
         }
         var constraints = question.items().stream().filter(item -> item.startsWith("CN-")).count();
         var criteria = question.items().stream().filter(item -> item.startsWith("AC-")).count();

@@ -1675,7 +1675,8 @@ read and the aggregate carries its coverage.
 `intent.json` beside `request.md` is the plan's intent record (Store Schemas § Intent Record; Phase Workflows § The
 Intent Record). `IntentRecord` is the model-supplied document and the named parameter schema `intent-record`: it
 refuses a member out of its bounds, a criterion that is not in EARS form, a `fix` criterion without its current
-behaviour and an `unchanged` criterion, an unverified assumption without exactly one riskiest one, a repeated
+behaviour and an `unchanged` criterion, a `current_behaviour` without a `fix` criterion or outside
+`WHEN <condition> THEN THE <system> <behaviour>`, an unverified assumption without exactly one riskiest one, a repeated
 identifier, and a source claim that lands in no item of the record.
 
 `IntentStore` is the document around it: the accepted revision as `current`, every earlier one in `history[]`. Its
@@ -1700,8 +1701,8 @@ written in the model language, and an uppercase structural word inside clause te
 `outline.json` is the plan's solution outline (Store Schemas § Outline Record). `OutlineRecord` is the model-supplied
 document (`outline-record`): its deliverables carry their profiles, affected files with their intents, the change per
 file, the verification commands, the `satisfies` entries, the added dependencies, interfaces and key links. It refuses
-a dependency on a deliverable the outline does not hold, a dependency on itself, a repeated deliverable number, a
-`write-conditional` file without its gate and a file of another intent that carries one.
+a dependency on a deliverable the outline does not hold, a dependency on itself, a dependency named twice, a repeated
+deliverable number, a `write-conditional` file without its gate and a file of another intent that carries one.
 
 `OutlineStore` holds the revision, its history and the server-owned state of every deliverable (`active`, `deferred` or
 `removed`); a deliverable a re-planning no longer holds keeps its state. `OutlineCodec` is the strict reader and writer.

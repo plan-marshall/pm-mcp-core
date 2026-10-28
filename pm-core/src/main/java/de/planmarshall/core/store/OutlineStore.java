@@ -39,10 +39,9 @@ List<Revision> history) {
     public static final int FORMAT_VERSION = 1;
 
     /**
-     * Copies the map and the history into immutable values and checks that no revision follows the current one.
-     *
+     * @throws IllegalArgumentException if a member is out of its bounds, a current deliverable carries no state, or a
+     *                                  revision is out of order
      * @throws NullPointerException     if a value is {@code null}
-     * @throws IllegalArgumentException if a deliverable number or a revision is out of order
      */
     public OutlineStore {
         Objects.requireNonNull(current, "current");
