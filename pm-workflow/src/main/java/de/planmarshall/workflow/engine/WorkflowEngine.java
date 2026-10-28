@@ -11,6 +11,7 @@ package de.planmarshall.workflow.engine;
 
 import java.io.Serial;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
@@ -480,7 +481,8 @@ public final class WorkflowEngine {
         var outcome = terminal.terminalOutcome().orElseThrow(
                 () -> fault(Reason.UNRESOLVED_NAME, "the terminal state '%s' declares no outcome", terminal.id()));
         var phase = outcome.outcomeClass() == OutcomeClass.FAILURE ? ABORTED_PHASE : COMPLETED_PHASE;
-        return new EngineStep.Ended(status.toBuilder().phase(phase).build(), outcome.id(), outcome.outcomeClass());
+        var endedStatus = phase.equals(status.phase()) ? status : status.toBuilder().phase(phase).build();
+        return new EngineStep.Ended(endedStatus, outcome.id(), outcome.outcomeClass());
     }
 
     private EngineStep resting(WorkflowStatus status, StateNode node) {
@@ -584,7 +586,26 @@ public final class WorkflowEngine {
         if (callStatePhase.isPresent()) {
             return callStatePhase.get().wireName();
         }
+        var prefixed = phaseOfStatePrefix(stateId);
+        if (prefixed.isPresent()) {
+            return prefixed.get().wireName();
+        }
         return previous;
+    }
+
+    /**
+     * The phase a flat plan unit's state names by the first segment of its identifier ({@code execute.commit}), which
+     * the engine's fixtures and a pre-split unit carry where a composed unit has the call state {@code phases.execute}.
+     * A composed unit derives its phase from the call stack, so this is the last fallback before the previous phase.
+     */
+    private static Optional<Phase> phaseOfStatePrefix(String stateId) {
+        var dot = stateId.indexOf('.');
+        if (dot < 0) {
+            return Optional.empty();
+        }
+        var segment = stateId.substring(0, dot);
+        return Arrays.stream(Phase.values())
+                .filter(phase -> phase.name().toLowerCase(java.util.Locale.ROOT).equals(segment)).findFirst();
     }
 
     private static String phaseOf(WorkflowDefinition currentUnit, String stateId, CallStack stack,

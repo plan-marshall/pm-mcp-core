@@ -572,7 +572,9 @@ class SubWorkflowExecutionTest {
                     () -> assertEquals("outer.recover", stepped.status().state()),
                     () -> assertEquals(List.of("sub.outer"), stepped.status().callStack().stream()
                             .map(WorkflowStatus.CallFrame::subworkflowId).toList()),
-                    () -> assertEquals(EXECUTE, stepped.status().phase()));
+                    // the root is an entity unit, which carries no phase of its own: the plan scope keeps the phase
+                    // it opened at
+                    () -> assertEquals("phase-1-init", stepped.status().phase()));
         }
 
         @Test

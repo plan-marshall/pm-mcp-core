@@ -248,8 +248,9 @@ public final class CompiledInvariants {
      */
     static List<InvariantViolation> ruleViolations(WorkflowDefinition unit, VerificationResult rules) {
         return rules.violations().stream().map(violation -> {
-            var id = PLAN_UNIT.equals(unit.id()) && violation.rule() == VerificationRule.STEP_COMPLETION
-                    ? InvariantId.INV_FIN_3 : InvariantId.INV_GEN_1;
+            var id = (PLAN_UNIT.equals(unit.id()) || Phase.FINALIZE.unitId().equals(unit.id()))
+                    && violation.rule() == VerificationRule.STEP_COMPLETION
+                            ? InvariantId.INV_FIN_3 : InvariantId.INV_GEN_1;
             return new InvariantViolation(id, violation.stateId(), violation.location(), "Rule %d (%s): %s".formatted(
                     violation.rule().specificationRule(), violation.rule(), violation.message()));
         }).toList();

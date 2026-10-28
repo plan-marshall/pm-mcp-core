@@ -75,6 +75,9 @@ class CompiledInvariantsTest {
     /** The header of the plan unit, where a violation of the unit as a whole is located. */
     private static final String PLAN_HEADER = "workflow plan version 1 format 1";
 
+    /** The header of the init phase unit, where a violation of that unit as a whole is located. */
+    private static final String INIT_HEADER = "workflow phase-1-init version 1 format 1";
+
     /** The lane of a template, unknown, which {@code ProjectUnitLoader} checks a project unit with. */
     private static final Optional<String> UNKNOWN_LANE = Optional.empty();
 
@@ -199,12 +202,15 @@ class CompiledInvariantsTest {
         @DisplayName("one refusing unit per invariant names the invariant, the file and the line")
         void refuses(InvariantId id) {
             var refusing = CASES.get(id);
-            var unit = refusing.unit();
-            var rules = InvariantFixtures.validator().verify(unit);
+            var units = refusing.units();
             var expectedLine = InvariantFixtures.lineOf(refusing.anchorText(), refusing.anchor());
 
-            var found = InvariantFixtures.invariants().check(unit, rules, pipelineOf(unit, refusing.projectRoster()),
-                    UNKNOWN_LANE);
+            var found = new java.util.ArrayList<InvariantViolation>();
+            for (var unit : units.values()) {
+                var rules = InvariantFixtures.validator().verify(unit);
+                found.addAll(InvariantFixtures.invariants().check(unit, units.values(), rules,
+                        pipelineOf(unit, refusing.projectRoster()), UNKNOWN_LANE));
+            }
 
             assertTrue(found.stream().anyMatch(violation -> violation.id() == id
                             && refusing.anchorFile().equals(violation.location().resourceName())
@@ -278,21 +284,22 @@ class CompiledInvariantsTest {
     @DisplayName("INV-INIT-2 per lane")
     class LightLanePerLane {
 
-        /** The location of a violation of the unit as a whole: the header of the merged plan unit. */
-        private static final InvariantLocation AT_HEADER = new InvariantLocation(InvariantId.INV_INIT_2, INIT_FILE,
-                InvariantFixtures.lineOf(InvariantFixtures.read(INIT_FILE), PLAN_HEADER));
+        /** The location of a violation of the unit as a whole: the header of the plan unit under check. */
+        private static final InvariantLocation AT_HEADER = new InvariantLocation(InvariantId.INV_INIT_2, PLAN_FILE,
+                InvariantFixtures.lineOf(InvariantFixtures.read(PLAN_FILE), PLAN_HEADER));
 
-        private static List<InvariantLocation> lightLane(WorkflowDefinition unit, Optional<String> lane) {
+        private static List<InvariantLocation> lightLane(Map<String, WorkflowDefinition> units,
+                Optional<String> lane) {
+            var unit = units.get(PLAN_UNIT);
             return InvariantFixtures.invariants()
-                    .check(unit, InvariantFixtures.validator().verify(unit),
+                    .check(unit, units.values(), InvariantFixtures.validator().verify(unit),
                             pipelineOf(unit, InvariantFixtures.defaultRoster()), lane)
                     .stream().filter(violation -> violation.id() == InvariantId.INV_INIT_2)
                     .map(InvariantLocation::of).toList();
         }
 
-        private static WorkflowDefinition withoutLightRoute() {
-            return InvariantFixtures.mutatedUnits(UnitOrigin.PROJECT, InvariantFixtures.WITHOUT_LIGHT_ROUTE)
-                    .get(PLAN_UNIT);
+        private static Map<String, WorkflowDefinition> withoutLightRoute() {
+            return InvariantFixtures.mutatedUnits(UnitOrigin.PROJECT, InvariantFixtures.WITHOUT_LIGHT_ROUTE);
         }
 
         static Stream<Optional<String>> lanesWithoutRatchet() {
@@ -307,12 +314,12 @@ class CompiledInvariantsTest {
         @MethodSource("lanesWithoutRatchet")
         @DisplayName("a unit without the light route passes for a lane that owes no ratchet")
         void withoutLightRoutePasses(Optional<String> lane) {
-            var unit = withoutLightRoute();
+            var units = withoutLightRoute();
 
             assertAll(
-                    () -> InvariantFixtures.LIGHT_ROUTE.forEach(state -> assertFalse(unit.states()
-                            .containsKey(state), state)),
-                    () -> assertEquals(List.of(), lightLane(unit, lane)));
+                    () -> InvariantFixtures.LIGHT_ROUTE.forEach(state -> assertFalse(units.values().stream()
+                            .anyMatch(unit -> unit.states().containsKey(state)), state)),
+                    () -> assertEquals(List.of(), lightLane(units, lane)));
         }
 
         @ParameterizedTest(name = "lane {0}")
@@ -333,7 +340,8 @@ class CompiledInvariantsTest {
         void withoutRatchetRefused(Optional<String> lane) {
             var mutation = InvariantFixtures.WITHOUT_RATCHET;
 
-            var found = lightLane(InvariantFixtures.mutatedUnit(mutation), lane);
+            var found = lightLane(InvariantFixtures.mutatedUnits(UnitOrigin.PROJECT,
+                    List.of(InvariantFixtures.WITHOUT_RATCHET)), lane);
 
             assertEquals(List.of(new InvariantLocation(InvariantId.INV_INIT_2, INIT_FILE,
                     InvariantFixtures.lineOf(mutation.applied(), "state init.light-gate"))), found);
@@ -343,14 +351,15 @@ class CompiledInvariantsTest {
         @MethodSource("lanesWithoutRatchet")
         @DisplayName("a unit whose light gate lacks the ratchet passes for a lane that owes no ratchet")
         void withoutRatchetPassesWhereNoneOwed(Optional<String> lane) {
-            assertEquals(List.of(), lightLane(InvariantFixtures.mutatedUnit(InvariantFixtures.WITHOUT_RATCHET), lane));
+            assertEquals(List.of(), lightLane(InvariantFixtures.mutatedUnits(UnitOrigin.PROJECT,
+                    List.of(InvariantFixtures.WITHOUT_RATCHET)), lane));
         }
 
         @Test
         @DisplayName("the light exit of init.ready a removed light route leaves is refused by Rule 2 for a caller"
                 + " without prune records")
         void unsettledLightExitRefused() {
-            var result = InvariantFixtures.validator().verify(withoutLightRoute());
+            var result = InvariantFixtures.validator().verify(withoutLightRoute().get("phase-1-init"));
 
             assertEquals(List.of("the state 'init.ready' does not route the outcome 'light' of the primitive"
                     + " 'test.lane'"), result.violations().stream()
@@ -361,7 +370,7 @@ class CompiledInvariantsTest {
         @Test
         @DisplayName("the light exit of init.ready settled by a prune record passes Rule 2")
         void settledLightExitPasses() {
-            var result = InvariantFixtures.validator().verify(withoutLightRoute(),
+            var result = InvariantFixtures.validator().verify(withoutLightRoute().get("phase-1-init"),
                     Map.of(InitInvariants.READY, Set.of(InitInvariants.LANE_LIGHT)));
 
             assertEquals(List.of(), result.violations().stream()
@@ -374,7 +383,7 @@ class CompiledInvariantsTest {
         void pathClausesForEveryLane(Optional<String> lane) {
             var refusing = CASES.get(InvariantId.INV_INIT_2);
 
-            var found = lightLane(refusing.unit(), lane);
+            var found = lightLane(refusing.units(), lane);
 
             assertEquals(List.of(new InvariantLocation(InvariantId.INV_INIT_2, refusing.anchorFile(),
                     InvariantFixtures.lineOf(refusing.anchorText(), refusing.anchor()))), found);
@@ -435,9 +444,9 @@ class CompiledInvariantsTest {
         /** @return the fixture sources with the plan unit's frontmatter declaring the given type */
         private static Map<String, String> sourcesWithPlanType(String type) {
             var sources = InvariantFixtures.sources();
-            var mutation = new Mutation("the plan unit of the type " + type, INIT_FILE, "type: workflow",
+            var mutation = new Mutation("the plan unit of the type " + type, PLAN_FILE, "type: workflow",
                     "type: " + type);
-            sources.put(INIT_FILE, mutation.apply(sources.get(INIT_FILE)));
+            sources.put(PLAN_FILE, mutation.apply(sources.get(PLAN_FILE)));
             return sources;
         }
 
@@ -470,8 +479,8 @@ class CompiledInvariantsTest {
             assertAll(
                     () -> assertEquals(List.of("the type 'instance' differs from the type '%s' of the default unit"
                             .formatted(templateType)), found.stream().map(InvariantViolation::message).toList()),
-                    () -> assertEquals(List.of(new InvariantLocation(InvariantId.INV_GEN_1, INIT_FILE,
-                                    InvariantFixtures.lineOf(InvariantFixtures.read(INIT_FILE), PLAN_HEADER))),
+                    () -> assertEquals(List.of(new InvariantLocation(InvariantId.INV_GEN_1, PLAN_FILE,
+                                    InvariantFixtures.lineOf(InvariantFixtures.read(PLAN_FILE), PLAN_HEADER))),
                             found.stream().map(InvariantLocation::of).toList()));
         }
 
@@ -629,10 +638,13 @@ class CompiledInvariantsTest {
     record RefusingCase(InvariantId id, String description, Optional<Mutation> mutation,
     List<FinalizeStepDescriptor> projectRoster, String anchorFile, String anchor) {
 
+        Map<String, WorkflowDefinition> units() {
+            return mutation.map(change -> InvariantFixtures.mutatedUnits(UnitOrigin.PROJECT, List.of(change)))
+                    .orElseGet(() -> InvariantFixtures.passingUnits(UnitOrigin.PROJECT));
+        }
+
         WorkflowDefinition unit() {
-            return mutation.map(InvariantFixtures::mutatedUnit)
-                    .orElseGet(() -> InvariantFixtures.units(InvariantFixtures.sources(), UnitOrigin.PROJECT)
-                            .get(PLAN_UNIT));
+            return units().get(PLAN_UNIT);
         }
 
         String anchorText() {
@@ -688,7 +700,7 @@ class CompiledInvariantsTest {
                 change(InvariantId.INV_GEN_3, "a transition targets a reserved state", INIT_FILE,
                         "done -> init.ready", "done -> init.blocked", "done -> init.blocked"),
                 changeAt(InvariantId.INV_GEN_4, "a path to the success terminal skips the main_sha stamp", INIT_FILE,
-                        "proceed -> init.stamp", "proceed -> init.ready", FINALIZE_FILE, "state completed terminal"),
+                        "proceed -> init.stamp", "proceed -> init.ready", PLAN_FILE, "state completed terminal"),
                 change(InvariantId.INV_GEN_5, "the lost outcome of the vote ends in the decided terminal",
                         ADJUDICATION_FILE, "lost -> adjudicate.escalated", "lost -> adjudicate.decided",
                         "lost -> adjudicate.decided"),
@@ -715,7 +727,7 @@ class CompiledInvariantsTest {
                         EXECUTE_FILE, "lost -> execute.evaluate-envelope-return", "lost -> execute.hand-back-exit",
                         "lost -> execute.hand-back-exit"),
                 changeAt(InvariantId.INV_FIN_1, "no transition completes the mandatory step default:create-pr",
-                        FINALIZE_FILE, "\n            completes default:create-pr as done", "", INIT_FILE,
+                        FINALIZE_FILE, "\n            completes default:create-pr as done", "", PLAN_FILE,
                         PLAN_HEADER),
                 new RefusingCase(InvariantId.INV_FIN_2, "the project roster orders default:create-pr at 70",
                         Optional.empty(), collidingRoster, FINALIZE_FILE, "state finalize.create-pr"),
@@ -727,9 +739,9 @@ class CompiledInvariantsTest {
                         "push_mode = no_push", "push_mode = push", "state execute.commit"),
                 change(InvariantId.INV_FIN_5, "the merge is reached without finalize.merge-gate", FINALIZE_FILE,
                         "done -> finalize.merge-gate", "done -> finalize.merge", "state finalize.merge\n"),
-                change(InvariantId.INV_FIN_6, "the push barrier steps out to the re-entry", FINALIZE_FILE,
-                        "stepped_out -> finalize.hand-back", "stepped_out -> finalize.reentry-exit",
-                        "stepped_out -> finalize.reentry-exit"),
+                change(InvariantId.INV_FIN_6, "the push barrier steps out into the merge", FINALIZE_FILE,
+                        "stepped_out -> finalize.stepped-out-exit", "stepped_out -> finalize.merge",
+                        "stepped_out -> finalize.merge"),
                 change(InvariantId.INV_ADJ_1, "the vote wait lies below its bound", ADJUDICATION_FILE,
                         "declare vote_wait_seconds = 900", "declare vote_wait_seconds = 30",
                         "declare vote_wait_seconds = 30"),

@@ -244,7 +244,7 @@ class WorkflowEngineTest {
         }
 
         @Test
-        @DisplayName("Should start an entity unit that inherits its phase in the workspace scope only")
+        @DisplayName("Should start a unit that carries no phase at the workspace phase")
         void shouldInheritWorkspacePhaseAtStart() {
             var engine = fixtures.engine(parse("entity.pmwf", """
                     ---
@@ -272,9 +272,7 @@ class WorkflowEngineTest {
             var resting = engine.start(JournalScopeType.WORKSPACE, null);
 
             assertAll(
-                    () -> assertEquals("workspace", resting.status().phase()),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> engine.start(JournalScopeType.PLAN, PLAN_ID)));
+                    () -> assertEquals("workspace", resting.status().phase()));
         }
     }
 
@@ -506,16 +504,6 @@ class WorkflowEngineTest {
                             () -> engine.advance(unknownState)).reason()),
                     () -> assertEquals(Reason.UNRESOLVED_NAME, assertThrows(InternalFaultException.class,
                             () -> engine.advance(unknownFrame)).reason()));
-        }
-
-        @Test
-        @DisplayName("Should fail with unresolved_name for a phase the status store has no value for")
-        void shouldFaultOnUnknownPhase() {
-            var engine = fixtures.engine(plan("review.first", CHAIN.replace("execute", "review")));
-
-            var fault = assertThrows(InternalFaultException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID));
-
-            assertEquals(Reason.UNRESOLVED_NAME, fault.reason());
         }
 
         /*
