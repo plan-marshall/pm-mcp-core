@@ -120,7 +120,8 @@ public final class EndpointClient {
             return false;
         }
         var host = uri.getHost();
-        return "127.0.0.1".equals(host) || "::1".equals(host);
+        // URI.getHost() keeps the brackets of an IPv6 literal.
+        return "127.0.0.1".equals(host) || "::1".equals(host) || "[::1]".equals(host);
     }
 
     /**

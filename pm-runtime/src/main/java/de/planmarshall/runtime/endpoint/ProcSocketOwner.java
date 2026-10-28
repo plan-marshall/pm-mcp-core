@@ -106,9 +106,8 @@ final class ProcSocketOwner implements SocketOwner {
             if (!ipv6Table) {
                 return Optional.empty();
             }
-            var bytes = new byte[16];
-            bytes[15] = 1;
-            return Optional.of(HexFormat.of().withUpperCase().formatHex(bytes));
+            // ::1 as the kernel writes it: four 32-bit words in host order, the last one 01000000.
+            return Optional.of("00000000000000000000000001000000");
         }
         var bytes = new byte[4];
         var octets = host.split("\\.");

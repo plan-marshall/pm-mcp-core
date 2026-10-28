@@ -133,4 +133,14 @@ class EndpointClientTest {
                 () -> assertEquals(URI.create("http://127.0.0.1:11434/models"),
                         EndpointClient.uri(profile, "models")));
     }
+
+    @Test
+    @DisplayName("both loopback literals are admitted, with the brackets URI keeps")
+    void loopbackLiterals() {
+        assertAll(
+                () -> assertTrue(EndpointClient.loopback(URI.create("http://127.0.0.1:11434"))),
+                () -> assertTrue(EndpointClient.loopback(URI.create("http://[::1]:11434"))),
+                () -> assertFalse(EndpointClient.loopback(URI.create("http://10.0.0.2:11434"))),
+                () -> assertFalse(EndpointClient.loopback(URI.create("https://runner.example.test"))));
+    }
 }
