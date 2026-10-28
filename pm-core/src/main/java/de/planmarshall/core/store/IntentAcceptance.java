@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.store;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -251,23 +252,32 @@ public final class IntentAcceptance {
         if (evidence == null || evidence.startsWith("pm://")) {
             return Optional.empty();
         }
-        var root = context.treeRoot().toAbsolutePath().normalize();
-        Path resolved;
         try {
-            resolved = root.resolve(evidence).normalize();
+            var root = context.treeRoot().toAbsolutePath().normalize();
+            var resolved = root.resolve(evidence).normalize();
             if (Path.of(evidence).isAbsolute() || !resolved.startsWith(root)) {
-                return Optional.of("the fact decision '%s' names the evidence '%s', which lies outside the tree"
+                return outside(decision, evidence);
+            }
+            if (!Files.exists(resolved)) {
+                return Optional.of("the fact decision '%s' names the evidence '%s', which does not exist in the tree"
                         .formatted(decision.id(), evidence));
             }
+            if (!resolved.toRealPath().startsWith(root.toRealPath())) {
+                return outside(decision, evidence);
+            }
+            return Optional.empty();
         } catch (InvalidPathException _) {
             return Optional.of("the fact decision '%s' names the evidence '%s', which is no path"
                     .formatted(decision.id(), evidence));
-        }
-        if (!Files.exists(resolved)) {
-            return Optional.of("the fact decision '%s' names the evidence '%s', which does not exist in the tree"
+        } catch (IOException _) {
+            return Optional.of("the fact decision '%s' names the evidence '%s', which cannot be resolved in the tree"
                     .formatted(decision.id(), evidence));
         }
-        return Optional.empty();
+    }
+
+    private static Optional<String> outside(Decision decision, String evidence) {
+        return Optional.of("the fact decision '%s' names the evidence '%s', which lies outside the tree"
+                .formatted(decision.id(), evidence));
     }
 
     private static Optional<String> capabilityRefusal(IntentRecord intentRecord, Context context) {

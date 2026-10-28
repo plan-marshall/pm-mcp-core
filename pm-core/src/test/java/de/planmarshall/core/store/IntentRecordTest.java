@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -415,6 +416,22 @@ class IntentRecordTest {
         assertTrue(assertInstanceOf(Refused.class,
                 accept(null, IntentSubmission.REFINE, revision(1, intentRecord), context(tree))).detail()
                 .contains("no path"));
+    }
+
+    @DisplayName("A fact decision whose evidence is a symlink outside the tree is refused")
+    @Test
+    void refusesSymlinkedEvidenceOutsideTheTree(@TempDir Path base) throws Exception {
+        var tree = base.resolve("tree");
+        Files.createDirectories(tree);
+        var outside = base.resolve("outside.adoc");
+        Files.writeString(outside, "outside");
+        Files.createSymbolicLink(tree.resolve("link.adoc"), outside);
+        var intentRecord = withDecisions(List.of(new Decision("DC-1", "The tree shows the store layout",
+                List.of("a store", "one file"), Decider.FACT, null, "link.adoc", null)));
+
+        assertTrue(assertInstanceOf(Refused.class,
+                accept(null, IntentSubmission.REFINE, revision(1, intentRecord), context(tree))).detail()
+                .contains("outside the tree"));
     }
 
     @DisplayName("A fact decision whose evidence lies outside the tree is refused")
