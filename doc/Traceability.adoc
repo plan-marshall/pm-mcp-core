@@ -1319,7 +1319,7 @@ the harness's ask-user tool that no role may name — projected from the profile
 cannot run is invalid with `harness_class_not_runnable`, and the steward takes its model from the harness's tier
 `standard`. Also the endpoint profile of the same sets: `profile_kind: "endpoint"`, its closed document, the locality
 combinations the schema cannot express, and the projection the runtime reads (Client Profiles § Endpoint Harness; ADRs
-core-profile/007, /008 and /009). Not implemented here: the translation of skills, links and prompts, and the composition
+core-profile/010, /011 and /012). Not implemented here: the translation of skills, links and prompts, and the composition
 of a launch from the `headless` block, which belong to the host-integration and worker-launch packages):
 link:../pm-core/src/main/java/de/planmarshall/core/role/HarnessProfile.java[HarnessProfile],
 link:../pm-core/src/main/java/de/planmarshall/core/role/RoleValidation.java[RoleValidation],
@@ -1794,7 +1794,7 @@ profile and the catalogue with the ten reasons of the table; the composition che
 `class_mismatch`, at composition and at task creation; the one model caller with the judge and steward skipping Qualify,
 and the steward's harness from `harnesses.default` of `machine-config.json` and its model from the tier `standard`; and an
 endpoint harness runs the class `zero_tool` alone, its projection carrying no other class (Client Profiles § Endpoint
-Harness, ADR core-profile/008). Not
+Harness, ADR core-profile/011). Not
 implemented here, and not claimed by this package: the escalation assignment (bullet 9), the shipped artifacts, tiers,
 qualification records and their calibration (bullets 7 and 8, which are the release assembly's and
 `machine-onboarding-unit`'s), the resolution `roles.default`, the grading and the record validity (PM-WORK-6), and the

@@ -1,4 +1,4 @@
-= ADR 008: An Endpoint Harness Runs the Role Class `zero_tool` Only
+= ADR 011: An Endpoint Harness Runs the Role Class `zero_tool` Only
 :nofooter:
 
 == Status

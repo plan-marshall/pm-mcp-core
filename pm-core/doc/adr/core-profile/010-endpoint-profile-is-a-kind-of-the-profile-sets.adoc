@@ -1,4 +1,4 @@
-= ADR 007: The Endpoint Profile Is a Kind of the Profile Sets, Told Apart by `profile_kind`
+= ADR 010: The Endpoint Profile Is a Kind of the Profile Sets, Told Apart by `profile_kind`
 :nofooter:
 
 == Status

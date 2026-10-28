@@ -1,4 +1,4 @@
-= ADR 009: An Endpoint Profile Declares No Supported Version Range
+= ADR 012: An Endpoint Profile Declares No Supported Version Range
 :nofooter:
 
 == Status

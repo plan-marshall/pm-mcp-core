@@ -68,11 +68,11 @@ resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshal
   endpoint profile:
   link:doc/adr/core-profile/005-schema-literals-named-once-per-class.adoc[ADR 005] the schema literals named once per
   class;
-  link:doc/adr/core-profile/007-endpoint-profile-is-a-kind-of-the-profile-sets.adoc[ADR 007] the endpoint profile is a kind
+  link:doc/adr/core-profile/010-endpoint-profile-is-a-kind-of-the-profile-sets.adoc[ADR 010] the endpoint profile is a kind
   of the profile sets;
-  link:doc/adr/core-profile/008-endpoint-harness-runs-zero-tool-only.adoc[ADR 008] an endpoint harness runs `zero_tool`
+  link:doc/adr/core-profile/011-endpoint-harness-runs-zero-tool-only.adoc[ADR 011] an endpoint harness runs `zero_tool`
   only;
-  link:doc/adr/core-profile/009-endpoint-profile-declares-no-supported-range.adoc[ADR 009] an endpoint profile declares no
+  link:doc/adr/core-profile/012-endpoint-profile-declares-no-supported-range.adoc[ADR 012] an endpoint profile declares no
   supported version range.
 * link:doc/adr/core-queue/[`doc/adr/core-queue/`]: the task queue; ADRs 001 and 003 are superseded, ADR 002 stands, ADRs 004 to 006 record the generation fence, the record's combinations at the write boundary and the journal's sibling lock.
 * link:doc/adr/core-role-corpus/[`doc/adr/core-role-corpus/`]: the corpus formats, the row readers, the verdict of an import, the corpus validator and the Python meaning of its patterns.
