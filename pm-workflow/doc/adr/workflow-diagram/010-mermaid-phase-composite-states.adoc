@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted
+Accepted, amended by link:012-no-phase-value-outside-a-phase-unit.adoc[ADR 012]: a unit carries a phase or none, and the `inherit` value is gone.
 
 == Date
 

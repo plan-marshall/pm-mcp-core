@@ -14,9 +14,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 
@@ -109,10 +109,10 @@ class DefaultPlanUnitTest {
                 () -> assertEquals("start", refine.entry().orElseThrow()),
                 () -> assertEquals(Phase.unitIds(), defaults().keySet().stream()
                         .filter(id -> Phase.ofUnit(id).isPresent()).toList()),
+                () -> assertEquals(WorkflowStatus.PHASES, Set.of("phase-1-init", "phase-2-refine", "phase-3-outline", "phase-4-plan",
+                        "phase-5-execute", "phase-6-finalize", "completed", "aborted", "epic", "workspace",
+                        "machine")),
                 () -> assertTrue(WorkflowStatus.PHASES.containsAll(Phase.unitIds())),
-                () -> assertEquals(new LinkedHashSet<>(Phase.unitIds()),
-                        new LinkedHashSet<>(WorkflowStatus.PHASES.stream()
-                                .filter(id -> id.startsWith("phase-")).toList())),
                 () -> assertTrue(Phase.ofUnit("plan").isEmpty()));
     }
 

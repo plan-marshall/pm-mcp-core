@@ -21,6 +21,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.InternalFaultException.Reason;
@@ -127,6 +128,9 @@ public final class WorkflowEngine {
 
     /** The phase of a scope that ended in a failure. */
     private static final String ABORTED_PHASE = "aborted";
+
+    /** The states the plan unit declares itself that name no phase: they carry the phase the plan called last. */
+    private static final Set<String> PLAN_UNIT_OWN_STATES = Set.of("plan.return", "plan.aborted");
 
     private final WorkflowDefinition unit;
     private final Map<String, WorkflowDefinition> units;
@@ -597,9 +601,9 @@ public final class WorkflowEngine {
     /**
      * The phase a flat plan unit's state names by the first segment of its identifier ({@code execute.commit}), which
      * the engine's fixtures and a pre-split unit carry where a composed unit has the call state {@code phases.execute}.
-     * A composed unit derives its phase from the call stack, so this is the last fallback before the previous phase. The
-     * segment {@code plan} is not read as the phase: it names the plan unit, so {@code plan.return} keeps the phase the
-     * plan called last.
+     * A composed unit derives its phase from the call stack, so this is the last fallback before the previous phase. A
+     * state of the plan unit itself that names no phase ({@code plan.return}, {@code plan.aborted}) keeps the phase the
+     * plan called last, so those two are not read as the phase {@code plan}.
      */
     private static Optional<Phase> phaseOfStatePrefix(String stateId) {
         var dot = stateId.indexOf('.');
@@ -607,7 +611,7 @@ public final class WorkflowEngine {
             return Optional.empty();
         }
         var segment = stateId.substring(0, dot);
-        if (Phase.PLAN_UNIT.equals(segment)) {
+        if (PLAN_UNIT_OWN_STATES.contains(stateId)) {
             return Optional.empty();
         }
         return Arrays.stream(Phase.values())
