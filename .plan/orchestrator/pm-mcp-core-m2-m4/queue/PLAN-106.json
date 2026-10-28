@@ -2,10 +2,10 @@
   "id": "PLAN-106",
   "slug": "plan-intent-and-outline-records",
   "workstream": "WS-03",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-106-plan-intent-and-outline-records",
+  "pr": "#210",
+  "landing": "landings/PLAN-106.md",
   "seq": 106
 }

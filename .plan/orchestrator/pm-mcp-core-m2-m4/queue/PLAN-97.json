@@ -2,10 +2,10 @@
   "id": "PLAN-97",
   "slug": "endpoint-harness",
   "workstream": "WS-05",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-97-endpoint-harness",
+  "pr": "#214",
+  "landing": "landings/PLAN-97.md",
   "seq": 99
 }
