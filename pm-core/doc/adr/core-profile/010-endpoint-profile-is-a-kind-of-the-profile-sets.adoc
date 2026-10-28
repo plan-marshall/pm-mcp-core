@@ -1,0 +1,51 @@
+= ADR 010: The Endpoint Profile Is a Kind of the Profile Sets, Told Apart by `profile_kind`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-27
+
+== Context
+
+Client Profiles § A Model on This Machine states that an endpoint harness "is described by an endpoint profile, a
+document of the same profile sets, verification, and override rules as a client profile, told apart by its member
+`profile_kind: "endpoint"`", with a `client_id` in the namespace of the client profiles, and with none of the blocks
+`tools`, `skill_loading`, `headless`, `connection`, `detection` and `worker`.
+
+The loader and the validator had to decide whether an endpoint profile is a second document type of the sets or a
+client profile with a different block.
+
+== Decision
+
+The endpoint profile is a kind of the same profile sets. `ProfileValidator` reads `profile_kind` first: `endpoint`
+selects a closed document of its own members and rules, and any other value is an undeclared member of the client
+profile. `ProfileLoader` reads both kinds through the same three sets, the same verification record, the same HMAC
+sidecar and the same enrolled-harness binding; `ProfileValidator.isEndpoint` tells them apart. No endpoint profile is
+shipped. A project endpoint profile must keep the harness-defining values of its base (`identity`, `executable` and the
+protocol, locality, base URL and credential key of `endpoint`), as a project client profile keeps its detection, identity
+and executable.
+
+== Alternatives Considered
+
+A separate directory and store for endpoint profiles was considered and not taken: the specification puts them in the
+same sets and the same `client_id` namespace, and two stores would make one rule for verification and precedence
+impossible to state. A client profile with a null `headless` block was considered and not taken: an endpoint profile has
+no tools, connection, detection or worker block either, so it would have to null every block and the client profile's
+closed validator would still read its per-host members as required.
+
+== Consequences
+
+- The endpoint profile is validated by the same `ProfileValidator` entry point, so the hardening rules of *A Profile Is
+  Untrusted Input* apply to it unchanged.
+- A new kind is a change of `profile_kind`'s closed list, of the validator's branch and of the projection, never a second
+  loader.
+- The shipped set stays the client profiles'; a release that ships an endpoint profile would have to change this record.
+
+== Source
+
+Pull request for the work package `doc/plans/endpoint-harness.adoc`; Client Profiles § A Model on This Machine, § Endpoint
+Profile Schema, § Profile Sets.

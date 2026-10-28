@@ -34,6 +34,10 @@ import de.planmarshall.core.role.RoleClass;
  * {@code headless.endpoints}; and the {@code usage} stage records each figure {@code reported},
  * {@code not_applicable} or {@code missing}, compares the figures parsed for the run with the harness's own record
  * field by field, and fails for a declared pointer that does not resolve or a figure that differs.
+ * <p>
+ * The four stages of an endpoint harness — {@code identity}, {@code launch}, {@code classes} and {@code limits} — are
+ * held here too: what each observed, the values it settled ({@link EndpointVerification#values()}) and the status of
+ * each stage ({@link EndpointVerification#stageStatuses()}).
  *
  * @since 0.1
  */
@@ -505,5 +509,210 @@ public final class ProfileStages {
                     "the parsed figure of '%s' is %s, the harness records %s".formatted(figure, number, recorded));
         }
         return number;
+    }
+
+    // ---- the stages of an endpoint harness ------------------------------------------------------------------
+
+    /** The stage that settles the serving program, its version probe and the models listing. */
+    private static final String IDENTITY = "identity";
+    /** The stage that settles readiness and the result schema. */
+    private static final String LAUNCH = "launch";
+    /** The stage that records the tool-call probe. */
+    private static final String CLASSES = "classes";
+    /** The stage that settles the endpoint's context limit. */
+    private static final String LIMITS = "limits";
+    /** The status of a stage a record keeps as passed. */
+    private static final String PASSED = "passed";
+
+    /** The stages of the verification of an endpoint, in the order they run. */
+    public static final List<String> ENDPOINT_STAGES = List.of(IDENTITY, LAUNCH, CLASSES, LIMITS);
+
+    /** The status of one value the endpoint stages write into the verification record. The set is closed. */
+    public enum EndpointValueStatus {
+        /** The stage observed the value on the endpoint. */
+        MEASURED(ProfileStages.MEASURED),
+        /** The stage could not observe the value, so it settles nothing. */
+        NOT_MEASURED(ProfileStages.NOT_MEASURED);
+
+        private final String wireName;
+
+        EndpointValueStatus(String wireName) {
+            this.wireName = wireName;
+        }
+
+        /** @return the name of the status in a record */
+        public String wireName() {
+            return wireName;
+        }
+    }
+
+    /**
+     * One entry of the verification record's {@code values[]} an endpoint stage writes.
+     *
+     * @param pointer the profile pointer the stage settled
+     * @param status  {@code measured} or {@code not_measured}
+     * @since 0.1
+     */
+    public record EndpointValue(String pointer, EndpointValueStatus status) {
+
+        /**
+         * @throws NullPointerException if a component is {@code null}
+         */
+        public EndpointValue {
+            Objects.requireNonNull(pointer, "pointer");
+            Objects.requireNonNull(status, "status");
+        }
+    }
+
+    /**
+     * What the stage {@code identity} observed of the serving program and of the models it lists.
+     *
+     * @param passed         whether the stage settled the identity values
+     * @param executablePath the absolute path of the executable that owns the listening socket; {@code null} when the
+     *                       stage did not find it
+     * @param version        the version the probe reported; {@code null} when the stage did not run it
+     * @param models         the model ids of the listing; empty when the stage did not read it
+     * @param weights        the weights identity per model, where the profile declares a probe; empty otherwise
+     * @since 0.1
+     */
+    public record EndpointIdentity(boolean passed, String executablePath, String version, List<String> models,
+    Map<String, String> weights) {
+
+        /** Copies the collections and refuses a passed stage that observed nothing. */
+        public EndpointIdentity {
+            models = List.copyOf(models);
+            weights = Collections.unmodifiableMap(new LinkedHashMap<>(weights));
+            if (passed && executablePath == null) {
+                throw new IllegalArgumentException("A passed identity stage names the executable it found");
+            }
+        }
+
+        /** @return whether the stage read a weights identity for a model */
+        public boolean probeDeclared() {
+            return !weights.isEmpty();
+        }
+    }
+
+    /**
+     * What the stage {@code launch} observed of readiness and of the result schema.
+     *
+     * @param passed       whether the endpoint answered the base task with a valid document
+     * @param readiness    whether the endpoint answered its readiness check
+     * @param resultSchema the measured value, {@code enforced}, {@code advisory} or {@code none}
+     * @param streamingOff whether the answer was a single document rather than an event stream
+     * @since 0.1
+     */
+    public record EndpointLaunch(boolean passed, boolean readiness, String resultSchema, boolean streamingOff) {
+
+        /** The measured result schema, closed because the record writes it as a value. */
+        private static final Set<String> SCHEMAS = Set.of("enforced", "advisory", "none");
+
+        /**
+         * @throws NullPointerException     if the schema is {@code null}
+         * @throws IllegalArgumentException if the schema is not one the stage measures
+         */
+        public EndpointLaunch {
+            Objects.requireNonNull(resultSchema, "resultSchema");
+            if (!SCHEMAS.contains(resultSchema)) {
+                throw new IllegalArgumentException("Not a measured result schema: " + resultSchema);
+            }
+        }
+    }
+
+    /**
+     * What the stage {@code classes} observed of the tool-call probe.
+     *
+     * @param toolCallAnswered whether the endpoint answered the probe with a tool call
+     * @param toolsIgnored     whether it answered with the decoy result the task text named, which records the endpoint
+     *                         as ignoring its tools
+     * @since 0.1
+     */
+    public record EndpointClasses(boolean toolCallAnswered, boolean toolsIgnored) {
+
+        /** @return the per-kind results the record keeps for the stage */
+        public Map<String, String> results() {
+            var results = new LinkedHashMap<String, String>();
+            results.put("tool_call", toolCallAnswered ? "answered" : "none");
+            results.put("tools", toolsIgnored ? "tools_ignored" : "not_ignored");
+            return Collections.unmodifiableMap(results);
+        }
+    }
+
+    /**
+     * What the stage {@code limits} measured by bisection.
+     *
+     * @param passed        whether the bisection settled a limit
+     * @param contextTokens the largest accepted request; {@code 0} when the stage did not settle one
+     * @since 0.1
+     */
+    public record EndpointLimits(boolean passed, int contextTokens) {
+
+        /**
+         * @throws IllegalArgumentException if a passed stage names no positive limit
+         */
+        public EndpointLimits {
+            if (passed && contextTokens < 1) {
+                throw new IllegalArgumentException("A passed limits stage names the limit it measured");
+            }
+        }
+    }
+
+    /**
+     * The result of the four stages of an endpoint's verification.
+     *
+     * @param identity the stage {@code identity}
+     * @param launch   the stage {@code launch}
+     * @param classes  the stage {@code classes}
+     * @param limits   the stage {@code limits}
+     * @since 0.1
+     */
+    public record EndpointVerification(EndpointIdentity identity, EndpointLaunch launch, EndpointClasses classes,
+    EndpointLimits limits) {
+
+        /**
+         * @throws NullPointerException if a stage is {@code null}
+         */
+        public EndpointVerification {
+            Objects.requireNonNull(identity, IDENTITY);
+            Objects.requireNonNull(launch, LAUNCH);
+            Objects.requireNonNull(classes, CLASSES);
+            Objects.requireNonNull(limits, LIMITS);
+        }
+
+        /** @return whether a failed {@code identity} or {@code launch} refuses the draft */
+        public boolean refusesDraft() {
+            return !identity.passed() || !launch.passed();
+        }
+
+        /**
+         * @return the stage status per stage name, as the verification record keeps it
+         */
+        public Map<String, String> stageStatuses() {
+            var statuses = new LinkedHashMap<String, String>();
+            statuses.put(IDENTITY, identity.passed() ? PASSED : "failed");
+            statuses.put(LAUNCH, launch.passed() ? PASSED : "failed");
+            statuses.put(CLASSES, PASSED);
+            statuses.put(LIMITS, limits.passed() ? PASSED : "not_run");
+            return Collections.unmodifiableMap(statuses);
+        }
+
+        /**
+         * @return the {@code values[]} entries the stages write; {@code classes} records a result and settles no value
+         */
+        public List<EndpointValue> values() {
+            return List.of(
+                    new EndpointValue("/identity", endpointStatus(identity.passed())),
+                    new EndpointValue("/executable", endpointStatus(identity.passed())),
+                    new EndpointValue("/endpoint/models_path", endpointStatus(identity.passed())),
+                    new EndpointValue("/endpoint/models_pointer", endpointStatus(identity.passed())),
+                    new EndpointValue("/weights_probe", endpointStatus(identity.probeDeclared())),
+                    new EndpointValue("/endpoint/readiness_path", endpointStatus(launch.readiness())),
+                    new EndpointValue("/endpoint/result_schema", endpointStatus(launch.passed())),
+                    new EndpointValue("/endpoint/context_tokens", endpointStatus(limits.passed())));
+        }
+
+        private static EndpointValueStatus endpointStatus(boolean measured) {
+            return measured ? EndpointValueStatus.MEASURED : EndpointValueStatus.NOT_MEASURED;
+        }
     }
 }

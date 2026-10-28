@@ -972,6 +972,12 @@ pm-operator profile remove <client_id> [--project]                              
 |`headless.usage`, recorded per figure as `reported`, `not_applicable`, or `missing`; the result is the harness's `usage_report`, with its `start_context`
 |===
 
+*Endpoint harnesses.* A draft whose profile is an endpoint profile is verified by the stages of
+link:03-endpoint-harness.adoc#endpoint-verification[Endpoint Harness § Verification of an Endpoint] — `identity`,
+`launch`, `classes` and `limits` — and not by the stages above: an endpoint harness has no process to launch, no tool and
+no session. The endpoint profile's members are settled as that section states; its `profile_kind` tells the two kinds
+apart (link:03-endpoint-harness.adoc#endpoint-profile-schema[Endpoint Harness § Endpoint Profile Schema]).
+
 *Output.* The run writes a candidate profile `<PM_MCP_BASE>/profiles/candidates/<client_id>.json` and its verification record beside it, and changes nothing that is in force.
 
 [source,json]
