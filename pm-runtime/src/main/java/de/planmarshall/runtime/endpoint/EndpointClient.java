@@ -139,7 +139,11 @@ public final class EndpointClient {
         /** The target answered nothing. */
         UNREACHABLE("unreachable"),
         /** The target did not answer inside the profile's timeout. */
-        TIMEOUT("timeout");
+        TIMEOUT("timeout"),
+        /** The request was refused before it was sent. */
+        REFUSED("refused"),
+        /** The answer was a redirect the package does not follow. */
+        REDIRECT("redirect_refused");
 
         private final String wireName;
 
