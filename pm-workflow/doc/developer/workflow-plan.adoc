@@ -400,6 +400,23 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/12-
 * `PlanInstanceStoreTest`: write-once versions (the early refusal of an existing version, and two transactions of one lock transaction recording the same version: the second commit is refused, the first text stays), one log line per attempt, the `diff_summary` of versions one and two, sub-unit texts stored once per digest, the text of `adjudicate.decisions` among them.
 * `PlanFixtures` builds the requests over the plan template `plan/plan-template-fixture.pmwf`, written for these tests, with the sub-units and registries of `InvariantFixtures`, the asking variants and the axis levels; its facts make no shipped rule hold. The template holds the call site of the asking axis, the merge barrier with `pass` and `pass_hand_back`, and the merge execution. The `merge-by-operator` cases compose and verify, since the engine settles the pruned merge gate by the prune record (link:../adr/workflow-plan/016-pruned-merge-gate-settles-in-the-engine.adoc[ADR 016]). The refusal tests refuse a version whose position the pruned states no longer contain, a light template whose gate lacks the `light` to `deep` ratchet (`INV-INIT-2`, over the phase units of `unit-fixtures/defaults/`, link:../adr/workflow-plan/013-default-plan-unit-in-the-specification-and-test-fixtures.adoc[ADR 013]), and a header that breaks its schema. The `merged` requests compose the plan unit of `unit-fixtures/defaults/` with its seven phase units among the request's sub-units, so no phase file is merged (link:../adr/workflow-plan/019-composition-reads-the-phase-sub-units.adoc[ADR 019]) and the lane-pruning cases of the merged unit are PLAN-105's. The per-lane rework cases compose `plan/per-lane-rework.pmwf`, a plan unit holding both lane entries at `init.ready` and a call state per lane for the phases `plan` and `execute`, with the phase call targets `phase-plan` and `phase-execute` written in `PlanFixtures` itself; they prove the `other_lane` prune of the light calls and each lane's own rework entry (link:../adr/workflow-plan/017-per-lane-rework-fixture.adoc[ADR 017]).
 
+== The Token Facts of a Plan and an Epic
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-14[PM-WF-14], link:../../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-3[PM-WORK-3]_
+
+`PlanTokens` carries a running plan's tokens with their split and coverage, derived on read from the plan's metrics rows
+through `de.planmarshall.core.store.UsageAggregate`; `EpicTokens` sums its plans' figures and the epic's own rows
+(decompose, landing, review). Both carry one figure per population (`model_job`, `model_task`), the only figures that may
+be summed; the warm workers' `worker_idle` usage belongs to no plan and is reported apart.
+
+The representations carry usage only: no limit, no budget line, no projection and no comparison with one. A later
+operator limit is a change on the recorded rows, not a member of these values.
+
+`PlanTokensTest` covers the plan's total, split and coverage, the empty plan, the epic's sum of plans and own rows with
+the floor a refused row produces, and a guard that neither record carries a limit, budget or projection.
+
+link:../adr/workflow-plan/018-plan-and-epic-token-facts-per-population.adoc[ADR 018]: a plan's and an epic's token facts
+are carried per population, with no limit.
+
 == Specification Tracing
 
 * Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-1[PM-WF-1], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-25[PM-WF-25], link:../../../../plan-marshall-documentation/doc/requirements/15-extensions-and-recipes.adoc#PM-EXT-7[PM-EXT-7]

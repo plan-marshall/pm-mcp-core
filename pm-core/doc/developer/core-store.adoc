@@ -1573,6 +1573,31 @@ parity check the specification has run ahead of is `@Disabled` with the work pac
   Schemas § Change Ledger Record]
 * Concepts: link:{docs}/concepts/store-integrity.adoc[Concepts § Store Integrity]
 
+== The Token Split and the Usage Aggregate
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-14[PM-WF-14], link:{docs}/Requirements.adoc#PM-WORK-3[PM-WORK-3]_
+
+`HarnessUsage` owns the split every view shows: `tokensIn()` sums input, cache read and cache creation, `tokensOut()`
+sums output and reasoning. A `not_applicable` component counts `0`; an unmeasured one leaves the split unmeasured, so a
+partial sum is never recorded. `totalTokens()` keeps its lower bound of `1`.
+
+`UsageAggregate` is the one aggregate type every view calls, derived on read and never persisted. It carries the total,
+the split, `rows`, `rowsUnmeasured`, `unmeasuredReasons`, `populationCount`, `excluded` and `totalIsFloor`. `of(rows)`
+refuses a set that mixes populations; `byPopulation`, `byPhase`, `byRole`, `byModelAndHarness`, `byCauseClass` and
+`bySpendClass` group the rows; `plus` sums two figures of one population and keeps a floor a floor.
+
+* An empty population has no total; a population with a measured row has one, exact or a floor; a population whose
+  every row is unmeasured has no total, never a fabricated `0`.
+* `totalIsFloor` is true exactly while a row of the population is unmeasured; the constructor refuses any other pair.
+* The split is empty when any row of the population left a component of it unmeasured.
+
+`UsageAggregateTest` covers the sum, the not-applicable component, the unmeasured floor with its reasons, the empty
+population, the refused task, the population refusal, the groupings and `plus`, and the paired equality of a harness that
+reports reasoning apart and one whose output already contains it; `UsagePointersTest` covers the parsed figures and the
+three-valued measurement of a turn.
+
+link:../adr/core-store/048-token-split-derived-on-read-and-the-coverage-aggregate.adoc[ADR 048]: the split is derived on
+read and the aggregate carries its coverage.
+
 == Decisions
 
 * link:../adr/core-store/001-engine-owned-members-typed-remainder-verbatim.adoc[ADR 001]: only the engine-owned members
@@ -1642,5 +1667,64 @@ parity check the specification has run ahead of is `@Disabled` with the work pac
   lies in `machine/mcp/status.json` under the machine scope lock, beside no project.
 * link:../adr/core-store/047-a-metrics-row-names-its-continuation-form.adoc[ADR 047]: a task row names the continuation
   form its usage belongs to (`hold` or `resume`), and a task that never continued carries `null`.
+* link:../adr/core-store/049-intent-and-outline-records-are-revision-stores.adoc[ADR 049]: the intent and the outline
+  record are immutable revision stores; the accepting transaction moves the previous revision to `history[]` and never
+  changes it, and an identifier a revision removed is never reused.
 * link:../adr/core-store/050-five-call-frames-and-no-caller-phase.adoc[ADR 050]: the stored call stack holds five
   frames, and a frame carries no caller phase.
+
+== The Intent Record
+
+`intent.json` beside `request.md` is the plan's intent record (Store Schemas § Intent Record; Phase Workflows § The
+Intent Record). `IntentRecord` is the model-supplied document and the named parameter schema `intent-record`: it
+refuses a member out of its bounds, a criterion that is not in EARS form, a `fix` criterion without its current
+behaviour and an `unchanged` criterion, a `current_behaviour` without a `fix` criterion or outside
+`WHEN <condition> THEN THE <system> <behaviour>`, an unverified assumption without exactly one riskiest one, a repeated
+identifier, and a source claim that lands in no item of the record.
+
+`IntentStore` is the document around it: the accepted revision as `current`, every earlier one in `history[]`. Its
+`accept(Revision)` is the data change of the accepting transaction — it refuses a revision that does not follow the
+current one and an identifier an earlier revision removed, and it appends the current revision to the history without
+changing it. `IntentCodec` reads and writes the document strictly, and `IntentStoreFile` runs the acceptance in one
+transaction on the plan lock.
+
+`IntentAcceptance` checks what needs the plan: an `operator` or `quorum` decision cites a part of an answered question
+record of this plan through the matching channel, a `fact` decision names an evidence path that exists (or a `pm://`
+URI), a capability link's `added`, `modified` or `removed` requirement agrees with the tree's fingerprints, and every
+claim an epic seeds appears among the `source_claims`. `EpicIntent` derives those claims from the plan row's own
+`done_when` and the epic's non-goals.
+
+`ClarifiedRequestRenderer` renders `## Clarified Request` from the current record, each item with its identifier, and
+lists the model's own calls under their own heading. `EarsForm` is the grammar: the structural words `WHERE`, `WHILE`,
+`WHEN`, `IF`/`THEN`, `THE`, `SHALL` and `CONTINUE TO` are uppercase English tokens, the clause text between them is
+written in the model language, and an uppercase structural word inside clause text is the documented exception.
+
+== The Outline Record
+
+`outline.json` is the plan's solution outline (Store Schemas § Outline Record). `OutlineRecord` is the model-supplied
+document (`outline-record`): its deliverables carry their profiles, affected files with their intents, the change per
+file, the verification commands, the `satisfies` entries, the added dependencies, interfaces and key links. It refuses
+a dependency on a deliverable the outline does not hold, a dependency on itself, a dependency named twice, a repeated
+deliverable number, a `write-conditional` file without its gate and a file of another intent that carries one.
+
+`OutlineStore` holds the revision, its history and the server-owned state of every deliverable (`active`, `deferred` or
+`removed`); a deliverable a re-planning no longer holds keeps its state. `OutlineCodec` is the strict reader and writer.
+`OutlineRenderer` renders `outline.md` in the section form of the solution outline, deliverable by deliverable; the
+rendered document is never read back.
+
+`OutlineValidator` (in `core.spi.validation`) checks the record against the intent record: every `satisfies` entry is
+an item of the record, every criterion is covered, no deliverable's `satisfies` is empty, and the guard of an
+`unchanged` criterion verified by `test` does not depend, directly or through others, on the deliverable that changes
+it.
+
+== Capability Specs
+
+`.marshall/capabilities/<capability>.json` is a git-tracked team file (Store Schemas § Capability Spec).
+`CapabilitySpec` holds the capability, its purpose and its requirements with their scenarios; it refuses a repeated
+requirement name, a text that is not in EARS form and a requirement without a scenario. `Requirement#fingerprint()` is
+the SHA-256 of the RFC 8785 canonical JSON of the requirement without `plan_id` and `verified_by`, so a renamed test
+changes no fingerprint.
+
+`CapabilityIndex.read(projectRoot)` reads the tree's specs, refuses a file whose name is not its capability, and serves
+both the planning roles' `facts.capability_index` (`facts()`) and the acceptance's capability checks
+(`fingerprint(capability, requirement)`).

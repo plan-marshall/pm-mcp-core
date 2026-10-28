@@ -159,6 +159,8 @@ class RegistriesAndRecordsTest {
                 () -> assertTrue(defaults.contains("vote-answer")),
                 () -> assertTrue(defaults.contains("triage-groups")),
                 () -> assertTrue(defaults.contains("simplify-proposal")),
+                () -> assertTrue(defaults.contains("intent-record")),
+                () -> assertTrue(defaults.contains("outline-record")),
                 () -> assertTrue(defaults.contains("commit-result")),
                 () -> assertFalse(defaults.contains("unknown-schema"))
         );

@@ -1,0 +1,36 @@
+= ADR 007: The usage report kept with an enrolment carries the start context
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-27.
+
+== Context
+
+A verified profile's `usage_report` is kept with the harness's enrolment and shown wherever the enrolled harnesses are
+listed (Store Schemas § Enrolment Store; Client Profiles § Tokens, Not Money). The specification's `usage_report` carries
+`source`, `figures` and the `start_context` per class and model; the store read and wrote only the first two.
+
+== Decision
+
+`HarnessEnrolment.UsageReport` carries a `StartContext` list. `HarnessEnrolmentStore` reads and writes the optional
+`start_context` array, each entry `{class, model, tokens}` with `tokens` an integer or `unmeasured`; a declared report
+carries none. The store validates the class against the closed list and refuses an unknown token value.
+
+== Alternatives Considered
+
+Keeping the start context only in the verification record was rejected: the enrolment is what the harness list reads.
+
+== Consequences
+
+The harness list shows what a worker costs before it does anything beside the usage report. A record without the member
+stays readable and shows no start context.
+
+== Source
+
+Work package `token-usage` (closed; its package file is deleted); Store Schemas § Enrolment Store (`usage_report`); Client Profiles § Tokens,
+Not Money (Start Context).

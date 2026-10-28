@@ -405,9 +405,16 @@ $$\text{domains}_{\text{new}} = \text{domains}_{\text{cached}} \cup \text{detect
 
 [#intent-record]
 ==== The Intent Record
-_Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-106[PM-WATCH-PHASE-106], link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-107[PM-WATCH-PHASE-107]_
-
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_
+
+The record, its strict codec and the acceptance checks are implemented in `pm-core` (`de.planmarshall.core.store`):
+`IntentRecord` and its named parameter schema `intent-record`, `IntentStore` with `current` and `history[]`,
+`IntentAcceptance` with the decider, capability and required-claim checks, `ClarifiedRequestRenderer` for
+`## Clarified Request`, and `IntentStoreFile` for the accepting transaction under the plan lock. The EARS check is
+`EarsForm`, and the required claims of an epic-started plan are `EpicIntent`. See
+link:../../../pm-core/doc/developer/core-store.adoc#_the_intent_record[Scope Stores Developer Guide § The Intent Record].
+Not implemented yet: the wiring of `submit:refine`, the light `submit:outline` and the re-planning into the planning
+phases, the server-side writer of `request.md`, and the seeding of `facts.required_claims` by the epic row's reader.
 
 The refine task does not submit the clarified request as prose. It submits the plan's *intent record*, `intent:schema[intent-record]` (link:../store-schemas/06-task-and-references.adoc#intent-record-store[Store Schemas Specification, Intent Record]), and the server renders `## Clarified Request` of `request.md` from it. The record is what later phases cite: the outline names the criteria each deliverable satisfies (xref:02-planning-lanes-phases-3-4.adoc#outline-satisfies[Phase 3, `Satisfies` Coverage]), the self-review judges against the criteria, and the pull-request body lists them. Wherever this specification names the clarified request as text (the change-type heuristic, the issue write-back), it means that rendered section.
 
@@ -458,6 +465,8 @@ The refine task does not submit the clarified request as prose. It submits the p
 _Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-118[PM-WATCH-PHASE-118]_
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_
 
+The spec, its requirements and scenarios, the EARS check and the canonical-JSON fingerprint are implemented in `pm-core` as `CapabilitySpec`; the reader of a tree's specs, the `facts.capability_index` form and the acceptance's capability checks are `CapabilityIndex` (link:../../../pm-core/doc/developer/core-store.adoc#_capability_specs[Scope Stores Developer Guide § Capability Specs]). The `architecture-refresh` writer, the re-planning triggers and the capability test guard are not implemented yet.
+
 A plan states a change; the project's *capability specs* state what the system does after it. They are git-tracked team files, one per capability, `.marshall/capabilities/<capability>.json` (link:../store-schemas/06-task-and-references.adoc#capability-spec[Store Schemas Specification, Capability Spec]): a capability is a durable behaviour of the system named for what it does (`http-header-parsing`), never for a piece of work, and holds its requirements, each a name, a statement in EARS form, and its scenarios. Nobody back-fills them: a capability spec grows only from the plans that change it, so what it states was true when the plan that wrote it merged.
 
 * *A criterion changes a capability*: a criterion of the intent record may name the requirement it changes (`capability`: the capability, the requirement's name, `added`, `modified`, or `removed`, and, for `modified` and `removed`, the `base` fingerprint of the requirement it changes: the SHA-256 of its canonical JSON at the plan's base). A criterion without one stays the plan's own. The server checks on every submission that an `added` requirement does not exist, and that a `modified` or `removed` one exists with that fingerprint in the tree the plan started from.
@@ -468,8 +477,10 @@ A plan states a change; the project's *capability specs* state what the system d
 
 [#builder-check]
 ==== Builder Check
-_Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-109[PM-WATCH-PHASE-109], link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-111[PM-WATCH-PHASE-111]_
+_Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-109[PM-WATCH-PHASE-109]_
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_
+
+The submission and the facts of the check are implemented in `pm-core` as `BuilderCheck`: the sort of every question, the rule that a question naming a constraint or two criteria is the operator's, the builder's own calls as model decisions, and facts that carry the intent record and the capability index only (link:../../../pm-core/doc/developer/core-spi.adoc#_model_submission_validators[Core SPI Developer Guide § Model Submission Validators]). Not implemented yet: the `refine.builder-check` task, its routing and its decision record.
 
 Refine scores its own record. Before a deep-lane plan leaves refine, one task tests the record from the position of someone who must build from it and cannot ask: `refine.builder-check`, a `job llm` state of the role `qgate` (<<phase-roles>>). Its facts carry the intent record and nothing of the conversation that produced it (no original input, no clarifications); its worker reads the repository like every `read_only` worker. It submits once, through `submit:builder-check` (`questions:schema[builder-questions]`), every question it would still need answered to build the plan, each sorted:
 

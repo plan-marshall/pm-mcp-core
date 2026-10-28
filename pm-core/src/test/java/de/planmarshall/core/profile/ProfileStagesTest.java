@@ -21,8 +21,13 @@ import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import de.planmarshall.core.profile.ProfileStages.StartContext;
+import de.planmarshall.core.profile.ProfileStages.StartContextInput;
+import de.planmarshall.core.profile.ProfileStages.UsageCoverage;
 
 /**
  * The stages {@code isolation}, {@code egress} and {@code usage} record the profile values they settle, and the usage
@@ -195,5 +200,99 @@ class ProfileStagesTest {
         var view = result.figures();
         assertThrows(UnsupportedOperationException.class, view::clear);
         assertEquals(figures, result.figures());
+    }
+
+    private static LoadedProfile profile(ProfileFixtures.ProfileFixture fixture) {
+        var bytes = fixture.bytes();
+        var tree = ProfileValidator.validate(bytes, "profiles/acme-cli.json", ProfileRules.none());
+        return new LoadedProfile("acme-cli", ProfileSetKind.SHIPPED, tree, bytes, LoadedProfile.State.VERIFIED,
+                null);
+    }
+
+    @Test
+    @DisplayName("the usage coverage is partial with the missing figures when a report figure is undeclared")
+    void coveragePartialNamesMissingFigures() {
+        var result = ProfileStages.usage(profile(), turn("""
+                {"usage":{"input_tokens":10,"output_tokens":5}}
+                """), Map.of());
+
+        assertAll(() -> assertEquals(UsageCoverage.PARTIAL, result.coverage()),
+                () -> assertEquals(List.of("cache_read", "reasoning", "tool_uses"), result.missingFigures()));
+    }
+
+    @Test
+    @DisplayName("the usage coverage is complete when every report figure is reported or not applicable")
+    void coverageComplete() {
+        var loaded = profile(ProfileFixtures.valid().set("/headless/usage/cache_read", "/usage/cache_read")
+                .set("/headless/usage/reasoning", "/usage/reasoning")
+                .set("/headless/usage/tool_uses", "/usage/tool_uses"));
+        var result = ProfileStages.usage(loaded, turn("""
+                {"usage":{"input_tokens":10,"output_tokens":5,"cache_read":3,"reasoning":1,"tool_uses":2}}
+                """), Map.of());
+
+        assertAll(() -> assertEquals(UsageCoverage.COMPLETE, result.coverage()),
+                () -> assertTrue(result.missingFigures().isEmpty()));
+    }
+
+    @Test
+    @DisplayName("the usage coverage is not_reported when no report figure is reported")
+    void coverageNotReported() {
+        var loaded = profile(ProfileFixtures.valid().set("/headless/usage/input_tokens", null)
+                .set("/headless/usage/output_tokens", null)
+                .set("/headless/usage/cache_creation", null));
+        var result = ProfileStages.usage(loaded, turn("{\"usage\":{}}"), Map.of());
+
+        assertEquals(UsageCoverage.NOT_REPORTED, result.coverage());
+    }
+
+    @Test
+    @DisplayName("the start context is the first turn's input plus cache read plus cache creation")
+    void startContextSumsTheFirstTurnInput() {
+        var loaded = profile(ProfileFixtures.valid().set("/headless/usage/cache_read", "/usage/cache_read")
+                .set("/headless/usage/cache_creation", "/usage/cache_creation"));
+        var firstTurn = turn("""
+                {"usage":{"input_tokens":10,"output_tokens":5,"cache_read":100,"cache_creation":5}}
+                """);
+        var withoutCacheRead = turn("""
+                {"usage":{"input_tokens":10,"output_tokens":5}}
+                """);
+
+        var result = ProfileStages.usage(loaded, firstTurn, Map.of(),
+                List.of(new StartContextInput("writer", "model-a", firstTurn),
+                        new StartContextInput("read_only", "model-b", withoutCacheRead)));
+
+        assertAll(() -> assertEquals(List.of(new StartContext("writer", "model-a", OptionalLong.of(115)),
+                new StartContext("read_only", "model-b", OptionalLong.empty())), result.startContext()));
+    }
+
+    @Test
+    @DisplayName("a not-applicable cache figure counts 0 and a negative figure leaves the start context unmeasured")
+    void startContextEdgeFigures() {
+        var loaded = profile(ProfileFixtures.valid().set("/headless/usage/cache_read", "not_applicable"));
+        var firstTurn = turn("""
+                {"usage":{"input_tokens":10,"output_tokens":5}}
+                """);
+        var negative = turn("""
+                {"usage":{"input_tokens":-1,"output_tokens":5}}
+                """);
+
+        var result = ProfileStages.usage(loaded, firstTurn, Map.of(),
+                List.of(new StartContextInput("writer", "model-a", firstTurn),
+                        new StartContextInput("read_only", "model-b", negative)));
+
+        assertEquals(List.of(new StartContext("writer", "model-a", OptionalLong.of(10)),
+                new StartContext("read_only", "model-b", OptionalLong.empty())), result.startContext());
+    }
+
+    @Test
+    @DisplayName("a profile that declares input, output or tool uses not applicable is refused by the usage validation")
+    void notApplicableRefusedForInputOutputAndToolUses() {
+        var loaded = profile(ProfileFixtures.valid().set("/headless/usage/input_tokens", "not_applicable"));
+        var output = turn("{\"usage\":{}}");
+
+        var refusal = assertThrows(ProfileRefusal.class, () -> ProfileStages.usage(loaded, output, Map.of()));
+
+        assertAll(() -> assertEquals("/headless/usage/input_tokens", refusal.pointer()),
+                () -> assertEquals(ProfileRefusal.Outcome.PROFILE_INVALID, refusal.outcome()));
     }
 }

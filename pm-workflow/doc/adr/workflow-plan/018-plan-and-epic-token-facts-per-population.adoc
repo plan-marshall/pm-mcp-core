@@ -1,0 +1,38 @@
+= ADR 018: A plan's and an epic's token facts are carried per population, with no limit
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-27.
+
+== Context
+
+The representation of a running plan and of an epic must carry the tokens used with the split and the coverage, and no
+limit, budget line, projection or comparison with one (Model Work § Usage Reporting & Spend Classes). The engine had no
+such value type; the figures are derived from the metrics rows, and sums are formed only between figures of one
+population (Store Schemas § Metrics Store, Populations).
+
+== Decision
+
+`PlanTokens` carries the plan's `UsageAggregate` per population; `EpicTokens` sums its plans' figures and the epic's own
+rows (decompose, landing, review) per population. Both derive on read and expose no limit, budget, projection or anchor.
+The warm workers' `worker_idle` usage belongs to no plan and is not part of either representation.
+
+== Alternatives Considered
+
+Carrying one number across populations was rejected: the two populations count different units. Carrying a budget line
+was rejected: nothing limits a plan's use, and an operator's own limit is a later change on the recorded rows.
+
+== Consequences
+
+A view renders each population's total with its split and coverage and shows a floor where a row is unmeasured. Adding
+a limit later is a change on these values, never a new comparison inside them.
+
+== Source
+
+Work package `token-usage` (closed; its package file is deleted); Model Work § Usage Reporting & Spend Classes; Store Schemas § Metrics Store
+(Aggregates, Populations, What the Operator Sees).

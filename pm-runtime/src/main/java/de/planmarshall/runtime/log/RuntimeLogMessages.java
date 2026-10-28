@@ -426,6 +426,13 @@ public final class RuntimeLogMessages {
                 .template("Language server (pid %s) did not end cleanly, terminating it: %s")
                 .build();
 
+        /** Logged when an endpoint does not answer its readiness check; names the endpoint and the path it asked. */
+        public static final LogRecord ENDPOINT_NOT_READY = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(144)
+                .template("The endpoint '%s' did not answer its readiness check at '%s'")
+                .build();
+
         /** Logged when a project path is refused by the workspace confinement; names the outcome code and the reason, never the path. */
         public static final LogRecord PROJECT_PATH_REFUSED = LogRecordModel.builder()
                 .prefix(PREFIX)
@@ -787,6 +794,16 @@ public final class RuntimeLogMessages {
                 .prefix(PREFIX)
                 .identifier(142)
                 .template("Agent started in the process tree of worker generation '%s' of role '%s': '%s' (%s)")
+                .build();
+
+        /**
+         * Logged when an endpoint task ends without a valid answer; names the model, the endpoint and the reason, never
+         * the task text.
+         */
+        public static final LogRecord ENDPOINT_ATTEMPT_ENDED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(143)
+                .template("The task of model '%s' on the endpoint '%s' ended: %s")
                 .build();
     }
 

@@ -1,0 +1,47 @@
+= ADR 003: The Server Validates an Answer Against a Closed Schema Subset
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-27
+
+== Context
+
+Client Profiles § The Request requires that the answer is validated against the result schema by the server, "never
+trusted because the endpoint enforces a schema". The module carries no JSON Schema library: `json-schema-validator` is a
+test-scope dependency of `pm-core` and a module may not add a production dependency without the operator's decision.
+
+The package had to decide how a result schema is enforced, and what it does with a schema it cannot enforce.
+
+== Decision
+
+`AnswerSchema` validates an answer against the JSON Schema draft 2020-12 subset a result schema uses: `type`, `const`,
+`enum`, `required`, `properties`, `additionalProperties`, `items`, `minItems`, `maxItems`, `minLength`, `maxLength`,
+`minimum`, `maximum`, a local `$ref` and the annotation keywords. A schema with a keyword outside that subset is refused,
+so an answer the check cannot enforce never passes. `EndpointOutcome` ends the attempt with `invalid_answer` when the
+check refuses the document, and a schema the endpoint itself refuses changes nothing about that: the check runs in each
+case.
+
+== Alternatives Considered
+
+Adding the JSON Schema library to production scope was considered and not taken in this package: it is a dependency
+decision that belongs to the operator. Accepting the answer whenever the endpoint's `result_schema` is `enforced` was
+considered and not taken: the specification forbids trusting the endpoint. Passing a schema with an unimplemented
+keyword was considered and not taken: it would turn an unknown rule into a silent pass.
+
+== Consequences
+
+- A role artifact whose result schema uses a keyword outside the subset cannot run on an endpoint; it is refused as
+  invalid, and the refusal names the keyword.
+- Adding a keyword is a change of `AnswerSchema` and of this record, with the test that proves the refusal.
+- The check is independent of the endpoint's own enforcement, so `enforced`, `advisory` and `none` differ only in what the
+  endpoint does with the schema sent to it.
+
+== Source
+
+Pull request for the work package `doc/plans/endpoint-harness.adoc`; Client Profiles § The Request, § Verification of an
+Endpoint.

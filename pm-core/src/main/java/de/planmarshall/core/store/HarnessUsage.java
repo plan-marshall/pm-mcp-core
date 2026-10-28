@@ -116,6 +116,29 @@ Optional<BigDecimal> costUsd, Optional<UnmeasuredReason> unmeasuredReason) {
     }
 
     /**
+     * The usage of one answer of an endpoint harness (Client Profiles § The Request): the {@code usage} object of the
+     * answer carries a prompt and a completion count, and a count the answer lacks is {@code unmeasured}. The endpoint
+     * is sent no tool, so it reports no tool use; the cache and reasoning figures are not part of the protocol's
+     * {@code usage} object and are {@code not_applicable}.
+     *
+     * @param promptTokens     the answer's {@code prompt_tokens}; empty when the answer lacks the figure
+     * @param completionTokens the answer's {@code completion_tokens}; empty when the answer lacks the figure
+     * @return the usage of the answer
+     */
+    public static HarnessUsage fromEndpoint(OptionalLong promptTokens, OptionalLong completionTokens) {
+        Objects.requireNonNull(promptTokens, "promptTokens");
+        Objects.requireNonNull(completionTokens, "completionTokens");
+        var missing = promptTokens.isEmpty() || completionTokens.isEmpty();
+        return new HarnessUsage(
+                promptTokens.isPresent() ? Measurement.measured(promptTokens.getAsLong()) : Measurement.unmeasured(),
+                completionTokens.isPresent() ? Measurement.measured(completionTokens.getAsLong())
+                        : Measurement.unmeasured(),
+                Measurement.notApplicable(), Measurement.notApplicable(), Measurement.notApplicable(),
+                Measurement.measured(0), Optional.empty(),
+                missing ? Optional.of(UnmeasuredReason.NOT_REPORTED_BY_HARNESS) : Optional.empty());
+    }
+
+    /**
      * @return the usage of a task that never ran: every figure unmeasured, with no reason, because there was no
      *         attempt to measure
      */
@@ -142,6 +165,41 @@ Optional<BigDecimal> costUsd, Optional<UnmeasuredReason> unmeasuredReason) {
             }
         }
         return sum < 1 ? OptionalLong.empty() : OptionalLong.of(sum);
+    }
+
+    /**
+     * The split a view shows as {@code tokens_in} (PM-WF-14, Client Profiles § Tokens, Not Money): the input, the
+     * cache-read and the cache-creation tokens, a {@code not_applicable} one counting {@code 0}. It is derived on read
+     * and never persisted; a component that is unmeasured makes the split unmeasured, because a partial sum is never
+     * recorded.
+     *
+     * @return the input split, or empty when a component of it is unmeasured
+     */
+    public OptionalLong tokensIn() {
+        return splitOf(inputTokens, cacheReadInputTokens, cacheCreationInputTokens);
+    }
+
+    /**
+     * The split a view shows as {@code tokens_out} (PM-WF-14, Client Profiles § Tokens, Not Money): the output and the
+     * reasoning tokens, a {@code not_applicable} one counting {@code 0}. It is derived on read and never persisted; a
+     * component that is unmeasured makes the split unmeasured.
+     *
+     * @return the output split, or empty when a component of it is unmeasured
+     */
+    public OptionalLong tokensOut() {
+        return splitOf(outputTokens, reasoningTokens);
+    }
+
+    private static OptionalLong splitOf(Measurement... components) {
+        long sum = 0;
+        for (var component : components) {
+            if (component.isMeasured()) {
+                sum += component.value();
+            } else if (!component.isNotApplicable()) {
+                return OptionalLong.empty();
+            }
+        }
+        return OptionalLong.of(sum);
     }
 
     /**

@@ -75,14 +75,36 @@ ends unsubmitted.
 Guard:: Table test per harness with a declared `tool_result_limit_chars` over task inputs below, at, and above the
 limit (8 000, 32 000, 128 000 characters): no tool result the server returns exceeds the limit, the task id and the
 `ack` link are in the first part of every offer, and the worker completes the task by reading the parts as
-resources; negative control: with the limit unset the largest input reproduces the loss; the exact threshold of
-`opencode` is measured and replaces the provisional `32000`; a profile with a limit and no `resource_tools` is
+resources; negative control: with the limit unset the largest input reproduces the loss; `opencode` sets its own limit
+through its inline settings, and the table runs with them; a profile with a limit and no `resource_tools` is
 refused.
 Fixture:: OpenCode 1.18.34: 8 000 and 32 000 characters completed, 128 000 failed ("…128402 bytes truncated…",
 full output saved under `~/.local/share/opencode/tool-output/`); the worker's `pull_ack` calls with the guessed ids
 `h128000`, `128000`, `gate13` and a `pull_submit` with `task_id` `test` were all refused, and it ended with
 `{"task_id":"unknown"}`. Claude Code 2.1.291 completed all three sizes.
 Source:: link:../../../plan-marshall-documentation/doc/specification/evaluation.adoc#results[Evaluation Reference], Gate 13.
+
+[#PM-WATCH-CLIENT-17]
+=== PM-WATCH-CLIENT-17: An inline setting the harness accepts is not one it applies
+
+Anchor:: link:../specification/client-profiles/01-profile-schema.adoc#headless-inline-settings[Client Profiles § Inline Settings],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]
+Hazard:: A harness reads its configuration leniently: a key of an older configuration version is migrated with a
+warning or dropped, an unknown key is ignored, a setting under a provider id that is not the model's provider applies to
+nothing, and a harness release renames a key. The launch still succeeds, so a check of acceptance passes while the
+worker runs with the harness's defaults: code mode hides the server's tool calls from the output stream, a compaction
+the server cannot see changes the worker's context, a result is cut at the default limit below the declared one, and a
+hung model request outlasts the silence limit by the default timeouts and their retries.
+Guard:: The verification checks the effect of every key of `inline_settings`, never its acceptance: a call of a server
+tool appears as a `tool_use` line of its own under the tool's direct name; a task that fills the context past the
+harness's compaction point shows no compaction and ends by the context limit or by recycling; a result just below the
+declared limit with more lines than the default line limit arrives whole; a stub provider that never sends headers ends
+the worker by its exit before the silence limit, retries included, while a stub reasoning model that streams after a
+pause shorter than the chunk timeout completes. Matched control per key: the same check without the setting reproduces
+the default. A changed configuration format of a new harness version fails the stage, not a worker.
+Source:: Article analysis `opencode-2-1` of plan-marshall-documentation (OpenCode 2.x defaults read from its source at
+`7b1e54a`: code mode on, compaction keeping the last 15,000 tokens, 50 KiB and 2,000 lines, 300 s and 900 s with three
+retries after a timeout).
 
 == On-the-Fly Placeholder Rendering Rules
 
@@ -148,27 +170,6 @@ Fixture:: an opencode unit whose routing table referenced 8 `workflow/` document
 Source:: plan-marshall defect process-compliance inbox module-budget-campaign-completion-008.
 
 == Endpoint Harness
-
-[#PM-WATCH-CLIENT-14]
-=== PM-WATCH-CLIENT-14: An endpoint's defaults and silent acceptance never decide a verdict
-
-Anchor:: link:../specification/client-profiles/03-endpoint-harness.adoc#endpoint-harness[Client Profiles § Endpoint Harness],
-link:../specification/client-profiles/03-endpoint-harness.adoc#weights-identity[Client Profiles § Weights Identity],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6]
-Hazard:: A local model server that speaks the OpenAI chat format is not the OpenAI service: it may stream by default
-where the client library expects one JSON document, accept a `tools` member and answer with an invented tool result
-and no tool call, accept a response schema and not hold to it, refuse in prose instead of an error status, and load
-other weights under the same model name after an operating system update or on another chip. Each of these returns a
-well-formed answer, so a screener verdict or a grade can rest on an answer the request never asked for, and a
-qualification record can outlive the weights it graded. Any program can listen on a loopback port.
-Guard:: The request sets every value the endpoint has a default for (streaming off among them) and never sends
-`tools`; the server validates every answer against the result schema whatever `result_schema` says; a refusal, a
-non-validating answer, an HTTP error, and a timeout each end the attempt without a result, and a screening stays
-`unscreened`. Fixtures: a stub endpoint that streams unless told not to, one that returns prose under a schema, one
-that answers a `tools` request with an invented result (recorded `tools_ignored`), one whose weights identity changes
-between two runtime starts (the record goes stale, `harness_updated` audited), and a stub listening on the profile's
-port from an executable other than the enrolled one (refused before any task text is sent).
-Source:: Article analysis `macos27-on-device-llm` of plan-marshall-documentation (the measurements of a local model server it records).
 
 [#PM-WATCH-CLIENT-15]
 === PM-WATCH-CLIENT-15: A remote endpoint is addressed by a versioned id, holds a key for one origin, and logs no body

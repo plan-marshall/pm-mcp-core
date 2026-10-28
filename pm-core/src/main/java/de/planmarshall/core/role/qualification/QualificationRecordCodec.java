@@ -88,6 +88,8 @@ public class QualificationRecordCodec {
     private static final String TOPICS = "topics";
     private static final String FORM_ITEMS = "items";
     private static final String TOTAL_TOKENS = "total_tokens";
+    private static final String TOKENS_IN = "tokens_in";
+    private static final String TOKENS_OUT = "tokens_out";
     private static final String DURATION_MS = "duration_ms";
 
     private static final String AGREEMENT = "agreement";
@@ -108,14 +110,15 @@ public class QualificationRecordCodec {
             SKILL_DIGESTS);
 
     /** The members of a form result, in the order of its schema. */
-    static final List<String> FORM_MEMBERS = List.of(TOPICS, FORM_ITEMS, TOTAL_TOKENS, DURATION_MS);
+    static final List<String> FORM_MEMBERS = List.of(TOPICS, FORM_ITEMS, TOTAL_TOKENS, TOKENS_IN, TOKENS_OUT,
+            DURATION_MS);
 
     /** The members of a topic result, in the order of its schema. */
     static final List<String> TOPIC_MEMBERS = List.of(AGREEMENT, CONSTANT_BASELINE, FORM_ITEMS);
 
     /** The members of an item result, in the order of its schema. */
-    static final List<String> ITEM_MEMBERS = List.of(ITEM_ID, FORM, CHECKOUT, ANSWER, SCORE, TOTAL_TOKENS,
-            DURATION_MS);
+    static final List<String> ITEM_MEMBERS = List.of(ITEM_ID, FORM, CHECKOUT, ANSWER, SCORE, TOTAL_TOKENS, TOKENS_IN,
+            TOKENS_OUT, DURATION_MS);
 
     /**
      * @param entry a qualification record
@@ -229,6 +232,8 @@ public class QualificationRecordCodec {
         Map<Topic, TopicResult> topics = null;
         int items = -1;
         TokenTotal totalTokens = null;
+        Long tokensIn = null;
+        Long tokensOut = null;
         long duration = -1;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -236,13 +241,15 @@ public class QualificationRecordCodec {
                 case TOPICS -> topics = readTopics(parser);
                 case FORM_ITEMS -> items = count(parser, field);
                 case TOTAL_TOKENS -> totalTokens = readTokens(parser, field);
+                case TOKENS_IN -> tokensIn = readSplit(parser, field);
+                case TOKENS_OUT -> tokensOut = readSplit(parser, field);
                 case DURATION_MS -> duration = integer(parser, field);
                 default -> throw undeclared(field);
             }
         }
         requireFields(seen, "form", FORM_MEMBERS.toArray(String[]::new));
         try {
-            return new FormResult(topics, items, totalTokens, duration);
+            return new FormResult(topics, items, withSplit(totalTokens, tokensIn, tokensOut), duration);
         } catch (IllegalArgumentException e) {
             throw unreadable(e.getMessage(), e);
         }
@@ -294,6 +301,8 @@ public class QualificationRecordCodec {
         JsonNode answer = null;
         Grade score = null;
         TokenTotal totalTokens = null;
+        Long tokensIn = null;
+        Long tokensOut = null;
         Long duration = null;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -304,16 +313,44 @@ public class QualificationRecordCodec {
                 case ANSWER -> answer = value(parser);
                 case SCORE -> score = readGrade(parser, field);
                 case TOTAL_TOKENS -> totalTokens = readTokens(parser, field);
+                case TOKENS_IN -> tokensIn = readSplit(parser, field);
+                case TOKENS_OUT -> tokensOut = readSplit(parser, field);
                 case DURATION_MS -> duration = nullableInteger(parser, field);
                 default -> throw undeclared(field);
             }
         }
         requireFields(seen, name, ITEM_MEMBERS.toArray(String[]::new));
         try {
-            return new ItemResult(itemId, form, checkout, answer, score, totalTokens, duration);
+            return new ItemResult(itemId, form, checkout, answer, score,
+                    withSplit(totalTokens, tokensIn, tokensOut), duration);
         } catch (IllegalArgumentException e) {
             throw unreadable(e.getMessage(), e);
         }
+    }
+
+    /**
+     * @param declared the {@code total_tokens} member
+     * @param tokensIn the {@code tokens_in} member; {@code null} when it is {@code unmeasured}
+     * @param tokensOut the {@code tokens_out} member; {@code null} when it is {@code unmeasured}
+     * @return the total with its split
+     */
+    private static TokenTotal withSplit(TokenTotal declared, Long tokensIn, Long tokensOut) {
+        return new TokenTotal(declared.measured() ? declared.tokens() : null, tokensIn, tokensOut);
+    }
+
+    private static Long readSplit(JsonParser parser, String field) throws IOException {
+        if (parser.currentToken() == JsonToken.VALUE_STRING) {
+            var text = string(parser, field);
+            if (TokenTotal.UNMEASURED_MARK.equals(text)) {
+                return null;
+            }
+            throw unreadable("'%s' is a count or '%s': %s".formatted(field, TokenTotal.UNMEASURED_MARK, text));
+        }
+        var value = integer(parser, field);
+        if (value < 0) {
+            throw unreadable("'%s' must not be negative: %d".formatted(field, value));
+        }
+        return value;
     }
 
     private static Grade readGrade(JsonParser parser, String field) throws IOException {
@@ -462,7 +499,7 @@ public class QualificationRecordCodec {
         result.topics().forEach((topic, value) -> topics.put(topic.wireName(), topic(value)));
         members.put(TOPICS, JsonNode.object(topics));
         members.put(FORM_ITEMS, JsonNode.integer(result.items()));
-        members.put(TOTAL_TOKENS, tokens(result.totalTokens()));
+        tokens(members, result.totalTokens());
         members.put(DURATION_MS, JsonNode.integer(result.durationMs()));
         return JsonNode.object(members);
     }
@@ -483,14 +520,19 @@ public class QualificationRecordCodec {
         members.put(ANSWER, result.answer());
         members.put(SCORE, result.score().isUngraded() ? JsonNode.string(UNGRADED)
                 : JsonNode.decimal(result.score().score()));
-        members.put(TOTAL_TOKENS, tokens(result.totalTokens()));
+        tokens(members, result.totalTokens());
         members.put(DURATION_MS, result.durationMs() == null
                 ? JsonNode.nullValue()
                 : JsonNode.integer(result.durationMs()));
         return JsonNode.object(members);
     }
 
-    private static JsonNode tokens(TokenTotal total) {
-        return total.measured() ? JsonNode.integer(total.tokens()) : JsonNode.string(TokenTotal.UNMEASURED_MARK);
+    private static void tokens(Map<String, JsonNode> members, TokenTotal total) {
+        members.put(TOTAL_TOKENS, total.measured() ? JsonNode.integer(total.tokens())
+                : JsonNode.string(TokenTotal.UNMEASURED_MARK));
+        members.put(TOKENS_IN, total.tokensIn() == null ? JsonNode.string(TokenTotal.UNMEASURED_MARK)
+                : JsonNode.integer(total.tokensIn()));
+        members.put(TOKENS_OUT, total.tokensOut() == null ? JsonNode.string(TokenTotal.UNMEASURED_MARK)
+                : JsonNode.integer(total.tokensOut()));
     }
 }

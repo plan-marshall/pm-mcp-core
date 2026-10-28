@@ -32,7 +32,8 @@ import de.planmarshall.core.store.StoreRefusal;
 /**
  * Loads the effective client profile set of a machine and a project (PM-CLIENT-5, Profile Sets).
  * <p>
- * The loader reads the whole documents of the three sets and validates each against the client profile schema and the
+ * The loader reads the whole documents of the three sets and validates each against the schema of its kind — the client
+ * profile schema, or the endpoint profile schema of a document whose {@code profile_kind} is {@code endpoint} — and the
  * hardening rules. The nearest set wins as a whole document and is never merged with another: a project profile of a
  * client id the machine or the shipped set defines replaces that document, a machine profile replaces the shipped one,
  * and a machine profile of a client id the release does not ship adds a harness. The loader names no harness; the
@@ -43,7 +44,9 @@ import de.planmarshall.core.store.StoreRefusal;
  * of the enrolment store. Otherwise the profile is refused {@code profile_unverified} and the profile of the next set
  * stays in force. A record of another build of the enrolled harness, inside the {@code supported_versions} range, marks
  * the profile {@code verified_on_other_build} and launches go on; outside the range the profile is refused
- * {@code harness_version_unsupported}.
+ * {@code harness_version_unsupported}. An endpoint profile declares no range, so a record of another build of its serving
+ * program marks it {@code verified_on_other_build} without a range check, and the launch's owner check still binds it to
+ * the enrolled path and digest.
  * <p>
  * The loader reads the sets and reports the state it found; writing them is the onboarding's
  * ({@code machine-onboarding-unit}). Nothing here repairs, migrates or rewrites a profile or a record.
@@ -174,6 +177,12 @@ public final class ProfileLoader {
         var state = LoadedProfile.State.VERIFIED;
         if (!build.version().equals(verification.harness().version())
                 || !build.executableSha256().equals(verification.harness().executableSha256())) {
+            if (ProfileValidator.isEndpoint(profile)) {
+                // An endpoint profile declares no supported_versions range: another build of the serving program cannot
+                // be judged against one, so the record keeps its state and launches go on.
+                return new LoadedProfile(clientId, kind, profile, document,
+                        LoadedProfile.State.VERIFIED_ON_OTHER_BUILD, verification);
+            }
             var supported = profile.member("headless")
                     .filter(headless -> !headless.isNull())
                     .flatMap(headless -> headless.member("supported_versions"))
@@ -243,7 +252,10 @@ public final class ProfileLoader {
 
     /** A project profile changes how a harness works, not which harness it is. */
     private void sameAsBase(LoadedProfile project, LoadedProfile base) {
-        for (var pointer : List.of("/detection", "/identity", "/headless/executable")) {
+        var pointers = ProfileValidator.isEndpoint(project.document())
+                ? ENDPOINT_IDENTITY_POINTERS
+                : List.of("/detection", "/identity", "/headless/executable");
+        for (var pointer : pointers) {
             var projectValue = value(project.document(), pointer);
             var baseValue = value(base.document(), pointer);
             if (!CanonicalJson.write(projectValue).equals(CanonicalJson.write(baseValue))) {
@@ -252,6 +264,10 @@ public final class ProfileLoader {
             }
         }
     }
+
+    /** The pointers that say which endpoint harness a project endpoint profile describes. */
+    private static final List<String> ENDPOINT_IDENTITY_POINTERS = List.of("/identity", "/executable",
+            "/endpoint/protocol", "/endpoint/locality", "/endpoint/base_url", "/endpoint/credential_key");
 
     /**
      * Reads a value below a profile whose parent may be JSON {@code null}: a project profile of a harness without a

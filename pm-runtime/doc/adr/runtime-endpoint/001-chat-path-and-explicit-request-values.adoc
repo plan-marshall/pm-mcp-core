@@ -1,0 +1,48 @@
+= ADR 001: The Chat Path and the Explicit Request Values of the Endpoint Protocol
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-27
+
+== Context
+
+The endpoint profile schema of Client Profiles § Endpoint Profile Schema names `protocol`, `base_url`, `models_path`,
+`readiness_path` and `result_schema`, but no path of a task's request. The protocol `openai_chat` sends one request per
+task, and the specification states that "every request value the endpoint has a default for is sent explicitly, so no
+default of the serving program decides how the task runs" (Client Profiles § The Request).
+
+A path and a set of defaults had to be chosen, and each of them decides how a task runs on every endpoint of the
+protocol.
+
+== Decision
+
+`EndpointRequest` sends the request to `<base_url>/chat/completions`, the path the protocol `openai_chat` fixes, and
+names it once, in `EndpointClient.CHAT_PATH`. It sends `stream`, `n`, `temperature`, `top_p`, `presence_penalty`,
+`frequency_penalty` and `max_tokens` on every request, `max_tokens` being the profile's `answer_reserve_tokens`. It sends
+no `tools` member and no `tool_choice`; only the `classes` stage of the verification adds a `tools` member, and only for
+its one probe.
+
+== Alternatives Considered
+
+A configurable chat path was considered and not taken: the protocol is closed and its path is what makes another program
+answer the protocol, so a profile value would let an arbitrary path be requested and would change what an endpoint
+profile means. Leaving a default to the serving program was considered and not taken: the specification forbids it,
+because the same task would then run differently on two runs of the same program.
+
+== Consequences
+
+- Every endpoint of the protocol is answered at `/chat/completions`; an endpoint that serves another path is not of the
+  protocol.
+- A new protocol is a change of the closed `protocol` list, of `EndpointClient` and of `EndpointOutcome`, made once for
+  all endpoints.
+- A value the serving program later adds has no default of its own: an unchanged task always runs the same way.
+
+== Source
+
+Pull request for the work package `doc/plans/endpoint-harness.adoc`; Client Profiles § Endpoint Profile Schema, § The
+Request.

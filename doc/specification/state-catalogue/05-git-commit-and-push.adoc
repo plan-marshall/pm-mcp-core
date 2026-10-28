@@ -65,7 +65,7 @@ The unit has no operator wait: every state is server logic or a task of a role, 
 |the caller's phase value
 |`job`
 |`git.resolve-message` (`needs_interactive`: `interactive`, or `none_assert_clean` with unexpected dirty files).
-|`job llm commit-message role commit-message`: `facts`: `git.diff-summary` with the diff-derived `type` and `scope`; the entity submits `commit` (`message:text[1..2000]`), validated as a Conventional Commit; a `Co-Authored-By:` line is rejected. Skill `pm/git/commit-message`.
+|`job llm commit-message role commit-message`: `facts`: `git.diff-summary` with the diff-derived `type` and `scope`; the entity submits `commit` (`message:text[1..2000]`), validated as a Conventional Commit; a `Co-Authored-By:` line is rejected. Skill `pm/git/commit-message`. A `zero_tool` role receives the staged diff in-band (link:../model-work/01-roles-and-configuration.adoc#closed-task-in-band[Model Work Specification, A Closed Task without Tools]); a diff that does not fit its context budget closes the task `input_too_large`, and the template message is written.
 |`valid` -> `git.stage-and-commit`; `infeasible`, `lost` -> `git.template-message`.
 |link:../workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL Specification, Stage 3]
 

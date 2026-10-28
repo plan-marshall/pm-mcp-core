@@ -1,0 +1,45 @@
+= ADR 002: The Owner Check Reads the Kernel's Socket Table and Fails Closed
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-27
+
+== Context
+
+Client Profiles § Enrolment requires that, before each request, the runtime checks that the process owning the listening
+socket of `base_url` runs the enrolled executable, so no task text reaches another program on the port. No portable
+interface names the owner of a listening socket; the runtime has no root privilege and must not ask a service.
+
+The package had to choose how the owner is read, and what the check does where the platform offers no such reading.
+
+== Decision
+
+`SocketOwner` is a seam; `ProcSocketOwner` implements it for Linux. The lookup reads `/proc/net/tcp` and
+`/proc/net/tcp6` for the listening socket of the port, finds the process that holds the socket inode below
+`/proc/<pid>/fd`, and reads its executable from `/proc/<pid>/exe`. A platform where `/proc/net` does not exist, a port
+nobody listens on, and a process whose executable cannot be read all answer `Lookup.notFound`; `EndpointHarness` then
+refuses the task `harness_not_enrolled` without sending anything.
+
+== Alternatives Considered
+
+Asking the `ss` or `lsof` program was considered and not taken: it runs a subprocess for every request and trusts the
+output of a tool of the machine over the kernel's own table. A portable socket-option interface was considered and not
+taken: it does not exist, and a privilege-bound one would refuse every ordinary runtime. Passing the check when it
+cannot look was considered and not taken: it would defeat the check exactly where the platform is not known.
+
+== Consequences
+
+- A machine whose platform is not Linux refuses every endpoint task until a `SocketOwner` for that platform is
+  provided; that is the fail-closed direction, and the refusal names the reason.
+- The lookup costs one scan of `/proc` per request; it is bounded and holds no lock.
+- A serving program that shares a socket with another process is judged by the executable of the process that holds the
+  socket, which is what the enrolment records.
+
+== Source
+
+Pull request for the work package `doc/plans/endpoint-harness.adoc`; Client Profiles § Enrolment.

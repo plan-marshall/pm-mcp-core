@@ -51,7 +51,10 @@ requests: this repository first, then `plan-marshall-documentation`.
    `target/question-loop/` of the plan's worktree) was deleted when the worktree was removed and no copy exists, so no
    figure can be re-checked against its source; the Sonnet repeat the package's method requires for a failed item
    (R1 240 s, Q3 warm, Q5 fresh) was not run; Codex was not measured; the OpenCode versions are stated the same way
-   everywhere (2.1.2 to 2.1.4).
+   everywhere (2.1.2 to 2.1.4); the OpenCode runs were made with the harness as configured by the experiment, not with the
+   inline settings that Client Profiles 01 § Inline Settings (core #206) declares for the 2.x worker (the server's tools
+   as direct tools, compaction off, the tool-result limit, request timeouts below the silence limit), so the OpenCode
+   figures describe the harness without them and the evaluation reference says which settings the runs had.
 4. **Developer document.** `doc/developer/question-loop-experiment.adoc` describes the implemented system only: it says
    at its top that the code it describes lives on the branch `verification/question-loop-experiment` (`488ce47`) of
    `plan-marshall-mcp` and not on `main`, until the follow-up package extracts it; its history narration ("In a first
@@ -65,6 +68,10 @@ requests: this repository first, then `plan-marshall-documentation`.
    - Is a fresh asker that waits for its answer instead of ending acceptable (Q3, Q7), and if so, which specification
      states it (§ Continuation)? Blocks the Q3 and Q7 verdicts of the re-measurement.
    - The developer document's proposals (Deliverable 4), each as its own question or folded into the two above.
+
+   Since `plan-marshall-documentation` #125 the file already holds `opencode-worker-login` and `opencode-event-source`;
+   the new questions are added beside them under their own anchors, none merged into those, and a question that concerns
+   the per-worker data home of an OpenCode 2.x worker links `opencode-worker-login` instead of restating it.
 
 **Done when**: every statement listed in Deliverable 1 reads as the runs show in all three documents; the four
 specification parts carry no run count, median or measurement narration and link the evaluation rows instead; the
@@ -109,9 +116,21 @@ against this repository's `main` after its pull request merged.
   exist and a disk search found no `runs.jsonl` or `invocations.jsonl` (2026-10-27); the experiment code is kept on the
   remote branch `verification/question-loop-experiment` at `488ce47`, which also places the evidence under
   `target/question-loop/` (`QuestionEvidence.java`).
+- OBSERVED: three pull requests landed after the line numbers above were read, and none touches a sentence this plan
+  corrects: core #201 (`a7a355aa`) added one paragraph, *Budget*, to Model Work 06; core #206 (`3ed18f7b`) added the
+  profile member `headless.inline_settings` and § Inline Settings to Client Profiles 01, changed its tool-result limit,
+  `events` and Profile Verification draft list, and changed Model Work 04 and Timeouts 03; `plan-marshall-documentation`
+  #125 (`a4c9934`) changed the roadmap, three requirement files and `open-questions.adoc`, and left
+  `evaluation.adoc` and `question-loop-experiment.adoc` untouched. Every line number above has moved by those inserts.
+  `trace.py` reports `BROKEN LINKS 0` and no undefined identifier on both `main` branches (2026-10-27).
+- HYPOTHESIS: the OpenCode runs of the smoke run used no inline settings of the profile (the member did not exist) —
+  confirm in the experiment code on `verification/question-loop-experiment` which settings its OpenCode launch set
+  (code mode, compaction, tool-result limit, request timeouts) before the limit of Deliverable 3 names them
+  (verify-at-outline).
 - Verify-first clause: before scoping, re-read every cited line at the HEAD of both repositories (a later pull request
-  may have moved them) and list any other sentence of the three documents that states a smoke-scale figure as settled;
-  a refuted claim loops back to re-scope.
+  may have moved them, and three did) and list any other sentence of the three documents that states a smoke-scale
+  figure as settled, or an OpenCode figure without the configuration it was measured under; a refuted claim loops back
+  to re-scope.
 
 ## Expected Surface
 
@@ -126,8 +145,9 @@ against this repository's `main` after its pull request merged.
 ## Dependencies and Sequencing
 
 - Depends on: none.
-- Overlaps with: none within this epic (PLAN-02 touches `doc/plans/` only). PLAN-73 of `pm-mcp-core-m2-m4` declares
-  Client Profiles 01, Model Work 01 and Model Work 06 as surface; it is staged, not in flight.
+- Overlaps with: none within this epic (PLAN-02 touches `doc/plans/` only). PLAN-73 of `pm-mcp-core-m2-m4` declared
+  Client Profiles 01, Model Work 01 and Model Work 06 as surface; it shipped as #201 (library core only), so it is not in
+  flight, and the plan works from `origin/main` after #201 and #206.
 - Adjacent to: `doc/plans/question-continuation.adoc` (PLAN-02's), the evaluation reference's other rows (Part A),
   which stay untouched.
 

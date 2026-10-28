@@ -17,6 +17,7 @@ All packages lie below `de.planmarshall.runtime`. Each line is the first sentenc
 * `corpus`: the Git LFS part of the fetch of the corpus sources: the batch request and the object download through `cui-http`.
 * `credentials`: the credential stores of the runtime: exactly one `SecretStore` per machine, the one the operator recorded in `credentials.store` of `machine-config.json`, read and written by `CredentialStoreChoice`.
 * `credentials.dbus`: a minimal D-Bus client for the Linux Secret Service backend.
+* `endpoint`: the endpoint harness: the one request of a task on a model this machine serves over loopback HTTP, the answer and its usage, the owner check of the listening socket, the weights identity of the models and the verification stages of an endpoint.
 * `enrolment`: the integrity of the project enrolments: the runtime's side of the enrolment store of `pm-core`, and the verification of the harness enrolment sidecar.
 * `ingest`: the level-1 ingestion validator for external text.
 * `job`: the job runtime of a project's process jobs: the verification of a job, its launch through `pm-exec`, its job log, its termination, the derivation of its fate and its settlement, run by `SubprocessJobRunner`.
@@ -52,6 +53,7 @@ The module builds a test JAR with the fixtures the tests of the assembly share: 
 * link:doc/developer/runtime-audit.adoc[Audit Trail (`runtime.audit`)]
 * link:doc/developer/runtime-corpus.adoc[Git LFS Download of the Corpus Sources (`runtime.corpus`)]
 * link:doc/developer/runtime-credentials.adoc[Credential Stores (`runtime.credentials`, `runtime.credentials.dbus`)]
+* link:doc/developer/runtime-endpoint.adoc[Endpoint Harness (`runtime.endpoint`)]
 * link:doc/developer/runtime-enrolment.adoc[Integrity Key, Check and Operator Writes (`runtime.enrolment`)]
 * link:doc/developer/runtime-ingest.adoc[Ingestion Validator (`runtime.ingest`)]
 * link:doc/developer/runtime-job.adoc[Job Verification and the Job Runner (`runtime.job`)]
@@ -69,6 +71,15 @@ The module builds a test JAR with the fixtures the tests of the assembly share: 
 
 * link:doc/adr/runtime-audit/[`doc/adr/runtime-audit/`]: the anchoring and the verification of the audit trail.
 * link:doc/adr/runtime-credentials/[`doc/adr/runtime-credentials/`]: the recorded credential store, its first recording and the move between the stores.
+* link:doc/adr/runtime-endpoint/[`doc/adr/runtime-endpoint/`]: the endpoint harness:
+** link:doc/adr/runtime-endpoint/001-chat-path-and-explicit-request-values.adoc[ADR 001] the chat path and the explicit
+   request values;
+** link:doc/adr/runtime-endpoint/002-owner-check-reads-the-kernel-table.adoc[ADR 002] the owner check reads the kernel's
+   socket table and fails closed;
+** link:doc/adr/runtime-endpoint/003-answer-validated-against-a-closed-schema-subset.adoc[ADR 003] the server validates an
+   answer against a closed schema subset;
+** link:doc/adr/runtime-endpoint/004-context-budget-estimated-per-character.adoc[ADR 004] the context budget is estimated
+   at four characters per token.
 * link:doc/adr/runtime-enrolment/[`doc/adr/runtime-enrolment/`]: the integrity of the project enrolments.
 * link:doc/adr/runtime-job/[`doc/adr/runtime-job/`]: the verification of a job and the job runner:
 ** link:doc/adr/runtime-job/004-runner-implements-job-runner-and-job-starter.adoc[ADR 004] one runner class implements
