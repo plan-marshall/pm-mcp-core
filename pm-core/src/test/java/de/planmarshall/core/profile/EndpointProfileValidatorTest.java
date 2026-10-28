@@ -119,6 +119,8 @@ class EndpointProfileValidatorTest {
                     + "\"openai_chat\" | /endpoint/locality",
             "a remote endpoint names an http origin | https://judge.example.test | http://127.0.0.1:11434 "
                     + "| /endpoint/base_url",
+            "a remote endpoint names a port above the range | https://judge.example.test | "
+                    + "https://judge.example.test:99999 | /endpoint/base_url",
             "a remote endpoint names no credential key | \"credential_key\": \"judge-token\" | \"credential_key\": "
                     + "null | /endpoint/credential_key",
             "a remote endpoint names a one-character credential key | \"credential_key\": \"judge-token\" | "

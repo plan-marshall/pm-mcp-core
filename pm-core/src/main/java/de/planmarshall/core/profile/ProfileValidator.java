@@ -249,6 +249,9 @@ public final class ProfileValidator {
     private static final Pattern ENDPOINT_PATH = Pattern.compile("^/[A-Za-z0-9._/-]{0,127}$");
     private static final Pattern LOOPBACK_URL = Pattern.compile("^http://(127\\.0\\.0\\.1|\\[::1\\]):(\\d{1,5})$");
     private static final Pattern HTTPS_URL = Pattern.compile("^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:\\d{1,5})?$");
+
+    /** The port of an {@code https} URL, for the range check the pattern cannot express. */
+    private static final Pattern HTTPS_PORT = Pattern.compile(":(\\d{1,5})$");
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{([^{}]*)\\}\\}");
 
     private ProfileValidator() {
@@ -468,6 +471,13 @@ public final class ProfileValidator {
             if (!HTTPS_URL.matcher(block.baseUrl()).matches()) {
                 throw invalid(PTR_BASE_URL,
                         "a remote endpoint names the https origin of one service: '%s'".formatted(block.baseUrl()));
+            }
+            var port = HTTPS_PORT.matcher(block.baseUrl());
+            if (port.find()) {
+                var value = Integer.parseInt(port.group(1));
+                if (value < 1 || value > 65535) {
+                    throw invalid(PTR_BASE_URL, "not a port: %d".formatted(value));
+                }
             }
             if (block.credentialKey() == null) {
                 throw invalid("/endpoint/credential_key",

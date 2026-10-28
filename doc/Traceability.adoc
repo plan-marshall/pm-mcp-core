@@ -1381,7 +1381,11 @@ link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/SystemOneReque
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/SystemOneAnswer.java[SystemOneAnswer],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/JudgmentClient.java[JudgmentClient],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/JudgmentEndpoint.java[JudgmentEndpoint],
-link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/JudgmentVerification.java[JudgmentVerification]
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/JudgmentVerification.java[JudgmentVerification],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/TokenLaneCredential.java[TokenLaneCredential],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolment.java[HarnessEnrolment],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolmentStore.java[HarnessEnrolmentStore],
+link:../pm-core/src/main/java/de/planmarshall/core/service/AuditEvent.java[AuditEvent]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/RoleValidationTableTest.java[RoleValidationTableTest],
 link:../pm-core/src/test/java/de/planmarshall/core/role/RoleEffectiveConfigurationTest.java[RoleEffectiveConfigurationTest],
