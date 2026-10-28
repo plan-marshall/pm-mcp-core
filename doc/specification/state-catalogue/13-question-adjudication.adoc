@@ -19,7 +19,7 @@ The adjudication, its decision declarations, the blind input, the decision rule,
 |State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
 
 |[[state-adjudicate.check]]`adjudicate.check`
-|the caller's phase value
+|inherit
 |`auto`
 |Entering a question state (start state, the new question set bound).
 |`adjudicate.check`: for every question of the set its kind is declared `quorum`, the declaration passes the validation and is calibrated, every listed role is available and qualified, and a listed asking role's confidence reaches the score. A set whose kinds are declared `ask` ends `escalated` and records nothing.
@@ -27,7 +27,7 @@ The adjudication, its decision declarations, the blind input, the decision rule,
 |link:../model-work/10-decision-quorum.adoc#adjudication[Model Work Specification, The Adjudication]
 
 |[[state-adjudicate.vote]]`adjudicate.vote`
-|the caller's phase value
+|inherit
 |`job`
 |`adjudicate.check` (`eligible`).
 |`job llm vote role each adjudicate.vote-roles`: one fresh task per listed role of the set's quorum declarations other than the asking role, each on its own entity `vote-<question_set>-<role>` with the blind facts of the questions whose declaration lists it and one closing link `submit:vote`, recording a vote per option of each part (the runtime derives each option's support from them). The declared vote wait is the vote tasks' own deadline: a task still open when it passes closes `lost`, so the state awaits only the end of its tasks (`TASK_SETTLED`). The return evaluation records each answer; a task without a valid answer, a `lost` one included, is a missing vote. An empty list settles `collected` at once.
@@ -35,7 +35,7 @@ The adjudication, its decision declarations, the blind input, the decision rule,
 |link:../model-work/10-decision-quorum.adoc#blind-input[Model Work Specification, Blind Input]; link:../timeouts/01-job-budgets-and-waits.adoc#vote-wait[Timeouts & Budgets Specification, Vote Wait]
 
 |[[state-adjudicate.decide]]`adjudicate.decide`
-|the caller's phase value
+|inherit
 |`auto`
 |`adjudicate.vote` (`collected`).
 |`adjudicate.decide-agreement`: the decision rule per question of the set, over the votes of its declaration's listed roles (the asking role's recommendation where it is listed).
@@ -43,7 +43,7 @@ The adjudication, its decision declarations, the blind input, the decision rule,
 |link:../model-work/10-decision-quorum.adoc#decision-rule[Model Work Specification, Decision Rule]
 
 |[[state-adjudicate.decided]]`adjudicate.decided`
-|the caller's phase value
+|inherit
 |`terminal`
 |`adjudicate.decide` (`agreed`).
 |Terminal `decided` (class `success`): its transaction writes one `question.adjudicate` decision record per question (reason `agreement`, every vote), the set's `adjudicated` lines naming them, and answers every question with its agreed option, `channel: quorum`; the question state's call resolves `answered` without delivering the decision.
@@ -51,7 +51,7 @@ The adjudication, its decision declarations, the blind input, the decision rule,
 |link:../model-work/10-decision-quorum.adoc#adjudication-record[Model Work Specification, Record, Delivery & Audit]
 
 |[[state-adjudicate.escalated]]`adjudicate.escalated`
-|the caller's phase value
+|inherit
 |`terminal`
 |`adjudicate.check` (`ineligible`); `adjudicate.vote` (`lost`); `adjudicate.decide` (`not_agreed`).
 |Terminal `escalated` (class `success`): where a quorum voted, its transaction writes one `question.adjudicate` decision record per question with the reason and the votes taken, the set's `adjudicated` lines naming them; the decision then carries the support of each option.

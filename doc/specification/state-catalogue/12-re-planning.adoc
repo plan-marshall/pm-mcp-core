@@ -55,7 +55,7 @@ Exit contract: `done` (result `{runnable: bool}`: whether a plan task is runnabl
 |State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
 
 |[[state-replan.gather]]`replan.gather`
-|the caller's phase value
+|inherit
 |`auto`
 |`call` (start state).
 |`replan.gather-trigger`: reads `replan_pending`, opens the re-planning record, composes the facts with their evidence (the trigger, the outline with deliverable states, the plan tasks, the footprints, the budgets), and computes the offered actions.
@@ -63,7 +63,7 @@ Exit contract: `done` (result `{runnable: bool}`: whether a plan task is runnabl
 |link:../phase-workflows/08-dynamic-re-planning.adoc#replan-task[Phase Workflows Specification, The Re-Planning Task]
 
 |[[state-replan.review]]`replan.review`
-|the caller's phase value
+|inherit
 |`job`
 |`replan.gather` (`review`).
 |`job llm replan role replan`: one task whose entity offers one closing link per offered action (`reintegrate_in_plan`, `split_change`, `defer_to_follow_up_plan`, `wait_for_prerequisite`, `rebase_and_reverify_only`, `hand_back`, rel `submit`, parameters defined once in `facts.options`); a revision is validated by the guards of a first plan before the submit is accepted. No `ask` link.
@@ -71,7 +71,7 @@ Exit contract: `done` (result `{runnable: bool}`: whether a plan task is runnabl
 |link:../phase-workflows/08-dynamic-re-planning.adoc#replan-actions[Phase Workflows Specification, Actions & Guards]
 
 |[[state-replan.conservative]]`replan.conservative`
-|the caller's phase value
+|inherit
 |`auto`
 |`replan.gather` (`fallback`); `replan.review` (`lost`, `infeasible`).
 |`replan.conservative-fallback`: takes the trigger's fallback without a task and records it with its reason (`budget_spent`, `no_outline`, the task's `task_reason` such as `role_unqualified`, or `infeasible`).
@@ -79,7 +79,7 @@ Exit contract: `done` (result `{runnable: bool}`: whether a plan task is runnabl
 |link:../phase-workflows/08-dynamic-re-planning.adoc#replan-fallback[Phase Workflows Specification, Conservative Fallback]
 
 |[[state-replan.apply]]`replan.apply`
-|the caller's phase value
+|inherit
 |`auto`
 |`replan.review` (`reintegrate_in_plan`, `split_change`, `defer_to_follow_up_plan`).
 |`replan.apply-revision`: in one transaction writes the revised outline, re-derives the declared footprint, sets the moved deliverables' tasks `removed`, records gaps and an amendment, preserves the split ref, stages or records the follow-ups (an epic plan's under the epic lock), creates the new plan tasks additively, renews the remediation budgets on re-entry, and composes the instance version of event `replan`.
@@ -87,7 +87,7 @@ Exit contract: `done` (result `{runnable: bool}`: whether a plan task is runnabl
 |link:../phase-workflows/08-dynamic-re-planning.adoc#replan-apply[Phase Workflows Specification, Apply, Re-Entry & Instance Version]
 
 |[[state-replan.await-prerequisite]]`replan.await-prerequisite`
-|the caller's phase value
+|inherit
 |`composite_job`
 |`replan.review` (`wait_for_prerequisite`; the accepting transaction stages the row of a `follow_up:<index>` prerequisite).
 |`replan.await-prerequisite`: a server timer to the persisted `deadline_at` plus a watch of the prerequisite (the provider's pull-request state, or the prerequisite plan's outcome); no worker runs, the worktree is kept.
@@ -95,7 +95,7 @@ Exit contract: `done` (result `{runnable: bool}`: whether a plan task is runnabl
 |link:../phase-workflows/08-dynamic-re-planning.adoc#replan-actions[Phase Workflows Specification, Actions & Guards] item 4
 
 |[[state-replan.integrate-base]]`replan.integrate-base`
-|the caller's phase value
+|inherit
 |`auto`
 |`replan.review` (`rebase_and_reverify_only`); `replan.await-prerequisite` (`landed`).
 |`replan.rebase-onto-base`: fetches the base and rebases the plan branch onto it in the worktree; a base that is an ancestor of `HEAD` is not rebased.
@@ -103,7 +103,7 @@ Exit contract: `done` (result `{runnable: bool}`: whether a plan task is runnabl
 |link:../phase-workflows/08-dynamic-re-planning.adoc#replan-actions[Phase Workflows Specification, Actions & Guards] item 5
 
 |[[state-replan.resolve-conflict]]`replan.resolve-conflict`
-|the caller's phase value
+|inherit
 |`call`
 |`replan.integrate-base` (`conflict`).
 |`call remediation.merge-conflict (retry_budget=0, fix_budget=2, actions=[fix])` (xref:11-remediation-units-merge-qgate-spend.adoc#state-catalogue-remediation-merge[`remediation.merge-conflict`]).
@@ -111,7 +111,7 @@ Exit contract: `done` (result `{runnable: bool}`: whether a plan task is runnabl
 |link:../phase-workflows/08-dynamic-re-planning.adoc#replan-actions[Phase Workflows Specification, Actions & Guards] item 5
 
 |[[state-replan.done]]`replan.done`
-|the caller's phase value
+|inherit
 |`terminal`
 |`replan.conservative` (`continue`); `replan.apply` (`settled`); `replan.integrate-base` (`rebased`, `up_to_date`); `replan.resolve-conflict` (`resolved`).
 |`terminal done success`, result `{runnable}`.
@@ -119,7 +119,7 @@ Exit contract: `done` (result `{runnable: bool}`: whether a plan task is runnabl
 |link:../phase-workflows/08-dynamic-re-planning.adoc#replan-apply[Phase Workflows Specification, Apply, Re-Entry & Instance Version]
 
 |[[state-replan.reentered]]`replan.reentered`
-|the caller's phase value
+|inherit
 |`terminal`
 |`replan.apply` (`tasks_added`).
 |`terminal reentered unsettled`.
@@ -127,7 +127,7 @@ Exit contract: `done` (result `{runnable: bool}`: whether a plan task is runnabl
 |link:../phase-workflows/08-dynamic-re-planning.adoc#replan-apply[Phase Workflows Specification, Apply, Re-Entry & Instance Version]
 
 |[[state-replan.reauthor]]`replan.reauthor`
-|the caller's phase value
+|inherit
 |`terminal`
 |`replan.apply` (`outline_reentry`).
 |`terminal reauthor unsettled`.
@@ -135,7 +135,7 @@ Exit contract: `done` (result `{runnable: bool}`: whether a plan task is runnabl
 |link:../phase-workflows/03-q-gate-and-execute.adoc#loop-back-outline[Phase Workflows Specification, Loop-Back to the Outline]
 
 |[[state-replan.hand-back]]`replan.hand-back`
-|the caller's phase value
+|inherit
 |`terminal`
 |`replan.review` (`hand_back`); `replan.conservative` (`hand_back`); `replan.await-prerequisite` (`closed`, `expired`, `cancelled`); `replan.integrate-base` (`fetch_failed`); `replan.resolve-conflict` (`exhausted`, `stepped_out`).
 |`terminal hand_back failure`; the gap is recorded with the re-planning id.

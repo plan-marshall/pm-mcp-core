@@ -127,11 +127,12 @@ The store, its codec, and the members the workflow engine owns (`format_version`
       "maxItems": 5,
       "items": {
         "type": "object",
-        "required": ["caller_workflow_id", "caller_state_id", "subworkflow_id", "entry", "bound_args", "pushed_at"],
+        "required": ["caller_workflow_id", "caller_state_id", "caller_phase", "subworkflow_id", "entry", "bound_args", "pushed_at"],
         "additionalProperties": false,
         "properties": {
           "caller_workflow_id": { "type": "string" },
           "caller_state_id": { "type": "string" },
+          "caller_phase": { "type": "string" },
           "subworkflow_id": { "type": "string" },
           "entry": { "type": "string", "description": "The callee's entry the call went through (workflow-dsl.adoc, Interface Rules), for a phase sub-workflow the point at which the phase is entered." },
           "bound_args": {

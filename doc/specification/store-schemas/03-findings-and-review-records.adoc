@@ -23,15 +23,6 @@ A plan runs as a workflow of phases. Its plan unit calls each of the six phases,
 * *Composition*: the plan instance composes the plan unit and the phase sub-workflows; a pruned phase is a pruned call, with its reason (xref:14-plan-instance-waivers-questions.adoc#plan-instance[Plan Instance]). A phase is shown, replaced, and extended on its own, as a unit the composition resolves by level (link:../workflow-dsl/04-ast-node-model.adoc#process-designer[Workflow DSL Specification, Designing a Process]).
 * *Depth*: the phase level adds one frame to every call path of a plan: `call_stack` holds at most five frames (`PM-WF-16`).
 
-*Status.* The engine and language half of this section is implemented: `Phase` names the six phase units, the plan unit
-calls each at the entry its call state names, the parser and the printer refuse the removed `phase` clause, the call
-depth is five (`WorkflowStatus.MAX_CALL_DEPTH`, `CallStack.MAX_DEPTH`, the verifier's depth rule), and a call frame
-carries no phase (link:../../../pm-workflow/doc/developer/workflow-engine.adoc#_the_phase_of_a_scope[Workflow Engine
-Developer Guide § The Phase of a Scope]). The default units themselves — `plan.pmwf`, the six phase sub-workflows and
-`land.pmwf` — are resources of `plan-marshall-mcp` (its package `default-units-and-drift-tests`), so the plan unit and
-its phase calls are proven here over the fixture corpus; the plan's history and the start of its current phase are
-PLAN-105's.
-
 *The phase value of a record*: the stores record a phase by its phase value, one per phase sub-workflow:
 
 [cols="1,1"]

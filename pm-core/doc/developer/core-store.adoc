@@ -79,7 +79,7 @@ WorkflowStatus ──write──► WorkflowStatusCodec ──bytes──► Sco
 
 * *Format version first*: a document of another `format_version` is refused before any member is read.
 * *Strict typed members*: a typed member with another JSON type, a value outside its closed set (phase, job kind and
-  status, task state and outcome, condition kind, policy class, retry rule), a negative counter, more than five call
+  status, task state and outcome, condition kind, policy class, retry rule), a negative counter, more than four call
   frames, a `scope_id` for the workspace or the machine or none for a plan or epic, or a binding of another state than
   the current one is refused.
 * *Verbatim remainder*: a member the schema declares but the engine does not own is re-emitted unchanged; the engine
@@ -138,10 +138,9 @@ directly below `machine/`; the machine's task queue and job records are the sepa
 == The Call Stack
 _Requirements: link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_
 
-`call_stack` holds the active sub-workflow call frames of a scope, bottom to top, at most five. A frame is the record
-`WorkflowStatus.CallFrame`: `callerWorkflowId`, `callerStateId`, `subworkflowId`, `entry`, `boundArgs` (the `BoundArg`
-values by parameter name, in their order) and `pushedAt`. A frame carries no caller phase: the phase is derived from the
-phase sub-workflow on the stack (link:../adr/core-store/050-five-call-frames-and-no-caller-phase.adoc[ADR 050]).
+`call_stack` holds the active sub-workflow call frames of a scope, bottom to top, at most four. A frame is the record
+`WorkflowStatus.CallFrame`: `callerWorkflowId`, `callerStateId`, `callerPhase`, `subworkflowId`, `entry`, `boundArgs`
+(the `BoundArg` values by parameter name, in their order) and `pushedAt`.
 
 `entry` is the entry of the called sub-workflow the call went through: the entry the call names, or the callee's sole
 entry when the call names none; for a phase sub-workflow the point at which the phase is entered. The engine resolves
@@ -1642,5 +1641,3 @@ parity check the specification has run ahead of is `@Disabled` with the work pac
   lies in `machine/mcp/status.json` under the machine scope lock, beside no project.
 * link:../adr/core-store/047-a-metrics-row-names-its-continuation-form.adoc[ADR 047]: a task row names the continuation
   form its usage belongs to (`hold` or `resume`), and a task that never continued carries `null`.
-* link:../adr/core-store/050-five-call-frames-and-no-caller-phase.adoc[ADR 050]: the stored call stack holds five
-  frames, and a frame carries no caller phase.

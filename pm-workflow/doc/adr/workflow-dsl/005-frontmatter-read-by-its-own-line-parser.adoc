@@ -17,8 +17,8 @@ runtime's own parser and never by a general YAML loader, so that no tag, anchor,
 The keys `entry` and `exit` repeat once per name, which a YAML mapping cannot express. The frontmatter must be readable
 without the body, for the lists that show a unit, and every violation is reported with its file, line and column.
 
-The work package also left open where the frontmatter of the unit that is not read from one file comes from: a composed
-plan instance version, built from its template (the plan unit's own file).
+The work package also left open where the frontmatter of the two units that are not read from one file comes from: the
+merged plan unit, built from seven phase files, and a composed plan instance version, built from the merged template.
 
 == Decision
 
@@ -32,9 +32,9 @@ plan instance version, built from its template (the plan unit's own file).
   returns its refusal as its own, then reads the body from the reported line.
 * The day of validation, after which no `modification_date` may lie, is taken in UTC
   (`LocalDate.now(ZoneOffset.UTC)`), so the result does not depend on the time zone of the machine.
-* A composed plan instance version takes the frontmatter of its template with the type `instance`
-  (`PlanInstanceComposer`); the plan unit and each phase sub-workflow keep their own frontmatter, since no file is
-  merged any more (link:../workflow-unit/007-the-plan-unit-calls-its-phases.adoc[ADR workflow-unit 007]).
+* The merged plan unit takes the frontmatter of its first part, the init file, with the type `workflow`
+  (`PlanUnitMerger`); a composed plan instance version takes the frontmatter of its template with the type `instance`
+  (`PlanInstanceComposer`). Every other field is the part's or the template's.
 
 Rationale not recorded beyond the specification's requirement of a parser of its own.
 
@@ -56,8 +56,9 @@ accepts forms the closed format refuses.
   line the frontmatter gains.
 * A unit whose `modification_date` is today in UTC is accepted on every machine; one dated tomorrow in UTC is refused
   even where the local date has already turned.
-* The frontmatter of a composed instance names the release and author of its template, not of the composition; a later
-  change that gives it a frontmatter of its own changes `PlanInstanceComposer`.
+* The frontmatter of the merged plan unit and of a composed instance names the release and author of the first part or
+  the template, not of the merge or the composition; a later change that gives them a frontmatter of their own changes
+  `PlanUnitMerger` and `PlanInstanceComposer`.
 
 == Source
 

@@ -18,7 +18,7 @@ Every task of a model state is worked on an entity scope in a state of an entity
 |State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
 
 |[[state-entity.active]]`entity.active`
-|the caller's phase value (entity scope)
+|inherit (entity scope)
 |`link`
 |The worker's `ack` of a task whose entity kind submits once (`task.offered` -> `task.executing`): refine and outline authoring, Q-Gate validation (`qgate`), the change type, the refuted-hypothesis decision, the task descriptions, the re-planning, simplify and simplify-apply, the security audit, the two self-reviews, the architecture judgment, the ADR, the lesson candidates, triage, a remediation decision (`remediation-decision`), a remediation fix (`remediation-fix`), a conflict resolution (`conflict`), the artifact review, the commit message and the commit fix, enrichment (kind `enrich-module`, entity `enrich-<module_id>`), spec re-grounding, the epic landing analysis (entity `landing-<plan_id>`, `submit_landing`), a vote of a listed role in the question adjudication (kind `vote`, entity `vote-<question_set>-<role>`, `submit:vote`, no `ask` and no `consult`; link:../model-work/10-decision-quorum.adoc#blind-input[Model Work Specification, Blind Input]), the interpretation of the operator's own words (kind `interpret`, `submit:interpretation`, no `ask` and no `consult`; link:../model-work/06-envelopes-questions-deadlines.adoc#own-words[Model Work Specification, Answers in the Operator's Own Words]), a chat's reply (kind `chat-reply`, `submit:reply` with the answer and its proposed changes, no `ask`), the steward's advice and proposal (kinds `catalogue-advice`, `role-proposal`; link:../model-work/01-roles-and-configuration.adoc#steward-role[Model Work Specification, Steward Role]), the decomposition's rewrite of one plan (kind `decomposition-rewrite`), a review's staged-plan draft and rewrite (kinds `review-plan-draft`, `review-rewrite`), and the re-check of fired watches (kind `watch-recheck`).
 |The kind's one `submit` link (for a decision kind one submit per admissible choice, of which the worker follows one); the implicit `infeasible` link (`evidence`, required), offered on every task entity except the consultation entity (link:../model-work/05-consultation.adoc#consult-serving[Model Work Specification, Serving the Consultation]); the `ask` link (`decision:schema[decision-envelope]`) only where the task's state declares `ask` (xref:01-conventions-generic-conditions.adoc#state-state.asked[`<state>.asked`]); and the `consult:<role>` links of the state's `consult` clauses. Refine and outline authoring carry their open questions in the optional `decision` of the `submit` (`decision:schema[decision-envelope]?`); the plan scope turns each part into a question record (link:../model-work/06-envelopes-questions-deadlines.adoc#decision-structure[Model Work Specification, The Decision Structure]).
@@ -26,7 +26,7 @@ Every task of a model state is worked on an entity scope in a state of an entity
 |link:../workflow-dsl/02-units-jobs-decisions.adoc#model-job-states[Workflow DSL Specification, Model Job States]; link:../model-work/06-envelopes-questions-deadlines.adoc[Model Work Specification, Envelopes, Questions & Deadlines]
 
 |[[state-entity.completed]]`entity.completed`
-|the caller's phase value (entity scope)
+|inherit (entity scope)
 |`terminal`
 |`entity.active` (`submitted`).
 |`links: []`. Declared `state entity.completed terminal submitted success`.
@@ -34,7 +34,7 @@ Every task of a model state is worked on an entity scope in a state of an entity
 |link:../model-work/06-envelopes-questions-deadlines.adoc[Model Work Specification, Task Envelopes]
 
 |[[state-entity.awaiting_answer]]`entity.awaiting_answer`
-|the caller's phase value (entity scope)
+|inherit (entity scope)
 |`link`
 |`entity.active` (`ask` where the task continues, link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work Specification, Continuing after a Question]).
 |While the question is open: no link; the worker holds `pm_wait`, or has ended with its session stored. With the answer: only `ack` (the answer acknowledgement), `facts.answers` carrying it.
@@ -42,7 +42,7 @@ Every task of a model state is worked on an entity scope in a state of an entity
 |link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work Specification, Continuing after a Question]
 
 |[[state-entity.infeasible]][[state-entity.asked]]`entity.infeasible`, `entity.asked`
-|the caller's phase value (entity scope)
+|inherit (entity scope)
 |`terminal`
 |`entity.active` (`infeasible`, `asked`).
 |`links: []`. Declared `state entity.infeasible terminal infeasible failure` and `state entity.asked terminal asked unsettled`.
@@ -50,7 +50,7 @@ Every task of a model state is worked on an entity scope in a state of an entity
 |link:../model-work/02-task-protocol.adoc[Model Work Specification, Task Protocol]
 
 |[[state-entity-multi.active]]`entity-multi.active`
-|the caller's phase value (entity scope)
+|inherit (entity scope)
 |`link`
 |The worker's `ack` of a task whose entity kind submits several times: the epic decomposition's draft (entity `decompose`), the epic inbox message (`message-<message_id>`), the epic completion (`completion`), the task revision (`task-revision`), and the pull-request body (`pr-body`); itself after each repeatable submit.
 |The kind's repeatable submit links, each validated and persisted on its own while the entity stays active, and its one closing submit. Decomposition draft: `workstream`, `spec_section`, `stage`, closing `submit:decompose`; each submit is written into the draft, never into the ledger (xref:17-epic-decomposition-and-review.adoc#state-decomposition.draft[`decomposition.draft`]). Inbox message: `ingest`, `stage`, `spec_section`, `mailbox_send`, `transfer_offer`, `register_item` (a finding or a watch for the epic's registers), closing `submit:message` (xref:06-setup-epic-other.adoc#state-epic.ingest[`epic.ingest`]). Completion: `stage`, `spec_section`, closing `submit:completion`. Task revision: `revise:TASK-NNN`, closing `revalidate` or `loop_back_outline`. Pull-request body: `retitle`, closing `submit` of the body. The `infeasible` and `ask` links as on `entity.active`. An attempt that ended without the closing submit is offered again and continues from what is persisted.
@@ -58,7 +58,7 @@ Every task of a model state is worked on an entity scope in a state of an entity
 |link:../workflow-dsl/02-units-jobs-decisions.adoc#model-job-states[Workflow DSL Specification, Model Job States]; link:../model-work/09-completion-usage-and-spend.adoc[Model Work Specification, Entity Units]
 
 |[[state-entity-multi.awaiting_answer]]`entity-multi.awaiting_answer`
-|the caller's phase value (entity scope)
+|inherit (entity scope)
 |`link`
 |`entity-multi.active` (`ask` where the task continues, link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work Specification, Continuing after a Question]).
 |While the question is open: no link; the worker holds `pm_wait`, or has ended with its session stored. With the answer: only `ack` (the answer acknowledgement), `facts.answers` carrying it.
@@ -66,7 +66,7 @@ Every task of a model state is worked on an entity scope in a state of an entity
 |link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work Specification, Continuing after a Question]
 
 |[[state-entity-multi.completed]][[state-entity-multi.infeasible]][[state-entity-multi.asked]]`entity-multi.completed`, `entity-multi.infeasible`, `entity-multi.asked`
-|the caller's phase value (entity scope)
+|inherit (entity scope)
 |`terminal`
 |`entity-multi.active` (`submitted`, `infeasible`, `asked`).
 |`links: []`. Declared `state entity-multi.completed terminal submitted success`, `state entity-multi.infeasible terminal infeasible failure`, `state entity-multi.asked terminal asked unsettled`.
@@ -74,7 +74,7 @@ Every task of a model state is worked on an entity scope in a state of an entity
 |link:../model-work/09-completion-usage-and-spend.adoc[Model Work Specification, Entity Units]
 
 |[[state-envelope.task.active]]`envelope.task.active`
-|the caller's phase value (entity scope)
+|inherit (entity scope)
 |`link`
 |The `implement` worker's `ack` of the task of `envelope-M`; itself after each `submit:TASK-i` that is neither the last plan task nor a chain tail.
 |`submit:TASK-NNN` (`own_calls:list<schema[own-call]>`, link:../phase-workflows/03-q-gate-and-execute.adoc#own-calls[Own Calls of a Writer]); `ask:TASK-NNN` (`decision:schema[decision-envelope]`: records a decision of class `task` and ends the entity); `infeasible:TASK-NNN`; `yield:envelope-M` (no parameter). `facts.task_id` names the current plan task. The server records the `yield_reason` from the exit taken: `chain_tail`, `question`, or `context`.
@@ -82,7 +82,7 @@ Every task of a model state is worked on an entity scope in a state of an entity
 |link:../model-work/06-envelopes-questions-deadlines.adoc[Model Work Specification, Sequential Task Yield]
 
 |[[state-envelope.task.awaiting_answer]]`envelope.task.awaiting_answer`
-|the caller's phase value (entity scope)
+|inherit (entity scope)
 |`link`
 |`envelope.task.active` (`ask:TASK-NNN` where the task continues, link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work Specification, Continuing after a Question]).
 |While the question is open: no link; the worker holds `pm_wait`, or has ended with its session stored. With the answer: only `ack` (the answer acknowledgement), `facts.answers` carrying it.
@@ -90,7 +90,7 @@ Every task of a model state is worked on an entity scope in a state of an entity
 |link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work Specification, Continuing after a Question]
 
 |[[state-envelope.completed]]`envelope.completed`
-|the caller's phase value (entity scope)
+|inherit (entity scope)
 |`terminal`
 |`envelope.task.active` (last plan task, chain tail, `ask`, `yield`).
 |`links: []`. Declared `state envelope.completed terminal submitted success`; the end of the envelope task lets `execute.envelope-ready` evaluate the envelope (`execute.evaluate-envelope-return`).
@@ -108,7 +108,7 @@ Declared in `worker-task.pmwf` (`scope subworkflow`, compiled only, start `task.
 |State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
 
 |[[state-task.queued]]`task.queued`
-|the caller's phase value
+|inherit
 |`auto`
 |The model state's entry (start state); `task.waiting`, `task.offered`, `task.executing`, `task.consulting` (`released`).
 |`auto task.call-model`, the model caller: resolves the role's artifact, checks its class against the class the entity kind requires, resolves its qualification and its availability, and counts the attempts against the state's re-offer budget.
@@ -116,7 +116,7 @@ Declared in `worker-task.pmwf` (`scope subworkflow`, compiled only, start `task.
 |link:../model-work/01-roles-and-configuration.adoc#model-caller[Model Work Specification, The Model Caller]
 
 |[[state-task.waiting]]`task.waiting`
-|the caller's phase value
+|inherit
 |`composite_job`
 |`task.queued` (`queued`).
 |`task.await-offer`: a `pm_wait` of a worker of the role; the offer leases the task to the worker's generation. While the plan is paused or pausing, no new task of it is offered (link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#plan-pause[Runtime Lifecycle Specification, Pausing and Starting a Plan]).
@@ -124,7 +124,7 @@ Declared in `worker-task.pmwf` (`scope subworkflow`, compiled only, start `task.
 |link:../model-work/02-task-protocol.adoc[Model Work Specification, Task Protocol]
 
 |[[state-task.offered]]`task.offered`
-|the caller's phase value
+|inherit
 |`composite_job`
 |`task.waiting` (`offered`).
 |`task.await-ack`: the implicit `ack` (rel `next`, form `noop`) of the generation that holds the lease, within the host's acknowledgement deadline.
@@ -132,7 +132,7 @@ Declared in `worker-task.pmwf` (`scope subworkflow`, compiled only, start `task.
 |link:../model-work/02-task-protocol.adoc[Model Work Specification, Task Protocol]
 
 |[[state-task.executing]]`task.executing`
-|the caller's phase value
+|inherit
 |`composite_job`
 |`task.offered` (`acknowledged`); `task.consulting` (`answered`).
 |`task.await-entity`: the entity unit of the kind runs, and its links are the task's links; the `consult:<role>` links of the calling state are offered beside them. The entity's terminal maps to the task outcome: `entity.completed`, `entity-multi.completed` -> `submitted`; `envelope.completed` -> `submitted`, or `asked` where the envelope ended through `ask:TASK-NNN` (`yield_reason: question`); `entity.infeasible`, `entity-multi.infeasible` -> `infeasible`; `entity.asked`, `entity-multi.asked` -> `asked`.
@@ -140,7 +140,7 @@ Declared in `worker-task.pmwf` (`scope subworkflow`, compiled only, start `task.
 |link:../model-work/02-task-protocol.adoc[Model Work Specification, Task Protocol]
 
 |[[state-task.consulting]]`task.consulting`
-|the caller's phase value
+|inherit
 |`composite_job`
 |`task.executing` (`consulting`).
 |`task.await-consultation`: a task of the consulted role; the answer reaches the asker through its next `pm_wait`.
@@ -148,7 +148,7 @@ Declared in `worker-task.pmwf` (`scope subworkflow`, compiled only, start `task.
 |link:../model-work/05-consultation.adoc[Model Work Specification, Consultation]
 
 |[[state-task.submitted]][[state-task.asked]][[state-task.infeasible]][[state-task.lost]]`task.submitted`, `task.asked`, `task.infeasible`, `task.lost`
-|the caller's phase value
+|inherit
 |`terminal`
 |`task.executing` (`submitted`, `asked`, `infeasible`); `task.queued` (`closed`) and every `cancelled` (`task.lost`, reason `withdrawn`: the state or scope ended while the task was open).
 |`links: []`. Declared `terminal submitted success`, `terminal asked unsettled`, `terminal infeasible failure`, `terminal lost indeterminate`; the queue task record holds the outcome and its reason.
