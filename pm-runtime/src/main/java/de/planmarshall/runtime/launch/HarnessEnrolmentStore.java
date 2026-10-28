@@ -242,6 +242,15 @@ public final class HarnessEnrolmentStore {
     }
 
     private static HarnessEnrolment entry(String clientId, JsonNode node) {
+        var binding = node.member("endpoint").orElse(null);
+        if (binding != null) {
+            if (!binding.isObject()) {
+                throw new IllegalArgumentException("the member 'endpoint' is not an object");
+            }
+            return new HarnessEnrolment(clientId, null, null, null, Instant.parse(text(node, "enrolled_at")),
+                    Instant.parse(text(node, "updated_at")), usageReport(node), events(node), weights(node),
+                    new HarnessEnrolment.Binding(text(binding, "origin"), text(binding, "credential_key")));
+        }
         return new HarnessEnrolment(clientId, Path.of(text(node, "executable_path")), text(node, "sha256"),
                 text(node, "version"), Instant.parse(text(node, "enrolled_at")), Instant.parse(text(node,
                         "updated_at")), usageReport(node), events(node), weights(node));
@@ -352,9 +361,14 @@ public final class HarnessEnrolmentStore {
 
     private static JsonNode entry(HarnessEnrolment enrolment) {
         var members = new LinkedHashMap<String, JsonNode>();
-        members.put("executable_path", JsonNode.string(enrolment.executablePath().toString()));
-        members.put("sha256", JsonNode.string(enrolment.sha256()));
-        members.put("version", JsonNode.string(enrolment.version()));
+        if (enrolment.binding() != null) {
+            members.put("endpoint", JsonNode.object(Map.of("origin", JsonNode.string(enrolment.binding().origin()),
+                    "credential_key", JsonNode.string(enrolment.binding().credentialKey()))));
+        } else {
+            members.put("executable_path", JsonNode.string(enrolment.executablePath().toString()));
+            members.put("sha256", JsonNode.string(enrolment.sha256()));
+            members.put("version", JsonNode.string(enrolment.version()));
+        }
         members.put("enrolled_at", JsonNode.string(enrolment.enrolledAt().toString()));
         members.put("updated_at", JsonNode.string(enrolment.updatedAt().toString()));
         var figures = new TreeMap<String, JsonNode>();

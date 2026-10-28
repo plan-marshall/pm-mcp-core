@@ -9,8 +9,10 @@
  */
 package de.planmarshall.runtime.launch;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -148,6 +150,42 @@ class HarnessEnrolmentStoreTest {
         assertTrue(store.unenrol("claude"));
         assertFalse(store.unenrol("claude"));
         assertEquals(List.of("opencode"), store.all().stream().map(HarnessEnrolment::clientId).toList());
+    }
+
+    @Test
+    @DisplayName("the remote form of a judgment endpoint round-trips its origin and credential key")
+    void endpointEntryRoundTrip() {
+        var endpoint = HarnessEnrolment.endpoint("hosted-judge", "https://judge.example.test", "judge-token", NOW,
+                new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED,
+                        Map.of("input", "reported")));
+
+        store.enrol(endpoint);
+        var read = store.find("hosted-judge").orElseThrow();
+
+        assertAll(
+                () -> assertTrue(read.isEndpoint()),
+                () -> assertEquals("https://judge.example.test", read.binding().origin()),
+                () -> assertEquals("judge-token", read.binding().credentialKey()),
+                () -> assertNull(read.executablePath()),
+                () -> assertNull(read.sha256()),
+                () -> assertNull(read.version()),
+                () -> assertEquals(endpoint, read));
+    }
+
+    @Test
+    @DisplayName("an entry of the remote form without its required members is refused, not read as a program")
+    void malformedEndpointEntry() throws Exception {
+        assertUnreadable("{\"format_version\":1,\"harnesses\":{\"hosted-judge\":{\"endpoint\":{\"origin\":"
+                + "\"https://judge.example.test\"},\"enrolled_at\":\"2026-10-24T10:00:00Z\",\"updated_at\":"
+                + "\"2026-10-24T10:00:00Z\",\"usage_report\":{\"source\":\"declared\",\"figures\":{}},"
+                + "\"events\":{}}}}");
+        assertUnreadable("{\"format_version\":1,\"harnesses\":{\"hosted-judge\":{\"endpoint\":null,"
+                + "\"enrolled_at\":\"2026-10-24T10:00:00Z\",\"updated_at\":\"2026-10-24T10:00:00Z\","
+                + "\"usage_report\":{\"source\":\"declared\",\"figures\":{}},\"events\":{}}}}");
+        assertUnreadable("{\"format_version\":1,\"harnesses\":{\"hosted-judge\":{\"endpoint\":{\"origin\":"
+                + "\"http://judge.example.test\",\"credential_key\":\"judge-token\"},"
+                + "\"enrolled_at\":\"2026-10-24T10:00:00Z\",\"updated_at\":\"2026-10-24T10:00:00Z\","
+                + "\"usage_report\":{\"source\":\"declared\",\"figures\":{}},\"events\":{}}}}");
     }
 
     private static HarnessEnrolment enrolment(String clientId, String version) {
