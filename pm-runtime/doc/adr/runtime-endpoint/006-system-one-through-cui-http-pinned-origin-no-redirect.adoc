@@ -1,0 +1,62 @@
+= ADR 006: The Protocol system_one Goes Through cui-http with a Pinned Origin and No Redirect
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-28
+
+== Context
+
+Client Profiles § The Request and § Remote Form state the request and answer of the protocol `system_one`: two requests
+per task with the options of a question in opposite orders, the versioned model id sent and checked against the answer, an
+answer read from `answers.<question_id>` with `choice` and `probabilities` (never `confidence`), the runtime retrying
+nothing inside an attempt, and the remote form's Token Lane secret read at the moment of a request, sent only to the
+origin of the entry's `url`, with a redirect to another origin or to `http` ending the attempt. Requirements `PM-ARCH-2`
+and `PM-CRED-5` and Credentials & Enrolment § Closed List of Outbound Calls require the call to be one the operator
+enrolled and its secret redacted. Standing rule R03 keeps HTTP calls on `cui-http`.
+
+The package had to decide how the two requests are sent, how the option order survives the JSON writer, and how the
+answer is refused.
+
+== Decision
+
+`SystemOneRequest` composes the two bodies from one entity and writes them with the members in their own order, using
+`CanonicalJson` only for the escaping and the number spelling, because the canonical writer sorts an object's members and
+would erase the option order the protocol depends on. `JudgmentClient` sends each request through `cui-http`'s
+`HttpHandler` with a `RedirectPolicy` that allows no redirect host, so a redirect ends the attempt before a second request
+is made and before the secret can leave the entry's origin; the remote form checks that the profile's `base_url` is the
+origin of the credential entry's `url`, registers the secret with the redaction registry and sends it as
+`Authorization: Bearer`. Nothing is retried inside an attempt. `SystemOneAnswer` validates the answer against the
+requested model id and the question's options and refuses another id as `model_alias`. The audit record
+`judgment_task_completed` and the log line `PM_RUNTIME-39` carry the endpoint, the model id, the status, the token counts
+and the duration, and never a body or the key.
+
+== Alternatives Considered
+
+A direct `java.net.http.HttpClient` was considered and not taken: R03 forbids it, and the redirect and TLS behaviour
+would be the package's own instead of the shared client's. Following same-origin redirects and relying on the client to
+strip `Authorization` cross-origin was considered and not taken: the specification ends the attempt on a redirect, so the
+refusal is the behaviour the runtime states, not one it inherits. Retrying an invalid answer inside the attempt was
+considered and not taken: the task's re-offer budget owns the retry, and a retry inside the attempt would hide a service
+that answers invalid answers. Reading `confidence` beside `probabilities` was considered and not taken: it describes how
+concentrated the distribution is, not how likely the option is right.
+
+== Consequences
+
+- The two requests of a task are independent of the order the service saw, and a test compares the option order of both.
+- A service that answers another model id, a redirect, an HTTP error or an invalid answer ends the attempt alike; the
+  task's own rules decide what follows.
+- The remote form has no owner check; its safety is the origin pinning, the TLS and hostname verification of every Token
+  Lane request, and the redaction registry.
+- The repository-wide architecture rule and the recording-test-network integration test of Credentials & Enrolment §
+  Closed List of Outbound Calls (#188) are not part of this package; the adapter is on `HttpHandler` and the owed rule is
+  reported to the milestone exit.
+
+== Source
+
+Pull request for the work package `doc/plans/judgment-endpoint.adoc`; Client Profiles § The Request and Answer, § Remote
+Form; Credentials & Enrolment § Provider Credentials and § Closed List of Outbound Calls.

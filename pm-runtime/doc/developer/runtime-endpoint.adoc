@@ -8,20 +8,23 @@ link:../../README.adoc[`pm-runtime`] » Endpoint Harness
 == What the package is for
 
 `de.planmarshall.runtime.endpoint` runs a task on an *endpoint harness*: a model that a program of this machine serves
-over HTTP on the loopback interface. The package composes the one request of a task, sends it through `cui-http`,
-accepts the answer, records its usage, checks the owner of the listening socket before every request, reads the weights
-identity of the models and verifies an endpoint draft by the four stages `identity`, `launch`, `classes` and `limits`.
+over HTTP on the loopback interface, or one service that answers the protocol `system_one` over HTTPS in the remote form.
+The package composes the one request of a task, sends it through `cui-http`, accepts the answer, records its usage,
+checks the owner of the listening socket before every request, reads the weights identity of the models and verifies an
+endpoint draft by the stages `identity`, `launch`, `classes` and `limits` — a judgment endpoint without `classes`, because
+the server never sends tools.
 
 Two invariants hold across the package. The runtime never starts, stops or configures the serving program — that is the
-operator's. And no task text is sent before the owner check has found the enrolled program on the port: the check runs
-before every request of a task, and the verification checks once before any of its requests, so another program on the
-same port receives nothing.
+operator's; the remote form has none. And no task text is sent before the owner check has found the enrolled program on
+the port: the check runs before every request of a task, and the verification checks once before any of its requests, so
+another program on the same port receives nothing. No owner check applies to the remote form: the Token Lane secret is
+sent only to the origin of the credential entry's `url`, and a redirect ends the attempt.
 
 The package reads the values of an endpoint profile through `core.profile.EndpointProfile`; it never parses a profile
 document itself. The profile is validated by `core.profile.ProfileValidator` at load time.
 
-Specification: `doc/specification/client-profiles/03-endpoint-harness.adoc`. Design decisions:
-`adr/runtime-endpoint/`.
+Specification: `doc/specification/client-profiles/03-endpoint-harness.adoc` and
+`doc/specification/client-profiles/04-judgment-endpoint.adoc`. Design decisions: `adr/runtime-endpoint/`.
 
 == Main types
 
@@ -86,6 +89,43 @@ holds is `enforced`, any other answer `advisory`. `classes` sends a task that as
 request and reports the endpoint's own usage figure for it. Where the owner cannot be read, or is not the program the
 draft names, the stages send nothing and the draft is refused.
 
+[[judgment-endpoint]]
+`SystemOneRequest`::
+The two requests of a judgment task: the model of the role, the facts of the vote entity as `state`, and one question of
+the type `choice` per question of the entity, keyed by its `question_id`, with its options as `criteria` keyed by
+`branch_key`. The first request lists the options sorted by `branch_key`, the second in the opposite order. It sends
+nothing else — no recommendation, no answer of another role, no tool — and the entity is packed to the profile's context
+budget or refused before a request is sent. The body keeps the option order, which the canonical writer would sort away
+(ADR 006).
+
+`SystemOneAnswer`::
+The server's own reading of an answer: `answers.<question_id>` with `choice` and `probabilities`, the member `model` and
+`usage`, and never `confidence`. An answer is valid when its `model` equals the requested versioned id, every question is
+answered, each `choice` is a `branch_key`, and the probabilities name only the question's options, each between `0` and
+`1`, summing to `1` within `0.01`. Another model id is refused `model_alias` (ADR 006).
+
+`JudgmentClient`::
+The one `POST` of the protocol and the `GET`s of the models listing and the readiness check. The remote form reads the
+Token Lane entry the profile's `credential_key` names at the moment of a request, registers its secret with the
+redaction registry and sends it only when the profile's `base_url` is the origin of the entry's `url`. No redirect is
+followed: a redirect to another origin or to `http` receives no secret and ends the attempt. Nothing is retried inside an
+attempt.
+
+`JudgmentEndpoint`::
+One task: the two requests, the check of each answer, and the one record. Both requests are sent from one composed
+entity; an answer that does not validate, an HTTP error (a `429` with a `retry-after` included), a timeout, a refused
+credential or a redirect ends the attempt like a worker without a valid result, and the task's own rules then apply. The
+`judgment_task_completed` audit record and the `PM_RUNTIME-39` line carry the endpoint, the model id, the status, the
+token counts and the duration, and never a body or the key.
+
+`JudgmentVerification`::
+The stages of a judgment endpoint. `identity` reads the models listing with the credential and checks that the role's
+model is listed; a loopback form also runs the version probe and the owner check. `launch` sends two options in both
+orders, a request whose criteria the instructions contradict and a request with one option only, records the answers and
+refuses a service that answers free text, so `result_schema` is `enforced`. `classes` does not apply. `limits` bisects
+between `1024` tokens and the service's refusal, counting with `usage.input_tokens`; on a remote form only on the
+operator's explicit choice, because every request is billed (ADR 007).
+
 == How the parts work together
 
 [source,text]
@@ -104,17 +144,41 @@ that owns the listening socket and compares it with the enrolled executable. Onl
 out. `EndpointOutcome.accept` parses the answer, checks the content against the result schema through `AnswerSchema` and
 records the usage through `HarnessUsage.fromEndpoint`.
 
+A judgment task reaches `JudgmentEndpoint`, which composes the two bodies through `SystemOneRequest`. `JudgmentClient`
+sends each through `HttpHandler`: on the remote form it reads the Token Lane entry, checks that the profile's `base_url`
+is the entry's origin, registers the secret and sends `Authorization: Bearer`, and it follows no redirect. Each answer is
+read by `SystemOneAnswer`, and the one `judgment_task_completed` record is appended.
+
+[source,text]
+----
+profile (validated) ──> SystemOneRequest ──> JudgmentClient ──> answer ──> SystemOneAnswer
+                              │                    │                            │
+                      context budget      Token Lane entry, origin      valid answer or the
+                                          pin, no redirect, no retry     attempt ends
+                              │                    │
+                              └──> JudgmentEndpoint ──> audit record + PM_RUNTIME-39
+----
+
 At enrolment, at every start of the runtime and at every project setup run, `EndpointEnrolment` reads the weights of
-every model the profile's tiers name and rewrites the enrolment when an identity changed.
+every model the profile's tiers name and rewrites the enrolment when an identity changed. The remote form has no serving
+program, so its enrolment carries the origin and the credential key instead of the executable's path, digest and version
+(ADR 005).
 
 == How to use and extend it
 
 To run a task, compose an `EndpointRequest` for the profile, the model of the role's effective configuration and the
-task, then hand the harness's enrolment and the request to `EndpointHarness.task`.
+task, then hand the harness's enrolment and the request to `EndpointHarness.task`. For a judgment task, compose the
+questions and hand them with the facts and the model id to `JudgmentEndpoint.task`; the vote built on the two answers is
+`judgment-votes`'s.
 
 A new protocol is a change of the closed `protocol` list of the endpoint profile and of the code, made once for all
-endpoints: a new `EndpointClient` call for its request format, and the answer reading in `EndpointOutcome`. A new
-keyword of the result-schema subset is added to `AnswerSchema` together with the refusal that ends an answer.
+endpoints: a new `EndpointClient` call for its request format, and the answer reading in `EndpointOutcome` — or, for a
+typed protocol, its own request and answer types beside `SystemOneRequest` and `SystemOneAnswer`. A new keyword of the
+result-schema subset is added to `AnswerSchema` together with the refusal that ends an answer. A new stage difference is a
+change of `ProfileStages.stagesFor` and of the verification of the protocol.
+
+The Token Lane entry and the redaction registry are seams (`TokenLaneCredential`, `SecretRegistry`): the operator channel
+implements them, and this package consumes them.
 
 == Invariants and failure modes
 
@@ -126,3 +190,9 @@ keyword of the result-schema subset is added to `AnswerSchema` together with the
 - A model whose weights identity changed is unqualified until it is graded again; the change is audited.
 - The readiness check that does not answer is a start failure, and the attempt that does not end with a valid answer ends
   like a worker without a valid result.
+- A judgment answer whose `model` is not the requested versioned id ends the attempt `model_alias`; the runtime retries
+  nothing inside an attempt, so a `429` with a `retry-after` ends it too and the task's re-offer budget decides.
+- The remote form's secret is read at the moment of a request, registered with the redaction registry and sent only to the
+  origin of the entry's `url`; a redirect to another origin or to `http` receives no secret and ends the attempt.
+- No log line, audit line or error text holds a request body or the key; the record holds the endpoint, the model id, the
+  status, the token counts and the duration.

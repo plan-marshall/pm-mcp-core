@@ -17,6 +17,11 @@
  * automatic choice and has no fallback: before a store is recorded no credential is entered, and an unavailable
  * recorded OS store makes the credentials unavailable without a file being written in its place. Every keyring entry
  * lives under one service name ({@link de.planmarshall.runtime.credentials.ServiceName}).
+ * <p>
+ * The two seams of a Token Lane consumer live here too: {@link de.planmarshall.runtime.credentials.TokenLaneCredential}
+ * reads one entry, with the origin of its {@code url}, at the moment of a request, and
+ * {@link de.planmarshall.runtime.credentials.SecretRegistry} is where a secret a runtime holds is registered before it
+ * can reach a read-out.
  *
  * @since 0.1
  */

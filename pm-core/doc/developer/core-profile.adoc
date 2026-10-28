@@ -87,7 +87,8 @@ of the usage figures with the harness's own record.
 |`SupportedVersions` |The `headless.supported_versions` range and the version it admits.
 
 |`EndpointProfile` |The validated values of an endpoint profile (Client Profiles § Endpoint Profile Schema): the serving
-program and its identity probe, the endpoint block with its request settings, the model tiers and the weights probe.
+program and its identity probe, the endpoint block with its request settings and the credential key of the remote form, the
+model tiers and the weights probe.
 `ProfileValidator` validates the document; the projection never re-states a rule.
 
 |`ShippedProfiles` |The build test's reader of `classpath:/profiles/`.
@@ -251,10 +252,10 @@ the limits are read by name (`maxHoldSeconds`, `maxResumeAgeSeconds`) so this pa
 
 == Endpoint profiles
 
-An endpoint harness — a model a program of the machine serves over HTTP on the loopback interface — is described by an
-*endpoint profile*: a document of the same three sets, the same verification record, the same HMAC sidecar and the same
-enrolled-harness binding, told apart by `profile_kind: "endpoint"` (Client Profiles § A Model on This Machine, § Endpoint
-Profile Schema).
+An endpoint harness — a model a program of the machine serves over HTTP on the loopback interface, or one service that
+answers the protocol `system_one` over HTTPS in the remote form — is described by an *endpoint profile*: a document of the
+same three sets, the same verification record, the same HMAC sidecar and the same enrolled-harness binding, told apart by
+`profile_kind: "endpoint"` (Client Profiles § A Model on This Machine, § Endpoint Profile Schema, § Judgment Endpoint).
 
 `ProfileValidator` reads `profile_kind` before anything else. `endpoint` selects a closed document of its own members —
 `profile_kind`, `schema_version`, `client_id`, `display_name`, `min_daemon_version`, `icon`, `executable`, `identity`,
@@ -265,15 +266,19 @@ profile passes — NFC, single-line, control-character-free, bounded strings, cl
 hardening of a probe — apply to the endpoint profile unchanged.
 
 The validator refuses the combinations of `locality` the schema cannot express. A `loopback` endpoint names a plain
-`http` base URL of `127.0.0.1` or `[::1]`, no `credential_key`, and both its `executable` and its `identity`; a
-`remote` endpoint and the protocol `system_one` belong to the package `judgment-endpoint` and are refused here until that
-package is done, though the schema admits their members. It refuses an `answer_reserve_tokens` that does not stay below
-`context_tokens`, and a `weights_probe` that fills the members of the other source. Every refusal names the document and
-the JSON Pointer of the failing member, as every profile refusal does.
+`http` base URL of `127.0.0.1` or `[::1]`, no `credential_key`, and both its `executable` and its `identity`; it may speak
+either protocol. A `remote` endpoint is the protocol `system_one`'s: it names one `https` origin as its `base_url` and
+the Token Lane credential entry it reads as its `credential_key`, and it has no `executable`, no `identity` and no
+`update_evidence`, because no serving program is enrolled and no owner check applies (Client Profiles § Remote Form). It
+refuses an `answer_reserve_tokens` that does not stay below `context_tokens`, and a `weights_probe` that fills the
+members of the other source. Every refusal names the document and the JSON Pointer of the failing member, as every
+profile refusal does.
 
 `EndpointProfile.of` projects the validated values the runtime reads: the serving program and its version probe, the
 endpoint block (`protocol`, `locality`, `base_url`, `readiness_path`, `models_path`, `models_pointer`, `result_schema`,
-`context_tokens`, `answer_reserve_tokens`, `request_timeout_seconds`), the model tiers and the weights probe.
+`context_tokens`, `answer_reserve_tokens`, `request_timeout_seconds`, `credential_key`), the model tiers and the weights
+probe. `EndpointProfile.Endpoint.remote()` and `judgment()` answer the form and the protocol, and
+`ProfileStages.stagesFor(protocol)` the stages a verification runs — a judgment endpoint has no `classes` stage.
 `EndpointProfile.weightsProbeOf` answers the probe of either kind of profile: the endpoint profile's own
 `weights_probe`, or `headless.weights_probe` of a client profile.
 
@@ -284,6 +289,6 @@ where a client profile is judged against `headless.supported_versions`
 projects an endpoint profile as a harness of the class `zero_tool` alone, with the endpoint's context budget
 (link:../adr/core-profile/011-endpoint-harness-runs-zero-tool-only.adoc[ADR 011]).
 
-The runtime side of an endpoint harness — the request, the owner check, the weights reading, the enrolment and the
-verification stages — is documented in `pm-runtime`
+The runtime side of an endpoint harness — the request, the owner check, the weights reading, the enrolment, the
+verification stages, and the protocol `system_one` with its remote form — is documented in `pm-runtime`
 (link:../../../pm-runtime/doc/developer/runtime-endpoint.adoc[`runtime.endpoint`]).

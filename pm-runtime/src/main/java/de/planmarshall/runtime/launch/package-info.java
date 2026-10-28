@@ -15,7 +15,9 @@
  * ({@link de.planmarshall.runtime.launch.FreeTextDerivation}), the job token and generation
  * ({@link de.planmarshall.runtime.launch.JobTokenStore}), and the harness enrolment store with its launch-time
  * verification and self-update ({@link de.planmarshall.runtime.launch.HarnessEnrolmentStore},
- * {@link de.planmarshall.runtime.launch.HarnessVerifier}).
+ * {@link de.planmarshall.runtime.launch.HarnessVerifier}). An entry of the store is either a serving program's or a
+ * remote endpoint's, which records the origin and the credential key instead of a path, a digest and a version
+ * ({@link de.planmarshall.runtime.launch.HarnessEnrolment.Binding}, ADR runtime-endpoint/005).
  * <p>
  * The package composes the launch only: it never starts a process of its own, and it keeps no session of a harness.
  * A resumed generation is parameterised through {@link de.planmarshall.runtime.launch.LaunchRequest#resumeSessionId()},

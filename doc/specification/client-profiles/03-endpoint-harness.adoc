@@ -23,7 +23,8 @@ The loopback runtime and the profile kind are implemented: the profile kind by `
 link:../../../pm-core/doc/developer/core-profile.adoc[Profile Loader and Schema Developer Guide]), the runtime by
 `pm-runtime` (link:../../../pm-runtime/doc/developer/runtime-endpoint.adoc[Endpoint Harness Developer Guide]): the
 request, the answer and its usage, the enrolment and the owner check, the weights identity and the verification of an
-endpoint. The remote form and the protocol `system_one` remain the judgment endpoint's.
+endpoint. The remote form and the protocol `system_one` are the judgment endpoint's
+(link:04-judgment-endpoint.adoc#judgment-endpoint[Judgment Endpoint]), implemented in the same package.
 
 * *Started by the operator, never by `PM-MCP`*: the serving program runs under the operator's own account and its own
   terms; the runtime only sends requests to it and checks before each request that the program listening on the profile's
@@ -105,9 +106,9 @@ endpoint. The remote form and the protocol `system_one` remain the judgment endp
 
 Profile validation applies the rules of a client profile where they concern the same members (link:01-profile-schema.adoc#profile-hardening[A Profile Is Untrusted Input]) and refuses an endpoint profile whose `answer_reserve_tokens` is not below `context_tokens`, or whose `weights_probe` fills the members of the other source. It refuses the combinations of `locality` that the schema cannot express: `loopback` with an `https` `base_url`, with a `credential_key`, or without `executable` and `identity`; `remote` with the protocol `openai_chat`, with an `http` `base_url`, without a `credential_key`, or with an `executable`, `identity`, or `update_evidence`.
 
-* *Loopback here; the remote form elsewhere*: this part admits the members of the protocol `system_one` and of the remote
-  form in the schema and refuses a profile that uses them until link:04-judgment-endpoint.adoc[the judgment endpoint]
-  implements them, which owns them from then on.
+* *Loopback here; the remote form at the judgment endpoint*: this part states the schema of both forms and the rules of the
+  loopback one. The remote form and its rules are link:04-judgment-endpoint.adoc#remote-form[Judgment Endpoint, Remote
+  Form], implemented by `pm-runtime`.
 
 [#endpoint-request]
 === The Request
@@ -128,7 +129,9 @@ as above.
 
 Implemented by `pm-runtime`: an endpoint harness is enrolled like a harness started as a process, and before each request
 the runtime checks that the process owning the listening socket of `base_url` runs the enrolled executable; another
-program on the port refuses the request before it is sent (fate `refused`, reason `harness_not_enrolled`).
+program on the port refuses the request before it is sent (fate `refused`, reason `harness_not_enrolled`). The remote
+form has no serving program: its enrolment records the origin and the credential key instead, and no owner check applies
+(link:04-judgment-endpoint.adoc#remote-form[Judgment Endpoint, Remote Form]).
 
 [#weights-identity]
 === Weights Identity
