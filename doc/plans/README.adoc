@@ -48,7 +48,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]
 |The onboarding of the machine: its sub-workflows, the consent store, harnesses, catalogue, roles, credentials, providers, automatic run, plan axes (the landing variants) and overrides, the machine's settings
 |`open`
-|link:token-usage.adoc[`token-usage`] (the usage record of the verification)
+|nothing
 |Milestones 7, 10, and 14; the client work of `pm-mcp-clients`
 
 |link:decision-engine.adoc[`decision-engine`]
@@ -141,16 +141,10 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:plan-and-epic-control.adoc[`plan-and-epic-control`] (the operator's acts on a plan); link:epic-resource-and-release.adoc[`epic-resource-and-release`] (next plan, the toggle among the epic's actions, archive, the release); link:epic-decomposition.adoc[`epic-decomposition`]
 |Milestone 12; the client work of `pm-mcp-clients`
 
-|link:token-usage.adoc[`token-usage`]
-|Tokens, not money: every reported figure recorded raw (the cost stored, never shown), the usage pointers with `reasoning` and the not-applicable declaration, the unified token figure with its split and coverage, what a harness reports recorded by the verification, parsing fixtures per harness and version
-|`open`
-|nothing
-|Milestone 4; the client work of `pm-mcp-clients`
-
 |link:operator-reports.adoc[`operator-reports`]
 |Reports to the operator: the record, its catalogue and store, read per machine, the endpoints, a plan's completion report with its Tokens section
 |`open`
-|link:plan-and-epic-control.adoc[`plan-and-epic-control`] (the plan's outcomes, its end, and its holds); link:epic-resource-and-release.adoc[`epic-resource-and-release`] (the end of an epic, the release of a project); link:epic-auto.adoc[`epic-auto`]; link:decision-engine.adoc[`decision-engine`]; link:start-source-intake.adoc[`start-source-intake`] (a screened source flagged); link:token-usage.adoc[`token-usage`]; link:worker-activity.adoc[`worker-activity`] (`task.off_track`)
+|link:plan-and-epic-control.adoc[`plan-and-epic-control`] (the plan's outcomes, its end, and its holds); link:epic-resource-and-release.adoc[`epic-resource-and-release`] (the end of an epic, the release of a project); link:epic-auto.adoc[`epic-auto`]; link:decision-engine.adoc[`decision-engine`]; link:start-source-intake.adoc[`start-source-intake`] (a screened source flagged); link:worker-activity.adoc[`worker-activity`] (`task.off_track`)
 |Milestone 7; the client work of `pm-mcp-clients`
 
 |link:runtime-control.adoc[`runtime-control`]
@@ -162,7 +156,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:runtime-metrics.adoc[`runtime-metrics`]
 |What the runtime is doing: the metrics registry maintained where things happen, the closed catalogue, the snapshot endpoints and the stream
 |`open`
-|link:token-usage.adoc[`token-usage`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (held and paused)
+|link:plan-and-epic-control.adoc[`plan-and-epic-control`] (held and paused)
 |Milestone 2; the client work of `pm-mcp-clients`
 
 |link:process-designer.adoc[`process-designer`]
