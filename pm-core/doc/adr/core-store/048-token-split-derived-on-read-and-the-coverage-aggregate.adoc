@@ -41,5 +41,5 @@ view.
 
 == Source
 
-Closed usage work package (its package file is deleted); Store Schemas § Metrics Store (Populations, What
+Work package `token-usage` (closed; its package file is deleted); Store Schemas § Metrics Store (Populations, What
 the Operator Sees); Model Work § Usage Reporting & Spend Classes; Client Profiles § Tokens, Not Money.

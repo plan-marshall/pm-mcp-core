@@ -113,7 +113,7 @@ A run-total record of a warm worker is never read as its context size: the super
 === Post-Completion Integrity Invariants
 _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-6[PM-WATCH-DISP-6], link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-7[PM-WATCH-DISP-7], link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-8[PM-WATCH-DISP-8], link:../../../../plan-marshall-documentation/doc/implementation-watch/cross-cutting.adoc#PM-WATCH-GEN-5[PM-WATCH-GEN-5]_
 
-The workflow engine enforces four invariants when a task ends or a worker settles:
+The workflow engine enforces five invariants when a task ends, a worker settles, or a phase closes:
 
 1. *No Synthesized Submissions*: A task that ended without its entity's required submission is never completed by the server (<<job-completion>> item 2), whatever the worker wrote to files or reported in its `job-result`.
 2. *No Blind Re-Offer*: A task is offered again only through the `job_incomplete` remedy, after the server inspected the entity store and the worktree on disk; the next offer carries the observed partial progress in its facts and only the remaining work.
@@ -123,7 +123,7 @@ The workflow engine enforces four invariants when a task ends or a worker settle
 [#cause-class]
 *Cause Classes*: Every task row carries exactly one `cause_class` from the closed set `benign`, `returned_with_findings`, `retryable`, `stall`, `terminal_error`, `refused` (metrics row field, link:../store-schemas/05-metrics-and-quality-report.adoc#metrics-store[Store Schemas Specification, Metrics Store]), derived from the task's outcome and its worker's fate, never from a `job-result`: `refused` for a task closed without an attempt (every role reason, `role_undefined`, `role_unqualified`, `role_unavailable`, and `class_mismatch`, and `withdrawn`) or whose worker's launch was refused; `benign` when its entity recorded the required submission, its question (`asked`), or its infeasibility with evidence (`infeasible`) without filing a finding; `returned_with_findings` when it filed at least one finding; `retryable` when the task ended `lost` and was offered again; `stall` when its worker ended `timed_out` without the submission; `terminal_error` for `failed`, `killed`, `cancelled`, or `indeterminate` without the submission; the first matching class in this order applies. The per-class populations sum to the task population of the phase and of the plan with an asserted residual of `0`; a row left unclassified fails the assertion and is never dropped from the total.
 
-5. *Instrument Dark & Reconciliation*: When every usage column of every row in a phase is `"unmeasured"`, `record-metrics` reports `instrument_dark: true` for that phase instead of a total; and a total over unmeasured rows never wins a max-reconciliation against another source.
+5. *Instrument Dark & Reconciliation*: When every usage column of every row in a phase is `"unmeasured"`, `record-metrics` reports `instrument_dark: true` for that phase instead of a total; and a total over unmeasured rows never wins a reconciliation against another source.
 
 [#spend-accounting-budget-anchors]
 == Usage Reporting & Spend Classes

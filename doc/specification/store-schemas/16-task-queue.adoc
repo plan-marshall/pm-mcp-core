@@ -262,7 +262,7 @@ The record of one grading of a role's configuration by the operator's grading in
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["item_id", "form", "checkout", "answer", "score", "duration_ms"],
+        "required": ["item_id", "form", "checkout", "answer", "score", "total_tokens", "duration_ms"],
         "additionalProperties": false,
         "properties": {
           "item_id": { "type": "string", "minLength": 1 },
@@ -270,6 +270,7 @@ The record of one grading of a role's configuration by the operator's grading in
           "checkout": { "type": "string", "enum": ["item_commit", "current", "corpus_context"], "description": "Where the item ran (model-work/01, Grading): item_commit for an item of the project's own repository run at its origin commit, current for one run in the project checkout, corpus_context for one run in an empty directory with its own context files." },
           "answer": { "type": ["string", "object", "null"], "description": "The submitted answer; null when the task closed lost." },
           "score": { "oneOf": [ { "type": "number", "minimum": 0, "maximum": 1 }, { "type": "string", "const": "ungraded" } ], "description": "The grade a task of the judge role gave the answer (model-work/01, Role Qualification); 0 when the item task ended without an answer for a reason of the model; ungraded when that judge task closed lost or the item task ended for a reason of the runtime." },
+          "total_tokens": { "oneOf": [ { "type": "integer", "minimum": 1 }, { "type": "string", "const": "unmeasured" } ], "description": "The tokens the answer used (store-schemas/05, Metrics Store)." },
           "duration_ms": { "type": ["integer", "null"], "minimum": 0 }
         }
       }
@@ -288,7 +289,7 @@ The record of one grading of a role's configuration by the operator's grading in
     },
     "formResult": {
       "type": "object",
-      "required": ["topics", "items", "duration_ms"],
+      "required": ["topics", "items", "total_tokens", "duration_ms"],
       "additionalProperties": false,
       "properties": {
         "topics": {
@@ -302,6 +303,7 @@ The record of one grading of a role's configuration by the operator's grading in
           }
         },
         "items": { "type": "integer", "minimum": 0, "description": "The graded items of all topics of this form." },
+        "total_tokens": { "oneOf": [ { "type": "integer", "minimum": 1 }, { "type": "string", "const": "unmeasured" } ], "description": "The tokens the form's items used, unmeasured when an item's are." },
         "duration_ms": { "type": "integer", "minimum": 0 }
       }
     }
@@ -356,9 +358,9 @@ The record of one calibration of a quorum declaration by the operator's calibrat
           "decided": { "type": "boolean" },
           "agreed_option": { "type": ["string", "null"] },
           "false_auto": { "type": "boolean", "description": "decided and the agreed option is neither the item's target answer nor an accepted alternative." },
-          "total_tokens": { "oneOf": [ { "type": "integer", "minimum": 1 }, { "type": "string", "const": "unmeasured" } ] },
-          "tokens_in": { "oneOf": [ { "type": "integer", "minimum": 0 }, { "type": "string", "const": "unmeasured" } ] },
-          "tokens_out": { "oneOf": [ { "type": "integer", "minimum": 0 }, { "type": "string", "const": "unmeasured" } ] },
+          "total_tokens": { "oneOf": [ { "type": "integer", "minimum": 1 }, { "type": "string", "const": "unmeasured" } ], "description": "The tokens the item used; the split is derived on read (ADR core-store/048)." },
+          "tokens_in": { "oneOf": [ { "type": "integer", "minimum": 0 }, { "type": "string", "const": "unmeasured" } ], "description": "The split the view shows: input, cache read and cache creation; measured as a pair with tokens_out summing to total_tokens, or unmeasured when the item's split is." },
+          "tokens_out": { "oneOf": [ { "type": "integer", "minimum": 0 }, { "type": "string", "const": "unmeasured" } ], "description": "The split the view shows: output and reasoning; measured as a pair with tokens_in summing to total_tokens, or unmeasured when the item's split is." },
           "duration_ms": { "type": ["integer", "null"], "minimum": 0 }
         }
       }
@@ -410,13 +412,14 @@ The record of one instrument check of a judge configuration, run before the firs
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["item_id", "label", "oracle_score", "blind_score", "duration_ms"],
+        "required": ["item_id", "label", "oracle_score", "blind_score", "total_tokens", "duration_ms"],
         "additionalProperties": false,
         "properties": {
           "item_id": { "type": "string", "minLength": 1 },
           "label": { "type": "string", "enum": ["right", "wrong"] },
           "oracle_score": { "oneOf": [ { "type": "number", "minimum": 0, "maximum": 1 }, { "type": "string", "const": "unscored" } ] },
           "blind_score": { "oneOf": [ { "type": "number", "minimum": 0, "maximum": 1 }, { "type": "string", "const": "unscored" } ] },
+          "total_tokens": { "oneOf": [ { "type": "integer", "minimum": 1 }, { "type": "string", "const": "unmeasured" } ] },
           "duration_ms": { "type": ["integer", "null"], "minimum": 0 }
         }
       }

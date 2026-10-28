@@ -34,5 +34,5 @@ a limit later is a change on these values, never a new comparison inside them.
 
 == Source
 
-Closed usage work package (its package file is deleted); Model Work § Usage Reporting & Spend Classes; Store Schemas § Metrics Store
+Work package `token-usage` (closed; its package file is deleted); Model Work § Usage Reporting & Spend Classes; Store Schemas § Metrics Store
 (Aggregates, Populations, What the Operator Sees).

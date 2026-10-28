@@ -23,8 +23,7 @@ both addends have one. `QualificationRecordCodec` and `JudgeCheckCodec` write an
 
 == Alternatives Considered
 
-Deriving the split from the total was rejected: a total is never split into parts it did not measure (Model Work §
-Post-Completion Integrity Invariants, item 6). Storing only the total was rejected because the operator view would lose
+Deriving the split from the total was rejected: a total is never split into parts it did not measure (the split is derived on read, link:../../adr/core-store/048-token-split-derived-on-read-and-the-coverage-aggregate.adoc[ADR core-store/048]). Storing only the total was rejected because the operator view would lose
 the split.
 
 == Consequences
@@ -34,5 +33,5 @@ A record written without a measured split stays readable and shows its total alo
 
 == Source
 
-Closed usage work package (its package file is deleted); Store Schemas § Role Qualification Record, § Decision Calibration Record, §
+Work package `token-usage` (closed; its package file is deleted); Store Schemas § Role Qualification Record, § Decision Calibration Record, §
 Judge Check Record; Model Work § Post-Completion Integrity Invariants.
