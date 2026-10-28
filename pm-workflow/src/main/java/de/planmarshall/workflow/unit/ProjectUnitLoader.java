@@ -21,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -172,17 +173,18 @@ public final class ProjectUnitLoader {
             DeclarationBounds.check(unit).forEach(finding -> findings.add(UnitFinding.at(
                     UnitFinding.Kind.DECLARATION, finding.code(), finding.location(),
                     "'%s' (bound %s): %s".formatted(finding.name(), finding.bound(), finding.message()))));
+            var finalizeUnit = units.getOrDefault(Phase.FINALIZE.unitId(), unit);
             var pipeline = Phase.PLAN_UNIT.equals(unit.id())
-                    ? FinalizePipelineValidator.validate(roster(unit, steps)) : List.<PipelineViolation>of();
+                    ? FinalizePipelineValidator.validate(roster(finalizeUnit, steps)) : List.<PipelineViolation>of();
             pipeline.forEach(violation -> findings.add(UnitFinding.at(UnitFinding.Kind.PIPELINE,
-                    violation.rule().name(), completingStateOrHeader(unit, violation.stepName()),
+                    violation.rule().name(), completingStateOrHeader(finalizeUnit, violation.stepName()),
                     "step '%s': %s".formatted(violation.stepName(), violation.message()))));
-            invariants.check(unit, rules, pipeline, Optional.empty()).stream()
+            invariants.check(unit, subUnits, rules, pipeline, Optional.empty()).stream()
                     .filter(violation -> !CompiledInvariants.reReports(violation, unit, rules))
                     .forEach(violation -> findings.add(UnitFinding.at(UnitFinding.Kind.INVARIANT,
                             violation.id().wireId(), violation.location(), violation.message())));
             if (Phase.PLAN_UNIT.equals(unit.id())) {
-                checkProjectSteps(unit, steps, bound, findings);
+                checkProjectSteps(unit, units.values(), steps, bound, findings);
             }
         }
         if (findings.isEmpty()) {
@@ -415,24 +417,27 @@ public final class ProjectUnitLoader {
     /**
      * Stage 7: the project steps the unit completes, the declared steps and the bound step ids must agree.
      */
-    private static void checkProjectSteps(WorkflowDefinition plan, List<FinalizeStepDescriptor> projectSteps,
-            Set<String> boundStepIds, List<UnitFinding> findings) {
+    private static void checkProjectSteps(WorkflowDefinition plan, Collection<WorkflowDefinition> units,
+            List<FinalizeStepDescriptor> projectSteps, Set<String> boundStepIds, List<UnitFinding> findings) {
         var declared = new LinkedHashSet<String>();
         projectSteps.forEach(step -> declared.add(step.name()));
         var reported = new LinkedHashSet<String>();
-        for (var completion : completions(plan)) {
-            var step = completion.stepId();
-            if (step.startsWith(PROJECT_STEP_PREFIX) && !declared.contains(step) && reported.add(step)) {
-                findings.add(UnitFinding.at(UnitFinding.Kind.PROJECT_STEP_UNBOUND, UnitFinding.PROJECT_STEP_UNBOUND,
-                        completion.location(), "the unit completes the project step '%s', which is not declared"
-                        .formatted(step)));
+        for (var unit : units) {
+            for (var completion : completions(unit)) {
+                var step = completion.stepId();
+                if (step.startsWith(PROJECT_STEP_PREFIX) && !declared.contains(step) && reported.add(step)) {
+                    findings.add(UnitFinding.at(UnitFinding.Kind.PROJECT_STEP_UNBOUND,
+                            UnitFinding.PROJECT_STEP_UNBOUND, completion.location(),
+                            "the unit completes the project step '%s', which is not declared".formatted(step)));
+                }
             }
         }
-        var completed = completedSteps(plan);
+        var completed = new LinkedHashSet<String>();
+        units.forEach(unit -> completed.addAll(completedSteps(unit)));
         for (var step : declared) {
             if (!boundStepIds.contains(step)) {
                 findings.add(UnitFinding.at(UnitFinding.Kind.PROJECT_STEP_UNBOUND, UnitFinding.PROJECT_STEP_UNBOUND,
-                        completingStateOrHeader(plan, step),
+                        completingLocation(units, step, plan.location()),
                         "the project step '%s' is bound to no enrolled project script".formatted(step)));
             }
             if (!completed.contains(step)) {
@@ -441,5 +446,21 @@ public final class ProjectUnitLoader {
                         .formatted(step)));
             }
         }
+    }
+
+    /**
+     * @return the location of the first state, in unit and declaration order, whose transition completes the step, or
+     *         the fallback when no unit completes it
+     */
+    private static SourceLocation completingLocation(Collection<WorkflowDefinition> units, String step,
+            SourceLocation fallback) {
+        for (var unit : units) {
+            var completing = unit.states().values().stream().filter(state -> completes(state, step))
+                    .map(StateNode::location).findFirst();
+            if (completing.isPresent()) {
+                return completing.get();
+            }
+        }
+        return fallback;
     }
 }

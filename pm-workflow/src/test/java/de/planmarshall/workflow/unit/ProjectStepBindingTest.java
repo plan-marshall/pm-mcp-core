@@ -74,7 +74,7 @@ class ProjectStepBindingTest {
                 Arguments.of("declared but unbound", Optional.of(COMPLETES_PROJECT_STEP), declared(), Set.of(),
                         configPath(FINALIZE_FILE), COMPLETES_PROJECT_STEP.lineOf("state finalize.create-pr")),
                 Arguments.of("declared but absent from the unit", Optional.empty(), declared(), Set.of(PROJECT_STEP),
-                        configPath("init.pmwf"), UnitFixtures.lineOf("init.pmwf", UnitFixtures.PLAN_HEADER)));
+                        configPath("plan.pmwf"), UnitFixtures.lineOf("plan.pmwf", UnitFixtures.PLAN_HEADER)));
     }
 
     @ParameterizedTest(name = "{0}")

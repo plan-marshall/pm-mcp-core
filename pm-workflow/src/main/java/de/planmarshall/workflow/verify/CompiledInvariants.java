@@ -385,12 +385,15 @@ public final class CompiledInvariants {
                 Optional<String> lane) {
             this.unit = unit;
             this.reference = reference;
-            var catalog = new LinkedHashMap<String, WorkflowDefinition>();
-            defaults.forEach(catalog::putIfAbsent);
-            callable.forEach(definition -> catalog.putIfAbsent(definition.id(), definition));
-            catalog.put(unit.id(), unit);
-            this.expansion = expands(unit.id()) ? CallGraphExpansion.of(unit, catalog) : CallGraphExpansion.single(unit);
-            this.referenceExpansion = expands(reference.id()) ? CallGraphExpansion.of(reference, catalog)
+            var unitCatalog = new LinkedHashMap<String, WorkflowDefinition>();
+            defaults.forEach(unitCatalog::putIfAbsent);
+            callable.forEach(definition -> unitCatalog.put(definition.id(), definition));
+            unitCatalog.put(unit.id(), unit);
+            var referenceCatalog = new LinkedHashMap<>(defaults);
+            referenceCatalog.put(reference.id(), reference);
+            this.expansion = expands(unit.id()) ? CallGraphExpansion.of(unit, unitCatalog)
+                    : CallGraphExpansion.single(unit);
+            this.referenceExpansion = expands(reference.id()) ? CallGraphExpansion.of(reference, referenceCatalog)
                     : CallGraphExpansion.single(reference);
             this.graph = expansion.graph();
             this.referenceGraph = referenceExpansion.graph();
