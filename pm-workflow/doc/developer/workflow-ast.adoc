@@ -24,8 +24,9 @@ link:workflow-verify.adoc#interface-rules[Workflow Verification § Interface Rul
 == The Definition Node
 _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
 
-`WorkflowDefinition` is the root of the tree: one complete unit, that is the merged plan unit, a plan instance version, a
-single-file top-level unit or one sub-workflow. Beside its header, scope, declarations, migrations and states it carries:
+`WorkflowDefinition` is the root of the tree: one complete unit, that is the plan unit that calls the phases, a phase
+sub-workflow, a plan instance version, a single-file top-level unit or one sub-workflow. Beside its header, scope,
+declarations, migrations and states it carries:
 
 [horizontal]
 `frontmatter`:: The `UnitFrontmatter` the unit opens with (<<_the_frontmatter>>).
@@ -46,10 +47,11 @@ the tree: the parser keeps what the text says, and the verifier checks it
 
 Two components of the definition are not read from the text of one file:
 
-* `PlanUnitMerger` of `workflow.unit` gives the merged plan unit the frontmatter of its first part, the init file, with
-  the type `workflow`, and that part's start state and entry bindings.
 * `PlanInstanceComposer` of `workflow.plan` gives a composed plan instance version the frontmatter of its template with
   the type `instance`, and the template's start state and entry bindings.
+
+A phase is not a component of a state (<<_the_phase_of_a_unit>>): the plan unit carries no phase, and each phase is the
+sub-workflow its call state `phases.<name>` names.
 
 [#_the_frontmatter]
 == The Frontmatter
@@ -194,11 +196,31 @@ through it enters.
 admits only for a callee with exactly one entry), `paramBindings` and `transitions`. The parameters belong to the
 callee, not to an entry: a call binds every declared parameter whichever entry it uses.
 
-`ast.CallFrame` is one frame of a scope's call stack: `callerWorkflowId`, `callerStateId`, `callerPhase`,
-`subWorkflowId`, `entry`, `boundArgs` and `pushedAt`. Its `entry` is the entry the frame was entered through: the entry
-the call names, or the callee's sole entry when the call names none. The engine resolves it when it pushes the frame,
-and `engine.CallStack` copies it to and from the store frame `WorkflowStatus.CallFrame` of `pm-core`
+`ast.CallFrame` is one frame of a scope's call stack: `callerWorkflowId`, `callerStateId`, `subWorkflowId`, `entry`,
+`boundArgs` and `pushedAt`. Its `entry` is the entry the frame was entered through: the entry the call names, or the
+callee's sole entry when the call names none. The engine resolves it when it pushes the frame, and `engine.CallStack`
+copies it to and from the store frame `WorkflowStatus.CallFrame` of `pm-core`
 (link:workflow-engine.adoc#_call_stack_and_exit_contracts[Workflow Engine § Call Stack and Exit Contracts]).
+
+[#_the_phase_of_a_unit]
+== The Phase of a Unit
+_Requirements: link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16], link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+`Phase` is the closed list of the six phases of a plan, each named by the unit that carries it: `phase-1-init`,
+`phase-2-refine`, `phase-3-outline`, `phase-4-plan`, `phase-5-execute` and `phase-6-finalize`. A phase is never a
+member of a state and never a frontmatter value: it is the fact that a phase sub-workflow is on the call stack, and
+every sub-workflow called within a phase (the land lane, a remediation unit, a chat) has the phase of the frame that
+called it (link:../adr/workflow-ast/003-the-phase-is-the-phase-unit-on-the-call-stack.adoc[ADR 003]).
+
+[horizontal]
+`Phase.ofUnit(unitId)`:: the phase a unit carries, empty for a unit that is no phase sub-workflow.
+`Phase.ofCallState(stateId)`:: the phase the plan unit's call state `phases.<name>` enters, empty for another state.
+`wireName()` / `unitId()`:: the phase unit's identifier, the value the status store records for the phase of a scope.
+
+The plan unit calls each phase through the call state `phases.<name>` and names the entry it enters; a loop-back is
+another call of the phase, and the finalize phase's `reentry` outcome is the re-entry into execute. Because the phase
+is the unit, the `phase` clause and `phase inherit` are not part of the grammar
+(link:../adr/workflow-dsl/011-the-grammar-carries-no-phase-clause.adoc[ADR workflow-dsl 011]).
 
 == Invariants
 _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
@@ -252,3 +274,5 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
   interfaces and enums.
 * link:../adr/workflow-ast/002-start-state-optional-for-a-unit-with-entries.adoc[ADR 002]: the start state is
   `Optional<String>`, empty for a unit with entries.
+* link:../adr/workflow-ast/003-the-phase-is-the-phase-unit-on-the-call-stack.adoc[ADR 003]: the phase is the phase
+  unit on the call stack; no state and no frontmatter declares one.

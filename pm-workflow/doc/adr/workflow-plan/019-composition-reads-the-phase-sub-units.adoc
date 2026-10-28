@@ -1,0 +1,44 @@
+= ADR 019: Composition Reads the Phase Sub-Units
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-28
+
+== Context
+
+`PlanInstanceComposer` composed a version from a plan template and the sub-units its calls reach, with the seven phase
+files supplied as merge parts. The merge is gone (ADR workflow-unit 007), so the phase units are sub-workflows the
+composed plan unit calls. The operator decided on 2026-10-28 that the phase set as a set of instance files, and the
+pruning of the other lane over it, is PLAN-105's (`plan-instance-files-and-history`).
+
+== Decision
+
+* A composition request names the plan unit's own file as its template and the phase units among its sub-units; the
+  header lists the sub-units its calls reach, the phase units included.
+* This package keeps only the composition the composer needs to compile and verify a version over the phase
+  sub-workflows: pruning by axis variants, rules, steps and policy actions stays; the phase set as one file per
+  composed unit does not land here.
+* A test whose subject is lane pruning over the composed phase set, or a test whose fixture is the merged unit, is
+  removed with its subject and named in the landing residue as owed to PLAN-105; it is never left red or disabled.
+
+== Alternatives Considered
+
+1. *Implement the phase-set composition here.* Deferred by the operator's decision: it changes the store layout,
+   which is PLAN-105's declared surface.
+2. *Keep the merged-unit fixtures for the composer.* Rejected: they exercise a unit the language no longer produces.
+
+== Consequences
+
+A composed version's phase-level pruning waits for PLAN-105; until then the pruner's lane logic finds no lane entry in
+the plan unit and prunes nothing by lane, which the composer tests record. PLAN-105 takes `PlanInstanceComposer`,
+`InstanceMermaidRenderer` and `PlanInstanceComposerTest` onto its surface.
+
+== Source
+
+* Work package `doc/plans/phase-sub-workflows.adoc`; the operator's decisions B4 and of 2026-10-28.
+* Workflow DSL Specification § Plan Instance; Store Schemas § The Plan's History.

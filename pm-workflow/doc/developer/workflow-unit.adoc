@@ -23,8 +23,7 @@ The decisions are recorded in `pm-workflow/doc/adr/workflow-unit/`.
 _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
 
 [horizontal]
-`DefaultUnitLoader`:: Reads the named unit files from a classpath root through a given class loader, parses them as `UnitOrigin.DEFAULT`, merges the phase files and verifies every unit with Rules 1-12, Rule 5 against the released state names included. The root is a constructor parameter (link:../adr/workflow-unit/001-default-units-from-a-classpath-root.adoc[ADR 001]).
-`PlanUnitMerger`:: Merges the parsed phase files `init`, `refine`, `outline`, `plan`, `execute`, `land` and `finalize` (`PHASE_FILES`, in that order) into the unit `plan` (link:../adr/workflow-unit/002-plan-unit-merge-and-derived-from.adoc[ADR 002]).
+`DefaultUnitLoader`:: Reads the named unit files from a classpath root through a given class loader, parses them as `UnitOrigin.DEFAULT` and verifies every unit with Rules 1-12, Rule 5 against the released state names included. The root is a constructor parameter (link:../adr/workflow-unit/001-default-units-from-a-classpath-root.adoc[ADR 001]).
 `ProjectUnitLoader`:: Reads the project-ownable files from `.marshall/config/` of a project, parses them as `UnitOrigin.PROJECT` and runs the seven verification stages below.
 `VerificationContext`:: The inputs of the static verifier the assembly supplies once: the `PrimitiveRegistry`, the entity kinds, the question classes, the parameter schemas and the units compiled into the release that no project owns, such as the entity units. Each verification builds its `WorkflowCatalog` from these units plus the units being loaded.
 `UnitFinding`:: One finding: its `Kind`, a code, the file, the line and a message. A finding is a value, never an exception (link:../adr/workflow-unit/003-findings-refuse-the-lifecycle-never-a-default.adoc[ADR 003]).
@@ -37,10 +36,10 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 classpath root (workflows/ in the assembly)          <project>/.marshall/config/*.pmwf
         │                                                      │
         ▼                                                      ▼
-DefaultUnitLoader ── parse DEFAULT                    ProjectUnitLoader ── PathConfinement
-        │           PlanUnitMerger                             │  1 read, confined
-        │           WorkflowValidator (Rules 1-12, Rule 5)     │  2 parse PROJECT, format check
-        ▼                                                      │  3 PlanUnitMerger, Rules 1-12 without Rule 5
+DefaultUnitLoader ── parse DEFAULT                         ProjectUnitLoader ── PathConfinement
+        │           WorkflowValidator (Rules 1-12, Rule 5)     │  1 read, confined
+        │                                                      │  2 parse PROJECT, format check
+        ▼                                                      │  3 Rules 1-12 without Rule 5
 verified default units ───────── reference ──────────────────► │  4 DeclarationBounds
 default finalize roster (assembly) ──────────────────────────► │  5 FinalizePipelineValidator
 declared project steps, bound step ids (per load) ───────────► │  6 CompiledInvariants
@@ -60,9 +59,11 @@ declared project steps, bound step ids (per load) ──────────
 _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
 
 `DefaultUnitLoader.load()` reads `<root><file>` for every name of its file list.
-A name of `PlanUnitMerger.PHASE_FILES` is a part of the plan unit; every other name is a unit of its own, keyed by the identifier it declares.
-A file that declares the identifier of an earlier file, or the identifier `plan` of the merged plan unit, is a `duplicate_unit_id` finding at its header that names the identifier and both files; it never replaces the earlier unit or the plan unit.
-The plan unit is merged only when every phase file of the list was read and parsed; a missing or refused phase file leaves the plan unit out, and no part is verified on its own.
+Every name is a unit of its own, keyed by the identifier it declares; the plan unit is one of them, and it calls the
+six phase sub-workflows and the land lane instead of holding their states
+(link:../adr/workflow-unit/007-the-plan-unit-calls-its-phases.adoc[ADR 007]).
+A file that declares the identifier of an earlier file is a `duplicate_unit_id` finding at its header that names the
+identifier and both files; it never replaces the earlier unit.
 Every loaded unit is then verified by a `WorkflowValidator` whose catalog holds the compiled units of the context and the loaded sub-workflows, with the released state names of the unit's identifier as the Rule 5 baseline.
 
 The findings of a default load are:
@@ -73,32 +74,32 @@ The findings of a default load are:
 |`MISSING` |`unit_missing` |the resource is not on the classpath; line `0`
 |`MISSING` |`unit_unreadable` |the resource cannot be read; line `0`
 |`PARSE` |the name of the parser's `RefusalRule` |the parser refuses the file, at the line of its diagnostic
-|`RULE` |the name of the `VerificationRule`, or a merge code |a static verification rule or a rule of the merge is violated
-|`RULE` |`duplicate_unit_id` |a file declares the identifier of an earlier file or `plan`, at its header
-|`FORMAT` |`mixed_formats` |two phase files declare different DSL formats
+|`RULE` |the name of the `VerificationRule` |a static verification rule is violated
+|`RULE` |`duplicate_unit_id` |a file declares the identifier of an earlier file, at its header
 |===
 
 Every finding is logged as ERROR `DEFAULT_UNIT_REFUSED` (`PM_WORKFLOW-200` of `WorkflowLogMessages`) with resource, line and code: a default unit that does not verify is a defect of the build.
 The loaded units keep the resource name they were read from, for example `workflows/init.pmwf`, in their source locations.
 
-== Merging the Plan Unit
+== The Plan Unit Calls Its Phases
 
 _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
 
-`PlanUnitMerger.merge(parts)` takes the parsed phase files in merge order and returns a `Merge` of an optional unit and its findings:
+`PlanUnitMerger` and `WorkflowDefinition.partVersions` are removed
+(link:../adr/workflow-unit/007-the-plan-unit-calls-its-phases.adoc[ADR 007]). The plan unit is one file whose call states
+`phases.init` to `phases.finalize` call the six phase sub-workflows at the entry each names; `land.pmwf` is a
+sub-workflow that `phase-5-execute` calls at its `land` entry, so the land lane is a call within execute and never a
+phase of its own.
 
-* the states and the migrations of the unit are the union of those of its parts, in part order;
-* the frontmatter, the optional start state, the entry bindings, the header location, the scope, the format and the
-  origin are those of the first part, the init file; the frontmatter takes the type `workflow`, the type of the merged
-  plan unit, whatever the part declares (link:../adr/workflow-dsl/005-frontmatter-read-by-its-own-line-parser.adoc[ADR workflow-dsl 005]);
-* the version is the sum of the part versions, and `partVersions` records each part version under the resource name of its file;
-* `derivedFrom` records, under the resource name of each file, the default revision the file's header names with `derived_from`. The parser records the clause only for a project unit and refuses it on a default unit, so a default plan unit has an empty map.
-
-Every part must declare scope `plan` (otherwise `not_a_plan_part`); its header names the part, for example `workflow finalize`, and identifies the file only, so the merged unit is `plan` whatever its parts are named.
-Every part must declare the format of the first part (`mixed_formats`, kind `FORMAT`) and the origin of the first part (`mixed_origins`): a project never mixes a default file into its own plan unit.
-A state declared in two parts is a `STATE_ID_UNIQUE` finding at the second declaration.
-A part carries no `declare` line, no `decide` line and no `instance` line: the merged unit has none of them, so such a line would have no effect, and each is a `declaration_in_plan_part` finding instead of being dropped. A `declare` or `decide` finding is located at its line; an `instance` finding at the header line of the part, which the instance line directly follows, since the instance header carries no location of its own.
-Every finding is reported, and a merge with a finding yields no unit.
+* Every phase file is a unit of its own, keyed by the identifier its header declares (`phase-1-init` to
+  `phase-6-finalize`), and it is verified on its own by Rules 1-12 and by the phase invariants of its own phase.
+* A phase unit declares its entries and exits in its frontmatter; the plan unit enters it through
+  `call <unit> entry <name>` and routes its exits back into its own call states. A unit that declares the identifier of
+  an earlier file is still refused by `duplicate_unit_id`.
+* No file is merged, so no merge code (`mixed_formats`, `mixed_origins`, `not_a_plan_part`, `declaration_in_plan_part`)
+  exists and no part carries a version sum: each unit keeps its own header version.
+* A project unit replaces the default unit of its own identifier; a project that owns `phase-5-execute` replaces that
+  phase, and a project that owns `plan` replaces the plan unit. Neither can re-merge the phases.
 
 == Loading the Project Units
 
@@ -112,7 +113,7 @@ A load runs these stages and collects every finding before it decides:
 
 . *Read.* Every file is read from `.marshall/config/<file>` (`CONFIG_DIRECTORY`). The path is confined to the workspace by `PathConfinement.confine` of `pm-core`; a refused path, such as a symbolic link to a file outside the project, is a `CONFINEMENT` finding `path_traversal_rejected` at line `0`. At most `MAX_UNIT_FILE_BYTES + 1` (1048577) bytes are read; a file that needs more is a `MISSING` finding `unit_too_large` at line `0` and is never read whole. A file that does not exist is `MISSING` `unit_missing`, one that cannot be read or is not UTF-8 `MISSING` `unit_unreadable`.
 . *Parse and format.* Every file is parsed as a project unit. A refused file is a `PARSE` finding at the line of the diagnostic. A unit whose DSL format is not the compiled one (`COMPILED_FORMAT_VERSION`, `1`) is a `FORMAT` finding at its header: `format_newer` for a later format, `format_outdated` for an earlier one. The grammar admits no format below `1`, so while the compiled format is `1` an earlier format is refused by the parser instead, and `format_outdated` is first reached when a release compiles format `2`. A unit whose author equals `plan-marshall` after NFKC normalisation, removal of its format characters, stripping of its surrounding whitespace and case folding is a `RULE` finding `author_reserved` at its `author` line (<<_the_author_of_a_unit>>); the author is read from the raw source before the parse, so this finding is reported even when the frontmatter reader also refuses the unit for a character. A file that declares the identifier of an earlier file, or `plan`, is a `RULE` finding `duplicate_unit_id` at its header and replaces nothing, as in the default load.
-. *Merge and Rules 1-12.* The phase files are merged as above, and every unit is verified with Rules 1-12. Rule 5 is left out: a project unit has no released baseline. The catalog holds the compiled units of the context and the project's own sub-workflows, so a sub-workflow that was refused in stage 1 or 2 also leaves its callers with a Rule 6 finding.
+. *Rules 1-12.* Every unit is verified with Rules 1-12. Rule 5 is left out: a project unit has no released baseline. The catalog holds the compiled units of the context and the project's own sub-workflows, so a sub-workflow that was refused in stage 1 or 2 also leaves its callers with a Rule 6 finding.
 . *Declarations.* `DeclarationBounds.check` checks the `declare` and `decide` lines; each finding is `DECLARATION` `declaration_invalid` at the offending line, or at the unit header for a missing declaration.
 . *Finalize pipeline.* For the plan unit, the project roster is built from the default descriptors of the steps the unit completes, in the order of the default roster, followed by the declared project steps; `FinalizePipelineValidator.validate` checks it. A `PIPELINE` finding carries the name of the `PipelineRule` and is located at the first state, in declaration order, with a transition that completes the step, or at the unit header when no state does (link:../adr/workflow-finalize/002-project-roster-and-violation-location.adoc[ADR 002 of `workflow.finalize`]).
 . *Compiled invariants.* `CompiledInvariants.check` checks the unit against the default unit of the same identifier. A project unit is a template whose lane is unknown, so the loader passes no lane to `check`, and `INV-INIT-2` requires of the plan unit the `light -> deep` ratchet of `init.light-gate` and `outline.light-regate` (link:workflow-verify.adoc#_inv_init_2_per_lane[Workflow Verification § INV-INIT-2 per Lane]). A violation that only repeats a finding of stages 3 to 5 (`CompiledInvariants.reReports`: the Rule 1-12 violations, the pipeline violations and the declaration findings) is dropped, so no defect is listed twice; every other violation is an `INVARIANT` finding with the wire id of its invariant. See the link:workflow-verify.adoc#_compiled_invariants[Workflow Verification Developer Guide § Compiled Invariants].
@@ -205,7 +206,7 @@ result.refusal().ifPresent(refusal -> { /* the assembly refuses plan start or re
 
 To make another unit project-ownable:
 
-. Ship its default file in the content of `plan-marshall-mcp` and add the file name to the list both loaders receive; a phase file of the plan unit is added to `PlanUnitMerger.PHASE_FILES` as well.
+. Ship its default file in the content of `plan-marshall-mcp` and add the file name to the list both loaders receive.
 . Give it the invariants that apply to it in `InvariantId` (a unit pattern names it) and their checks in `workflow.verify`.
 . When it declares values, add its schema to `DeclarationBounds`; a unit without a schema declares nothing.
 
@@ -227,12 +228,12 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 
 `UnitFixtures` builds a fixture project in a `@TempDir`: the units of `unit-fixtures/defaults/` (shared with the invariant tests through `InvariantFixtures`) in its `.marshall/config/`, with named mutations applied.
 `DefaultUnitLoaderTest` loads the fixture defaults from that root and writes broken defaults into a temporary directory read through its own class loader.
-`PlanUnitMergerTest`, `ProjectUnitLoaderTest` and `ProjectStepBindingTest` cover the merge, every refusal of a project load and every binding disagreement; the log records are asserted with cui-test-juli-logger.
-The merged unit carries the frontmatter and the optional start state of its first part (`PlanUnitMergerTest`); a project unit with the author `plan-marshall`, `Plan-Marshall`, `PLAN-MARSHALL`, a full-width form or a zero-width character is refused with `author_reserved` at its file and line, a near miss such as `plan-marshal` loads, and a file at the size cap loads while one byte and four times past it are refused with `unit_too_large` (`ProjectUnitLoaderTest`).
+`ProjectUnitLoaderTest` and `ProjectStepBindingTest` cover every refusal of a project load and every binding disagreement; the log records are asserted with cui-test-juli-logger.
+The plan unit and the six phase sub-workflows are twelve units of the fixture corpus, each verified on its own (`DefaultUnitLoaderTest`); a project unit with the author `plan-marshall`, `Plan-Marshall`, `PLAN-MARSHALL`, a full-width form or a zero-width character is refused with `author_reserved` at its file and line, a near miss such as `plan-marshal` loads, and a file at the size cap loads while one byte and four times past it are refused with `unit_too_large` (`ProjectUnitLoaderTest`).
 Every unit text of the tests opens with its frontmatter: `plan-marshall` as author for a unit loaded as a default, a person's name for a unit loaded as a project unit.
 
 == Specification Tracing
 
 * Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
 * Specification: link:../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Project-Owned Workflow Units & Compiled Invariants], link:../../../doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#workflow-definition-units[Workflow DSL § Workflow Definition Units]
-* Decisions: `pm-workflow/doc/adr/workflow-unit/` ADRs 001 to 006; the reserved author in link:../adr/workflow-unit/005-author-plan-marshall-reserved-to-the-binary.adoc[ADR 005], its normalised comparison and the file size bound in link:../adr/workflow-unit/006-reserved-author-compared-normalised.adoc[ADR 006]
+* Decisions: `pm-workflow/doc/adr/workflow-unit/` ADRs 001 to 007; the reserved author in link:../adr/workflow-unit/005-author-plan-marshall-reserved-to-the-binary.adoc[ADR 005], its normalised comparison and the file size bound in link:../adr/workflow-unit/006-reserved-author-compared-normalised.adoc[ADR 006], and the plan unit that calls its phases in link:../adr/workflow-unit/007-the-plan-unit-calls-its-phases.adoc[ADR 007]
