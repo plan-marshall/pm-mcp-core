@@ -61,20 +61,6 @@ Guard:: The plan implementing this anchor decides the point (with the operator w
 the result in the specification and the requirement it touches, and deletes this item.
 Source:: `model-work/01-roles-and-configuration.adoc:15`, `:256`, `:279`.
 
-[#PM-WATCH-DISP-58]
-=== PM-WATCH-DISP-58: Open: the score of a graded task that ends without an answer
-
-Anchor:: link:../specification/model-work/01-roles-and-configuration.adoc#grading[Model Work § Grading]
-Hazard:: Undecided: how an item scores when the graded worker's task closes `lost`, ends `infeasible`, or ends `asked` is not
-defined (the qualification record only marks an item ungraded when the judge task closed `lost`). A qualification
-computed over undefined item scores is not reproducible, and a model that never answers could pass. Options: (1)
-score 0, counted wrong; (2) ungraded and re-run. Recommendation: model-caused ends (attempts spent, `infeasible`,
-`asked`) count wrong, infrastructure ends (`role_unavailable`) are ungraded, because only the first measure the
-configuration.
-Guard:: The plan implementing this anchor decides the point (with the operator where it changes scope), records
-the result in the specification and the requirement it touches, and deletes this item.
-Source:: `model-work/01-roles-and-configuration.adoc:254-274`, `store-schemas/16-task-queue.adoc:230`.
-
 == Task Protocol, Supervision & Skill Delivery
 
 [#PM-WATCH-DISP-41]

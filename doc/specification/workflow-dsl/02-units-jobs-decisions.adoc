@@ -169,7 +169,7 @@ start task.queued
 state task.queued
   auto task.call-model                      # the model caller: role, artifact, qualification, re-offer budget
     queued          -> task.waiting
-    closed          -> task.lost            # role_undefined, class_mismatch, role_unqualified, role_unavailable, attempts_spent
+    closed          -> task.lost            # role_undefined, class_mismatch, role_unqualified, role_unavailable, input_too_large, attempts_spent
 
 state task.waiting
   composite_job task.await-offer            # a pm_wait of a worker of the role; the offer leases the task

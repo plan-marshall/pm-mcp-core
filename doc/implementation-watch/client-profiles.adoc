@@ -176,21 +176,29 @@ Source:: plan-marshall defect process-compliance inbox module-budget-campaign-co
 
 Anchor:: link:../specification/client-profiles/03-endpoint-harness.adoc#endpoint-harness[Client Profiles § Endpoint Harness],
 link:../specification/client-profiles/03-endpoint-harness.adoc#weights-identity[Client Profiles § Weights Identity],
+link:../specification/model-work/01-roles-and-configuration.adoc#grading[Model Work § Grading],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6]
 Hazard:: A local model server that speaks the OpenAI chat format is not the OpenAI service: it may stream by default
 where the client library expects one JSON document, accept a `tools` member and answer with an invented tool result
 and no tool call, accept a response schema and not hold to it, refuse in prose instead of an error status, and load
 other weights under the same model name after an operating system update or on another chip. Each of these returns a
 well-formed answer, so a screener verdict or a grade can rest on an answer the request never asked for, and a
-qualification record can outlive the weights it graded. Any program can listen on a loopback port.
+qualification record can outlive the weights it graded. Any program can listen on a loopback port. The context of
+such a model is small (8,192 tokens), so an adapter that cuts a diff or a judge's item to fit gets an answer about
+part of the evidence that still validates; and a model whose guard refuses odd but harmless text would look better
+than it is if a grading left its refused items out like the ungraded items of a failed judge.
 Guard:: The request sets every value the endpoint has a default for (streaming off among them) and never sends
 `tools`; the server validates every answer against the result schema whatever `result_schema` says; a refusal, a
 non-validating answer, an HTTP error, and a timeout each end the attempt without a result, and a screening stays
 `unscreened`. Fixtures: a stub endpoint that streams unless told not to, one that returns prose under a schema, one
 that answers a `tools` request with an invented result (recorded `tools_ignored`), one whose weights identity changes
 between two runtime starts (the record goes stale, `harness_updated` audited), and a stub listening on the profile's
-port from an executable other than the enrolled one (refused before any task text is sent).
-Source:: Article analysis `macos27-on-device-llm` of plan-marshall-documentation (the measurements of a local model server it records).
+port from an executable other than the enrolled one (refused before any task text is sent). The model caller never
+cuts in-band input: one that does not fit closes the task `input_too_large` before a request, and a graded item
+without a result is scored as not agreeing. Fixtures: a commit-message task on a stub endpoint with a diff one token
+over its budget closes `input_too_large` and the template message is written, with no request received by the stub;
+a grading on a stub that refuses two of ten screener items records both as misses, never as ungraded.
+Source:: Article analyses `macos27-on-device-llm` and `macos27-on-device-coding` of plan-marshall-documentation (the measurements of a local model server they record).
 
 [#PM-WATCH-CLIENT-15]
 === PM-WATCH-CLIENT-15: A remote endpoint is addressed by a versioned id, holds a key for one origin, and logs no body
