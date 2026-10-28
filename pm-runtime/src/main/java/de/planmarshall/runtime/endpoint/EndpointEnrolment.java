@@ -77,18 +77,17 @@ public final class EndpointEnrolment {
         var read = 0;
         for (var model : models) {
             var reading = reader.read(profile, model, listing);
-            if (!reading.isRead()) {
-                continue;
-            }
-            read++;
-            var current = weights.get(model);
-            if (current != null && current.weightsId().equals(reading.weightsId())) {
-                continue;
-            }
-            weights.put(model, new HarnessEnrolment.Weights(reading.weightsId(), clock.instant()));
-            dirty = true;
-            if (current != null) {
-                changed.put(model, current.weightsId());
+            if (reading.isRead()) {
+                read++;
+                var current = weights.get(model);
+                var unchanged = current != null && current.weightsId().equals(reading.weightsId());
+                if (!unchanged) {
+                    weights.put(model, new HarnessEnrolment.Weights(reading.weightsId(), clock.instant()));
+                    dirty = true;
+                    if (current != null) {
+                        changed.put(model, current.weightsId());
+                    }
+                }
             }
         }
         if (!dirty) {

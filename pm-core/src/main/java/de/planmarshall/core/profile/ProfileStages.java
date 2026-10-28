@@ -673,10 +673,10 @@ public final class ProfileStages {
          * @throws NullPointerException if a stage is {@code null}
          */
         public EndpointVerification {
-            Objects.requireNonNull(identity, "identity");
-            Objects.requireNonNull(launch, "launch");
-            Objects.requireNonNull(classes, "classes");
-            Objects.requireNonNull(limits, "limits");
+            Objects.requireNonNull(identity, IDENTITY);
+            Objects.requireNonNull(launch, LAUNCH);
+            Objects.requireNonNull(classes, CLASSES);
+            Objects.requireNonNull(limits, LIMITS);
         }
 
         /** @return whether a failed {@code identity} or {@code launch} refuses the draft */
