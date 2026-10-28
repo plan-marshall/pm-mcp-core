@@ -10,6 +10,7 @@
 package de.planmarshall.core.store;
 
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
@@ -251,9 +252,15 @@ public final class IntentAcceptance {
             return Optional.empty();
         }
         var root = context.treeRoot().toAbsolutePath().normalize();
-        var resolved = root.resolve(evidence).normalize();
-        if (Path.of(evidence).isAbsolute() || !resolved.startsWith(root)) {
-            return Optional.of("the fact decision '%s' names the evidence '%s', which lies outside the tree"
+        Path resolved;
+        try {
+            resolved = root.resolve(evidence).normalize();
+            if (Path.of(evidence).isAbsolute() || !resolved.startsWith(root)) {
+                return Optional.of("the fact decision '%s' names the evidence '%s', which lies outside the tree"
+                        .formatted(decision.id(), evidence));
+            }
+        } catch (InvalidPathException e) {
+            return Optional.of("the fact decision '%s' names the evidence '%s', which is no path"
                     .formatted(decision.id(), evidence));
         }
         if (!Files.exists(resolved)) {

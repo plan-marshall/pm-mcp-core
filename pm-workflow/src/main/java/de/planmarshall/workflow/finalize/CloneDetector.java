@@ -241,28 +241,51 @@ public final class CloneDetector {
 
         private static Cursor skipLiteral(String text, int start, char quote, int startLine) {
             var textBlock = quote == '"' && text.startsWith("\"\"\"", start);
-            var index = start + (textBlock ? 3 : 1);
+            return textBlock ? skipTextBlock(text, start + 3, startLine)
+                    : skipQuoted(text, start + 1, quote, startLine);
+        }
+
+        private static Cursor skipTextBlock(String text, int start, int startLine) {
+            var index = start;
             var line = startLine;
             while (index < text.length()) {
                 var character = text.charAt(index);
                 if (character == '\\') {
-                    if (index + 1 < text.length() && text.charAt(index + 1) == '\n') {
+                    line = escapedLine(text, index, line);
+                    index += 2;
+                } else if (text.startsWith("\"\"\"", index)) {
+                    return new Cursor(index + 3, line);
+                } else {
+                    if (character == '\n') {
                         line++;
                     }
-                    index += 2;
-                } else if (textBlock ? text.startsWith("\"\"\"", index) : character == quote) {
-                    return new Cursor(index + (textBlock ? 3 : 1), line);
-                } else if (character == '\n') {
-                    if (!textBlock) {
-                        return new Cursor(index, line);
-                    }
-                    line++;
                     index++;
+                }
+            }
+            return new Cursor(text.length(), line);
+        }
+
+        private static Cursor skipQuoted(String text, int start, char quote, int startLine) {
+            var index = start;
+            var line = startLine;
+            while (index < text.length()) {
+                var character = text.charAt(index);
+                if (character == '\\') {
+                    line = escapedLine(text, index, line);
+                    index += 2;
+                } else if (character == quote) {
+                    return new Cursor(index + 1, line);
+                } else if (character == '\n') {
+                    return new Cursor(index, line);
                 } else {
                     index++;
                 }
             }
             return new Cursor(text.length(), line);
+        }
+
+        private static int escapedLine(String text, int index, int line) {
+            return index + 1 < text.length() && text.charAt(index + 1) == '\n' ? line + 1 : line;
         }
     }
 }

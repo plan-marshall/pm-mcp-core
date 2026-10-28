@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.store.OutlineRecord.AddedDependency;
@@ -109,6 +110,9 @@ public class OutlineCodec {
     private static final String FIELD_FROM = "from";
     private static final String FIELD_TO = "to";
     private static final String FIELD_PATTERN = "pattern";
+
+    /** The schema's key pattern of the server-owned deliverable state, before conversion to a number. */
+    private static final Pattern DELIVERABLE_STATUS_KEY = Pattern.compile("[1-9][0-9]?");
 
     /**
      * @param store the store
@@ -529,11 +533,10 @@ public class OutlineCodec {
     private static Map<Integer, DeliveryStatus> byNumber(Map<String, DeliveryStatus> byKey) {
         var statuses = new LinkedHashMap<Integer, DeliveryStatus>();
         byKey.forEach((key, status) -> {
-            try {
-                statuses.put(Integer.valueOf(key), status);
-            } catch (NumberFormatException e) {
-                throw unreadable("'%s' is no deliverable number".formatted(key), e);
+            if (!DELIVERABLE_STATUS_KEY.matcher(key).matches()) {
+                throw unreadable("'%s' is no deliverable number".formatted(key));
             }
+            statuses.put(Integer.valueOf(key), status);
         });
         return statuses;
     }

@@ -407,13 +407,23 @@ class IntentRecordTest {
         assertTrue(assertInstanceOf(Refused.class, outcome).detail().contains("revision 1"));
     }
 
+    @DisplayName("A fact decision whose evidence is no path is refused, not thrown")
+    @Test
+    void refusesEvidenceThatIsNoPath(@TempDir Path tree) {
+        var intentRecord = withDecisions(List.of(new Decision("DC-1", "The tree shows the store layout",
+                List.of("a store", "one file"), Decider.FACT, null, "bad\u0000path", null)));
+        assertTrue(assertInstanceOf(Refused.class,
+                accept(null, IntentSubmission.REFINE, revision(1, intentRecord), context(tree))).detail()
+                .contains("no path"));
+    }
+
     @DisplayName("A fact decision whose evidence lies outside the tree is refused")
     @Test
     void refusesEvidenceOutsideTheTree(@TempDir Path tree) {
-        var record = withDecisions(List.of(new Decision("DC-1", "The tree shows the store layout",
+        var intentRecord = withDecisions(List.of(new Decision("DC-1", "The tree shows the store layout",
                 List.of("a store", "one file"), Decider.FACT, null, "../outside.adoc", null)));
         assertTrue(assertInstanceOf(Refused.class,
-                accept(null, IntentSubmission.REFINE, revision(1, record), context(tree))).detail()
+                accept(null, IntentSubmission.REFINE, revision(1, intentRecord), context(tree))).detail()
                 .contains("outside the tree"));
 
         var absolute = withDecisions(List.of(new Decision("DC-1", "The tree shows the store layout",

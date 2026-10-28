@@ -187,6 +187,16 @@ class OutlineRecordTest {
         assertThrows(IllegalArgumentException.class, () -> new OutlineStore(first, statuses, history));
     }
 
+    @DisplayName("A noncanonical deliverable-state key is refused")
+    @Test
+    void refusesNoncanonicalStatusKey() {
+        var store = OutlineStore.first(revision(1, valid()));
+        var document = new String(OutlineCodec.write(store), StandardCharsets.UTF_8)
+                .replace("\"1\":", "\"01\":");
+        assertThrows(StoreRefusal.class, () -> OutlineCodec.read(FILE,
+                document.getBytes(StandardCharsets.UTF_8)));
+    }
+
     @DisplayName("The reader refuses a document of another format version")
     @Test
     void refusesOtherFormatVersion() {
