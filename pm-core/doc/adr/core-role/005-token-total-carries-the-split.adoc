@@ -23,7 +23,7 @@ both addends have one. `QualificationRecordCodec` and `JudgeCheckCodec` write an
 
 == Alternatives Considered
 
-Deriving the split from the total was rejected: a total is never split into parts it did not measure (the split is derived on read, link:../../adr/core-store/048-token-split-derived-on-read-and-the-coverage-aggregate.adoc[ADR core-store/048]). Storing only the total was rejected because the operator view would lose
+Deriving the split from the total was rejected: a total is never split into parts it did not measure, and the split is measured beside it. Storing only the total was rejected because the operator view would lose
 the split.
 
 == Consequences

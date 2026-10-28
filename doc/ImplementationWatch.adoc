@@ -31,7 +31,7 @@ Defect archetypes, real-corpus fixtures and verification hints that guard the sp
 
 |link:implementation-watch/model-work.adoc[Model Work]
 |`DISP`
-|56
+|55
 |link:specification/model-work.adoc[Model Work Specification]
 
 |link:implementation-watch/domain-extensions.adoc[Domain Extensions]

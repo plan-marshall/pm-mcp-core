@@ -358,7 +358,7 @@ The record of one calibration of a quorum declaration by the operator's calibrat
           "decided": { "type": "boolean" },
           "agreed_option": { "type": ["string", "null"] },
           "false_auto": { "type": "boolean", "description": "decided and the agreed option is neither the item's target answer nor an accepted alternative." },
-          "total_tokens": { "oneOf": [ { "type": "integer", "minimum": 1 }, { "type": "string", "const": "unmeasured" } ], "description": "The tokens the item used; the split is derived on read (ADR core-store/048)." },
+          "total_tokens": { "oneOf": [ { "type": "integer", "minimum": 1 }, { "type": "string", "const": "unmeasured" } ], "description": "The tokens the item used (store-schemas/05, Metrics Store)." },
           "tokens_in": { "oneOf": [ { "type": "integer", "minimum": 0 }, { "type": "string", "const": "unmeasured" } ], "description": "The split the view shows: input, cache read and cache creation; measured as a pair with tokens_out summing to total_tokens, or unmeasured when the item's split is." },
           "tokens_out": { "oneOf": [ { "type": "integer", "minimum": 0 }, { "type": "string", "const": "unmeasured" } ], "description": "The split the view shows: output and reasoning; measured as a pair with tokens_in summing to total_tokens, or unmeasured when the item's split is." },
           "duration_ms": { "type": ["integer", "null"], "minimum": 0 }
