@@ -11,31 +11,32 @@ package de.planmarshall.workflow.diagram;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.ParamSpec;
 import de.planmarshall.workflow.ast.ParamType;
+import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
 
 /**
- * Renders a unit as AsciiDoc tables (PM-IMPL-5): per phase group, in the order in which the phase values are first
- * declared, a state table, a link table and an outcome table, each titled with its phase value.
+ * Renders a unit as AsciiDoc tables (PM-IMPL-5): for the phase the unit carries, if it is a phase sub-workflow, a
+ * state table, a link table and an outcome table, each titled with that phase value.
  * <ul>
  * <li><b>States</b>: exactly the columns of the State Catalogue: <em>State id</em>, <em>Phase value</em>,
  * <em>Kind</em> ({@link StateKind}), <em>Entered from</em> ({@code start} for the start state, {@code entry <name>} for
  * each entry that binds the state, then the source of every incoming transition once), <em>Offered links / outcomes</em> (the task label of a task state, the declared
  * and implicit links, the distinct outcomes of the engine transitions, or the outcome a terminal state reports),
  * <em>Exits to</em> (every target once) and <em>Defined in</em>, which is emitted empty because it is maintained by
- * hand in the catalogue.</li>
+ * hand in the catalogue. The <em>Phase value</em> of a unit that is no phase sub-workflow is empty: no unit and no
+ * state declares a phase of its own, so the tables of such a unit carry no phase title and show {@code -} in that
+ * column.</li>
  * <li><b>Links</b>: one row per declared link and per implicit link (see
  * {@link StateTransitions#implicitLinks(WorkflowScope, StateNode)}) with its relation, identifier, form, free
  * parameters and guard; emitted only for a group that has a link.</li>
@@ -71,34 +72,27 @@ final class AsciiDocTableRenderer {
 
     private void renderUnit(WorkflowDefinition definition) {
         var transitions = StateTransitions.of(definition);
-        var groups = new LinkedHashMap<String, List<StateNode>>();
-        definition.states().values()
-                .forEach(state -> groups.computeIfAbsent(state.phase(), phase -> new ArrayList<>()).add(state));
-        var first = true;
-        for (Map.Entry<String, List<StateNode>> group : groups.entrySet()) {
-            if (!first) {
-                out.append('\n');
-            }
-            first = false;
-            stateTable(definition, transitions, group.getKey(), group.getValue());
-            linkTable(definition.scope(), group.getKey(), group.getValue());
-            outcomeTable(transitions, group.getKey(), group.getValue());
-        }
+        var phase = Phase.ofUnit(definition.id()).map(Phase::wireName);
+        var states = List.copyOf(definition.states().values());
+        stateTable(definition, transitions, phase, states);
+        linkTable(definition.scope(), phase, states);
+        outcomeTable(transitions, phase, states);
     }
 
-    private void stateTable(WorkflowDefinition definition, StateTransitions transitions, String phase,
+    private void stateTable(WorkflowDefinition definition, StateTransitions transitions, Optional<String> phase,
             List<StateNode> states) {
         header(phase, "states", "2,1,1,2,3,2,2", "State id", "Phase value", "Kind", "Entered from",
                 "Offered links / outcomes", "Exits to", "Defined in");
         for (var state : states) {
-            row(code(state.id()), code(state.phase()), code(StateKind.of(state.behavior()).label()),
+            row(code(state.id()), phase.map(AsciiDocTableRenderer::code).orElse(NONE),
+                    code(StateKind.of(state.behavior()).label()),
                     enteredFrom(definition, transitions, state), offered(definition.scope(), state),
                     exitsTo(transitions, state), "");
         }
         out.append(TABLE_DELIMITER).append('\n');
     }
 
-    private void linkTable(WorkflowScope scope, String phase, List<StateNode> states) {
+    private void linkTable(WorkflowScope scope, Optional<String> phase, List<StateNode> states) {
         var rows = new ArrayList<String[]>();
         for (var state : states) {
             for (var link : StateTransitions.links(state.behavior())) {
@@ -121,7 +115,7 @@ final class AsciiDocTableRenderer {
         out.append(TABLE_DELIMITER).append('\n');
     }
 
-    private void outcomeTable(StateTransitions transitions, String phase, List<StateNode> states) {
+    private void outcomeTable(StateTransitions transitions, Optional<String> phase, List<StateNode> states) {
         var edges = states.stream().flatMap(state -> transitions.outgoing(state.id()).stream()).toList();
         if (edges.isEmpty()) {
             return;
@@ -138,11 +132,16 @@ final class AsciiDocTableRenderer {
         out.append(TABLE_DELIMITER).append('\n');
     }
 
-    private void header(String phase, String title, String cols, String... columns) {
-        out.append(".Phase ").append(code(phase)).append(": ").append(title).append('\n');
+    private void header(Optional<String> phase, String title, String cols, String... columns) {
+        out.append(phase.map(value -> ".Phase " + code(value) + ": ").orElse("." + capitalize(title)))
+                .append(phase.isPresent() ? title : "").append('\n');
         out.append("[cols=\"").append(cols).append("\"]\n");
         out.append(TABLE_DELIMITER).append('\n');
         out.append(Arrays.stream(columns).map(column -> "|" + column).collect(Collectors.joining(" "))).append('\n');
+    }
+
+    private static String capitalize(String text) {
+        return Character.toUpperCase(text.charAt(0)) + text.substring(1);
     }
 
     private void row(String... cells) {

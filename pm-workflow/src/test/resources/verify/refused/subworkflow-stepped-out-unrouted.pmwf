@@ -15,9 +15,7 @@ scope plan
 start verify.entry
 
 state verify.entry
-    phase verify
     call test.depth5()
         done -> verify.done
 
 state verify.done terminal done success
-    phase verify

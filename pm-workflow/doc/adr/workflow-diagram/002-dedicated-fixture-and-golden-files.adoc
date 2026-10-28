@@ -17,7 +17,7 @@ The default units do not live in this repository, and the project rules forbid c
 
 == Decision
 
-1. One fixture unit, `src/test/resources/diagram/diagram-fixture.pmwf`, is written for the diagram tests: a sub-workflow with states in the phases `review` and `build` and in phase `inherit`, covering links with guard and form, `auto`, `job`, `composite_job`, `job llm` with a role, an `each` clause and a `consult role`, `call` with result guards, `question` with a declared link, and `terminal`.
+1. One fixture unit, `src/test/resources/diagram/diagram-fixture.pmwf`, is written for the diagram tests: a sub-workflow that carries no phase, covering links with guard and form, `auto`, `job`, `composite_job`, `job llm` with a role, an `each` clause and a `consult role`, `call` with result guards, `question` with a declared link, and `terminal`.
 2. `DiagramFixtures` parses it and verifies it with `WorkflowValidator` before any test renders it; the primitives, the entity kind `change` and the called sub-workflow `diagram.callee` it names are registered in the test package `diagram`, because the helpers of the verifier tests are package-private to `verify`.
 3. Three golden files beside it, `diagram-fixture.mmd`, `.adoc` and `.txt`, hold its Mermaid, AsciiDoc and terminal forms, rendered without an active state; `WorkflowDiagramGeneratorTest` compares each form with its golden file byte for byte, read as UTF-8.
 4. The golden files are produced by the renderers and reviewed by hand; they are never edited to make a test pass.
@@ -26,7 +26,7 @@ The default units do not live in this repository, and the project rules forbid c
 
 1. **Reusing `verify/passing/every-construct.pmwf`**:
 The verifier's unit that uses every construct.
-*Rejected*: it declares every state in phase `inherit`, so it exercises no phase composite and no phase grouping, and its primitives are registered only in the package `verify`.
+*Rejected*: it carries no phase, so it exercises no phase composite and no phase grouping, and its primitives are registered only in the package `verify`.
 
 2. **Rendering the default units**:
 Pinning the forms of the product's units.

@@ -162,7 +162,7 @@ class WorkflowParserTest {
     /** A unit of the scope whose start state {@code demo.begin} has the given body lines. */
     static String unitWithBody(String scope, String... body) {
         return frontmatter(typeOf(scope)) + lines("workflow demo version 1 format 1", "scope " + scope,
-                "start demo.begin", "state demo.begin", "    phase setup") + lines(body);
+                "start demo.begin", "state demo.begin") + lines(body);
     }
 
     private static WorkflowDefinition parse(String source) {
@@ -212,12 +212,24 @@ class WorkflowParserTest {
     }
 
     private static StateNode state(String id, String phase, StateBehavior behavior) {
-        return new StateNode(id, phase, Optional.empty(), Optional.empty(), Optional.empty(), behavior, NOWHERE);
+        assertPhaseName(phase);
+        return new StateNode(id, Optional.empty(), Optional.empty(), Optional.empty(), behavior, NOWHERE);
     }
 
     private static StateNode terminal(String id, String phase, String outcome, OutcomeClass outcomeClass) {
-        return new StateNode(id, phase, Optional.of(new TerminalOutcome(outcome, outcomeClass)), Optional.empty(),
+        assertPhaseName(phase);
+        return new StateNode(id, Optional.of(new TerminalOutcome(outcome, outcomeClass)), Optional.empty(),
                 Optional.empty(), new StateBehavior.TerminalState(), NOWHERE);
+    }
+
+    /**
+     * The fixtures still name the phase a state belonged to; the phase of a state is derived from the unit that declares
+     * it now (PM-WF-16), so the name is checked and not stored.
+     */
+    private static void assertPhaseName(String phase) {
+        if (phase == null || phase.isBlank()) {
+            throw new IllegalArgumentException("a fixture state names no phase");
+        }
     }
 
     private static Map<String, StateNode> states(StateNode... nodes) {
@@ -265,8 +277,7 @@ class WorkflowParserTest {
 
         @ParameterizedTest(name = "{0}")
         @MethodSource("validFixtures")
-        @DisplayName("parses every valid fixture with the format of its header, no part versions "
-                + "and no derivedFrom for a default unit")
+        @DisplayName("parses every valid fixture with the format of its header and no derivedFrom for a default unit")
         void parses(String resource) {
             var definition = DslFixtures.parseValid(resource);
 
@@ -275,7 +286,6 @@ class WorkflowParserTest {
                             definition.location()),
                     () -> assertEquals(1, definition.formatVersion()),
                     () -> assertEquals(UnitOrigin.DEFAULT, definition.origin()),
-                    () -> assertTrue(definition.partVersions().isEmpty()),
                     () -> assertTrue(definition.derivedFrom().isEmpty()));
         }
 
@@ -291,7 +301,7 @@ class WorkflowParserTest {
             bindings.put("push", new CallValue.EnumValue("enabled"));
             bindings.put("attempts", new CallValue.IntValue(2));
             bindings.put("targets", new CallValue.EnumList(List.of("origin", "Mirror")));
-            var begin = new StateNode("init.begin", "init", Optional.empty(), Optional.of("pm/plan/init"),
+            var begin = new StateNode("init.begin", Optional.empty(), Optional.of("pm/plan/init"),
                     Optional.of("plan.read-facts"),
                     new StateBehavior.AutoStep("plan.prepare", List.of(
                             to("done", "init.dispatch", completes("init:prepare", StepCompletionStatus.DONE)),
@@ -303,7 +313,7 @@ class WorkflowParserTest {
                     frontmatter("Parser plan unit", "A plan unit written for the parser tests.", UnitType.WORKFLOW,
                             "unit.plan"),
                     "plan", 3, WorkflowScope.PLAN, List.of(), Optional.empty(), Optional.empty(), declarations,
-                    Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(), Optional.of("init.begin"), Map.of(),
+                    Map.of(), 1, UnitOrigin.DEFAULT, Map.of(), Optional.of("init.begin"), Map.of(),
                     List.of(new StateMigration("init.old", "init.begin", NOWHERE),
                             new StateMigration("review.legacy", "review.check", NOWHERE)),
                     states(begin,
@@ -338,7 +348,7 @@ class WorkflowParserTest {
                             new ParamDecl("attempts", intRange(1, 5), NOWHERE),
                             new ParamDecl("depth", new ParamType.Int(UNBOUNDED, UNBOUNDED), NOWHERE),
                             new ParamDecl("targets", new ParamType.ListOf(enumOf("origin", "Mirror")), NOWHERE)),
-                    Optional.of("commit-result"), Optional.empty(), Map.of(), Map.of(), Map.of(), 1,
+                    Optional.of("commit-result"), Optional.empty(), Map.of(), Map.of(), 1,
                     UnitOrigin.DEFAULT, Map.of(), Optional.empty(),
                     Map.of("stage", new WorkflowDefinition.EntryBinding("git.stage", NOWHERE)), List.of(),
                     states(
@@ -346,7 +356,7 @@ class WorkflowParserTest {
                                     Optional.of("implementer"), Optional.of("git.list-changes"), Optional.empty(),
                                     StateBehavior.AskForm.ASK, List.of("reviewer", "architect"),
                                     List.of(to("done", "git.review"), to("lost", "git.stepped-out")))),
-                            new StateNode("git.review", "inherit", Optional.empty(), Optional.empty(),
+                            new StateNode("git.review", Optional.empty(), Optional.empty(),
                                     Optional.of("git.read-diff"), new StateBehavior.ModelJob("change",
                                             Optional.of("reviewer"), Optional.empty(), Optional.empty(),
                                             StateBehavior.AskForm.NONE,
@@ -406,7 +416,7 @@ class WorkflowParserTest {
                     "A session-driven workspace unit written for the parser tests.", UnitType.SYSTEM, "unit.start"),
                     "setup.session",
                     2, WorkflowScope.WORKSPACE, List.of(), Optional.empty(), Optional.empty(), Map.of(), Map.of(),
-                    Map.of(), 1, UnitOrigin.DEFAULT, Map.of(), Optional.of("setup.choose"), Map.of(), List.of(),
+                    1, UnitOrigin.DEFAULT, Map.of(), Optional.of("setup.choose"), Map.of(), List.of(),
                     states(state("setup.choose", "setup", choose),
                             state("setup.wait", "setup", new StateBehavior.QuestionWait("clarification",
                                     List.of(to("answered", "setup.choose")))),
@@ -433,7 +443,7 @@ class WorkflowParserTest {
                     "An adjudication unit written for the parser tests.", UnitType.SYSTEM, "flow.adjudicate"),
                     "adjudicate.decisions", 1,
                     WorkflowScope.ENTITY, List.of(), Optional.empty(), Optional.empty(), declarations, decisions,
-                    Map.of(), 1, UnitOrigin.DEFAULT, Map.of(), Optional.of("adjudicate.vote"), Map.of(), List.of(),
+                    1, UnitOrigin.DEFAULT, Map.of(), Optional.of("adjudicate.vote"), Map.of(), List.of(),
                     states(state("adjudicate.vote", "inherit", new StateBehavior.ModelJob("decision",
                             Optional.empty(), Optional.empty(), Optional.of("adjudicate.list-roles"),
                             StateBehavior.AskForm.NONE, List.of(),
@@ -461,7 +471,7 @@ class WorkflowParserTest {
                     WorkflowScope.PLAN,
                     List.of(), Optional.empty(),
                     Optional.of(new InstanceHeader("demo-plan", 4, "plan", inputs, INSTANCE_JSON)), Map.of(),
-                    Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(), Optional.of("plan.run"), Map.of(), List.of(),
+                    Map.of(), 1, UnitOrigin.DEFAULT, Map.of(), Optional.of("plan.run"), Map.of(), List.of(),
                     states(state("plan.run", "execute",
                             new StateBehavior.AutoStep("plan.execute", List.of(to("done", "plan.end")))),
                             terminal("plan.end", "finalize", "done", OutcomeClass.SUCCESS)),
@@ -488,7 +498,7 @@ class WorkflowParserTest {
             entryBindings.put("repair", new WorkflowDefinition.EntryBinding("review.fix", NOWHERE));
             entryBindings.put("recheck", new WorkflowDefinition.EntryBinding("review.check", NOWHERE));
             var expected = new WorkflowDefinition(frontmatter, "review.repair", 1, WorkflowScope.SUBWORKFLOW,
-                    List.of(), Optional.empty(), Optional.empty(), Map.of(), Map.of(), Map.of(), 1,
+                    List.of(), Optional.empty(), Optional.empty(), Map.of(), Map.of(), 1,
                     UnitOrigin.DEFAULT, Map.of(), Optional.empty(), entryBindings, List.of(),
                     states(state("review.check", "inherit", new StateBehavior.ModelJob("change",
                             Optional.of("reviewer"), Optional.empty(), Optional.empty(),
@@ -560,7 +570,7 @@ class WorkflowParserTest {
         @DisplayName("keeps 'entry' a positional keyword: a state segment named entry is a state identifier")
         void entryIsPositional() {
             var source = unitWithBody("plan", "auto demo.run", "done -> setup.entry") + lines("state setup.entry",
-                    "phase setup", "auto demo.run", "done -> demo.begin");
+                    "auto demo.run", "done -> demo.begin");
 
             var definition = parse(source);
 
@@ -571,7 +581,7 @@ class WorkflowParserTest {
         @DisplayName("parses a unit with declared entries and a start line without refusal; the verifier refuses it")
         void declaredEntriesWithStart() {
             var source = frontmatterWithEntry("review") + lines("workflow demo version 1 format 1",
-                    "scope subworkflow", "start demo.end", "state demo.end terminal done success", "phase inherit");
+                    "scope subworkflow", "start demo.end", "state demo.end terminal done success");
 
             var definition = parse(source);
 
@@ -586,8 +596,7 @@ class WorkflowParserTest {
         @DisplayName("parses a unit that binds an undeclared entry without refusal; the verifier refuses it")
         void undeclaredEntryBound() {
             var source = frontmatterWithEntry("review") + lines("workflow demo version 1 format 1",
-                    "scope subworkflow", "entry repair -> demo.end", "state demo.end terminal done success",
-                    "phase inherit");
+                    "scope subworkflow", "entry repair -> demo.end", "state demo.end terminal done success");
 
             var definition = parse(source);
 
@@ -620,8 +629,8 @@ class WorkflowParserTest {
                     () -> assertEquals(new SourceLocation(PLAN_UNIT, 13, 1), definition.location()),
                     () -> assertEquals(new SourceLocation(PLAN_UNIT, 20, 1), definition.migrations().get(0).location()),
                     () -> assertEquals(new SourceLocation(PLAN_UNIT, 23, 1), begin.location()),
-                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 28, 9), transition.location()),
-                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 29, 13),
+                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 27, 9), transition.location()),
+                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 28, 13),
                             transition.completions().getFirst().location()));
         }
 
@@ -655,9 +664,9 @@ class WorkflowParserTest {
 
             assertAll(
                     () -> assertEquals(new SourceLocation(SUBWORKFLOW_UNIT, 19, 1), param.location()),
-                    () -> assertEquals(new SourceLocation(SESSION_UNIT, 22, 5), detour.location()),
-                    () -> assertEquals(new SourceLocation(SESSION_UNIT, 22, 40), detour.freeParams().get(0).location()),
-                    () -> assertEquals(new SourceLocation(SESSION_UNIT, 22, 52),
+                    () -> assertEquals(new SourceLocation(SESSION_UNIT, 21, 5), detour.location()),
+                    () -> assertEquals(new SourceLocation(SESSION_UNIT, 21, 40), detour.freeParams().get(0).location()),
+                    () -> assertEquals(new SourceLocation(SESSION_UNIT, 21, 52),
                             detour.freeParams().get(1).location()));
         }
 
@@ -743,7 +752,7 @@ class WorkflowParserTest {
         @DisplayName("reads every outcome class from its keyword")
         void outcomeClasses(OutcomeClass outcomeClass) {
             var source = unit("workflow demo version 1 format 1", "scope plan", "start demo.end",
-                    "state demo.end terminal done " + keyword(outcomeClass), "phase init");
+                    "state demo.end terminal done " + keyword(outcomeClass));
 
             var terminal = parse(source).states().get("demo.end").terminalOutcome().orElseThrow();
 
@@ -760,9 +769,9 @@ class WorkflowParserTest {
         /** A plan unit declaring the list and binding it as the argument of a call. */
         private static String withList(String list) {
             return frontmatter(UnitType.WORKFLOW) + lines("workflow demo version 1 format 1", "scope plan",
-                    "declare wait_after = " + list, "start demo.begin", "state demo.begin", "    phase setup",
+                    "declare wait_after = " + list, "start demo.begin", "state demo.begin",
                     "    call demo.sub(actions = " + list + ")", "        done -> demo.end",
-                    "state demo.end terminal done success", "    phase setup");
+                    "state demo.end terminal done success");
         }
 
         private static CallValue declared(WorkflowDefinition definition) {
@@ -861,8 +870,7 @@ class WorkflowParserTest {
         @DisplayName("reads every decision kind")
         void decisionKinds(String kind) {
             var source = frontmatter(UnitType.SYSTEM) + lines("workflow demo version 1 format 1", "scope entity",
-                    "decide " + kind + " -> ask", "start demo.end", "state demo.end terminal done success",
-                    "phase inherit");
+                    "decide " + kind + " -> ask", "start demo.end", "state demo.end terminal done success");
 
             assertEquals(Map.of(kind,
                             new DecisionDeclaration.Ask(new SourceLocation(RESOURCE, FRONTMATTER_LINES + 3, 1))),
@@ -883,7 +891,7 @@ class WorkflowParserTest {
         @DisplayName("records the derived_from revision of a project unit under the unit's id")
         void derivedFromOfProjectUnit() {
             var source = projectUnit("workflow demo version 4 format 1 derived_from 3", "scope plan",
-                    "start demo.end", "state demo.end terminal done success", "phase setup");
+                    "start demo.end", "state demo.end terminal done success");
 
             var result = WorkflowParser.parse("inline.pmwf", source, UnitOrigin.PROJECT);
 
@@ -895,7 +903,7 @@ class WorkflowParserTest {
         @DisplayName("records no derived_from for a project unit without the clause")
         void noDerivedFromOfProjectUnit() {
             var source = projectUnit("workflow demo version 4 format 1", "scope plan", "start demo.end",
-                    "state demo.end terminal done success", "phase setup");
+                    "state demo.end terminal done success");
 
             var result = WorkflowParser.parse("inline.pmwf", source, UnitOrigin.PROJECT);
 

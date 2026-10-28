@@ -21,6 +21,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import de.cuioss.tools.logging.CuiLogger;
+import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.dsl.ParseResult;
@@ -31,17 +32,20 @@ import de.planmarshall.workflow.dsl.WorkflowParser;
  * <p>
  * The root is a constructor parameter: the assembly passes {@code workflows/}, tests pass a root of their own, so no
  * test places a fixture where the product's units live. This module carries no unit. The loader reads every named
- * file through the given class loader, parses it as a {@link UnitOrigin#DEFAULT} unit, merges the phase files of
- * {@link PlanUnitMerger#PHASE_FILES} into the plan unit and verifies every unit with Rules 1-12, Rule 5 against the
- * released state names included. A file that declares the identifier of an earlier file, or
- * {@value PlanUnitMerger#PLAN_UNIT}, never replaces the earlier unit. A default unit that is missing, refused by the
- * parser or by a rule, or whose identifier is taken, is a
- * {@link UnitFinding}, logged as ERROR {@code DEFAULT_UNIT_REFUSED}: a default unit that does not verify is a defect
- * of the build.
+ * file through the given class loader, parses it as a {@link UnitOrigin#DEFAULT} unit and verifies every unit with
+ * Rules 1-12, Rule 5 against the released state names included. The plan unit is the unit {@code plan}; the six phase
+ * sub-workflows it calls (PM-WF-16) are ordinary sub-workflow units beside it, each read on its own — no part is
+ * merged into another. A file that declares the identifier of an earlier file, or {@value Phase#PLAN_UNIT}, never
+ * replaces the earlier unit. A default unit that is missing, refused by the parser or by a rule, or whose identifier
+ * is taken, is a {@link UnitFinding}, logged as ERROR {@code DEFAULT_UNIT_REFUSED}: a default unit that does not
+ * verify is a defect of the build.
  *
  * @since 0.1
  */
 public final class DefaultUnitLoader {
+
+    /** The identifier of the plan unit, which the result carries first. */
+    static final String PLAN_FILE = "plan.pmwf";
 
     private static final CuiLogger LOGGER = new CuiLogger(DefaultUnitLoader.class);
 
@@ -58,8 +62,8 @@ public final class DefaultUnitLoader {
     /**
      * @param classLoader    the class loader the units are read through
      * @param root           the classpath root of the units, for example {@code workflows/}
-     * @param unitFiles      the names of the project-ownable unit files below the root; a name of
-     *                       {@link PlanUnitMerger#PHASE_FILES} is a part of the plan unit
+     * @param unitFiles      the names of the project-ownable unit files below the root; the plan unit is
+     *                       {@value #PLAN_FILE}, its phase sub-workflows are further units of the list
      * @param context        the inputs of the static verifier
      * @param releasedStates the state names of earlier releases by unit identifier (Rule 5); a unit without an entry
      *                       has none
@@ -81,25 +85,16 @@ public final class DefaultUnitLoader {
      */
     public UnitLoadResult load() {
         var findings = new ArrayList<UnitFinding>();
-        var parts = new LinkedHashMap<String, WorkflowDefinition>();
         var units = new LinkedHashMap<String, WorkflowDefinition>();
-        var planFile = root + PlanUnitMerger.PHASE_FILES.getFirst();
+        var planFile = root + PLAN_FILE;
         for (var file : unitFiles) {
-            read(file, findings).flatMap(source -> parse(file, source, findings)).ifPresent(unit -> {
-                if (PlanUnitMerger.PHASE_FILES.contains(file)) {
-                    parts.put(file, unit);
-                } else {
-                    UnitFinding.putUnique(units, unit, planFile, findings);
-                }
-            });
+            read(file, findings).flatMap(source -> parse(file, source, findings))
+                    .ifPresent(unit -> UnitFinding.putUnique(units, unit, planFile, findings));
         }
-        var planFiles = unitFiles.stream().filter(PlanUnitMerger.PHASE_FILES::contains).toList();
         var loaded = new LinkedHashMap<String, WorkflowDefinition>();
-        if (!planFiles.isEmpty() && parts.size() == planFiles.size()) {
-            var ordered = PlanUnitMerger.PHASE_FILES.stream().filter(parts::containsKey).map(parts::get).toList();
-            var merge = PlanUnitMerger.merge(ordered);
-            findings.addAll(merge.findings());
-            merge.unit().ifPresent(plan -> loaded.put(plan.id(), plan));
+        var plan = units.remove(Phase.PLAN_UNIT);
+        if (plan != null) {
+            loaded.put(plan.id(), plan);
         }
         loaded.putAll(units);
         for (var unit : loaded.values()) {

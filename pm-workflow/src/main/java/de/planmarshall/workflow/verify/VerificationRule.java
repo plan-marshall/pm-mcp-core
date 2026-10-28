@@ -73,7 +73,7 @@ public enum VerificationRule {
     LEAF_TASK_CONSTRAINT(4),
     /** Every released state name is a state, or is migrated directly to a state. */
     RELEASED_STATE(5),
-    /** Sub-workflow exit contracts, parameter bindings, phase inherit, and guided step-in skills. */
+    /** Sub-workflow exit contracts, parameter bindings, and guided step-in skills. */
     SUBWORKFLOW_CALL_CONTRACT(6),
     /**
      * Interface rule 3, called units return: a unit with entries declares an exit (a landing variant excepted), and
@@ -88,7 +88,7 @@ public enum VerificationRule {
     INTERFACE_CALL_ENTRY(6),
     /** Interface rule 6, the type fits: the scope and the presence of entries and exits match the row of the type. */
     TYPE_FITS(6),
-    /** The static call graph forms an acyclic DAG with maximum depth at most 4. */
+    /** The static call graph forms an acyclic DAG whose call stack holds at most five frames. */
     CALL_GRAPH_DAG(7),
     /** Every path to a guard or state with required artifacts passes a producer state. */
     GATE_PRODUCER_COVERAGE(8),

@@ -1,31 +1,36 @@
 ---
-name: plan
-description: A unit written for the invariant and unit-loader tests.
-type: workflow
+name: land
+description: The land lane as the sub-workflow the execute phase calls.
+type: subworkflow
 icon: flow.land
+entry: start
+exit: done
+exit: handed_back
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# The land lane of Phase 5 of the plan unit, written for the invariant and unit-loader tests, never copied from the
-# product. The worktree initialization precedes the verify sweep, which precedes the exit barrier into Phase 6.
-workflow plan version 1 format 1
-scope plan
-start land.worktree-init
+# The land lane, written for the invariant and unit-loader tests, never copied from the product. It is a sub-workflow
+# of the execute phase (called through the phase's `land` entry), never a phase of its own: a lane is a choice of
+# phases. The worktree initialization precedes the verify sweep, which precedes the exit barrier out of the lane.
+workflow land version 1 format 1
+scope subworkflow
+entry start -> land.worktree-init
 
 state land.worktree-init
-    phase land
     auto test.proceed
         done -> land.verify-sweep
 
 state land.verify-sweep
-    phase land
     job test.build
         succeeded -> land.exit-barrier
-        failed -> finalize.hand-back
-        cancelled -> finalize.hand-back
+        failed -> land.hand-back-exit
+        cancelled -> land.hand-back-exit
 
 state land.exit-barrier
-    phase land
     auto test.proceed
-        done -> finalize.push-barrier
+        done -> land.done-exit
+
+state land.done-exit terminal done success
+
+state land.hand-back-exit terminal handed_back failure

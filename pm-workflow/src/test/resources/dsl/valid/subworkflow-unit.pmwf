@@ -24,7 +24,6 @@ result schema[commit-result]
 entry stage -> git.stage
 
 state git.stage
-    phase inherit
     job llm change role implementer each git.list-changes ask
     consult role reviewer
     consult role architect
@@ -32,17 +31,13 @@ state git.stage
         lost -> git.stepped-out
 
 state git.review
-    phase inherit
     facts git.read-diff
     job llm change role reviewer
         approved -> git.done
         rejected -> git.stage
 
 state git.done terminal done success
-    phase inherit
 
 state git.skipped terminal skipped skip
-    phase inherit
 
 state git.stepped-out terminal stepped_out stepped_out
-    phase inherit

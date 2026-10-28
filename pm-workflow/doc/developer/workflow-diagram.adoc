@@ -61,7 +61,7 @@ The excerpts below are copied from the golden files of the fixture unit `diagram
 
 === Mermaid
 
-The states are grouped by phase value into composite states `phase_<phase>` in first-declaration order; the states of phase `inherit` stay at the top level (see link:../adr/workflow-diagram/010-mermaid-phase-composite-states.adoc[ADR 010]).
+The states of a phase sub-workflow are grouped into its composite state `phase_<phase>`; the states of a unit that carries no phase stay at the top level, because no unit and no state declares a phase of its own (link:../adr/workflow-diagram/012-no-phase-value-outside-a-phase-unit.adoc[ADR 012] and link:../adr/workflow-diagram/010-mermaid-phase-composite-states.adoc[ADR 010]).
 A state is declared as `state "<id>" as <alias>`, the alias with `.` and `-` mapped to `_`, and described as `<kind> <target>`; a task state is described by its task label.
 Every alias is unique within the diagram: since the grammar admits `build.judge`, `build-judge` and `build_judge` as distinct states, and a state `phase-build` maps to the composite of phase `build`, the aliases are allocated once per rendering, states in declaration order first, then the composites in first-declaration order, and an alias that is already taken gets the next free numeric suffix `_2`, `_3`, …; an allocated alias is never handed out again.
 A unit without such a collision renders exactly with the plain mapping.
@@ -95,7 +95,7 @@ stateDiagram-v2
 
 === AsciiDoc tables
 
-Per phase group, in first-declaration order, come a state table, a link table and an outcome table, each titled with the phase value; a link or outcome table is omitted for a group without links or transitions.
+Per phase group, in first-declaration order, come a state table, a link table and an outcome table, each titled with the phase value; a unit that carries no phase renders no phase title and shows `-` in the `Phase value` column; a link or outcome table is omitted for a group without links or transitions.
 The state table has exactly the columns of the State Catalogue; *Defined in* is emitted empty because it is maintained by hand in the catalogue (see link:../adr/workflow-diagram/005-catalogue-columns-defined-in-empty.adoc[ADR 005]).
 Its *Entered from* cell names `start` for the start state and `entry <name>` for each entry that binds the state, then the source of every incoming transition once.
 The link table lists the declared links and the implicit ones a state offers without declaring them: the `step_out` of a link state of a sub-workflow (rel `abort`) and one `consult:<role>` per `consult role` clause (rel `consult`).

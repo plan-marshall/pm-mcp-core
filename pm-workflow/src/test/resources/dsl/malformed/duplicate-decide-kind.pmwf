@@ -14,4 +14,3 @@ decide approach -> ask
 decide approach -> quorum(architect, 60)
 start demo.begin
 state demo.begin terminal done success
-    phase inherit

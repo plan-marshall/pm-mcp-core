@@ -16,20 +16,16 @@ scope plan
 start outline.deep
 
 state outline.deep
-    phase outline
     auto diagram.proceed
         done -> finalize.merge-gate
 
 state finalize.merge-gate
-    phase finalize
     auto diagram.ready
         held -> finalize.archive-plan
         not_held -> finalize.hand-back
 
 state finalize.hand-back
-    phase finalize
     auto diagram.proceed
         done -> finalize.archive-plan
 
 state finalize.archive-plan terminal completed success
-    phase finalize

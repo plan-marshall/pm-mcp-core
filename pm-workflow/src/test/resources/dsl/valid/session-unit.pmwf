@@ -15,7 +15,6 @@ scope workspace
 start setup.choose
 
 state setup.choose
-    phase setup
     link next proceed ()
         do setup.proceed
             done -> setup.wait
@@ -51,18 +50,14 @@ state setup.choose
             left -> setup.left
 
 state setup.wait
-    phase setup
     question clarification
         answered -> setup.choose
 
 state setup.review
-    phase setup
     question review
         approve -> setup.choose
         revise -> setup.choose
 
 state setup.left terminal left indeterminate
-    phase setup
 
 state setup.held terminal held unsettled
-    phase setup

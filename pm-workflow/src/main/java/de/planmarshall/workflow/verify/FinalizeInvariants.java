@@ -9,17 +9,20 @@
  */
 package de.planmarshall.workflow.verify;
 
+import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import de.planmarshall.workflow.ast.CallValue;
+import de.planmarshall.workflow.ast.OutcomeTransition;
+import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.StepCompletionStatus;
-import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.LaneClass;
 import de.planmarshall.workflow.verify.CompiledInvariants.Check;
@@ -100,7 +103,7 @@ final class FinalizeInvariants {
     }
 
     private static void mandatorySteps(Context context) {
-        var completed = completedSteps(context.unit());
+        var completed = completedSteps(context.allEdges());
         context.defaultRoster().stream()
                 .filter(FinalizeInvariants::isMandatory)
                 .map(FinalizeStepDescriptor::name)
@@ -113,10 +116,9 @@ final class FinalizeInvariants {
         return step.lane().map(lane -> MANDATORY_LANE_CLASSES.contains(lane.laneClass())).orElse(false);
     }
 
-    private static Set<String> completedSteps(WorkflowDefinition definition) {
+    private static Set<String> completedSteps(List<CompiledInvariants.Edge> edges) {
         var steps = new LinkedHashSet<String>();
-        Context.edges(definition)
-                .forEach(edge -> edge.transition().completions().forEach(completion -> steps.add(completion.stepId())));
+        edges.forEach(edge -> edge.transition().completions().forEach(completion -> steps.add(completion.stepId())));
         return steps;
     }
 
@@ -125,8 +127,8 @@ final class FinalizeInvariants {
      * @param step       the identifier of a finalize step
      * @return the first state, in declaration order, with a transition that completes the step
      */
-    static Optional<StateNode> firstCompletingState(WorkflowDefinition definition, String step) {
-        return definition.states().values().stream()
+    static Optional<StateNode> firstCompletingState(Collection<StateNode> states, String step) {
+        return states.stream()
                 .filter(state -> Context.transitions(state).stream().anyMatch(transition -> transition.completions()
                         .stream().anyMatch(completion -> step.equals(completion.stepId()))))
                 .findFirst();
@@ -136,7 +138,7 @@ final class FinalizeInvariants {
         for (var violation : context.pipeline()) {
             var message = "rule %d (%s) of the step '%s': %s".formatted(violation.rule().specificationRule(),
                     violation.rule(), violation.stepName(), violation.message());
-            firstCompletingState(context.unit(), violation.stepName()).ifPresentOrElse(
+            firstCompletingState(context.states(), violation.stepName()).ifPresentOrElse(
                     state -> context.reportState(InvariantId.INV_FIN_2, state, message),
                     () -> context.reportUnit(InvariantId.INV_FIN_2, message));
         }
@@ -165,6 +167,9 @@ final class FinalizeInvariants {
      */
     private static void reportSelfPushes(Context context) {
         for (var state : context.states()) {
+            if (CompiledInvariants.GIT_UNIT.equals(context.ownerOf(state.id()).orElse(""))) {
+                continue;
+            }
             if (Context.primitiveId(state).filter(PUSH_PRIMITIVES::contains).isPresent()) {
                 context.reportState(InvariantId.INV_FIN_4, state,
                         "the state '%s' pushes itself instead of calling '%s'".formatted(state.id(),
@@ -178,7 +183,7 @@ final class FinalizeInvariants {
      *         barrier excluded, in declaration order
      */
     private static Set<Optional<CallValue>> prePullRequestModes(Context context) {
-        return context.reference().states().values().stream()
+        return context.referenceStates().stream()
                 .filter(state -> isCommitCall(state) && !PUSH_BARRIER.equals(state.id())
                         && !context.referenceDominates(CREATE_PR, state.id()))
                 .map(FinalizeInvariants::pushMode)
@@ -246,7 +251,7 @@ final class FinalizeInvariants {
 
     private static void cleanupFallbackAndLanding(Context context) {
         var id = InvariantId.INV_FIN_6;
-        for (var edge : Context.edges(context.unit())) {
+        for (var edge : context.allEdges()) {
             var source = edge.source();
             var transition = edge.transition();
             if (MERGED.equals(transition.outcomeName()) && !ARCHIVE_PLAN.equals(source.id())
@@ -256,22 +261,43 @@ final class FinalizeInvariants {
                         .formatted(MERGED, source.id(), BRANCH_CLEANUP));
             }
             var lateCall = source.behavior() instanceof StateBehavior.SubWorkflowCall
-                    && (CompiledInvariants.PHASE_EXECUTE.contains(source.phase())
-                    || CompiledInvariants.PHASE_FINALIZE.equals(source.phase()));
+                    && context.ownerOf(source.id()).flatMap(Phase::ofUnit)
+                    .filter(phase -> phase == Phase.EXECUTE || phase == Phase.FINALIZE).isPresent();
             if (lateCall && CompiledInvariants.STEPPED_OUT.equals(transition.outcomeName())
-                    && !CompiledInvariants.HAND_BACK.equals(transition.targetStateId())) {
+                    && !CompiledInvariants.HAND_BACK.equals(transition.targetStateId())
+                    && !RemediationInvariants.isFallbackExit(context, transition.targetStateId(),
+                    CompiledInvariants.HAND_BACK)) {
                 context.reportTransition(id, source, transition, "the call state '%s' routes '%s' to '%s', not to '%s'"
                         .formatted(source.id(), CompiledInvariants.STEPPED_OUT, transition.targetStateId(),
                                 CompiledInvariants.HAND_BACK));
             }
-            if (DELIVERY_TERMINALS.contains(transition.targetStateId()) && !ARCHIVE_PLAN.equals(source.id())) {
+            if (DELIVERY_TERMINALS.contains(transition.targetStateId())
+                    && !entersThroughArchivePlan(context, source, transition)) {
                 context.reportTransition(id, source, transition, "'%s' enters the delivery terminal '%s'; only '%s' may"
                         .formatted(source.id(), transition.targetStateId(), ARCHIVE_PLAN));
             }
         }
-        if (completedSteps(context.reference()).contains(EMIT_LANDING)
-                && !completedSteps(context.unit()).contains(EMIT_LANDING)) {
+        if (completedSteps(context.referenceEdges()).contains(EMIT_LANDING)
+                && !completedSteps(context.allEdges()).contains(EMIT_LANDING)) {
             context.reportUnit(id, "the step '%s' is completed by no transition".formatted(EMIT_LANDING));
         }
+    }
+
+    /**
+     * Decides whether an edge into a delivery terminal passes {@code finalize.archive-plan} (INV-FIN-6). Inside the
+     * phase unit the source is {@code finalize.archive-plan} itself. At a phase call site the edge is the phase's
+     * return, so the guarantee is checked on the callee terminal the return leaves: every terminal of the callee that
+     * reports the returned outcome must be one {@code finalize.archive-plan} reaches or is itself.
+     *
+     * @param context    the invariants context
+     * @param source     the state the edge leaves
+     * @param transition the transition into the delivery terminal
+     * @return {@code true} when the edge enters the terminal through {@code finalize.archive-plan}
+     */
+    private static boolean entersThroughArchivePlan(Context context, StateNode source,
+            OutcomeTransition transition) {
+        return ARCHIVE_PLAN.equals(source.id()) || context.returnsThrough(source, transition, ARCHIVE_PLAN)
+                || (!(source.behavior() instanceof StateBehavior.SubWorkflowCall)
+                && context.dominates(ARCHIVE_PLAN, source.id()));
     }
 }

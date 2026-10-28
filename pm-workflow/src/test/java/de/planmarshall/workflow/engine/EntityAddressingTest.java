@@ -80,13 +80,11 @@ class EntityAddressingTest {
             start epic.work
 
             state epic.work
-                phase epic
                 auto test.step
                     done -> epic.done
                     failed -> epic.done
 
             state epic.done terminal done success
-                phase epic
             """;
 
     private final EngineFixtures fixtures = new EngineFixtures();

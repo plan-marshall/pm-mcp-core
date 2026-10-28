@@ -65,7 +65,7 @@ A generic state `remediation-<class>.x` stands for one concrete state per unit i
 |State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
 
 |[[state-remediation.budget-check]]`remediation-<class>.budget-check`
-|inherit
+|the caller's phase value
 |`auto`
 |Every unit. The unit's gather state (`failures`; in `remediation-analysis` `failures_screened`, in `remediation-review` `failures_no_triage`; `over`, `cancelled`), screen state (`remediation-analysis`), triage state (`triaged_with_fix`, `infeasible`, `lost`), waiver wait (`raised`, `declined`), `apply-fix` (`no_change`), and `commit-fix` (`done` without a commit, `stepped_out`).
 |`auto remediation.check-budgets` against the effective ceilings; precedes every entry into `decide`, so `decide` is never entered without an admissible remedy.
@@ -73,7 +73,7 @@ A generic state `remediation-<class>.x` stands for one concrete state per unit i
 |link:../workflow-dsl/08-remediation-units.adoc#unit-template[Workflow DSL Specification, Unit Template]
 
 |[[state-remediation.conservative]]`remediation-<class>.conservative`
-|inherit
+|the caller's phase value
 |`auto`
 |The unit's `choose` and `apply-fix` (`lost`, `infeasible`).
 |`auto remediation.conservative-retry`, the conservative fallback of a task of the unit that closed `lost` or ended `infeasible` (link:../model-work/01-roles-and-configuration.adoc#conservative-fallback[Model Work Specification, Conservative Fallback]): `retry` once per unit instance when the call binds it and its budget is left, recorded with the task's reason (for example `role_unqualified`); otherwise `exhausted`. Never routes to the operator. `remediation-qgate` has its own (xref:11-remediation-units-merge-qgate-spend.adoc#state-remediation-qgate.conservative[`remediation-qgate.conservative`]).
@@ -81,7 +81,7 @@ A generic state `remediation-<class>.x` stands for one concrete state per unit i
 |link:../workflow-dsl/08-remediation-units.adoc#unit-template[Workflow DSL Specification, Unit Template]
 
 |[[state-remediation.waiver-wait]]`remediation-<class>.waiver-wait`
-|inherit
+|the caller's phase value
 |`operator_wait`
 |The unit's `choose` (`request_waiver`).
 |The waiver request, announced in both clients, the plan view, and an idempotent pull-request comment with a label, without a preselection, an interpretation, or a chat (link:../store-schemas/14-plan-instance-waivers-questions.adoc#waiver-request-record[Store Schemas Specification, Waiver Request Record]). Its operator links are the overrides `waive` (a `met` waiver of the failing gate, or a `--raise` of this class's `retry_budget` or `fix_budget`) and `decline`, which records the outcome `declined`; no worker and no model slot is held.
@@ -89,7 +89,7 @@ A generic state `remediation-<class>.x` stands for one concrete state per unit i
 |link:../store-schemas/14-plan-instance-waivers-questions.adoc#waiver-request-record[Store Schemas Specification, Waiver Request Record]
 
 |[[state-remediation.screen]]`remediation-<class>.screen`
-|inherit
+|the caller's phase value
 |`job`
 |The unit's gather state, when the firing's `batch-v1` batch holds items with no cached verdict (`remediation-analysis.gather`, `remediation-review.gather`: `failures_unscreened`).
 |`job llm screen role screener each screen.batch-parts`: a fan-out over the parts of the batch's uncached items (link:../workflow-dsl/02-units-jobs-decisions.adoc#model-job-states[Workflow DSL Specification, Model Job States]; one part, unless the batch exceeds the screening split bound), one zero-tool screener task per part, each in the empty `cwd/` subdirectory of its job-private directory, without project files; verdicts cached per scope by the SHA-256 of the cleaned text; an unparseable or missing verdict counts as `suspicious`. A refused screener launch closes its task `lost` (link:../model-work/04-worker-launch.adoc#harness-selection[Model Work Specification, Launch Refusals]), so its items count as `suspicious`.
@@ -97,7 +97,7 @@ A generic state `remediation-<class>.x` stands for one concrete state per unit i
 |link:../model-work/07-untrusted-text-screening.adoc#screener[Model Work Specification, Screener Job]; link:../model-work/07-untrusted-text-screening.adoc#batch-v1[Batch Format]
 
 |[[state-remediation.apply-fix]]`remediation-<class>.apply-fix`
-|inherit
+|the caller's phase value
 |`job`
 |The unit's `decide` or `choose` (`fix`, in-branch).
 |`job llm remediation-fix role implement`: a task of the plan's writer role changes the code in the plan worktree (in `remediation-merge`: resolves the conflicted files) from `facts` carrying the failure evidence and the chosen `summary`, and submits a summary of the change; charged to the fix budget in the submitting transaction.
@@ -105,7 +105,7 @@ A generic state `remediation-<class>.x` stands for one concrete state per unit i
 |link:../workflow-dsl/08-remediation-units.adoc#unit-template[Workflow DSL Specification, Unit Template]
 
 |[[state-remediation.commit-fix]]`remediation-<class>.commit-fix`
-|inherit
+|the caller's phase value
 |`call`
 |`remediation-<class>.apply-fix` (`fixed`), in `remediation-ci`, `remediation-analysis`, `remediation-review`.
 |`call git.commit_and_push (message_mode=interactive, push_mode=always)`; reachable only where the call binds an in-branch `fix` (every such call site lies after the pull request exists).
@@ -113,7 +113,7 @@ A generic state `remediation-<class>.x` stands for one concrete state per unit i
 |link:../workflow-dsl/06-reusable-sub-workflows.adoc#_call_site_reuse_matrix_across_workflows[Workflow DSL Specification, Call-Site Reuse Matrix]
 
 |[[state-remediation.resolved]]`remediation-<class>.resolved`
-|inherit
+|the caller's phase value
 |`terminal`
 |The unit's gather, await, or continue state, or the `rerun` of `remediation-merge` (class passed).
 |Declared `terminal resolved success`.
@@ -121,7 +121,7 @@ A generic state `remediation-<class>.x` stands for one concrete state per unit i
 |link:../hypermedia-format/03-composite-wait-and-encoder.adoc#policy-unit-returns[Hypermedia Format Specification, Policy Unit Returns]
 
 |[[state-remediation.waived]]`remediation-<class>.waived`
-|inherit
+|the caller's phase value
 |`terminal`
 |The unit's gather state (`all_waived`: every failure covered by a `met` waiver, consumption logged) or waiver wait (`waived`).
 |Declared `terminal waived success`; the caller completes its begun step `waived` with the waiver id.
@@ -129,7 +129,7 @@ A generic state `remediation-<class>.x` stands for one concrete state per unit i
 |link:../store-schemas/14-plan-instance-waivers-questions.adoc#waiver-record[Store Schemas Specification, Waiver Record]
 
 |[[state-remediation.exhausted]]`remediation-<class>.exhausted`
-|inherit
+|the caller's phase value
 |`terminal`
 |`remediation-<class>.budget-check` (`exhausted`), `remediation-<class>.conservative` (`exhausted`).
 |Declared `terminal exhausted failure`; the gap record names the spent budget or the task's reason (`cause: exhausted`). An interrupted rebase is aborted first.
@@ -137,7 +137,7 @@ A generic state `remediation-<class>.x` stands for one concrete state per unit i
 |link:../store-schemas/14-plan-instance-waivers-questions.adoc#gap-record[Store Schemas Specification, Gap Record]
 
 |[[state-remediation.fix-requested]]`remediation-<class>.fix-requested`
-|inherit
+|the caller's phase value
 |`terminal`
 |The unit's `decide` or `choose` (`loop_back`; for `remediation-build` and `remediation-qgate` also `fix`).
 |Declared `terminal fix_requested unsettled`; the fix runs in the caller (a new authoring task, a task revision, or Phase 5 remediation tasks), which calls the unit again after the next verification on the same counter.
@@ -169,7 +169,7 @@ Every unit declares `decide` and `choose` per unit (their outcome routing differ
 |State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
 
 |[[state-remediation-ci.gather]]`remediation-ci.gather`
-|inherit
+|the caller's phase value
 |`composite_job`
 |`call` (start state); `remediation-ci.await-ci` (`failed`, `interrupted`, `cancelled`).
 |`remediation.gather-ci-evidence`: the failing checks through the provider module, their logs parsed by the domain `log_parser` (else a generic tail parser, kind `unknown`), and in the same job the base's result of the same checks with the same fingerprints (the baseline proof; a local build of the merge base only as the fallback). A constituent fate other than success yields a failure of kind `infra`.
@@ -177,7 +177,7 @@ Every unit declares `decide` and `choose` per unit (their outcome routing differ
 |link:../hypermedia-format/03-composite-wait-and-encoder.adoc#short-circuit-matrix[Hypermedia Format Specification, Short-Circuit Matrix]
 
 |[[state-remediation-ci.decide]]`remediation-ci.decide`
-|inherit
+|the caller's phase value
 |`auto`
 |`remediation-ci.budget-check` (`budget_left`).
 |`auto remediation.offer-actions` (<<remediation-decide>>) over `retry`, `fix`, `loop_back`, `request_waiver`.
@@ -185,7 +185,7 @@ Every unit declares `decide` and `choose` per unit (their outcome routing differ
 |link:../workflow-dsl/08-remediation-units.adoc#unit-template[Workflow DSL Specification, Unit Template]
 
 |[[state-remediation-ci.choose]]`remediation-ci.choose`
-|inherit
+|the caller's phase value
 |`job`
 |`remediation-ci.decide` (`choice`).
 |`job llm remediation-decision role triage-ci` (<<remediation-decide>>): `facts`: the failure envelopes with excerpt URIs and the baseline proof. Skill `pm/finalize/ci-triage`.
@@ -193,7 +193,7 @@ Every unit declares `decide` and `choose` per unit (their outcome routing differ
 |link:../phase-workflows/01-planning-phases-1-2.adoc#_remediation_policy_calls[Phase Workflows Specification, Remediation Policy Calls]
 
 |[[state-remediation-ci.rerun]]`remediation-ci.rerun`
-|inherit
+|the caller's phase value
 |`auto`
 |`remediation-ci.decide`, `remediation-ci.choose`, `remediation-ci.conservative` (`retry`).
 |`auto remediation.rerun-checks`: re-runs the failed checks without a code change, charged to the retry budget.
@@ -201,7 +201,7 @@ Every unit declares `decide` and `choose` per unit (their outcome routing differ
 |link:../workflow-dsl/08-remediation-units.adoc#unit-template[Workflow DSL Specification, Unit Template]
 
 |[[state-remediation-ci.await-ci]]`remediation-ci.await-ci`
-|inherit
+|the caller's phase value
 |`composite_job`
 |`remediation-ci.rerun` (`rerun_started`), `remediation-ci.commit-fix` (`done` with a commit).
 |`ci.watch-checks`: only the CI checks of the new `HEAD` (or of the re-run); a constituent `killed`, `timed_out`, or `indeterminate` fate maps to `interrupted`.
@@ -217,7 +217,7 @@ Every unit declares `decide` and `choose` per unit (their outcome routing differ
 |State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
 
 |[[state-remediation-analysis.gather]]`remediation-analysis.gather`
-|inherit
+|the caller's phase value
 |`composite_job`
 |`call` (start state); `remediation-analysis.await-analysis` (`failed`, `interrupted`, `cancelled`).
 |`remediation.gather-analysis-evidence`: every failing provider's quality-gate conditions and new-code issues, tagged by provider; `undecidable` is its own kind. A constituent fate other than success yields a failure of kind `undecidable`.
@@ -225,7 +225,7 @@ Every unit declares `decide` and `choose` per unit (their outcome routing differ
 |link:../hypermedia-format/03-composite-wait-and-encoder.adoc#analysis-status[Hypermedia Format Specification, `analysis_status`]
 
 |[[state-remediation-analysis.decide]]`remediation-analysis.decide`
-|inherit
+|the caller's phase value
 |`auto`
 |`remediation-analysis.budget-check` (`budget_left`).
 |`auto remediation.offer-actions` (<<remediation-decide>>) over `retry`, `fix`, `request_waiver` (per provider).
@@ -233,7 +233,7 @@ Every unit declares `decide` and `choose` per unit (their outcome routing differ
 |link:../workflow-dsl/08-remediation-units.adoc#unit-template[Workflow DSL Specification, Unit Template]
 
 |[[state-remediation-analysis.choose]]`remediation-analysis.choose`
-|inherit
+|the caller's phase value
 |`job`
 |`remediation-analysis.decide` (`choice`).
 |`job llm remediation-decision role triage-analysis` (<<remediation-decide>>): `facts`: the failure envelopes by provider, withheld messages as structured fields only. Skill `pm/finalize/analysis-triage`.
@@ -241,7 +241,7 @@ Every unit declares `decide` and `choose` per unit (their outcome routing differ
 |link:../phase-workflows/01-planning-phases-1-2.adoc#_remediation_policy_calls[Phase Workflows Specification, Remediation Policy Calls]
 
 |[[state-remediation-analysis.rerun]]`remediation-analysis.rerun`
-|inherit
+|the caller's phase value
 |`auto`
 |`remediation-analysis.decide`, `remediation-analysis.choose`, `remediation-analysis.conservative` (`retry`).
 |`auto remediation.rescan`: re-scans or re-triggers the provider (the remedy for `undecidable`), charged to the retry budget.
@@ -249,7 +249,7 @@ Every unit declares `decide` and `choose` per unit (their outcome routing differ
 |link:../workflow-dsl/08-remediation-units.adoc#unit-template[Workflow DSL Specification, Unit Template]
 
 |[[state-remediation-analysis.await-analysis]]`remediation-analysis.await-analysis`
-|inherit
+|the caller's phase value
 |`composite_job`
 |`remediation-analysis.rerun` (`rerun_started`), `remediation-analysis.commit-fix` (`done` with a commit).
 |The failing providers' analysis of the new `HEAD` (or the re-scan); a constituent `killed`, `timed_out`, or `indeterminate` fate maps to `interrupted`.
@@ -265,7 +265,7 @@ Every unit declares `decide` and `choose` per unit (their outcome routing differ
 |State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
 
 |[[state-remediation-review.gather]]`remediation-review.gather`
-|inherit
+|the caller's phase value
 |`composite_job`
 |`call` (start state); `remediation-review.await-review`.
 |`remediation.gather-review-evidence`: the open findings of the ledger (bot comments, the barrier re-fetch, structural refusals, security-audit and self-review findings) and, for a required bot without evidence, a failure of kind `evidence_missing` (`not_wired` checked first); the firing's new externally authored texts form its `batch-v1` batch.
@@ -273,7 +273,7 @@ Every unit declares `decide` and `choose` per unit (their outcome routing differ
 |link:../hypermedia-format/03-composite-wait-and-encoder.adoc#bot-status-mapping[Hypermedia Format Specification, Per-Bot State Mapping]
 
 |[[state-remediation-review.triage]]`remediation-review.triage`
-|inherit
+|the caller's phase value
 |`job`
 |`remediation-review.screen` (`clean`, `suspicious`, `lost`); `remediation-review.gather` (`failures_screened`).
 |`job llm triage role triage-review`, one task per gather firing over every open finding that is not withheld, grouped by `(domain, rule_id)`: the entity submits `submit:triage-groups` with one disposition per group (`FIX` / `SUPPRESS` / `ACCEPT`, `reply_text:text[1..4000]`, optional `requirement_refs`, `population` for `FIX`) and per-finding exceptions, written per finding by `findings.triage`; a disposition that contradicts a finding's classification is refused; a refutation step for producers with a `verification_profile`; `FIX` refused for terminus findings, and the only disposition of a dependency-delta finding. Withheld findings stay pending. Skill `pm/finalize/triage`.
@@ -281,7 +281,7 @@ Every unit declares `decide` and `choose` per unit (their outcome routing differ
 |link:../model-work/07-untrusted-text-screening.adoc#batched-triage[Model Work Specification, Batched Triage]; link:../phase-workflows/04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Phase Workflows Specification, Unified Triage Hook]
 
 |[[state-remediation-review.decide]]`remediation-review.decide`
-|inherit
+|the caller's phase value
 |`auto`
 |`remediation-review.budget-check` (`budget_left`).
 |`auto remediation.offer-actions` (<<remediation-decide>>) over `retry` (a window-gated per-bot re-trigger; not admissible for `unregistered_kind` and `not_wired`), `fix` (in-branch; not for terminus findings, and not bound by the Settle-band call sites `finalize.remediate-security-audit` and `finalize.remediate-self-review`, where no pull request exists yet), `loop_back`, `request_waiver` (security findings are not waivable).
@@ -289,7 +289,7 @@ Every unit declares `decide` and `choose` per unit (their outcome routing differ
 |link:../workflow-dsl/08-remediation-units.adoc#unit-template[Workflow DSL Specification, Unit Template]
 
 |[[state-remediation-review.choose]]`remediation-review.choose`
-|inherit
+|the caller's phase value
 |`job`
 |`remediation-review.decide` (`choice`).
 |`job llm remediation-decision role triage-review` (<<remediation-decide>>): `facts`: the `FIX` findings and the missing evidence. Skill `pm/finalize/review-remediation`.
@@ -297,7 +297,7 @@ Every unit declares `decide` and `choose` per unit (their outcome routing differ
 |link:../phase-workflows/01-planning-phases-1-2.adoc#_remediation_policy_calls[Phase Workflows Specification, Remediation Policy Calls]
 
 |[[state-remediation-review.rerun]]`remediation-review.rerun`
-|inherit
+|the caller's phase value
 |`auto`
 |`remediation-review.decide`, `remediation-review.choose`, `remediation-review.conservative` (`retry`).
 |`auto remediation.retrigger-bots`: the window-gated re-trigger of the bots without evidence, charged to the retry budget.
@@ -305,7 +305,7 @@ Every unit declares `decide` and `choose` per unit (their outcome routing differ
 |link:../workflow-dsl/08-remediation-units.adoc#unit-template[Workflow DSL Specification, Unit Template]
 
 |[[state-remediation-review.await-review]]`remediation-review.await-review`
-|inherit
+|the caller's phase value
 |`composite_job`
 |`remediation-review.rerun` (`rerun_started`), `remediation-review.commit-fix` (`done` with a commit).
 |`review.watch-bots`: the re-review of the required bots at the new `HEAD` and the comment re-ingestion; a constituent `killed`, `timed_out`, or `indeterminate` fate maps to `interrupted`.
@@ -321,7 +321,7 @@ Every unit declares `decide` and `choose` per unit (their outcome routing differ
 |State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
 
 |[[state-remediation-build.gather]]`remediation-build.gather`
-|inherit
+|the caller's phase value
 |`composite_job`
 |`call` (start state); `remediation-build.await-build` (every fate but `succeeded`).
 |`remediation.gather-build-evidence`: the failed build's ledger row and parsed errors; a no-verdict fate is a failure of kind `unparsed`. A red proven baseline-only by the server rule is recorded as a `baseline_red` row.
@@ -329,7 +329,7 @@ Every unit declares `decide` and `choose` per unit (their outcome routing differ
 |link:../phase-workflows/03-q-gate-and-execute.adoc#_whole_tree_verification_gates_triage_required_routing[Phase Workflows Specification, Whole-Tree Verification Gates]
 
 |[[state-remediation-build.decide]]`remediation-build.decide`
-|inherit
+|the caller's phase value
 |`auto`
 |`remediation-build.budget-check` (`budget_left`).
 |`auto remediation.offer-actions` (<<remediation-decide>>) over `retry` (re-runs the failed build) and `fix` (the fix runs in the caller as Phase 5 remediation tasks); no `request_waiver`: a build failure is not waivable. A `land` plan binds only `retry`, so the server takes `retry` while the retry budget is left, and `remediation-build.budget-check` ends the unit `exhausted` once it is spent.
@@ -337,7 +337,7 @@ Every unit declares `decide` and `choose` per unit (their outcome routing differ
 |link:../workflow-dsl/08-remediation-units.adoc#unit-template[Workflow DSL Specification, Unit Template]
 
 |[[state-remediation-build.choose]]`remediation-build.choose`
-|inherit
+|the caller's phase value
 |`job`
 |`remediation-build.decide` (`choice`).
 |`job llm remediation-decision role triage-build` (<<remediation-decide>>): `facts`: the failure envelopes. Skill `pm/execute/build-remediation`.
@@ -345,7 +345,7 @@ Every unit declares `decide` and `choose` per unit (their outcome routing differ
 |link:../phase-workflows/01-planning-phases-1-2.adoc#_remediation_policy_calls[Phase Workflows Specification, Remediation Policy Calls]
 
 |[[state-remediation-build.rerun]]`remediation-build.rerun`
-|inherit
+|the caller's phase value
 |`auto`
 |`remediation-build.decide`, `remediation-build.choose`, `remediation-build.conservative` (`retry`).
 |`auto remediation.rerun-build`: enqueues the failed build job again, same verbs and scope, charged to the retry budget.
@@ -353,7 +353,7 @@ Every unit declares `decide` and `choose` per unit (their outcome routing differ
 |link:../workflow-dsl/08-remediation-units.adoc#unit-template[Workflow DSL Specification, Unit Template]
 
 |[[state-remediation-build.await-build]]`remediation-build.await-build`
-|inherit
+|the caller's phase value
 |`job`
 |`remediation-build.rerun` (`rerun_started`).
 |The re-run build job the preceding primitive enqueued.

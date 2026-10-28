@@ -13,10 +13,8 @@ scope plan
 start verify.entry
 
 state verify.entry
-    phase verify
     call missing.subworkflow()
         done -> verify.done
         stepped_out -> verify.done
 
 state verify.done terminal done success
-    phase verify

@@ -153,14 +153,14 @@ public record CallStack(List<CallFrame> frames) {
     private static WorkflowStatus.CallFrame toStoreFrame(CallFrame frame) {
         var args = new LinkedHashMap<String, BoundArg>();
         frame.boundArgs().forEach((name, value) -> args.put(name, toBoundArg(value)));
-        return new WorkflowStatus.CallFrame(frame.callerWorkflowId(), frame.callerStateId(), frame.callerPhase(),
+        return new WorkflowStatus.CallFrame(frame.callerWorkflowId(), frame.callerStateId(),
                 frame.subWorkflowId(), frame.entry(), args, Instant.parse(frame.pushedAt()));
     }
 
     private static CallFrame fromStoreFrame(WorkflowStatus.CallFrame frame) {
         var args = new LinkedHashMap<String, CallValue>();
         frame.boundArgs().forEach((name, value) -> args.put(name, toCallValue(value)));
-        return new CallFrame(frame.callerWorkflowId(), frame.callerStateId(), frame.callerPhase(),
+        return new CallFrame(frame.callerWorkflowId(), frame.callerStateId(),
                 frame.subworkflowId(), frame.entry(), args, frame.pushedAt().toString());
     }
 
