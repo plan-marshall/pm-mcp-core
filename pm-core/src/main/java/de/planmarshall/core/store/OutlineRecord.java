@@ -24,8 +24,8 @@ import java.util.regex.Pattern;
  * the type is the {@code outline-record} named parameter schema.
  * <p>
  * A deliverable names the criteria and decisions of the intent record it implements in {@code satisfies} (Phase
- * Workflows § 6 {@code satisfies} Coverage), which {@link OutlineValidator} and {@link OutlineCoverageValidator} check
- * against the record.
+ * Workflows § 6 {@code satisfies} Coverage), which {@link de.planmarshall.core.spi.validation.OutlineValidator} checks
+ * against the record when the record-based overload runs.
  *
  * @param summary      what the solution is, 20 to 2000 characters
  * @param overview     an optional text diagram of the solution; may be {@code null}
@@ -70,6 +70,10 @@ List<Deliverable> deliverables) {
             }
         }
         for (var deliverable : deliverables) {
+            if (deliverable.depends().size() != new HashSet<>(deliverable.depends()).size()) {
+                throw new IllegalArgumentException(
+                        "the deliverable %d names a dependency more than once".formatted(deliverable.number()));
+            }
             for (var dependency : deliverable.depends()) {
                 if (!numbers.contains(dependency)) {
                     throw new IllegalArgumentException("the deliverable %d depends on %d, which the outline does not hold"

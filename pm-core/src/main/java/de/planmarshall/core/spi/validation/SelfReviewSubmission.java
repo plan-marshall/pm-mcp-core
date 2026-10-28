@@ -20,7 +20,8 @@ import de.planmarshall.core.store.IntentRecord;
 
 /**
  * The result of the pre-submission self-review over the plan's intent record (Phase Workflows § Finalize Step Ordering
- * Bands, {@code pre-submission-self-review}; PM-WATCH-PHASE-111): one result per criterion {@code AC-<n>}, constraint
+ * Bands, {@code pre-submission-self-review}; the former implementation-watch item `PM-WATCH-PHASE-111`, retired by this
+ * change): one result per criterion {@code AC-<n>}, constraint
  * {@code CN-<n>}, non-goal {@code NG-<n>} and decision {@code DC-<n>} of the record, beside the criteria.
  * <p>
  * A submission that omits one of them is refused, its detail naming the item: a constraint rules out what no

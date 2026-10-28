@@ -21,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -150,6 +151,27 @@ class OutlineRecordTest {
                         deliverable(3, "Three", List.of(2), "DC-1", "three")));
         assertEquals(List.of(2, 1), record.transitiveDependencies(3));
         assertTrue(record.deliverable(3).orElseThrow().satisfies("DC-1"));
+    }
+
+    @DisplayName("A duplicate dependency is refused")
+    @Test
+    void refusesDuplicateDependency() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new OutlineRecord(valid().summary(), null, ScopeEstimate.SINGLE_MODULE,
+                        List.of(deliverable(1, "One", List.of(), "AC-1", "one"),
+                                new Deliverable(2, "Two", "The deliverable two", ChangeType.FEATURE,
+                                        ExecutionMode.AUTOMATED, "core", "pm-core", List.of(1, 1), null,
+                                        List.of(Profile.IMPLEMENTATION), List.of(),
+                                        "Change the file of the deliverable",
+                                        List.of(new Verification("mvn verify", "the build is green")),
+                                        List.of("AC-2"), List.of(), List.of(), List.of()))));
+    }
+
+    @DisplayName("A store with a deliverable that carries no state is refused")
+    @Test
+    void refusesMissingDeliverableStatus() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new OutlineStore(revision(1, valid()), Map.of(), List.of()));
     }
 
     @DisplayName("The reader refuses a document of another format version")

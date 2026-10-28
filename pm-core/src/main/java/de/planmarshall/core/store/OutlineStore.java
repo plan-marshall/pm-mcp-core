@@ -64,6 +64,12 @@ List<Revision> history) {
                     "the current revision follows the last history revision: %d after %d".formatted(
                             current.revision(), history.getLast().revision()));
         }
+        for (var deliverable : current.record().deliverables()) {
+            if (!deliverableStatus.containsKey(deliverable.number())) {
+                throw new IllegalArgumentException(
+                        "the deliverable %d of the current revision carries no state".formatted(deliverable.number()));
+            }
+        }
     }
 
     /**

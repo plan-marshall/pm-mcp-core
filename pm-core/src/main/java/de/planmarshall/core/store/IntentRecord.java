@@ -160,10 +160,21 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
     private static void fixTriple(List<Criterion> criteria, String currentBehaviour) {
         var carriesFix = criteria.stream().anyMatch(item -> item.kind() == CriterionKind.FIX);
         if (!carriesFix) {
+            if (currentBehaviour != null) {
+                throw new IllegalArgumentException(
+                        "a record without a fix criterion carries no current_behaviour");
+            }
             return;
         }
         if (currentBehaviour == null) {
             throw new IllegalArgumentException("a record with a fix criterion names its current_behaviour");
+        }
+        if (!currentBehaviour.startsWith("WHEN ") || !currentBehaviour.contains(" THEN THE ")
+                || currentBehaviour.substring(currentBehaviour.indexOf(" THEN THE ") + " THEN THE ".length())
+                .isBlank()) {
+            throw new IllegalArgumentException(
+                    "current_behaviour is written 'WHEN <condition> THEN THE <system> <behaviour>': "
+                            + currentBehaviour);
         }
         if (criteria.stream().noneMatch(item -> item.kind() == CriterionKind.UNCHANGED)) {
             throw new IllegalArgumentException("a record with a fix criterion holds at least one unchanged criterion");

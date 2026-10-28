@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-@DisplayName("The EARS check of a criterion (PM-WATCH-PHASE-106)")
+@DisplayName("The EARS check of a criterion")
 class EarsFormTest {
 
     @DisplayName("Each EARS pattern is accepted in English")
@@ -57,6 +57,13 @@ class EarsFormTest {
     void refusesConditionalOutOfOrder() {
         assertRefused("WHEN a plan is refined THEN THE system SHALL write the record", "THEN");
         assertRefused("WHEN a task submits IF the record is new THE system SHALL write the record", "THEN");
+    }
+
+    @DisplayName("THEN before its IF is refused")
+    @Test
+    void refusesThenBeforeIf() {
+        assertRefused("WHEN a plan is refined THEN the record is written IF it is new THE system SHALL write it",
+                "before its 'IF'");
     }
 
     @DisplayName("Preconditions out of order are refused")

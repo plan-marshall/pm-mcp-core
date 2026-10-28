@@ -30,7 +30,7 @@ import de.planmarshall.core.store.IntentRecord;
 import de.planmarshall.core.store.IntentRecord.CriterionKind;
 import de.planmarshall.core.store.IntentRecord.VerifiedBy;
 
-@DisplayName("The self-review over the intent's constraints and non-goals (PM-WATCH-PHASE-111)")
+@DisplayName("The self-review over the intent's constraints and non-goals")
 class SelfReviewSubmissionTest {
 
     @DisplayName("A clean round judges every criterion, constraint, non-goal and decision")

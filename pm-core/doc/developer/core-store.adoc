@@ -1692,8 +1692,8 @@ non-goals plus the plan row's own `done_when`.
 
 `ClarifiedRequestRenderer` renders `## Clarified Request` from the current record, each item with its identifier, and
 lists the model's own calls under their own heading. `EarsForm` is the grammar: the structural words `WHERE`, `WHILE`,
-`WHEN`, `IF`/`THEN`, `THE`, `SHALL` and `CONTINUE TO` are uppercase English tokens, and the clause text between them is
-written in the model language and never inspected.
+`WHEN`, `IF`/`THEN`, `THE`, `SHALL` and `CONTINUE TO` are uppercase English tokens, the clause text between them is
+written in the model language, and an uppercase structural word inside clause text is the documented exception.
 
 == The Outline Record
 

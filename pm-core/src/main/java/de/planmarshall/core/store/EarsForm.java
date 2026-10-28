@@ -18,7 +18,8 @@ import java.util.Optional;
 
 /**
  * The EARS grammar an intent record's criterion text is written in (Phase Workflows § The Intent Record, server check 1;
- * PM-WATCH-PHASE-106): the optional preconditions {@code WHERE <feature>}, {@code WHILE <state>} and
+ * the former implementation-watch item `PM-WATCH-PHASE-106`, retired by this change): the optional preconditions
+ * {@code WHERE <feature>}, {@code WHILE <state>} and
  * {@code WHEN <trigger>} in that order, each at most once, optionally {@code IF <condition> THEN}, then
  * {@code THE <system> SHALL <response>}. A criterion of kind {@code unchanged} carries a response that begins with
  * {@code CONTINUE TO}; every other criterion's response does not.
@@ -141,6 +142,9 @@ public final class EarsForm {
         var ifIndex = first.get(IF);
         if (ifIndex != null) {
             var thenIndex = first.get(THEN);
+            if (thenIndex < ifIndex) {
+                return Optional.of("'%s' appears before its '%s'".formatted(THEN, IF));
+            }
             if (ifIndex < previous) {
                 return Optional.of("the conditional '%s' is out of order".formatted(IF));
             }

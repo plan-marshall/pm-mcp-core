@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 import de.planmarshall.core.store.CapabilityIndex;
 import de.planmarshall.core.store.IntentRecord;
@@ -24,8 +23,8 @@ import de.planmarshall.core.store.IntentRecord.Decision;
 
 /**
  * The submission of the builder check, {@code submit:builder-check} (Phase Workflows § Builder Check;
- * PM-WATCH-PHASE-109 and PM-WATCH-PHASE-111): every question a builder of the plan would still need answered, each
- * sorted.
+ * PM-WATCH-PHASE-109, and the former `PM-WATCH-PHASE-111`, retired by this change): every question a builder of the
+ * plan would still need answered, each sorted.
  * <p>
  * The server checks what it can decide: a question that names a constraint {@code CN-<n>} or two criteria is always the
  * operator's, because whether the two items can both hold and whether a default the operator accepted permits what the
@@ -153,6 +152,9 @@ public final class BuilderCheck {
     private BuilderCheck() {
     }
 
+    /** The longest minor decision the record's decision text holds beside the marker. */
+    private static final int MAX_MINOR_DECISION = 400;
+
     /**
      * Checks a submission against the record, adding the builder's own calls as model decisions.
      *
@@ -201,6 +203,11 @@ public final class BuilderCheck {
         if (question.sort() == Sort.ANSWERED && question.items().size() != 1) {
             return Optional.of("an answered question names exactly one item of the record");
         }
+        if (question.sort() == Sort.MINOR && question.decision().length() > MAX_MINOR_DECISION) {
+            return Optional.of(
+                    "the minor decision is longer than %d characters, which no decision of the record holds"
+                            .formatted(MAX_MINOR_DECISION));
+        }
         var constraints = question.items().stream().filter(item -> item.startsWith("CN-")).count();
         var criteria = question.items().stream().filter(item -> item.startsWith("AC-")).count();
         if (question.sort() == Sort.MINOR && (constraints > 0 || criteria > 1)) {
@@ -224,17 +231,10 @@ public final class BuilderCheck {
         var decisions = new ArrayList<>(record.decisions());
         for (var question : minor) {
             decisions.add(new Decision("DC-" + next++, "from the builder check: " + question.decision(),
-                    List.of(question.decision()), Decider.MODEL, null, null, null));
+                    List.of(), Decider.MODEL, null, null, null));
         }
         return new IntentRecord(record.why(), record.goal(), record.criteria(), record.currentBehaviour(),
                 record.nonGoals(), record.constraints(), decisions, record.assumptions(), record.openQuestions(),
                 record.deferred(), record.sourceClaims());
-    }
-
-    /**
-     * @return the item kinds a question may name
-     */
-    static Set<String> itemPrefixes() {
-        return Set.of("AC-", "NG-", "CN-", "DC-", "AN-", "DF-");
     }
 }

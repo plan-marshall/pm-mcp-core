@@ -130,7 +130,8 @@ public final class OutlineValidator implements ContentValidator {
 
     /**
      * Checks a submitted outline record against the plan's intent record (Phase Workflows § 6 {@code satisfies}
-     * Coverage; PM-WATCH-PHASE-110): every {@code satisfies} entry names a criterion or decision the record holds, every
+     * Coverage; the former implementation-watch item `PM-WATCH-PHASE-110`, retired by this change): every
+     * {@code satisfies} entry names a criterion or decision the record holds, every
      * criterion is covered by a deliverable, no deliverable's {@code satisfies} is empty, and the guard of behaviour
      * that must not change comes before the change it guards.
      * <p>

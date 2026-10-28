@@ -26,7 +26,7 @@ import de.planmarshall.core.store.IntentRecord.CriterionKind;
 import de.planmarshall.core.store.IntentRecord.VerifiedBy;
 import de.planmarshall.core.store.OutlineRecord;
 
-@DisplayName("The outline's satisfies coverage (PM-WATCH-PHASE-110)")
+@DisplayName("The outline's satisfies coverage")
 class OutlineCoverageTest {
 
     private final OutlineValidator validator = new OutlineValidator();

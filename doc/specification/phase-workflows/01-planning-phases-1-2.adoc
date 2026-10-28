@@ -416,6 +416,8 @@ link:../../../pm-core/doc/developer/core-store.adoc#_the_intent_record[Scope Sto
 Not implemented yet: the wiring of `submit:refine`, the light `submit:outline` and the re-planning into the planning
 phases, the server-side writer of `request.md`, and the seeding of `facts.required_claims` by the epic row's reader.
 
+The refine task does not submit the clarified request as prose. It submits the plan's *intent record*, `intent:schema[intent-record]` (link:../store-schemas/06-task-and-references.adoc#intent-record-store[Store Schemas Specification, Intent Record]), and the server renders `## Clarified Request` of `request.md` from it. The record is what later phases cite: the outline names the criteria each deliverable satisfies (xref:02-planning-lanes-phases-3-4.adoc#outline-satisfies[Phase 3, `Satisfies` Coverage]), the self-review judges against the criteria, and the pull-request body lists them. Wherever this specification names the clarified request as text (the change-type heuristic, the issue write-back), it means that rendered section.
+
 [cols="1,3",options="header"]
 |===
 |Member |Content

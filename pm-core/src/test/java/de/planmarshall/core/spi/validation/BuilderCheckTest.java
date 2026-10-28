@@ -39,7 +39,7 @@ import de.planmarshall.core.store.IntentRecord.NonGoal;
 import de.planmarshall.core.store.IntentRecord.SourceClaim;
 import de.planmarshall.core.store.IntentRecord.VerifiedBy;
 
-@DisplayName("The builder check's submission (PM-WATCH-PHASE-109, PM-WATCH-PHASE-111)")
+@DisplayName("The builder check's submission (PM-WATCH-PHASE-109)")
 class BuilderCheckTest {
 
     @DisplayName("A question about a constraint is always the operator's")
@@ -110,6 +110,15 @@ class BuilderCheckTest {
         assertFalse(facts.containsKey("request"));
         assertFalse(facts.containsKey("original_input"));
         assertFalse(facts.containsKey("clarifications"));
+    }
+
+    @DisplayName("A minor decision too long for the record is refused, not thrown")
+    @Test
+    void refusesOverlongMinorDecision() {
+        var question = new Question(Sort.MINOR, "Where does it live?", List.of("AC-1"), "x".repeat(401));
+        var refused = assertInstanceOf(Refused.class,
+                BuilderCheck.validate(new Submission(List.of(question)), record()));
+        assertTrue(refused.detail().contains("longer"));
     }
 
     @DisplayName("A question's text is bounded")

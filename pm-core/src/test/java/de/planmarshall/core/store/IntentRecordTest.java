@@ -357,6 +357,39 @@ class IntentRecordTest {
         assertEquals(List.of("AC-1"), second.removedIdentifiers());
     }
 
+    @DisplayName("A capability link round-trips through the codec")
+    @Test
+    void capabilityLinkRoundTrips() {
+        var record = withCriteria(List.of(new Criterion("AC-1",
+                        "WHEN a plan is refined THE system SHALL write the intent record", CriterionKind.NEW,
+                        VerifiedBy.TEST, new CapabilityLink("intent-record", "round-trip", CapabilityChange.ADDED, null)),
+                criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.TEST)));
+        var store = assertInstanceOf(Accepted.class,
+                accept(null, IntentSubmission.REFINE, revision(1, record), context(FILE))).store();
+
+        var reread = IntentCodec.read(FILE, IntentCodec.write(store));
+        assertEquals(store, reread);
+        assertEquals("intent-record", reread.current().record().criterion("AC-1").orElseThrow().capability()
+                .capability());
+    }
+
+    @DisplayName("A current behaviour without a fix criterion, or outside its form, is refused")
+    @Test
+    void checksCurrentBehaviour() {
+        assertThrows(IllegalArgumentException.class, () -> new IntentRecord(valid().why(), valid().goal(),
+                valid().criteria(), "WHEN a plan is refined THEN THE system writes the record", valid().nonGoals(),
+                valid().constraints(), valid().decisions(), valid().assumptions(), valid().openQuestions(),
+                valid().deferred(), valid().sourceClaims()));
+
+        var fix = new Criterion("AC-1", "WHEN a plan is refined THE system SHALL write the record",
+                CriterionKind.FIX, VerifiedBy.TEST, null);
+        var unchanged = criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.TEST);
+        assertThrows(IllegalArgumentException.class, () -> new IntentRecord(valid().why(), valid().goal(),
+                List.of(fix, unchanged), "the record was prose before", valid().nonGoals(), valid().constraints(),
+                valid().decisions(), valid().assumptions(), valid().openQuestions(), valid().deferred(),
+                valid().sourceClaims()));
+    }
+
     private static Outcome accept(IntentStore before, IntentSubmission submission, Revision revision,
             IntentAcceptance.Context context) {
         return IntentAcceptance.accept(before, submission, revision, context);
