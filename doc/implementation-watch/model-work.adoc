@@ -473,20 +473,6 @@ no item's input contains `recommended`, `recommendation_confidence`, the asker's
 control: a decision without a correction is exported with its own choice and an unchanged line.
 Source:: design review.
 
-[#PM-WATCH-DISP-40]
-=== PM-WATCH-DISP-40: A usage total is the sum of four measured components or unmeasured
-
-Anchor:: link:../specification/model-work/09-completion-usage-and-spend.adoc#job-result-schema[Model Work § Worker Result & Usage Parsing] (Usage),
-link:../specification/model-work/09-completion-usage-and-spend.adoc#post-completion-invariants[Model Work § Post-Completion Integrity Invariants] (item 6)
-Hazard:: A total summed over the components that happen to be present reads as a measured figure and understates the
-spend; a total of `0` for a job that ran fabricates a free job; and a sum formed for another population mixes
-figures that have no common breakdown.
-Guard:: Parser fixtures per harness output: all four components measured yield `total_tokens` as their sum; three
-measured and one `unmeasured` yield `total_tokens: "unmeasured"`, never the partial sum; four components measured
-`0` yield `"unmeasured"`; the `cache_read` and `cache_creation` pointers fill `cache_read_input_tokens` and
-`cache_creation_input_tokens`; no `total` pointer is accepted in `headless.usage`.
-Source:: design review.
-
 == Worker Launch
 
 [#PM-WATCH-DISP-30]
