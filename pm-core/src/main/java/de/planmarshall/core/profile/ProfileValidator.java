@@ -609,7 +609,7 @@ public final class ProfileValidator {
             var supported = text(required(headless, pointer, NAME_SUPPORTED_VERSIONS), pointer + "/supported_versions",
                     NAME_SUPPORTED_VERSIONS, 256);
             SupportedVersions.parse(supported, document, pointer + "/supported_versions");
-            updateEvidence(required(headless, pointer, NAME_UPDATE_EVIDENCE), pointer + "/update_evidence");
+            updateEvidence(required(headless, pointer, NAME_UPDATE_EVIDENCE), pointer + PTR_UPDATE_EVIDENCE);
             enumValue(required(headless, pointer, NAME_AGENT_MODE), pointer + "/agent_mode", NAME_AGENT_MODE,
                     Set.of("inline", "flags"));
             launchArguments(required(headless, pointer, "argv"), pointer + PTR_ARGV, "argv", SLOTS);

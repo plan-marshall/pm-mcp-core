@@ -235,7 +235,7 @@ public final class JudgmentVerification {
 
     private static JsonNode fillerState(int tokens) {
         var characters = Math.max(0, tokens * EndpointRequest.CHARS_PER_TOKEN - 2_048);
-        return JsonNode.object(Map.of("probe", JsonNode.string("x".repeat(characters))));
+        return JsonNode.object(Map.of(PROBE_QUESTION, JsonNode.string("x".repeat(characters))));
     }
 
     private Optional<String> probe(EndpointProfile profile, String executablePath) {

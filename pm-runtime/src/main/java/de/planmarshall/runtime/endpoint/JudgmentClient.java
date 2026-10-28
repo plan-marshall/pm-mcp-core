@@ -122,8 +122,10 @@ public final class JudgmentClient {
     private Credential credential(EndpointProfile profile, String path) {
         var endpoint = profile.endpoint();
         if (!endpoint.remote()) {
-            return EndpointClient.loopback(uri(profile, path)) ? new Credential(null, null)
-                    : new Credential(null, refusal(profile, path, "not a loopback address"));
+            if (!EndpointClient.loopback(uri(profile, path))) {
+                return new Credential(null, refusal(profile, path, "not a loopback address"));
+            }
+            return new Credential(null, null);
         }
         var entry = credentials.entry(endpoint.credentialKey()).orElse(null);
         if (entry == null) {

@@ -77,11 +77,11 @@ public final class HarnessEnrolmentStore {
     private static final String EVENTS = "events";
 
     /** The members of a serving program's entry. */
-    private static final Set<String> PROGRAM_MEMBERS = Set.of("executable_path", "sha256", "version", ENROLLED_AT,
+    private static final Set<String> PROGRAM_MEMBERS = Set.of(EXECUTABLE_PATH, SHA256, VERSION, ENROLLED_AT,
             UPDATED_AT, WEIGHTS, USAGE_REPORT, EVENTS);
 
     /** The members of a remote endpoint's entry. */
-    private static final Set<String> ENDPOINT_MEMBERS = Set.of("endpoint", ENROLLED_AT, UPDATED_AT, WEIGHTS,
+    private static final Set<String> ENDPOINT_MEMBERS = Set.of(ENDPOINT, ENROLLED_AT, UPDATED_AT, WEIGHTS,
             USAGE_REPORT, EVENTS);
 
     private final Path base;
