@@ -419,8 +419,8 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
 * link:../adr/workflow-dsl/004-instance-header-json-kept-as-a-string.adoc[ADR 004]: the instance header JSON is kept as
   a string.
 * link:../adr/workflow-dsl/005-frontmatter-read-by-its-own-line-parser.adoc[ADR 005]: the frontmatter is read by a line
-  parser of its own, its refusals are values of the rule `FRONTMATTER`, and the frontmatter of a merged plan unit and
-  of a composed instance is derived from a part.
+  parser of its own, its refusals are values of the rule `FRONTMATTER`, and the frontmatter of a composed instance is
+  derived from its template.
 * link:../adr/workflow-dsl/006-empty-list-admitted-as-a-call-value.adoc[ADR 006]: the grammar admits the empty list `[]`
   as a call value, and nothing else of the grammar changes.
 * link:../adr/workflow-dsl/007-refused-characters-and-frontmatter-bounds.adoc[ADR 007]: the frontmatter refuses format,
@@ -430,3 +430,5 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
   clause, and the parser refuses one.
 * link:../adr/workflow-dsl/010-ask-fresh-as-a-form-of-the-axis.adoc[ADR 010]: the asking axis is one `AskForm` value
   (`none`, `ask`, `ask fresh`), and `ask fresh` is refused on a `role each` state exactly as `ask` is.
+* link:../adr/workflow-dsl/011-the-grammar-carries-no-phase-clause.adoc[ADR 011]: the grammar and the printer carry no
+  `phase` clause; `phase` stays a reserved word and is refused.

@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted
+Superseded by link:019-composition-reads-the-phase-sub-units.adoc[ADR 019]
 
 == Date
 
