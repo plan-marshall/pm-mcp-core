@@ -157,21 +157,21 @@ public class OutlineCodec {
         writeInstant(generator, FIELD_SUBMITTED_AT, revision.submittedAt());
         generator.writeStringField(FIELD_TASK_ID, revision.taskId());
         generator.writeFieldName(FIELD_RECORD);
-        writeRecord(generator, revision.record());
+        writeRecord(generator, revision.outlineRecord());
         generator.writeEndObject();
     }
 
-    private static void writeRecord(JsonGenerator generator, OutlineRecord record) throws IOException {
+    private static void writeRecord(JsonGenerator generator, OutlineRecord outlineRecord) throws IOException {
         generator.writeStartObject();
-        generator.writeStringField(FIELD_SUMMARY, record.summary());
-        if (record.overview() == null) {
+        generator.writeStringField(FIELD_SUMMARY, outlineRecord.summary());
+        if (outlineRecord.overview() == null) {
             generator.writeNullField(FIELD_OVERVIEW);
         } else {
-            generator.writeStringField(FIELD_OVERVIEW, record.overview());
+            generator.writeStringField(FIELD_OVERVIEW, outlineRecord.overview());
         }
-        generator.writeStringField(FIELD_SCOPE_ESTIMATE, record.scopeEstimate().wireName());
+        generator.writeStringField(FIELD_SCOPE_ESTIMATE, outlineRecord.scopeEstimate().wireName());
         generator.writeArrayFieldStart(FIELD_DELIVERABLES);
-        for (var deliverable : record.deliverables()) {
+        for (var deliverable : outlineRecord.deliverables()) {
             writeDeliverable(generator, deliverable);
         }
         generator.writeEndArray();
@@ -294,7 +294,7 @@ public class OutlineCodec {
         Long revision = null;
         Instant submittedAt = null;
         String taskId = null;
-        OutlineRecord record = null;
+        OutlineRecord outlineRecord = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -302,13 +302,13 @@ public class OutlineCodec {
                 case FIELD_REVISION -> revision = integer(parser, field);
                 case FIELD_SUBMITTED_AT -> submittedAt = StrictJson.instant(parser, field);
                 case FIELD_TASK_ID -> taskId = string(parser, field);
-                case FIELD_RECORD -> record = readRecord(parser, FIELD_RECORD);
+                case FIELD_RECORD -> outlineRecord = readRecord(parser, FIELD_RECORD);
                 default -> throw undeclared(field);
             }
         }
         requireFields(seen, name, FIELD_REVISION, FIELD_SUBMITTED_AT, FIELD_TASK_ID, FIELD_RECORD);
         try {
-            return new Revision(Math.toIntExact(revision), submittedAt, taskId, record);
+            return new Revision(Math.toIntExact(revision), submittedAt, taskId, outlineRecord);
         } catch (IllegalArgumentException | ArithmeticException e) {
             throw unreadable(e.getMessage(), e);
         }

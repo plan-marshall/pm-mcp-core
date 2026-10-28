@@ -108,7 +108,7 @@ class SimplifyStepTest {
 
         assertEquals(List.of("SP-1", "SP-2"), first.stream().map(ProposalRecord::proposalId).toList());
         assertEquals("SP-3", second.getFirst().proposalId());
-        assertTrue(first.stream().allMatch(record -> record.disposition() == Disposition.OPEN));
+        assertTrue(first.stream().allMatch(recorded -> recorded.disposition() == Disposition.OPEN));
         assertEquals(List.of(first.getFirst(), first.get(1)),
                 SimplifyStep.applyFacts(first).get("proposals"));
     }
@@ -134,16 +134,19 @@ class SimplifyStepTest {
         var result = SimplifyStep.apply(records, List.of());
 
         assertFalse(result.applied());
-        assertTrue(result.records().stream().allMatch(record -> record.disposition() == Disposition.DECLINED));
+        assertTrue(result.records().stream().allMatch(recorded -> recorded.disposition() == Disposition.DECLINED));
     }
 
     @DisplayName("An accepted id that is no open proposal of the firing is refused")
     @Test
     void unknownAcceptedIdIsRefused() {
         var records = SimplifyStep.record(List.of(proposal("one")), 1);
-        assertThrows(IllegalArgumentException.class, () -> SimplifyStep.apply(records, List.of("SP-9")));
+        var unknownId = List.of("SP-9");
+        assertThrows(IllegalArgumentException.class, () -> SimplifyStep.apply(records, unknownId));
         var applied = SimplifyStep.apply(records, List.of("SP-1"));
-        assertThrows(IllegalArgumentException.class, () -> SimplifyStep.apply(applied.records(), List.of("SP-1")));
+        var appliedRecords = applied.records();
+        var reusedId = List.of("SP-1");
+        assertThrows(IllegalArgumentException.class, () -> SimplifyStep.apply(appliedRecords, reusedId));
     }
 
     @DisplayName("A proposal's file is repository-relative and its text is bounded")
@@ -158,8 +161,9 @@ class SimplifyStepTest {
     @DisplayName("A candidate shorter than 50 tokens is refused")
     @Test
     void candidateIsAtLeast50Tokens() {
-        assertThrows(IllegalArgumentException.class, () -> new CloneCandidate("a.java", new LineRange(1, 1),
-                "b.java", new LineRange(1, 1), 49));
+        var range = new LineRange(1, 1);
+        assertThrows(IllegalArgumentException.class,
+                () -> new CloneCandidate("a.java", range, "b.java", range, 49));
     }
 
     @DisplayName("A line range is one-based and inclusive")

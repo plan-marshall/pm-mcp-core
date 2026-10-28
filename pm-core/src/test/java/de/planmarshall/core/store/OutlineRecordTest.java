@@ -25,11 +25,14 @@ import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.planmarshall.core.store.OutlineRecord.AddedDependency;
 import de.planmarshall.core.store.OutlineRecord.AffectedFile;
 import de.planmarshall.core.store.OutlineRecord.ChangeType;
 import de.planmarshall.core.store.OutlineRecord.Deliverable;
 import de.planmarshall.core.store.OutlineRecord.ExecutionMode;
 import de.planmarshall.core.store.OutlineRecord.FileIntent;
+import de.planmarshall.core.store.OutlineRecord.Interface;
+import de.planmarshall.core.store.OutlineRecord.KeyLink;
 import de.planmarshall.core.store.OutlineRecord.Profile;
 import de.planmarshall.core.store.OutlineRecord.ScopeEstimate;
 import de.planmarshall.core.store.OutlineRecord.Verification;
@@ -93,12 +96,13 @@ class OutlineRecordTest {
     @DisplayName("A dependency must name a deliverable of the outline, and never itself")
     @Test
     void refusesUnresolvedAndSelfDependency() {
-        assertThrows(IllegalArgumentException.class, () -> new OutlineRecord(valid().summary(), null,
-                ScopeEstimate.SINGLE_MODULE,
-                List.of(deliverable(1, "One", List.of(9), "AC-1", "one"))));
-        assertThrows(IllegalArgumentException.class, () -> new OutlineRecord(valid().summary(), null,
-                ScopeEstimate.SINGLE_MODULE,
-                List.of(deliverable(1, "One", List.of(1), "AC-1", "one"))));
+        var summary = valid().summary();
+        var unresolved = List.of(deliverable(1, "One", List.of(9), "AC-1", "one"));
+        assertThrows(IllegalArgumentException.class,
+                () -> new OutlineRecord(summary, null, ScopeEstimate.SINGLE_MODULE, unresolved));
+        var selfDependent = List.of(deliverable(1, "One", List.of(1), "AC-1", "one"));
+        assertThrows(IllegalArgumentException.class,
+                () -> new OutlineRecord(summary, null, ScopeEstimate.SINGLE_MODULE, selfDependent));
     }
 
     @DisplayName("A write-conditional file names its gate, and no other file carries one")
@@ -115,63 +119,72 @@ class OutlineRecordTest {
     @DisplayName("A satisfies entry is a criterion or a decision identifier")
     @Test
     void refusesForeignSatisfiesEntry() {
-        assertThrows(IllegalArgumentException.class, () -> new OutlineRecord(valid().summary(), null,
-                ScopeEstimate.SINGLE_MODULE,
-                List.of(deliverable(1, "One", List.of(), "NG-1", "one"))));
+        assertThrows(IllegalArgumentException.class, () -> outlineSatisfying("NG-1"));
     }
 
     @DisplayName("A deliverable names at least one profile, once each")
     @Test
     void refusesMissingOrDuplicateProfiles() {
+        List<Integer> noDepends = List.of();
+        List<Profile> noProfiles = List.of();
+        List<AffectedFile> noFiles = List.of();
+        List<AddedDependency> noDependencies = List.of();
+        List<Interface> noInterfaces = List.of();
+        List<KeyLink> noLinks = List.of();
+        var verification = List.of(new Verification("mvn verify", "green"));
+        var satisfies = List.of("AC-1");
         assertThrows(IllegalArgumentException.class, () -> new Deliverable(1, "One", "The deliverable one",
-                ChangeType.FEATURE, ExecutionMode.AUTOMATED, "core", "pm-core", List.of(), null, List.of(),
-                List.of(), "Create the class", List.of(new Verification("mvn verify", "green")), List.of("AC-1"),
-                List.of(), List.of(), List.of()));
+                ChangeType.FEATURE, ExecutionMode.AUTOMATED, "core", "pm-core", noDepends, null, noProfiles,
+                noFiles, "Create the class", verification, satisfies, noDependencies, noInterfaces, noLinks));
+        var duplicatedProfiles = List.of(Profile.IMPLEMENTATION, Profile.IMPLEMENTATION);
         assertThrows(IllegalArgumentException.class, () -> new Deliverable(1, "One", "The deliverable one",
-                ChangeType.FEATURE, ExecutionMode.AUTOMATED, "core", "pm-core", List.of(), null,
-                List.of(Profile.IMPLEMENTATION, Profile.IMPLEMENTATION), List.of(), "Create the class",
-                List.of(new Verification("mvn verify", "green")), List.of("AC-1"), List.of(), List.of(), List.of()));
+                ChangeType.FEATURE, ExecutionMode.AUTOMATED, "core", "pm-core", noDepends, null,
+                duplicatedProfiles, noFiles, "Create the class",
+                verification, satisfies, noDependencies, noInterfaces, noLinks));
     }
 
     @DisplayName("A deliverable number is unique in the outline")
     @Test
     void refusesDuplicateDeliverableNumber() {
-        assertThrows(IllegalArgumentException.class, () -> new OutlineRecord(valid().summary(), null,
-                ScopeEstimate.SINGLE_MODULE,
-                List.of(deliverable(1, "One", List.of(), "AC-1", "one"),
-                        deliverable(1, "Two", List.of(), "AC-2", "two"))));
+        var summary = valid().summary();
+        var deliverables = List.of(deliverable(1, "One", List.of(), "AC-1", "one"),
+                deliverable(1, "Two", List.of(), "AC-2", "two"));
+        assertThrows(IllegalArgumentException.class,
+                () -> new OutlineRecord(summary, null, ScopeEstimate.SINGLE_MODULE, deliverables));
     }
 
     @DisplayName("The transitive dependencies of a deliverable are every deliverable it rests on")
     @Test
     void computesTransitiveDependencies() {
-        var record = new OutlineRecord(valid().summary(), null, ScopeEstimate.SINGLE_MODULE,
+        var outlineRecord = new OutlineRecord(valid().summary(), null, ScopeEstimate.SINGLE_MODULE,
                 List.of(deliverable(1, "One", List.of(), "AC-1", "one"),
                         deliverable(2, "Two", List.of(1), "AC-2", "two"),
                         deliverable(3, "Three", List.of(2), "DC-1", "three")));
-        assertEquals(List.of(2, 1), record.transitiveDependencies(3));
-        assertTrue(record.deliverable(3).orElseThrow().satisfies("DC-1"));
+        assertEquals(List.of(2, 1), outlineRecord.transitiveDependencies(3));
+        assertTrue(outlineRecord.deliverable(3).orElseThrow().satisfies("DC-1"));
     }
 
     @DisplayName("A duplicate dependency is refused")
     @Test
     void refusesDuplicateDependency() {
+        var summary = valid().summary();
+        var duplicatedDependency = new Deliverable(2, "Two", "The deliverable two", ChangeType.FEATURE,
+                ExecutionMode.AUTOMATED, "core", "pm-core", List.of(1, 1), null,
+                List.of(Profile.IMPLEMENTATION), List.of(), "Change the file of the deliverable",
+                List.of(new Verification("mvn verify", "the build is green")),
+                List.of("AC-2"), List.of(), List.of(), List.of());
+        var deliverables = List.of(deliverable(1, "One", List.of(), "AC-1", "one"), duplicatedDependency);
         assertThrows(IllegalArgumentException.class,
-                () -> new OutlineRecord(valid().summary(), null, ScopeEstimate.SINGLE_MODULE,
-                        List.of(deliverable(1, "One", List.of(), "AC-1", "one"),
-                                new Deliverable(2, "Two", "The deliverable two", ChangeType.FEATURE,
-                                        ExecutionMode.AUTOMATED, "core", "pm-core", List.of(1, 1), null,
-                                        List.of(Profile.IMPLEMENTATION), List.of(),
-                                        "Change the file of the deliverable",
-                                        List.of(new Verification("mvn verify", "the build is green")),
-                                        List.of("AC-2"), List.of(), List.of(), List.of()))));
+                () -> new OutlineRecord(summary, null, ScopeEstimate.SINGLE_MODULE, deliverables));
     }
 
     @DisplayName("A store with a deliverable that carries no state is refused")
     @Test
     void refusesMissingDeliverableStatus() {
-        assertThrows(IllegalArgumentException.class,
-                () -> new OutlineStore(revision(1, valid()), Map.of(), List.of()));
+        var first = revision(1, valid());
+        Map<Integer, OutlineStore.DeliveryStatus> statuses = Map.of();
+        List<OutlineStore.Revision> history = List.of();
+        assertThrows(IllegalArgumentException.class, () -> new OutlineStore(first, statuses, history));
     }
 
     @DisplayName("The reader refuses a document of another format version")
@@ -180,5 +193,10 @@ class OutlineRecordTest {
         var document = "{\"format_version\": 2, \"current\": {}, \"deliverable_status\": {}, \"history\": []}"
                 .getBytes(StandardCharsets.UTF_8);
         assertThrows(StoreRefusal.class, () -> OutlineCodec.read(FILE, document));
+    }
+
+    private static OutlineRecord outlineSatisfying(String entry) {
+        return new OutlineRecord(valid().summary(), null, ScopeEstimate.SINGLE_MODULE,
+                List.of(deliverable(1, "One", List.of(), entry, "one")));
     }
 }

@@ -155,26 +155,26 @@ public class IntentCodec {
         writeInstant(generator, FIELD_SUBMITTED_AT, revision.submittedAt());
         generator.writeStringField(FIELD_TASK_ID, revision.taskId());
         generator.writeFieldName(FIELD_RECORD);
-        writeRecord(generator, revision.record());
+        writeRecord(generator, revision.intentRecord());
         generator.writeEndObject();
     }
 
-    private static void writeRecord(JsonGenerator generator, IntentRecord record) throws IOException {
+    private static void writeRecord(JsonGenerator generator, IntentRecord intentRecord) throws IOException {
         generator.writeStartObject();
-        generator.writeStringField(FIELD_WHY, record.why());
-        generator.writeStringField(FIELD_GOAL, record.goal());
+        generator.writeStringField(FIELD_WHY, intentRecord.why());
+        generator.writeStringField(FIELD_GOAL, intentRecord.goal());
         generator.writeArrayFieldStart(FIELD_CRITERIA);
-        for (var criterion : record.criteria()) {
+        for (var criterion : intentRecord.criteria()) {
             writeCriterion(generator, criterion);
         }
         generator.writeEndArray();
-        if (record.currentBehaviour() == null) {
+        if (intentRecord.currentBehaviour() == null) {
             generator.writeNullField(FIELD_CURRENT_BEHAVIOUR);
         } else {
-            generator.writeStringField(FIELD_CURRENT_BEHAVIOUR, record.currentBehaviour());
+            generator.writeStringField(FIELD_CURRENT_BEHAVIOUR, intentRecord.currentBehaviour());
         }
         generator.writeArrayFieldStart(FIELD_NON_GOALS);
-        for (var nonGoal : record.nonGoals()) {
+        for (var nonGoal : intentRecord.nonGoals()) {
             generator.writeStartObject();
             generator.writeStringField(FIELD_ID, nonGoal.id());
             generator.writeStringField(FIELD_TEXT, nonGoal.text());
@@ -182,7 +182,7 @@ public class IntentCodec {
         }
         generator.writeEndArray();
         generator.writeArrayFieldStart(FIELD_CONSTRAINTS);
-        for (var constraint : record.constraints()) {
+        for (var constraint : intentRecord.constraints()) {
             generator.writeStartObject();
             generator.writeStringField(FIELD_ID, constraint.id());
             generator.writeStringField(FIELD_TEXT, constraint.text());
@@ -192,12 +192,12 @@ public class IntentCodec {
         }
         generator.writeEndArray();
         generator.writeArrayFieldStart(FIELD_DECISIONS);
-        for (var decision : record.decisions()) {
+        for (var decision : intentRecord.decisions()) {
             writeDecision(generator, decision);
         }
         generator.writeEndArray();
         generator.writeArrayFieldStart(FIELD_ASSUMPTIONS);
-        for (var assumption : record.assumptions()) {
+        for (var assumption : intentRecord.assumptions()) {
             generator.writeStartObject();
             generator.writeStringField(FIELD_ID, assumption.id());
             generator.writeStringField(FIELD_TEXT, assumption.text());
@@ -208,7 +208,7 @@ public class IntentCodec {
         }
         generator.writeEndArray();
         generator.writeArrayFieldStart(FIELD_OPEN_QUESTIONS);
-        for (var question : record.openQuestions()) {
+        for (var question : intentRecord.openQuestions()) {
             generator.writeStartObject();
             generator.writeStringField(FIELD_TEXT, question.text());
             generator.writeStringField(FIELD_RESOLVER, question.resolver().wireName());
@@ -216,7 +216,7 @@ public class IntentCodec {
         }
         generator.writeEndArray();
         generator.writeArrayFieldStart(FIELD_DEFERRED);
-        for (var deferred : record.deferred()) {
+        for (var deferred : intentRecord.deferred()) {
             generator.writeStartObject();
             generator.writeStringField(FIELD_ID, deferred.id());
             generator.writeStringField(FIELD_TEXT, deferred.text());
@@ -225,7 +225,7 @@ public class IntentCodec {
         }
         generator.writeEndArray();
         generator.writeArrayFieldStart(FIELD_SOURCE_CLAIMS);
-        for (var claim : record.sourceClaims()) {
+        for (var claim : intentRecord.sourceClaims()) {
             generator.writeStartObject();
             generator.writeStringField(FIELD_CLAIM, claim.claim());
             generator.writeStringField(FIELD_LANDED_IN, claim.landedIn());
@@ -313,7 +313,7 @@ public class IntentCodec {
         Long revision = null;
         Instant submittedAt = null;
         String taskId = null;
-        IntentRecord record = null;
+        IntentRecord intentRecord = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -321,13 +321,13 @@ public class IntentCodec {
                 case FIELD_REVISION -> revision = integer(parser, field);
                 case FIELD_SUBMITTED_AT -> submittedAt = StrictJson.instant(parser, field);
                 case FIELD_TASK_ID -> taskId = string(parser, field);
-                case FIELD_RECORD -> record = readRecord(parser, FIELD_RECORD);
+                case FIELD_RECORD -> intentRecord = readRecord(parser, FIELD_RECORD);
                 default -> throw undeclared(field);
             }
         }
         requireFields(seen, name, FIELD_REVISION, FIELD_SUBMITTED_AT, FIELD_TASK_ID, FIELD_RECORD);
         try {
-            return new Revision(Math.toIntExact(revision), submittedAt, taskId, record);
+            return new Revision(Math.toIntExact(revision), submittedAt, taskId, intentRecord);
         } catch (IllegalArgumentException | ArithmeticException e) {
             throw unreadable(e.getMessage(), e);
         }

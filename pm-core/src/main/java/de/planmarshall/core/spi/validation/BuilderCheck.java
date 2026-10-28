@@ -118,17 +118,17 @@ public final class BuilderCheck {
     /**
      * The submission is consistent with the record.
      *
-     * @param record            the record with the builder's own calls added; the same instance when it made none
+     * @param intentRecord      the record with the builder's own calls added; the same instance when it made none
      * @param operatorQuestions the questions only the operator can answer, in order
      * @since 0.1
      */
-    public record Accepted(IntentRecord record, List<Question> operatorQuestions) implements Outcome {
+    public record Accepted(IntentRecord intentRecord, List<Question> operatorQuestions) implements Outcome {
 
         /**
          * @throws NullPointerException if a value is {@code null}
          */
         public Accepted {
-            Objects.requireNonNull(record, "record");
+            Objects.requireNonNull(intentRecord, INTENT_RECORD);
             operatorQuestions = List.copyOf(operatorQuestions);
         }
     }
@@ -158,47 +158,50 @@ public final class BuilderCheck {
      */
     private static final int MAX_MINOR_DECISION = 400;
 
+    /** The name of the record parameter, as a null refusal names it. */
+    private static final String INTENT_RECORD = "intentRecord";
+
     /**
      * Checks a submission against the record, adding the builder's own calls as model decisions.
      *
-     * @param submission the check's submission
-     * @param record     the record the plan will carry
+     * @param submission   the check's submission
+     * @param intentRecord the record the plan will carry
      * @return the accepted record with the builder's own calls, or the refusal naming the item
      */
-    public static Outcome validate(Submission submission, IntentRecord record) {
+    public static Outcome validate(Submission submission, IntentRecord intentRecord) {
         Objects.requireNonNull(submission, "submission");
-        Objects.requireNonNull(record, "record");
+        Objects.requireNonNull(intentRecord, INTENT_RECORD);
         for (var question : submission.questions()) {
-            var refusal = refusal(question, record);
+            var refusal = refusal(question, intentRecord);
             if (refusal.isPresent()) {
                 return new Refused(refusal.get());
             }
         }
         var operatorQuestions = submission.questions().stream().filter(question -> question.sort() == Sort.OPERATOR)
                 .toList();
-        return new Accepted(withMinorCalls(record, submission), operatorQuestions);
+        return new Accepted(withMinorCalls(intentRecord, submission), operatorQuestions);
     }
 
     /**
      * The facts the check's task receives: the intent record and the capability index, and nothing of the conversation
      * that produced the record (PM-WATCH-PHASE-109).
      *
-     * @param record      the record
+     * @param intentRecord the record
      * @param capabilities the project's capability index
      * @return the facts, by their names
      */
-    public static Map<String, Object> facts(IntentRecord record, CapabilityIndex capabilities) {
-        Objects.requireNonNull(record, "record");
+    public static Map<String, Object> facts(IntentRecord intentRecord, CapabilityIndex capabilities) {
+        Objects.requireNonNull(intentRecord, INTENT_RECORD);
         Objects.requireNonNull(capabilities, "capabilities");
         var facts = new LinkedHashMap<String, Object>();
-        facts.put("intent_record", record);
+        facts.put("intent_record", intentRecord);
         facts.put("capability_index", capabilities.facts());
         return Map.copyOf(facts);
     }
 
-    private static Optional<String> refusal(Question question, IntentRecord record) {
+    private static Optional<String> refusal(Question question, IntentRecord intentRecord) {
         for (var item : question.items()) {
-            if (!record.holds(item)) {
+            if (!intentRecord.holds(item)) {
                 return Optional.of("the question names '%s', which the record does not hold"
                         .formatted(item));
             }
@@ -207,9 +210,8 @@ public final class BuilderCheck {
             return Optional.of("an answered question names exactly one item of the record");
         }
         if (question.sort() == Sort.MINOR && question.decision().length() > MAX_MINOR_DECISION) {
-            return Optional.of(
-                    "the minor decision is longer than %d characters, so the decision marked as the builder check's "
-                            + "would exceed the record's decision text".formatted(MAX_MINOR_DECISION));
+            return Optional.of(("the minor decision is longer than %d characters, so the decision marked as the "
+                    + "builder check's would exceed the record's decision text").formatted(MAX_MINOR_DECISION));
         }
         var constraints = question.items().stream().filter(item -> item.startsWith("CN-")).count();
         var criteria = question.items().stream().filter(item -> item.startsWith("AC-")).count();
@@ -221,23 +223,24 @@ public final class BuilderCheck {
         return Optional.empty();
     }
 
-    private static IntentRecord withMinorCalls(IntentRecord record, Submission submission) {
+    private static IntentRecord withMinorCalls(IntentRecord intentRecord, Submission submission) {
         var minor = submission.questions().stream().filter(question -> question.sort() == Sort.MINOR).toList();
         if (minor.isEmpty()) {
-            return record;
+            return intentRecord;
         }
-        var next = record.decisions().stream()
+        var next = intentRecord.decisions().stream()
                 .filter(decision -> decision.id().startsWith("DC-"))
                 .mapToInt(decision -> Integer.parseInt(decision.id().substring(3)))
                 .max()
                 .orElse(0) + 1;
-        var decisions = new ArrayList<>(record.decisions());
+        var decisions = new ArrayList<>(intentRecord.decisions());
         for (var question : minor) {
             decisions.add(new Decision("DC-" + next++, "from the builder check: " + question.decision(),
                     List.of(), Decider.MODEL, null, null, null));
         }
-        return new IntentRecord(record.why(), record.goal(), record.criteria(), record.currentBehaviour(),
-                record.nonGoals(), record.constraints(), decisions, record.assumptions(), record.openQuestions(),
-                record.deferred(), record.sourceClaims());
+        return new IntentRecord(intentRecord.why(), intentRecord.goal(), intentRecord.criteria(),
+                intentRecord.currentBehaviour(), intentRecord.nonGoals(), intentRecord.constraints(), decisions,
+                intentRecord.assumptions(), intentRecord.openQuestions(), intentRecord.deferred(),
+                intentRecord.sourceClaims());
     }
 }

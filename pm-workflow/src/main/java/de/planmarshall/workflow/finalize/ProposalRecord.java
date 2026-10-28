@@ -27,7 +27,7 @@ import java.util.regex.Pattern;
 public record ProposalRecord(String proposalId, SimplifyProposal proposal, Disposition disposition) {
 
     /** The pattern of a proposal identifier. */
-    public static final Pattern ID = Pattern.compile("SP-[0-9]+");
+    public static final Pattern ID = Pattern.compile("SP-\\d+");
 
     /**
      * @throws IllegalArgumentException if the identifier is malformed or the disposition is missing

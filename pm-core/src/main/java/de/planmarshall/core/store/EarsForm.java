@@ -33,8 +33,14 @@ import java.util.Optional;
  */
 public final class EarsForm {
 
+    private static final String WHERE = "WHERE";
+
+    private static final String WHILE = "WHILE";
+
+    private static final String WHEN = "WHEN";
+
     /** The precondition keywords, in the only order they may appear. */
-    private static final List<String> PRECONDITIONS = List.of("WHERE", "WHILE", "WHEN");
+    private static final List<String> PRECONDITIONS = List.of(WHERE, WHILE, WHEN);
 
     private static final String IF = "IF";
 
@@ -50,7 +56,7 @@ public final class EarsForm {
 
     /** Every structural word whose lower-case spelling is refused. */
     private static final List<String> KEYWORDS =
-            List.of("WHERE", "WHILE", "WHEN", "IF", "THEN", "THE", "SHALL", "CONTINUE");
+            List.of(WHERE, WHILE, WHEN, IF, THEN, THE, SHALL, CONTINUE);
 
     private static final String NO_CLAUSE = "the keyword '%s' has no clause";
 
@@ -126,6 +132,14 @@ public final class EarsForm {
         if (shall < the) {
             return Optional.of("'%s' appears before '%s'".formatted(SHALL, THE));
         }
+        var preconditions = preconditionViolation(first);
+        if (preconditions.isPresent()) {
+            return preconditions;
+        }
+        return conditionalViolation(first, the, lastPreconditionIndex(first));
+    }
+
+    private static Optional<String> preconditionViolation(Map<String, Integer> first) {
         var previous = -1;
         var expected = 0;
         for (var precondition : PRECONDITIONS) {
@@ -139,18 +153,34 @@ public final class EarsForm {
             previous = index;
             expected = PRECONDITIONS.indexOf(precondition) + 1;
         }
+        return Optional.empty();
+    }
+
+    private static int lastPreconditionIndex(Map<String, Integer> first) {
+        var previous = -1;
+        for (var precondition : PRECONDITIONS) {
+            var index = first.get(precondition);
+            if (index != null) {
+                previous = index;
+            }
+        }
+        return previous;
+    }
+
+    private static Optional<String> conditionalViolation(Map<String, Integer> first, int the, int previous) {
         var ifIndex = first.get(IF);
-        if (ifIndex != null) {
-            var thenIndex = first.get(THEN);
-            if (thenIndex < ifIndex) {
-                return Optional.of("'%s' appears before its '%s'".formatted(THEN, IF));
-            }
-            if (ifIndex < previous) {
-                return Optional.of("the conditional '%s' is out of order".formatted(IF));
-            }
-            if (thenIndex > the) {
-                return Optional.of("'%s' appears before its '%s'".formatted(THE, THEN));
-            }
+        if (ifIndex == null) {
+            return Optional.empty();
+        }
+        var thenIndex = first.get(THEN);
+        if (thenIndex < ifIndex) {
+            return Optional.of("'%s' appears before its '%s'".formatted(THEN, IF));
+        }
+        if (ifIndex < previous) {
+            return Optional.of("the conditional '%s' is out of order".formatted(IF));
+        }
+        if (thenIndex > the) {
+            return Optional.of("'%s' appears before its '%s'".formatted(THE, THEN));
         }
         return Optional.empty();
     }

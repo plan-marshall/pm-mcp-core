@@ -63,7 +63,7 @@ List<Revision> history) {
                     "the current revision follows the last history revision: %d after %d".formatted(
                             current.revision(), history.getLast().revision()));
         }
-        for (var deliverable : current.record().deliverables()) {
+        for (var deliverable : current.outlineRecord().deliverables()) {
             if (!deliverableStatus.containsKey(deliverable.number())) {
                 throw new IllegalArgumentException(
                         "the deliverable %d of the current revision carries no state".formatted(deliverable.number()));
@@ -81,7 +81,8 @@ List<Revision> history) {
             throw new IllegalArgumentException("the first revision of an outline is revision 1: " + revision.revision());
         }
         var statuses = new LinkedHashMap<Integer, DeliveryStatus>();
-        revision.record().deliverables().forEach(deliverable -> statuses.put(deliverable.number(), DeliveryStatus.ACTIVE));
+        revision.outlineRecord().deliverables()
+                .forEach(deliverable -> statuses.put(deliverable.number(), DeliveryStatus.ACTIVE));
         return new OutlineStore(revision, statuses, List.of());
     }
 
@@ -101,7 +102,7 @@ List<Revision> history) {
                             current.revision() + 1));
         }
         var statuses = new LinkedHashMap<>(deliverableStatus);
-        next.record().deliverables().forEach(deliverable -> statuses.putIfAbsent(deliverable.number(),
+        next.outlineRecord().deliverables().forEach(deliverable -> statuses.putIfAbsent(deliverable.number(),
                 DeliveryStatus.ACTIVE));
         var nextHistory = new ArrayList<>(history);
         nextHistory.add(current);
@@ -156,13 +157,13 @@ List<Revision> history) {
     /**
      * One accepted revision.
      *
-     * @param revision    the revision number, from 1
-     * @param submittedAt the instant the transaction accepted it
-     * @param taskId      the task whose submission carried the record
-     * @param record      the submitted record
+     * @param revision      the revision number, from 1
+     * @param submittedAt   the instant the transaction accepted it
+     * @param taskId        the task whose submission carried the record
+     * @param outlineRecord the submitted record
      * @since 0.1
      */
-    public record Revision(int revision, Instant submittedAt, String taskId, OutlineRecord record) {
+    public record Revision(int revision, Instant submittedAt, String taskId, OutlineRecord outlineRecord) {
 
         /**
          * @throws IllegalArgumentException if the revision or the task id is out of its bounds
@@ -174,10 +175,10 @@ List<Revision> history) {
             }
             Objects.requireNonNull(submittedAt, "submittedAt");
             Objects.requireNonNull(taskId, "taskId");
-            if (taskId.length() < 1 || taskId.length() > 128) {
+            if (taskId.isEmpty() || taskId.length() > 128) {
                 throw new IllegalArgumentException("a task id is 1 to 128 characters: " + taskId.length());
             }
-            Objects.requireNonNull(record, "record");
+            Objects.requireNonNull(outlineRecord, "outlineRecord");
         }
     }
 }

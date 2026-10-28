@@ -52,13 +52,34 @@ public final class ClarifiedRequestRenderer {
     public static String render(IntentStore store, Map<String, Integer> dimensionScores) {
         Objects.requireNonNull(store, "store");
         Objects.requireNonNull(dimensionScores, "dimensionScores");
-        var record = store.current().record();
+        var intentRecord = store.current().intentRecord();
         var out = new StringBuilder();
         out.append(HEADING).append("\n\n");
-        section(out, "Why", List.of(record.why()));
-        section(out, "Goal", List.of(record.goal()));
+        section(out, "Why", List.of(intentRecord.why()));
+        section(out, "Goal", List.of(intentRecord.goal()));
+        criteria(out, intentRecord.criteria());
+        if (intentRecord.currentBehaviour() != null) {
+            section(out, "Current Behaviour", List.of(intentRecord.currentBehaviour()));
+        }
+        nonGoals(out, intentRecord.nonGoals());
+        constraints(out, intentRecord.constraints());
+        decisions(out, "Operator Decisions", intentRecord.decisions().stream()
+                .filter(item -> item.decider() == Decider.OPERATOR || item.decider() == Decider.QUORUM).toList());
+        decisions(out, "Decisions from Facts", intentRecord.decisions().stream()
+                .filter(item -> item.decider() == Decider.FACT).toList());
+        decisions(out, "Model's Calls", intentRecord.decisions().stream()
+                .filter(item -> item.decider() == Decider.MODEL).toList());
+        assumptions(out, intentRecord.assumptions());
+        openQuestions(out, intentRecord.openQuestions());
+        deferred(out, intentRecord.deferred());
+        sourceClaims(out, intentRecord.sourceClaims());
+        confidence(out, dimensionScores);
+        return out.toString();
+    }
+
+    private static void criteria(StringBuilder out, List<IntentRecord.Criterion> criteria) {
         out.append("### Criteria\n\n");
-        for (var criterion : record.criteria()) {
+        for (var criterion : criteria) {
             out.append("- `").append(criterion.id()).append("` — ").append(criterion.text())
                     .append(" (`").append(criterion.kind().wireName()).append("`, verified by `")
                     .append(criterion.verifiedBy().wireName()).append("`)");
@@ -70,57 +91,70 @@ public final class ClarifiedRequestRenderer {
             out.append('\n');
         }
         out.append('\n');
-        if (record.currentBehaviour() != null) {
-            section(out, "Current Behaviour", List.of(record.currentBehaviour()));
-        }
+    }
+
+    private static void nonGoals(StringBuilder out, List<IntentRecord.NonGoal> nonGoals) {
         out.append("### Non-Goals\n\n");
-        record.nonGoals().forEach(item -> out.append("- `").append(item.id()).append("` — ").append(item.text())
+        nonGoals.forEach(item -> out.append("- `").append(item.id()).append("` — ").append(item.text())
                 .append('\n'));
         out.append('\n');
-        if (!record.constraints().isEmpty()) {
-            out.append("### Constraints\n\n");
-            for (var constraint : record.constraints()) {
-                out.append("- `").append(constraint.id()).append("` — ").append(constraint.text())
-                        .append(" (source: ").append(constraint.source().wireName());
-                if (constraint.evidence() != null) {
-                    out.append("; evidence: `").append(constraint.evidence()).append('`');
-                }
-                out.append(")\n");
+    }
+
+    private static void constraints(StringBuilder out, List<IntentRecord.Constraint> constraints) {
+        if (constraints.isEmpty()) {
+            return;
+        }
+        out.append("### Constraints\n\n");
+        for (var constraint : constraints) {
+            out.append("- `").append(constraint.id()).append("` — ").append(constraint.text())
+                    .append(" (source: ").append(constraint.source().wireName());
+            if (constraint.evidence() != null) {
+                out.append("; evidence: `").append(constraint.evidence()).append('`');
             }
-            out.append('\n');
+            out.append(")\n");
         }
-        decisions(out, "Operator Decisions", record.decisions().stream()
-                .filter(item -> item.decider() == Decider.OPERATOR || item.decider() == Decider.QUORUM).toList());
-        decisions(out, "Decisions from Facts", record.decisions().stream()
-                .filter(item -> item.decider() == Decider.FACT).toList());
-        decisions(out, "Model's Calls", record.decisions().stream()
-                .filter(item -> item.decider() == Decider.MODEL).toList());
-        if (!record.assumptions().isEmpty()) {
-            out.append("### Assumptions\n\n");
-            for (var assumption : record.assumptions()) {
-                out.append("- `").append(assumption.id()).append("` — ").append(assumption.text())
-                        .append(" (").append(assumption.status().wireName());
-                if (assumption.riskiest()) {
-                    out.append("; riskiest, test: ").append(assumption.test());
-                }
-                out.append(")\n");
+        out.append('\n');
+    }
+
+    private static void assumptions(StringBuilder out, List<IntentRecord.Assumption> assumptions) {
+        if (assumptions.isEmpty()) {
+            return;
+        }
+        out.append("### Assumptions\n\n");
+        for (var assumption : assumptions) {
+            out.append("- `").append(assumption.id()).append("` — ").append(assumption.text())
+                    .append(" (").append(assumption.status().wireName());
+            if (assumption.riskiest()) {
+                out.append("; riskiest, test: ").append(assumption.test());
             }
-            out.append('\n');
+            out.append(")\n");
         }
-        if (!record.openQuestions().isEmpty()) {
-            out.append("### Open Questions\n\n");
-            record.openQuestions().forEach(question -> out.append("- ").append(question.text()).append(" (")
-                    .append(question.resolver().wireName()).append(")\n"));
-            out.append('\n');
+        out.append('\n');
+    }
+
+    private static void openQuestions(StringBuilder out, List<IntentRecord.OpenQuestion> questions) {
+        if (questions.isEmpty()) {
+            return;
         }
-        if (!record.deferred().isEmpty()) {
-            out.append("### Deferred\n\n");
-            record.deferred().forEach(item -> out.append("- `").append(item.id()).append("` — ").append(item.text())
-                    .append(" (reason: ").append(item.reason()).append(")\n"));
-            out.append('\n');
+        out.append("### Open Questions\n\n");
+        questions.forEach(question -> out.append("- ").append(question.text()).append(" (")
+                .append(question.resolver().wireName()).append(")\n"));
+        out.append('\n');
+    }
+
+    private static void deferred(StringBuilder out, List<IntentRecord.Deferred> deferred) {
+        if (deferred.isEmpty()) {
+            return;
         }
+        out.append("### Deferred\n\n");
+        deferred.forEach(item -> out.append("- `").append(item.id()).append("` — ").append(item.text())
+                .append(" (reason: ").append(item.reason()).append(")\n"));
+        out.append('\n');
+    }
+
+    private static void sourceClaims(StringBuilder out, List<IntentRecord.SourceClaim> claims) {
         out.append("### Source Claims\n\n");
-        for (var claim : record.sourceClaims()) {
+        for (var claim : claims) {
             out.append("- \"").append(claim.claim()).append("\" → ").append(claim.landedIn());
             if (claim.reason() != null) {
                 out.append(" (").append(claim.reason()).append(')');
@@ -128,14 +162,17 @@ public final class ClarifiedRequestRenderer {
             out.append('\n');
         }
         out.append('\n');
-        if (!dimensionScores.isEmpty()) {
-            out.append("### Confidence\n\n")
-                    .append(dimensionScores.entrySet().stream()
-                            .map(entry -> "%s: %d".formatted(entry.getKey(), entry.getValue()))
-                            .collect(Collectors.joining(", ")))
-                    .append("\n\n");
+    }
+
+    private static void confidence(StringBuilder out, Map<String, Integer> dimensionScores) {
+        if (dimensionScores.isEmpty()) {
+            return;
         }
-        return out.toString();
+        out.append("### Confidence\n\n")
+                .append(dimensionScores.entrySet().stream()
+                        .map(entry -> "%s: %d".formatted(entry.getKey(), entry.getValue()))
+                        .collect(Collectors.joining(", ")))
+                .append("\n\n");
     }
 
     /**

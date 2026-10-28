@@ -20,6 +20,8 @@ import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.spi.validation.SelfReviewSubmission.Accepted;
 import de.planmarshall.core.spi.validation.SelfReviewSubmission.ItemResult;
@@ -36,44 +38,23 @@ class SelfReviewSubmissionTest {
     @DisplayName("A clean round judges every criterion, constraint, non-goal and decision")
     @Test
     void cleanRound() {
-        var accepted = assertInstanceOf(Accepted.class, SelfReviewSubmission.validate(clean(), record()));
+        var accepted = assertInstanceOf(Accepted.class, SelfReviewSubmission.validate(clean(), intentRecord()));
         assertEquals(Status.CLEAN, accepted.round().status());
         assertTrue(accepted.round().clean());
         assertTrue(accepted.round().findings().isEmpty());
         assertEquals(5, accepted.round().results().size());
     }
 
-    @DisplayName("A round that omits a constraint is refused, naming the constraint")
-    @Test
-    void refusesOmittedConstraint() {
+    @DisplayName("A round that omits an item is refused, naming the item")
+    @ParameterizedTest
+    @ValueSource(strings = {"CN-1", "NG-1", "DC-1"})
+    void refusesOmittedItem(String omitted) {
         var results = new ArrayList<>(clean().results());
-        results.removeIf(result -> "CN-1".equals(result.itemId()));
+        results.removeIf(result -> omitted.equals(result.itemId()));
 
         var refused = assertInstanceOf(Refused.class, SelfReviewSubmission.validate(
-                new SelfReviewSubmission(results), record()));
-        assertTrue(refused.detail().contains("CN-1"));
-    }
-
-    @DisplayName("A round that omits a non-goal is refused, naming the non-goal")
-    @Test
-    void refusesOmittedNonGoal() {
-        var results = new ArrayList<>(clean().results());
-        results.removeIf(result -> "NG-1".equals(result.itemId()));
-
-        var refused = assertInstanceOf(Refused.class, SelfReviewSubmission.validate(
-                new SelfReviewSubmission(results), record()));
-        assertTrue(refused.detail().contains("NG-1"));
-    }
-
-    @DisplayName("A round that omits a decision is refused, naming the decision")
-    @Test
-    void refusesOmittedDecision() {
-        var results = new ArrayList<>(clean().results());
-        results.removeIf(result -> "DC-1".equals(result.itemId()));
-
-        var refused = assertInstanceOf(Refused.class, SelfReviewSubmission.validate(
-                new SelfReviewSubmission(results), record()));
-        assertTrue(refused.detail().contains("DC-1"));
+                new SelfReviewSubmission(results), intentRecord()));
+        assertTrue(refused.detail().contains(omitted));
     }
 
     @DisplayName("A respected constraint without evidence is refused")
@@ -82,7 +63,7 @@ class SelfReviewSubmissionTest {
         var results = replace(clean(), new ItemResult("CN-1", Verdict.RESPECTED, null));
 
         var refused = assertInstanceOf(Refused.class, SelfReviewSubmission.validate(
-                new SelfReviewSubmission(results), record()));
+                new SelfReviewSubmission(results), intentRecord()));
         assertTrue(refused.detail().contains("CN-1"));
         assertTrue(refused.detail().contains("evidence"));
     }
@@ -91,7 +72,7 @@ class SelfReviewSubmissionTest {
     @Test
     void refusesFollowedDecisionWithoutEvidence() {
         var results = replace(clean(), new ItemResult("DC-1", Verdict.FOLLOWED, "  "));
-        assertInstanceOf(Refused.class, SelfReviewSubmission.validate(new SelfReviewSubmission(results), record()));
+        assertInstanceOf(Refused.class, SelfReviewSubmission.validate(new SelfReviewSubmission(results), intentRecord()));
     }
 
     @DisplayName("A violated constraint is a finding and the round is not clean")
@@ -99,7 +80,7 @@ class SelfReviewSubmissionTest {
     void violatedConstraintIsAFinding() {
         var results = replace(clean(), new ItemResult("CN-1", Verdict.VIOLATED, null));
         var accepted = assertInstanceOf(Accepted.class,
-                SelfReviewSubmission.validate(new SelfReviewSubmission(results), record()));
+                SelfReviewSubmission.validate(new SelfReviewSubmission(results), intentRecord()));
 
         assertEquals(Status.FINDINGS, accepted.round().status());
         assertFalse(accepted.round().clean());
@@ -113,9 +94,9 @@ class SelfReviewSubmissionTest {
         var departed = replace(clean(), new ItemResult("DC-1", Verdict.DEPARTED, null));
 
         assertEquals(Status.FINDINGS, assertInstanceOf(Accepted.class,
-                SelfReviewSubmission.validate(new SelfReviewSubmission(crossed), record())).round().status());
+                SelfReviewSubmission.validate(new SelfReviewSubmission(crossed), intentRecord())).round().status());
         assertEquals(Status.FINDINGS, assertInstanceOf(Accepted.class,
-                SelfReviewSubmission.validate(new SelfReviewSubmission(departed), record())).round().status());
+                SelfReviewSubmission.validate(new SelfReviewSubmission(departed), intentRecord())).round().status());
     }
 
     @DisplayName("A not_verified item is a non-blocking finding: the round is clean_unverified")
@@ -123,7 +104,7 @@ class SelfReviewSubmissionTest {
     void notVerifiedIsCleanUnverified() {
         var results = replace(clean(), new ItemResult("CN-1", Verdict.NOT_VERIFIED, null));
         var accepted = assertInstanceOf(Accepted.class,
-                SelfReviewSubmission.validate(new SelfReviewSubmission(results), record()));
+                SelfReviewSubmission.validate(new SelfReviewSubmission(results), intentRecord()));
 
         assertEquals(Status.CLEAN_UNVERIFIED, accepted.round().status());
         assertTrue(accepted.round().clean());
@@ -146,7 +127,7 @@ class SelfReviewSubmissionTest {
                 SelfReviewSubmission.validate(new SelfReviewSubmission(results), withoutConstraints));
 
         var wrongVerdict = replace(clean(), new ItemResult("AC-1", Verdict.RESPECTED, "a review"));
-        assertInstanceOf(Refused.class, SelfReviewSubmission.validate(new SelfReviewSubmission(wrongVerdict), record()));
+        assertInstanceOf(Refused.class, SelfReviewSubmission.validate(new SelfReviewSubmission(wrongVerdict), intentRecord()));
     }
 
     @DisplayName("A result the record does not hold, or a duplicate result, is refused")
@@ -155,11 +136,11 @@ class SelfReviewSubmissionTest {
         var unknown = new ArrayList<>(clean().results());
         unknown.add(new ItemResult("AC-9", Verdict.MET, null));
         assertTrue(assertInstanceOf(Refused.class, SelfReviewSubmission.validate(
-                new SelfReviewSubmission(unknown), record())).detail().contains("AC-9"));
+                new SelfReviewSubmission(unknown), intentRecord())).detail().contains("AC-9"));
 
         var duplicate = new ArrayList<>(clean().results());
         duplicate.add(new ItemResult("AC-1", Verdict.MET, null));
-        assertInstanceOf(Refused.class, SelfReviewSubmission.validate(new SelfReviewSubmission(duplicate), record()));
+        assertInstanceOf(Refused.class, SelfReviewSubmission.validate(new SelfReviewSubmission(duplicate), intentRecord()));
     }
 
     @DisplayName("A not-met criterion is a finding")
@@ -167,7 +148,7 @@ class SelfReviewSubmissionTest {
     void notMetCriterionIsAFinding() {
         var results = replace(clean(), new ItemResult("AC-1", Verdict.NOT_MET, null));
         assertEquals(Status.FINDINGS, assertInstanceOf(Accepted.class,
-                SelfReviewSubmission.validate(new SelfReviewSubmission(results), record())).round().status());
+                SelfReviewSubmission.validate(new SelfReviewSubmission(results), intentRecord())).round().status());
     }
 
     private static SelfReviewSubmission clean() {
@@ -185,7 +166,7 @@ class SelfReviewSubmissionTest {
                 .toList();
     }
 
-    private static IntentRecord record() {
+    private static IntentRecord intentRecord() {
         return intent(criterion("AC-1", CriterionKind.NEW, VerifiedBy.TEST),
                 criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.TEST));
     }

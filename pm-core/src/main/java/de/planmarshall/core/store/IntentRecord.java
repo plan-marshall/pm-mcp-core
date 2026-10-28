@@ -52,27 +52,29 @@ List<NonGoal> nonGoals, List<Constraint> constraints, List<Decision> decisions, 
 List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sourceClaims) {
 
     /** The pattern of a criterion identifier. */
-    public static final Pattern CRITERION_ID = Pattern.compile("AC-[0-9]{1,4}");
+    public static final Pattern CRITERION_ID = Pattern.compile("AC-\\d{1,4}");
 
     /** The pattern of a non-goal identifier. */
-    public static final Pattern NON_GOAL_ID = Pattern.compile("NG-[0-9]{1,4}");
+    public static final Pattern NON_GOAL_ID = Pattern.compile("NG-\\d{1,4}");
 
     /** The pattern of a constraint identifier. */
-    public static final Pattern CONSTRAINT_ID = Pattern.compile("CN-[0-9]{1,4}");
+    public static final Pattern CONSTRAINT_ID = Pattern.compile("CN-\\d{1,4}");
 
     /** The pattern of a decision identifier. */
-    public static final Pattern DECISION_ID = Pattern.compile("DC-[0-9]{1,4}");
+    public static final Pattern DECISION_ID = Pattern.compile("DC-\\d{1,4}");
 
     /** The pattern of an assumption identifier. */
-    public static final Pattern ASSUMPTION_ID = Pattern.compile("AN-[0-9]{1,4}");
+    public static final Pattern ASSUMPTION_ID = Pattern.compile("AN-\\d{1,4}");
 
     /** The pattern of a deferred-item identifier. */
-    public static final Pattern DEFERRED_ID = Pattern.compile("DF-[0-9]{1,4}");
+    public static final Pattern DEFERRED_ID = Pattern.compile("DF-\\d{1,4}");
 
     /** The pattern of a requirement's base fingerprint. */
     public static final Pattern FINGERPRINT = Pattern.compile("[0-9a-f]{64}");
 
     private static final Set<String> DROPPED_OR_GOAL = Set.of("goal", "why", "dropped");
+
+    private static final String THEN_THE = " THEN THE ";
 
     /**
      * Copies the lists into immutable lists and checks the record's rules.
@@ -81,8 +83,8 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
      * @throws NullPointerException     if a value is {@code null}
      */
     public IntentRecord {
-        why = bounded(why, "why", 20, 1000);
-        goal = bounded(goal, "goal", 10, 300);
+        bounded(why, "why", 20, 1000);
+        bounded(goal, "goal", 10, 300);
         criteria = copy(criteria, "criteria", 1, 30);
         currentBehaviour = optionalBounded(currentBehaviour, "current_behaviour", 10, 500);
         nonGoals = copy(nonGoals, "non_goals", 1, 20);
@@ -169,8 +171,8 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
         if (currentBehaviour == null) {
             throw new IllegalArgumentException("a record with a fix criterion names its current_behaviour");
         }
-        if (!currentBehaviour.startsWith("WHEN ") || !currentBehaviour.contains(" THEN THE ")
-                || currentBehaviour.substring(currentBehaviour.indexOf(" THEN THE ") + " THEN THE ".length())
+        if (!currentBehaviour.startsWith("WHEN ") || !currentBehaviour.contains(THEN_THE)
+                || currentBehaviour.substring(currentBehaviour.indexOf(THEN_THE) + THEN_THE.length())
                 .isBlank()) {
             throw new IllegalArgumentException(
                     "current_behaviour is written 'WHEN <condition> THEN THE <system> <behaviour>': "
@@ -590,7 +592,7 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
         public AdrRef {
             Objects.requireNonNull(adrId, "adrId");
             Objects.requireNonNull(relation, "relation");
-            if (adrId.length() < 1 || adrId.length() > 128) {
+            if (adrId.isEmpty() || adrId.length() > 128) {
                 throw new IllegalArgumentException("an ADR identifier is 1 to 128 characters: " + adrId);
             }
         }
@@ -759,7 +761,7 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
      */
     public record SourceClaim(String claim, String landedIn, String reason) {
 
-        private static final Pattern LANDED_IN = Pattern.compile("((AC|NG|CN|DC|AN|DF)-[0-9]{1,4}|goal|why|dropped)");
+        private static final Pattern LANDED_IN = Pattern.compile("((AC|NG|CN|DC|AN|DF)-\\d{1,4}|goal|why|dropped)");
 
         /**
          * @throws IllegalArgumentException if a member is out of its bounds

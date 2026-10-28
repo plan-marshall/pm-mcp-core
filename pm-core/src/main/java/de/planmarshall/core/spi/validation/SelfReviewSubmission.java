@@ -30,9 +30,10 @@ import de.planmarshall.core.store.IntentRecord;
  * {@code not_verified} result is a non-blocking finding, so a round that holds one is {@code clean_unverified}, never
  * clean.
  *
+ * @param results one result per judged item
  * @since 0.1
  */
-public final class SelfReviewSubmission {
+public record SelfReviewSubmission(List<ItemResult> results) {
 
     /** The kinds of item a result covers. */
     public enum ItemKind {
@@ -187,40 +188,32 @@ public final class SelfReviewSubmission {
         }
     }
 
-    private final List<ItemResult> results;
-
     /**
-     * @param results one result per judged item
      * @throws NullPointerException if the list is {@code null}
      */
-    public SelfReviewSubmission(List<ItemResult> results) {
+    public SelfReviewSubmission {
         Objects.requireNonNull(results, "results");
-        this.results = List.copyOf(results);
-    }
-
-    /** @return the results of the submission */
-    public List<ItemResult> results() {
-        return results;
+        results = List.copyOf(results);
     }
 
     /**
      * Checks a submission against the record and derives the round's outcome.
      *
-     * @param submission the submitted results
-     * @param record     the record the plan carries
+     * @param submission   the submitted results
+     * @param intentRecord the record the plan carries
      * @return the accepted round, or the refusal naming the item
      */
-    public static Outcome validate(SelfReviewSubmission submission, IntentRecord record) {
+    public static Outcome validate(SelfReviewSubmission submission, IntentRecord intentRecord) {
         Objects.requireNonNull(submission, "submission");
-        Objects.requireNonNull(record, "record");
+        Objects.requireNonNull(intentRecord, "intentRecord");
         var seen = new HashSet<String>();
         for (var result : submission.results()) {
-            var refusal = refusal(result, record, seen);
+            var refusal = refusal(result, intentRecord, seen);
             if (refusal.isPresent()) {
                 return new Refused(refusal.get());
             }
         }
-        var missing = missingItem(record, seen);
+        var missing = missingItem(intentRecord, seen);
         if (missing.isPresent()) {
             return new Refused("the self-review omits the item '%s'".formatted(missing.get()));
         }
@@ -244,11 +237,11 @@ public final class SelfReviewSubmission {
         };
     }
 
-    private static Optional<String> refusal(ItemResult result, IntentRecord record, HashSet<String> seen) {
+    private static Optional<String> refusal(ItemResult result, IntentRecord intentRecord, HashSet<String> seen) {
         if (!seen.add(result.itemId())) {
             return Optional.of("the item '%s' is judged more than once".formatted(result.itemId()));
         }
-        if (!record.holds(result.itemId())) {
+        if (!intentRecord.holds(result.itemId())) {
             return Optional.of("the result names '%s', which the record does not hold"
                     .formatted(result.itemId()));
         }
@@ -280,12 +273,12 @@ public final class SelfReviewSubmission {
         };
     }
 
-    private static Optional<String> missingItem(IntentRecord record, HashSet<String> seen) {
+    private static Optional<String> missingItem(IntentRecord intentRecord, HashSet<String> seen) {
         var ids = new ArrayList<String>();
-        record.criteria().forEach(criterion -> ids.add(criterion.id()));
-        record.constraints().forEach(constraint -> ids.add(constraint.id()));
-        record.nonGoals().forEach(nonGoal -> ids.add(nonGoal.id()));
-        record.decisions().forEach(decision -> ids.add(decision.id()));
+        intentRecord.criteria().forEach(criterion -> ids.add(criterion.id()));
+        intentRecord.constraints().forEach(constraint -> ids.add(constraint.id()));
+        intentRecord.nonGoals().forEach(nonGoal -> ids.add(nonGoal.id()));
+        intentRecord.decisions().forEach(decision -> ids.add(decision.id()));
         return ids.stream().filter(id -> !seen.contains(id)).findFirst();
     }
 }

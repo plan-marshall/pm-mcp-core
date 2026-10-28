@@ -67,8 +67,8 @@ public final class IntentStoreFile {
             transaction.acquire(storeFile.lockKey());
             var before = storeFile.read(transaction).map(this::decode).orElse(null);
             var outcome = IntentAcceptance.accept(before, submission, next, context);
-            if (outcome instanceof Accepted accepted) {
-                storeFile.write(transaction, IntentCodec.write(accepted.store()));
+            if (outcome instanceof Accepted(IntentStore store)) {
+                storeFile.write(transaction, IntentCodec.write(store));
             }
             return outcome;
         }

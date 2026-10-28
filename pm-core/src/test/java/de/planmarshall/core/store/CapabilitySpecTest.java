@@ -112,7 +112,7 @@ class CapabilitySpecTest {
 
     @DisplayName("A spec round-trips through its codec")
     @Test
-    void specRoundTrips(@TempDir Path root) {
+    void specRoundTrips() {
         var spec = new CapabilitySpec("intent-record", "The plan's intent record and its revisions",
                 List.of(requirement("round-trip", "plan-a", List.of("TestA.java"))));
         var reread = CapabilitySpec.read(Path.of("intent-record.json"), CapabilitySpec.write(spec));
@@ -122,9 +122,10 @@ class CapabilitySpecTest {
     @DisplayName("A requirement's text is in EARS form")
     @Test
     void requirementTextIsInEarsForm() {
+        var scenarios = List.of(scenario());
+        List<String> verifiedBy = List.of();
         assertThrows(IllegalArgumentException.class,
-                () -> new Requirement("round-trip", "the record round-trips", List.of(scenario()), "plan-a",
-                        List.of()));
+                () -> new Requirement("round-trip", "the record round-trips", scenarios, "plan-a", verifiedBy));
     }
 
     @DisplayName("The canonical JSON of a requirement sorts its object keys")
@@ -161,8 +162,8 @@ class CapabilitySpecTest {
                 base.openQuestions(), base.deferred(), base.sourceClaims());
     }
 
-    private static IntentStore.Revision revision(IntentRecord record) {
-        return new IntentStore.Revision(1, IntentFixtures.AT, "TASK-001", record);
+    private static IntentStore.Revision revision(IntentRecord intentRecord) {
+        return new IntentStore.Revision(1, IntentFixtures.AT, "TASK-001", intentRecord);
     }
 
     private static IntentAcceptance.Context context(Path root, CapabilityIndex index) {

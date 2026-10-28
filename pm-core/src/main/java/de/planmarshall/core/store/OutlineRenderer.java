@@ -13,6 +13,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import de.planmarshall.core.store.OutlineRecord.Deliverable;
+import de.planmarshall.core.store.OutlineRecord.Profile;
 
 /**
  * Renders {@code outline.md} from the accepted outline record (Store Schemas § Outline Record): deliverable by
@@ -32,14 +33,14 @@ public final class OutlineRenderer {
      */
     public static String render(OutlineStore store) {
         Objects.requireNonNull(store, "store");
-        var record = store.current().record();
+        var outlineRecord = store.current().outlineRecord();
         var out = new StringBuilder("# Solution Outline\n\n");
-        out.append(record.summary()).append("\n\n");
-        if (record.overview() != null) {
-            out.append(record.overview()).append("\n\n");
+        out.append(outlineRecord.summary()).append("\n\n");
+        if (outlineRecord.overview() != null) {
+            out.append(outlineRecord.overview()).append("\n\n");
         }
-        out.append("**Scope estimate:** ").append(record.scopeEstimate().wireName()).append("\n\n");
-        for (var deliverable : record.deliverables()) {
+        out.append("**Scope estimate:** ").append(outlineRecord.scopeEstimate().wireName()).append("\n\n");
+        for (var deliverable : outlineRecord.deliverables()) {
             renderDeliverable(out, deliverable, store.status(deliverable.number()).orElseThrow());
         }
         return out.toString();
@@ -62,7 +63,7 @@ public final class OutlineRenderer {
         }
         out.append("**Intent gloss:** ").append(deliverable.intentGloss()).append("\n\n");
         out.append("**Profiles:** ")
-                .append(deliverable.profiles().stream().map(profile -> profile.wireName())
+                .append(deliverable.profiles().stream().map(Profile::wireName)
                         .collect(Collectors.joining(", ")))
                 .append("\n\n");
         if (!deliverable.affectedFiles().isEmpty()) {

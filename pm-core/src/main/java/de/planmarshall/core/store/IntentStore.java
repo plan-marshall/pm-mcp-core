@@ -88,7 +88,7 @@ public record IntentStore(Revision current, List<Revision> history) {
                             current.revision() + 1));
         }
         var removed = removedIdentifiers();
-        var reused = next.record().identifiers().stream().filter(removed::contains).toList();
+        var reused = next.intentRecord().identifiers().stream().filter(removed::contains).toList();
         if (!reused.isEmpty()) {
             throw new IllegalArgumentException(
                     "the revision reuses the identifiers %s, which an earlier revision removed".formatted(reused));
@@ -102,10 +102,10 @@ public record IntentStore(Revision current, List<Revision> history) {
      * @return the identifiers an earlier revision held and the current one no longer holds
      */
     public List<String> removedIdentifiers() {
-        var currentIds = new HashSet<>(current.record().identifiers());
+        var currentIds = new HashSet<>(current.intentRecord().identifiers());
         var removed = new ArrayList<String>();
         for (var revision : history) {
-            for (var id : revision.record().identifiers()) {
+            for (var id : revision.intentRecord().identifiers()) {
                 if (!currentIds.contains(id) && !removed.contains(id)) {
                     removed.add(id);
                 }
@@ -117,13 +117,13 @@ public record IntentStore(Revision current, List<Revision> history) {
     /**
      * One accepted revision.
      *
-     * @param revision    the revision number, from 1
-     * @param submittedAt the instant the transaction accepted it
-     * @param taskId      the task whose submission carried the record
-     * @param record      the submitted record
+     * @param revision     the revision number, from 1
+     * @param submittedAt  the instant the transaction accepted it
+     * @param taskId       the task whose submission carried the record
+     * @param intentRecord the submitted record
      * @since 0.1
      */
-    public record Revision(int revision, Instant submittedAt, String taskId, IntentRecord record) {
+    public record Revision(int revision, Instant submittedAt, String taskId, IntentRecord intentRecord) {
 
         /**
          * @throws IllegalArgumentException if the revision or the task id is out of its bounds
@@ -135,10 +135,10 @@ public record IntentStore(Revision current, List<Revision> history) {
             }
             Objects.requireNonNull(submittedAt, "submittedAt");
             Objects.requireNonNull(taskId, "taskId");
-            if (taskId.length() < 1 || taskId.length() > 128) {
+            if (taskId.isEmpty() || taskId.length() > 128) {
                 throw new IllegalArgumentException("a task id is 1 to 128 characters: " + taskId.length());
             }
-            Objects.requireNonNull(record, "record");
+            Objects.requireNonNull(intentRecord, "intentRecord");
         }
     }
 }

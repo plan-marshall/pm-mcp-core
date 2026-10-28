@@ -159,32 +159,18 @@ public final class CloneDetector {
                     index++;
                 } else if (Character.isWhitespace(character)) {
                     index++;
-                } else if (character == '/' && index + 1 < text.length() && text.charAt(index + 1) == '/') {
-                    while (index < text.length() && text.charAt(index) != '\n') {
-                        index++;
-                    }
-                } else if (character == '/' && index + 1 < text.length() && text.charAt(index + 1) == '*') {
-                    index += 2;
-                    while (index + 1 < text.length() && !(text.charAt(index) == '*' && text.charAt(index + 1) == '/')) {
-                        if (text.charAt(index) == '\n') {
-                            line++;
-                        }
-                        index++;
-                    }
-                    index = Math.min(text.length(), index + 2);
+                } else if (startsComment(text, index)) {
+                    var cursor = skipComment(text, index, line);
+                    index = cursor.index();
+                    line = cursor.line();
                 } else if (character == '"' || character == '\'') {
                     index = skipLiteral(text, index, character);
                     tokens.add(new Token(TEXT, line));
                 } else if (Character.isDigit(character)) {
-                    while (index < text.length() && (Character.isLetterOrDigit(text.charAt(index))
-                            || text.charAt(index) == '.' || text.charAt(index) == '_')) {
-                        index++;
-                    }
+                    index = skipNumber(text, index);
                     tokens.add(new Token(LITERAL, line));
                 } else if (Character.isJavaIdentifierStart(character)) {
-                    while (index < text.length() && Character.isJavaIdentifierPart(text.charAt(index))) {
-                        index++;
-                    }
+                    index = skipIdentifier(text, index);
                     tokens.add(new Token(IDENTIFIER, line));
                 } else {
                     tokens.add(new Token(String.valueOf(character), line));
@@ -192,6 +178,48 @@ public final class CloneDetector {
                 }
             }
             return List.copyOf(tokens);
+        }
+
+        private static boolean startsComment(String text, int index) {
+            return text.charAt(index) == '/' && index + 1 < text.length()
+                    && (text.charAt(index + 1) == '/' || text.charAt(index + 1) == '*');
+        }
+
+        private static Cursor skipComment(String text, int start, int line) {
+            var index = start + 2;
+            if (text.charAt(start + 1) == '/') {
+                while (index < text.length() && text.charAt(index) != '\n') {
+                    index++;
+                }
+                return new Cursor(index, line);
+            }
+            while (index + 1 < text.length() && !(text.charAt(index) == '*' && text.charAt(index + 1) == '/')) {
+                if (text.charAt(index) == '\n') {
+                    line++;
+                }
+                index++;
+            }
+            return new Cursor(Math.min(text.length(), index + 2), line);
+        }
+
+        private static int skipNumber(String text, int start) {
+            var index = start;
+            while (index < text.length() && (Character.isLetterOrDigit(text.charAt(index))
+                    || text.charAt(index) == '.' || text.charAt(index) == '_')) {
+                index++;
+            }
+            return index;
+        }
+
+        private static int skipIdentifier(String text, int start) {
+            var index = start;
+            while (index < text.length() && Character.isJavaIdentifierPart(text.charAt(index))) {
+                index++;
+            }
+            return index;
+        }
+
+        private record Cursor(int index, int line) {
         }
 
         private static int skipLiteral(String text, int start, char quote) {

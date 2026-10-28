@@ -140,11 +140,9 @@ class OutlineCoverageTest {
     @DisplayName("The intent record is required")
     @Test
     void refusesNullArguments() {
-        assertThrows(NullPointerException.class,
-                () -> validator.validate((OutlineRecord) null,
-                        intent(criterion("AC-1", CriterionKind.NEW, VerifiedBy.TEST))));
-        var intentRecord = intent(criterion("AC-1", CriterionKind.NEW, VerifiedBy.TEST));
-        assertThrows(NullPointerException.class,
-                () -> validator.validate(outline(deliverable(1, List.of(), "AC-1")), (IntentRecord) null));
+        var validIntent = intent(criterion("AC-1", CriterionKind.NEW, VerifiedBy.TEST));
+        assertThrows(NullPointerException.class, () -> validator.validate((OutlineRecord) null, validIntent));
+        var validOutline = outline(deliverable(1, List.of(), "AC-1"));
+        assertThrows(NullPointerException.class, () -> validator.validate(validOutline, (IntentRecord) null));
     }
 }

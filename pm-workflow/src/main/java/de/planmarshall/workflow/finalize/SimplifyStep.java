@@ -56,6 +56,9 @@ public final class SimplifyStep {
     /** The fact that carries the recorded proposals to the apply task. */
     public static final String PROPOSALS = "proposals";
 
+    /** The name of the proposal-record list parameter, as a null refusal names it. */
+    private static final String RECORDS = "records";
+
     private SimplifyStep() {
     }
 
@@ -102,7 +105,7 @@ public final class SimplifyStep {
      * @throws IllegalArgumentException if the first number is below 1
      */
     public static List<ProposalRecord> record(List<SimplifyProposal> proposals, int firstNumber) {
-        Objects.requireNonNull(proposals, "proposals");
+        Objects.requireNonNull(proposals, PROPOSALS);
         if (firstNumber < 1) {
             throw new IllegalArgumentException("the first proposal number is at least 1: " + firstNumber);
         }
@@ -118,7 +121,7 @@ public final class SimplifyStep {
      * @return the facts of the apply task
      */
     public static Map<String, Object> applyFacts(List<ProposalRecord> records) {
-        Objects.requireNonNull(records, "records");
+        Objects.requireNonNull(records, RECORDS);
         var facts = new LinkedHashMap<String, Object>();
         facts.put(PROPOSALS, List.copyOf(records));
         return Map.copyOf(facts);
@@ -134,21 +137,23 @@ public final class SimplifyStep {
      * @throws IllegalArgumentException if an accepted id is not an open proposal of the firing
      */
     public static ApplyResult apply(List<ProposalRecord> records, List<String> accepted) {
-        Objects.requireNonNull(records, "records");
+        Objects.requireNonNull(records, RECORDS);
         Objects.requireNonNull(accepted, "accepted");
         for (var id : accepted) {
-            var known = records.stream().anyMatch(record -> record.proposalId().equals(id)
-                    && record.disposition() == Disposition.OPEN);
+            var known = records.stream().anyMatch(proposal -> proposal.proposalId().equals(id)
+                    && proposal.disposition() == Disposition.OPEN);
             if (!known) {
                 throw new IllegalArgumentException("the accepted id '%s' is no open proposal of the firing"
                         .formatted(id));
             }
         }
-        var updated = records.stream().map(record -> {
-            if (record.disposition() != Disposition.OPEN) {
-                return record;
+        var updated = records.stream().map(proposal -> {
+            if (proposal.disposition() != Disposition.OPEN) {
+                return proposal;
             }
-            return record.with(accepted.contains(record.proposalId()) ? Disposition.ACCEPTED : Disposition.DECLINED);
+            return proposal.with(accepted.contains(proposal.proposalId())
+                    ? Disposition.ACCEPTED
+                    : Disposition.DECLINED);
         }).toList();
         return new ApplyResult(updated, !accepted.isEmpty());
     }
@@ -187,7 +192,7 @@ public final class SimplifyStep {
          * @throws NullPointerException if the records are {@code null}
          */
         public ApplyResult {
-            records = List.copyOf(Objects.requireNonNull(records, "records"));
+            records = List.copyOf(Objects.requireNonNull(records, RECORDS));
         }
 
         /** @return the state the applied change routes through */

@@ -56,7 +56,7 @@ final class OutlineFixtures {
                         "new Store\\(\\)")));
     }
 
-    static Revision revision(int number, OutlineRecord record) {
-        return new Revision(number, AT.plusSeconds(number), "TASK-00" + number, record);
+    static Revision revision(int number, OutlineRecord outlineRecord) {
+        return new Revision(number, AT.plusSeconds(number), "TASK-00" + number, outlineRecord);
     }
 }

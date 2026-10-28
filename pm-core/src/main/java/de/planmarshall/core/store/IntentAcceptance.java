@@ -187,15 +187,15 @@ public final class IntentAcceptance {
         Objects.requireNonNull(submission, "submission");
         Objects.requireNonNull(next, "next");
         Objects.requireNonNull(context, "context");
-        var deciders = deciderRefusal(next.record(), context);
+        var deciders = deciderRefusal(next.intentRecord(), context);
         if (deciders.isPresent()) {
             return new Refused(deciders.get());
         }
-        var capabilities = capabilityRefusal(next.record(), context);
+        var capabilities = capabilityRefusal(next.intentRecord(), context);
         if (capabilities.isPresent()) {
             return new Refused(capabilities.get());
         }
-        var claims = claimRefusal(next.record(), context);
+        var claims = claimRefusal(next.intentRecord(), context);
         if (claims.isPresent()) {
             return new Refused(claims.get());
         }
@@ -212,8 +212,8 @@ public final class IntentAcceptance {
         return new Accepted(base);
     }
 
-    private static Optional<String> deciderRefusal(IntentRecord record, Context context) {
-        for (var decision : record.decisions()) {
+    private static Optional<String> deciderRefusal(IntentRecord intentRecord, Context context) {
+        for (var decision : intentRecord.decisions()) {
             var refusal = switch (decision.decider()) {
                 case OPERATOR -> answeredRefusal(decision, context, AnswerChannel.WEB, AnswerChannel.CLI);
                 case QUORUM -> answeredRefusal(decision, context, AnswerChannel.QUORUM);
@@ -261,8 +261,8 @@ public final class IntentAcceptance {
         return Optional.empty();
     }
 
-    private static Optional<String> capabilityRefusal(IntentRecord record, Context context) {
-        for (var criterion : record.criteria()) {
+    private static Optional<String> capabilityRefusal(IntentRecord intentRecord, Context context) {
+        for (var criterion : intentRecord.criteria()) {
             var link = criterion.capability();
             if (link == null) {
                 continue;
@@ -288,20 +288,20 @@ public final class IntentAcceptance {
         }
         if (link.change() != CapabilityChange.ADDED && !link.base().equals(fingerprint.orElseThrow())) {
             return Optional.of(
-                    "the criterion '%s' changes the requirement '%s/%s' against the base fingerprint '%s', but the "
-                            + "tree holds '%s'".formatted(criterion.id(), link.capability(), link.requirement(),
+                    ("the criterion '%s' changes the requirement '%s/%s' against the base fingerprint '%s', but the "
+                            + "tree holds '%s'").formatted(criterion.id(), link.capability(), link.requirement(),
                             link.base(), fingerprint.orElseThrow()));
         }
         return Optional.empty();
     }
 
-    private static Optional<String> claimRefusal(IntentRecord record, Context context) {
+    private static Optional<String> claimRefusal(IntentRecord intentRecord, Context context) {
         if (context.epic().isEmpty()) {
             return Optional.empty();
         }
         var seed = context.epic().orElseThrow();
         for (var required : seed.intent().requiredClaims(seed.rowDoneWhen())) {
-            if (!record.holdsClaim(required)) {
+            if (!intentRecord.holdsClaim(required)) {
                 return Optional.of(
                         "the source_claims omit the required claim '%s' the epic seeds".formatted(required));
             }

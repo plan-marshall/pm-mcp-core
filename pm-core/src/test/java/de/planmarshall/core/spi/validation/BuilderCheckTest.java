@@ -50,7 +50,7 @@ class BuilderCheckTest {
                         + "criterion accepts it. Is dropping an item acceptable?",
                 List.of("CN-1", "AC-1"), null);
         var accepted = assertInstanceOf(Accepted.class,
-                BuilderCheck.validate(new Submission(List.of(question)), record()));
+                BuilderCheck.validate(new Submission(List.of(question)), intentRecord()));
         assertEquals(List.of(question), accepted.operatorQuestions());
     }
 
@@ -60,7 +60,7 @@ class BuilderCheckTest {
         var question = new Question(Sort.MINOR, "The constraint is fine as the default", List.of("CN-1"),
                 "Keep the default");
         var refused = assertInstanceOf(Refused.class,
-                BuilderCheck.validate(new Submission(List.of(question)), record()));
+                BuilderCheck.validate(new Submission(List.of(question)), intentRecord()));
         assertTrue(refused.detail().contains("CN-1"));
     }
 
@@ -69,7 +69,7 @@ class BuilderCheckTest {
     void minorQuestionAboutTwoCriteriaIsRefused() {
         var question = new Question(Sort.MINOR, "Both criteria hold", List.of("AC-1", "AC-2"),
                 "Keep both criteria");
-        assertInstanceOf(Refused.class, BuilderCheck.validate(new Submission(List.of(question)), record()));
+        assertInstanceOf(Refused.class, BuilderCheck.validate(new Submission(List.of(question)), intentRecord()));
     }
 
     @DisplayName("The builder's own call becomes a model decision of the record")
@@ -78,8 +78,8 @@ class BuilderCheckTest {
         var question = new Question(Sort.MINOR, "The record does not say where the file lives",
                 List.of("AC-1"), "Place the file beside request.md");
         var accepted = assertInstanceOf(Accepted.class,
-                BuilderCheck.validate(new Submission(List.of(question)), record()));
-        var decision = accepted.record().decisions().getLast();
+                BuilderCheck.validate(new Submission(List.of(question)), intentRecord()));
+        var decision = accepted.intentRecord().decisions().getLast();
         assertEquals("DC-2", decision.id());
         assertEquals(Decider.MODEL, decision.decider());
         assertTrue(decision.text().startsWith("from the builder check:"));
@@ -90,20 +90,20 @@ class BuilderCheckTest {
     @Test
     void answeredQuestionNamesOneHeldItem() {
         var answered = new Question(Sort.ANSWERED, "The goal says it", List.of("AC-1"), null);
-        assertInstanceOf(Accepted.class, BuilderCheck.validate(new Submission(List.of(answered)), record()));
+        assertInstanceOf(Accepted.class, BuilderCheck.validate(new Submission(List.of(answered)), intentRecord()));
 
         var unknown = new Question(Sort.ANSWERED, "The goal says it", List.of("AC-9"), null);
         assertTrue(assertInstanceOf(Refused.class,
-                BuilderCheck.validate(new Submission(List.of(unknown)), record())).detail().contains("AC-9"));
+                BuilderCheck.validate(new Submission(List.of(unknown)), intentRecord())).detail().contains("AC-9"));
 
         var two = new Question(Sort.ANSWERED, "The goal says it", List.of("AC-1", "AC-2"), null);
-        assertInstanceOf(Refused.class, BuilderCheck.validate(new Submission(List.of(two)), record()));
+        assertInstanceOf(Refused.class, BuilderCheck.validate(new Submission(List.of(two)), intentRecord()));
     }
 
     @DisplayName("The facts carry the record and the capability index only")
     @Test
     void factsCarryTheRecordAndTheCapabilityIndex(@TempDir Path root) {
-        var facts = BuilderCheck.facts(record(), CapabilityIndex.read(root));
+        var facts = BuilderCheck.facts(intentRecord(), CapabilityIndex.read(root));
         assertEquals(List.of("capability_index", "intent_record"), facts.keySet().stream().sorted().toList());
         assertInstanceOf(IntentRecord.class, facts.get("intent_record"));
         assertEquals(List.of(), facts.get("capability_index"));
@@ -117,7 +117,7 @@ class BuilderCheckTest {
     void refusesOverlongMinorDecision() {
         var question = new Question(Sort.MINOR, "Where does it live?", List.of("AC-1"), "x".repeat(401));
         var refused = assertInstanceOf(Refused.class,
-                BuilderCheck.validate(new Submission(List.of(question)), record()));
+                BuilderCheck.validate(new Submission(List.of(question)), intentRecord()));
         assertTrue(refused.detail().contains("longer"));
     }
 
@@ -133,12 +133,12 @@ class BuilderCheckTest {
     @DisplayName("The facts are an immutable map")
     @Test
     void factsAreImmutable(@TempDir Path root) {
-        var facts = BuilderCheck.facts(record(), CapabilityIndex.read(root));
+        var facts = BuilderCheck.facts(intentRecord(), CapabilityIndex.read(root));
         assertThrows(UnsupportedOperationException.class,
                 () -> facts.put("request", Map.of()));
     }
 
-    private static IntentRecord record() {
+    private static IntentRecord intentRecord() {
         return new IntentRecord(
                 "The operator cannot see what a plan intends before it is built.",
                 "A plan states its intent in one record that every later phase reads.",

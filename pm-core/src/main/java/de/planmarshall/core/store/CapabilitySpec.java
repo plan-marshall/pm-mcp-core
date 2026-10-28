@@ -57,6 +57,28 @@ public record CapabilitySpec(String capability, String purpose, List<Requirement
     /** The format version of a capability spec that is read and written. */
     public static final int FORMAT_VERSION = 1;
 
+    private static final String FIELD_CAPABILITY = "capability";
+
+    private static final String FIELD_PURPOSE = "purpose";
+
+    private static final String FIELD_REQUIREMENTS = "requirements";
+
+    private static final String FIELD_NAME = "name";
+
+    private static final String FIELD_TEXT = "text";
+
+    private static final String FIELD_SCENARIOS = "scenarios";
+
+    private static final String FIELD_GIVEN = "given";
+
+    private static final String FIELD_WHEN = "when";
+
+    private static final String FIELD_THEN = "then";
+
+    private static final String FIELD_PLAN_ID = "plan_id";
+
+    private static final String FIELD_VERIFIED_BY = "verified_by";
+
     /**
      * Copies the requirements into an immutable list and checks the spec's rules.
      *
@@ -118,9 +140,9 @@ public record CapabilitySpec(String capability, String purpose, List<Requirement
         try (var generator = StrictJson.factory().createGenerator(out, JsonEncoding.UTF8)) {
             generator.writeStartObject();
             generator.writeNumberField(FIELD_FORMAT_VERSION, FORMAT_VERSION);
-            generator.writeStringField("capability", spec.capability());
-            generator.writeStringField("purpose", spec.purpose());
-            generator.writeArrayFieldStart("requirements");
+            generator.writeStringField(FIELD_CAPABILITY, spec.capability());
+            generator.writeStringField(FIELD_PURPOSE, spec.purpose());
+            generator.writeArrayFieldStart(FIELD_REQUIREMENTS);
             for (var requirement : spec.requirements()) {
                 writeRequirement(generator, requirement);
             }
@@ -134,24 +156,24 @@ public record CapabilitySpec(String capability, String purpose, List<Requirement
 
     private static void writeRequirement(JsonGenerator generator, Requirement requirement) throws IOException {
         generator.writeStartObject();
-        generator.writeStringField("name", requirement.name());
-        generator.writeStringField("text", requirement.text());
-        generator.writeArrayFieldStart("scenarios");
+        generator.writeStringField(FIELD_NAME, requirement.name());
+        generator.writeStringField(FIELD_TEXT, requirement.text());
+        generator.writeArrayFieldStart(FIELD_SCENARIOS);
         for (var scenario : requirement.scenarios()) {
             generator.writeStartObject();
-            generator.writeStringField("name", scenario.name());
+            generator.writeStringField(FIELD_NAME, scenario.name());
             if (scenario.given() == null) {
-                generator.writeNullField("given");
+                generator.writeNullField(FIELD_GIVEN);
             } else {
-                generator.writeStringField("given", scenario.given());
+                generator.writeStringField(FIELD_GIVEN, scenario.given());
             }
-            generator.writeStringField("when", scenario.when());
-            generator.writeStringField("then", scenario.then());
+            generator.writeStringField(FIELD_WHEN, scenario.when());
+            generator.writeStringField(FIELD_THEN, scenario.then());
             generator.writeEndObject();
         }
         generator.writeEndArray();
-        generator.writeStringField("plan_id", requirement.planId());
-        generator.writeArrayFieldStart("verified_by");
+        generator.writeStringField(FIELD_PLAN_ID, requirement.planId());
+        generator.writeArrayFieldStart(FIELD_VERIFIED_BY);
         for (var test : requirement.verifiedBy()) {
             generator.writeString(test);
         }
@@ -168,13 +190,13 @@ public record CapabilitySpec(String capability, String purpose, List<Requirement
             var field = nextField(parser, seen);
             switch (field) {
                 case FIELD_FORMAT_VERSION -> parser.skipChildren();
-                case "capability" -> capability = string(parser, field);
-                case "purpose" -> purpose = string(parser, field);
-                case "requirements" -> requirements = array(parser, field, CapabilitySpec::readRequirement);
+                case FIELD_CAPABILITY -> capability = string(parser, field);
+                case FIELD_PURPOSE -> purpose = string(parser, field);
+                case FIELD_REQUIREMENTS -> requirements = array(parser, field, CapabilitySpec::readRequirement);
                 default -> throw undeclared(field);
             }
         }
-        requireFields(seen, "document", "capability", "purpose", "requirements");
+        requireFields(seen, "document", FIELD_CAPABILITY, FIELD_PURPOSE, FIELD_REQUIREMENTS);
         try {
             return new CapabilitySpec(capability, purpose, requirements);
         } catch (IllegalArgumentException e) {
@@ -193,15 +215,15 @@ public record CapabilitySpec(String capability, String purpose, List<Requirement
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {
-                case "name" -> requirementName = string(parser, field);
-                case "text" -> text = string(parser, field);
-                case "scenarios" -> scenarios = array(parser, field, CapabilitySpec::readScenario);
-                case "plan_id" -> planId = string(parser, field);
-                case "verified_by" -> verifiedBy = stringList(parser, field);
+                case FIELD_NAME -> requirementName = string(parser, field);
+                case FIELD_TEXT -> text = string(parser, field);
+                case FIELD_SCENARIOS -> scenarios = array(parser, field, CapabilitySpec::readScenario);
+                case FIELD_PLAN_ID -> planId = string(parser, field);
+                case FIELD_VERIFIED_BY -> verifiedBy = stringList(parser, field);
                 default -> throw undeclared(field);
             }
         }
-        requireFields(seen, name, "name", "text", "scenarios", "plan_id");
+        requireFields(seen, name, FIELD_NAME, FIELD_TEXT, FIELD_SCENARIOS, FIELD_PLAN_ID);
         try {
             return new Requirement(requirementName, text, scenarios, planId, verifiedBy);
         } catch (IllegalArgumentException e) {
@@ -219,14 +241,14 @@ public record CapabilitySpec(String capability, String purpose, List<Requirement
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {
-                case "name" -> scenarioName = string(parser, field);
-                case "given" -> given = StrictJson.nullableString(parser, field);
-                case "when" -> when = string(parser, field);
-                case "then" -> then = string(parser, field);
+                case FIELD_NAME -> scenarioName = string(parser, field);
+                case FIELD_GIVEN -> given = StrictJson.nullableString(parser, field);
+                case FIELD_WHEN -> when = string(parser, field);
+                case FIELD_THEN -> then = string(parser, field);
                 default -> throw undeclared(field);
             }
         }
-        requireFields(seen, name, "name", "given", "when", "then");
+        requireFields(seen, name, FIELD_NAME, FIELD_GIVEN, FIELD_WHEN, FIELD_THEN);
         try {
             return new Scenario(scenarioName, given, when, then);
         } catch (IllegalArgumentException e) {
@@ -281,18 +303,18 @@ public record CapabilitySpec(String capability, String purpose, List<Requirement
          */
         public String fingerprint() {
             var canonical = new LinkedHashMap<String, Object>();
-            canonical.put("name", name);
+            canonical.put(FIELD_NAME, name);
             var scenarioValues = new ArrayList<Map<String, Object>>();
             for (var scenario : scenarios) {
                 var value = new LinkedHashMap<String, Object>();
-                value.put("given", scenario.given());
-                value.put("name", scenario.name());
-                value.put("then", scenario.then());
-                value.put("when", scenario.when());
+                value.put(FIELD_GIVEN, scenario.given());
+                value.put(FIELD_NAME, scenario.name());
+                value.put(FIELD_THEN, scenario.then());
+                value.put(FIELD_WHEN, scenario.when());
                 scenarioValues.add(value);
             }
-            canonical.put("scenarios", scenarioValues);
-            canonical.put("text", text);
+            canonical.put(FIELD_SCENARIOS, scenarioValues);
+            canonical.put(FIELD_TEXT, text);
             try {
                 var digest = MessageDigest.getInstance("SHA-256");
                 return HexFormat.of().formatHex(digest.digest(canonical(canonical).getBytes(StandardCharsets.UTF_8)));

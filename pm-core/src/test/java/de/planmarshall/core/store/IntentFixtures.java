@@ -92,8 +92,8 @@ final class IntentFixtures {
                 Decider.OPERATOR, questionId, null, null);
     }
 
-    static Revision revision(int number, IntentRecord record) {
-        return new Revision(number, AT.plusSeconds(number), "TASK-00" + number, record);
+    static Revision revision(int number, IntentRecord intentRecord) {
+        return new Revision(number, AT.plusSeconds(number), "TASK-00" + number, intentRecord);
     }
 
     static Context context(Path treeRoot) {

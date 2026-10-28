@@ -16,6 +16,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -37,10 +38,13 @@ public record OutlineRecord(String summary, String overview, ScopeEstimate scope
 List<Deliverable> deliverables) {
 
     /** The pattern of an entry in a deliverable's {@code satisfies}. */
-    public static final Pattern SATISFIES_ID = Pattern.compile("(AC|DC)-[0-9]{1,4}");
+    public static final Pattern SATISFIES_ID = Pattern.compile("(AC|DC)-\\d{1,4}");
 
     /** The pattern of an added dependency's coordinate. */
     public static final Pattern COORDINATE = Pattern.compile("(maven|npm|pypi):.+");
+
+    /** The wire name of the verification profile and of the verification member. */
+    private static final String VERIFICATION_WIRE = "verification";
 
     /**
      * Copies the deliverables into an immutable list and checks the outline's rules.
@@ -62,6 +66,10 @@ List<Deliverable> deliverables) {
             throw new IllegalArgumentException("deliverables holds 1 to 50 items: " + deliverables.size());
         }
         deliverables = List.copyOf(deliverables);
+        checkDeliverables(deliverables);
+    }
+
+    private static void checkDeliverables(List<Deliverable> deliverables) {
         var numbers = new HashSet<Integer>();
         for (var deliverable : deliverables) {
             if (!numbers.add(deliverable.number())) {
@@ -70,18 +78,23 @@ List<Deliverable> deliverables) {
             }
         }
         for (var deliverable : deliverables) {
-            if (deliverable.depends().size() != new HashSet<>(deliverable.depends()).size()) {
-                throw new IllegalArgumentException(
-                        "the deliverable %d names a dependency more than once".formatted(deliverable.number()));
+            checkDependencies(deliverable, numbers);
+        }
+    }
+
+    private static void checkDependencies(Deliverable deliverable, Set<Integer> numbers) {
+        if (deliverable.depends().size() != new HashSet<>(deliverable.depends()).size()) {
+            throw new IllegalArgumentException(
+                    "the deliverable %d names a dependency more than once".formatted(deliverable.number()));
+        }
+        for (var dependency : deliverable.depends()) {
+            if (!numbers.contains(dependency)) {
+                throw new IllegalArgumentException("the deliverable %d depends on %d, which the outline does not hold"
+                        .formatted(deliverable.number(), dependency));
             }
-            for (var dependency : deliverable.depends()) {
-                if (!numbers.contains(dependency)) {
-                    throw new IllegalArgumentException("the deliverable %d depends on %d, which the outline does not hold"
-                            .formatted(deliverable.number(), dependency));
-                }
-                if (dependency == deliverable.number()) {
-                    throw new IllegalArgumentException("the deliverable %d depends on itself".formatted(deliverable.number()));
-                }
+            if (dependency == deliverable.number()) {
+                throw new IllegalArgumentException(
+                        "the deliverable %d depends on itself".formatted(deliverable.number()));
             }
         }
     }
@@ -216,7 +229,7 @@ List<Deliverable> deliverables) {
         /** Multi-module and end-to-end tests. */
         INTEGRATION_TESTING("integration_testing"),
         /** A verification without a change. */
-        VERIFICATION("verification");
+        VERIFICATION(VERIFICATION_WIRE);
 
         private final String wireName;
 
@@ -327,8 +340,8 @@ List<Deliverable> deliverables) {
             Objects.requireNonNull(affectedFiles, "affectedFiles");
             affectedFiles = checkedList(affectedFiles, "affected_files", 200);
             bounded(changePerFile, "deliverables[].change_per_file", 10, 8000);
-            Objects.requireNonNull(verification, "verification");
-            verification = checkedList(verification, "verification", 10);
+            Objects.requireNonNull(verification, VERIFICATION_WIRE);
+            verification = checkedList(verification, VERIFICATION_WIRE, 10);
             Objects.requireNonNull(satisfies, "satisfies");
             satisfies = List.copyOf(satisfies);
             if (satisfies.size() > 40 || new HashSet<>(satisfies).size() != satisfies.size()) {
@@ -355,6 +368,17 @@ List<Deliverable> deliverables) {
          */
         public boolean satisfies(String id) {
             return satisfies.contains(id);
+        }
+
+        private static <T> List<T> checkedList(List<T> values, String member, int max) {
+            if (values.size() > max) {
+                throw new IllegalArgumentException("%s holds at most %d items: %d".formatted(member, max,
+                        values.size()));
+            }
+            if (values.stream().anyMatch(Objects::isNull)) {
+                throw new IllegalArgumentException(member + " holds a null item");
+            }
+            return List.copyOf(values);
         }
     }
 
@@ -500,16 +524,6 @@ List<Deliverable> deliverables) {
             bounded(to, "key_links[].to", 1, 300);
             bounded(pattern, "key_links[].pattern", 1, 500);
         }
-    }
-
-    private static <T> List<T> checkedList(List<T> values, String member, int max) {
-        if (values.size() > max) {
-            throw new IllegalArgumentException("%s holds at most %d items: %d".formatted(member, max, values.size()));
-        }
-        if (values.stream().anyMatch(Objects::isNull)) {
-            throw new IllegalArgumentException(member + " holds a null item");
-        }
-        return List.copyOf(values);
     }
 
     private static String bounded(String value, String member, int min, int max) {
