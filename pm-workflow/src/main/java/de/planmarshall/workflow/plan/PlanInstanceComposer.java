@@ -147,8 +147,8 @@ public final class PlanInstanceComposer {
                     .toList());
         }
         var header = new PlanInstanceHeader(request.planId(), version, request.event(), clock.instant(),
-                inputs(request, composed, version), facts.lane(), facts.posture(),
-                pruned.steps(), pruned.pruned(), pruned.policyCalls(), pruned.waivedGates());
+                inputs(request, composed, version), facts.lane(), facts.posture(), pruned.steps(),
+                prunedElements(pruned.pruned(), composed.pruned()), pruned.policyCalls(), pruned.waivedGates());
         var unit = unit(request.template(), header, pruned.states());
         var violations = verify(request, header, unit, lanePruned, pruned.settled());
         if (!violations.isEmpty()) {
@@ -187,6 +187,7 @@ public final class PlanInstanceComposer {
         var states = new LinkedHashSet<String>();
         var bound = new LinkedHashSet<String>();
         var visited = new HashSet<String>();
+        var prunes = new ArrayList<PrunedElement>();
         var queue = new ArrayDeque<String>();
         keptStates.values().forEach(state -> callee(state).ifPresent(queue::add));
         while (!queue.isEmpty()) {
@@ -195,10 +196,11 @@ public final class PlanInstanceComposer {
                 continue;
             }
             if (isComposedUnit(id)) {
-                var composed = composeUnit(byId.get(id).definition(), request, effects, boundVariants, lane, version);
-                units.put(id, composed);
-                states.addAll(composed.definition().states().keySet());
-                composed.definition().states().values().forEach(state -> callee(state).ifPresent(queue::add));
+                var unit = composeUnit(byId.get(id).definition(), request, effects, boundVariants, lane, version);
+                units.put(id, unit.file());
+                prunes.addAll(unit.pruned());
+                states.addAll(unit.file().definition().states().keySet());
+                unit.file().definition().states().values().forEach(state -> callee(state).ifPresent(queue::add));
             } else {
                 bound.add(id);
                 var definition = byId.get(id).definition();
@@ -208,7 +210,30 @@ public final class PlanInstanceComposer {
         }
         var ordered = request.subUnits().stream().map(subUnit -> subUnit.definition().id())
                 .filter(units::containsKey).distinct().map(units::get).toList();
-        return new Composed(ordered, states, bound);
+        return new Composed(ordered, states, bound, prunes);
+    }
+
+    /**
+     * @param ofThePlan   the elements the composition of the plan unit left out
+     * @param ofTheComposed the elements the compositions of the composed units left out
+     * @return every element left out, once, the plan unit's first: an id two compositions prune is listed with the
+     *         reason of the first
+     */
+    private static List<PrunedElement> prunedElements(List<PrunedElement> ofThePlan,
+            List<PrunedElement> ofTheComposed) {
+        var seen = new LinkedHashSet<String>();
+        var pruned = new ArrayList<PrunedElement>();
+        for (var element : ofThePlan) {
+            if (seen.add(element.element().wireName() + " " + element.id())) {
+                pruned.add(element);
+            }
+        }
+        for (var element : ofTheComposed) {
+            if (seen.add(element.element().wireName() + " " + element.id())) {
+                pruned.add(element);
+            }
+        }
+        return List.copyOf(pruned);
     }
 
     /**
@@ -218,8 +243,19 @@ public final class PlanInstanceComposer {
      * @param units         the composed files, in the order of the request's sub-units
      * @param positionStates every state of the composed files and of the reached digest-bound units
      * @param subUnits      the ids of the digest-bound units the kept calls reach
+     * @param pruned        every element a composed unit's composition left out
      */
-    private record Composed(List<ComposedUnit> units, Set<String> positionStates, Set<String> subUnits) {
+    private record Composed(List<ComposedUnit> units, Set<String> positionStates, Set<String> subUnits,
+            List<PrunedElement> pruned) {
+    }
+
+    /**
+     * One composed file and the elements its composition left out.
+     *
+     * @param file   the composed file
+     * @param pruned the elements the composition of the unit left out
+     */
+    private record UnitComposition(ComposedUnit file, List<PrunedElement> pruned) {
     }
 
     /**
@@ -227,7 +263,7 @@ public final class PlanInstanceComposer {
      * it applied, the axis call sites it holds bound, and the version repeated, the frontmatter, id, type, entries and
      * exits of its template kept and no {@code instance} line added.
      */
-    private static ComposedUnit composeUnit(WorkflowDefinition definition, CompositionRequest request,
+    private static UnitComposition composeUnit(WorkflowDefinition definition, CompositionRequest request,
             RuleEffects effects, List<PlanFacts.BoundVariant> bound, Optional<PlanInstanceHeader.Lane> lane, int version) {
         var pruned = InstancePruner.prune(definition, effects, bound, request.waivers(), request.verificationSteps(),
                 request.finalizeSteps(), lane);
@@ -236,7 +272,7 @@ public final class PlanInstanceComposer {
                 definition.decisions(), definition.formatVersion(), definition.origin(), definition.derivedFrom(),
                 definition.startState(), definition.entryBindings(), definition.migrations(), pruned.states(),
                 definition.location());
-        return ComposedUnit.of(definition.id(), composed);
+        return new UnitComposition(ComposedUnit.of(definition.id(), composed), pruned.pruned());
     }
 
     /**

@@ -943,7 +943,16 @@ class PlanInstanceComposerTest {
             assertAll(
                     () -> assertTrue(instance.composed("phase-5-execute").isPresent(), instance.units()::toString),
                     () -> assertTrue(instance.composed("land").isEmpty(),
-                            () -> "land is reached only through a pruned call: " + instance.units()));
+                            () -> "land is reached only through a pruned call: " + instance.units()),
+                    () -> assertTrue(instance.header().pruned().stream().anyMatch(pruned ->
+                                    pruned.element() == PrunedElement.Kind.CALL
+                                            && "execute.land-entry/land".equals(pruned.id())
+                                            && pruned.reason() == PruneReason.OTHER_LANE),
+                            instance.header().pruned()::toString),
+                    () -> assertEquals(PlanProcessStates.State.NOT_IN_THIS_PLAN,
+                            PlanProcessStates.derive(instance, List.of()).stream()
+                                    .filter(node -> "execute.land-entry".equals(node.node())).findFirst()
+                                    .orElseThrow().state()));
         }
 
         @Test
