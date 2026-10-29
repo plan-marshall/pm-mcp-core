@@ -2,7 +2,7 @@
   "id": "PLAN-123",
   "slug": "scenario-worker-faults",
   "workstream": "WS-06",
-  "status": "staged",
+  "status": "transferred",
   "lane": "runbook",
   "plan_marshall_plan_id": "",
   "pr": "",

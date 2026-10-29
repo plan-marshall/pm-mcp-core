@@ -1,0 +1,100 @@
+# PLAN-V2-31: The supervisor's inbound calls and its supervision pass
+
+epic: pm-mcp-core-m2-m4-v2
+workstream: WS-06
+origin: PLAN-118 of the epic pm-mcp-core-m2-m4
+
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
+> Lives at `plans/PLAN-V2-31-supervisor-calls-and-pass.md` and is queued as one row file, `queue/PLAN-V2-31.json`,
+> in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
+> This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
+> the emitted command is a one-line pointer and carries no brief, so every per-plan carry is
+> authored here and the epic-wide rules are in `standing-rules.md`, read first.
+> See `persona-plan-orchestrator/standards/orchestration-model.md` for the tier and
+> hand-off contract.
+
+## First Instruction: Read The Standing Rules
+
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r2`), and repeat the revision and the rule ids in your landing message.
+
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R16, R17, R18, R19. (R12 applies only if the trace matrix shows a message to add, see Standing Constraints; R14 and R16 apply because the plan changes `pm-runtime`; R15 does not apply, no `pm-workflow` code changes; R17 because the plan edits a specification part and runs the links check.)
+
+Plan parameters (the values the rules ask for):
+
+- R06 — developer documentation: `pm-runtime/doc/developer/runtime-worker.adoc` (extended); ADR directory: `pm-runtime/doc/adr/runtime-worker/`; layout: workstream WS-04.
+- R12 — log message holder: `RuntimeLogMessages` (`de.planmarshall.runtime.log`, prefix `PM_RUNTIME`).
+
+## Objective
+
+Give the worker supervisor of `pm-runtime` the two pieces that make it a running supervisor and not a set of classes: the implementation of its inbound API `WorkerCalls`, and the supervision pass that the assembly's scheduler calls. Today `WorkerCalls` has no implementation anywhere (`WorkerSupervisor` does not implement it), nothing in `src/main` creates a `LossDetection`, a `WorkerActivityPump`, an `ActivityRecorder` or an `AgentStartedDetector`, and the developer guide states that "the pass is the supervision loop's call" and that the loop "is composed outside this package". The Open Defect of 2026-10-26/27 (no plan owns the supervision loop) names two candidates, `worker-activity` and the `pm-mcp-server` wiring; the code shows a third share that is neither: the pure-Java composition both of them need, which ADR `runtime-worker/009` and `011` already place in this repository. This plan builds that share and nothing of the assembly: no thread of its own, no transport, no HTTP route. A `pass(now)` step is a deterministic function over the supervisor's registry, the job records and the job logs, so the assembly only has to schedule it and to hand the transport's calls to `SupervisorCalls`.
+
+## Deliverables
+
+1. **`SupervisorCalls`, the implementation of `WorkerCalls`** (new class in `runtime.worker`). It resolves the generation from the supervisor's registry and ignores a call of a generation it does not know (the contract of the interface's Javadoc and of the developer guide § The Calls). It owns the per-generation `LossDetection` (created at the first sight of the generation with `started(startedAt)`, constructed with the supervisor's clock and `WorkerTimers`, the role class of the generation and the worker parameters of the profile; its `LossSignal` goes to `WorkerEnding.end(generation, signal)`), and maps: `callHeartbeat` to `firstCall`/`called`; `waitOpened` to `waitOpened`, with the answer `End` while `WorkerEnding.endRequested`, `Offered` (and `LossDetection.offered`, the generation's lease) when the transport names a task for a generation that is not being ended, and `WaitAgain` otherwise through `WorkerRecycling.waitAgain` (which may recycle, then the answer is `End`); `turnCompleted` to the generation's `ContextTokens` and `WorkerRecycling.afterTurnCompleted`; `taskClosed` to the served tasks and `WorkerRecycling.afterTaskClosed`; `planPaused` to `WorkerEnding.forceEnd(generation, EndCause.PAUSE_AT_ONCE)` for every generation of the plan; `harnessEnrolled` to `StartGuard.clear` of every role on the harness. Every state change of a generation goes through `WorkerSupervisor.replaced(generation)` and the `WorkerLifecycle` transition table, which refuses a transition the protocol does not have.
+2. **`SupervisionPass`, the periodic step** (new class in `runtime.worker`; no thread, no timer of its own: the deadlines of `LossDetection` keep running on `WorkerTimers`, which already owns the supervisor's one scheduler thread). `run()` takes one reading of the clock and, for every generation that is not terminal: (a) reads the generation's job record (`JobRecordStore.ofProject`, the same store `WorkerStateWriter.over` reads) and, when the job has ended, settles the detection with `LossDetection.exit(now)` and completes the end through `WorkerEnding.exited` (a loss goes through `WorkerEnding.end(generation, signal)` first); (b) for a generation that holds a task, reads the job log from the offset it last read and hands the complete lines to that generation's `WorkerActivityPump` (one pump per generation, because a pump keeps its own offset), and runs `AgentStartedDetector.detect(generation, pid, HeldTask)` with the pid of the job record; (c) once per pass, `WorkerRecycling.yieldIdleSlot()`; and at a worker's end appends the attempt's end through `WorkerActivityPump.finish` and `forget`. A pass that finds nothing to do reads the job records and logs and writes nothing; a log that is unreadable or truncated appends nothing and is read again at the next pass (ADR `runtime-worker/011`).
+3. **The scenario tests, deterministic and sleep-free** (JUnit 5, `@DisplayName`, AAA; `VirtualClock` and `SupervisorTestFixture` as they are, read not edited where possible): (a) one test per call of `WorkerCalls`, including the unknown generation (ignored, nothing created) and the answer `End` after a requested end; (b) an exit after the first call is a loss and the end path runs once; (c) a pass pumps the lines a log gained exactly once, whatever the number of passes, and a second run over the same stores yields the same entries (the replay of `OffTrackScenarioTest`); (d) the `agent_started` signal ends the worker once; (e) a pass over a supervisor with no generation, and over one whose only generation is terminal, writes nothing. The new test classes are `SupervisorCallsTest` and `SupervisionPassTest`; the `FixtureHarness` and `OffTrackScenarioTest` of the `supervision-scenarios` package are used as they are and not edited.
+4. **Document the decision.** One ADR in `pm-runtime/doc/adr/runtime-worker/` (next free number; Status, Date, Context, Decision, Alternatives considered, Consequences, Source): `SupervisorCalls` implements the inbound port in this module and `SupervisionPass` is a function the assembly schedules (alternatives: the pass as a thread of the supervisor, which ADR `011` rejected for the pump; everything in `pm-mcp-server`, which leaves the lifecycle, the loss path and the pump untestable without the Quarkus assembly). Extend `pm-runtime/doc/developer/runtime-worker.adoc` (the passage on `WorkerCalls` and the passage "The pass is the supervision loop's call … composed outside this package"), and update the `doc/Traceability.adoc` lines of `PM-WORK-3` and `PM-WORK-7` that name `WorkerCalls`.
+5. **State the owed rest, in the pull request body and in the guide, and keep the package open.** What stays with other owners: the transport that implements `WorkerProtocol` and calls `SupervisorCalls`, the scheduling of `SupervisionPass.run()` and the construction of the pump, recorder and mapper per role (all `pm-mcp-server` in `plan-marshall-mcp`), the HTTP routes and the process leaf links of the activity (same), the `events` stage written into the verification record and the harness enrolment (the machine harness verification, `machine-onboarding-unit` / PLAN-V2-39 area), the plan-task boundary of `over_size` and `outside_footprint` (the assembly's adapter of the `WorkerTaskActivity` port) and the plan cleanup that adopts `ActivityJournal.archiveInto` and `delete` (the plan archive, `plan-and-epic-control`). The work packages `worker-activity` and `question-continuation` stay `open`: this plan removes neither row nor file (R01 is not applied, as in the pull requests that shipped parts of them) and deletes no specification section or watch item.
+
+**Done when:** `SupervisorCalls` implements every method of `WorkerCalls`, `SupervisionPass.run()` exists and is deterministic under the virtual clock, the five test groups of Deliverable 3 pass beside every existing test of `runtime.worker`, no new class starts a thread, the ADR, the guide and the Traceability lines are written, and the owed rest is listed in the pull request body. **Sonar:** the SonarCloud search of the pull request (`pullRequest=<N>&resolved=false`) lists no open issue other than one dismissed with its reason, and its quality gate is green, before the pull request is reported ready. **Build:** `verify -Ppre-commit` (its rewrites reviewed and committed), then `verify` of `pm-runtime` (where a full run does not finish inside the host's bound, the targeted `-Dtest` runs of the changed classes and the per-module run, each reported in the pull request body), `verify -Pcoverage` and `verify -Pintegration-tests -pl pm-runtime -am` are green. **Links:** run the links check (R17) from the main checkout against the documentation checkout at its `origin/main` (`git -C ../plan-marshall-documentation fetch origin main`, then `trace.py` over a checkout of that revision, or fast-forward the sibling first): a `BROKEN LINKS` count that names an item deleted in the sibling is the sibling's own links, not a defect of this change.
+
+**Trace starting set:** PM-WORK-3 (supervision and recycling), PM-WORK-7 (worker activity), PM-ARCH-8 (module boundaries of the supervisor); `doc/specification/model-work/03-supervision-and-recycling.adoc` § Detection and § Recycling; `doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc` § A Worker's Output While It Runs; ADRs `pm-runtime/doc/adr/runtime-worker/009`, `010`, `011`, `012`.
+
+## Standing Constraints
+
+Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named in the First Instruction above):
+
+- **Log messages: none expected.** The classes reuse the records of `WorkerSupervisor`, `WorkerEnding` and `WorkerRecycling`. If the trace matrix shows one, it goes into `RuntimeLogMessages` at the next free identifier of its level (ADR `doc/adr/005-one-log-message-holder-per-module.adoc`), and the plan says so in its inbox message.
+- **No change of `WorkerSupervisor`, `WorkerEnding`, `WorkerRecycling`, `LossDetection`, `WorkerCalls` or `WorkerProtocol`.** Those files are declared by other plans (`runtime-control`, `runtime-metrics`, `epic-resource-and-release`) and by the plan that follows this one; a change the trace matrix proves necessary is recorded and named in the landing, not made silently.
+- **No new dependency, no thread.** The pass is called, it does not run.
+
+## Claim Labels
+
+- OBSERVED: `WorkerSupervisor` does not implement `WorkerCalls`, and no class of `src/main` or `src/test` in any module implements it — `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerSupervisor.java:66` (`public final class WorkerSupervisor {`); `grep -rln WorkerCalls` over `*.java` of the repository finds only `WorkerCalls.java`
+  - verdict: corroborated | checked_at: a8da4104e3efad83b2ca9c1b28ec724ad402fd8a | by: pm-mcp-core-m2-m4/spec-draft(runtime-worker) | rescoped: n/a | evidence: grep at a8da4104
+- OBSERVED: the guide and the ADRs say the opposite of the code: "`WorkerCalls` is the supervisor's inbound API … the supervisor resolves it from its registry and ignores a call of a generation it does not know" (`pm-runtime/doc/developer/runtime-worker.adoc:403-408`); "`WorkerCalls.planPaused` — Forces the plan's workers with `EndCause.PAUSE_AT_ONCE`" (`runtime-worker.adoc:519-523`); "the assembly … owes a `WorkerCalls` entry that the supervisor implements by calling `answerDelivered`" (ADR `runtime-worker/012`, lines 29-31)
+  - verdict: corroborated | checked_at: a8da4104e3efad83b2ca9c1b28ec724ad402fd8a | by: pm-mcp-core-m2-m4/spec-draft(runtime-worker) | rescoped: n/a | evidence: files read at a8da4104
+- OBSERVED: nothing in `src/main` constructs `LossDetection`, `WorkerActivityPump`, `ActivityRecorder`, `AgentStartedDetector`, `WorkerRecycling` or `WorkerEnding` — `grep -rn "new LossDetection\|new WorkerActivityPump\|new ActivityRecorder\|new WorkerRecycling\|new WorkerEnding\|new AgentStartedDetector" pm-runtime/src/main` is empty; the constructions are in `pm-runtime/src/test/.../worker/` only
+  - verdict: corroborated | checked_at: a8da4104e3efad83b2ca9c1b28ec724ad402fd8a | by: pm-mcp-core-m2-m4/spec-draft(runtime-worker) | rescoped: n/a | evidence: grep at a8da4104
+- OBSERVED: `WorkerTimers.system(InstantSource)` is a production implementation with one daemon scheduler thread, so the deadlines of `LossDetection` need no loop — `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerTimers.java:60`; the loop is needed for the pump, the `agent_started` detector, the exit observation and the idle yield
+  - verdict: corroborated | checked_at: a8da4104e3efad83b2ca9c1b28ec724ad402fd8a | by: pm-mcp-core-m2-m4/spec-draft(runtime-worker) | rescoped: n/a | evidence: WorkerTimers.java read
+- OBSERVED: a `WorkerActivityPump` keeps its own byte offset and unmatched-line count (`WorkerActivityPump.java:29-60`, `pump` at line 53), so one pump per generation is required; `AgentStartedDetector.detect(generation, rootPid, HeldTask)` is "the supervision loop's call" (`runtime-worker.adoc:271-274`, `AgentStartedDetector.java:112`)
+  - verdict: corroborated | checked_at: a8da4104e3efad83b2ca9c1b28ec724ad402fd8a | by: pm-mcp-core-m2-m4/spec-draft(runtime-worker) | rescoped: n/a | evidence: files read at a8da4104
+- OBSERVED: ADR `runtime-worker/011` rejects a reader thread because "the supervisor's loop has no production caller yet" and names the assembly's loop as the caller; ADR `009` has the transport module implement `WorkerProtocol` and consume the supervisor — `pm-runtime/doc/adr/runtime-worker/009-…adoc`, `011-…adoc`
+  - verdict: corroborated | checked_at: a8da4104e3efad83b2ca9c1b28ec724ad402fd8a | by: pm-mcp-core-m2-m4/spec-draft(runtime-worker) | rescoped: n/a | evidence: ADRs read
+- HYPOTHESIS: the meaning of the `queueTaskId` parameter of `WorkerCalls.waitOpened` ("the task the worker asked a task for") is that the transport names the candidate task it would offer, and that no candidate means "no task queued"; the Javadoc does not say so — confirm at the trace matrix against Model Work § Task Protocol and the interface, and record the reading in the ADR (verify-at-outline)
+- HYPOTHESIS: the supervisor can learn that a worker's process ended from the job record alone (`JobRecordStore.read(jobId)` status and pid), without a new port into `SubprocessJobRunner` — confirm that the runner settles the record before the pass reads it (verify-at-outline); if not, record the missing seam and ask the operator at refine (R07) instead of adding a port silently
+- HYPOTHESIS: the new files `SupervisorCalls.java`, `SupervisionPass.java` and their two test classes are the whole code surface; a third class (a per-generation state holder) is added only if the trace matrix needs it
+- Verify-first clause: before editing, list the open pull requests for one that names `WorkerCalls`, `SupervisorCalls` or `SupervisionPass`, and re-read `WorkerSupervisor`, `WorkerCalls` and the guide at the head of `main`; `runtime-control`, `runtime-metrics` and `epic-resource-and-release` (staged) declare `WorkerSupervisor`, `WorkerEnding` and `WorkerDrainParticipant`; a refutation of any claim above loops back to re-scope.
+
+## Expected Surface
+
+- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/SupervisorCalls.java` — new class, the implementation of `WorkerCalls`
+- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/SupervisionPass.java` — new class, the periodic step
+- HYPOTHESIS: `pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorCallsTest.java` — new test class
+- HYPOTHESIS: `pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisionPassTest.java` — new test class
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorTestFixture.java` — read; extended only with a helper if the new tests need one (the plan that follows this one extends it as well, hence its `Depends on`)
+- OBSERVED: `pm-runtime/doc/developer/runtime-worker.adoc` — developer documentation of the package, extended (shared bookkeeping, R19)
+- HYPOTHESIS: `pm-runtime/doc/adr/runtime-worker/` — one ADR, the next free number of the directory (shared bookkeeping)
+- OBSERVED: `doc/specification/model-work/03-supervision-and-recycling.adoc` — only if a sentence names the loop as unbuilt; the implemented text is not deleted while the package stays open
+
+## Dependencies and Sequencing
+
+- Depends on: nothing. PLAN-30 (`supervisor`, #190), PLAN-66 (`worker-activity`, #198, partial) and PLAN-73 (`question-continuation`, #201, partial) are shipped; read their code at the head of `main`.
+- Overlaps with, by file: none of the live plans declares `SupervisorCalls`, `SupervisionPass` or their tests (new files). By package: PLAN-V2-73 (`runtime-control`, staged: `WorkerSupervisor`, `WorkerDrainParticipant`, `WorkerDrainParticipantTest`), PLAN-V2-42 (`runtime-metrics`, staged: `WorkerSupervisor`), PLAN-V2-27 (`epic-resource-and-release`, staged: `WorkerSupervisor`, `WorkerEnding`, `EndCause`, `WorkerEndingTest`) and PLAN-V2-23 (`decision-engine`, staged) share the package `runtime.worker`, not a file, as long as this plan keeps its constraint of leaving those classes alone. PLAN-46, PLAN-105, PLAN-V2-39 and PLAN-V2-43: no shared file (PLAN-V2-39 declares `ProbeWorkspace`, `DecoyServers`, `VerifyingBinaryCheck` and their tests of the same package). The sibling plan of this cluster, PLAN-V2-47 (`continuation-hold-and-budget`), extends `SupervisorCalls` and must run after this one.
+- Adjacent to: `scenarios-workflow` cluster / PLAN-35 (landed #229): `SupervisorScenarioTest`, `FixtureHarness` and `OffTrackScenarioTest` are not touched here. The Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` stays untouched: it is the caller of `SupervisorCalls` and `SupervisionPass`, a follow-up there after the SNAPSHOT deploy (R16 (2): name it in the pull request body).
+
+## Hand-Off Command
+
+```text
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-31-supervisor-calls-and-pass.md
+```
+
+## Write-Boundary
+
+The plan implementing this spec touches only its own repository source and tests. It creates
+and edits NO file under `.plan/orchestrator/` other than its own
+`inbox/{sender}-{seq}` message — the orchestrator owns every other ledger write — and reports
+its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
+sole sanctioned write mechanism are stated in
+`persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
