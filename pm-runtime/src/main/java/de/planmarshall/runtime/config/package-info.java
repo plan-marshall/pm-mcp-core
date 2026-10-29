@@ -1,0 +1,26 @@
+/*
+ * Copyright © 2026-present Oliver Wolff
+ *
+ * SPDX-License-Identifier: LicenseRef-Proprietary
+ *
+ * All rights reserved. This file is part of plan-marshall-mcp, which is proprietary software.
+ * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
+ * the root of this repository.
+ */
+/**
+ * The machine configuration's provider defaults: {@code providers} of {@code machine-config.json}, the part of the
+ * operator's machine document the provider step of the machine's onboarding writes.
+ * <p>
+ * The package lies in the runtime because the document's other writer, {@code credentials.store}, is the runtime's
+ * {@code CredentialStoreChoice}: one package reads and writes the machine document, and {@code pm-core} stays
+ * provider-neutral, as its architecture guard requires.
+ * <p>
+ * Specification:
+ * <ul>
+ * <li>{@code doc/specification/store-schemas/12-machine-stores.adoc} § Machine Configuration Store, § Machine Provider
+ * Defaults</li>
+ * <li>{@code doc/specification/credentials-and-enrolment/01-provider-credentials.adoc} § Credential Store as an Operator
+ * Choice, § Provider Verification</li>
+ * </ul>
+ */
+package de.planmarshall.runtime.config;

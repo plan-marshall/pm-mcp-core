@@ -1,0 +1,72 @@
+= The Machine Configuration's Provider Defaults (`runtime.config`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:req: ../../../../plan-marshall-documentation/doc/requirements
+
+== Purpose
+_Requirements: link:{req}/16-model-work.adoc#PM-EXT-6[PM-EXT-6], link:{req}/07-credentials.adoc#PM-CRED-1[PM-CRED-1]_
+
+Package `de.planmarshall.runtime.config` of `pm-runtime` owns one member of the machine's operator document:
+`providers` of `machine-config.json` ({spec}/store-schemas/12-machine-stores.adoc#provider-defaults[Store Schemas §
+Machine Provider Defaults]). The provider step of the machine's onboarding and its later runs write it; every project
+takes the machine's default unless its own operator values set another.
+
+The package lies in the runtime, not in `pm-core`'s `core.config`, because the closed list of providers names them and the
+foundation is provider-neutral by its architecture guard
+(link:../adr/runtime-config/001-the-provider-defaults-are-written-in-the-runtime.adoc[ADR 001]). The document's
+other writer — `credentials.store` — is the runtime's `CredentialStoreChoice`, so one module now holds both writers,
+coordinated by `locks/machine-config.lock`.
+
+== The Model
+
+* `Provider` is the closed list `git`, `github`, `gitlab`, `forgejo`, `sonar`; only the first three have a CLI variant,
+  which `hasCliVariant()` states once.
+* `ProviderVariant` is `native` or `cli`.
+* `ProviderDefault` is one provider's default: whether it is available, the variant a project that sets none takes, and
+  the credential key it uses where a project names none. A credential key must match the identifier grammar.
+* `ProviderDefaults` is the closed object: per provider its default. A provider the machine does not serve is absent, not
+  recorded as unavailable; a `cli` variant for a provider without one is refused.
+
+A provider is recorded available only after its verification passed
+(link:runtime-credentials.adoc#_provider_verification[`runtime.credentials` § Provider Verification]); one whose checks
+failed is recorded only on the operator's word, and then as not available.
+
+== The Store
+
+`MachineConfigurationStore` reads and writes `machine-config.json` under `locks/machine-config.lock`.
+
+* `read()` answers the defaults and the document's `revision`, or none at revision `0` when the file does not exist.
+* `writeProviders(defaults, revision)` reads the document again under the lock, checks the caller's revision, replaces
+  `providers` alone, writes the next revision and keeps every other member — `credentials`, the concurrency limits, the
+  languages, the cleanup durations, `project_defaults` — copied through untouched.
+* A change against an older revision is refused with `core.config.SettingsConflict`: the code `conflict`, the status
+  `409`, the current revision and the defaults the document holds.
+* A document that does not exist is created with `format_version` `1`, `revision` `1` and the two required members at
+  their schema defaults (`max_build_slots` 2, `lsp_idle_timeout_seconds` 900).
+
+The codec reads `format_version` first, so a document of another version is refused as outdated or newer rather than as
+unreadable for a field that version changed. It refuses an unknown provider, an unknown variant, an unknown member of a
+provider's object and a negative revision.
+
+== Pitfalls
+
+1. **The document has two writers.** The provider step writes `providers`; the credential-store aspect writes
+   `credentials.store`. Neither may rewrite the whole document from its own model: a writer that did would delete the
+   other's key. Copying every member through is what keeps them apart, and each writer's test asserts the other's member
+   survives.
+2. **The revision is the caller's.** A write that names the revision it read refuses a concurrent change instead of
+   overwriting it; a caller that writes `revision + 1` it computed itself defeats that.
+3. **A provider without a credential key is not a provider with no credential.** `providers` records where the credential
+   is found; whether one exists is the credential store's answer.
+
+== Specification Tracing
+
+* Specification: link:{spec}/store-schemas/12-machine-stores.adoc#machine-config[Store Schemas § Machine Configuration
+  Store], link:{spec}/store-schemas/12-machine-stores.adoc#provider-defaults[§ Machine Provider Defaults],
+  link:{spec}/credentials-and-enrolment/01-provider-credentials.adoc#provider-verification[Credentials & Enrolment §
+  Provider Verification]
+* Decisions: link:../adr/runtime-config/[`doc/adr/runtime-config/`]
+* The verification and the credential-store aspect: link:runtime-credentials.adoc[`runtime.credentials`]

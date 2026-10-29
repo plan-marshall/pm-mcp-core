@@ -143,14 +143,16 @@ public class StrictJson {
 
     /**
      * Finds the format version before anything else is read: a JSON object with exactly one integer
-     * {@code format_version}, equal to the current one.
+     * {@code format_version}, equal to the current one. A codec that copies a document through unchanged, rather than
+     * reading it into a model, calls this first so that a document of another version is refused as outdated or newer
+     * rather than as unreadable for a field that version changed.
      *
      * @param file     the file the document was read from, named by a refusal
      * @param document the document, UTF-8 encoded
      * @param current  the current format version of the file kind
      * @throws StoreRefusal if the document declares another format version, none, or is unreadable
      */
-    static void requireCurrentVersion(Path file, byte[] document, int current) {
+    public static void requireCurrentVersion(Path file, byte[] document, int current) {
         Objects.requireNonNull(file, "file");
         Objects.requireNonNull(document, "document");
         Integer found = null;
