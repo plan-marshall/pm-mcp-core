@@ -51,7 +51,7 @@ Defect archetypes, real-corpus fixtures and verification hints that guard the sp
 
 |link:implementation-watch/job-runtime.adoc[Job Runtime]
 |`JOB`
-|36
+|42
 |link:specification/job-runtime.adoc[Job Runtime Specification]
 
 |link:implementation-watch/client-profiles.adoc[Client Profiles]
