@@ -127,7 +127,7 @@ public class PlanHistoryCodec {
                 case FIELD_EVENT -> event = enumValue(parser, field, name -> {
                     try {
                         return Optional.of(Event.ofWireName(name));
-                    } catch (IllegalArgumentException e) {
+                    } catch (IllegalArgumentException _) {
                         return Optional.empty();
                     }
                 });

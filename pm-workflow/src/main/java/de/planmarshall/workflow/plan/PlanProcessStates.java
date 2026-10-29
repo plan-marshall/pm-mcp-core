@@ -20,6 +20,7 @@ import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.core.store.PlanHistoryLine;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
+import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 
 /**
@@ -86,16 +87,18 @@ public final class PlanProcessStates {
         }
         if (line.event() == PlanHistoryLine.Event.LEFT) {
             var failed = state.terminalOutcome().filter(outcome -> outcome.outcomeClass() == OutcomeClass.FAILURE);
-            return failed.isPresent()
-                    ? new NodeState(state.id(), State.FAILED, Optional.of(line.outcome() != null
-                    ? line.outcome() : failed.get().id()), Optional.empty())
-                    : new NodeState(state.id(), State.DONE, Optional.ofNullable(line.outcome()), Optional.empty());
+            if (failed.isPresent()) {
+                var outcome = line.outcome() != null ? line.outcome() : failed.get().id();
+                return new NodeState(state.id(), State.FAILED, Optional.of(outcome), Optional.empty());
+            }
+            return new NodeState(state.id(), State.DONE, Optional.ofNullable(line.outcome()), Optional.empty());
         }
         if (state.terminalOutcome().isPresent()) {
             var failure = state.terminalOutcome().filter(outcome -> outcome.outcomeClass() == OutcomeClass.FAILURE);
-            return failure.isPresent()
-                    ? new NodeState(state.id(), State.FAILED, Optional.of(failure.get().id()), Optional.empty())
-                    : new NodeState(state.id(), State.DONE, state.terminalOutcome().map(outcome -> outcome.id()),
+            if (failure.isPresent()) {
+                return new NodeState(state.id(), State.FAILED, Optional.of(failure.get().id()), Optional.empty());
+            }
+            return new NodeState(state.id(), State.DONE, state.terminalOutcome().map(TerminalOutcome::id),
                     Optional.empty());
         }
         var waiting = state.behavior() instanceof StateBehavior.QuestionWait

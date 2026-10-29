@@ -44,7 +44,7 @@ String phase, String outcome, int instanceVersion, Instant at) {
     /** The most frames a plan's call stack can have, so the most entries a line's call path can carry. */
     public static final int MAX_CALL_PATH = 5;
 
-    private static final Pattern OUTCOME = Pattern.compile("^[a-z][a-z0-9_]*$");
+    private static final Pattern OUTCOME_PATTERN = Pattern.compile("^[a-z][a-z0-9_]*$");
 
     /**
      * Refuses a line that does not fit the schema. A {@code null} phase or outcome is a value, not a missing component.
@@ -82,7 +82,7 @@ String phase, String outcome, int instanceVersion, Instant at) {
             throw new IllegalArgumentException("the history line carries %d call frames, not at most %d"
                     .formatted(callPath.size(), MAX_CALL_PATH));
         }
-        if (outcome != null && !OUTCOME.matcher(outcome).matches()) {
+        if (outcome != null && !OUTCOME_PATTERN.matcher(outcome).matches()) {
             throw new IllegalArgumentException("the history line outcome '%s' is not a lowercase identifier"
                     .formatted(outcome));
         }

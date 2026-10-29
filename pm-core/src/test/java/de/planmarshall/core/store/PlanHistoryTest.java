@@ -171,12 +171,13 @@ class PlanHistoryTest {
             var transaction = ScopeTransaction.open(lock, scope, event -> {
                 // no audit record is owed
             }, Clock.fixed(T0, ZoneOffset.UTC));
+            var otherLine = entered(1, "a", null, null);
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> history.append(transaction, List.of())),
                     () -> assertFalse(Files.exists(history.store())),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> other.append(transaction, entered(1, "a", null, null))),
+                            () -> other.append(transaction, otherLine)),
                     () -> assertThrows(IllegalStateException.class, transaction::commit));
         }
     }
@@ -192,14 +193,14 @@ class PlanHistoryTest {
     @Test
     @DisplayName("a line that does not fit the schema is refused at construction")
     void lineValidation() {
+        var sixFrames = List.of("a", "b", "c", "d", "e", "f");
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new PlanHistoryLine(2, 1, Event.ENTERED, "a", List.of(), null, null, 1, T0)),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> PlanHistoryLine.of(0, Event.ENTERED, "a", List.of(), null, null, 1, T0)),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> PlanHistoryLine.of(1, Event.ENTERED, "a", List.of("a", "b", "c", "d", "e", "f"), null,
-                                null, 1, T0)),
+                        () -> PlanHistoryLine.of(1, Event.ENTERED, "a", sixFrames, null, null, 1, T0)),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> PlanHistoryLine.of(1, Event.LEFT, "a", List.of(), null, "Done", 1, T0)),
                 () -> assertThrows(IllegalArgumentException.class,
