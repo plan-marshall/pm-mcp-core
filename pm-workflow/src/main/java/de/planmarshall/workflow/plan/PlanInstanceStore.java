@@ -183,15 +183,27 @@ public final class PlanInstanceStore {
         var version = instance.version();
         var named = new HashMap<String, String>();
         for (var reference : instance.header().inputs().templates()) {
-            reference.file().ifPresent(file -> named.put(file, reference.digest()));
+            reference.file().ifPresent(file -> {
+                if (named.put(file, reference.digest()) != null) {
+                    throw new IllegalArgumentException("the header of version %d names the file '%s' twice"
+                            .formatted(version, file));
+                }
+            });
         }
         var planFile = versionPath(version);
-        if (!named.containsKey(planFile)) {
+        var planEntry = instance.header().inputs().templates().stream()
+                .filter(reference -> reference.file().filter(planFile::equals).isPresent())
+                .findFirst();
+        if (planEntry.isEmpty() || !PlanInstanceComposer.PLAN_UNIT.equals(planEntry.get().unit())) {
             throw new IllegalArgumentException("the header of version %d names no file for the plan unit"
                     .formatted(version));
         }
         var composedFiles = new HashSet<String>();
         for (var composed : instance.units()) {
+            if (PlanInstanceComposer.PLAN_UNIT.equals(composed.unit())) {
+                throw new IllegalArgumentException("the version composes a unit named 'plan'; the plan unit is its"
+                        + " own file of version " + version);
+            }
             if (!composedFiles.add(composed.file())) {
                 throw new IllegalArgumentException("the version composes the file '%s' twice".formatted(composed.file()));
             }
@@ -203,6 +215,13 @@ public final class PlanInstanceStore {
             if (!digest.equals(composed.digest())) {
                 throw new IllegalArgumentException("the header names the digest %s for the composed file '%s', whose"
                         .formatted(digest, composed.file()) + " text has the digest " + composed.digest());
+            }
+            var unitName = instance.header().inputs().templates().stream()
+                    .filter(reference -> reference.file().filter(composed.file()::equals).isPresent())
+                    .map(UnitReference::unit).findFirst().orElse("");
+            if (!unitName.equals(composed.unit())) {
+                throw new IllegalArgumentException("the header names the file '%s' for the unit '%s', the version"
+                        .formatted(composed.file(), unitName) + " composes '" + composed.unit() + "'");
             }
         }
         for (var file : named.keySet()) {

@@ -432,6 +432,19 @@ class WorkflowDiagramGeneratorTest {
 
         @ParameterizedTest(name = "{0}")
         @MethodSource("de.planmarshall.workflow.diagram.WorkflowDiagramGeneratorTest#instanceForms")
+        @DisplayName("Should name every composed file of the version beside the pruned elements and the waived gates")
+        void shouldNameTheComposedSet(String form, String golden, InstanceForm render) {
+            var composed = DiagramFixtures.instanceWithComposedFile();
+
+            var rendered = render.apply(composed, Optional.empty());
+
+            assertAll(form,
+                    () -> assertTrue(rendered.contains("instance/phase-x.v3.pmwf"), rendered),
+                    () -> assertTrue(rendered.contains("phase-x"), rendered));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.workflow.diagram.WorkflowDiagramGeneratorTest#instanceForms")
         @DisplayName("Should name every pruned element with its reason and source fact and every waived gate with its "
                 + "waiver id")
         void shouldNameSameAnnotations(String form, String golden, InstanceForm render) {

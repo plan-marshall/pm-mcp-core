@@ -33,6 +33,7 @@ import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.dsl.ParseResult;
 import de.planmarshall.workflow.dsl.WorkflowParser;
+import de.planmarshall.workflow.plan.ComposedUnit;
 import de.planmarshall.workflow.plan.CompositionEvent;
 import de.planmarshall.workflow.plan.CompositionInputs;
 import de.planmarshall.workflow.plan.PlanInstance;
@@ -148,6 +149,34 @@ final class DiagramFixtures {
                 new PlanInstanceHeader.Steps(List.of(), List.of("default:archive-plan")), PRUNED, List.of(),
                 List.of(new WaivedGate(WAIVED_GATE, WAIVER_ID)));
         return new PlanInstance(INSTANCE_VERSION, header, unit, text);
+    }
+
+    /**
+     * Gives the fixture instance one composed unit of its version, so the three forms render the composed set.
+     *
+     * @return the fixture instance with the composed file {@code instance/phase-x.v4.pmwf}
+     */
+    static PlanInstance instanceWithComposedFile() {
+        var base = instance();
+        var composed = ComposedUnit.of("phase-x", parse("phase-x.pmwf", """
+                ---
+                name: phase-x
+                description: A composed phase written for the diagram tests.
+                type: subworkflow
+                icon: workflow.default
+                entry: main
+                exit: done
+                modification_date: 2026-10-29
+                version: 0.1.0
+                author: plan-marshall
+                ---
+                workflow phase-x version 3 format 1
+                scope subworkflow
+                entry main -> phase-x.done
+
+                state phase-x.done terminal done success
+                """));
+        return new PlanInstance(base.version(), base.header(), base.unit(), base.text(), List.of(composed));
     }
 
     /**

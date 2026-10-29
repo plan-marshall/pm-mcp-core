@@ -908,6 +908,24 @@ class PlanInstanceComposerTest {
         }
 
         @Test
+        @DisplayName("the shared states before the lane split survive in both lanes' versions, and only the other "
+                + "lane's call states are pruned")
+        void sharedStatesSurvive() {
+            var deep = perLane(CompositionEvent.OUTLINE, Lane.DEEP, "outline.deep");
+            var light = perLane(CompositionEvent.OUTLINE, Lane.LIGHT, "outline.light");
+
+            assertAll(
+                    () -> assertTrue(deep.unit().states().containsKey("refine.baseline-reconcile"),
+                            deep.unit().states().keySet()::toString),
+                    () -> assertTrue(light.unit().states().containsKey("refine.baseline-reconcile"),
+                            light.unit().states().keySet()::toString),
+                    () -> assertTrue(deep.unit().states().containsKey("outline.deep")),
+                    () -> assertTrue(light.unit().states().containsKey("outline.deep")),
+                    () -> assertTrue(light.unit().states().containsKey("phases.execute-light")),
+                    () -> assertFalse(deep.unit().states().containsKey("phases.execute-light")));
+        }
+
+        @Test
         @DisplayName("a state only a pruned call reaches is no position of the version, so a version that no longer "
                 + "contains the current state is refused position_not_contained")
         void positionOverTheSet() {

@@ -93,6 +93,11 @@
  * {@link de.planmarshall.core.store.QuestionRecordCodec}), which holds under the scope lock that a question is closed
  * by exactly one line and that an answer names the current revision, returning a broken invariant as a
  * {@link de.planmarshall.core.store.QuestionRefusal}; an entry's log moves into the scope the entry creates.</li>
+ * <li><em>The plan's history</em> (PM-WF-16): the append-only {@code mcp/history.jsonl} of a plan
+ * ({@link de.planmarshall.core.store.PlanHistory} of {@link de.planmarshall.core.store.PlanHistoryLine}, read and
+ * written by {@link de.planmarshall.core.store.PlanHistoryCodec}), one line per state entered and left, per
+ * sub-workflow called and returned and per instance version taking force, appended as a target of the plan's
+ * {@link de.planmarshall.core.store.ScopeTransaction}; the runtime derives every node's state from it.</li>
  * <li><em>The per-project machine store</em> (PM-ARCH-1): {@code projects/<project_id>/} with its directories and its
  * identity record {@code store.json} ({@link de.planmarshall.core.store.ProjectStore},
  * {@link de.planmarshall.core.store.ProjectStoreIdentity}, read and written by

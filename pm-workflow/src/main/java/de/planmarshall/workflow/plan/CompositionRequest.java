@@ -31,7 +31,9 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * @param planId                  the id of the plan
  * @param event                   the composition event
  * @param template                the plan template, the unit {@code plan} the instance is composed from
- * @param templates               the phase units the template was merged from, by digest
+ * @param templates               the plan unit's template reference; the composer adds one reference per composed file
+ *                                of the version to the header (a phase sub-workflow or a bound axis variant), each with
+ *                                the digest of its composed text
  * @param subUnits                every sub-unit a call of the template may reach, with its reference
  * @param facts                   the facts of the plan, the effective configuration values included
  * @param configHash              the SHA-256 over the effective configuration
@@ -64,7 +66,8 @@ List<Step> finalizeSteps) {
      * @param planId                  the id of the plan
      * @param event                   the composition event
      * @param template                the plan template
-     * @param templates               the phase units by digest
+     * @param templates               the plan unit's template reference; the header additionally names the composed files
+     *                                of the version
      * @param subUnits                the sub-units
      * @param facts                   the facts of the plan
      * @param configHash              the SHA-256 over the effective configuration

@@ -25,10 +25,12 @@ workflow-plan 019).
   calls and policy bindings that fall inside the unit are pruned or bound, the frontmatter, id, type, entries and exits
   of the template stay, the version is repeated and no `instance` line is added.
 * The header's `inputs.templates` names every composed file by its version path and the digest of its text, the plan
-  unit's included; `inputs.sub_units` names only the units the version binds by digest (`git.commit_and_push`, the
-  `remediation.*` units, `replan`, `adjudicate.decisions`).
+  unit's included; the plan unit's entry keeps the *template's* digest, because the composed file embeds the header
+  that names it and cannot digest itself. `inputs.sub_units` names only the units the version binds by digest
+  (`git.commit_and_push`, the `remediation.*` units, `replan`, `adjudicate.decisions`).
 * `PlanInstanceStore` writes the whole set in the transaction that composes the version, refuses a header digest that
-  names no file, a file the header does not name and a file twice, and validates before it stages anything.
+  names no file, a file the header does not name, a file twice and a unit name that disagrees with its file, and
+  validates before it stages anything.
 * A pruned call composes no file; the position rule counts only the states the kept calls reach, so a version that no
   longer contains the current state is refused `position_not_contained`.
 * The three instance diagram forms list the composed set beside the pruned elements and the waived gates.

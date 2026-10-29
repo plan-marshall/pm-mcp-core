@@ -76,7 +76,7 @@ public record ComposedUnit(String unit, int version, WorkflowDefinition definiti
      * @param definition the composed tree
      * @return the composed file over the printed text of the tree
      */
-    static ComposedUnit of(String unit, WorkflowDefinition definition) {
+    public static ComposedUnit of(String unit, WorkflowDefinition definition) {
         var text = WorkflowPrinter.print(definition);
         return new ComposedUnit(unit, definition.version(), definition, text, PlanFacts.sha256(text));
     }

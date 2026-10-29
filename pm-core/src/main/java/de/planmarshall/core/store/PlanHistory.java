@@ -27,7 +27,8 @@ import de.planmarshall.core.store.JsonlStoreFile.Refused;
  * The history is written in the transaction of the transition it records, under the plan lock, so the state change and
  * its history are one journaled write, and it is covered by the plan's digest sidecar without any write of its own. No
  * line is ever changed or removed: the store appends only. {@code mcp/status.json} records where the plan is; this log
- * records where it has been, which branch it took and with which outcome.
+ * records where it has been, which branch it took and with which outcome. An {@code instance} line records a version
+ * taking force; the composition path that writes it is not part of this store.
  *
  * @since 0.1
  */
@@ -88,7 +89,9 @@ public final class PlanHistory {
 
     /**
      * Adds the lines of one transition as one append target, so the state change and every line it writes are one
-     * journaled write.
+     * journaled write. A transaction carries one append target per store, so a caller that runs several transitions in
+     * one transaction collects their lines and appends them once, and numbers them from {@link #nextSeq()} in the order
+     * of the transition.
      *
      * @param transaction the open transaction of the plan
      * @param lines       the lines, in the order of the transition

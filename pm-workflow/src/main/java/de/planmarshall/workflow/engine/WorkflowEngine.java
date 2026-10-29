@@ -859,6 +859,7 @@ public final class WorkflowEngine {
                 var started = jobs.start(new JobStarter.StartRequest(Optional.ofNullable(status.scopeId()), node.id(),
                         job.primitiveId()));
                 if (!(started instanceof JobStarter.StartResult.Started(var startedId))) {
+                    leave(node, "refused");
                     return Optional.of(transitionOf(node, job.transitions(), "refused", Map.of()).targetStateId());
                 }
                 jobId = startedId;
@@ -983,6 +984,7 @@ public final class WorkflowEngine {
          */
         String returnFromFrame(String outcome) {
             var callee = unitOf(stack);
+            leave(stateOf(callee, status.state()), outcome);
             var popped = stack.pop();
             var result = results.pop();
             stack = popped.remaining();

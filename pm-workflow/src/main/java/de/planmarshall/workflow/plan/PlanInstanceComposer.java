@@ -137,22 +137,20 @@ public final class PlanInstanceComposer {
         var pruned = InstancePruner.prune(request.template(), effects, bound, request.waivers(),
                 request.verificationSteps(), request.finalizeSteps(), lanePruned);
         var version = request.nextVersion();
+        var composedUnits = composedUnits(request, pruned.states(), effects, bound, lanePruned, version);
         var positionStates = new LinkedHashSet<>(pruned.states().keySet());
-        var reached = called(pruned.states().values(), request.subUnits());
-        request.subUnits().stream().filter(subUnit -> reached.contains(subUnit.definition().id()))
-                .forEach(subUnit -> subUnit.definition().states().keySet().forEach(positionStates::add));
+        composedUnits.forEach(unit -> positionStates.addAll(unit.definition().states().keySet()));
         var missing = request.position().missingFrom(positionStates);
         if (!missing.isEmpty()) {
             return new CompositionResult.Refused(CompositionResult.Refusal.POSITION_NOT_CONTAINED, missing.stream()
                     .map(state -> "position: version %d does not contain the state '%s'".formatted(version, state))
                     .toList());
         }
-        var composedUnits = composedUnits(request, pruned.states(), effects, bound, lanePruned, version);
         var header = new PlanInstanceHeader(request.planId(), version, request.event(), clock.instant(),
-                inputs(request, pruned.states().values(), composedUnits, version), facts.lane(), facts.posture(), pruned.steps(),
-                pruned.pruned(), pruned.policyCalls(), pruned.waivedGates());
+                inputs(request, pruned.states().values(), composedUnits, version), facts.lane(), facts.posture(),
+                pruned.steps(), pruned.pruned(), pruned.policyCalls(), pruned.waivedGates());
         var unit = unit(request.template(), header, pruned.states());
-        var violations = verify(request, header, unit, lanePruned, pruned.settled());
+        var violations = verify(request, header, unit, composedUnits, lanePruned, pruned.settled());
         if (!violations.isEmpty()) {
             return new CompositionResult.Refused(CompositionResult.Refusal.INVARIANT_FAILED, violations);
         }
@@ -179,8 +177,7 @@ public final class PlanInstanceComposer {
      */
     private static List<ComposedUnit> composedUnits(CompositionRequest request, Map<String, StateNode> keptStates,
             RuleEffects effects, List<PlanFacts.BoundVariant> bound, Optional<PlanInstanceHeader.Lane> lane, int version) {
-        var keptCalls = new LinkedHashSet<String>();
-        keptStates.values().forEach(state -> callee(state).ifPresent(keptCalls::add));
+        var keptCalls = called(keptStates.values(), request.subUnits());
         var composed = new ArrayList<ComposedUnit>();
         for (var subUnit : request.subUnits()) {
             var id = subUnit.definition().id();
@@ -312,7 +309,7 @@ public final class PlanInstanceComposer {
      *         invariants, each listed once
      */
     private List<String> verify(CompositionRequest request, PlanInstanceHeader header, WorkflowDefinition unit,
-            Optional<PlanInstanceHeader.Lane> lane, Map<String, Set<String>> settled) {
+            List<ComposedUnit> composedUnits, Optional<PlanInstanceHeader.Lane> lane, Map<String, Set<String>> settled) {
         var found = new ArrayList<String>();
         HeaderSchemaCheck.check(header).forEach(violation -> found.add("header '%s': %s"
                 .formatted(violation.pointer(), violation.reason())));

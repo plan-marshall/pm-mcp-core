@@ -143,6 +143,10 @@ public class PlanHistoryCodec {
         requireFields(seen, "plan history line", FIELD_SEQ, FIELD_EVENT, FIELD_NODE, FIELD_CALL_PATH,
                 FIELD_PHASE, FIELD_OUTCOME, FIELD_INSTANCE_VERSION, FIELD_AT);
         try {
+            if (instanceVersion < 1 || instanceVersion > Integer.MAX_VALUE) {
+                throw unreadable("'%s' is not an instance version: %d".formatted(FIELD_INSTANCE_VERSION,
+                        instanceVersion));
+            }
             return PlanHistoryLine.of(seq, event, node, callPath, phase, outcome, Math.toIntExact(instanceVersion),
                     at);
         } catch (IllegalArgumentException e) {
