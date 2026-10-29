@@ -686,6 +686,14 @@ link:../pm-workflow/doc/developer/workflow-verify.adoc#_declaration_bounds[Workf
 link:../pm-workflow/doc/adr/workflow-plan/015-axis-levels-and-overrides-carried-in-plan-facts.adoc[ADR workflow-plan/015],
 link:../pm-workflow/doc/adr/workflow-verify/028-axis-variant-declarations-as-enum-values.adoc[ADR workflow-verify/028]
 
+Pulled forward by PLAN-46 (the machine's own half of the landing validation: a `landing.pull-request` needs a forge the
+machine serves, `landing.main` and `landing.files` need none, and no repository is consulted; the project's check, which
+refuses `landing.main` on a protected base branch, is a later plan's): Implementation: link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/MachineDefaultsValidation.java[MachineDefaultsValidation]
+
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineDefaultsValidationTest.java[MachineDefaultsValidationTest]
+
+Documentation: link:../pm-runtime/doc/developer/runtime-config.adoc#_the_machines_own_check_of_its_plan_defaults[Developer Guide § The Machine's Own Check of its Plan Defaults (`runtime.config`)]
+
 [#PM-WF-26]
 === PM-WF-26: Machine Onboarding & the Machine Scope
 
@@ -715,6 +723,33 @@ Documentation: link:../pm-core/doc/developer/core-store.adoc[Scope Stores Develo
 link:../pm-workflow/doc/developer/workflow-setup.adoc[Setup Gate Developer Guide],
 link:../pm-core/doc/adr/core-store/046-the-machine-scope-keeps-its-state-in-machine-mcp.adoc[ADR core-store/046],
 link:../pm-workflow/doc/adr/workflow-verify/031-the-machine-unit-is-resident.adoc[ADR workflow-verify/031]
+
+Pulled forward by PLAN-46 (the stores the first run of the onboarding writes and their revision rule, over fixtures:
+`consents.json`, `model-catalogue.json` and `role-assignments.json` in `core.config`, `providers` of
+`machine-config.json` in `runtime.config`, the credential-store aspect's states with their consent, and the machine's own
+check of its plan defaults — a `landing.pull-request` needs a provider the machine serves, and no repository is consulted.
+The run from
+`onboard.entry` to `onboard.completed`, the aspects' sub-workflows, the harness scan and the plan axes are PLAN-108's and
+PLAN-109's, and the units themselves are `plan-marshall-mcp`'s; the landing names them as owed): Implementation: link:../pm-core/src/main/java/de/planmarshall/core/config/ConsentStore.java[ConsentStore],
+link:../pm-core/src/main/java/de/planmarshall/core/config/ModelCatalogueStore.java[ModelCatalogueStore],
+link:../pm-core/src/main/java/de/planmarshall/core/config/RoleAssignmentsStore.java[RoleAssignmentsStore],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/MachineConfigurationStore.java[MachineConfigurationStore],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/MachineDefaultsValidation.java[MachineDefaultsValidation],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreAspect.java[CredentialStoreAspect],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/ProviderVerification.java[ProviderVerification]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/config/ConsentStoreTest.java[ConsentStoreTest],
+link:../pm-core/src/test/java/de/planmarshall/core/config/ModelCatalogueStoreTest.java[ModelCatalogueStoreTest],
+link:../pm-core/src/test/java/de/planmarshall/core/config/RoleAssignmentsStoreTest.java[RoleAssignmentsStoreTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineConfigurationStoreTest.java[MachineConfigurationStoreTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineDefaultsValidationTest.java[MachineDefaultsValidationTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/credentials/CredentialStoreAspectTest.java[CredentialStoreAspectTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/credentials/ProviderVerificationTest.java[ProviderVerificationTest]
+
+Documentation: link:../pm-core/doc/developer/core-config.adoc[Consents, Model Catalogue and Role Assignments Developer Guide],
+link:../pm-runtime/doc/developer/runtime-config.adoc[Machine Configuration Provider Defaults Developer Guide],
+link:../pm-runtime/doc/developer/runtime-credentials.adoc#_the_credential_store_aspect[Credential Stores Developer Guide § The Credential-Store Aspect],
+link:../pm-core/doc/adr/core-config/001-the-settings-conflict-carries-the-current-value.adoc[ADR core-config/001]
 
 == link:../../plan-marshall-documentation/doc/requirements/03-skills.adoc[Skills]
 
@@ -939,7 +974,7 @@ Documentation: link:../pm-providers/pm-provider-git/doc/developer/provider-git.a
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-CRED-2[PM-CRED-2]
 
-Implementation (the bullets on the one recorded store and on no fallback: `credentials.store` of `machine-config.json` read for every operation and written only by the credential-store aspect and the store move, the refusal `onboarding_incomplete` before a store is recorded, the integrity key kept before the choice where the runtime finds a store and reconciled with the key of the other store at the first recording (the key every sidecar verifies under is brought into the store being recorded, read back and verified there before the switch, and the key of the other store is deleted after it; two different keys the sidecars do not decide between refuse the recording, naming both stores), the record of that first recording and its resume after a stop (`operation: first_recording`), the aspect refused with `aspect_owned` while the record of an operation exists, an unavailable recorded OS store failing with `credential_store_unavailable` or `credential_store_locked` and no write to the other store; the check of the OS store before it is recorded; the enumeration of every store; the move of every entry in either direction with its record, the key last after every sidecar verifies under it, one switch, the deletion from the old store, its failure before the switch, its resume after a stop, and its audit record with the transaction id of the operation; the credential-store aspect with its consent, the reporting of both clients, `pm-operator credentials migrate` and the wiring of the store, the move and the resume in the assembly are not implemented yet; the Keychain ACL and signing and the Secret Service bullets are not traced here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreChoice.java[CredentialStoreChoice],
+Implementation (the bullets on the one recorded store and on no fallback: `credentials.store` of `machine-config.json` read for every operation and written only by the credential-store aspect and the store move, the refusal `onboarding_incomplete` before a store is recorded, the integrity key kept before the choice where the runtime finds a store and reconciled with the key of the other store at the first recording (the key every sidecar verifies under is brought into the store being recorded, read back and verified there before the switch, and the key of the other store is deleted after it; two different keys the sidecars do not decide between refuse the recording, naming both stores), the record of that first recording and its resume after a stop (`operation: first_recording`), the aspect refused with `aspect_owned` while the record of an operation exists, an unavailable recorded OS store failing with `credential_store_unavailable` or `credential_store_locked` and no write to the other store; the check of the OS store before it is recorded; the enumeration of every store; the move of every entry in either direction with its record, the key last after every sidecar verifies under it, one switch, the deletion from the old store, its failure before the switch, its resume after a stop, and its audit record with the transaction id of the operation; the reporting of both clients, `pm-operator credentials migrate` and the wiring of the store, the move and the resume in the assembly are not implemented yet; the Keychain ACL and signing and the Secret Service bullets are not traced here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreChoice.java[CredentialStoreChoice],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreCheck.java[CredentialStoreCheck],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreMove.java[CredentialStoreMove],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreMoveRecord.java[CredentialStoreMoveRecord],
@@ -966,6 +1001,26 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/EnrolmentKeyT
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/EnrolmentSidecarsTest.java[EnrolmentSidecarsTest]
 
 Documentation: link:../pm-runtime/doc/developer/runtime-credentials.adoc[Developer Guide § Credential Stores (`runtime.credentials`)], link:../pm-runtime/doc/developer/runtime-credentials.adoc#_the_first_recording_reconciles_the_key_of_both_stores[Developer Guide § The First Recording Reconciles the Key of Both Stores (`runtime.credentials`)], link:../pm-runtime/doc/developer/runtime-enrolment.adoc[Developer Guide § Integrity Key and Sidecars (`runtime.enrolment`)], link:../pm-runtime/doc/developer/runtime-start.adoc#_store_move_resume[Developer Guide § Store Move Resume (`runtime.start`)], link:../pm-runtime/doc/adr/runtime-credentials/007-the-first-recording-reconciles-both-stores.adoc[ADR runtime-credentials/007]
+
+Pulled forward by PLAN-46 (the credential-store aspect's engine half, over the delivered store: `store.detect`, `store.choose`,
+`store.consent`, `store.check`, `store.confirm-move`, `store.move` and `store.record` with the consent
+`check_credential_store` before the OS store is checked, the file store checked without one, and a failed move that keeps
+the old store and reports `credential_store_failed`; the units that run the states are the onboarding's, in
+`plan-marshall-mcp`, and remain owed; the provider verification and the machine's provider defaults are the same plan's
+and are traced here too): Implementation: link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreAspect.java[CredentialStoreAspect],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/ProviderVerification.java[ProviderVerification],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/MachineConfigurationStore.java[MachineConfigurationStore],
+link:../pm-core/src/main/java/de/planmarshall/core/config/ConsentStore.java[ConsentStore]
+
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/credentials/CredentialStoreAspectTest.java[CredentialStoreAspectTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/credentials/ProviderVerificationTest.java[ProviderVerificationTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineConfigurationStoreTest.java[MachineConfigurationStoreTest],
+link:../pm-core/src/test/java/de/planmarshall/core/config/ConsentStoreTest.java[ConsentStoreTest]
+
+Documentation: link:../pm-runtime/doc/developer/runtime-credentials.adoc#_the_credential_store_aspect[Developer Guide § The Credential-Store Aspect (`runtime.credentials`)],
+link:../pm-runtime/doc/developer/runtime-credentials.adoc#_provider_verification[Developer Guide § Provider Verification (`runtime.credentials`)],
+link:../pm-runtime/doc/developer/runtime-config.adoc[Developer Guide § Machine Configuration Provider Defaults (`runtime.config`)],
+link:../pm-runtime/doc/adr/runtime-credentials/010-the-aspect-runs-the-delivered-store.adoc[ADR runtime-credentials/010]
 
 [#PM-CRED-3]
 === PM-CRED-3: Permission-Guarded File Credential Store
@@ -1180,6 +1235,23 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/OperatorWaitTe
 
 Documentation: link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide],
 link:../pm-workflow/doc/adr/workflow-verify/032-operator-links-and-model-links-apart.adoc[ADR workflow-verify/032]
+
+Pulled forward by PLAN-46 (the consent store and the consent-before-acting rule: `consents.json` with its closed list of
+kinds and their scope, a project's kind with its project, `run_checkout_scripts` with the digest of each script, a
+remembered kind passed without a question, a `yes_remember` for a kind that is never remembered refused, `no` recording
+nothing, and an act of the operator's own needing no consent; the consent states of the onboarding are units of
+`plan-marshall-mcp` and remain owed): Implementation: link:../pm-core/src/main/java/de/planmarshall/core/config/ConsentStore.java[ConsentStore],
+link:../pm-core/src/main/java/de/planmarshall/core/config/ConsentGate.java[ConsentGate],
+link:../pm-core/src/main/java/de/planmarshall/core/config/ConsentKind.java[ConsentKind],
+link:../pm-core/src/main/java/de/planmarshall/core/config/ConsentCodec.java[ConsentCodec]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/config/ConsentStoreTest.java[ConsentStoreTest],
+link:../pm-core/src/test/java/de/planmarshall/core/config/ConsentGateTest.java[ConsentGateTest],
+link:../pm-core/src/test/java/de/planmarshall/core/config/ConsentCodecTest.java[ConsentCodecTest]
+
+Documentation: link:../pm-core/doc/developer/core-config.adoc#_the_consent_store[Developer Guide § The Consent Store (`core.config`)],
+link:../pm-core/doc/adr/core-config/002-the-consent-rule-is-a-gate-over-a-snapshot.adoc[ADR core-config/002],
+link:../pm-core/doc/adr/core-config/003-the-consent-record-is-handed-over-before-the-write.adoc[ADR core-config/003]
 
 == link:../../plan-marshall-documentation/doc/requirements/09-technology.adoc[Technology]
 
@@ -1888,9 +1960,11 @@ profile and the catalogue with the ten reasons of the table; the composition che
 and the steward's harness from `harnesses.default` of `machine-config.json` and its model from the tier `standard`; and an
 endpoint harness runs the class `zero_tool` alone, its projection carrying no other class (Client Profiles § Endpoint
 Harness, ADR core-profile/011). Not
-implemented here, and not claimed by this package: the escalation assignment (bullet 9), the shipped artifacts, tiers,
+implemented here, and not claimed by this package: the launch's use of the escalation assignment (bullet 9, whose storage
+and validation PLAN-46 adds below), the shipped artifacts, tiers,
 qualification records and their calibration (bullets 7 and 8, which are the release assembly's and
-`machine-onboarding-unit`'s), the resolution `roles.default`, the grading and the record validity (PM-WORK-6), and the
+`machine-onboarding-unit`'s), the unit that applies the `roles.default` proposal (PLAN-46 proposes it), the grading and
+the record validity (PM-WORK-6), and the
 launch): link:../pm-core/src/main/java/de/planmarshall/core/role/RoleArtifact.java[RoleArtifact],
 link:../pm-core/src/main/java/de/planmarshall/core/role/RoleArtifactValidator.java[RoleArtifactValidator],
 link:../pm-core/src/main/java/de/planmarshall/core/role/RoleSetLoader.java[RoleSetLoader],
@@ -1918,6 +1992,27 @@ link:../pm-workflow/doc/developer/workflow-model.adoc[The One Model Caller Devel
 link:../pm-core/doc/adr/core-role/001-role-sets-and-the-effective-configuration.adoc[ADR core-role/001],
 link:../pm-core/doc/adr/core-role/002-two-digests-over-the-effective-values.adoc[ADR core-role/002],
 link:../pm-workflow/doc/adr/workflow-model/001-model-caller-and-classes-at-use.adoc[ADR workflow-model/001]
+
+Pulled forward by PLAN-46 (the writers and the proposal the model caller reads): the machine's and a project's
+`model-catalogue.json` and `role-assignments.json` written under their locks with the revision rule,
+`model_not_allowed` refused at the write, the release's default assignment applied to the enrolled harnesses and the
+effective catalogue, the steward outside the list of assignable roles and outside the catalogue, and the escalation
+assignment's storage and validation. The onboarding's units that call them (`catalogue.record`, `roles.write`) are
+`plan-marshall-mcp`'s and remain owed): Implementation: link:../pm-core/src/main/java/de/planmarshall/core/config/ModelCatalogueStore.java[ModelCatalogueStore],
+link:../pm-core/src/main/java/de/planmarshall/core/config/RoleAssignmentsStore.java[RoleAssignmentsStore],
+link:../pm-core/src/main/java/de/planmarshall/core/config/RoleAssignmentProposal.java[RoleAssignmentProposal],
+link:../pm-core/src/main/java/de/planmarshall/core/config/DefaultAssignment.java[DefaultAssignment],
+link:../pm-core/src/main/java/de/planmarshall/core/config/RoleAssignmentValidation.java[RoleAssignmentValidation],
+link:../pm-core/src/main/java/de/planmarshall/core/role/RoleSet.java[RoleSet]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/config/ModelCatalogueStoreTest.java[ModelCatalogueStoreTest],
+link:../pm-core/src/test/java/de/planmarshall/core/config/RoleAssignmentsStoreTest.java[RoleAssignmentsStoreTest],
+link:../pm-core/src/test/java/de/planmarshall/core/config/RoleAssignmentProposalTest.java[RoleAssignmentProposalTest],
+link:../pm-core/src/test/java/de/planmarshall/core/config/DefaultAssignmentTest.java[DefaultAssignmentTest],
+link:../pm-core/src/test/java/de/planmarshall/core/config/RoleAssignmentValidationTest.java[RoleAssignmentValidationTest]
+
+Documentation: link:../pm-core/doc/developer/core-config.adoc#_the_model_catalogue[Developer Guide § The Model Catalogue (`core.config`)],
+link:../pm-core/doc/developer/core-config.adoc#_the_role_assignments[Developer Guide § The Role Assignments (`core.config`)]
 
 [#PM-WORK-2]
 === PM-WORK-2: Task Protocol

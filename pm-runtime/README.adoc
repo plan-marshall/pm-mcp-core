@@ -51,6 +51,7 @@ The module builds a test JAR with the fixtures the tests of the assembly share: 
 == Developer Documentation
 
 * link:doc/developer/runtime-audit.adoc[Audit Trail (`runtime.audit`)]
+* link:doc/developer/runtime-config.adoc[Machine Configuration Provider Defaults (`runtime.config`)]
 * link:doc/developer/runtime-corpus.adoc[Git LFS Download of the Corpus Sources (`runtime.corpus`)]
 * link:doc/developer/runtime-credentials.adoc[Credential Stores (`runtime.credentials`, `runtime.credentials.dbus`)]
 * link:doc/developer/runtime-endpoint.adoc[Endpoint Harness (`runtime.endpoint`)]
@@ -70,6 +71,7 @@ The module builds a test JAR with the fixtures the tests of the assembly share: 
 == ADRs
 
 * link:doc/adr/runtime-audit/[`doc/adr/runtime-audit/`]: the anchoring and the verification of the audit trail.
+* link:doc/adr/runtime-config/[`doc/adr/runtime-config/`]: the machine configuration's provider defaults, written in the runtime because the foundation is provider-neutral.
 * link:doc/adr/runtime-credentials/[`doc/adr/runtime-credentials/`]: the recorded credential store, its first recording and the move between the stores.
 * link:doc/adr/runtime-endpoint/[`doc/adr/runtime-endpoint/`]: the endpoint harness:
 ** link:doc/adr/runtime-endpoint/001-chat-path-and-explicit-request-values.adoc[ADR 001] the chat path and the explicit

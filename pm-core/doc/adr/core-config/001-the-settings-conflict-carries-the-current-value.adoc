@@ -1,0 +1,62 @@
+= ADR 001: The Settings Conflict Carries the Current Value
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-29
+
+== Context
+
+`store-schemas/12` states the revision rule of the operator files: `revision` is incremented by every write, a change
+names the revision it was made against, and a change against an older revision is refused with `conflict` (`409`) **and
+the current value**, which the operator may change again on top of it.
+
+`StoreRefusal.Outcome.CONFLICT` already exists and is raised by `QualificationSettingsStore`, but the type carries only
+the file and the format-version fields: its revision pair travels in the message, and it holds no value. A caller that
+wants to show the current value beside the refusal would have to re-read the document — and would race the next writer
+while doing so.
+
+The choice was whether to widen `StoreRefusal`, to add a field to the existing conflict factory, or to introduce a
+refusal type of the new stores.
+
+== Decision
+
+* A new `de.planmarshall.core.config.SettingsConflict` carries the document, the revision the change named, the revision
+  the document holds and the current value of the setting, typed by the store that refused.
+* Its code is `conflict` and its status `409`, the values of the specification.
+* The three stores of `core.config` (`consents.json`, `model-catalogue.json`, `role-assignments.json`) and the runtime's
+  provider-defaults writer raise it. `QualificationSettingsStore` and `StoreRefusal` stay as they are: they were shipped
+  with their own conflict refusal and their caller has no use for the value.
+
+== Alternatives Considered
+
+1. *Add the current value to `StoreRefusal`.* _Not taken_: `StoreRefusal` is the vocabulary of a document that does not
+   parse or is in another format version; its fields are the file and the format version. A typed value of a setting is
+   not a format fact, and widening the shared type would make every refusal carry a component most of them cannot fill.
+2. *Re-read the document in the caller after the refusal.* _Not taken_: the re-read is not the state the conflict was
+   decided under; a second writer can change it in between, and the operator would see a value the change never
+   collided with.
+3. *Return a result object instead of throwing.* _Not taken_: the stores' callers are the onboarding's states, where a
+   refusal is exceptional and the existing stores throw; a second style of signalling would split the package.
+
+== Consequences
+
+* A client can show the current value and offer the act again on top of it without a read that races the next writer.
+* The current value is typed by the store (`ProviderDefaults`, `ModelCatalogueStore.Snapshot`,
+  `RoleAssignmentsStore.Snapshot`, `ConsentStore.Snapshot`), so a consumer must know which store refused to read it.
+* The value is not serializable, like the file path of `StoreRefusal`: a deserialized conflict carries no value.
+* Two conflict refusals now exist side by side — `StoreRefusal` for the settings store that shipped first and
+  `SettingsConflict` for the stores of this package. A follow-up may fold the former into the latter once it has a caller
+  that needs the value.
+
+== Source
+
+* Plan PLAN-46, deliverable 9
+* link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#machine-config[Store Schemas § Machine
+  Configuration Store] and the operator-file revision rule it states
+* `pm-core/src/main/java/de/planmarshall/core/config/SettingsConflict.java`,
+  `pm-core/src/test/java/de/planmarshall/core/config/ConsentStoreTest.java`

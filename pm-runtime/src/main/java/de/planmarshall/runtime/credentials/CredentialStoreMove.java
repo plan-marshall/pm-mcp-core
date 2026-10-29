@@ -509,6 +509,22 @@ public final class CredentialStoreMove {
         return store.entries().stream().filter(account -> !KEY_ACCOUNT.equals(account)).toList();
     }
 
+    /**
+     * The count of the Token Lane entries the recorded store holds, which {@code store.confirm-move} shows before the
+     * operator moves them.
+     *
+     * @return the number of entries a move would carry
+     * @throws CredentialStoreChoice.Refusal if no store is recorded yet
+     * @throws SecretStoreException          with the reason of the store if it cannot be listed
+     * @throws StoreRefusal                  if the machine configuration cannot be read as its format
+     */
+    public int recordedEntries() {
+        var recorded = choice.recorded().orElseThrow(() -> new CredentialStoreChoice.Refusal(
+                CredentialStoreChoice.Refusal.Reason.ONBOARDING_INCOMPLETE,
+                "no credential store is recorded yet, so no entry can be moved"));
+        return tokenLaneEntries(choice.backendOf(recorded)).size();
+    }
+
     /** @return the integrity key as it lives in the store: its keyring entry, or the key file below {@code state/} */
     private EnrolmentKey keyIn(Store store) {
         return keyCarry.keyIn(choice.backendOf(store));

@@ -51,6 +51,19 @@ public final class RoleSet {
     }
 
     /**
+     * The roles a role assignment names: every effective artifact except the machine's advisor. The steward is not among
+     * the roles {@code roles.load} lists, as no assignment or override names it — it runs on the machine's default
+     * harness and that harness's tier {@code standard} (Model Work § Steward Role).
+     *
+     * @return the assignable artifacts by role name; unmodifiable, in name order
+     */
+    public Map<String, RoleArtifact> assignable() {
+        var assignable = new LinkedHashMap<>(effective);
+        assignable.remove(RoleCatalog.STEWARD);
+        return Collections.unmodifiableMap(assignable);
+    }
+
+    /**
      * @param name a role name
      * @return the set the effective artifact was read from; empty for a role the set does not define
      */

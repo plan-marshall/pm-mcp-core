@@ -1,0 +1,138 @@
+= The Machine's Stores: Consents, Model Catalogue and Role Assignments (`core.config`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-SEC-8[PM-SEC-8], link:{docs}/Requirements.adoc#PM-WORK-1[PM-WORK-1],
+link:{docs}/Requirements.adoc#PM-EXT-6[PM-EXT-6]_
+
+Package `de.planmarshall.core.config` of `pm-core` owns the machine's and the project's stores that the onboarding
+writes and that everything else only reads:
+
+* the *consent store* `consents.json`, its closed list of kinds and the consent-before-acting rule
+  ({spec}/store-schemas/12-machine-stores.adoc#consent[Store Schemas § Consent Before Acting]);
+* the *model catalogue* `model-catalogue.json`, of the machine or of one project
+  ({spec}/store-schemas/12-machine-stores.adoc#model-catalogue[§ Model Catalogue]);
+* the *role assignments* `role-assignments.json`, of the machine or of one project
+  ({spec}/store-schemas/12-machine-stores.adoc#role-assignments-store[§ Role Assignments]), with the release's default
+  assignment and the proposal {@code roles.default} shows
+  ({spec}/model-work/01-roles-and-configuration.adoc#default-assignment[Model Work § Default Role Assignment]);
+* the *settings-conflict refusal* every one of those stores raises on a change against an older revision
+  ({spec}/store-schemas/12-machine-stores.adoc#machine-config[Store Schemas § Machine Configuration Store], the
+  operator-file revision rule).
+
+The package never reads a file for a fact another package owns: the role package reads the assignments through
+`RoleEnvironment`, the model catalogue through the same port, and the runtime is to wire both (no production
+implementation of the port exists in this repository yet; the onboarding's units and the assembly are owed). The package names no provider
+and no harness beyond the client-id grammar; the machine's provider defaults live in the runtime
+(link:../../../pm-runtime/doc/developer/runtime-config.adoc[`runtime.config`]), because `pm-core` stays
+provider-neutral (its architecture guard).
+
+Specification (the sections this package was built against): `store-schemas/12-machine-stores.adoc#consent`,
+`#model-catalogue`, `#role-assignments-store`; `model-work/01-roles-and-configuration.adoc#role-assignment`,
+`#default-assignment` and `#steward-role`; `credentials-and-enrolment/01-provider-credentials.adoc#provider-verification`
+for the consent `verify_providers`. The package's pull request does not delete those specification sections: the
+onboarding units that run them live in `plan-marshall-mcp`, and the sections also describe the settings, the automatic
+run and the plan axes, which other plans still owe (`machine-onboarding-unit`, PLAN-108 and PLAN-109). The deletion
+belongs to the packages that complete the document.
+
+== The Consent Store
+
+`ConsentStore` reads and writes `consents.json` under `locks/consents.lock`. A document that does not exist reads as no
+entry at revision `0`. A write reads the document again under the lock, checks the caller's revision, replaces the entry
+of the (kind, project) it changes, increments `revision` and writes the document back.
+
+`ConsentKind` is the closed list, each kind with how long a `yes_remember` lasts:
+
+[cols="2,1,2"]
+|===
+|Scope |Remembered |Kinds
+
+|Machine |for the machine, one entry for every project
+|`scan_harnesses`, `fetch_icons`, `probe_harness_login`, `probe_harness_models`, `model_advice`,
+`check_credential_store`, `scan_providers`, `verify_providers`, `check_updates`
+
+|Project |for the project, `run_checkout_scripts` also for the digest of each script
+|`inspect_checkout`, `run_checkout_scripts`, `model_cost`
+
+|Never |asked afresh at every action
+|`verify_harness_profile`, `auto_run`
+|===
+
+`ConsentGate` is the rule, not a store: given the store's snapshot and the operator's answer it decides whether the
+action runs. It answers `yes` (run, record nothing), `yes_remember` (run, and hand back the entry for
+`ConsentStore.grant`), `no` (record nothing, leave the scope in its consent state), and passes a remembered kind without
+a question. A `yes_remember` for a kind that is never remembered is refused, as is a project the kind does not belong to.
+`ConsentGate.operatorAct()` is the other half of the rule: an act of the operator's own — a secret the operator types —
+needs no consent, and is stored on that act.
+
+A consent covers its kind and never a wider one, because the lookup is by the kind alone: a remembered `scan_harnesses`
+runs no login or model probe. `ConsentStore.ofProject` and `removeProject` carry the entries of a project, which the
+cleanup drops with the project's machine store.
+
+A remembered and a withdrawn consent each append their `operator` audit record (`consent_remembered`,
+`consent_withdrawn`) inside the write's transaction and before the store is replaced, so a committed consent always has
+its record and a sink that refuses it aborts the change
+(link:../../doc/adr/core-config/003-the-consent-record-is-handed-over-before-the-write.adoc[ADR 003]).
+
+== The Model Catalogue
+
+`ModelCatalogueStore` reads and writes `model-catalogue.json` of the machine (under `locks/model-catalogue.lock`) or of a
+project (under the project's `locks/local-config.lock`). The document is closed, so a write replaces it from its model:
+the allowed models per harness — each with its source (`probe` or `operator`) and the instant it was recorded — and the
+revision. A write drops the entries of a harness that is no longer enrolled, as the specification requires.
+
+`Snapshot.catalogue()` projects the document to the role package's `ModelCatalogue`, which is what validation asks
+whether a model is allowed on a harness.
+
+== The Role Assignments
+
+`RoleAssignmentsStore` reads and writes `role-assignments.json` of the machine (`locks/role-assignments.lock`) or of a
+project (the project's `locks/local-config.lock`). `RoleAssignmentValue` keeps the schema's three states of the effort —
+`INHERIT` (the member is absent and the lower level's effort stays), `DEFAULT` (`null`, the profile's default effort) and
+`VALUE` — and the optional `Escalation` of a role. `Snapshot.assignments()` projects the document to the role package's
+`RoleAssignments`.
+
+`DefaultAssignment` reads the release's `classpath:/roles/default-assignment.json` beside the shipped role set.
+`RoleAssignmentProposal.propose` applies it: per assignable role — every role of the effective set except the steward —
+the preferred harness where it is enrolled, else the first enrolled harness whose profile runs the role's class; the
+model that harness maps the role's tier to, where the catalogue allows it; and the default's effort narrowed to what the
+harness accepts for that model. A role whose default cannot be met is reported without a value, with the reason and the
+advisory beside it.
+
+`RoleAssignmentValidation` is what `roles.write` runs first: the harness is enrolled and worker-eligible, the profile runs
+the role's class, the model is allowed by the effective catalogue and the effort is one the harness accepts — for the
+role's own values and for its escalation, with the reason of the validation table. The steward never appears in the
+proposal, and `model_not_allowed` never applies to it: its configuration comes from the machine's default harness and
+that harness's tier `standard`, which `StewardConfiguration` and `RoleCatalog` resolve.
+
+== A Change Against an Older Revision
+
+Every one of the stores takes the revision its caller read. The first change wins; a later one against an older revision
+is refused with `SettingsConflict` — the code `conflict`, the status `409`, the revision the change named, the revision
+the document holds and the current value of the setting, which the operator may change again on top of it. Nothing is
+merged and nothing is overwritten unseen. `SettingsConflict` exists beside `StoreRefusal` because it carries the current
+value, which the store-refusal vocabulary has no field for
+(link:../../doc/adr/core-config/001-the-settings-conflict-carries-the-current-value.adoc[ADR 001]).
+
+== Invariants and Failure Modes
+
+* A document of another format version, or one that does not parse as its one shape, is refused with a `StoreRefusal`
+  naming the file; a reader never repairs, migrates or rewrites it.
+* A write happens only under the document's lock, and only while the caller's revision is the one the document holds.
+* A consent entry is unique per (kind, project); the store replaces the entry instead of adding a second one.
+* No store creates the operator's directory: the runtime creates the project store and the state directory, and the
+  stores write the files inside them.
+* `ConsentGate` refuses a `yes_remember` for `verify_harness_profile` and `auto_run`, so a caller that offers the link
+  fails loudly instead of remembering a kind the specification says is never remembered.
+
+== Testing
+
+The stores are tested against `@TempDir` roots with a lock manager that records its keys: the shapes a document accepts
+and refuses, the three effort states, the escalation, the drop of an unenrolled harness, the conflict that carries the
+current value, and the gate's answers and scope rules. `RoleAssignmentProposalTest` builds a role set from inline
+artifacts and a default assignment from an inline document, so the proposal is proved without a release.

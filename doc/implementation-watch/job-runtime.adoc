@@ -237,6 +237,112 @@ writable path that is the home directory or holds a credential location. Matched
 project still reads a file directly in the home directory.
 Source:: design review; doc/articles/abliterated-models-backdoor.adoc (plan-marshall-documentation).
 
+[#PM-WATCH-JOB-40]
+=== PM-WATCH-JOB-40: A name lookup is a route out
+
+Anchor:: link:../specification/job-runtime/02-confinement-and-environment.adoc#worker-name-resolution[Job Runtime § Name Resolution],
+link:../specification/job-runtime/02-confinement-and-environment.adoc#macos-confinement[Job Runtime § macOS Confinement],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-5[PM-SEC-5]
+Hazard:: Three ways out that admit no tunnel. A proxy that resolves the requested host before it matches the
+allowlist sends a refused name to the name server itself, so `<data>.attacker.example` leaves through the refusal.
+On macOS the lookup goes to `mDNSResponder` over Mach IPC, which the network rules of the sandbox profile do not
+govern. On Linux the network namespace has no name server, but the systemd-resolved, `nscd`, and system bus sockets
+are pathname sockets that Landlock governs only from ABI 9, and the C library finds them by itself. A fourth hazard
+the other way round: an admitted name whose record points to `127.0.0.1` leads a tunnel to the runtime's listeners.
+Guard:: A proxy test sends `CONNECT` for a refused name to a proxy whose resolver is a recording fixture and asserts
+that the fixture saw no query, and for an admitted name that resolves to `127.0.0.1`, `169.254.169.254`, and
+`10.0.0.1` asserts `address_not_public` with no connection opened. A worker fixture on macOS calls `getaddrinfo` for
+an arbitrary name and fails; on Linux from Landlock ABI 9 the same lookup fails, below ABI 9 it succeeds through the
+resolver socket and the test asserts exactly that, so a kernel upgrade turns the assertion over by itself. Positive
+control: the worker's harness reaches its endpoint through the proxy in both platforms.
+Source:: doc/articles/openshell-rogue-agents-openshell.adoc (plan-marshall-documentation); OpenShell routes every
+query to a resolver of its supervisor and checks a DNS round trip before an agent starts.
+
+[#PM-WATCH-JOB-41]
+=== PM-WATCH-JOB-41: Below Landlock ABI 3 a job truncates what it cannot write
+
+Anchor:: link:../specification/job-runtime/02-confinement-and-environment.adoc#abi-floor[Job Runtime § Linux Filesystem Confinement] (ABI Floor),
+link:../specification/store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas § Job Record],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-5[PM-SEC-5]
+Hazard:: `LANDLOCK_ACCESS_FS_TRUNCATE` arrives with ABI 3; before it, `truncate(2)` and `open(O_TRUNC)` are always
+allowed. A launcher that records `confined` on ABI 2 claims a write set that a job can bypass by emptying a file:
+the settings file with a worker's deny rules, a file of another project, a toolchain configuration. A launcher that
+handles the right on ABI 3 without granting it with the write set breaks every build that rewrites a file.
+Guard:: Linux test of `pm-exec` per applied ABI: a confined job truncates a file of its write set (positive control)
+and a file outside it; on ABI 2 the second truncation succeeds and the launch report says `partial(abi=2)`, from
+ABI 3 it fails with `EACCES` and the report says `confined`. A Maven and a Gradle build under ABI 3 pass.
+Source:: doc/articles/openshell-rogue-agents-openshell.adoc (plan-marshall-documentation); OpenShell's floor is ABI 3.
+
+[#PM-WATCH-JOB-42]
+=== PM-WATCH-JOB-42: A job signals the runtime
+
+Anchor:: link:../specification/job-runtime/02-confinement-and-environment.adoc#landlock-scopes[Job Runtime § Linux Filesystem Confinement] (Scopes),
+link:../specification/job-runtime/02-confinement-and-environment.adoc#macos-confinement[Job Runtime § macOS Confinement],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-5[PM-SEC-5]
+Hazard:: Every job runs as the operator's user: below Landlock ABI 6 a job can `kill` the runtime, another project's
+build, or the operator's editor. A launcher that applies the signal scope before it starts the command, or in a
+domain the command does not share, can no longer signal the command's descendants in its sweep, and the job's
+descendants outlive it (step 3a).
+Guard:: Linux test of `pm-exec` per applied ABI: a confined job sends signal `0` and `SIGTERM` to the runtime fixture's
+PID; from ABI 6 both fail with `EPERM`, below ABI 6 they succeed and the test asserts exactly that. Positive control:
+the runtime's `SIGTERM` reaches the job, and the launcher's sweep ends a descendant that called `setsid`. On macOS
+the same signal to the runtime fixture fails. A `ptrace(PTRACE_ATTACH)` of the runtime fixture and a read of its
+`/proc/<pid>/mem` fail on every ABI.
+Source:: doc/articles/openshell-rogue-agents-openshell.adoc (plan-marshall-documentation).
+
+[#PM-WATCH-JOB-43]
+=== PM-WATCH-JOB-43: The system call filter breaks what it should protect
+
+Anchor:: link:../specification/job-runtime/02-confinement-and-environment.adoc#seccomp-filter[Job Runtime § Linux Filesystem Confinement] (System call filter),
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-5[PM-SEC-5]
+Hazard:: A seccomp filter fails quietly in both directions. Installed before the launcher creates a worker's user and
+network namespace, it refuses the launcher's own setup and every worker fails to start. Without an architecture check
+a call through the x32 ABI or the 32-bit entry point slips past the syscall numbers of the filter. `clone3` carries
+its flags in memory the filter cannot read, so a filter that allows it allows `CLONE_NEWUSER`; one that refuses it
+with `EPERM` instead of `ENOSYS` makes the C library fail rather than fall back. `io_uring` refused with `EPERM`
+fails a runtime that would fall back on `ENOSYS`.
+Guard:: Linux test of `pm-exec`: a confined job's `unshare(CLONE_NEWUSER)`, `clone` with `CLONE_NEWNET`, `mount`,
+`bpf`, and `socket(AF_PACKET, …)` fail with `EPERM`, `clone3` and `io_uring_setup` with `ENOSYS`, and a call through
+the x32 ABI ends the process; positive control: a worker starts in its namespaces, `pthread_create` and `fork` work,
+and a Maven build, a Gradle build, and an `npm ci` pass under the filter. The launch report and the job record carry
+`seccomp: applied`.
+Source:: doc/articles/openshell-rogue-agents-openshell.adoc (plan-marshall-documentation); OpenShell installs its
+filter as the last step and lists the same families.
+
+[#PM-WATCH-JOB-44]
+=== PM-WATCH-JOB-44: A worker runs on after its runtime died
+
+Anchor:: link:../specification/job-runtime/01-pipeline-and-subprocesses.adoc#runtime-loss[Job Runtime § Process Termination] (Runtime Loss),
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-5[PM-SEC-5]
+Hazard:: `PR_SET_PDEATHSIG` is the obvious tool and the wrong one: it fires when the thread that forked the launcher
+ends, and the runtime starts processes from threads that end long before the runtime, so every worker would be killed
+at random. A launcher that does not watch its parent at all leaves a worker running with its login copy until the next
+start, which may never come.
+Guard:: Test of `pm-exec`: a worker fixture started from a thread that ends right after the start keeps running; the
+same fixture whose parent process is killed ends its tree, a `setsid` descendant included, within two seconds on
+Linux and on macOS; the recovery of the next start settles the job `killed` without a live process. A `build` job
+of a killed parent keeps running.
+Source:: doc/articles/openshell-rogue-agents-openshell.adoc (plan-marshall-documentation); OpenShell freezes an agent
+whose supervisor disconnected and ends it after a deadline.
+
+[#PM-WATCH-JOB-45]
+=== PM-WATCH-JOB-45: A job record claims a fence that does not hold
+
+Anchor:: link:../specification/job-runtime/02-confinement-and-environment.adoc#confinement-self-check[Job Runtime § Confinement Self-Check],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-5[PM-SEC-5]
+Hazard:: `confined`, `seatbelt`, and `egress: enforced` say what the launcher applied. A distribution kernel, a
+security module, a sysctl, or a macOS update can leave the mechanism applied and not refusing, and every record goes
+on claiming it. A check that runs only its refusals passes on a confinement that refuses everything, the harness
+included.
+Guard:: A self-check test whose fixture launcher reports a mechanism applied but lets the write outside the write set
+through: the runtime records `confinement: unavailable` for the following jobs, the runtime status shows the failed
+check, and a `confinement_check_failed` record names it; a fixture whose positive control fails refuses every
+worker start; a fixture whose direct `connect(2)` succeeds sets `egress: unenforced` and holds workers for the
+operator's acceptance. Positive control: on a confining platform every check passes and the records state
+`confined` or `seatbelt` and `egress: enforced`.
+Source:: doc/articles/openshell-rogue-agents-openshell.adoc (plan-marshall-documentation); OpenShell confirms its
+boundary with active probes before the agent starts.
+
 [#PM-WATCH-JOB-39]
 === PM-WATCH-JOB-39: A local green names the ignored files it may rest on
 
