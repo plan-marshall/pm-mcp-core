@@ -354,7 +354,7 @@ The topics of a role are defined by the `role` field of the corpus items, never 
 
 [#grading]
 === Grading
-_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-51[PM-WATCH-DISP-51], link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-57[PM-WATCH-DISP-57], link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-66[PM-WATCH-DISP-66], link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-14[PM-WATCH-CLIENT-14]_
+_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-51[PM-WATCH-DISP-51], link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-57[PM-WATCH-DISP-57], link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-66[PM-WATCH-DISP-66]_
 
 `pm-operator roles qualify <role>` (<<operator-roles>>) grades the configuration of the role's effective artifact:
 
