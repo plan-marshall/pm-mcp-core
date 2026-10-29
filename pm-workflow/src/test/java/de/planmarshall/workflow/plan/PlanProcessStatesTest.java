@@ -36,6 +36,7 @@ import de.planmarshall.core.store.PlanHistory;
 import de.planmarshall.core.store.PlanHistoryLine;
 import de.planmarshall.core.store.PlanHistoryLine.Event;
 import de.planmarshall.core.store.ScopeTransaction;
+import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.plan.PlanProcessStates.NodeState;
 import de.planmarshall.workflow.plan.PlanProcessStates.State;
 
@@ -98,6 +99,25 @@ class PlanProcessStatesTest {
                 line(1, Event.ENTERED, "outline.light-approve", null)));
 
         assertEquals(State.WAITING_FOR_OPERATOR, node(states, "outline.light-approve").state());
+    }
+
+    @Test
+    @DisplayName("a state the plan rests in at an operator link waits for the operator too")
+    void waitingForOperatorAtALinkState() {
+        var text = PlanFixtures.read("dsl/valid/session-unit.pmwf");
+        var unit = PlanFixtures.parse("session-unit.pmwf", text, UnitOrigin.DEFAULT);
+        var inputs = new CompositionInputs("configuration", List.of(), List.of(), "r1", "d1", "f1",
+                Optional.empty(), Optional.empty(), Optional.empty());
+        var header = new PlanInstanceHeader("plan-history-fixture", unit.version(), CompositionEvent.PLAN, T0, inputs,
+                Optional.empty(), Optional.empty(), new PlanInstanceHeader.Steps(List.of(), List.of()), List.of(),
+                List.of(), List.of());
+        var instance = new PlanInstance(unit.version(), header, unit, text, List.of());
+
+        var states = PlanProcessStates.derive(instance, List.of(
+                PlanHistoryLine.of(1, Event.ENTERED, "setup.choose", List.of(), "phase-1-init", null,
+                        unit.version(), T0)));
+
+        assertEquals(State.WAITING_FOR_OPERATOR, node(states, "setup.choose").state());
     }
 
     @Test

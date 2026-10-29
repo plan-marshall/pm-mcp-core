@@ -14,7 +14,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -147,7 +147,7 @@ public final class PlanInstanceComposer {
                     .toList());
         }
         var header = new PlanInstanceHeader(request.planId(), version, request.event(), clock.instant(),
-                inputs(request, pruned.states().values(), composed.units(), version), facts.lane(), facts.posture(),
+                inputs(request, composed, version), facts.lane(), facts.posture(),
                 pruned.steps(), pruned.pruned(), pruned.policyCalls(), pruned.waivedGates());
         var unit = unit(request.template(), header, pruned.states());
         var violations = verify(request, header, unit, lanePruned, pruned.settled());
@@ -179,24 +179,28 @@ public final class PlanInstanceComposer {
      *         digest-bound units
      */
     private static Composed composedUnits(CompositionRequest request, Map<String, StateNode> keptStates,
-            RuleEffects effects, List<PlanFacts.BoundVariant> bound, Optional<PlanInstanceHeader.Lane> lane, int version) {
+            RuleEffects effects, List<PlanFacts.BoundVariant> boundVariants, Optional<PlanInstanceHeader.Lane> lane,
+            int version) {
         var byId = new LinkedHashMap<String, CompositionRequest.SubUnit>();
         request.subUnits().forEach(subUnit -> byId.put(subUnit.definition().id(), subUnit));
         var units = new LinkedHashMap<String, ComposedUnit>();
         var states = new LinkedHashSet<String>();
+        var bound = new LinkedHashSet<String>();
+        var visited = new HashSet<String>();
         var queue = new ArrayDeque<String>();
         keptStates.values().forEach(state -> callee(state).ifPresent(queue::add));
         while (!queue.isEmpty()) {
             var id = queue.poll();
-            if (units.containsKey(id) || !byId.containsKey(id)) {
+            if (!visited.add(id) || !byId.containsKey(id)) {
                 continue;
             }
             if (isComposedUnit(id)) {
-                var composed = composeUnit(byId.get(id).definition(), request, effects, bound, lane, version);
+                var composed = composeUnit(byId.get(id).definition(), request, effects, boundVariants, lane, version);
                 units.put(id, composed);
                 states.addAll(composed.definition().states().keySet());
                 composed.definition().states().values().forEach(state -> callee(state).ifPresent(queue::add));
             } else {
+                bound.add(id);
                 var definition = byId.get(id).definition();
                 states.addAll(definition.states().keySet());
                 definition.states().values().forEach(state -> callee(state).ifPresent(queue::add));
@@ -204,16 +208,18 @@ public final class PlanInstanceComposer {
         }
         var ordered = request.subUnits().stream().map(subUnit -> subUnit.definition().id())
                 .filter(units::containsKey).distinct().map(units::get).toList();
-        return new Composed(ordered, states);
+        return new Composed(ordered, states, bound);
     }
 
     /**
-     * The composed files of a version and the states its position rule reads.
+     * The composed files of a version, the states its position rule reads and the digest-bound units its kept calls
+     * reach.
      *
      * @param units         the composed files, in the order of the request's sub-units
      * @param positionStates every state of the composed files and of the reached digest-bound units
+     * @param subUnits      the ids of the digest-bound units the kept calls reach
      */
-    private record Composed(List<ComposedUnit> units, Set<String> positionStates) {
+    private record Composed(List<ComposedUnit> units, Set<String> positionStates, Set<String> subUnits) {
     }
 
     /**
@@ -250,53 +256,32 @@ public final class PlanInstanceComposer {
     }
 
     /**
-     * @return the inputs of the header: the composed files of the version as its templates, the sub-units a call of the
-     *         states reaches and that the version does not compose, and the adjudication unit
-     *         {@value DeclarationBounds#ADJUDICATION_UNIT} whenever the request supplies it, which no call site calls
-     *         because the engine runs it for the decisions of the version
+     * @return the inputs of the header: the composed files of the version as its templates, the digest-bound sub-units
+     *         the kept calls reach, and the adjudication unit {@value DeclarationBounds#ADJUDICATION_UNIT} whenever the
+     *         request supplies it, which no call site calls because the engine runs it for the decisions of the version
      */
-    private CompositionInputs inputs(CompositionRequest request, Collection<StateNode> states,
-            List<ComposedUnit> composedUnits, int version) {
-        var called = called(states, request.subUnits());
+    private CompositionInputs inputs(CompositionRequest request, Composed composed, int version) {
         var composedIds = new LinkedHashSet<String>();
-        composedUnits.forEach(composed -> composedIds.add(composed.unit()));
+        composed.units().forEach(unit -> composedIds.add(unit.unit()));
         var templates = new ArrayList<UnitReference>();
         for (var reference : request.templates()) {
             templates.add(new UnitReference(reference.unit(), Optional.of(PlanInstanceStore.versionPath(version)),
                     reference.digest(), reference.origin()));
         }
-        for (var composed : composedUnits) {
+        for (var unit : composed.units()) {
             var source = request.subUnits().stream()
-                    .filter(subUnit -> subUnit.definition().id().equals(composed.unit())).findFirst().orElseThrow();
-            templates.add(new UnitReference(composed.unit(), Optional.of(composed.file()), composed.digest(),
+                    .filter(subUnit -> subUnit.definition().id().equals(unit.unit())).findFirst().orElseThrow();
+            templates.add(new UnitReference(unit.unit(), Optional.of(unit.file()), unit.digest(),
                     source.reference().origin()));
         }
         var subUnits = request.subUnits().stream().map(CompositionRequest.SubUnit::reference)
                 .filter(reference -> !composedIds.contains(reference.unit()))
-                .filter(reference -> called.contains(reference.unit())
+                .filter(reference -> composed.subUnits().contains(reference.unit())
                         || DeclarationBounds.ADJUDICATION_UNIT.equals(reference.unit()))
                 .toList();
         return new CompositionInputs(request.configHash(), templates, subUnits, rules.revision(),
                 rules.digest(), request.facts().digest(), request.realizedFootprintDigest(),
                 request.facts().changeType(), request.providersDigest());
-    }
-
-    /**
-     * @return the ids of every sub-unit a call of the states reaches, directly or through the calls of a sub-unit
-     */
-    private static Set<String> called(Collection<StateNode> states, List<CompositionRequest.SubUnit> subUnits) {
-        Map<String, WorkflowDefinition> definitions = new HashMap<>();
-        subUnits.forEach(subUnit -> definitions.put(subUnit.definition().id(), subUnit.definition()));
-        var called = new LinkedHashSet<String>();
-        var queue = new ArrayDeque<String>();
-        states.forEach(state -> callee(state).ifPresent(queue::add));
-        while (!queue.isEmpty()) {
-            var id = queue.poll();
-            if (called.add(id) && definitions.containsKey(id)) {
-                definitions.get(id).states().values().forEach(state -> callee(state).ifPresent(queue::add));
-            }
-        }
-        return called;
     }
 
     private static Optional<String> callee(StateNode state) {

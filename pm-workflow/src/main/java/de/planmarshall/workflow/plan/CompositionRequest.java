@@ -79,8 +79,8 @@ List<Step> finalizeSteps) {
      * @param verificationSteps       the Phase 5 verification step ids
      * @param finalizeSteps           the Phase 6 steps
      * @throws IllegalArgumentException if {@link CompositionEvent#START} has a previous version, another event has
-     *                                  none, the previous version belongs to another plan, or the event and the
-     *                                  {@code post_run} fact disagree
+     *                                  none, the previous version belongs to another plan, two sub-units name the same
+     *                                  unit, or the event and the {@code post_run} fact disagree
      */
     public CompositionRequest {
         Objects.requireNonNull(planId, "planId");
@@ -88,6 +88,9 @@ List<Step> finalizeSteps) {
         Objects.requireNonNull(template, "template");
         templates = List.copyOf(templates);
         subUnits = List.copyOf(subUnits);
+        if (subUnits.stream().map(subUnit -> subUnit.definition().id()).distinct().count() != subUnits.size()) {
+            throw new IllegalArgumentException("two sub-units of the request name the same unit");
+        }
         Objects.requireNonNull(facts, "facts");
         Objects.requireNonNull(configHash, "configHash");
         Objects.requireNonNull(realizedFootprintDigest, "realizedFootprintDigest");

@@ -763,7 +763,7 @@ class PlanInstanceStoreTest {
             var withoutUnits = new PlanInstance(instance.version(), instance.header(), instance.unit(),
                     instance.text());
             var texts = textsOf(withoutUnits);
-            var record = CompositionRecord.composed(withoutUnits, Optional.empty(), COMPOSED_AT);
+            var compositionRecord = CompositionRecord.composed(withoutUnits, Optional.empty(), COMPOSED_AT);
 
             try (var lock = new HoldingEverything()) {
                 var transaction = ScopeTransaction.open(lock, scope, event -> {
@@ -771,7 +771,7 @@ class PlanInstanceStoreTest {
                 }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
                 assertAll(
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> store.recordComposed(transaction, withoutUnits, texts, record)),
+                                () -> store.recordComposed(transaction, withoutUnits, texts, compositionRecord)),
                         () -> assertFalse(Files.exists(scope.resolve("instance"))),
                         () -> assertThrows(IllegalStateException.class, transaction::commit));
             }
@@ -786,7 +786,7 @@ class PlanInstanceStoreTest {
             var mixed = new PlanInstance(instance.version(), instance.header(), instance.unit(), instance.text(),
                     Stream.concat(instance.units().stream(), Stream.of(extra)).toList());
             var texts = textsOf(mixed);
-            var record = CompositionRecord.composed(mixed, Optional.empty(), COMPOSED_AT);
+            var compositionRecord = CompositionRecord.composed(mixed, Optional.empty(), COMPOSED_AT);
 
             try (var lock = new HoldingEverything()) {
                 var transaction = ScopeTransaction.open(lock, scope, event -> {
@@ -794,7 +794,7 @@ class PlanInstanceStoreTest {
                 }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
                 assertAll(
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> store.recordComposed(transaction, mixed, texts, record)),
+                                () -> store.recordComposed(transaction, mixed, texts, compositionRecord)),
                         () -> assertFalse(Files.exists(scope.resolve("instance"))),
                         () -> assertThrows(IllegalStateException.class, transaction::commit));
             }
