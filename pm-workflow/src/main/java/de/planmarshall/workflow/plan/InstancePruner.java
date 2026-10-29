@@ -104,6 +104,7 @@ final class InstancePruner {
             List<Waiver> waivers, List<String> verificationSteps, List<CompositionRequest.Step> finalizeSteps,
             Optional<PlanInstanceHeader.Lane> lane) {
         var selection = new Selection(template, verificationSteps, finalizeSteps);
+        selection.keepEntries();
         effects.prunes().forEach(selection::resolve);
         otherLane(template, lane).forEach(state -> selection.resolve(new PrunedElement(PrunedElement.Kind.STATE,
                 state, PruneReason.OTHER_LANE, LANE_FACT)));
@@ -356,11 +357,19 @@ final class InstancePruner {
         private final Map<String, Set<String>> links = new HashMap<>();
         private final Map<String, Set<String>> actions = new HashMap<>();
 
+        /** The states the template binds its entries to; a composition never removes one, so no entry dangles. */
+        private final Set<String> entryStates = new HashSet<>();
+
         Selection(WorkflowDefinition template, List<String> verificationSteps,
                 List<CompositionRequest.Step> finalizeSteps) {
             this.template = template;
             this.verificationSteps = verificationSteps;
             this.finalizeSteps = finalizeSteps;
+        }
+
+        /** Keeps every state a template's entries bind to, whatever a later prune names. */
+        void keepEntries() {
+            template.entryBindings().values().forEach(binding -> entryStates.add(binding.stateId()));
         }
 
         void resolve(PrunedElement prune) {
@@ -371,7 +380,8 @@ final class InstancePruner {
                     }
                 });
                 case STATE -> {
-                    if (template.states().containsKey(prune.id()) && list(prune, prune.id())) {
+                    if (template.states().containsKey(prune.id()) && !entryStates.contains(prune.id())
+                            && list(prune, prune.id())) {
                         states.add(prune.id());
                     }
                 }
@@ -383,6 +393,7 @@ final class InstancePruner {
                         .filter(site -> list(prune, site.id() + "/" + parts[1]))
                         .forEach(site -> actions.computeIfAbsent(site.id(), key -> new HashSet<>()).add(parts[1])));
                 case CALL -> split(prune.id()).filter(parts -> calls(parts[0], parts[1]))
+                        .filter(parts -> !entryStates.contains(parts[0]))
                         .filter(parts -> list(prune, prune.id()))
                         .ifPresent(parts -> states.add(parts[0]));
             }

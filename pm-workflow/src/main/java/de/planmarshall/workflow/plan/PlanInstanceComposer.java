@@ -138,6 +138,11 @@ public final class PlanInstanceComposer {
                 request.verificationSteps(), request.finalizeSteps(), lanePruned);
         var version = request.nextVersion();
         var composed = composedUnits(request, pruned.states(), effects, bound, lanePruned, version);
+        if (!composed.unresolved().isEmpty()) {
+            return new CompositionResult.Refused(CompositionResult.Refusal.INVARIANT_FAILED,
+                    composed.unresolved().stream()
+                            .map("the call of '%s' names no sub-unit of the request"::formatted).toList());
+        }
         var positionStates = new LinkedHashSet<>(pruned.states().keySet());
         positionStates.addAll(composed.positionStates());
         var missing = request.position().missingFrom(positionStates);
@@ -187,30 +192,34 @@ public final class PlanInstanceComposer {
         var states = new LinkedHashSet<String>();
         var bound = new LinkedHashSet<String>();
         var visited = new HashSet<String>();
+        var unresolved = new LinkedHashSet<String>();
         var prunes = new ArrayList<PrunedElement>();
         var queue = new ArrayDeque<String>();
         keptStates.values().forEach(state -> callee(state).ifPresent(queue::add));
         while (!queue.isEmpty()) {
             var id = queue.poll();
-            if (!visited.add(id) || !byId.containsKey(id)) {
-                continue;
-            }
-            if (isComposedUnit(id)) {
-                var unit = composeUnit(byId.get(id).definition(), request, effects, boundVariants, lane, version);
-                units.put(id, unit.file());
-                prunes.addAll(unit.pruned());
-                states.addAll(unit.file().definition().states().keySet());
-                unit.file().definition().states().values().forEach(state -> callee(state).ifPresent(queue::add));
-            } else {
-                bound.add(id);
-                var definition = byId.get(id).definition();
-                states.addAll(definition.states().keySet());
-                definition.states().values().forEach(state -> callee(state).ifPresent(queue::add));
+            if (visited.add(id)) {
+                var subUnit = byId.get(id);
+                if (subUnit == null) {
+                    unresolved.add(id);
+                } else if (isComposedUnit(id)) {
+                    var unit = composeUnit(subUnit.definition(), request, effects, boundVariants, lane, version);
+                    units.put(id, unit.file());
+                    prunes.addAll(unit.pruned());
+                    states.addAll(unit.file().definition().states().keySet());
+                    unit.file().definition().states().values()
+                            .forEach(state -> callee(state).ifPresent(queue::add));
+                } else {
+                    bound.add(id);
+                    states.addAll(subUnit.definition().states().keySet());
+                    subUnit.definition().states().values()
+                            .forEach(state -> callee(state).ifPresent(queue::add));
+                }
             }
         }
         var ordered = request.subUnits().stream().map(subUnit -> subUnit.definition().id())
                 .filter(units::containsKey).distinct().map(units::get).toList();
-        return new Composed(ordered, states, bound, prunes);
+        return new Composed(ordered, states, bound, prunes, unresolved);
     }
 
     /**
@@ -244,9 +253,10 @@ public final class PlanInstanceComposer {
      * @param positionStates every state of the composed files and of the reached digest-bound units
      * @param subUnits      the ids of the digest-bound units the kept calls reach
      * @param pruned        every element a composed unit's composition left out
+     * @param unresolved    the ids a kept call names that the request supplies no sub-unit for
      */
     private record Composed(List<ComposedUnit> units, Set<String> positionStates, Set<String> subUnits,
-            List<PrunedElement> pruned) {
+            List<PrunedElement> pruned, Set<String> unresolved) {
     }
 
     /**

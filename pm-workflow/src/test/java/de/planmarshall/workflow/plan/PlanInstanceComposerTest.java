@@ -927,38 +927,128 @@ class PlanInstanceComposerTest {
         }
 
         @Test
-        @DisplayName("a call pruned inside a composed phase reaches nothing: its callee is composed as no file and its "
-                + "states are no position of the version")
-        void prunedCallInsideAComposedUnit() {
+        @DisplayName("a state pruned inside a composed unit has no state in its file, is listed in the header and is "
+                + "reported not_in_this_plan")
+        void prunedStateInsideAComposedUnit() {
             var rules = ((CompositionRules.Loaded) CompositionRules.parse("""
                     {"format_version": 1, "revision": "t1", "rules": [
-                      {"id": "prune-land-call",
+                      {"id": "prune-a-nested-state",
+                       "when": {"fact": "lane", "equals": "deep"},
+                       "then": {"prune": [{"element": "state", "id": "execute.deliverable-build",
+                                           "reason": "other_lane"}]}}]}
+                    """.getBytes(StandardCharsets.UTF_8))).rules();
+            var instance = composed(PlanFixtures.mergedComposer(rules).compose(PlanFixtures.mergedRequest(
+                    CompositionEvent.START, facts().build(), Optional.empty(), AT_INIT, List.of())));
+            var phase = instance.composed("phase-5-execute").orElseThrow();
+
+            assertAll(
+                    () -> assertFalse(phase.definition().states().containsKey("execute.deliverable-build"),
+                            phase.definition().states().keySet()::toString),
+                    () -> assertTrue(instance.header().pruned().stream().anyMatch(pruned ->
+                                    pruned.element() == PrunedElement.Kind.STATE
+                                            && "execute.deliverable-build".equals(pruned.id())
+                                            && pruned.reason() == PruneReason.OTHER_LANE),
+                            instance.header().pruned()::toString),
+                    () -> assertEquals(PlanProcessStates.State.NOT_IN_THIS_PLAN,
+                            PlanProcessStates.derive(instance, List.of()).stream()
+                                    .filter(node -> "execute.deliverable-build".equals(node.node())).findFirst()
+                                    .orElseThrow().state()));
+        }
+
+        @Test
+        @DisplayName("a call prune on an entry-bound call state is ignored: the call stays and its callee is composed")
+        void entryBoundCallSurvivesAPrune() {
+            var rules = ((CompositionRules.Loaded) CompositionRules.parse("""
+                    {"format_version": 1, "revision": "t3", "rules": [
+                      {"id": "prune-an-entry-call",
                        "when": {"fact": "lane", "equals": "deep"},
                        "then": {"prune": [{"element": "call", "id": "execute.land-entry/land",
                                            "reason": "other_lane"}]}}]}
                     """.getBytes(StandardCharsets.UTF_8))).rules();
             var instance = composed(PlanFixtures.mergedComposer(rules).compose(PlanFixtures.mergedRequest(
                     CompositionEvent.START, facts().build(), Optional.empty(), AT_INIT, List.of())));
-            var refused = refused(PlanFixtures.mergedComposer(rules).compose(PlanFixtures.mergedRequest(
-                    CompositionEvent.START, facts().build(), Optional.empty(),
-                    InstancePosition.at("land.verify-sweep"), List.of())));
+            var phase = instance.composed("phase-5-execute").orElseThrow();
 
             assertAll(
-                    () -> assertTrue(instance.composed("phase-5-execute").isPresent(), instance.units()::toString),
-                    () -> assertTrue(instance.composed("land").isEmpty(),
-                            () -> "land is reached only through a pruned call: " + instance.units()),
-                    () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal()),
-                    () -> assertEquals(List.of("position: version 1 does not contain the state 'land.verify-sweep'"),
-                            refused.violations()),
-                    () -> assertTrue(instance.header().pruned().stream().anyMatch(pruned ->
-                                    pruned.element() == PrunedElement.Kind.CALL
-                                            && "execute.land-entry/land".equals(pruned.id())
-                                            && pruned.reason() == PruneReason.OTHER_LANE),
-                            instance.header().pruned()::toString),
-                    () -> assertEquals(PlanProcessStates.State.NOT_IN_THIS_PLAN,
-                            PlanProcessStates.derive(instance, List.of()).stream()
-                                    .filter(node -> "execute.land-entry".equals(node.node())).findFirst()
-                                    .orElseThrow().state()));
+                    () -> assertTrue(phase.definition().states().containsKey("execute.land-entry"),
+                            phase.definition().states().keySet()::toString),
+                    () -> assertTrue(instance.composed("land").isPresent(), instance.units()::toString),
+                    () -> assertFalse(instance.header().pruned().stream()
+                            .anyMatch(pruned -> "execute.land-entry/land".equals(pruned.id())),
+                            instance.header().pruned()::toString));
+        }
+
+        @Test
+        @DisplayName("a call the lane prunes reaches nothing, so a request that omits its callee still composes")
+        void prunedCallWithOmittedCalleeComposes() {
+            var start = composed(PlanFixtures.perLaneComposer().compose(PlanFixtures.perLaneRequest(
+                    CompositionEvent.START, facts().lane(Lane.DEEP).build(), Optional.empty(),
+                    InstancePosition.at("init.ready"))));
+            var outline = PlanFixtures.perLaneRequest(CompositionEvent.OUTLINE, facts().lane(Lane.DEEP).build(),
+                    Optional.of(start), InstancePosition.at("outline.deep"));
+            var withoutLightCalves = outline.subUnits().stream().filter(subUnit ->
+                    !"phase-plan-light".equals(subUnit.definition().id())
+                            && !"phase-execute-light".equals(subUnit.definition().id())).toList();
+            var instance = composed(PlanFixtures.perLaneComposer().compose(new CompositionRequest(
+                    outline.planId(), outline.event(), outline.template(), outline.templates(), withoutLightCalves,
+                    outline.facts(), outline.configHash(), outline.realizedFootprintDigest(),
+                    outline.providersDigest(), outline.waivers(), outline.position(), outline.previous(),
+                    outline.verificationSteps(), outline.finalizeSteps())));
+
+            assertAll(
+                    () -> assertFalse(instance.unit().states().containsKey("phases.plan-light"),
+                            instance.unit().states().keySet()::toString),
+                    () -> assertTrue(instance.composed("phase-plan-light").isEmpty(), instance.units()::toString),
+                    () -> assertTrue(instance.composed("phase-execute-light").isEmpty(), instance.units()::toString),
+                    () -> assertTrue(instance.composed("phase-plan").isPresent(), instance.units()::toString),
+                    () -> assertFalse(instance.header().inputs().subUnits().stream()
+                            .anyMatch(reference -> "phase-plan-light".equals(reference.unit())),
+                            instance.header().inputs().subUnits()::toString));
+        }
+
+        @Test
+        @DisplayName("a prune never removes a state an entry binds to, so a composed file keeps every entry")
+        void entryStatesSurviveAPrune() {
+            var rules = ((CompositionRules.Loaded) CompositionRules.parse(("""
+                    {"format_version": 1, "revision": "t2", "rules": [
+                      {"id": "prune-an-entry-state",
+                       "when": {"fact": "lane", "equals": "deep"},
+                       "then": {"prune": [{"element": "state", "id": "finalize.create-pr",
+                                           "reason": "other_lane"}]}}]}
+                    """).getBytes(java.nio.charset.StandardCharsets.UTF_8))).rules();
+            var instance = composed(PlanFixtures.mergedComposer(rules).compose(PlanFixtures.mergedRequest(
+                    CompositionEvent.START, facts().build(), Optional.empty(), AT_INIT, List.of())));
+            var phase = instance.composed("phase-6-finalize").orElseThrow();
+
+            assertAll(
+                    () -> assertTrue(phase.definition().states().containsKey("finalize.create-pr"),
+                            phase.definition().states().keySet()::toString),
+                    () -> assertTrue(phase.definition().entryBindings().values().stream()
+                            .allMatch(binding -> phase.definition().states().containsKey(binding.stateId())),
+                            phase.definition().entryBindings()::toString),
+                    () -> assertFalse(instance.header().pruned().stream()
+                            .anyMatch(pruned -> "finalize.create-pr".equals(pruned.id())),
+                            instance.header().pruned()::toString));
+        }
+
+        @Test
+        @DisplayName("a kept call the request supplies no sub-unit for is refused, so no executable callee is left "
+                + "unnamed")
+        void unresolvedCallRefused() {
+            var request = PlanFixtures.mergedRequest(CompositionEvent.START, facts().build(), Optional.empty(),
+                    AT_INIT, List.of());
+            var withoutLand = request.subUnits().stream()
+                    .filter(subUnit -> !"land".equals(subUnit.definition().id())).toList();
+            var refused = refused(PlanFixtures.mergedComposer().compose(new CompositionRequest(request.planId(),
+                    request.event(), request.template(), request.templates(), withoutLand, request.facts(),
+                    request.configHash(), request.realizedFootprintDigest(), request.providersDigest(),
+                    request.waivers(), request.position(), request.previous(), request.verificationSteps(),
+                    request.finalizeSteps())));
+
+            assertAll(
+                    () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal()),
+                    () -> assertEquals(List.of("the call of 'land' names no sub-unit of the request"),
+                            refused.violations()));
         }
 
         @Test
