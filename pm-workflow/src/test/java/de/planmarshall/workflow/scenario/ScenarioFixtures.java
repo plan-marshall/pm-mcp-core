@@ -25,6 +25,7 @@ import java.util.Optional;
 
 import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.spi.AwaitedEvent;
+import de.planmarshall.core.spi.FreeParam;
 import de.planmarshall.core.spi.JobStarter;
 import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.core.spi.Primitive;
@@ -39,6 +40,7 @@ import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.ScopeTransaction;
+import de.planmarshall.core.store.WorkflowStatus;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.dsl.ParseResult;
@@ -133,7 +135,6 @@ final class ScenarioFixtures {
 
     /** The clock of the engine and of the transactions. */
     final ManualClock clock = new ManualClock(T0);
-
     /** The job port of the engine. */
     final SequenceJobStarter jobStarter = new SequenceJobStarter();
 
@@ -142,6 +143,9 @@ final class ScenarioFixtures {
 
     /** The question port of the engine. */
     final ScriptedQuestionRecordReader questionReader = new ScriptedQuestionRecordReader();
+
+    /** The free-parameter primitive of the operator unit, which records the notes its links submitted. */
+    final Note note = new Note();
 
     /**
      * Parses a unit; it must follow the grammar.
@@ -162,6 +166,44 @@ final class ScenarioFixtures {
     /** @return the fixture plan unit {@link #PLAN_UNIT} */
     static WorkflowDefinition planUnit() {
         return parse("scenario-plan.pmwf", PLAN_UNIT);
+    }
+
+    /**
+     * The fixture operator unit: a plan that starts in an operator wait offering a plain link and a link with one free
+     * parameter, both running the same {@code auto} step.
+     */
+    static final String OPERATOR_UNIT = """
+            ---
+            name: scenario.operator
+            description: A unit written for the tests of pm-workflow.
+            type: workflow
+            icon: workflow.default
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
+            workflow scenario.operator version 1 format 1
+            scope plan
+            start execute.wait
+
+            state execute.wait
+                link next proceed ()
+                    do scenario.prepare
+                        done -> completed
+                        failed -> handed_back
+                link submit choose (note: text[1..80])
+                    do scenario.note
+                        done -> completed
+                        failed -> handed_back
+
+            state completed terminal merged success
+
+            state handed_back terminal handed_back failure
+            """;
+
+    /** @return the fixture operator unit {@link #OPERATOR_UNIT} */
+    static WorkflowDefinition operatorUnit() {
+        return parse("scenario-operator.pmwf", OPERATOR_UNIT);
     }
 
     /**
@@ -186,11 +228,12 @@ final class ScenarioFixtures {
     }
 
     /** @return the registry of the primitives the fixture unit names */
-    static PrimitiveRegistry registry() {
+    PrimitiveRegistry registry() {
         return new PrimitiveRegistry(List.of(
                 new Fixed<>("scenario.prepare", StepOutcome.DONE, AwaitedEvent.NONE),
                 new Fixed<>("scenario.build", FateOutcome.SUCCEEDED, AwaitedEvent.JOB_SETTLED),
-                new Fixed<>("scenario.evaluate", EvaluateOutcome.APPROVED, AwaitedEvent.NONE)));
+                new Fixed<>("scenario.evaluate", EvaluateOutcome.APPROVED, AwaitedEvent.NONE),
+                note));
     }
 
     /** @return the default entity kinds plus {@link #CHANGE_KIND}, which needs no entity unit */
@@ -211,8 +254,27 @@ final class ScenarioFixtures {
         var validator = new WorkflowValidator(registry, List.of(), entityKinds(), QuestionClassRegistry.defaults(),
                 SchemaRegistry.defaults(), WorkflowCatalog.of());
         var ports = new WorkflowEngine.Ports(jobStarter, taskCreator, questionReader, clock);
-        return new WorkflowEngine(unit, WorkflowCatalog.of(), validator, registry,
-                (primitive, status) -> new NoParams(), ports);
+        return new WorkflowEngine(unit, WorkflowCatalog.of(), validator, registry, new ScenarioParameterBinder(), ports);
+    }
+
+    /** The binder of the fixture primitives: no parameters, but an operator link's {@code note} for {@code scenario.note}. */
+    private static final class ScenarioParameterBinder implements WorkflowEngine.ParameterBinder {
+
+        @Override
+        public Record bind(Primitive<?, ?> primitive, WorkflowStatus status) {
+            return new NoParams();
+        }
+
+        @Override
+        public Record bind(Primitive<?, ?> primitive, WorkflowStatus status, Map<String, String> parameters) {
+            if ("scenario.note".equals(primitive.id())) {
+                if (!parameters.containsKey("note")) {
+                    throw new IllegalArgumentException("the link of 'scenario.note' takes its free parameter 'note'");
+                }
+                return new NoteParams(parameters.get("note"));
+            }
+            return bind(primitive, status);
+        }
     }
 
     /**
@@ -370,6 +432,47 @@ final class ScenarioFixtures {
         @Override
         public AwaitedEvent awaitedEvent() {
             return awaitedEvent;
+        }
+    }
+
+    /** The parameters of {@code scenario.note}: the free parameter an operator link declares. */
+    record NoteParams(@FreeParam(minLength = 1, maxLength = 80) String note) {
+    }
+
+    /** The primitive {@code scenario.note} of the fixture operator unit: records its note, always {@code done}. */
+    static final class Note implements Primitive<NoteParams, StepOutcome> {
+
+        private final List<String> notes = new ArrayList<>();
+
+        /** @return the notes the operator links submitted, in order */
+        List<String> notes() {
+            return List.copyOf(notes);
+        }
+
+        @Override
+        public String id() {
+            return "scenario.note";
+        }
+
+        @Override
+        public Class<NoteParams> parameterType() {
+            return NoteParams.class;
+        }
+
+        @Override
+        public Class<StepOutcome> outcomeType() {
+            return StepOutcome.class;
+        }
+
+        @Override
+        public PrimitiveResult<StepOutcome> execute(WorkflowExecutionContext context, NoteParams parameters) {
+            notes.add(parameters.note());
+            return new PrimitiveResult<>(StepOutcome.DONE, Map.of(), Optional.empty());
+        }
+
+        @Override
+        public AwaitedEvent awaitedEvent() {
+            return AwaitedEvent.NONE;
         }
     }
 

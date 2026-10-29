@@ -1317,7 +1317,7 @@ Documentation: link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow V
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4]
 
-Implementation (the in-process scenario harness of the first bullet in the test scope of `pm-workflow`, without a live model and without starting a process: the scenario script read from text with the directives `start`, `complete_job`, `answer_question`, `assert_state`, `assert_outcome` and `assert_task_outcome`, every other directive refused by name; the runner that replays a script against the real engine and status store over a fixture unit, with the stores in a temporary directory; and the scripted fixture worker that settles the queued task of its role with the task outcome the script declares; a worker that follows the offered links, the plan bootstrap through `finalize`, the hermetic fixture repositories, and the fault, recovery and benchmark scenarios of the further bullets are not implemented yet): link:../pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioReplayRunner.java[ScenarioReplayRunner],
+Implementation (the in-process scenario harness of the first bullet in the test scope of `pm-workflow`, without a live model and without starting a process: the scenario script read from text with the directives `start`, `complete_job`, `answer_question`, `operator_do`, `assert_state`, `assert_outcome` and `assert_task_outcome`, every other directive refused by name; the runner that replays a script against the real engine and status store over a fixture unit, with the stores in a temporary directory; and the scripted fixture worker that settles the queued task of its role with the task outcome the script declares; a worker that follows the offered links, the plan bootstrap through `finalize`, the hermetic fixture repositories, and the fault, recovery and benchmark scenarios of the further bullets are not implemented yet): link:../pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioReplayRunner.java[ScenarioReplayRunner],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioScript.java[ScenarioScript],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioDirective.java[ScenarioDirective],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScriptedFixtureWorker.java[ScriptedFixtureWorker],
@@ -2172,6 +2172,9 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/ActivityRecorder
 (the stream read while the worker runs, one action per attempt),
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/OffTrackDetectorTest.java[OffTrackDetectorTest]
 (each signal at its threshold and not below it, a lowered threshold applied and a raised one refused),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/OffTrackScenarioTest.java[OffTrackScenarioTest]
+(each signal and each action as a scenario of the fixture harness's scripted output stream, raised at its threshold
+and never one entry before it, the action recorded with its signal, its measured value and its threshold),
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolReOfferTest.java[TaskProtocolReOfferTest]
 (the `agent_started` journal entry and the off-track signal entry),
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/web/ActivityServiceTest.java[ActivityServiceTest]
