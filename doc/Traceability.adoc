@@ -551,7 +551,9 @@ link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java[Wor
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java[WorkflowValidator],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/CompiledInvariants.java[CompiledInvariants],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/SubWorkflowInvariants.java[SubWorkflowInvariants],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/RemediationInvariants.java[RemediationInvariants]
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/RemediationInvariants.java[RemediationInvariants],
+link:../pm-core/src/main/java/de/planmarshall/core/store/PlanHistory.java[PlanHistory],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanProcessStates.java[PlanProcessStates]
 
 Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/WorkflowValidatorTest.java[WorkflowValidatorTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/CompiledInvariantsTest.java[CompiledInvariantsTest],
@@ -560,7 +562,10 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowParserRef
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowPrinterTest.java[WorkflowPrinterTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/ast/AstNodeModelTest.java[AstNodeModelTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/SubWorkflowExecutionTest.java[SubWorkflowExecutionTest],
-link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineResumeTest.java[EngineResumeTest]
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineResumeTest.java[EngineResumeTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/PlanHistoryTest.java[PlanHistoryTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/PlanHistoryEngineTest.java[PlanHistoryEngineTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanProcessStatesTest.java[PlanProcessStatesTest]
 
 Implementation (the planning phases' records and their checks: the plan's intent record `intent.json` with its `intent-record` schema, its EARS form, its true deciders, the epic's required claims and its revision history in `history[]`; the outline record `outline.json` with its `outline-record` schema and the `outline.md` rendered from it; the outline's `satisfies` coverage and the refusal of an `unchanged` guard downstream of the change it guards; the builder check's submission and its conversation-free facts; the self-review's constraint, non-goal and decision results; the capability spec and the index of a tree's specs; and the read-only simplify step with the clone candidates the server computes and the apply of the accepted subset): link:../pm-core/src/main/java/de/planmarshall/core/store/IntentRecord.java[IntentRecord],
 link:../pm-core/src/main/java/de/planmarshall/core/store/IntentStore.java[IntentStore],
@@ -1615,7 +1620,11 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WorkflowEngine
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/EngineStep.java[EngineStep],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/GuardEvaluator.java[GuardEvaluator],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/LoopBackBudget.java[LoopBackBudget],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/diagram/WorkflowDiagramGenerator.java[WorkflowDiagramGenerator]
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/diagram/WorkflowDiagramGenerator.java[WorkflowDiagramGenerator],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java[PlanInstanceComposer],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceStore.java[PlanInstanceStore],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanProcessStates.java[PlanProcessStates],
+link:../pm-core/src/main/java/de/planmarshall/core/store/PlanHistory.java[PlanHistory]
 
 Verified by (the workflow DSL, its verifier, interpreter and diagram generator): link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowParserTest.java[WorkflowParserTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowParserRefusalTest.java[WorkflowParserRefusalTest],
@@ -1628,7 +1637,12 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/GuardEvaluator
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineEventTest.java[EngineEventTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/LoopBackBudgetTest.java[LoopBackBudgetTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/diagram/WorkflowDiagramGeneratorTest.java[WorkflowDiagramGeneratorTest],
-link:../pm-workflow/src/test/java/de/planmarshall/workflow/diagram/StateKindTest.java[StateKindTest]
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/diagram/StateKindTest.java[StateKindTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java[PlanInstanceComposerTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceStoreTest.java[PlanInstanceStoreTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanProcessStatesTest.java[PlanProcessStatesTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/PlanHistoryEngineTest.java[PlanHistoryEngineTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/PlanHistoryTest.java[PlanHistoryTest]
 
 Implementation (the named parameter schemas `intent-record` and `outline-record` of the registry, and the simplify step's descriptor in the finalize roster): link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/SchemaRegistry.java[SchemaRegistry],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/finalize/SimplifyStep.java[SimplifyStep],

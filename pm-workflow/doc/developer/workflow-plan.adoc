@@ -417,9 +417,46 @@ the floor a refused row produces, and a guard that neither record carries a limi
 link:../adr/workflow-plan/018-plan-and-epic-token-facts-per-population.adoc[ADR 018]: a plan's and an epic's token facts
 are carried per population, with no limit.
 
+== The Composed Set of Files
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-25[PM-WF-25]_
+
+A version is a set of immutable files: `instance/plan.v<N>.pmwf` with the version's header, and
+`instance/<unit>.v<N>.pmwf` for every phase sub-workflow and bound axis variant the kept calls reach (`PlanInstance`'s
+`units()`). The composer composes each of them the way it composes the plan unit: the prunes and policy bindings that
+fall inside the unit apply, the frontmatter, id, type, entries and exits of the template stay, the version is repeated
+and no `instance` line is added. A pruned call composes no file, and the units the version only binds by digest
+(`git.commit_and_push`, the `remediation.*` units, `replan`, `adjudicate.decisions`) stay content-addressed in
+`mcp/units/<digest>.pmwf`.
+
+The header's `inputs.templates` names every composed file by its version path and the digest of its text; the plan
+unit's own entry keeps the template's digest, so the header never digests its own file. `PlanInstanceStore` validates
+the set before it stages anything — a header digest that names no file, a file the header does not name, a file twice
+and a text whose digest differs from the header's are all refused — and writes the whole set in the transaction that
+composes the version. The three instance diagram forms list the composed files beside the pruned elements and the
+waived gates.
+
+link:../adr/workflow-plan/020-a-version-is-a-set-of-composed-files.adoc[ADR 020]: a version is a set of composed files,
+checked as one value.
+
+== The Plan's History
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
+
+`mcp/history.jsonl` is the plan's append-only history (`de.planmarshall.core.store.PlanHistory`): one line per state
+entered and left, per sub-workflow called and returned, and per instance version taking force, with the phase, the call
+path and the instance version in force at the line. The engine appends the lines of one advance as one append target of
+the transaction that writes `mcp/status.json`, so a transition and its history are one journaled write; a terminal state
+is entered and never left.
+
+`PlanProcessStates` derives the state of every node of the process from the stored lines and the version's composed
+files: `done`, `running`, `waiting_for_operator`, `failed` with its outcome, `planned`, `not_taken` once the plan
+reached a terminal state, and `not_in_this_plan` with the prune reason of a pruned call. Nothing else is durable, so a
+runtime that restarts derives the same states.
+
+link:../adr/workflow-plan/020-a-version-is-a-set-of-composed-files.adoc[ADR 020], link:../../../../pm-core/doc/adr/core-store/051-the-plan-history-in-core-store.adoc[ADR core-store 051].
+
 == Specification Tracing
 
 * Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-1[PM-WF-1], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-25[PM-WF-25], link:../../../../plan-marshall-documentation/doc/requirements/15-extensions-and-recipes.adoc#PM-EXT-7[PM-EXT-7]
 * Specification: link:../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance], link:../../../doc/specification/workflow-dsl/09-plan-instance.adoc#composition-rules[§ Composition Rules], link:../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-axes[§ Plan Behaviour Axes]; link:../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance]; link:../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#composition-rules[Store Schemas § Composition Rules]; link:../../../doc/specification/identifiers/02-registry-stores-to-web.adoc#id-prune-reason[Identifier Registry § Prune reason]
-* Decisions: `pm-workflow/doc/adr/workflow-plan/` ADRs 001 to 019; ADR 011 is superseded by ADR 012; ADR 019 places the
-  phase set's composition, and the lane pruning over it, with PLAN-105
+* Decisions: `pm-workflow/doc/adr/workflow-plan/` ADRs 001 to 020; ADR 011 is superseded by ADR 012; ADR 019 places the
+  phase set's composition, and the lane pruning over it, with PLAN-105; ADR 020 delivers it as the set of composed files

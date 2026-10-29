@@ -10,7 +10,9 @@
 package de.planmarshall.workflow.engine;
 
 import java.io.Serial;
+import java.time.Instant;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
@@ -37,6 +39,8 @@ import de.planmarshall.core.spi.QueueTaskCreator;
 import de.planmarshall.core.spi.WorkflowClock;
 import de.planmarshall.core.spi.WorkflowExecutionContext;
 import de.planmarshall.core.store.JournalScopeType;
+import de.planmarshall.core.store.PlanHistory;
+import de.planmarshall.core.store.PlanHistoryLine;
 import de.planmarshall.core.store.RetryCounters;
 import de.planmarshall.core.store.ScopeTransaction;
 import de.planmarshall.core.store.WorkflowStatus;
@@ -274,6 +278,10 @@ public final class WorkflowEngine {
      *                                primitive returns an outcome its state does not route, or the chain does not end
      */
     public EngineStep advance(WorkflowStatus status) {
+        return advance(status, new Run(status));
+    }
+
+    private EngineStep advance(WorkflowStatus status, Run run) {
         Objects.requireNonNull(status, "status");
         if (status.condition().isPresent()) {
             return EngineStep.ConditionRaised.of(status);
@@ -281,10 +289,10 @@ public final class WorkflowEngine {
         var stack = CallStack.fromStore(status.callStack());
         var node = stateOf(unitOf(stack), status.state());
         return switch (node.behavior()) {
-            case StateBehavior.AutoStep _, StateBehavior.SubWorkflowCall _ -> new Run(status).chain(node.id());
-            case StateBehavior.TerminalState _ -> stack.isEmpty() ? ended(status, node) : new Run(status).chain(node.id());
+            case StateBehavior.AutoStep _, StateBehavior.SubWorkflowCall _ -> run.chain(node.id());
+            case StateBehavior.TerminalState _ -> stack.isEmpty() ? ended(status, node) : run.chain(node.id());
             case StateBehavior.JobStep _, StateBehavior.ModelJob _ ->
-                parked(status) ? resting(status, node) : new Run(status).chain(node.id());
+                parked(status) ? resting(status, node) : run.chain(node.id());
             case StateBehavior.InteractiveLinks _, StateBehavior.QuestionWait _ -> resting(status, node);
         };
     }
@@ -304,6 +312,10 @@ public final class WorkflowEngine {
      * @throws InternalFaultException   see {@link #advance(WorkflowStatus)}
      */
     public EngineStep advance(WorkflowStatus status, EngineEvent event) {
+        return advance(status, event, new Run(status));
+    }
+
+    private EngineStep advance(WorkflowStatus status, EngineEvent event, Run run) {
         Objects.requireNonNull(status, "status");
         Objects.requireNonNull(event, "event");
         if (status.condition().isPresent()) {
@@ -315,14 +327,15 @@ public final class WorkflowEngine {
             throw new IllegalArgumentException("the state '%s' waits for %s and does not accept %s"
                     .formatted(node.id(), wait, event));
         }
-        var run = new Run(status);
         return switch (node.behavior()) {
             case StateBehavior.JobStep job when job.composite() ->
                 run.chain(run.runPrimitive(node, job.primitiveId(), job.transitions()));
             case StateBehavior.JobStep job when event instanceof EngineEvent.JobSettled(_, var fate) ->
-                run.chain(transitionOf(node, job.transitions(), fate, Map.of()).targetStateId());
+                run.chain(run.leftTo(node, transitionOf(node, job.transitions(), fate, Map.of()).targetStateId(),
+                        fate));
             case StateBehavior.ModelJob modelJob when event instanceof EngineEvent.TasksSettled(_, var outcome) ->
-                run.chain(transitionOf(node, modelJob.transitions(), outcome, Map.of()).targetStateId());
+                run.chain(run.leftTo(node, transitionOf(node, modelJob.transitions(), outcome, Map.of())
+                        .targetStateId(), outcome));
             case StateBehavior.QuestionWait question when event instanceof EngineEvent.QuestionResolved resolved ->
                 resolve(run, status, node, question, resolved);
             case StateBehavior.InteractiveLinks links when event instanceof EngineEvent.OperatorAct act ->
@@ -348,6 +361,26 @@ public final class WorkflowEngine {
     }
 
     /**
+     * Advances a scope, adds the new status to the transaction of the advance, and appends the history lines the
+     * advance produced to the plan's history in the same transaction, so the state change and its history are one
+     * journaled write.
+     *
+     * @param status          the status of the scope as the store holds it
+     * @param store           the status store of the scope
+     * @param transaction     the open transaction of the scope
+     * @param history         the plan's history
+     * @param instanceVersion the instance version in force
+     * @return the step the advance ends in
+     * @throws InternalFaultException see {@link #advance(WorkflowStatus)}
+     */
+    public EngineStep advance(WorkflowStatus status, WorkflowStatusStore store, ScopeTransaction transaction,
+            PlanHistory history, int instanceVersion) {
+        Objects.requireNonNull(history, "history");
+        return persisted(status, advance(status, new Run(status, history, transaction, instanceVersion)), store,
+                transaction);
+    }
+
+    /**
      * Resumes a resting state by an event and adds the new status to the transaction of the advance.
      *
      * @param status      the status of the scope as the store holds it
@@ -360,6 +393,26 @@ public final class WorkflowEngine {
     public EngineStep advance(WorkflowStatus status, EngineEvent event, WorkflowStatusStore store,
             ScopeTransaction transaction) {
         return persisted(status, advance(status, event), store, transaction);
+    }
+
+    /**
+     * Resumes a resting state by an event, adds the new status to the transaction of the advance, and appends the
+     * history lines the advance produced to the plan's history in the same transaction.
+     *
+     * @param status          the status of the scope as the store holds it
+     * @param event           the event
+     * @param store           the status store of the scope
+     * @param transaction     the open transaction of the scope
+     * @param history         the plan's history
+     * @param instanceVersion the instance version in force
+     * @return the step the advance ends in
+     * @throws IllegalArgumentException see {@link #advance(WorkflowStatus, EngineEvent)}
+     */
+    public EngineStep advance(WorkflowStatus status, EngineEvent event, WorkflowStatusStore store,
+            ScopeTransaction transaction, PlanHistory history, int instanceVersion) {
+        Objects.requireNonNull(history, "history");
+        return persisted(status,
+                advance(status, event, new Run(status, history, transaction, instanceVersion)), store, transaction);
     }
 
     /**
@@ -397,7 +450,8 @@ public final class WorkflowEngine {
                 resolved.questionId()));
         return switch (read) {
             case QuestionRead.Resolved(var outcome) when outcome.equals(resolved.outcome()) ->
-                run.chain(transitionOf(node, question.transitions(), outcome, Map.of()).targetStateId());
+                run.chain(run.leftTo(node, transitionOf(node, question.transitions(), outcome, Map.of())
+                        .targetStateId(), outcome));
             case QuestionRead.Resolved(var outcome) -> throw new IllegalArgumentException(
                     "the question %s resolved with '%s', not with '%s'".formatted(resolved.questionId(), outcome,
                             resolved.outcome()));
@@ -678,14 +732,72 @@ public final class WorkflowEngine {
         private final Deque<Map<String, Object>> results = new ArrayDeque<>();
         private int transitions;
 
+        /** The plan's history the advance appends to, and the transaction that writes it; {@code null} for none. */
+        private final PlanHistory history;
+
+        private final ScopeTransaction transaction;
+
+        private final int instanceVersion;
+
+        /** The history lines of this advance, in the order the advance produced them. */
+        private final List<Pending> lines = new ArrayList<>();
+
         /** The job a job-starting outcome reported, which the job state the transition enters binds. */
         private String spawnedJobId;
 
         Run(WorkflowStatus status) {
+            this(status, null, null, 1);
+        }
+
+        Run(WorkflowStatus status, PlanHistory history, ScopeTransaction transaction, int instanceVersion) {
             this.status = status;
             this.stack = CallStack.fromStore(status.callStack());
+            this.history = history;
+            this.transaction = transaction;
+            this.instanceVersion = instanceVersion;
             for (var index = 0; index < stack.depth(); index++) {
                 results.push(new LinkedHashMap<>());
+            }
+        }
+
+        /** Records a history line of the advance; a run without a history records nothing. */
+        private void record(PlanHistoryLine.Event event, String node, String outcome) {
+            if (history != null) {
+                lines.add(new Pending(event, node, stack.toStore().stream()
+                        .map(WorkflowStatus.CallFrame::subworkflowId).toList(), status.phase(), outcome));
+            }
+        }
+
+        /** Records that the state was left, with the outcome its transition was chosen by. */
+        void leave(StateNode node, String outcome) {
+            record(PlanHistoryLine.Event.LEFT, node.id(), outcome);
+        }
+
+        /** Records the state as left and returns the target its transition was chosen for. */
+        String leftTo(StateNode node, String target, String outcome) {
+            leave(node, outcome);
+            return target;
+        }
+
+        /** Writes the lines of the advance into the transaction, numbered after the history in force. */
+        private void recordHistory() {
+            if (history == null || lines.isEmpty()) {
+                return;
+            }
+            var seq = history.nextSeq();
+            var numbered = new ArrayList<PlanHistoryLine>(lines.size());
+            for (var line : lines) {
+                numbered.add(line.line(seq++, instanceVersion, clock.now()));
+            }
+            history.append(transaction, numbered);
+        }
+
+        /** A line of the advance before it is numbered. */
+        private record Pending(PlanHistoryLine.Event event, String node, List<String> callPath, String phase,
+        String outcome) {
+
+            PlanHistoryLine line(long seq, int instanceVersion, Instant at) {
+                return PlanHistoryLine.of(seq, event, node, callPath, phase, outcome, instanceVersion, at);
             }
         }
 
@@ -791,6 +903,7 @@ public final class WorkflowEngine {
                     .activeJobs(Map.of())
                     .activeTasks(Map.of())
                     .build();
+            record(PlanHistoryLine.Event.ENTERED, node.id(), null);
         }
 
         /**
@@ -826,6 +939,7 @@ public final class WorkflowEngine {
             }
             spawnedJobId = result.spawnedJobId().orElse(null);
             var outcome = result.outcome().wireName();
+            leave(node, outcome);
             return transitionOf(node, transitions, outcome, Map.of()).targetStateId();
         }
 
@@ -834,6 +948,7 @@ public final class WorkflowEngine {
             var entry = entryOf(callee, call);
             var frame = new CallFrame(unitOf(stack).id(), node.id(), callee.id(), entry,
                     call.paramBindings(), clock.now().toString());
+            record(PlanHistoryLine.Event.CALLED, callee.id(), null);
             stack = stack.push(frame);
             results.push(new LinkedHashMap<>());
             return callee.entryBindings().get(entry).stateId();
@@ -878,10 +993,12 @@ public final class WorkflowEngine {
                     .callStack(stack.toStore())
                     .retryCounters(clearedFor(status.retryCounters(), callee))
                     .build();
+            record(PlanHistoryLine.Event.RETURNED, callee.id(), outcome);
             if (!(caller.behavior() instanceof StateBehavior.SubWorkflowCall call)) {
                 throw fault(Reason.UNRESOLVED_NAME, "the calling state '%s' of the frame is no call state",
                         caller.id());
             }
+            leave(caller, outcome);
             return transitionOf(caller, call.transitions(), outcome, result).targetStateId();
         }
 
@@ -900,6 +1017,7 @@ public final class WorkflowEngine {
 
         private WorkflowStatus finish() {
             status = status.toBuilder().callStack(stack.toStore()).updatedAt(clock.now()).build();
+            recordHistory();
             return status;
         }
     }

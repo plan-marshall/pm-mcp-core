@@ -1555,6 +1555,23 @@ read the JSON schema from the specification of this repository (`doc/specificati
 property `pm.specification.root` names, `SpecificationDocument`); a missing document or schema block is a failure. A
 parity check the specification has run ahead of is `@Disabled` with the work package that re-enables it named.
 
+== The Plan's History
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_
+
+`PlanHistory` is the plan's append-only history `mcp/history.jsonl` (Store Schemas § The Plan's History):
+`PlanHistoryLine` is one line (`format_version`, `seq`, `event`, `node`, `call_path`, `phase`, `outcome`,
+`instance_version`, `at`), `PlanHistoryCodec` reads and writes it strictly, and the store appends the lines of one
+transition as one append target of the plan's `ScopeTransaction`, so the digest sidecar covers the file and the state
+change and its history are one journaled write. It never rewrites or removes a line; `nextSeq()` reads the sequence the
+next line takes from the log itself, so a runtime that restarted continues the sequence.
+
+The derived node states are not here: `de.planmarshall.workflow.plan.PlanProcessStates` reads the lines and the
+instance version's composed files and derives every node's state (done, running, waiting for the operator, failed with
+its outcome, planned, not taken, not in this plan with its prune reason).
+
+link:../adr/core-store/051-the-plan-history-in-core-store.adoc[ADR 051]: the plan's history is an append-only log in
+`core.store`, written through the scope transaction.
+
 == Specification Tracing
 
 * Specification: link:{spec}/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State
