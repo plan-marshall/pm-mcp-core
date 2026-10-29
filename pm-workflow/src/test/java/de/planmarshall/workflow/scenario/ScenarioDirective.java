@@ -10,6 +10,7 @@
 package de.planmarshall.workflow.scenario;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
@@ -154,6 +155,40 @@ sealed interface ScenarioDirective {
     }
 
     /**
+     * An operator act at an operator wait: the operator follows one offered link of the resting state, on one of the two
+     * operator channels.
+     *
+     * @param line       the line of the script
+     * @param link       the link the operator follows, as the state offers it
+     * @param channel    the operator's channel, {@code web} or {@code cli}
+     * @param parameters the free parameters of the link, empty for a link that takes none; copied
+     */
+    record OperatorDo(int line, String link, String channel, Map<String, String> parameters) implements ScenarioDirective {
+
+        /** The operator's channels: the web app and the terminal client. */
+        static final List<String> CHANNELS = List.of("web", "cli");
+
+        /**
+         * @throws IllegalArgumentException if the line is not positive, the link is no token, the channel is neither
+         *                                  {@code web} nor {@code cli}, or a parameter is no token
+         */
+        public OperatorDo {
+            requireLine(line);
+            requireToken(link, "link");
+            Objects.requireNonNull(channel, "channel");
+            if (!CHANNELS.contains(channel)) {
+                throw new IllegalArgumentException("'%s' is no operator channel: web or cli".formatted(channel));
+            }
+            Objects.requireNonNull(parameters, "parameters");
+            parameters.forEach((name, value) -> {
+                requireToken(name, "parameter name");
+                Objects.requireNonNull(value, name);
+            });
+            parameters = Map.copyOf(parameters);
+        }
+    }
+
+    /**
      * The declaration of the scripted worker of one role: the task outcomes it delivers, one per task it is given, in
      * order. A declaration is not a step; the runner hands its outcomes to the worker of the role.
      *
@@ -162,7 +197,6 @@ sealed interface ScenarioDirective {
      * @param outcomes the task outcomes, each of {@link EngineEvent.TasksSettled#TASK_OUTCOMES}; copied
      */
     record Worker(int line, String role, List<String> outcomes) {
-
         /**
          * @throws IllegalArgumentException if the line is not positive, the role is no token, or no or an unclosed
          *                                  outcome is named
