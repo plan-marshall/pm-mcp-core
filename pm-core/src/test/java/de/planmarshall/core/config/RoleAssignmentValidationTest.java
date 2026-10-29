@@ -109,44 +109,55 @@ class RoleAssignmentValidationTest {
     void harnessUnknown() {
         var value = RoleAssignmentValue.of(HARNESS, MODEL, "high");
         var artifact = artifact(RoleClass.READ_ONLY);
+        var machineCatalogue = catalogue();
+        var harnessProfile = profile();
         var withoutProfile = assertThrows(RoleRefusal.class, () -> require(value, artifact, new HarnessProfile[] {},
-                new String[] {HARNESS}, Optional.of(catalogue())));
+                new String[] {HARNESS}, Optional.of(machineCatalogue)));
         var withoutEnrolment = assertThrows(RoleRefusal.class, () -> require(value, artifact,
-                new HarnessProfile[] {profile()}, new String[] {}, Optional.of(catalogue())));
+                new HarnessProfile[] {harnessProfile}, new String[] {}, Optional.of(machineCatalogue)));
+        var profileReason = withoutProfile.reason();
+        var enrolmentReason = withoutEnrolment.reason();
 
         assertAll(
-                () -> assertEquals(RoleValidationReason.HARNESS_UNKNOWN, withoutProfile.reason()),
-                () -> assertEquals(RoleValidationReason.HARNESS_UNKNOWN, withoutEnrolment.reason()));
+                () -> assertEquals(RoleValidationReason.HARNESS_UNKNOWN, profileReason),
+                () -> assertEquals(RoleValidationReason.HARNESS_UNKNOWN, enrolmentReason));
     }
 
     @Test
     @DisplayName("an ineligible harness, a class it does not run, an unsupported effort and a refused model are refused")
     void refusals() {
-        var ineligible = new HarnessProfile(HARNESS, false, false, Set.of(), profile().classes(),
-                profile().modelEfforts(), profile().modelTiers(), 400_000, null, profile().resumability(), "ask_user");
+        var base = profile();
+        var ineligible = new HarnessProfile(HARNESS, false, false, Set.of(), base.classes(),
+                base.modelEfforts(), base.modelTiers(), 400_000, null, base.resumability(), "ask_user");
         var noReadOnly = new HarnessProfile(HARNESS, true, false, Set.of(),
-                Map.of(RoleClass.WRITER, HarnessProfile.ToolSet.ENFORCED), profile().modelEfforts(),
-                profile().modelTiers(), 400_000, null, profile().resumability(), "ask_user");
+                Map.of(RoleClass.WRITER, HarnessProfile.ToolSet.ENFORCED), base.modelEfforts(),
+                base.modelTiers(), 400_000, null, base.resumability(), "ask_user");
         var value = RoleAssignmentValue.of(HARNESS, MODEL, "high");
         var artifact = artifact(RoleClass.READ_ONLY);
+        var machineCatalogue = catalogue();
+        var fastOnly = new ModelCatalogue(Map.of(HARNESS, Set.of("acme-fast")));
         var ineligibleRefused = assertThrows(RoleRefusal.class, () -> require(value, artifact,
-                new HarnessProfile[] {ineligible}, new String[] {HARNESS}, Optional.of(catalogue())));
+                new HarnessProfile[] {ineligible}, new String[] {HARNESS}, Optional.of(machineCatalogue)));
         var classRefused = assertThrows(RoleRefusal.class, () -> require(value, artifact,
-                new HarnessProfile[] {noReadOnly}, new String[] {HARNESS}, Optional.of(catalogue())));
+                new HarnessProfile[] {noReadOnly}, new String[] {HARNESS}, Optional.of(machineCatalogue)));
         var unsupportedEffort = RoleAssignmentValue.of(HARNESS, "acme-frontier", "high");
         var effortRefused = assertThrows(RoleRefusal.class, () -> require(unsupportedEffort, artifact));
         var refusedModel = assertThrows(RoleRefusal.class, () -> require(value, artifact,
-                new HarnessProfile[] {profile()}, new String[] {HARNESS},
-                Optional.of(new ModelCatalogue(Map.of(HARNESS, Set.of("acme-fast"))))));
+                new HarnessProfile[] {base}, new String[] {HARNESS}, Optional.of(fastOnly)));
         var noCatalogue = assertThrows(RoleRefusal.class, () -> require(value, artifact,
-                new HarnessProfile[] {profile()}, new String[] {HARNESS}, Optional.empty()));
+                new HarnessProfile[] {base}, new String[] {HARNESS}, Optional.empty()));
+        var ineligibleReason = ineligibleRefused.reason();
+        var classReason = classRefused.reason();
+        var effortReason = effortRefused.reason();
+        var refusedModelReason = refusedModel.reason();
+        var noCatalogueReason = noCatalogue.reason();
 
         assertAll(
-                () -> assertEquals(RoleValidationReason.HARNESS_NOT_ELIGIBLE, ineligibleRefused.reason()),
-                () -> assertEquals(RoleValidationReason.HARNESS_CLASS_NOT_RUNNABLE, classRefused.reason()),
-                () -> assertEquals(RoleValidationReason.EFFORT_UNSUPPORTED, effortRefused.reason()),
-                () -> assertEquals(RoleValidationReason.MODEL_NOT_ALLOWED, refusedModel.reason()),
-                () -> assertEquals(RoleValidationReason.MODEL_NOT_ALLOWED, noCatalogue.reason()));
+                () -> assertEquals(RoleValidationReason.HARNESS_NOT_ELIGIBLE, ineligibleReason),
+                () -> assertEquals(RoleValidationReason.HARNESS_CLASS_NOT_RUNNABLE, classReason),
+                () -> assertEquals(RoleValidationReason.EFFORT_UNSUPPORTED, effortReason),
+                () -> assertEquals(RoleValidationReason.MODEL_NOT_ALLOWED, refusedModelReason),
+                () -> assertEquals(RoleValidationReason.MODEL_NOT_ALLOWED, noCatalogueReason));
     }
 
     @Test
@@ -166,13 +177,17 @@ class RoleAssignmentValidationTest {
         var escalation = new Escalation(ESCALATION_HARNESS, "beta-standard", Optional.empty());
         var value = RoleAssignmentValue.of(HARNESS, MODEL, "high").withEscalation(escalation);
         var artifact = artifact(RoleClass.READ_ONLY);
+        var bothHarnesses = new HarnessProfile[] {profile(), profile(ESCALATION_HARNESS)};
+        var machineCatalogue = catalogue();
 
-        var refusal = assertThrows(RoleRefusal.class, () -> require(value, artifact,
-                new HarnessProfile[] {profile(), profile(ESCALATION_HARNESS)}, new String[] {HARNESS},
-                Optional.of(catalogue())));
+        var refusal = assertThrows(RoleRefusal.class, () -> require(value, artifact, bothHarnesses,
+                new String[] {HARNESS}, Optional.of(machineCatalogue)));
+        var reason = refusal.reason();
+        var detail = refusal.detail();
 
-        assertEquals(RoleValidationReason.HARNESS_UNKNOWN, refusal.reason());
-        assertEquals("the harness 'beta-cli' is not enrolled", refusal.detail());
+        assertAll(
+                () -> assertEquals(RoleValidationReason.HARNESS_UNKNOWN, reason),
+                () -> assertEquals("the harness 'beta-cli' is not enrolled", detail));
     }
 
     @Test
@@ -182,12 +197,14 @@ class RoleAssignmentValidationTest {
         var value = RoleAssignmentValue.of(HARNESS, MODEL, "high").withEscalation(escalation);
         var withoutBeta = new HarnessProfile[] {profile()};
         var artifact = artifact(RoleClass.READ_ONLY);
+        var machineCatalogue = catalogue();
         var refused = assertThrows(RoleRefusal.class, () -> require(value, artifact, withoutBeta,
-                new String[] {HARNESS, ESCALATION_HARNESS}, Optional.of(catalogue())));
+                new String[] {HARNESS, ESCALATION_HARNESS}, Optional.of(machineCatalogue)));
+        var reason = refused.reason();
 
         assertAll(
                 () -> assertDoesNotThrow(() -> require(value, artifact)),
-                () -> assertEquals(RoleValidationReason.HARNESS_UNKNOWN, refused.reason()));
+                () -> assertEquals(RoleValidationReason.HARNESS_UNKNOWN, reason));
     }
 
     @Test

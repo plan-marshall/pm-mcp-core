@@ -133,20 +133,28 @@ class RoleAssignmentsStoreTest {
     void refusedValues() throws Exception {
         var fileWithBadRole = base.resolve("other.json");
         Files.writeString(fileWithBadRole, "{\"format_version\":1,\"revision\":1,\"roles\":{\"Upper\":{}}}", UTF_8);
-        var missingEffort = assertThrows(IllegalArgumentException.class, () -> new RoleAssignmentValue("acme-cli",
-                "acme-standard", EffortSetting.VALUE, Optional.empty(), Optional.empty()));
-        var effortWithoutSetting = assertThrows(IllegalArgumentException.class, () -> new RoleAssignmentValue(
-                "acme-cli", "acme-standard", EffortSetting.INHERIT, Optional.of(new EffortValue("high")),
-                Optional.empty()));
+        var highEffort = Optional.of(new EffortValue("high"));
+        var noEffort = Optional.<EffortValue>empty();
+        var noEscalation = Optional.<Escalation>empty();
+        var missingEffort = assertThrows(IllegalArgumentException.class,
+                () -> new RoleAssignmentValue("acme-cli", "acme-standard", EffortSetting.VALUE, noEffort,
+                        noEscalation));
+        var effortWithoutSetting = assertThrows(IllegalArgumentException.class,
+                () -> new RoleAssignmentValue("acme-cli", "acme-standard", EffortSetting.INHERIT, highEffort,
+                        noEscalation));
         var upper = Map.of("Upper", RoleAssignmentValue.of("acme-cli", "acme-standard", "high"));
         var badRole = assertThrows(IllegalArgumentException.class, () -> store.write(upper, 0L));
+        var roleBytes = Files.readAllBytes(fileWithBadRole);
         var readRefused = assertThrows(StoreRefusal.class,
-                () -> RoleAssignmentsCodec.read(fileWithBadRole, Files.readAllBytes(fileWithBadRole)));
+                () -> RoleAssignmentsCodec.read(fileWithBadRole, roleBytes));
+        var missingMessage = missingEffort.getMessage();
+        var settingMessage = effortWithoutSetting.getMessage();
+        var badRoleMessage = badRole.getMessage();
 
         assertAll(
-                () -> assertTrue(missingEffort.getMessage().contains("effort")),
-                () -> assertTrue(effortWithoutSetting.getMessage().contains("effort")),
-                () -> assertTrue(badRole.getMessage().contains("Upper")),
+                () -> assertTrue(missingMessage.contains("effort")),
+                () -> assertTrue(settingMessage.contains("effort")),
+                () -> assertTrue(badRoleMessage.contains("Upper")),
                 () -> assertFalse(Files.exists(file)),
                 () -> assertEquals(fileWithBadRole, readRefused.file()));
     }
