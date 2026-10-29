@@ -32,6 +32,7 @@ What the clients see and what the machine and the project are enrolled with: onb
 | PLAN-V2-70-host-resident-surface-inventory | staged | Host-resident surface inventory: the calculator, the derived bounds and the test that enforces them |
 | PLAN-V2-71-profile-skill-load-template-check | staged | Profile validation requires the skill-load template to name the skill (`{{uri}}`) |
 | PLAN-V2-75-chat-plan-revision | parked | A plan's revision from a chat |
+| PLAN-V2-81-machine-stores-residue | staged | The open Sonar issues, the unresolved review findings, the coverage run and the two specification inconsistencies of PLAN-46 part 1 |
 
 ## Sequencing and Surface Notes
 

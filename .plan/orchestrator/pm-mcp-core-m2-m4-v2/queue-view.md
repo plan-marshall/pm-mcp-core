@@ -4,7 +4,7 @@
 
 ## START HERE
 
-**Resume anchor**: Do not start yet: the predecessor pm-mcp-core-m2-m4 is drained, closed and archived first (PLAN-46 and PLAN-105 land, analyze each, close, archive). Then run /plan-orchestrator land (needs PR #228 merged), then /plan-orchestrator next slug=pm-mcp-core-m2-m4-v2: the first four slots are PLAN-V2-01, 02, 03 and 04.
+**Resume anchor**: Predecessor drained and closed. Archive it, land the shared ledger worktree (one PR), then run /plan-orchestrator next slug=pm-mcp-core-m2-m4-v2: it fills up to four slots, starting with PLAN-V2-01, 02, 03, 04, and PLAN-V2-82 and 81 as soon as the gate allows.
 **Phase**: orchestrating
 **Parked**:
 - PLAN-V2-72 (WS-09)
@@ -88,6 +88,8 @@
 70. PLAN-V2-70 (WS-04)
 71. PLAN-V2-71 (WS-04)
 72. PLAN-V2-80 (WS-08)
+73. PLAN-V2-81 (WS-04)
+74. PLAN-V2-82 (WS-02)
 
 ## Ordered Queue
 
@@ -173,3 +175,5 @@
 | 78 | PLAN-V2-78 | WS-08 | parked | doc/implementation-watch/phase-workflows.adoc; doc/implementation-watch/workflow-dsl.adoc; doc/plans/change-map.adoc; doc/specification/phase-workflows/04-finalize-step-bands.adoc; doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc; doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc; pm-core/doc/developer/core-discovery.adoc; pm-core/src/main/java/de/planmarshall/core/discovery/; pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/GitOperations.java; pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/JGitOperations.java; pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/JGitOperationsTest.java; pm-workflow/src/main/java/de/planmarshall/workflow/diagram/; pm-workflow/src/main/java/de/planmarshall/workflow/finalize/ChangeMap.java | runbook |
 | 79 | PLAN-V2-79 | WS-08 | parked | doc/implementation-watch/domain-extensions.adoc; doc/plans/domain-extensions-and-architecture.adoc; doc/specification/domain-extensions/02-merge-algorithms.adoc; pm-core/src/main/java/de/planmarshall/core/architecture/; pm-core/src/main/java/de/planmarshall/core/core/domain/; pm-core/src/main/java/de/planmarshall/core/domain/EdgeDerivationAxis.java; pm-core/src/test/java/de/planmarshall/core/architecture/; pm-core/src/test/resources/ported/architecture/ | runbook |
 | 80 | PLAN-V2-80 | WS-08 | staged | doc/implementation-watch/domain-extensions.adoc; doc/plans/domain-extensions-and-architecture.adoc; doc/specification/domain-extensions/03-module-discovery.adoc; pm-core/doc/adr/core-discovery/; pm-core/doc/developer/core-discovery.adoc; pm-core/src/main/java/de/planmarshall/core/discovery/; pm-core/src/test/java/de/planmarshall/core/discovery/ | runbook |
+| 81 | PLAN-V2-81 | WS-04 | staged | doc/LogMessages.adoc; doc/Traceability.adoc; doc/core-config/; doc/plans/; doc/runtime-config/; doc/runtime-credentials/; doc/specification/credentials-and-enrolment/01-provider-credentials.adoc; doc/specification/model-work/01-roles-and-configuration.adoc; doc/specification/store-schemas/12-machine-stores.adoc; pm-runtime/README.adoc; pm-runtime/doc/adr/runtime-config/001-the-provider-defaults-are-written-in-the-runtime.adoc | runbook |
+| 82 | PLAN-V2-82 | WS-02 | staged | doc/Traceability.adoc; doc/implementation-watch/store-schemas.adoc; doc/plans/; doc/plans/README.adoc; doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc; doc/specification/workflow-dsl/09-plan-instance.adoc; pm-core; pm-workflow/doc/adr/workflow-plan/; pm-workflow/doc/developer/workflow-plan.adoc; pm-workflow/src/main/java/de/planmarshall/workflow/plan/InstancePosition.java; pm-workflow/src/main/java/de/planmarshall/workflow/plan/InstancePruner.java; pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java; pm-workflow/src/main/java/de/planmarshall/workflow/plan/PolicyCall.java; pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java | runbook |

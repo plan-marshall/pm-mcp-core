@@ -29,6 +29,7 @@ The plan instance (versions, files and history), the process designer and overvi
 | PLAN-V2-57-default-plan-lanes-and-run | staged | The fixture default plan models the land and adopt lanes, and the engine runs it end to end |
 | PLAN-V2-58-verifier-cycle-scale | staged | Measure the static verifier's cycle enumeration on units of the size the product will have, and bound it |
 | PLAN-V2-69-process-designer | staged | Designing a plan's process |
+| PLAN-V2-82-instance-composition-residue | staged | The unit-qualified position set, the composition guards and the nested policy calls of PLAN-105 |
 
 ## Sequencing and Surface Notes
 
