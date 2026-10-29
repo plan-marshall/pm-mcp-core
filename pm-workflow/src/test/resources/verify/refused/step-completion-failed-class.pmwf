@@ -7,13 +7,12 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: STEP_COMPLETION state verify.entry line 21
+# expect: STEP_COMPLETION state verify.entry line 20
 workflow verify.step-completion-failed-class version 1 format 1
 scope plan
 start verify.entry
 
 state verify.entry
-    phase verify
     auto test.fix
         fixed -> verify.done
             completes test:step as done
@@ -21,4 +20,3 @@ state verify.entry
             completes test:step as failed
 
 state verify.done terminal done success
-    phase verify

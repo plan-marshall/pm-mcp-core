@@ -67,6 +67,14 @@ public final class EndpointHarness {
         Objects.requireNonNull(profile, "profile");
         Objects.requireNonNull(enrolled, "enrolled");
         Objects.requireNonNull(request, "request");
+        if (enrolled.isEndpoint()) {
+            LOGGER.warn(RuntimeLogMessages.WARN.WORKER_LAUNCH_REFUSED, profile.clientId(),
+                    LaunchRefusal.HARNESS_NOT_ENROLLED.code(),
+                    "the endpoint '%s' is enrolled as a remote endpoint".formatted(profile.clientId()),
+                    LaunchRefusal.HARNESS_NOT_ENROLLED.resolvingAct(profile.clientId()));
+            return EndpointOutcome.refused(EndpointOutcome.Reason.HARNESS_NOT_ENROLLED,
+                    "the endpoint is enrolled as a remote endpoint");
+        }
         var endpoint = URI.create(profile.endpoint().baseUrl());
         var lookup = owner.ownerOf(endpoint.getHost(), endpoint.getPort());
         if (!lookup.runs(enrolled.executablePath().toString())) {

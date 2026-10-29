@@ -1,0 +1,41 @@
+= ADR 012: No Phase Value Outside a Phase Unit
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-28
+
+== Context
+
+The diagram renderers grouped a unit's states by `StateNode.phase()` and printed the group's phase value; a state of a
+sub-workflow or an entity unit carried `inherit`. With the phase derived from the unit (ADR workflow-ast 003), a unit
+that is no phase sub-workflow has no phase value at all, and printing `inherit` would name a concept the language no
+longer has.
+
+== Decision
+
+* The AsciiDoc state table shows `-` in the `Phase value` column for a unit that carries no phase and its tables carry
+  no `.Phase` title; a phase unit keeps the column, its value and its title.
+* The Mermaid renderer emits no phase composite for a unit that carries no phase and keeps its states at the top
+  level; a phase unit keeps its composite and its identifier allocation.
+* The golden files are regenerated from the renderers, never edited by hand.
+
+== Alternatives Considered
+
+1. *Print an empty cell and keep the phase title.* Rejected: the title would name a phase the unit does not carry.
+2. *Drop the `Phase value` column entirely.* Rejected: the State Catalogue defines the column, and a phase unit still
+  shows its phase there.
+
+== Consequences
+
+A composed instance unit whose states do not declare a phase (the plan unit) renders ungrouped until PLAN-105 composes
+the phase set with its provenance. The alias allocation of a phase composite is unchanged and tested over a phase unit.
+
+== Source
+
+* Work package `doc/plans/phase-sub-workflows.adoc`.
+* State Catalogue § Conventions; Workflow DSL Specification § Plan Instance (Display).

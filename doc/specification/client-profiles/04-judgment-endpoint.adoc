@@ -12,8 +12,6 @@ link:../../Specification.adoc[Specification] » link:../client-profiles.adoc[Cli
 == A First-Level Thinker as an Endpoint
 _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-18[PM-WF-18: Question Recommendation Score & Decision Quorum], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-2[PM-ARCH-2: Local-by-Design & Zero External Cloud Dependency], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CRED-5[PM-CRED-5: Outbound Domain Scoping & Output Secret Redaction]_
 
-_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-15[PM-WATCH-CLIENT-15]_
-
 A *first-level thinker* is a small model that answers narrow typed questions about a state with a probability for each answer and writes no text. The protocol `system_one` of the endpoint harness (link:03-endpoint-harness.adoc#endpoint-profile-schema[Endpoint Profile Schema]) speaks to one: a hosted service, or a model that a program of the machine serves in the same request format. A role of the class `zero_tool` whose harness is such an endpoint is a *judgment role*. It has no worker, no tool, and no session: a task of it is two HTTP requests composed by the server.
 
 * *Serves typed entity kinds only*: a judgment role serves the entity kinds that declare a typed form, today the kind `vote` of the question adjudication (link:../model-work/10-decision-quorum.adoc#judgment-vote[Ask or Quorum, Judgment Votes]). A kind of the text form (the screener's `screen`, the grading kind `zero_tool`) on a judgment role, and a typed kind on a role of the protocol `openai_chat`, is `class_mismatch` (link:../model-work/01-roles-and-configuration.adoc#role-composition[Model Work Specification, Composition Check]).
@@ -22,7 +20,7 @@ A *first-level thinker* is a small model that answers narrow typed questions abo
 
 [#system-one-request]
 === The Request and the Answer
-_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-15[PM-WATCH-CLIENT-15], link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-63[PM-WATCH-DISP-63]_
+_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-63[PM-WATCH-DISP-63]_
 
 A task is two requests, `POST <base_url>/v1/systemone` with `Authorization: Bearer <secret>` (remote form), `Content-Type: application/json`, no compression, and the profile's `request_timeout_seconds`:
 
@@ -47,10 +45,13 @@ A task is two requests, `POST <base_url>/v1/systemone` with `Authorization: Bear
 * *Versioned ids only*: a service moves its alias to a new release without a change of the caller, so its answers change under an unchanged qualification record. The verification (<<judgment-verification>>) sends the model id of the role and compares the `model` of the answer with it; an id the service answers with another id is refused (`model_alias`), and the model catalogue holds the versioned id. A new release is another id, unqualified until it is graded.
 * *The request body is never logged*: logs and the audit record hold the endpoint, the model id, the status, the token counts, and the duration. The body carries the facts of the task.
 
+Implemented by `pm-runtime` (link:../../../pm-runtime/doc/developer/runtime-endpoint.adoc#judgment-endpoint[Endpoint
+Harness Developer Guide § The judgment endpoint]): `SystemOneRequest` composes the two requests of a task,
+`SystemOneAnswer` reads and checks each answer, and `JudgmentEndpoint` runs the task and appends one record.
+
 [#remote-form]
 === Remote Form
 _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-2[PM-ARCH-2: Local-by-Design & Zero External Cloud Dependency], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CRED-1[PM-CRED-1: Dual-Lane Credential Separation (System vs Token Lane)]_
-_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-15[PM-WATCH-CLIENT-15]_
 
 The remote form (`locality: "remote"`) names the HTTPS origin of one service. It is an outbound request of the runtime that the operator enrolled, which `PM-ARCH-2` names beside the fetch of an icon and the check for a newer release.
 
@@ -59,6 +60,8 @@ The remote form (`locality: "remote"`) names the HTTPS origin of one service. It
 * *What leaves the machine*: the `state` and the questions of a vote task, that is, the facts and options the asking state shows. The role views of both clients mark an endpoint as remote wherever its assignment is shown, and the user documentation tells the operator to read the service's terms for retention and training on inputs before the first enrolment; a profile claims nothing about what the service does with its input.
 * *No screener*: untrusted text is screened on a loopback endpoint or a harness only; the `screen` kind has a text form that no `system_one` endpoint serves, so no external text is sent to a service for screening.
 * *No enrolment of a program*: there is no serving program, so `executable`, `identity`, and `update_evidence` are `null` and no owner check of a socket applies. The harness enrolment records the origin and the credential key (link:../store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas Specification, Harness Enrolment Store]). An unreachable origin, a refused key, or a failed verification is a start failure of the role on the endpoint (link:../model-work/03-supervision-and-recycling.adoc#start-failure-guard[Start-Failure Guard]).
+
+Implemented by `pm-runtime`: `JudgmentClient` reads the Token Lane entry at the moment of a request and sends its secret only to the origin of the entry's `url`, follows no redirect, and registers the secret with the redaction registry; the enrolment's endpoint form is `HarnessEnrolment.Binding` in the harness enrolment store (ADR `runtime-endpoint/005`).
 
 [#judgment-verification]
 === Verification of a Judgment Endpoint
@@ -87,3 +90,8 @@ The remote form (`locality: "remote"`) names the HTTPS origin of one service. It
 |===
 
 A failed `identity` or `launch` stage refuses the draft; `limits` records what it found.
+
+Implemented by `pm-runtime` (link:../../../pm-runtime/doc/developer/runtime-endpoint.adoc#judgment-endpoint[Endpoint
+Harness Developer Guide § The judgment endpoint]): `JudgmentVerification` runs the stages of a judgment endpoint,
+`ProfileStages.JUDGMENT_STAGES` leaves `classes` out, and the answers of the probes travel in the launch stage's
+`probes` (ADR `runtime-endpoint/007`).

@@ -22,21 +22,45 @@
 |-
 |===
 
-.Phase `outline`: states
+.States
 [cols="2,1,1,2,3,2,2"]
 |===
 |State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
 
 |`outline.deep`
-|`outline`
+|-
 |`auto`
 |start
 |outcomes `done`
 |`finalize.merge-gate`
 |
+
+|`finalize.merge-gate`
+|-
+|`auto`
+|`outline.deep`
+|outcomes `held`, `not_held`
+|`finalize.archive-plan`, `finalize.hand-back`
+|
+
+|`finalize.hand-back`
+|-
+|`auto`
+|`finalize.merge-gate`
+|outcomes `done`
+|`finalize.archive-plan`
+|
+
+|`finalize.archive-plan`
+|-
+|`terminal`
+|`finalize.merge-gate`, `finalize.hand-back`
+|reports `completed` (`success`)
+|-
+|
 |===
 
-.Phase `outline`: outcomes
+.Outcomes
 [cols="2,2,2,2"]
 |===
 |State |Outcome |Guard |Next state
@@ -45,42 +69,6 @@
 |`done`
 |-
 |`finalize.merge-gate`
-|===
-
-.Phase `finalize`: states
-[cols="2,1,1,2,3,2,2"]
-|===
-|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
-
-|`finalize.merge-gate`
-|`finalize`
-|`auto`
-|`outline.deep`
-|outcomes `held`, `not_held`
-|`finalize.archive-plan`, `finalize.hand-back`
-|
-
-|`finalize.hand-back`
-|`finalize`
-|`auto`
-|`finalize.merge-gate`
-|outcomes `done`
-|`finalize.archive-plan`
-|
-
-|`finalize.archive-plan`
-|`finalize`
-|`terminal`
-|`finalize.merge-gate`, `finalize.hand-back`
-|reports `completed` (`success`)
-|-
-|
-|===
-
-.Phase `finalize`: outcomes
-[cols="2,2,2,2"]
-|===
-|State |Outcome |Guard |Next state
 
 |`finalize.merge-gate`
 |`held`

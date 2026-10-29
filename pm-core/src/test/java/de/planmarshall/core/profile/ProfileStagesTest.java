@@ -32,9 +32,33 @@ import de.planmarshall.core.profile.ProfileStages.UsageCoverage;
 /**
  * The stages {@code isolation}, {@code egress} and {@code usage} record the profile values they settle, and the usage
  * stage compares the parsed figures with the harness's own record field by field (PM-CLIENT-5, Profile Verification).
+ * The stages of an endpoint are held here too, a judgment endpoint's without the {@code classes} stage.
  */
 @DisplayName("Profile verification stages")
 class ProfileStagesTest {
+
+    @Test
+    @DisplayName("a judgment endpoint records three stages and settles no executable")
+    void judgmentEndpointStages() {
+        var identity = new ProfileStages.EndpointIdentity(true, null, null, List.of("judge-2026-01-01"), Map.of());
+        var launch = new ProfileStages.EndpointLaunch(true, true, "enforced", true,
+                Map.of("two_options_ascending", "valid", "one_option", "valid"));
+        var verification = ProfileStages.EndpointVerification.judgment(identity, launch,
+                new ProfileStages.EndpointLimits(false, 0));
+
+        assertAll(
+                () -> assertTrue(verification.judgment()),
+                () -> assertNull(verification.classes()),
+                () -> assertEquals(List.of("identity", "launch", "limits"), verification.stages()),
+                () -> assertEquals(Map.of("identity", "passed", "launch", "passed", "limits", "not_run"),
+                        verification.stageStatuses()),
+                () -> assertEquals("valid", verification.launch().probes().get("one_option")),
+                () -> assertEquals(ProfileStages.EndpointValueStatus.NOT_MEASURED,
+                        verification.values().stream()
+                                .filter(value -> "/executable".equals(value.pointer())).findFirst().orElseThrow()
+                                .status()),
+                () -> assertFalse(verification.refusesDraft()));
+    }
 
     private static LoadedProfile profile() {
         var bytes = ProfileFixtures.validBytes();

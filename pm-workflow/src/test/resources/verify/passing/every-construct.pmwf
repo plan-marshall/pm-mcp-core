@@ -39,7 +39,6 @@ start verify.entry
 migrate verify.begin -> verify.entry
 
 state verify.entry
-    phase inherit
     skill pm/verify/start
     facts test.read-facts
     link next proceed ()
@@ -61,14 +60,12 @@ state verify.entry
             declined -> verify.entry
 
 state verify.next-step
-    phase inherit
     auto test.next-step
         first -> verify.prepare
         second -> verify.build
         settled -> verify.remediate
 
 state verify.prepare
-    phase inherit
     auto test.prepare
         done -> verify.compose
             completes verify:prepare as done
@@ -76,7 +73,6 @@ state verify.prepare
             completes verify:prepare as skipped
 
 state verify.build
-    phase inherit
     job test.build
         succeeded -> verify.compose
             completes verify:build as done
@@ -86,7 +82,6 @@ state verify.build
             completes verify:build as failed
 
 state verify.remediate
-    phase inherit
     call remediation.test-waiver()
         done -> verify.compose
             completes verify:probe as done
@@ -95,34 +90,29 @@ state verify.remediate
         stepped_out -> verify.stepped-out
 
 state verify.compose
-    phase inherit
     composite_job test.build
         succeeded -> verify.adjudicate
         failed -> verify.failed
         cancelled -> verify.failed
 
 state verify.adjudicate
-    phase inherit
     job llm change role each test.list-roles
         approved -> verify.review
         lost -> verify.failed
 
 state verify.review
-    phase inherit
     job llm change role implementer each test.list-changes ask
     consult role reviewer
         approved -> verify.judge
         lost -> verify.failed
 
 state verify.judge
-    phase inherit
     job llm judgement role reviewer
         approved -> verify.commit
         rejected -> verify.review
         lost -> verify.failed
 
 state verify.commit
-    phase inherit
     call git.commit_and_push(push = enabled, attempts = 2, targets = [origin, mirror])
         done -> verify.produce
             guard result.pushed
@@ -131,56 +121,44 @@ state verify.commit
         stepped_out -> verify.stepped-out
 
 state verify.produce
-    phase inherit
     auto test.produce
         done -> verify.enqueue
 
 state verify.enqueue
-    phase inherit
     auto test.enqueue
         enqueued -> verify.publish
         skipped -> verify.consume
 
 state verify.publish
-    phase inherit
     job test.build
         succeeded -> verify.consume
         failed -> verify.failed
         cancelled -> verify.failed
 
 state verify.consume
-    phase inherit
     auto test.consume
         done -> verify.done
 
 state verify.ask
-    phase inherit
     question clarification
         answered -> verify.askflow
 
 state verify.askflow
-    phase inherit
     question review
         approve -> epic.next-work
         revise -> verify.skipped
 
 state epic.next-work
-    phase inherit
     auto test.land-work
         landed -> verify.done
         abort_landed -> epic.aborted
 
 state verify.done terminal done success
-    phase inherit
 
 state verify.skipped terminal skipped skip
-    phase inherit
 
 state verify.failed terminal failed failure
-    phase inherit
 
 state verify.stepped-out terminal stepped_out stepped_out
-    phase inherit
 
 state epic.aborted terminal aborted failure
-    phase aborted

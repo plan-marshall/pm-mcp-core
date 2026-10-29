@@ -72,6 +72,10 @@ public final class LaunchComposer {
      */
     public WorkerLaunch compose(LaunchRequest request) {
         Objects.requireNonNull(request, "request");
+        if (request.enrolment().isEndpoint()) {
+            throw new CompositionException("the harness '%s' is a remote endpoint and launches no worker"
+                    .formatted(request.enrolment().clientId()));
+        }
         var role = request.role();
         var block = request.block();
         var roleClass = role.roleClass();

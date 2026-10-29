@@ -7,16 +7,14 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: STATE_EXISTS state verify.entry line 18
+# expect: STATE_EXISTS state verify.entry line 17
 workflow verify.state-not-found version 1 format 1
 scope plan
 start verify.entry
 
 state verify.entry
-    phase verify
     auto test.prepare
         done -> verify.missing
         skipped -> verify.done
 
 state verify.done terminal done success
-    phase verify

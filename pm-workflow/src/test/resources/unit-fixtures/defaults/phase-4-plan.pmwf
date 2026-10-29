@@ -1,0 +1,52 @@
+---
+name: phase-4-plan
+description: The plan phase sub-workflow of the plan unit.
+type: subworkflow
+icon: phase.plan
+entry: start
+exit: execute
+exit: land
+exit: rework
+exit: returned
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# The plan phase (Phase 4) as its own unit, written for the invariant and unit-loader tests, never copied from the
+# product. Every path into Phase 5 passes the derivation, plan.qgate and the composition; the blocking verdict of
+# plan.qgate calls the Q-Gate remediation. The phase is shared by both lanes after outline.gate, so its rework leaves
+# the phase on the `rework` exit, which the plan unit turns into a call of outline's rework entry — the authoring entry
+# every lane keeps (the light lane through its escalation), never a state of the light route.
+workflow phase-4-plan version 1 format 1
+scope subworkflow
+entry start -> plan.derive
+
+state plan.derive
+    auto test.proceed
+        done -> plan.qgate
+
+state plan.qgate
+    auto test.qgate
+        pass -> plan.compose
+        blocking -> plan.remediate
+
+state plan.remediate
+    call remediation.qgate-findings(retry_budget = 2, fix_budget = 2, waiver_wait_seconds = 3600, actions = [retry, fix])
+        resolved -> plan.compose
+        waived -> plan.compose
+        exhausted -> plan.return-exit
+        fix_requested -> plan.rework-exit
+        stepped_out -> plan.return-exit
+
+state plan.compose
+    auto test.route
+        execute -> plan.execute-exit
+        land -> plan.land-exit
+
+state plan.execute-exit terminal execute success
+
+state plan.land-exit terminal land success
+
+state plan.rework-exit terminal rework success
+
+state plan.return-exit terminal returned failure

@@ -1,76 +1,88 @@
 ---
-name: plan
-description: A unit written for the invariant and unit-loader tests.
-type: workflow
+name: phase-5-execute
+description: The execute phase sub-workflow of the plan unit.
+type: subworkflow
 icon: phase.execute
+entry: start
+entry: land
+entry: reentry
+exit: done
+exit: rework
+exit: returned
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# The execute phase (Phase 5) of the plan unit, written for the invariant and unit-loader tests, never copied from
-# the product. The worktree initialization precedes every task, job and commit; one envelope task state reacts only
+# The execute phase (Phase 5) as its own unit, written for the invariant and unit-loader tests, never copied from the
+# product. The worktree initialization precedes every task, job and commit; one envelope task state reacts only
 # through execute.evaluate-envelope-return; commits go through git.commit_and_push; the deliverable build and the
-# verify sweep precede the exit barrier, the only way into Phase 6 besides the fallback. The phase is shared by both
-# lanes, so its loop-back to the outline (the fix_requested exit of the remediation, its action loop_back) re-enters
-# outline.deep, the authoring entry every lane keeps, never a state of the light route.
-workflow plan version 1 format 1
-scope plan
-start execute.worktree-init
+# verify sweep precede the exit barrier, the only way out of the phase besides the fallback. The land lane is the
+# `land` sub-workflow the `land` entry calls, so the lane is a call within Phase 5 and never a phase of its own. The
+# phase is shared by both lanes, so its loop-back to the outline leaves on the `rework` exit — the remediation's
+# `fix_requested` action — and the plan unit turns that into a call of outline's rework entry.
+workflow phase-5-execute version 1 format 1
+scope subworkflow
+entry start -> execute.worktree-init
+entry land -> execute.land-entry
+entry reentry -> execute.worktree-init
 
 state execute.worktree-init
-    phase execute
     auto test.proceed
         done -> execute.envelope
 
 state execute.envelope
-    phase execute
     job llm change role implementer
         approved -> execute.evaluate-envelope-return
         lost -> execute.evaluate-envelope-return
 
 state execute.evaluate-envelope-return
-    phase execute
     auto test.next-task
         next_task -> execute.envelope
         deliverable_done -> execute.commit
 
 state execute.commit
-    phase execute
     call git.commit_and_push(push_mode = no_push)
         done -> execute.deliverable-build
-        stepped_out -> finalize.hand-back
+        stepped_out -> execute.hand-back-exit
 
 state execute.deliverable-build
-    phase execute
     job test.build
         succeeded -> execute.verify-sweep
-        failed -> finalize.hand-back
-        cancelled -> finalize.hand-back
+        failed -> execute.hand-back-exit
+        cancelled -> execute.hand-back-exit
 
 state execute.verify-sweep
-    phase execute
     job test.build
         succeeded -> execute.exit-barrier
         failed -> execute.remediate
-        cancelled -> finalize.hand-back
+        cancelled -> execute.hand-back-exit
 
 state execute.remediate
-    phase execute
     call remediation.qgate-findings(retry_budget = 3, fix_budget = 3, waiver_wait_seconds = 3600, actions = [retry, fix, loop_back])
         resolved -> execute.verify-sweep
         waived -> execute.exit-barrier
         exhausted -> execute.replan
-        fix_requested -> outline.deep
-        stepped_out -> finalize.hand-back
+        fix_requested -> execute.rework-exit
+        stepped_out -> execute.hand-back-exit
 
 state execute.replan
-    phase execute
     call replan()
         replanned -> execute.envelope
-        declined -> finalize.hand-back
-        stepped_out -> finalize.hand-back
+        declined -> execute.hand-back-exit
+        stepped_out -> execute.hand-back-exit
 
 state execute.exit-barrier
-    phase execute
     auto test.proceed
-        done -> finalize.push-barrier
+        done -> execute.done-exit
+
+state execute.land-entry
+    call land entry start
+        done -> execute.done-exit
+        handed_back -> execute.hand-back-exit
+        stepped_out -> execute.hand-back-exit
+
+state execute.done-exit terminal done success
+
+state execute.rework-exit terminal rework success
+
+state execute.hand-back-exit terminal returned failure

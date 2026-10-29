@@ -7,13 +7,12 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: LINK_COMPATIBILITY state verify.entry line 21
+# expect: LINK_COMPATIBILITY state verify.entry line 20
 workflow verify.link-noop-with-params version 1 format 1
 scope workspace
 start verify.entry
 
 state verify.entry
-    phase verify
     link submit choose [submit] (note: text[1..80], comment: text?)
         do test.choose
             chosen -> verify.done
@@ -24,4 +23,3 @@ state verify.entry
             declined -> verify.done
 
 state verify.done terminal done success
-    phase verify

@@ -497,19 +497,20 @@ link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeBudget.java[Pr
 link:../pm-core/src/main/java/de/planmarshall/core/store/ChangeLedger.java[ChangeLedger],
 link:../pm-core/src/main/java/de/planmarshall/core/store/QualificationSettingsStore.java[QualificationSettingsStore]
 
-Implementation (the token split and the coverage aggregate every view calls, and the token facts of a plan and an epic,
-added by the work package `token-usage`):
+Implementation (the token split and the coverage aggregate every view calls, and the token facts of a plan and an epic):
 link:../pm-core/src/main/java/de/planmarshall/core/store/HarnessUsage.java[HarnessUsage],
 link:../pm-core/src/main/java/de/planmarshall/core/store/UsageAggregate.java[UsageAggregate],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanTokens.java[PlanTokens],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/epic/EpicTokens.java[EpicTokens]
+
+The consumer of `PlanTokens` and `EpicTokens` — the `tokens.changed` event and the tokens of a running plan and of an epic with the split and the coverage — and the decision-calibration record's token split are owed to `process-and-overview` and `decision-quorum-and-calibration`; the recorded harness runs, the repeated usage evaluation and the install-path handoff `UsageResult` to `UsageReport` are owed to `machine-onboarding-unit`.
 
 Verified by (the token split and the coverage aggregate):
 link:../pm-core/src/test/java/de/planmarshall/core/store/UsageAggregateTest.java[UsageAggregateTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanTokensTest.java[PlanTokensTest],
 link:../pm-core/src/test/java/de/planmarshall/core/profile/ShippedUsageFixturesTest.java[ShippedUsageFixturesTest]
 
-Documentation (the token usage of the work package `token-usage`):
+Documentation (the token usage):
 link:../pm-core/doc/developer/core-store.adoc[Store Developer Guide],
 link:../pm-workflow/doc/developer/workflow-plan.adoc[Plan Composition Developer Guide],
 link:../pm-core/doc/adr/core-store/048-token-split-derived-on-read-and-the-coverage-aggregate.adoc[ADR core-store/048],
@@ -540,7 +541,7 @@ Learned-Budget and Ledger Stores]
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-16[PM-WF-16]
 
-Implementation (the `scope subworkflow` header with its `param` and `result` declarations, the `call` states with their bound arguments, the result guards on call-site transitions, and the call frame type, parsed into and printed from the immutable tree; the execution of bullets 1 and 3, as far as the library modules carry it and not yet wired into the runtime `pm-mcpd`: a `call` pushes a frame with the bound arguments, the caller's phase and `pushed_at` onto the persisted `call_stack` of at most four frames and keeps the caller's phase under `phase inherit`, a resting state inside a sub-workflow is persisted with the call stack, a terminal pops exactly one frame and the calling state routes its outcome, choosing among the routes of `done` by the result guard that holds, and the server step-out and the implicit `step_out` of a resting link state unwind one frame; bullet 2 as the static verifier's call-graph check (Rule 7) and exit-contract check (Rule 6); and, for the project-owned units, the compiled invariants `INV-GIT-1` (the six stages of `git.commit_and_push` in order on every path, its exit contract `done` plus `stepped_out`, no force push but the lease-protected one) and `INV-REM-5` (every call site of a remediation unit routes `exhausted` and `stepped_out` to the phase fallback or the re-planning state and binds every budget within its hard cap); the representation of the call path and the shipped `git.commit_and_push` unit are not implemented yet): link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/WorkflowParser.java[WorkflowParser],
+Implementation (the `scope subworkflow` header with its `param` and `result` declarations, the `call` states with their bound arguments, the result guards on call-site transitions, and the call frame type, parsed into and printed from the immutable tree; the execution of bullets 1 and 3, as far as the library modules carry it and not yet wired into the runtime `pm-mcpd`: a `call` pushes a frame with the bound arguments and `pushed_at` onto the persisted `call_stack` of at most five frames, and the phase of the scope is the phase sub-workflow on that stack, which every unit called within the phase shares, a resting state inside a sub-workflow is persisted with the call stack, a terminal pops exactly one frame and the calling state routes its outcome, choosing among the routes of `done` by the result guard that holds, and the server step-out and the implicit `step_out` of a resting link state unwind one frame; bullet 2 as the static verifier's call-graph check (Rule 7, at most five frames) and exit-contract check (Rule 6); the plan unit calling the six phase sub-workflows, each a unit of its own, with the compiled invariants decided over the call-resolved graph of the composed version and each phase unit held to its own phase's invariants; and, for the project-owned units, the compiled invariants `INV-GIT-1` (the six stages of `git.commit_and_push` in order on every path, its exit contract `done` plus `stepped_out`, no force push but the lease-protected one) and `INV-REM-5` (every call site of a remediation unit routes `exhausted` and `stepped_out` to the phase fallback or the re-planning state and binds every budget within its hard cap); the representation of the call path and the shipped `git.commit_and_push` unit are not implemented yet): link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/WorkflowParser.java[WorkflowParser],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/WorkflowPrinter.java[WorkflowPrinter],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/WorkflowDefinition.java[WorkflowDefinition],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WorkflowEngine.java[WorkflowEngine],
@@ -1357,18 +1358,34 @@ model tiers, the context-budget fallback, the idle wakeups, the resumability tha
 the harness's ask-user tool that no role may name — projected from the profile document; a role of a class the harness
 cannot run is invalid with `harness_class_not_runnable`, and the steward takes its model from the harness's tier
 `standard`. Also the endpoint profile of the same sets: `profile_kind: "endpoint"`, its closed document, the locality
-combinations the schema cannot express, and the projection the runtime reads (Client Profiles § Endpoint Harness; ADRs
-core-profile/010, /011 and /012). Not implemented here: the translation of skills, links and prompts, and the composition
-of a launch from the `headless` block, which belong to the host-integration and worker-launch packages):
+combinations the schema cannot express — the remote form of the protocol `system_one` included — and the projection the
+runtime reads (Client Profiles § Endpoint Harness, § Judgment Endpoint; ADRs core-profile/010, /011 and /012). Also the
+protocol `system_one`: the two typed requests of a judgment task with the options in opposite orders, the server's check
+of each answer against the requested versioned id and the question's options, the remote form's credential read at the
+moment of a request and sent only to the entry's origin without a redirect, the one record of a task, and the
+verification differences of a judgment endpoint (ADRs runtime-endpoint/005, /006 and /007). Not implemented here: the
+translation of skills, links and prompts, the composition of a launch from the `headless` block, the vote built on the two
+answers, and the calibration of a declaration, which belong to the host-integration, worker-launch and judgment-votes
+packages):
 link:../pm-core/src/main/java/de/planmarshall/core/role/HarnessProfile.java[HarnessProfile],
 link:../pm-core/src/main/java/de/planmarshall/core/role/RoleValidation.java[RoleValidation],
 link:../pm-core/src/main/java/de/planmarshall/core/role/RoleCatalog.java[RoleCatalog],
 link:../pm-core/src/main/java/de/planmarshall/core/role/StewardConfiguration.java[StewardConfiguration],
 link:../pm-core/src/main/java/de/planmarshall/core/profile/EndpointProfile.java[EndpointProfile],
+link:../pm-core/src/main/java/de/planmarshall/core/profile/ProfileStages.java[ProfileStages],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointRequest.java[EndpointRequest],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointOutcome.java[EndpointOutcome],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointHarness.java[EndpointHarness],
-link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointVerification.java[EndpointVerification]
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/EndpointVerification.java[EndpointVerification],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/SystemOneRequest.java[SystemOneRequest],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/SystemOneAnswer.java[SystemOneAnswer],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/JudgmentClient.java[JudgmentClient],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/JudgmentEndpoint.java[JudgmentEndpoint],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/endpoint/JudgmentVerification.java[JudgmentVerification],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/TokenLaneCredential.java[TokenLaneCredential],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolment.java[HarnessEnrolment],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolmentStore.java[HarnessEnrolmentStore],
+link:../pm-core/src/main/java/de/planmarshall/core/service/AuditEvent.java[AuditEvent]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/RoleValidationTableTest.java[RoleValidationTableTest],
 link:../pm-core/src/test/java/de/planmarshall/core/role/RoleEffectiveConfigurationTest.java[RoleEffectiveConfigurationTest],
@@ -1377,11 +1394,24 @@ link:../pm-core/src/test/java/de/planmarshall/core/role/HarnessProfileEndpointTe
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointRequestTest.java[EndpointRequestTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointOutcomeTest.java[EndpointOutcomeTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointHarnessTest.java[EndpointHarnessTest],
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointVerificationTest.java[EndpointVerificationTest]
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/EndpointVerificationTest.java[EndpointVerificationTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/SystemOneRequestTest.java[SystemOneRequestTest] (the
+options of both requests in opposite orders, the protocol's members alone, the context budget),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/SystemOneAnswerTest.java[SystemOneAnswerTest] (the
+requested model id, the probabilities' sum within 0.01, `confidence` never read),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/JudgmentEndpointTest.java[JudgmentEndpointTest] (the
+alias refused, the `429` not retried, the probabilities that do not sum, the body out of the log and the audit record),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/JudgmentEndpointRemoteTest.java[JudgmentEndpointRemoteTest]
+(the entry's own origin succeeding with the bearer secret, a redirect to another origin and to `http` receiving none),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/endpoint/JudgmentVerificationTest.java[JudgmentVerificationTest]
 
 Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Artifacts Developer Guide],
 link:../pm-core/doc/developer/core-profile.adoc#_endpoint_profiles[Profile Loader and Schema Developer Guide § Endpoint
-profiles]
+profiles], link:../pm-runtime/doc/developer/runtime-endpoint.adoc[Endpoint Harness Developer Guide] (§ The judgment
+endpoint), ADRs
+link:../pm-runtime/doc/adr/runtime-endpoint/005-remote-endpoint-enrolment-records-origin-and-credential-key.adoc[005],
+link:../pm-runtime/doc/adr/runtime-endpoint/006-system-one-through-cui-http-pinned-origin-no-redirect.adoc[006] and
+link:../pm-runtime/doc/adr/runtime-endpoint/007-judgment-verification-without-classes-and-with-billed-limits.adoc[007]
 
 [#PM-CLIENT-5]
 === PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy
@@ -1401,11 +1431,13 @@ link:../pm-core/src/main/java/de/planmarshall/core/profile/ProfileStages.java[Pr
 link:../pm-core/src/main/java/de/planmarshall/core/profile/SupportedVersions.java[SupportedVersions],
 link:../pm-core/src/main/java/de/planmarshall/core/profile/ShippedProfiles.java[ShippedProfiles]
 
-Implementation (the start context and the usage coverage of the stage `usage`, added by the work package `token-usage`):
+Implementation (the start context and the usage coverage of the stage `usage`):
 link:../pm-core/src/main/java/de/planmarshall/core/profile/ProfileStages.java[ProfileStages],
 link:../pm-core/src/main/java/de/planmarshall/core/profile/VerificationRecord.java[VerificationRecord],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolment.java[HarnessEnrolment],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolmentStore.java[HarnessEnrolmentStore]
+
+The install path that hands the verification's `UsageResult` to the enrolment's `UsageReport` (`UsageReport.of` is the mapping boundary), and the recorded output of each harness and version as a parsing fixture, are owed to `machine-onboarding-unit`.
 
 Verified by (the start context and the usage coverage):
 link:../pm-core/src/test/java/de/planmarshall/core/profile/VerificationRecordTest.java[VerificationRecordTest],
@@ -1608,8 +1640,7 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/finalize/SimplifyStep
 Documentation (the simplify step): link:../pm-workflow/doc/developer/workflow-finalize.adoc#_the_simplify_step[Finalize Pipeline Developer Guide § The Simplify Step],
 link:../pm-workflow/doc/adr/workflow-finalize/004-clone-candidates-are-evidence-never-findings.adoc[ADR workflow-finalize/004]
 
-Implementation (the project-owned units and the compiled invariants: the loader of the default units from a classpath root the assembly names, the merge of the phase files into the plan unit with its part versions and the recorded `derived_from`, and the loader of a project's units from `.marshall/config/`, which confines every path, bounds every unit file at 1048576 bytes, refuses an author equal to the reserved one after NFKC normalisation, removal of its format characters, stripping and case folding, refuses another DSL format, verifies Rules 1-12, the declarations within their compiled bounds, the finalize pipeline over the project roster, the thirty compiled invariants against the default unit of the same id (among them the remediation invariants over the six remediation units, without a spend unit, and `INV-FIN-5`, which checks only that every path to the merge passes `finalize.merge-gate`) and the binding of the project steps, and returns every verified unit or every finding with file and line, refusing the lifecycle with `config_invalid` and never falling back to a default unit; the finalize step descriptor and the validator of the pipeline rules; the parts of `INV-GEN-2`, `INV-GEN-4` and `INV-REM-6` that need runtime facts, the `work_performed` clause of the validator's rule 6, its rule 7, the write-time refusal of its rule 8, the reading of `workflow.json` and the enrolment for the project steps, and the check of the shipped default units are not implemented yet): link:../pm-workflow/src/main/java/de/planmarshall/workflow/unit/DefaultUnitLoader.java[DefaultUnitLoader],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/unit/PlanUnitMerger.java[PlanUnitMerger],
+Implementation (the project-owned units and the compiled invariants: the loader of the default units from a classpath root the assembly names, each unit loaded on its own — the plan unit calling its six phase sub-workflows and the land lane, never a merged tree — and the loader of a project's units from `.marshall/config/`, which confines every path, bounds every unit file at 1048576 bytes, refuses an author equal to the reserved one after NFKC normalisation, removal of its format characters, stripping and case folding, refuses another DSL format, verifies Rules 1-12, the declarations within their compiled bounds, the finalize pipeline over the project roster, the thirty compiled invariants against the default unit of the same id (among them the remediation invariants over the six remediation units, without a spend unit, and `INV-FIN-5`, which checks only that every path to the merge passes `finalize.merge-gate`), the invariants of a composed plan over the call-resolved graph of its calls, and the binding of the project steps, and returns every verified unit or every finding with file and line, refusing the lifecycle with `config_invalid` and never falling back to a default unit; the finalize step descriptor and the validator of the pipeline rules; the parts of `INV-GEN-2`, `INV-GEN-4` and `INV-REM-6` that need runtime facts, the `work_performed` clause of the validator's rule 6, its rule 7, the write-time refusal of its rule 8, the reading of `workflow.json` and the enrolment for the project steps, and the check of the shipped default units are not implemented yet): link:../pm-workflow/src/main/java/de/planmarshall/workflow/unit/DefaultUnitLoader.java[DefaultUnitLoader],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/unit/ProjectUnitLoader.java[ProjectUnitLoader],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/unit/UnitFinding.java[UnitFinding],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/unit/UnitLoadResult.java[UnitLoadResult],
@@ -1623,7 +1654,6 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/finalize/FinalizePipe
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/finalize/PipelineRule.java[PipelineRule]
 
 Verified by (the project-owned units and the compiled invariants): link:../pm-workflow/src/test/java/de/planmarshall/workflow/unit/DefaultUnitLoaderTest.java[DefaultUnitLoaderTest],
-link:../pm-workflow/src/test/java/de/planmarshall/workflow/unit/PlanUnitMergerTest.java[PlanUnitMergerTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/unit/ProjectUnitLoaderTest.java[ProjectUnitLoaderTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/unit/ProjectStepBindingTest.java[ProjectStepBindingTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/CompiledInvariantsTest.java[CompiledInvariantsTest],
@@ -1965,8 +1995,7 @@ link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerProtocol.j
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/ModelSlots.java[ModelSlots],
 link:../pm-core/src/main/java/de/planmarshall/core/store/WorkerState.java[WorkerState]
 
-Implementation (the usage figures a turn keeps raw — the five token components, `tool_uses` and the reported cost —
-added by the work package `token-usage`):
+Implementation (the usage figures a turn keeps raw — the five token components, `tool_uses` and the reported cost):
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/ActivityEventMapper.java[ActivityEventMapper]
 
 Verified by (the turn's usage figures):

@@ -83,6 +83,7 @@ Holder: `de.planmarshall.runtime.log.RuntimeLogMessages`.
 |PM_RUNTIME-36 |WorkerSupervisor |Worker generation '%s' of role '%s' started on harness '%s' |Logged once the job runner reported the started job; names the worker generation, the role and the client id of the harness
 |PM_RUNTIME-37 |WorkerEnding |Worker generation '%s' of role '%s' ended with cause '%s' |Logged when a worker generation ended; names the generation, the role and the `EndCause` by its wire name (`task_done`, `recycle`, `drain`, `pause_at_once`, `lost`, `off_track` or `start_failure`)
 |PM_RUNTIME-38 |WorkerRecycling |Worker generation '%s' of role '%s' recycled for '%s' |Logged when a warm worker generation was recycled; names the generation, the role and what recycled it (`idle`, `token_budget`, `tasks_per_generation`, `configuration_changed` or `idle_yield`)
+|PM_RUNTIME-39 |JudgmentEndpoint |Judgment task of model '%s' on the endpoint '%s' answered (input %s, output %s, %s ms) |Logged when a judgment task answered both requests of the task: names the versioned model id, the endpoint's origin, the input and output tokens the answers measured and the duration. Never the request body, the facts or the credential; the `judgment_task_completed` audit record carries the same facts and the status the task ended with
 |===
 
 === WARN Level (100-199)
@@ -162,7 +163,7 @@ Holder: `de.planmarshall.workflow.log.WorkflowLogMessages`.
 [cols="1,1,2,2", options="header"]
 |===
 |ID |Component |Message |Description
-|PM_WORKFLOW-1 |ProjectUnitLoader |Units of project '%s' verified: %s units |Logged when a load of a project's units from `.marshall/config/` found no finding (`PM-IMPL-5`); names the project id and the number of verified units, the merged plan unit counting as one
+|PM_WORKFLOW-1 |ProjectUnitLoader |Units of project '%s' verified: %s units |Logged when a load of a project's units from `.marshall/config/` found no finding (`PM-IMPL-5`); names the project id and the number of verified units, the plan unit and each phase sub-workflow counting as one
 |PM_WORKFLOW-2 |PlanInstanceStore |Plan instance version %s of plan '%s' recorded for the event '%s' |Logged when a composed version of a plan instance is staged in the caller's scope transaction (`PM-IMPL-5`), together with its line of `instance/composition.jsonl` and the texts of the sub-units it is the first version to name; names the version, the plan id and the composition event. The files are written when the caller commits the transaction
 |===
 

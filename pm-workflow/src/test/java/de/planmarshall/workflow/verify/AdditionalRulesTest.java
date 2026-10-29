@@ -37,7 +37,6 @@ class AdditionalRulesTest {
     private static final String DONE_TERMINAL = """
 
             state verify.done terminal done success
-                phase verify
             """;
 
     private static WorkflowDefinition unit(String scope, String states) {
@@ -86,7 +85,6 @@ class AdditionalRulesTest {
                 start verify.missing
 
                 state verify.entry terminal done success
-                    phase verify
                 """);
 
         assertEquals(List.of(
@@ -105,7 +103,6 @@ class AdditionalRulesTest {
         // plan unit admits no resting link state (Rule 10).
         var def = unit("workspace", """
                 state verify.entry
-                    phase verify
                     link submit choose [submit] (note: schema[unregistered-schema], comment: text)
                         do test.choose
                             chosen -> verify.done
@@ -131,7 +128,6 @@ class AdditionalRulesTest {
 
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     job llm custom role reviewer
                         approved -> verify.done
                         lost -> verify.done
@@ -152,7 +148,6 @@ class AdditionalRulesTest {
 
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     job llm screen role reviewer ask
                         approved -> verify.done
                         lost -> verify.done
@@ -168,7 +163,6 @@ class AdditionalRulesTest {
     void entityKindEachPrimitiveMissing() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     job llm change role reviewer each test.missing
                         approved -> verify.done
                         lost -> verify.done
@@ -184,7 +178,6 @@ class AdditionalRulesTest {
     void entityKindRoleEachNotInAdjudicateDecisions() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     job llm change role each test.list-changes ask
                         approved -> verify.done
                         lost -> verify.done
@@ -202,7 +195,6 @@ class AdditionalRulesTest {
     void entityKindAskFreshOnRoleEach() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     job llm change role each test.list-changes ask fresh
                         approved -> verify.done
                         lost -> verify.done
@@ -220,7 +212,6 @@ class AdditionalRulesTest {
     void roleNameGrammarInvalidConsultRole() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     job llm change role reviewer
                     consult role too-long-role-name-that-exceeds-maximum-allowed-length-thirty-two
                         approved -> verify.done
@@ -238,13 +229,11 @@ class AdditionalRulesTest {
     void jobStartingOutcomeTargetsNonJob() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     auto test.enqueue
                         enqueued -> verify.nonjob
                         skipped -> verify.done
 
                 state verify.nonjob
-                    phase verify
                     auto test.prepare
                         done -> verify.done
                         skipped -> verify.done
@@ -261,13 +250,11 @@ class AdditionalRulesTest {
     void jobStartingOutcomeNonJobOutcomeTargetsJob() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     auto test.enqueue
                         enqueued -> verify.targetjob
                         skipped -> verify.targetjob
 
                 state verify.targetjob
-                    phase verify
                     job test.build
                         succeeded -> verify.done
                         failed -> verify.done
@@ -285,7 +272,6 @@ class AdditionalRulesTest {
     void modelJobOutcomesDefects() {
         var def = unit("workspace", """
                 state verify.entry
-                    phase verify
                     job llm change role reviewer
                         approved -> verify.done
                         approved -> verify.done
@@ -308,13 +294,11 @@ class AdditionalRulesTest {
                 start caller.invoke
 
                 state caller.invoke
-                    phase verify
                     call %s()
                         done -> caller.done
                         stepped_out -> caller.done
 
                 state caller.done terminal done success
-                    phase verify
                 """.formatted(id, scope, callee));
     }
 
@@ -340,18 +324,15 @@ class AdditionalRulesTest {
             entry main -> verify.branch
 
             state verify.branch
-                phase inherit
                 auto test.prepare
                     done -> verify.entry
                     skipped -> verify.done
 
             state verify.entry
-                phase inherit
                 job llm change role reviewer
                     approved -> verify.entry
 
             state verify.done terminal done success
-                phase inherit
             """);
 
     /** Verifies {@link #REVIEWED} against a catalog of the callers and the entity unit of its task state. */
@@ -399,7 +380,6 @@ class AdditionalRulesTest {
     void questionOutcomesDefects() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     question review
                         approve -> verify.done
                         approve -> verify.done
@@ -421,7 +401,6 @@ class AdditionalRulesTest {
     void linkCompatibilityDefects() {
         var def = unit("workspace", """
                 state verify.entry
-                    phase verify
                     link consult other (note: text[1..80], comment: text)
                         do test.choose
                             chosen -> verify.done
@@ -456,16 +435,13 @@ class AdditionalRulesTest {
     void abortTerminalTargetingDefects() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     auto test.prepare
                         done -> plan.aborted
                         skipped -> epic.aborted
 
                 state plan.aborted terminal aborted failure
-                    phase aborted
 
                 state epic.aborted terminal aborted failure
-                    phase aborted
                 """);
 
         assertEquals(violationsOf(VerificationRule.ABORT_TERMINAL_TARGETING, "verify.entry",
@@ -492,20 +468,17 @@ class AdditionalRulesTest {
                 start verify.entry
 
                 state verify.entry
-                    phase verify
                     skill pm/verify/start
                     link next proceed ()
                         do test.proceed
                             done -> verify.model
 
                 state verify.model
-                    phase verify
                     job llm change role reviewer
                         approved -> verify.done
                         lost -> verify.done
 
                 state verify.done terminal done success
-                    phase verify
                 """);
         assertEquals(List.of(
                         new RuleStateMessage(VerificationRule.LEAF_TASK_CONSTRAINT, "verify.entry",
@@ -535,14 +508,12 @@ class AdditionalRulesTest {
                 entry main -> verify.entry
 
                 state verify.entry
-                    phase verify
                     skill pm/verify/start
                     link next consult:review ()
                         do test.proceed
                             done -> verify.target
 
                 state verify.target
-                    phase verify
                     job llm change role reviewer
                     consult role auditor
                         approved -> verify.done
@@ -560,8 +531,8 @@ class AdditionalRulesTest {
     }
 
     @Test
-    @DisplayName("SUBWORKFLOW_CALL_CONTRACT: resting link missing skill and phase inherit in plan scope")
-    void subWorkflowRestingLinkAndInherit() {
+    @DisplayName("SUBWORKFLOW_CALL_CONTRACT: a resting link of a sub-workflow must declare a skill")
+    void subWorkflowRestingLink() {
         var subwfDef = VerifyFixtures.parseSource("subwf.pmwf", """
                 ---
                 name: subwf.test
@@ -579,35 +550,20 @@ class AdditionalRulesTest {
                 entry main -> verify.entry
 
                 state verify.entry
-                    phase inherit
                     link next proceed ()
                         do test.proceed
                             done -> verify.done
 
                 state verify.done terminal done success
-                    phase inherit
                 """);
         assertEquals(violationsOf(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
                 "the resting link state 'verify.entry' of a sub-workflow must declare a skill"),
                 found(subwfDef));
-
-        var planDef = unit("plan", """
-                state verify.entry
-                    phase inherit
-                    auto test.prepare
-                        done -> verify.done
-                        skipped -> verify.done
-                """ + DONE_TERMINAL);
-        assertEquals(violationsOf(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
-                "the state 'verify.entry' declares 'phase inherit', which is admitted only in sub-workflow and"
-                        + " entity units"),
-                found(planDef));
     }
 
     private static final String PLAN_RETURN = """
 
             state plan.return terminal returned failure
-                phase verify
             """;
 
     @Test
@@ -615,7 +571,6 @@ class AdditionalRulesTest {
     void subWorkflowCalleeRegistrationAndScope() {
         var unregisteredDef = unit("plan", """
                 state verify.entry
-                    phase verify
                     call missing.subwf()
                         done -> verify.done
                 """ + DONE_TERMINAL);
@@ -625,7 +580,6 @@ class AdditionalRulesTest {
 
         var callWsDef = unit("plan", """
                 state verify.entry
-                    phase verify
                     call test.workspace-unit()
                         done -> verify.done
                         stepped_out -> plan.return
@@ -646,7 +600,6 @@ class AdditionalRulesTest {
     void subWorkflowExitContractFromDeclaredExits() {
         var routed = unit("plan", """
                 state verify.entry
-                    phase verify
                     call remediation.test-waiver()
                         done -> verify.done
                         waived -> verify.done
@@ -656,7 +609,6 @@ class AdditionalRulesTest {
 
         var unrouted = unit("plan", """
                 state verify.entry
-                    phase verify
                     call remediation.test-waiver()
                         done -> verify.done
                         stepped_out -> plan.return
@@ -671,7 +623,6 @@ class AdditionalRulesTest {
     void subWorkflowParamMismatches() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     call git.commit_and_push(push = invalid_val, attempts = 99, targets = [invalid_target], extra = true_val)
                         done -> verify.done
                         stepped_out -> plan.return
@@ -692,7 +643,6 @@ class AdditionalRulesTest {
     void subWorkflowMissingParamsAndOutcomes() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     call git.commit_and_push()
                         bogus -> verify.done
                 """ + DONE_TERMINAL);
@@ -713,7 +663,6 @@ class AdditionalRulesTest {
     void subWorkflowSteppedOutImplicitWithoutRestingLink() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     call test.depth5()
                         done -> verify.done
                 """ + DONE_TERMINAL);
@@ -730,13 +679,11 @@ class AdditionalRulesTest {
     void subWorkflowSteppedOutRoutedWithoutRestingLink() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     call test.depth5()
                         done -> verify.done
                         stepped_out -> plan.return
 
                 state plan.return terminal returned failure
-                    phase verify
                 """ + DONE_TERMINAL);
 
         assertEquals(List.of(), violations(def));
@@ -747,7 +694,6 @@ class AdditionalRulesTest {
     void subWorkflowSteppedOutMissing() {
         var def = unit("subworkflow", """
                 state verify.entry
-                    phase verify
                     call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
                         done -> verify.done
                 """ + DONE_TERMINAL);
@@ -773,7 +719,6 @@ class AdditionalRulesTest {
 
         var def = unit("workspace", """
                 state verify.entry
-                    phase verify
                     question ask
                         answered -> verify.done
                 """ + DONE_TERMINAL);
@@ -788,7 +733,6 @@ class AdditionalRulesTest {
     void questionAskOutcomes() {
         var passing = unit("workspace", """
                 state verify.entry
-                    phase verify
                     question review
                         approve -> verify.done
                         revise -> verify.done
@@ -797,7 +741,6 @@ class AdditionalRulesTest {
 
         var missing = unit("workspace", """
                 state verify.entry
-                    phase verify
                     question review
                         approve -> verify.done
                 """ + DONE_TERMINAL);
@@ -816,7 +759,6 @@ class AdditionalRulesTest {
     void stepCompletionDefects() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     auto test.prepare
                         done -> verify.second
                             completes step:x as done
@@ -824,7 +766,6 @@ class AdditionalRulesTest {
                             completes step:x as waived
 
                 state verify.second
-                    phase verify
                     auto test.prepare
                         done -> verify.done
                             completes step:x as done
@@ -844,7 +785,6 @@ class AdditionalRulesTest {
     void stepCompletionDoneAdmission() {
         var classDef = unit("plan", """
                 state verify.entry
-                    phase verify
                     job test.build
                         succeeded -> verify.done
                             completes step:y as done
@@ -859,7 +799,6 @@ class AdditionalRulesTest {
 
         var unknownDef = unit("plan", """
                 state verify.entry
-                    phase verify
                     auto test.missing
                         done -> verify.done
                             completes step:z as done
@@ -892,7 +831,6 @@ class AdditionalRulesTest {
                 entry main -> verify.entry
 
                 state verify.entry
-                    phase inherit
                     job llm change role reviewer
                         approved -> verify.invocation
                             completes verify:model as done
@@ -901,17 +839,14 @@ class AdditionalRulesTest {
                             completes verify:call as skipped
 
                 state verify.invocation
-                    phase inherit
                     call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
                         done -> verify.done
                             completes verify:call as done
                         stepped_out -> verify.stepped-out
 
                 state verify.done terminal done success
-                    phase inherit
 
                 state verify.stepped-out terminal stepped_out stepped_out
-                    phase inherit
                 """);
 
         assertEquals(List.of(), violations(def));
@@ -922,7 +857,6 @@ class AdditionalRulesTest {
     void stepCompletionQuestionOutcomeHasNoClass() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     question review
                         approve -> verify.done
                             completes verify:q as done
@@ -941,7 +875,6 @@ class AdditionalRulesTest {
     void stepCompletionNoCompletionOnAPath() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     auto test.prepare
                         done -> verify.done
                             completes step:s as done
@@ -958,7 +891,6 @@ class AdditionalRulesTest {
     void stepCompletionEarlyEndOnUnsettled() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     auto test.fix
                         fixed -> verify.done
                             completes step:s as done
@@ -973,20 +905,17 @@ class AdditionalRulesTest {
     void stepCompletionImplicitFailed() {
         var passing = unit("plan", """
                 state verify.entry
-                    phase verify
                     auto test.prepare
                         done -> verify.done
                             completes step:s as done
                         skipped -> plan.return
 
                 state plan.return terminal returned failure
-                    phase verify
                 """ + DONE_TERMINAL);
         assertEquals(List.of(), violations(passing));
 
         var completing = unit("plan", """
                 state verify.entry
-                    phase verify
                     auto test.prepare
                         done -> verify.done
                             completes step:s as done
@@ -994,7 +923,6 @@ class AdditionalRulesTest {
                             completes step:s as failed
 
                 state plan.return terminal returned failure
-                    phase verify
                 """ + DONE_TERMINAL);
         assertEquals(stepCompletion("verify.entry",
                 "the step 'step:s' is completed on the transition into 'plan.return', whose entry records the open firing as failed"),
@@ -1006,7 +934,6 @@ class AdditionalRulesTest {
     void stepCompletionSkippedAdmission() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     job test.build
                         succeeded -> verify.done
                             completes step:s as done
@@ -1026,7 +953,6 @@ class AdditionalRulesTest {
     void stepCompletionWaivedOnRemediationCall() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     call remediation.test-waiver()
                         done -> verify.done
                             completes step:s as done
@@ -1035,7 +961,6 @@ class AdditionalRulesTest {
                         stepped_out -> plan.return
 
                 state plan.return terminal returned failure
-                    phase verify
                 """ + DONE_TERMINAL);
 
         assertEquals(List.of(), violations(def));
@@ -1046,14 +971,12 @@ class AdditionalRulesTest {
     void stepCompletionWaivedOutsideRemediation() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
                         done -> verify.done
                             completes step:s as waived
                         stepped_out -> plan.return
 
                 state plan.return terminal returned failure
-                    phase verify
                 """ + DONE_TERMINAL);
 
         assertEquals(stepCompletion("verify.entry",
@@ -1066,14 +989,12 @@ class AdditionalRulesTest {
     void stepListOnHubOfUnitWithStepList() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     auto test.next-step
                         first -> verify.one
                         second -> verify.two
                         settled -> verify.done
 
                 state verify.one
-                    phase verify
                     auto test.prepare
                         done -> verify.entry
                             completes step:one as done
@@ -1081,7 +1002,6 @@ class AdditionalRulesTest {
                             completes step:one as skipped
 
                 state verify.two
-                    phase verify
                     auto test.prepare
                         done -> verify.entry
                             completes step:two as done
@@ -1097,7 +1017,6 @@ class AdditionalRulesTest {
     void stepListOnUnitWithoutStepList() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     auto test.next-step
                         first -> verify.done
                         second -> verify.done
@@ -1114,19 +1033,16 @@ class AdditionalRulesTest {
     void archiveStepsInEpicUnit() {
         var def = unit("epic", """
                 state verify.entry
-                    phase verify
                     auto test.next-work
                         archive_uncommitted -> verify.commit
                         archived -> verify.done
 
                 state verify.commit
-                    phase verify
                     call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
                         done -> verify.land
                         stepped_out -> verify.land
 
                 state verify.land
-                    phase verify
                     job test.build
                         succeeded -> verify.entry
                         failed -> verify.entry
@@ -1141,7 +1057,6 @@ class AdditionalRulesTest {
     void archiveStepsWithoutCommitAndLanding() {
         var def = unit("epic", """
                 state verify.entry
-                    phase verify
                     auto test.next-work
                         archive_uncommitted -> verify.done
                         archived -> verify.done
@@ -1158,26 +1073,22 @@ class AdditionalRulesTest {
     void archiveStepsWithCommitOffTheCycle() {
         var def = unit("epic", """
                 state verify.entry
-                    phase verify
                     auto test.next-work
                         archive_uncommitted -> verify.land
                         archived -> verify.commit
 
                 state verify.land
-                    phase verify
                     job test.build
                         succeeded -> verify.entry
                         failed -> verify.entry
                         cancelled -> verify.entry
 
                 state verify.commit
-                    phase verify
                     call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
                         done -> verify.done
                         stepped_out -> verify.wait
 
                 state verify.wait
-                    phase verify
                     job test.build
                         succeeded -> verify.done
                         failed -> verify.done
@@ -1194,14 +1105,12 @@ class AdditionalRulesTest {
     void stepListPassSettlingTwoSteps() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     auto test.next-step
                         first -> verify.one
                         second -> verify.two
                         settled -> verify.done
 
                 state verify.one
-                    phase verify
                     auto test.prepare
                         done -> verify.entry
                             completes step:one as done
@@ -1211,7 +1120,6 @@ class AdditionalRulesTest {
                             completes step:other as skipped
 
                 state verify.two
-                    phase verify
                     auto test.prepare
                         done -> verify.entry
                             completes step:two as done
@@ -1229,14 +1137,12 @@ class AdditionalRulesTest {
     void stepListPassSettlingOneStepTwice() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     auto test.next-step
                         first -> verify.one
                         second -> verify.two
                         settled -> verify.done
 
                 state verify.one
-                    phase verify
                     auto test.prepare
                         done -> verify.again
                             completes step:x as done
@@ -1244,13 +1150,11 @@ class AdditionalRulesTest {
                             completes step:x as skipped
 
                 state verify.again
-                    phase verify
                     auto test.proceed
                         done -> verify.entry
                             completes step:x as done
 
                 state verify.two
-                    phase verify
                     auto test.prepare
                         done -> verify.entry
                             completes step:two as done
@@ -1271,7 +1175,6 @@ class AdditionalRulesTest {
     void stepListPassCompletingOneStepTwiceWithoutOpening() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     auto test.next-step
                         first -> verify.one
                             completes step:x as failed
@@ -1279,7 +1182,6 @@ class AdditionalRulesTest {
                         settled -> verify.done
 
                 state verify.one
-                    phase verify
                     auto test.prepare
                         done -> verify.entry
                             completes step:x as failed
@@ -1287,7 +1189,6 @@ class AdditionalRulesTest {
                             completes step:x as failed
 
                 state verify.two
-                    phase verify
                     auto test.prepare
                         done -> verify.entry
                             completes step:two as done
@@ -1305,28 +1206,24 @@ class AdditionalRulesTest {
     void stepListPathsThatAreNoPass() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     auto test.next-step
                         first -> verify.one
                         second -> verify.fix
                         settled -> verify.done
 
                 state verify.one
-                    phase verify
                     auto test.prepare
                         done -> verify.entry
                             completes step:one as done
                         skipped -> plan.return
 
                 state verify.fix
-                    phase verify
                     auto test.fix
                         fixed -> verify.entry
                             completes step:fix as done
                         fix_requested -> verify.entry
 
                 state plan.return terminal returned failure
-                    phase verify
                 """ + DONE_TERMINAL);
 
         assertEquals(List.of(), violations(def));
@@ -1337,7 +1234,6 @@ class AdditionalRulesTest {
     void archiveStepsOutsideEpicUnit() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     auto test.next-work
                         archive_uncommitted -> verify.done
                         archived -> verify.done
@@ -1353,7 +1249,6 @@ class AdditionalRulesTest {
     void attemptCapLeavingTheCycle() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     auto test.capped
                         retry -> verify.entry
                         exhausted -> verify.done
@@ -1367,7 +1262,6 @@ class AdditionalRulesTest {
     void attemptCapNotLeavingTheCycle() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     auto test.capped
                         retry -> verify.done
                         exhausted -> verify.entry
@@ -1387,7 +1281,6 @@ class AdditionalRulesTest {
     private static final String STEPPED_OUT_TERMINAL = """
 
             state verify.stepped-out terminal stepped_out stepped_out
-                phase inherit
             """;
 
     @Test
@@ -1395,7 +1288,6 @@ class AdditionalRulesTest {
     void steppedOutToSuccessTerminal() {
         var def = unit("plan", """
                 state verify.entry
-                    phase verify
                     call test.depth5()
                         done -> verify.done
                         stepped_out -> verify.done
@@ -1411,25 +1303,21 @@ class AdditionalRulesTest {
     void steppedOutInPlanUnit() {
         var handBack = unit("plan", """
                 state verify.entry
-                    phase verify
                     call test.depth5()
                         done -> verify.done
                         stepped_out -> finalize.hand-back
 
                 state finalize.hand-back terminal handed_back failure
-                    phase verify
                 """ + DONE_TERMINAL);
         assertEquals(List.of(), violations(handBack));
 
         var failureTerminal = unit("plan", """
                 state verify.entry
-                    phase verify
                     call test.depth5()
                         done -> verify.done
                         stepped_out -> verify.failed
 
                 state verify.failed terminal failed failure
-                    phase verify
                 """ + DONE_TERMINAL);
         assertEquals(callContract("verify.entry",
                 "the call routes 'stepped_out' to 'verify.failed', which is not the phase's fallback state 'plan.return' or 'finalize.hand-back'"),
@@ -1441,13 +1329,11 @@ class AdditionalRulesTest {
     void steppedOutInEpicUnit() {
         var resting = unit("epic", """
                 state verify.entry
-                    phase verify
                     call test.depth5()
                         done -> verify.done
                         stepped_out -> verify.rest
 
                 state verify.rest
-                    phase verify
                     job test.build
                         succeeded -> verify.done
                         failed -> verify.done
@@ -1457,13 +1343,11 @@ class AdditionalRulesTest {
 
         var chained = unit("epic", """
                 state verify.entry
-                    phase verify
                     call test.depth5()
                         done -> verify.done
                         stepped_out -> verify.retry
 
                 state verify.retry
-                    phase verify
                     auto test.prepare
                         done -> verify.done
                         skipped -> verify.done
@@ -1478,7 +1362,6 @@ class AdditionalRulesTest {
     void steppedOutInSubWorkflow() {
         var continuing = unit("subworkflow", """
                 state verify.entry
-                    phase inherit
                     call test.depth5()
                         done -> verify.done
                         stepped_out -> verify.stepped-out
@@ -1487,13 +1370,11 @@ class AdditionalRulesTest {
 
         var chained = unit("subworkflow", """
                 state verify.entry
-                    phase inherit
                     call test.depth5()
                         done -> verify.done
                         stepped_out -> verify.retry
 
                 state verify.retry
-                    phase inherit
                     auto test.prepare
                         done -> verify.done
                         skipped -> verify.stepped-out
@@ -1533,13 +1414,11 @@ class AdditionalRulesTest {
                 entry main -> verify.entry
 
                 state verify.entry
-                    phase inherit
                     call test.depth5()
                         done -> verify.done
                         stepped_out -> %2$s
 
                 state %2$s
-                    phase inherit
                     auto %3$s
                 """.formatted(unitId, target, auto) + outcomes + STEPPED_OUT_TERMINAL + DONE_TERMINAL);
     }
@@ -1593,13 +1472,11 @@ class AdditionalRulesTest {
     void steppedOutDeclaredByWrongClass() {
         var def = unit("subworkflow", """
                 state verify.entry
-                    phase inherit
                     auto test.prepare
                         done -> verify.done
                         skipped -> verify.out
 
                 state verify.out terminal stepped_out failure
-                    phase inherit
                 """ + DONE_TERMINAL);
 
         assertEquals(callContract("verify.out",
@@ -1612,7 +1489,6 @@ class AdditionalRulesTest {
     void singleGuardedDone() {
         var def = unit("subworkflow", """
                 state verify.entry
-                    phase inherit
                     call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
                         done -> verify.done
                             guard result.pushed
@@ -1629,7 +1505,6 @@ class AdditionalRulesTest {
     void resultGuardOnLink() {
         var def = unit("workspace", """
                 state verify.entry
-                    phase verify
                     link next proceed ()
                         do test.proceed
                             done -> verify.done
@@ -1646,7 +1521,6 @@ class AdditionalRulesTest {
     void resultGuardOnCalleeWithoutSchema() {
         var def = unit("subworkflow", """
                 state verify.entry
-                    phase inherit
                     call test.depth5()
                         done -> verify.done
                             guard result.pushed
@@ -1665,7 +1539,6 @@ class AdditionalRulesTest {
     void entityUnitResolvedAgainstCatalog() {
         var unresolved = unit("plan", """
                 state verify.entry
-                    phase verify
                     job llm unresolved role reviewer
                         approved -> verify.done
                         lost -> verify.done
@@ -1676,7 +1549,6 @@ class AdditionalRulesTest {
 
         var resolved = unit("plan", """
                 state verify.entry
-                    phase verify
                     job llm change role reviewer
                         approved -> verify.done
                         lost -> verify.done
@@ -1689,7 +1561,6 @@ class AdditionalRulesTest {
     void operatorLinksApart() {
         var plan = unit("plan", """
                 state verify.entry
-                    phase verify
                     link next proceed ()
                         do test.proceed
                             done -> verify.done
@@ -1698,7 +1569,6 @@ class AdditionalRulesTest {
 
         var epic = unit("epic", """
                 state verify.entry
-                    phase verify
                     link next proceed ()
                         do test.proceed
                             done -> verify.done
@@ -1707,7 +1577,6 @@ class AdditionalRulesTest {
 
         var workspace = unit("workspace", """
                 state verify.entry
-                    phase verify
                     link next proceed ()
                         do test.proceed
                             done -> verify.entry
@@ -1730,13 +1599,11 @@ class AdditionalRulesTest {
                 start verify.entry
 
                 state verify.entry
-                    phase verify
                     link next proceed ()
                         do test.proceed
                             done -> verify.done
 
                 state verify.done terminal done success
-                    phase verify
                 """);
         assertEquals(List.of(new RuleStateMessage(VerificationRule.OPERATOR_LINKS_APART, "verify.entry",
                         "the resting link state 'verify.entry' declares links in the worker unit 'worker-task'; "
@@ -1750,7 +1617,6 @@ class AdditionalRulesTest {
     void questionStateAwaitsAnswer() {
         var looping = unit("workspace", """
                 state verify.entry
-                    phase verify
                     question ask
                         answered -> verify.entry
                 """);
@@ -1762,7 +1628,6 @@ class AdditionalRulesTest {
     void engineChainedCycleMeasure() {
         var measured = unit("plan", """
                 state verify.entry
-                    phase verify
                     auto test.capped
                         retry -> verify.entry
                         exhausted -> verify.done
@@ -1771,7 +1636,6 @@ class AdditionalRulesTest {
 
         var unmeasured = unit("plan", """
                 state verify.entry
-                    phase verify
                     auto test.prepare
                         done -> verify.entry
                         skipped -> verify.done

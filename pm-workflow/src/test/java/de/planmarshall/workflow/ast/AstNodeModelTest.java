@@ -311,7 +311,7 @@ class AstNodeModelTest {
             bindings.put("m", new CallValue.EnumList(List.of("p", "q")));
 
             var call = new StateBehavior.SubWorkflowCall("git.commit_and_push", Optional.empty(), bindings, List.of());
-            var frame = new CallFrame("plan", "execute.commit", "execute", "git.commit_and_push", "commit", bindings,
+            var frame = new CallFrame("plan", "execute.commit", "git.commit_and_push", "commit", bindings,
                     "2026-01-01T00:00:00Z");
             var boundArgs = frame.boundArgs();
 
@@ -466,7 +466,7 @@ class AstNodeModelTest {
     }
 
     private static StateNode terminalState(String id) {
-        return new StateNode(id, "finalize", Optional.of(new TerminalOutcome(id, OutcomeClass.SUCCESS)),
+        return new StateNode(id, Optional.of(new TerminalOutcome(id, OutcomeClass.SUCCESS)),
                 Optional.empty(), Optional.empty(), new StateBehavior.TerminalState(), LOCATION);
     }
 
@@ -480,14 +480,14 @@ class AstNodeModelTest {
     private static WorkflowDefinition definition(List<ParamDecl> params, List<StateMigration> migrations,
             Map<String, StateNode> states) {
         return new WorkflowDefinition(frontmatter(List.of(), List.of()), "fixture", 1, WorkflowScope.PLAN, params,
-                Optional.empty(), Optional.empty(), Map.of(), Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(),
+                Optional.empty(), Optional.empty(), Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(),
                 Optional.of(states.keySet().iterator().next()), Map.of(), migrations, states, LOCATION);
     }
 
     private static WorkflowDefinition definition(Map<String, WorkflowDefinition.EntryBinding> entryBindings,
             Map<String, StateNode> states) {
         return new WorkflowDefinition(frontmatter(List.of(), List.of()), "fixture", 1, WorkflowScope.SUBWORKFLOW,
-                List.of(), Optional.empty(), Optional.empty(), Map.of(), Map.of(), Map.of(), 1, UnitOrigin.DEFAULT,
+                List.of(), Optional.empty(), Optional.empty(), Map.of(), Map.of(), 1, UnitOrigin.DEFAULT,
                 Map.of(), Optional.empty(), entryBindings, List.of(), states, LOCATION);
     }
 

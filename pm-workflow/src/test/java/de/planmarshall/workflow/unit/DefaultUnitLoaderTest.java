@@ -35,6 +35,7 @@ import org.junit.jupiter.api.io.TempDir;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
+import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.dsl.RefusalRule;
 import de.planmarshall.workflow.verify.InvariantFixtures;
@@ -93,24 +94,27 @@ class DefaultUnitLoaderTest {
 
             assertAll(
                     () -> assertTrue(result.isVerified(), result.findings()::toString),
-                    () -> assertEquals(List.of(PlanUnitMerger.PLAN_UNIT, "adjudicate.decisions", "replan",
-                                    "git.commit_and_push", "remediation.qgate-findings"),
+                    () -> assertEquals(List.of(Phase.PLAN_UNIT, "phase-1-init", "phase-2-refine", "phase-3-outline",
+                                    "phase-4-plan", "phase-5-execute", "land", "phase-6-finalize",
+                                    "adjudicate.decisions", "replan", "git.commit_and_push",
+                                    "remediation.qgate-findings"),
                             List.copyOf(result.units().keySet())),
                     () -> assertEquals(Optional.empty(), result.refusal()),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.ERROR, DefaultUnitLoader.class));
         }
 
         @Test
-        @DisplayName("parses every unit as a default unit and merges the phase files with their resource names")
-        void defaultOriginAndMerge() {
+        @DisplayName("parses every unit as a default unit of its own, the plan unit and each phase with its own file")
+        void defaultOriginAndFiles() {
             var units = UnitFixtures.defaultUnits();
-            var plan = units.get(PlanUnitMerger.PLAN_UNIT);
+            var plan = units.get(Phase.PLAN_UNIT);
 
             assertAll(
                     () -> units.values().forEach(unit -> assertEquals(UnitOrigin.DEFAULT, unit.origin(), unit::id)),
-                    () -> assertEquals(InvariantFixtures.PLAN_FILES.stream().map(file -> InvariantFixtures.ROOT + file)
-                            .toList(), List.copyOf(plan.partVersions().keySet())),
-                    () -> assertEquals(InvariantFixtures.ROOT + "init.pmwf", plan.location().resourceName()),
+                    () -> assertEquals(InvariantFixtures.ROOT + "plan.pmwf", plan.location().resourceName()),
+                    () -> assertEquals(Optional.of("phases.init"), plan.startState()),
+                    () -> assertEquals(InvariantFixtures.ROOT + "init.pmwf",
+                            units.get("phase-1-init").location().resourceName()),
                     () -> assertEquals(Map.of(), plan.derivedFrom()));
         }
 
@@ -222,7 +226,7 @@ class DefaultUnitLoaderTest {
                     () -> assertTrue(finding.isPresent(), result.findings()::toString),
                     () -> assertEquals(resource, finding.orElseThrow().file()),
                     () -> assertEquals(mutation.lineOf(UnitFixtures.PLAN_HEADER), finding.orElseThrow().line()),
-                    () -> assertTrue(finding.orElseThrow().message().contains(TEMP_ROOT + "init.pmwf"),
+                    () -> assertTrue(finding.orElseThrow().message().contains(TEMP_ROOT + "plan.pmwf"),
                             finding.orElseThrow()::message),
                     () -> assertEquals(Map.of(), result.units()),
                     () -> assertRefusalLogged(resource));
@@ -245,7 +249,7 @@ class DefaultUnitLoaderTest {
         }
 
         @Test
-        @DisplayName("merges no plan unit when a phase file is missing, and verifies no part on its own")
+        @DisplayName("refuses the plan unit that calls a missing phase file, and verifies no part on its own")
         void missingPhaseFile() throws Exception {
             UnitFixtures.writeUnits(temp.resolve(TEMP_ROOT));
             Files.delete(temp.resolve(TEMP_ROOT).resolve("refine.pmwf"));
@@ -253,7 +257,7 @@ class DefaultUnitLoaderTest {
             var result = loadTemp(UnitFixtures.UNIT_FILES);
 
             assertAll(
-                    () -> assertEquals(List.of(TEMP_ROOT + "refine.pmwf"),
+                    () -> assertEquals(List.of(TEMP_ROOT + "refine.pmwf", TEMP_ROOT + "plan.pmwf"),
                             result.findings().stream().map(UnitFinding::file).toList()),
                     () -> assertEquals(UnitFinding.Kind.MISSING, result.findings().getFirst().kind()),
                     () -> assertEquals(Map.of(), result.units()));

@@ -86,14 +86,13 @@ sub-workflow the catalog does not hold is refused with `WorkflowEngine.Unverifie
 === One Advance
 
 `start(scopeType, scopeId)` builds the first status of a scope at the unit's start state. Only a unit without entries
-has one: a unit with entries is called, never started, and its start is refused with `IllegalArgumentException`. A
-start state that declares `phase inherit` is admitted for the workspace scope only, whose phase is then `workspace`;
-every other DSL phase is mapped to the value of the status store (`execute` to `phase-5-execute`, `epic` to `epic`,
-and so on).
+has one: a unit with entries is called, never started, and its start is refused with `IllegalArgumentException`. The
+phase of the first status is the phase unit on the stack, the phase of the unit, or the plan unit's call state, and a
+scope that carries none records no phase (see `<<_the_phase_of_a_scope>>`).
 
 `advance(status)` continues from the current state. From there the engine chains, state after state, in one advance:
 
-* entering a state makes it current: its phase applies (`phase inherit` keeps the phase the scope has), and the job
+* entering a state makes it current: the phase of the scope follows the unit that declares the state, and the job
   and task bindings of the state left are cleared;
 * an `auto` state binds the parameters of its primitive through the `ParameterBinder`, runs it, and takes the
   transition of the returned outcome;
@@ -171,7 +170,7 @@ reason; the guard is never folded into held or not held.
 outcome
 |`IllegalArgumentException`; the status stays as it is.
 
-|A call would exceed the depth 4
+|A call would exceed the depth 5
 |`CallStack.push` throws `IllegalStateException`.
 
 |The `ParameterBinder` binds a record of another type than the primitive takes
@@ -188,16 +187,17 @@ _Requirements: link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16], link:{docs}/Req
 Implements link:{dsl}/06-reusable-sub-workflows.adoc#_call_stack_execution_persistence_semantics[Workflow DSL § Call-Stack Execution & Persistence Semantics]
 items 1 to 4 and link:{dsl}/01-grammar.adoc#sub-workflow-exits[Workflow DSL § Result Guards & Sub-Workflow Exit Contract].
 
-* *Call*: a `call` state pushes the frame `(callerWorkflowId, callerStateId, callerPhase, subWorkflowId, entry,
-  boundArgs, pushedAt)`, the bound arguments of the call site and `pushed_at` from the clock, and enters the
-  sub-workflow at the state its entry binds (<<_entering_a_callee_through_its_entry>>). A sub-workflow state that
-  declares `phase inherit` keeps the caller's phase.
+* *Call*: a `call` state pushes the frame `(callerWorkflowId, callerStateId, subWorkflowId, entry, boundArgs,
+  pushedAt)`, the bound arguments of the call site and `pushed_at` from the clock, and enters the sub-workflow at the
+  state its entry binds (<<_entering_a_callee_through_its_entry>>). The callee carries the phase of the enclosing
+  phase unit, whatever its own identity.
 * *Resting inside a sub-workflow*: the status is written with the active call stack and the sub-workflow's state; the
   engine resolves the current state against the unit of the top frame, so the wait survives a restart.
-* *Return*: a terminal of the sub-workflow pops exactly one frame, restores the caller's phase, drops the retry counts
-  of every state of the left sub-workflow, and takes the calling state's transition of the terminal's outcome. Of an
-  outcome routed twice, the transition whose result guard holds over the frame's result record wins; the result record
-  is the facts the sub-workflow's primitives returned (`PrimitiveResult.updatedFacts`) in the same advance.
+* *Return*: a terminal of the sub-workflow pops exactly one frame, restores the caller's phase from the stack, drops the
+  retry counts of every state of the left sub-workflow, and takes the calling state's transition of the terminal's
+  outcome. Of an outcome routed twice, the transition whose result guard holds over the frame's result record wins; the
+  result record is the facts the sub-workflow's primitives returned (`PrimitiveResult.updatedFacts`) in the same
+  advance.
 * *Step-out*: `stepOut(status)` is the implicit `step_out` of a resting link state of an operator wait in a sub-workflow.
   It pops exactly one frame and the calling state routes the outcome `stepped_out` once; a caller that is itself a
   sub-workflow routes it to a state of its own. A terminal of class `stepped_out` returns the same way. A scope in no
@@ -232,6 +232,21 @@ and routes the outcome as before.
 The verifier makes the resolution total for a verified unit: a call names an entry its callee declares, or omits it
 only for a callee with exactly one (rule 5). A call the engine still cannot resolve, an entry the callee does not bind,
 or no entry named while the callee binds none or several, is the internal fault `unresolved_name`.
+
+[#_the_phase_of_a_scope]
+== The Phase of a Scope
+
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16], link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+A phase is never declared: it is the phase sub-workflow on the scope's call stack. `phaseOf` resolves it in this order:
+the phase unit on the stack, the phase unit of the current unit (`Phase.ofUnit`), the plan unit's call state
+`phases.<name>` (`Phase.ofCallState`), and the prefix of a flat unit's state identifier. A scope that carries none, such
+as a workspace or an epic unit, records none. An ended status whose phase already matches is returned unchanged, so a
+resume does not rewrite it.
+
+The call stack holds at most five frames: the plan unit, a phase, and three nested calls. `CallStack.MAX_DEPTH` and
+`WorkflowStatus.MAX_CALL_DEPTH` state the limit, and the push of a sixth frame is refused
+(link:../adr/workflow-engine/014-five-call-frames-and-the-derived-phase.adoc[ADR 014]).
 
 == Guards
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_
@@ -574,8 +589,8 @@ are not allowed as any segment of a state, unit or primitive id.
 retry counts dropped on a frame pop and kept within the frame, exactly one transition per outcome of every fixture unit
 |`SubWorkflowExecutionTest` |Frame push with bound arguments and `pushed_at`, a call through a named entry entering the
 bound state and pushing a frame with that entry, a call omitting the sole entry of its callee, the entry in the status
-written in the transaction of the call, `phase inherit`, result guards, a step-out unwinding one frame, the unwind of
-every frame to the fallback, nesting depth 4
+written in the transaction of the call, the phase of a called sub-workflow, result guards, a step-out unwinding one
+frame, the unwind of every frame to the fallback, nesting depth five and the refusal of the sixth
 |`GuardEvaluatorTest` |The three guard values, their propagation, and `guard_indeterminate` with a matched control
 |`LoopBackBudgetTest` |Counts raised and never reset, the outline budget 1, policy counters per class
 |`EngineEventTest` |Parking and resuming of every resting kind by its own event only, refusal of a mismatched event, a
@@ -638,3 +653,5 @@ _Requirements: link:{docs}/Requirements.adoc#PM-WF-1[PM-WF-1], link:{docs}/Requi
   wait is selected from the connection profile and the progress token, one rule in `WaitSelection`.
 * link:../adr/workflow-engine/013-link-states-await-the-operator-act.adoc[ADR 013]: a resting link state is an operator
   wait and awaits `OPERATOR_ACT`; no engine event and no time ends it.
+* link:../adr/workflow-engine/014-five-call-frames-and-the-derived-phase.adoc[ADR 014]: five call frames, and the phase
+  of a scope is derived from the phase unit on its stack.

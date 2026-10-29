@@ -525,6 +525,52 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
         return new AuditEvent(event, category, OUTCOME_FAILED, unconfirmed);
     }
 
+    /** The name of the event that records one judgment task of an endpoint harness. */
+    public static final String JUDGMENT_TASK_COMPLETED = "judgment_task_completed";
+
+    /** The detail of a judgment task that names the endpoint's origin. */
+    public static final String DETAIL_ENDPOINT = "endpoint";
+
+    /** The detail of a judgment task that names the status the task ended with. */
+    public static final String DETAIL_STATUS = "status";
+
+    /** The detail of a judgment task that holds the input tokens its answers measured. */
+    public static final String DETAIL_INPUT_TOKENS = "input_tokens";
+
+    /** The detail of a judgment task that holds the output tokens its answers measured. */
+    public static final String DETAIL_OUTPUT_TOKENS = "output_tokens";
+
+    /** The detail of a judgment task that holds how long the task took. */
+    public static final String DETAIL_DURATION_MS = "duration_ms";
+
+    /**
+     * The record of one judgment task of an endpoint harness (Client Profiles § Judgment Endpoint): the endpoint, the
+     * model id, the status, the token counts and the duration, and never the request body or the credential.
+     *
+     * @param endpoint       the origin of the endpoint, scheme, host and port only
+     * @param model          the versioned model id of the role
+     * @param status         the status the task ended with
+     * @param answered       whether both requests of the task answered with a valid answer
+     * @param inputTokens    the input tokens the answers measured
+     * @param outputTokens   the output tokens the answers measured
+     * @param durationMillis how long the task took
+     * @return the record of the task
+     * @throws NullPointerException if a value is {@code null}
+     * @since 0.1
+     */
+    public static AuditEvent judgmentTaskCompleted(String endpoint, String model, String status, boolean answered,
+            long inputTokens, long outputTokens, long durationMillis) {
+        var details = new HashMap<String, Object>();
+        details.put(DETAIL_ENDPOINT, Objects.requireNonNull(endpoint, DETAIL_ENDPOINT));
+        details.put(DETAIL_MODEL, Objects.requireNonNull(model, DETAIL_MODEL));
+        details.put(DETAIL_STATUS, Objects.requireNonNull(status, DETAIL_STATUS));
+        details.put(DETAIL_INPUT_TOKENS, inputTokens);
+        details.put(DETAIL_OUTPUT_TOKENS, outputTokens);
+        details.put(DETAIL_DURATION_MS, durationMillis);
+        return new AuditEvent(JUDGMENT_TASK_COMPLETED, CATEGORY_OPERATOR,
+                answered ? OUTCOME_SUCCEEDED : OUTCOME_FAILED, details);
+    }
+
     private static AuditEvent refusal(String event, String category, String projectId, String reason) {
         return new AuditEvent(event, category, OUTCOME_REFUSED,
                 Map.of(DETAIL_PROJECT_ID, Objects.requireNonNull(projectId, PROJECT_ID_ARGUMENT), DETAIL_REASON,

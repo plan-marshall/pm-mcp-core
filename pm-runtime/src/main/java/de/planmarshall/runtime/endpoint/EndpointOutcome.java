@@ -119,7 +119,15 @@ public record EndpointOutcome(Fate fate, Reason reason, String detail, String co
         /** The endpoint did not answer inside the profile's timeout. */
         TIMEOUT("timeout"),
         /** Another program listens on the profile's port. */
-        HARNESS_NOT_ENROLLED("harness_not_enrolled");
+        HARNESS_NOT_ENROLLED("harness_not_enrolled"),
+        /** The service answered with another model id than the requested one, so a silent re-route ended the attempt. */
+        MODEL_ALIAS("model_alias"),
+        /** The runtime refused the request before it was sent. */
+        REQUEST_REFUSED("request_refused"),
+        /** The entity does not fit the endpoint's context budget, so the task closes before a request is sent. */
+        INPUT_TOO_LARGE("input_too_large"),
+        /** The answer was a redirect to another origin or to http, which ends the attempt. */
+        REDIRECT_REFUSED("redirect_refused");
 
         private final String wireName;
 

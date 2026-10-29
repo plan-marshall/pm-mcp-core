@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 
@@ -25,7 +26,7 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  *                {@value #FORMAT_OUTDATED} or {@value #FORMAT_NEWER}, {@code declaration_invalid}, the name of the
  *                pipeline rule, {@value #PROJECT_STEP_UNBOUND}, {@value #UNIT_MISSING}, {@value #UNIT_UNREADABLE},
  *                {@value #UNIT_TOO_LARGE}, {@value #DUPLICATE_UNIT_ID}, {@value #AUTHOR_RESERVED},
- *                {@code path_traversal_rejected} or a merge code of {@link PlanUnitMerger}
+ *                {@code path_traversal_rejected} or the code of {@code DUPLICATE_UNIT_ID}
  * @param file    the file the finding is located in, as the loader names it
  * @param line    the line, counted from 1; {@code 0} for a file that could not be read
  * @param message what is wrong
@@ -53,7 +54,7 @@ public record UnitFinding(Kind kind, String code, String file, int line, String 
 
     /**
      * The code of a unit whose identifier an earlier file of the load already declares, or that declares the identifier
-     * {@value PlanUnitMerger#PLAN_UNIT} of the merged plan unit; the later unit never replaces the earlier one.
+     * {@value Phase#PLAN_UNIT} of the plan unit; the later unit never replaces the earlier one.
      */
     public static final String DUPLICATE_UNIT_ID = "duplicate_unit_id";
 
@@ -94,19 +95,24 @@ public record UnitFinding(Kind kind, String code, String file, int line, String 
     }
 
     /**
-     * Adds a parsed unit that is no part of the plan unit to the units of a load, keyed by its identifier, unless the
-     * identifier is taken: a unit that declares the identifier of an earlier unit, or {@value PlanUnitMerger#PLAN_UNIT},
-     * is a {@value #DUPLICATE_UNIT_ID} finding at its header and is left out.
+     * Adds a parsed unit to the units of a load, keyed by its identifier, unless the identifier is taken: a unit that
+     * declares the identifier of an earlier unit is a {@value #DUPLICATE_UNIT_ID} finding at its header and is left
+     * out, and so is a file other than {@code planFile} that declares {@value Phase#PLAN_UNIT}. The file the plan unit
+     * is located in may declare that identifier; any other file may not.
      *
      * @param units    the units of the load by identifier
      * @param unit     the parsed unit
-     * @param planFile the file the merged plan unit is located in, its first phase file as the loader names it
+     * @param planFile the file the plan unit is located in, as the loader names it
      * @param findings the findings of the load
      */
     static void putUnique(Map<String, WorkflowDefinition> units, WorkflowDefinition unit, String planFile,
             List<UnitFinding> findings) {
         var file = unit.location().resourceName();
-        if (PlanUnitMerger.PLAN_UNIT.equals(unit.id())) {
+        if (Phase.PLAN_UNIT.equals(unit.id())) {
+            if (planFile.equals(file)) {
+                units.put(unit.id(), unit);
+                return;
+            }
             findings.add(at(Kind.RULE, DUPLICATE_UNIT_ID, unit.location(), DUPLICATE_MESSAGE.formatted(unit.id(),
                     planFile, file)));
             return;

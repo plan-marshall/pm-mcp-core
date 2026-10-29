@@ -98,6 +98,10 @@ public final class HarnessVerifier {
                     "the harness '%s' is not enrolled".formatted(clientId));
         }
         var enrolment = found.get();
+        if (enrolment.isEndpoint()) {
+            return refused(clientId, LaunchRefusal.HARNESS_NOT_ENROLLED,
+                    "the entry of '%s' is a remote endpoint, not a serving program".formatted(clientId));
+        }
         var current = digest.sha256(enrolment.executablePath());
         if (current.isEmpty()) {
             return refused(clientId, LaunchRefusal.HARNESS_UPDATE_UNVERIFIED,

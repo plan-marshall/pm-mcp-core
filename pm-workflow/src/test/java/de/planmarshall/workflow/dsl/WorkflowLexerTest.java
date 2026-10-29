@@ -49,7 +49,7 @@ class WorkflowLexerTest {
         @Test
         @DisplayName("drops a comment to the end of its line and leaves out blank and comment-only lines")
         void dropsComments() {
-            var source = "# a leading comment\n\nstate demo.begin # trailing words\n   \t\n    phase init\n";
+            var source = "# a leading comment\n\nstate demo.begin # trailing words\n   \t\nstate demo.end\n";
 
             var lines = WorkflowLexer.tokenize(source);
 
@@ -58,7 +58,7 @@ class WorkflowLexerTest {
                     () -> assertEquals(3, lines.get(0).number()),
                     () -> assertEquals(List.of("state", "demo", ".", "begin"), texts(lines.get(0).tokens())),
                     () -> assertEquals(5, lines.get(1).number()),
-                    () -> assertEquals(List.of("phase", "init"), texts(lines.get(1).tokens())));
+                    () -> assertEquals(List.of("state", "demo", ".", "end"), texts(lines.get(1).tokens())));
         }
 
         @Test
