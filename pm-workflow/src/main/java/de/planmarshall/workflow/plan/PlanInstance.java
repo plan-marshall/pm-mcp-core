@@ -25,9 +25,12 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * {@code inputs.templates} names, each with the digest of its text; the version is always referred to by the plan
  * unit's file.
  * <p>
- * The composer returns only verified versions. The public constructor checks that the version, the header and the unit
- * agree on the version number, and nothing more, so it can build a value that was never composed or verified; a caller
- * hands the store the results of the composer alone.
+ * The composer returns only versions whose plan unit is verified: Rules 1-12 over a catalog of the compiled units and
+ * the request's sub-units, the finalize pipeline over the kept steps, the compiled invariants over the call-resolved
+ * graph and the header schema. The composed files are the pruned bodies of those sub-units; the composer does not run
+ * the verifier over each of them on its own, and ADR workflow-plan 001's guarantee is scoped to the plan unit. The
+ * public constructor checks that the version, the header and the unit agree on the version number, and nothing more, so
+ * it can build a value that was never composed or verified; a caller hands the store the results of the composer alone.
  *
  * @param version the instance version, from {@code 1}
  * @param header  the instance header

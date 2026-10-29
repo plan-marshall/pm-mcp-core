@@ -137,16 +137,9 @@ public final class PlanInstanceComposer {
         var pruned = InstancePruner.prune(request.template(), effects, bound, request.waivers(),
                 request.verificationSteps(), request.finalizeSteps(), lanePruned);
         var version = request.nextVersion();
-        var composedUnits = composedUnits(request, pruned.states(), effects, bound, lanePruned, version);
-        var composedIds = new LinkedHashSet<String>();
-        composedUnits.forEach(unit -> composedIds.add(unit.unit()));
+        var composed = composedUnits(request, pruned.states(), effects, bound, lanePruned, version);
         var positionStates = new LinkedHashSet<>(pruned.states().keySet());
-        composedUnits.forEach(unit -> positionStates.addAll(unit.definition().states().keySet()));
-        var reached = called(pruned.states().values(), request.subUnits());
-        request.subUnits().stream()
-                .filter(subUnit -> reached.contains(subUnit.definition().id()))
-                .filter(subUnit -> !composedIds.contains(subUnit.definition().id()))
-                .forEach(subUnit -> positionStates.addAll(subUnit.definition().states().keySet()));
+        positionStates.addAll(composed.positionStates());
         var missing = request.position().missingFrom(positionStates);
         if (!missing.isEmpty()) {
             return new CompositionResult.Refused(CompositionResult.Refusal.POSITION_NOT_CONTAINED, missing.stream()
@@ -154,7 +147,7 @@ public final class PlanInstanceComposer {
                     .toList());
         }
         var header = new PlanInstanceHeader(request.planId(), version, request.event(), clock.instant(),
-                inputs(request, pruned.states().values(), composedUnits, version), facts.lane(), facts.posture(),
+                inputs(request, pruned.states().values(), composed.units(), version), facts.lane(), facts.posture(),
                 pruned.steps(), pruned.pruned(), pruned.policyCalls(), pruned.waivedGates());
         var unit = unit(request.template(), header, pruned.states());
         var violations = verify(request, header, unit, lanePruned, pruned.settled());
@@ -162,7 +155,7 @@ public final class PlanInstanceComposer {
             return new CompositionResult.Refused(CompositionResult.Refusal.INVARIANT_FAILED, violations);
         }
         return new CompositionResult.Composed(new PlanInstance(version, header, unit, WorkflowPrinter.print(unit),
-                composedUnits));
+                composed.units()));
     }
 
     /**
@@ -176,23 +169,51 @@ public final class PlanInstanceComposer {
     }
 
     /**
-     * The composed files of the version: one per kept call of a phase sub-workflow and one per bound axis variant the
-     * kept states call. A pruned call composes no file, and the sub-units the version only binds by digest
-     * ({@code git.commit_and_push}, the {@code remediation.*} units, {@code replan}) stay content-addressed.
+     * The composed files of the version and the states the position rule reads: one file per sub-workflow a kept call
+     * reaches, walked over the pruned states of the composed units themselves, so a call pruned inside a composed unit
+     * reaches nothing. The units the version only binds by digest ({@code git.commit_and_push}, the
+     * {@code remediation.*} units, {@code replan}, {@code adjudicate.decisions}) stay content-addressed, and their
+     * states are positions.
      *
-     * @return the composed units in the order of the request's sub-units
+     * @return the composed units in the order of the request's sub-units, and every state of them and of the reached
+     *         digest-bound units
      */
-    private static List<ComposedUnit> composedUnits(CompositionRequest request, Map<String, StateNode> keptStates,
+    private static Composed composedUnits(CompositionRequest request, Map<String, StateNode> keptStates,
             RuleEffects effects, List<PlanFacts.BoundVariant> bound, Optional<PlanInstanceHeader.Lane> lane, int version) {
-        var keptCalls = called(keptStates.values(), request.subUnits());
-        var composed = new ArrayList<ComposedUnit>();
-        for (var subUnit : request.subUnits()) {
-            var id = subUnit.definition().id();
-            if (keptCalls.contains(id) && isComposedUnit(id)) {
-                composed.add(composeUnit(subUnit.definition(), request, effects, bound, lane, version));
+        var byId = new LinkedHashMap<String, CompositionRequest.SubUnit>();
+        request.subUnits().forEach(subUnit -> byId.put(subUnit.definition().id(), subUnit));
+        var units = new LinkedHashMap<String, ComposedUnit>();
+        var states = new LinkedHashSet<String>();
+        var queue = new ArrayDeque<String>();
+        keptStates.values().forEach(state -> callee(state).ifPresent(queue::add));
+        while (!queue.isEmpty()) {
+            var id = queue.poll();
+            if (units.containsKey(id) || !byId.containsKey(id)) {
+                continue;
+            }
+            if (isComposedUnit(id)) {
+                var composed = composeUnit(byId.get(id).definition(), request, effects, bound, lane, version);
+                units.put(id, composed);
+                states.addAll(composed.definition().states().keySet());
+                composed.definition().states().values().forEach(state -> callee(state).ifPresent(queue::add));
+            } else {
+                var definition = byId.get(id).definition();
+                states.addAll(definition.states().keySet());
+                definition.states().values().forEach(state -> callee(state).ifPresent(queue::add));
             }
         }
-        return List.copyOf(composed);
+        var ordered = request.subUnits().stream().map(subUnit -> subUnit.definition().id())
+                .filter(units::containsKey).distinct().map(units::get).toList();
+        return new Composed(ordered, states);
+    }
+
+    /**
+     * The composed files of a version and the states its position rule reads.
+     *
+     * @param units         the composed files, in the order of the request's sub-units
+     * @param positionStates every state of the composed files and of the reached digest-bound units
+     */
+    private record Composed(List<ComposedUnit> units, Set<String> positionStates) {
     }
 
     /**

@@ -63,9 +63,13 @@ public final class PlanProcessStates {
                         && last.get(state.id()).event() == PlanHistoryLine.Event.ENTERED);
         var current = currentState(history);
         var nodes = new ArrayList<NodeState>();
-        nodes.addAll(prunedNodeStates(instance));
         append(nodes, instance.unit(), last, ended, current);
         instance.units().forEach(unit -> append(nodes, unit.definition(), last, ended, current));
+        for (var pruned : prunedNodeStates(instance)) {
+            if (nodes.stream().noneMatch(node -> node.node().equals(pruned.node()))) {
+                nodes.add(pruned);
+            }
+        }
         return List.copyOf(nodes);
     }
 
@@ -101,7 +105,8 @@ public final class PlanProcessStates {
             return new NodeState(state.id(), State.DONE, state.terminalOutcome().map(TerminalOutcome::id),
                     Optional.empty());
         }
-        var waiting = state.behavior() instanceof StateBehavior.QuestionWait
+        var waiting = (state.behavior() instanceof StateBehavior.QuestionWait
+                || state.behavior() instanceof StateBehavior.InteractiveLinks)
                 && current.filter(state.id()::equals).isPresent();
         return new NodeState(state.id(), waiting ? State.WAITING_FOR_OPERATOR : State.RUNNING, Optional.empty(),
                 Optional.empty());

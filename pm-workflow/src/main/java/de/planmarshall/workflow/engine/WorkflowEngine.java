@@ -750,6 +750,9 @@ public final class WorkflowEngine {
         }
 
         Run(WorkflowStatus status, PlanHistory history, ScopeTransaction transaction, int instanceVersion) {
+            if (instanceVersion < 1) {
+                throw new IllegalArgumentException("the instance version %d is not from 1".formatted(instanceVersion));
+            }
             this.status = status;
             this.stack = CallStack.fromStore(status.callStack());
             this.history = history;

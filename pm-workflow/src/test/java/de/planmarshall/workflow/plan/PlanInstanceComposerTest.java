@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 
@@ -923,6 +924,26 @@ class PlanInstanceComposerTest {
                     () -> assertTrue(light.unit().states().containsKey("outline.deep")),
                     () -> assertTrue(light.unit().states().containsKey("phases.execute-light")),
                     () -> assertFalse(deep.unit().states().containsKey("phases.execute-light")));
+        }
+
+        @Test
+        @DisplayName("a call pruned inside a composed phase reaches nothing: its callee is composed as no file and its "
+                + "states are no position of the version")
+        void prunedCallInsideAComposedUnit() {
+            var rules = ((CompositionRules.Loaded) CompositionRules.parse("""
+                    {"format_version": 1, "revision": "t1", "rules": [
+                      {"id": "prune-land-call",
+                       "when": {"fact": "lane", "equals": "deep"},
+                       "then": {"prune": [{"element": "call", "id": "execute.land-entry/land",
+                                           "reason": "other_lane"}]}}]}
+                    """.getBytes(StandardCharsets.UTF_8))).rules();
+            var instance = composed(PlanFixtures.mergedComposer(rules).compose(PlanFixtures.mergedRequest(
+                    CompositionEvent.START, facts().build(), Optional.empty(), AT_INIT, List.of())));
+
+            assertAll(
+                    () -> assertTrue(instance.composed("phase-5-execute").isPresent(), instance.units()::toString),
+                    () -> assertTrue(instance.composed("land").isEmpty(),
+                            () -> "land is reached only through a pruned call: " + instance.units()));
         }
 
         @Test

@@ -38,6 +38,7 @@ import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.PlanHistory;
 import de.planmarshall.core.store.PlanHistoryLine;
 import de.planmarshall.core.store.ScopeTransaction;
+import de.planmarshall.core.store.WorkflowStatus;
 import de.planmarshall.core.store.WorkflowStatusStore;
 
 /**
@@ -149,6 +150,36 @@ class PlanHistoryEngineTest {
                 () -> assertEquals(lines.size(), lines.stream().map(PlanHistoryLine::seq).distinct().count()),
                 () -> assertEquals(1L, lines.getFirst().seq()),
                 () -> assertTrue(lines.size() > 5, lines::toString));
+    }
+
+    @Test
+    @DisplayName("an event-resume advance writes its lines too: the left line of the settled state and the entered"
+            + " line of its target, in the same transaction as the status")
+    void eventResumeWritesHistory() {
+        var states = """
+                state execute.run
+                    job test.fate
+                        succeeded -> completed
+                        killed -> handed_back
+                """ + EngineFixtures.OTHER_FATES;
+        var engine = fixtures.engine(plan("execute.run", states));
+        var resting = planStatus(EXECUTE, "execute.run").toBuilder()
+                .activeJob(new WorkflowStatus.ActiveJob("execute.run",
+                        "b-0000000000000001"))
+                .build();
+
+        committed(transaction -> engine.advance(resting,
+                new EngineEvent.JobSettled("b-0000000000000001", "succeeded"), store, transaction, history,
+                INSTANCE_VERSION));
+
+        var lines = history.read().records();
+        assertAll(
+                () -> assertTrue(lines.stream().anyMatch(line -> line.event() == PlanHistoryLine.Event.LEFT
+                        && "execute.run".equals(line.node()) && "succeeded".equals(line.outcome())), lines::toString),
+                () -> assertTrue(lines.stream().anyMatch(line -> line.event() == PlanHistoryLine.Event.ENTERED
+                        && "completed".equals(line.node())), lines::toString),
+                () -> assertTrue(lines.stream().allMatch(line -> line.instanceVersion() == INSTANCE_VERSION)),
+                () -> assertEquals("completed", store.read().orElseThrow().state()));
     }
 
     @Test

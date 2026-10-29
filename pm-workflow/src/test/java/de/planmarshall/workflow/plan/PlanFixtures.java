@@ -350,9 +350,16 @@ final class PlanFixtures {
      *         fixtures, the merged plan unit of their seven phase files with both lanes among them
      */
     static PlanInstanceComposer mergedComposer() {
+        return mergedComposer(((CompositionRules.Loaded) CompositionRules.shipped()).rules());
+    }
+
+    /**
+     * @param rules the composition rules
+     * @return a composer over the plan unit of the invariant fixtures and its phase units
+     */
+    static PlanInstanceComposer mergedComposer(CompositionRules rules) {
         return new PlanInstanceComposer(context(), InvariantFixtures.passingUnits(UnitOrigin.DEFAULT).values(),
-                InvariantFixtures.defaultRoster(), ((CompositionRules.Loaded) CompositionRules.shipped()).rules(),
-                Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
+                InvariantFixtures.defaultRoster(), rules, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
     }
 
     /**

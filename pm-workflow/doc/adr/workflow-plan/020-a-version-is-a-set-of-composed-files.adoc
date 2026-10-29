@@ -46,8 +46,10 @@ workflow-plan 019).
 == Consequences
 
 The version's directory is the version: a header and its files are one value, checked as one value. A reader that needs
-one phase reads `instance/<unit>.v<N>.pmwf` without parsing the plan unit. The inline landing composition and the
-deletion of the implemented specification sections remain owed.
+one phase reads `instance/<unit>.v<N>.pmwf` without parsing the plan unit. The composer verifies the plan unit over the
+call-resolved catalog and the header schema; it does not run the verifier over each composed file on its own, so ADR
+001's "verified in full" is scoped to the plan unit here. The inline landing composition and the deletion of the
+implemented specification sections remain owed.
 
 == Source
 

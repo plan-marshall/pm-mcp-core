@@ -435,11 +435,14 @@ class WorkflowDiagramGeneratorTest {
         @DisplayName("Should name every composed file of the version beside the pruned elements and the waived gates")
         void shouldNameTheComposedSet(String form, String golden, InstanceForm render) {
             var composed = DiagramFixtures.instanceWithComposedFile();
+            var entry = InstanceAnnotations.of(composed, Optional.empty()).composed().stream()
+                    .filter(file -> "phase-x".equals(file.unit())).findFirst().orElseThrow();
 
             var rendered = render.apply(composed, Optional.empty());
 
             assertAll(form,
-                    () -> assertTrue(rendered.contains("instance/phase-x.v3.pmwf"), rendered));
+                    () -> assertTrue(rendered.contains("instance/phase-x.v3.pmwf"), rendered),
+                    () -> assertTrue(rendered.contains(entry.digest()), rendered));
         }
 
         @ParameterizedTest(name = "{0}")
