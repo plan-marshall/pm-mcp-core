@@ -1,0 +1,157 @@
+# PLAN-V2-26: The plan's process, running work, and ended work as resources
+
+epic: pm-mcp-core-m2-m4-v2
+workstream: WS-02
+origin: PLAN-67 of the epic pm-mcp-core-m2-m4
+
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
+> Lives at `plans/PLAN-V2-26-process-and-overview.md` and is queued as one row file, `queue/PLAN-V2-26.json`,
+> in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
+> This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
+> the emitted command is a one-line pointer and carries no brief, so every per-plan carry is
+> authored here and the epic-wide rules are in `standing-rules.md`, read first.
+> See `persona-plan-orchestrator/standards/orchestration-model.md` for the tier and
+> hand-off contract.
+
+## First Instruction: Read The Standing Rules
+
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
+
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R12, R13, R14, R15, R16, R18, R19.
+
+Plan parameters (the values the rules ask for):
+
+- R06 — developer documentation: the developer file of each package it changes (`{module}/doc/developer/{package}.adoc`); ADR directory: `{module}/doc/adr/{package}/`; layout: workstream WS-10.
+- R12 — log message holder: `WorkflowLogMessages` (`de.planmarshall.workflow.log`, prefix `PM_WORKFLOW`); `CoreLogMessages` (`de.planmarshall.core.log`, prefix `PM_CORE`); `RuntimeLogMessages` (`de.planmarshall.runtime.log`, prefix `PM_RUNTIME`).
+
+## Objective
+
+Implement the work package `process-and-overview` of `doc/plans/process-and-overview.adoc`: the plan's process, running work, and ended work as resources. Serves: roadmap Milestone 7 (the plan's process with its events, the overview with what needs the operator), Milestone 10 (ended work); Use Cases, UC-PLN-1 (the plan's process), UC-PLN-4 (what runs, across projects), and the ended work of UC-CTL-1; the overview, the plan view, and ended work in both clients of `pm-mcp-clients`. Where: pm-workflow (the node states derived from the plan's history, the composed process as a tree); pm-core (titles and names, the start of the current phase); pm-runtime (the resources and the events per scope). The package file is the brief; this spec adds what the orchestrator observed and the constraints of the epic.
+
+## Deliverables
+
+The bullets of `doc/plans/process-and-overview.adoc` § What, in its words (regenerated at 710da61, after the specification moved into this repository).
+
+1. Implements Runtime Model § The Plan's Process as a Structure, § Events of the Process, § What Needs the Operator, at a Glance, § The Overview Resource and Its Events, § Events per Scope, § Ended Work, State Catalogue § Running Work, and Store Schemas § Titles and Names (`PM-ARCH-11`).
+2. The process: `GET /api/v1/plans/{plan_id}/process` answers the composed process of the instance in force as a tree (the plan, its phases, every workflow's states in their order, every call expanded to the leaves), never DSL text; each node with its `node_id`, its kind, and its state derived from the plan's history of `phase-sub-workflows` (`done`, `running`, `planned`, `waiting_for_operator`, `failed`, `not_taken`, `not_in_plan` with its prune reason), how often it ran, its entry and exit times, a leaf's job or tasks with a link to their activity (`worker-activity`); the path to the current position; the context (project, epic, activity, `needs_operator`, tokens so far with split and coverage); the `instance_version`.
+3. The events of the process: on the plan's stream `state.entered`, `state.left`, `subworkflow.called`, `subworkflow.returned`, `step.opened`, `step.closed`, `instance.changed`, `activity.changed`, and `tokens.changed` (at most once per metrics event interval), each with its `node_id`.
+4. What needs the operator: a `needs_operator` summary per plan, epic, and project, derived on read and never stored, with its count and per item its kind and link, in the closed order `decision`, `waiver_request`, `operator_wait`, the holds (`integrity_pause`, `stalled`, `condition`, `held`, `landing_failed`), `findings`, `setup` (a project's setup repair or a step its onboarding owes); an epic's summary including its plans', a project's its plans', epics', and workspace scope's; a change of a summary announced on the runtime-wide stream as `needs_operator.changed`.
+5. Running work and the overview: active plans and epics and a project's running work as the state catalogue defines them; `GET /api/v1/projects` (the projects with running work, each with its `display_name`, `needs_operator`, and counts) and `GET /api/v1/projects/{project_id}` (its active plans with title, phase, activity, `created_at`, `phase_entered_at`, task progress, `needs_operator`, `off_track`, and epic; its active epics; its open entries; its running short landings); titles and names as the stores keep them.
+6. Events per scope: the streams `GET /api/v1/events`, `/plans/{plan_id}/events`, `/epics/{epic_id}/events`, `/projects/{project_id}/workspace/events`, `/machine/events`, and `/entries/{entry_id}/events`, one envelope (`event`, `id`, `data` with `at`, `scope`, and the payload of the closed event catalogue, never a model-facing representation or a secret), the resume by `Last-Event-ID` within the event buffer and otherwise one `reset`, no subscription kept; the runtime-wide stream announcing every scope's start and end, every change of running work, and every change of a `needs_operator` summary; an entry's stream announcing the scope it starts and ending, a project onboarding's entry announcing at `project.enrol` the workspace stream to follow; a stream on a web listener checked against its device secret on connect and ended by a revoked device, a closed listener, or the runtime's stop with `stream.closed` and its reason.
+7. Ended work: `GET /api/v1/projects/{project_id}/ended`, newest first, paged by a cursor, each plan with its outcome (`merged`, `no_change`, `handed_back`, `returned`, `cancelled`, `abandoned`, `released`, `aborted`), reason, and end time, each epic with its `terminal_reason`; each resolving read-only from its archive to its process and history as it ended, its completion report, decisions, re-planning records, and events; a deleted one left out and resolving to its tombstone.
+8. Where the stream and the resources of the runtime exist only in a first form (the runtime-wide stream of Milestone 2), this package brings them to the closed catalogue and envelope; the envelope and the event catalogue as the clients' contract are `pm-api`'s in `pm-mcp-clients` (roadmap Milestone 2), this package their runtime side; the transport of the streams on the web listener is the product's.
+9. Schema parity: the members of the status store the specification added (`title`, `created_at`, `phase_entered_at`, `pause`, `terminal_reason`, `setup_aspect`, `onboard_run`, `onboard_steps`) are in its codec, the ones of the packages before this one included, and `WorkflowStatusSchemaParityTest.membersEqualSchema` is re-enabled.
+
+**Done when** (the package's own acceptance): The process of a fixture plan answers every node with its derived state, also `failed`, `not_taken`, and `not_in_plan` with its reason, the path to its position, and its context, after a restart as before; each change of a node is announced on the plan's stream with its `node_id`; the `needs_operator` summary lists each kind in its order, `setup` included, is never stored, and each change of it is announced with `needs_operator.changed`; the overview lists exactly the projects with running work and their active plans, epics, entries, and short landings; every stream carries the one envelope, resumes from `Last-Event-ID` within the buffer and sends `reset` otherwise, and a web stream ends with `stream.closed` and its reason when its device is revoked, its listener closed, or the runtime stopped; ended work lists each outcome newest first by cursor, resolves an ended plan read-only from its archive, and a deleted one to its tombstone; `WorkflowStatusSchemaParityTest.membersEqualSchema` runs without `@Disabled` and passes. **Sonar:** the SonarCloud search of the pull request (`pullRequest=<N>&resolved=false`) lists no open issue other than one dismissed with its reason, and its quality gate is green, before the pull request is reported ready.
+
+**Trace starting set** (the requirements, use cases and roadmap live in `../plan-marshall-documentation`; the specifications and watch documents of the engine in this repository, `doc/specification/` and `doc/implementation-watch/`):
+
+- Use cases: UC-PLN-1; UC-PLN-4; UC-CTL-1 (ended work)
+- Requirements: PM-ARCH-11; PM-WF-23
+- Specification: the sections the first bullet of _What_ names; Runtime Model § Event Catalogue; Store Schemas § The Start of the Current Phase; Filesystem Layout § Archives
+- Watch: Runtime Model
+
+## Standing Constraints
+
+None beyond the standing rules named in the First Instruction above.
+
+## Claim Labels
+
+- OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/process-and-overview.adoc` § What, Trace, Done When on `origin/main` at `4617865` (9 bullets; the spec is regenerated from it by cleanup on 2026-10-22)
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/process-and-overview.adoc has no commit since 88ec9c70; 9 What bullets, Done-when and Trace equal the spec
+- OBSERVED: the package file and its index row (`open`; depends on PLAN-43 (`phase-sub-workflows`); PLAN-42 (`operator-wait-and-machine-scope`); PLAN-V2-21 (`plan-and-epic-control`) (the activity, the holds)) — read at `doc/plans/process-and-overview.adoc` and `doc/plans/README.adoc` on `origin/main` at `4617865`
+  - verdict: corroborated | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row open, depends on phase-sub-workflows, operator-wait-and-machine-scope, plan-and-epic-control; all three open
+- HYPOTHESIS: the Expected Surface below is inferred from the `Where` line and the class names of § What, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis: runtime/web holds Der, WebListenerConflictException, WebState, WebTls; WorkflowStatusSchemaParityTest.membersEqualSchema still disabled; the eight status members are in the schema and absent from WorkflowStatusCodec.MEMBERS
+- Verify-first clause: before scoping, list the open pull requests for one that names `process-and-overview`, check in `doc/plans/README.adoc` that every dependency is `done`, and read the roadmap item this package serves for what the code already covers; a refutation of any claim above loops back to re-scope.
+  - verdict: unverifiable | checked_at: f4a1bd07f480bbf04c18545192e0690fbca03563 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: procedure: the three dependencies are open so every dependency is done does not hold; open PRs not readable
+
+## Expected Surface
+
+- OBSERVED: `doc/plans/process-and-overview.adoc` — the package file, deleted when the package is done
+- OBSERVED: `doc/specification/filesystem-layout/03-project-store.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/state-catalogue/04-plan-finalize-terminal.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/store-schemas/02-workflow-state-store.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc` — Positioned Layout constrains the node_id form of D2
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java` — typed status members title, created_at, phase_entered_at, pause, terminal_reason, setup_aspect, onboard_run, onboard_steps
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatusCodec.java` — the eight schema members added to MEMBERS
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusSchemaParityTest.java` — membersEqualSchema re-enabled
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java` — round trip of the added members
+
+## Re-grounding Record (2026-10-26, HEAD `f4a1bd07`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. This section is the **latest** reading; the earlier section below stays as the audit record, and **where they differ, this section is the later reading**.
+
+- Claims re-read: 4: 2 corroborated, 0 contradicted, 2 unverifiable. Verdicts are stamped on the claims above (`checked_at: f4a1bd07`). Nothing is contradicted; the spec equals its unchanged package file.
+
+### Surface
+
+- Added to the Expected Surface above: `workflow/diagram/` and `workflow-dsl/07`.
+- All 11 entries exist; no ADR directory `pm-runtime/doc/adr/runtime-web/` exists (not named).
+
+### Specification changes carried (not yet in the Deliverables above)
+
+- #181 (`7f1d6a99`) — Workflow DSL 07 § Positioned Layout: the layout graph of a unit carries the `node_id` of the process tree and is joined with the states of the process answer by `node_id`; it constrains D2's `node_id` form. The file is not named in this spec; **no package owns the layout**.
+- None of #185 to #192 touches `filesystem-layout/03`, `state-catalogue/04` or `store-schemas/02`.
+
+### Shipped or superseded since the last grounding
+
+- #185: `MetricsStore` through `ScopeTransaction` (the tokens so far come from it). #190: `WorkerState`, `JobRecordStore.writeWorker`, `AuditEvent.workerStartFailed`, the start-failure guard's role hold (not a closed `needs_operator` kind per State Catalogue 01 Holds). No process, ended-work or stream code. `WorkflowStatusSchemaParityTest.membersEqualSchema` is still disabled; the eight status members are in the schema and absent from `WorkflowStatusCodec.MEMBERS`.
+- Dependencies: PLAN-43, PLAN-42, PLAN-V2-21 open (so "every dependency is done" does not hold).
+
+### Open questions for the outline
+
+- Unchanged: `pm-mcp-server` routes versus runtime placement; regeneration commit `710da61`. New: who builds the Positioned Layout; whether a role hold of the start-failure guard needs a `needs_operator` kind.
+
+## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
+
+Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (the plans #172, #169 and #164 and the specification pull requests #141, #165, #168, #171, #173, #174 and #175 have landed since the grounding of `4617865`). The Objective, Deliverables, Dependencies and Hand-Off above are the earlier text and stay as the audit record; **where this section and that text differ, this section is the later reading**, and the outline records the departure. Spec-sourced items below are the specification's own content, not inferences of the orchestrator; every statement about the repository was read at the cited place.
+
+- Claims re-read: 4: 3 corroborated, 0 contradicted (re-scoped by this section), 1 unverifiable. Verdicts are stamped on the claims above (`checked_at: 88ec9c70`).
+
+### Surface
+
+- Added to the Expected Surface above: `pm-core/doc/developer/core-store.adoc`.
+- understated: runtime/web/ holds only Der, WebState, WebTls, WebListenerConflictException; the GET /api/v1 resources and the SSE streams are classes of plan-marshall-mcp pm-mcp-server (Adjacent says it stays untouched), the event envelope and names are pm-api (EventEnvelope, EventName). Add pm-core/doc/developer/core-store.adoc (code surface core/store/ has no doc) and ADR directories (none listed)
+
+### Shipped or superseded since the last grounding
+
+- The stalled hold is already derived on read as one needs_operator item: pm-runtime start/StalledScopeDetector.Activity.needsOperator() returns 1 for a hold, never stored (#122); the summary with its closed order, other kinds, needs_operator.changed, process, overview, streams and ended work are not built
+- Schema parity (Deliverable 9) is not fixed and its scope is exact: WorkflowStatusSchemaParityTest.membersEqualSchema is still @Disabled; schema members minus WorkflowStatusCodec.MEMBERS are exactly title, created_at, phase_entered_at, pause, terminal_reason, setup_aspect, onboard_run, onboard_steps; phasesEqualSchema and scopeTypesEqualSchema stay disabled for operator-wait-and-machine-scope
+
+### Open questions for the outline
+
+- Deliverables 2 to 7 are endpoints and streams placed in pm-runtime, but Adjacent says pm-mcp-server stays untouched while routes are pm-mcp-server classes
+- Deliverables intro cites regeneration at commit 710da61, which resolves in neither pm-mcp-core nor plan-marshall-documentation; the package file's last commit is d1d58d2c
+
+### Second pass (HEAD `8233fffc`, after #177 and #179)
+
+The specification pull requests #177 (capability specs: Proportion, Amended after refine, Verified by, the Capability Test Guard, the replan triggers `capability_conflict` and `intent_amended`) and #179 landed after the first pass. 4 claims were re-read: 3 corroborated, 0 contradicted (still re-scoped by this record), 1 unverifiable; stamped `checked_at: 8233fffc`.
+
+Applicability:
+
+- no deliverable made done or impossible or duplicated; Deliverable 9 stays exact because #177 added only the nested amendments[].changes and WorkflowStatusCodec retains amendments as raw JSON; separately any verify of this plan hits the same red FindingSchemaParityTest (capability_tests enum value a…: store-schemas/02 diff (amendments items only); WorkflowStatusCodec.MEMBERS and RETAINED_MEMBERS; FindingSchemaParityTest.enumerationsEqualSchema versus FindingSourceKind by static reading not run
+
+## Dependencies and Sequencing
+
+
+- **Landing note (2026-10-29):** PLAN-105 landed (#230): `PlanProcessStates.derive` already yields the node states of the plan unit and of the composed files, but not the inner states of digest-bound sub-units.
+- Depends on: PLAN-43 (`phase-sub-workflows`); PLAN-42 (`operator-wait-and-machine-scope`); PLAN-V2-21 (`plan-and-epic-control`) (the activity, the holds)
+- Blocks: PLAN-V2-29 (`chat`)
+- Overlaps with: PLAN-01 (`lock-manager-and-leases`) in `core.store`; PLAN-06 (`store-substrate`) in `core.store`; PLAN-09 (`audit-trail`) in `core.store`; PLAN-11 (`enrolment-store`) in `core.store`; PLAN-12 (`session-log-and-generations`) in `core.store`; PLAN-13 (`workflow-engine`) in `core.store`; PLAN-14 (`operator-and-question-stores`) in `core.store`; PLAN-20 (`job-runner`) in `core.store`; PLAN-24 (`plan-instance`) in `workflow.plan`; PLAN-31 (`slots-usage-and-budgets`) in `core.store`; PLAN-42 (`operator-wait-and-machine-scope`) in `core.store`; PLAN-43 (`phase-sub-workflows`) in `core.store`, `workflow.plan`; PLAN-V2-17 (`project-onboarding-unit`) in `core.store`; PLAN-46 (`machine-onboarding-unit`) in `core.store`; PLAN-V2-23 (`decision-engine`) in `core.store`; PLAN-V2-24 (`start-from-clients`) in `core.store`; PLAN-V2-54 (`recipe-workflows`) in `workflow.plan`; PLAN-V2-21 (`plan-and-epic-control`) in `core.store`; PLAN-V2-32 (`epic-decomposition`) in `core.store`; PLAN-V2-29 (`chat`) in `core.store`, `runtime.web`; PLAN-V2-38 (`epic-auto`) in `core.store`; PLAN-V2-41 (`operator-reports`) in `core.store`; PLAN-V2-73 (`runtime-control`) in `core.store`; PLAN-61 (`token-usage`) in `core.store`; PLAN-V2-69 (`process-designer`) in `core.store`; PLAN-V2-74 (`cleanup`) in `core.store`; PLAN-64 (`removed-concepts`) in `core.store`; PLAN-66 (`worker-activity`) in `core.store`, `runtime.web`; PLAN-V2-75 (`chat-plan-revision`) in `core.store`; every plan through `doc/plans/README.adoc`; the plans of the same module through its log holder, which is not a declared surface
+- Adjacent to: the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` and the client contract `pm-api` in `pm-mcp-clients`, which stay untouched — a change there is a pull request in that repository; and `plan-marshall-documentation`, where only a requirement correction or a change of `cross-cutting.adoc` or of a specification that lives there goes, in a pull request there
+
+## Hand-Off Command
+
+```text
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-26-process-and-overview.md"
+```
+
+## Write-Boundary
+
+The plan implementing this spec touches only its own repository source and tests. It creates
+and edits NO file under `.plan/orchestrator/` other than its own
+`inbox/{sender}-{seq}` message — the orchestrator owns every other ledger write — and reports
+its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
+sole sanctioned write mechanism are stated in
+`persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.

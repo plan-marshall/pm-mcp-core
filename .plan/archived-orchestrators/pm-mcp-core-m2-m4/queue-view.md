@@ -1,0 +1,178 @@
+<!-- GENERATED FILE — never hand-edit. Rendered from this epic's ledger (status.json, resume_anchor.md, queue/*.json) by `orchestrator regenerate-view --slug pm-mcp-core-m2-m4`. On a merge conflict in this file, do not merge it by hand: merge the source files, run `orchestrator regenerate-view --slug pm-mcp-core-m2-m4`, and `git add` the result. -->
+
+# Queue view: pm-mcp-core work packages, roadmap Milestones 2 to 4
+
+## START HERE
+
+**Resume anchor**: epic closed — see history.md
+**Phase**: closed
+**Queue** (staged, in order):
+- (empty)
+- PLAN-01 (WS-01) — plan=lock-manager-and-leases — PR #20 — landing=landings/PLAN-01.md — status: shipped
+- PLAN-02 (WS-03) — plan=primitive-spi-and-validators — PR #18 — landing=landings/PLAN-02.md — status: shipped
+- PLAN-03 (WS-01) — plan=workspace-confinement — PR #19 — landing=landings/PLAN-03.md — status: shipped
+- PLAN-04 (WS-01) — plan=plan-04-service-unit — PR #25 — landing=landings/PLAN-04.md — status: shipped
+- PLAN-05 (WS-08) — plan=http-baseline — PR #28 — landing=landings/PLAN-05.md — status: shipped
+- PLAN-06 (WS-02) — plan=plan-06-store-substrate — PR #26 — landing=landings/PLAN-06.md — status: shipped
+- PLAN-07 (WS-03) — plan=workflow-dsl-parser-and-ast — PR #27 — landing=landings/PLAN-07.md — status: shipped
+- PLAN-08 (WS-01) — plan=runtime-lifecycle — PR #29 — landing=landings/PLAN-08.md — status: shipped
+- PLAN-09 (WS-01) — plan=plan-09-audit-trail — PR #69 — landing=landings/PLAN-09.md — status: shipped
+- PLAN-10 (WS-03) — plan=static-verifier-and-fuzzer — PR #32 — landing=landings/PLAN-10.md — status: shipped
+- PLAN-11 (WS-02) — plan=plan-11-enrolment-store — PR #30 — landing=landings/PLAN-11.md — status: shipped
+- PLAN-12 (WS-02) — plan=session-log-and-generations — PR #51 — landing=landings/PLAN-12.md — status: shipped
+- PLAN-13 (WS-03) — plan=workflow-engine — PR #45 — landing=landings/PLAN-13.md — status: shipped
+- PLAN-14 (WS-02) — plan=plan-14-operator-and-question-stores — PR #93 — landing=landings/PLAN-14.md — status: shipped
+- PLAN-15 (WS-02) — status: superseded
+- PLAN-16 (WS-03) — plan=diagram-generator — PR #49 — landing=landings/PLAN-16.md — status: shipped
+- PLAN-17 (WS-03) — plan=plan-17-project-units-and-invariants — PR #56 — landing=landings/PLAN-17.md — status: shipped
+- PLAN-18 (WS-04) — plan=verify-not-resolve — PR #43 — landing=landings/PLAN-18.md — status: shipped
+- PLAN-19 (WS-05) — plan=rb-19-profile-loader — PR #137 — landing=landings/PLAN-19.md — status: shipped
+- PLAN-20 (WS-04) — plan=plan-20-job-runner — PR #92 — landing=landings/PLAN-20.md — status: shipped
+- PLAN-21 (WS-03) — plan=plan-21-entity-addressing — PR #54 — landing=landings/PLAN-21.md — status: shipped
+- PLAN-22 (WS-06) — plan=scenario-replay-harness — PR #50 — landing=landings/PLAN-22.md — status: shipped
+- PLAN-23 (WS-01) — status: superseded
+- PLAN-24 (WS-03) — plan=plan-24-plan-instance — PR #67 — landing=landings/PLAN-24.md — status: shipped
+- PLAN-25 (WS-05) — plan=rb-25-waits — PR #145 — landing=landings/PLAN-25.md — status: shipped
+- PLAN-26 (WS-05) — plan=rb-26-role-sets-and-model-caller — PR #146 — landing=landings/PLAN-26.md — status: shipped
+- PLAN-27 (WS-04) — plan=rb-27-job-confinement-and-environment — PR #161 — landing=landings/PLAN-27.md — status: shipped
+- PLAN-28 (WS-05) — plan=rb-28-task-queue-and-protocol — PR #160 — landing=landings/PLAN-28.md — status: shipped
+- PLAN-29 (WS-04) — plan=rb-29-worker-launch — PR #172 — landing=landings/PLAN-29.md — status: shipped
+- PLAN-30 (WS-04) — plan=plan-30-supervisor — PR #190 — landing=landings/PLAN-30.md — status: shipped
+- PLAN-31 (WS-04) — plan=rb-31-slots-usage-and-budgets — PR #164 — landing=landings/PLAN-31.md — status: shipped
+- PLAN-32 (WS-05) — plan=rb-32-consultation — PR #169 — landing=landings/PLAN-32.md — status: shipped
+- PLAN-33 (WS-05) — status: retired
+- PLAN-34 (WS-05) — plan=rb-34-role-qualification — PR #196 — landing=landings/PLAN-34.md — status: shipped
+- PLAN-35 (WS-06) — plan=rb-35-supervision-scenarios — PR #229 — landing=landings/PLAN-35.md — status: shipped
+- PLAN-36 (WS-07) — plan=code-analysis-base — PR #31 — landing=landings/PLAN-36.md — status: shipped
+- PLAN-37 (WS-06) — plan=plan-37-ported-primitive-tests — PR #106 — landing=landings/PLAN-37.md — status: shipped
+- PLAN-38 (WS-09) — plan=plan-38-review-bot-re-review — PR #24 — landing=landings/PLAN-38.md — status: shipped
+- PLAN-39 (WS-10) — plan=plan-39-module-readmes-and-adrs — PR #53 — landing=landings/PLAN-39.md — status: shipped
+- PLAN-40 (WS-10) — plan=rb-40-module-developer-docs — PR #167 — landing=landings/PLAN-40.md — status: shipped
+- PLAN-41 (WS-03) — plan=plan-41-static-verifier-remaining-rules — PR #34 — landing=landings/PLAN-41.md — status: shipped
+- PLAN-42 (WS-03) — plan=rb-42-operator-wait-and-machine-scope — PR #199 — landing=landings/PLAN-42.md — status: shipped
+- PLAN-43 (WS-03) — plan=rb-43-phase-sub-workflows — PR #220 — landing=landings/PLAN-43.md — status: shipped
+- PLAN-44 (WS-03) — plan=plan-44-static-verifier-rule-gaps — PR #38 — landing=landings/PLAN-44.md — status: shipped
+- PLAN-45 (WS-03) — status: transferred
+- PLAN-46 (WS-03) — plan=unknown — PR #233 — landing=landings/PLAN-46.md — status: shipped
+- PLAN-47 (WS-03) — status: transferred
+- PLAN-48 (WS-03) — status: transferred
+- PLAN-49 (WS-08) — status: transferred
+- PLAN-50 (WS-03) — status: transferred
+- PLAN-51 (WS-03) — status: transferred
+- PLAN-52 (WS-03) — status: superseded
+- PLAN-53 (WS-03) — status: transferred
+- PLAN-54 (WS-03) — plan=static-verifier-rule-gaps-completion — PR #48 — landing=landings/PLAN-54.md — status: shipped
+- PLAN-55 (WS-05) — status: transferred
+- PLAN-56 (WS-03) — plan=static-verifier-residuals — PR #66 — landing=landings/PLAN-56.md — status: shipped
+- PLAN-57 (WS-03) — status: transferred
+- PLAN-58 (WS-03) — status: transferred
+- PLAN-59 (WS-01) — status: transferred
+- PLAN-60 (WS-01) — status: transferred
+- PLAN-61 (WS-04) — plan=rb-61-token-usage — PR #204 — landing=landings/PLAN-61.md — status: shipped
+- PLAN-62 (WS-03) — status: transferred
+- PLAN-63 (WS-01) — status: transferred
+- PLAN-64 (WS-02) — plan=rb-64-removed-concepts — PR #122 — landing=landings/PLAN-64.md — status: shipped
+- PLAN-65 (WS-03) — status: superseded
+- PLAN-66 (WS-04) — plan=rb-66-worker-activity — PR #198 — landing=landings/PLAN-66.md — status: shipped
+- PLAN-67 (WS-03) — status: transferred
+- PLAN-68 (WS-05) — status: transferred
+- PLAN-69 (WS-03) — plan=plan-69-unit-frontmatter-and-types — PR #91 — landing=landings/PLAN-69.md — status: shipped
+- PLAN-70 (WS-03) — plan=plan-70-plan-instance-alignment — PR #107 — landing=landings/PLAN-70.md — status: shipped
+- PLAN-71 (WS-03) — status: transferred
+- PLAN-72 (WS-04) — plan=spend-removal — PR #83 — landing=landings/PLAN-72.md — status: shipped
+- PLAN-73 (WS-05) — plan=rb-73-question-continuation — PR #201 — landing=landings/PLAN-73.md — status: shipped
+- PLAN-74 (WS-01) — plan=plan-74-credential-store-choice — PR #90 — landing=landings/PLAN-74.md — status: shipped
+- PLAN-75 (WS-10) — plan=work-package-redistribution — PR #85 — landing=landings/PLAN-75.md — status: shipped
+- PLAN-76 (WS-03) — status: transferred
+- PLAN-77 (WS-03) — status: transferred
+- PLAN-78 (WS-10) — plan=rb-78-spec-obligation-owners — PR #111 — landing=landings/PLAN-78.md — status: shipped
+- PLAN-79 (WS-05) — plan=corpus-overlay-extensions — PR #80 — landing=landings/PLAN-79.md — status: shipped
+- PLAN-80 (WS-05) — plan=corpus-group-contamination — PR #86 — landing=landings/PLAN-80.md — status: shipped
+- PLAN-81 (WS-03) — plan=rb-81-unit-frontmatter-hardening — PR #114 — landing=landings/PLAN-81.md — status: shipped
+- PLAN-82 (WS-01) — plan=rb-82-credential-store-move-advisories — PR #121 — landing=landings/PLAN-82.md — status: shipped
+- PLAN-83 (WS-01) — plan=rb-83-service-unit-restore — PR #125 — landing=landings/PLAN-83.md — status: shipped
+- PLAN-84 (WS-04) — plan=rb-84-job-runner-residuals — PR #135 — landing=landings/PLAN-84.md — status: shipped
+- PLAN-85 (WS-02) — plan=rb-85-store-records-advisories — PR #129 — landing=landings/PLAN-85.md — status: shipped
+- PLAN-86 (WS-08) — plan=rb-86-provider-http-module — PR #156 — landing=landings/PLAN-86.md — status: shipped
+- PLAN-87 (WS-02) — plan=rb-87-journal-format-version-reset — PR #148 — landing=landings/PLAN-87.md — status: shipped
+- PLAN-88 (WS-02) — plan=rb-88-question-record-reader-adapter — PR #116 — landing=landings/PLAN-88.md — status: shipped
+- PLAN-89 (WS-10) — plan=plans-index-and-traceability-corrections — PR #126 — landing=landings/PLAN-89.md — status: shipped
+- PLAN-90 (WS-06) — plan=rb-90-ported-tests-advisories — PR #120 — landing=landings/PLAN-90.md — status: shipped
+- PLAN-91 (WS-03) — plan=plan-91-plan-instance-advisories — PR #131 — landing=landings/PLAN-91.md — status: shipped
+- PLAN-92 (WS-03) — status: transferred
+- PLAN-93 (WS-10) — plan=rb-93-index-done-dependencies — PR #136 — landing=landings/PLAN-93.md — status: shipped
+- PLAN-94 (WS-06) — plan=rb-94-sonar-main-backlog — PR #147 — landing=landings/PLAN-94.md — status: shipped
+- PLAN-100 (WS-03) — status: transferred
+- PLAN-101 (WS-03) — status: transferred
+- PLAN-95 (WS-05) — plan=rb-95-schema-subset-length-first — PR #144 — landing=landings/PLAN-95.md — status: shipped
+- PLAN-96 (WS-10) — plan=rb-96-spec-ahead-work-packages — PR #143 — landing=landings/PLAN-96.md — status: shipped
+- PLAN-97 (WS-05) — plan=rb-97-endpoint-harness — PR #214 — landing=landings/PLAN-97.md — status: shipped
+- PLAN-98 (WS-05) — plan=rb-98-judgment-endpoint — PR #222 — landing=landings/PLAN-98.md — status: shipped
+- PLAN-99 (WS-03) — status: transferred
+- PLAN-102 (WS-04) — plan=rb-102-native-build-package-in-plan-marshall-mcp — PR plan-marshall-mcp#109 — landing=landings/PLAN-102.md — status: shipped
+- PLAN-103 (WS-10) — plan=rb-103-spec-coverage-pass — PR #151 — landing=landings/PLAN-103.md — status: shipped
+- PLAN-104 (WS-06) — plan=rb-104-main-green-and-leftovers — PR #185 — landing=landings/PLAN-104.md — status: shipped
+- PLAN-105 (WS-03) — plan=unknown — PR #230 — landing=landings/PLAN-105.md — status: shipped
+- PLAN-106 (WS-03) — plan=rb-106-plan-intent-and-outline-records — PR #210 — landing=landings/PLAN-106.md — status: shipped
+- PLAN-107 (WS-04) — plan=rb-107-token-usage-closure — PR #215 — landing=landings/PLAN-107.md — status: shipped
+- PLAN-108 (WS-03) — status: transferred
+- PLAN-109 (WS-03) — status: transferred
+- PLAN-110 (WS-05) — status: transferred
+- PLAN-111 (WS-02) — status: transferred
+- PLAN-112 (WS-05) — status: transferred
+- PLAN-113 (WS-05) — status: transferred
+- PLAN-114 (WS-05) — status: transferred
+- PLAN-115 (WS-04) — status: transferred
+- PLAN-116 (WS-01) — status: superseded
+- PLAN-117 (WS-04) — status: transferred
+- PLAN-118 (WS-04) — status: transferred
+- PLAN-119 (WS-04) — status: transferred
+- PLAN-120 (WS-06) — status: transferred
+- PLAN-121 (WS-03) — status: transferred
+- PLAN-122 (WS-06) — status: transferred
+- PLAN-123 (WS-06) — status: transferred
+- PLAN-124 (WS-03) — status: transferred
+- PLAN-125 (WS-10) — status: transferred
+- PLAN-126 (WS-10) — status: transferred
+- PLAN-127 (WS-10) — status: transferred
+- PLAN-128 (WS-04) — status: transferred
+- PLAN-129 (WS-05) — status: transferred
+- PLAN-130 (WS-05) — status: transferred
+- PLAN-131 (WS-05) — status: transferred
+- PLAN-132 (WS-05) — status: transferred
+- PLAN-133 (WS-05) — status: transferred
+- PLAN-134 (WS-04) — status: transferred
+- PLAN-135 (WS-05) — status: transferred
+- PLAN-136 (WS-05) — status: transferred
+- PLAN-137 (WS-05) — status: transferred
+- PLAN-138 (WS-04) — status: transferred
+- PLAN-139 (WS-04) — status: transferred
+- PLAN-140 (WS-04) — status: transferred
+- PLAN-141 (WS-05) — status: transferred
+- PLAN-142 (WS-05) — status: transferred
+- PLAN-143 (WS-04) — status: transferred
+- PLAN-144 (WS-04) — status: transferred
+- PLAN-145 (WS-05) — status: transferred
+- PLAN-146 (WS-08) — status: transferred
+- PLAN-147 (WS-08) — status: transferred
+- PLAN-148 (WS-06) — status: transferred
+- PLAN-149 (WS-02) — status: transferred
+- PLAN-150 (WS-02) — status: transferred
+- PLAN-151 (WS-05) — status: transferred
+- PLAN-152 (WS-05) — status: transferred
+- PLAN-153 (WS-02) — status: transferred
+- PLAN-154 (WS-02) — status: transferred
+- PLAN-155 (WS-02) — status: transferred
+- PLAN-156 (WS-02) — status: transferred
+- PLAN-157 (WS-04) — status: transferred
+- PLAN-158 (WS-02) — status: transferred
+- PLAN-159 (WS-03) — status: transferred
+- PLAN-160 (WS-03) — status: transferred
+- PLAN-161 (WS-03) — status: transferred
+- PLAN-162 (WS-03) — status: transferred
+
+## Ordered Queue
+
+| # | Plan | Workstream | Status | Surface (expected) | Lane |
+|---|------|------------|--------|--------------------|------|
+| — | (empty) | — | — | — | — |

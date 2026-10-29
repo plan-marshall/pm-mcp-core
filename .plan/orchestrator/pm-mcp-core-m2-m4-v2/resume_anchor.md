@@ -1,0 +1,1 @@
+Predecessor drained and closed. Archive it, land the shared ledger worktree (one PR), then run /plan-orchestrator next slug=pm-mcp-core-m2-m4-v2: it fills up to four slots, starting with PLAN-V2-01, 02, 03, 04, and PLAN-V2-82 and 81 as soon as the gate allows.

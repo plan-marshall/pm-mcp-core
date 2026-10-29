@@ -1,0 +1,11 @@
+{
+  "id": "PLAN-105",
+  "slug": "plan-instance-files-and-history",
+  "workstream": "WS-03",
+  "status": "shipped",
+  "lane": "runbook",
+  "plan_marshall_plan_id": "unknown",
+  "pr": "#230",
+  "landing": "landings/PLAN-105.md",
+  "seq": 105
+}

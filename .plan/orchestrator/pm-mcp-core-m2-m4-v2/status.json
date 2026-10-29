@@ -1,0 +1,21 @@
+{
+  "kind": "orchestrator",
+  "title": "pm-mcp-core M2-M4 (restructured: command model, 4 parallel lanes)",
+  "phase": "orchestrating",
+  "workstreams": [
+    "WS-01-command-model-and-unit-contract",
+    "WS-02-plan-instance-and-process-views",
+    "WS-03-epic-and-plan-control",
+    "WS-04-clients-onboarding-and-profiles",
+    "WS-05-stores-roles-and-facts",
+    "WS-06-runtime-worker-and-endpoint",
+    "WS-07-build-chain",
+    "WS-08-architecture-and-domains",
+    "WS-09-ci-and-providers",
+    "WS-10-spec-bookkeeping-and-hygiene"
+  ],
+  "metadata": {
+    "parallelization_scope": "4"
+  },
+  "created": "2026-10-29T17:55:16Z"
+}
