@@ -914,7 +914,7 @@ pm-operator profile remove <client_id> [--project]                              
 |`headless.events`, recorded per activity kind as `reported` or `missing`
 
 |`egress`
-|Starts the `launch` base task with the worker's egress proxy admitting only the draft's `headless.endpoints`, then a task that asks the worker to fetch a decoy host through its shell, once through the configured proxy and once directly (proxy variables unset). Checks that the base task passes through the proxy, that the proxied decoy request reached the proxy and was refused, and that the direct request found no route (on a platform with enforced egress; with unenforced egress the stage records `unenforced` and the direct request is not scored).
+|Starts the `launch` base task with the worker's egress proxy admitting only the draft's `headless.endpoints`, then a task that asks the worker to fetch a decoy host through its shell, once through the configured proxy and once directly (proxy variables unset). Checks that the base task passes through the proxy without a name lookup of its own (link:../job-runtime/02-confinement-and-environment.adoc#worker-name-resolution[Job Runtime Specification, Name Resolution]), that the proxied decoy request reached the proxy and was refused, and that the direct request found no route (on a platform with enforced egress; with unenforced egress the stage records `unenforced` and the direct request is not scored).
 |`headless.endpoints`
 
 |`isolation`
