@@ -11,6 +11,7 @@ package de.planmarshall.runtime.worker;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -93,9 +94,8 @@ class OffTrackScenarioTest {
     private record Reported(String signal, String action, double measurement, double threshold) {
     }
 
-    /** The observed run: the report count after every line of the stream, and every report in order. */
-    private record Observed(List<Integer> reportsAfterEachLine, List<Reported> reports,
-            List<String> fences, List<String> closedUnavailable) {
+    /** The observed run: the report count after every line, the reports in order, and whether the runtime ended anything. */
+    private record Observed(List<Integer> reportsAfterEachLine, List<Reported> reports, boolean ended) {
     }
 
     private static List<String> arguments(List<String> stream) {
@@ -124,9 +124,16 @@ class OffTrackScenarioTest {
      * @param predictedCost   the plan task's predicted cost, or {@code null} outside an envelope task
      * @param unplannedChange the unplanned changed files recorded for the plan task, or {@code -1} outside an envelope
      * @return the observed reports
-     * @throws IOException if the harness cannot be started
      */
-    private Observed replay(List<String> stream, RoleArtifact role, Double predictedCost, int unplannedChange)
+    private Observed replay(List<String> stream, RoleArtifact role, Double predictedCost, int unplannedChange) {
+        try {
+            return replayOrFail(stream, role, predictedCost, unplannedChange);
+        } catch (IOException e) {
+            throw new UncheckedIOException("The fixture harness cannot be started", e);
+        }
+    }
+
+    private Observed replayOrFail(List<String> stream, RoleArtifact role, Double predictedCost, int unplannedChange)
             throws IOException {
         var directory = Files.createTempDirectory(base, "scenario");
         var journal = ActivityJournal.ofScope(directory, "project-a",
@@ -149,8 +156,8 @@ class OffTrackScenarioTest {
                 counts.add(protocol.reports.size());
             }
         }
-        return new Observed(List.copyOf(counts), List.copyOf(protocol.reports), List.copyOf(protocol.fences),
-                List.copyOf(protocol.closedUnavailable));
+        var ended = !protocol.fences.isEmpty() || !protocol.closedUnavailable.isEmpty();
+        return new Observed(List.copyOf(counts), List.copyOf(protocol.reports), ended);
     }
 
     private static String awaitLine(FixtureHarness.Handle harness) {
@@ -176,15 +183,13 @@ class OffTrackScenarioTest {
     }
 
     private void assertNothingEndedThePlanOrWaitedForTheOperator(Observed observed) {
-        assertAll(
-                () -> assertTrue(observed.fences().isEmpty(), "an off-track signal never fences the generation"),
-                () -> assertTrue(observed.closedUnavailable().isEmpty(),
-                        "an off-track signal closes no task and raises no operator wait"));
+        assertFalse(observed.ended(),
+                "an off-track signal neither fences the generation nor closes a task nor raises an operator wait");
     }
 
     @Test
     @DisplayName("repeating is raised at its threshold and never one call before it")
-    void repeatingAtItsThreshold() throws IOException {
+    void repeatingAtItsThreshold() {
         var role = role(RoleArtifact.OffTrackSignal.REPEATING, RoleArtifact.OffTrackAction.SHOW);
 
         var observed = replay(repeats(5), role, null, -1);
@@ -201,7 +206,7 @@ class OffTrackScenarioTest {
 
     @Test
     @DisplayName("no_progress is raised at its threshold and never one turn before it")
-    void noProgressAtItsThreshold() throws IOException {
+    void noProgressAtItsThreshold() {
         var role = role(RoleArtifact.OffTrackSignal.NO_PROGRESS, RoleArtifact.OffTrackAction.SHOW);
 
         var observed = replay(turns(40, 1, 1), role, null, -1);
@@ -216,7 +221,7 @@ class OffTrackScenarioTest {
 
     @Test
     @DisplayName("over_size is raised at its threshold and never one turn before it")
-    void overSizeAtItsThreshold() throws IOException {
+    void overSizeAtItsThreshold() {
         var role = role(RoleArtifact.OffTrackSignal.OVER_SIZE, RoleArtifact.OffTrackAction.SHOW);
 
         var observed = replay(turns(6, 40, 10), role, 100.0, -1);
@@ -232,7 +237,7 @@ class OffTrackScenarioTest {
 
     @Test
     @DisplayName("outside_footprint is raised at its threshold and never one file before it")
-    void outsideFootprintAtItsThreshold() throws IOException {
+    void outsideFootprintAtItsThreshold() {
         var role = role(RoleArtifact.OffTrackSignal.OUTSIDE_FOOTPRINT, RoleArtifact.OffTrackAction.SHOW);
         // outside_footprint is measured on the task's recorded unplanned changes, not on the journal: the stream is the
         // worker's output, and the recorded footprint is the other half of the task's facts.
@@ -251,7 +256,7 @@ class OffTrackScenarioTest {
 
     @Test
     @DisplayName("every action is recorded with its signal and takes no ending and no operator wait")
-    void everyActionIsRecordedWithItsSignal() throws IOException {
+    void everyActionIsRecordedWithItsSignal() {
         var byAction = new LinkedHashMap<RoleArtifact.OffTrackAction, Observed>();
         for (var action : RoleArtifact.OffTrackAction.values()) {
             var role = role(RoleArtifact.OffTrackSignal.REPEATING, action);
@@ -268,8 +273,7 @@ class OffTrackScenarioTest {
                 assertEquals("repeating", reports.getFirst().signal());
                 assertEquals(5.0, reports.getFirst().measurement());
                 assertEquals(5.0, reports.getFirst().threshold());
-                assertTrue(observed.fences().isEmpty(), "no action fences the generation on the runtime's side");
-                assertTrue(observed.closedUnavailable().isEmpty(), "no action closes a task or raises an operator wait");
+                assertNothingEndedThePlanOrWaitedForTheOperator(observed);
             });
         }
 
@@ -278,41 +282,31 @@ class OffTrackScenarioTest {
 
     @Test
     @DisplayName("each scenario replayed twice reports the same signals and actions in the same order")
-    void everyScenarioReplaysTwiceToTheSameReports() throws IOException {
-        var scenarios = List.<Scenario>of(
-                new Scenario(repeats(5), RoleArtifact.OffTrackSignal.REPEATING, RoleArtifact.OffTrackAction.SHOW,
-                        null, -1),
-                new Scenario(turns(40, 1, 1), RoleArtifact.OffTrackSignal.NO_PROGRESS,
-                        RoleArtifact.OffTrackAction.NUDGE, null, -1),
-                new Scenario(turns(6, 40, 10), RoleArtifact.OffTrackSignal.OVER_SIZE,
-                        RoleArtifact.OffTrackAction.YIELD, 100.0, -1),
-                new Scenario(List.of(TURN, "{\"type\":\"file\",\"path\":\"outside/A.java\"}"),
-                        RoleArtifact.OffTrackSignal.OUTSIDE_FOOTPRINT, RoleArtifact.OffTrackAction.RESTART, 100.0,
-                        3));
-
-        var assertions = new ArrayList<Executable>();
-        for (var scenario : scenarios) {
-            var role = role(scenario.signal(), scenario.action());
-            var once = replay(scenario.stream(), role, scenario.predictedCost(), scenario.unplannedChanges());
-            var twice = replay(scenario.stream(), role, scenario.predictedCost(), scenario.unplannedChanges());
-            assertions.add(() -> {
-                assertEquals(once.reportsAfterEachLine(), twice.reportsAfterEachLine(),
-                        "the same signal on the same entry for " + scenario.signal());
-                assertEquals(once.reports(), twice.reports(), "the same action for " + scenario.signal());
-            });
-        }
-
-        assertAll(assertions);
+    void everyScenarioReplaysTwiceToTheSameReports() {
+        assertReplaysTwice(repeats(5), RoleArtifact.OffTrackSignal.REPEATING, RoleArtifact.OffTrackAction.SHOW,
+                null, -1);
+        assertReplaysTwice(turns(40, 1, 1), RoleArtifact.OffTrackSignal.NO_PROGRESS,
+                RoleArtifact.OffTrackAction.NUDGE, null, -1);
+        assertReplaysTwice(turns(6, 40, 10), RoleArtifact.OffTrackSignal.OVER_SIZE,
+                RoleArtifact.OffTrackAction.YIELD, 100.0, -1);
+        assertReplaysTwice(List.of(TURN, "{\"type\":\"file\",\"path\":\"outside/A.java\"}"),
+                RoleArtifact.OffTrackSignal.OUTSIDE_FOOTPRINT, RoleArtifact.OffTrackAction.RESTART, 100.0, 3);
     }
 
-    /** One off-track scenario: its scripted stream, its signal and action, and the task's recorded facts. */
-    private record Scenario(List<String> stream, RoleArtifact.OffTrackSignal signal,
+    private void assertReplaysTwice(List<String> stream, RoleArtifact.OffTrackSignal signal,
             RoleArtifact.OffTrackAction action, Double predictedCost, int unplannedChanges) {
+        var role = role(signal, action);
+        var once = replay(stream, role, predictedCost, unplannedChanges);
+        var twice = replay(stream, role, predictedCost, unplannedChanges);
+        assertAll(
+                () -> assertEquals(once.reportsAfterEachLine(), twice.reportsAfterEachLine(),
+                        "the same signal on the same entry for " + signal),
+                () -> assertEquals(once.reports(), twice.reports(), "the same action for " + signal));
     }
 
     @Test
     @DisplayName("a signal is reported once per attempt, however many entries follow it")
-    void oneReportPerAttempt() throws IOException {
+    void oneReportPerAttempt() {
         var role = role(RoleArtifact.OffTrackSignal.REPEATING, RoleArtifact.OffTrackAction.NUDGE);
 
         var observed = replay(repeats(8), role, null, -1);
