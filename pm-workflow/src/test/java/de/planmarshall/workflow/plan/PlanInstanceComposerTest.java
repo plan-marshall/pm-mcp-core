@@ -939,11 +939,17 @@ class PlanInstanceComposerTest {
                     """.getBytes(StandardCharsets.UTF_8))).rules();
             var instance = composed(PlanFixtures.mergedComposer(rules).compose(PlanFixtures.mergedRequest(
                     CompositionEvent.START, facts().build(), Optional.empty(), AT_INIT, List.of())));
+            var refused = refused(PlanFixtures.mergedComposer(rules).compose(PlanFixtures.mergedRequest(
+                    CompositionEvent.START, facts().build(), Optional.empty(),
+                    InstancePosition.at("land.verify-sweep"), List.of())));
 
             assertAll(
                     () -> assertTrue(instance.composed("phase-5-execute").isPresent(), instance.units()::toString),
                     () -> assertTrue(instance.composed("land").isEmpty(),
                             () -> "land is reached only through a pruned call: " + instance.units()),
+                    () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal()),
+                    () -> assertEquals(List.of("position: version 1 does not contain the state 'land.verify-sweep'"),
+                            refused.violations()),
                     () -> assertTrue(instance.header().pruned().stream().anyMatch(pruned ->
                                     pruned.element() == PrunedElement.Kind.CALL
                                             && "execute.land-entry/land".equals(pruned.id())
