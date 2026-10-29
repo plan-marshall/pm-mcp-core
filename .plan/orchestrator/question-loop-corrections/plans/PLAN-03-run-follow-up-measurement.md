@@ -1,4 +1,4 @@
-# PLAN-03: Run the question-loop re-measurement at the specified scale
+# PLAN-03: Build the question-loop driver and evidence store, and measure Claude Code
 
 epic: question-loop-corrections
 workstream: WS-02
@@ -11,47 +11,63 @@ workstream: WS-02
 
 ## Objective
 
-Implement the work package `question-loop-follow-up` of `plan-marshall-mcp` (`doc/plans/question-loop-follow-up.adoc`)
-in the form PLAN-02 leaves it: extract the durable parts of the experiment from the branch
-`verification/question-loop-experiment`, re-measure Q1 to Q7 and R1 to R4 at the revised scale of the Standing Constraint
-"Scale revision" (not the 20 runs per fixture and host the package states) with the criteria of the original package
-unchanged, keep every run's evidence in the store the package names, and record the
-settled values (`headless.resumability` per shipped profile, the `questions` values of the shipped roles, the question
-bound) with their evidence and name them for `pm-mcp-core` / `client-profile-measured-values`, the package of this
-repository that carries them into the specifications and the profiles, so that `question-continuation` implements
-measured values. The plan runs in `plan-marshall-mcp`; its results land there and in `plan-marshall-documentation`, and
-it changes no specification of this repository itself.
+Implement the Claude Code part of the work package `question-loop-follow-up` of `plan-marshall-mcp`
+(`doc/plans/question-loop-follow-up.adoc`) in the form PLAN-02 leaves it: extract the durable parts of the experiment
+from the branch `verification/question-loop-experiment` as maintained code (for all three hosts, because it is one body
+of code), create the evidence store the package names, and re-measure Q1 to Q7 and R1 to R4 **on Claude Code only** at the
+revised scale of the Standing Constraint "Scale revision", with the criteria of the original package unchanged. Record
+the settled Claude Code values (`headless.resumability`, the `questions` values of the shipped roles, the question
+bound, each stated for Claude Code) with their evidence and name them for `pm-mcp-core` /
+`client-profile-measured-values`. The OpenCode and Antigravity runs are PLAN-04, staged and deferred (see Standing
+Constraints, "Host split"). The plan runs in `plan-marshall-mcp`; its results land there and in
+`plan-marshall-documentation`, and it changes no specification of this repository itself.
 
 ## Deliverables
 
 The tasks of `question-loop-follow-up.adoc` as PLAN-02 leaves them; this spec does not restate them, because the package
-file is their only source. In outline:
+file is their only source. In outline, restricted to Claude Code where a task measures:
 
-1. The experiment's durable parts as maintained code, from the branch `verification/question-loop-experiment`.
-2. The operator decisions the package records before the first run (criteria questions, budget, Codex, R2 at 24 h).
-3. The re-measurement of every item at the revised scale, with its evidence in the named store and the client version
-   of every run.
-4. The results in the evaluation reference and the settled values recorded with their evidence in the package file and
-   named for `client-profile-measured-values`, the package of this repository PLAN-02 created; that package, not this
-   plan, writes them into `doc/specification/` and the profiles.
+1. The package amendment, as the first act: the host split, the scale revision, and the record that the package stays open
+   until PLAN-04's part is done (see Standing Constraints).
+2. The experiment's durable parts as maintained code (task 1), the evidence store `question-loop-follow-up` created and
+   pushed to before the first measured run, and the decisions of task 2 and the Codex exclusion of task 5 that belong
+   to this part.
+3. The run plan for the Claude Code groups (task 6, budget recomputed for those groups and confirmed by the operator),
+   and the re-measurement of Q1 to Q7 and R1 to R4 on Claude Code (tasks 7 to 11 restricted to that host), with the
+   client version of every run and the evidence in the store.
+4. The results in the evaluation reference and the settled Claude Code values recorded with their evidence in the package
+   file and named for `client-profile-measured-values` (tasks 12 and 13 restricted to that host); that package, not
+   this plan, writes them into `doc/specification/` and the profiles.
 
-**Done when**: the package's own Done When is met item by item, read at the revised scale (its "specified scale" and
-"20 runs per fixture and host" read as the Standing Constraint "Scale revision" states, with the package amended to say
-so), and every published figure has its source in the evidence store.
+**Done when**: the package's own Done When is met item by item for Claude Code, read at the revised scale (its
+"specified scale" and "20 runs per fixture and host" read as the Standing Constraint "Scale revision" states, with the
+package amended to say so), every published figure has its source in the evidence store, and every OpenCode and
+Antigravity item of the package is recorded as handed to PLAN-04, none silently dropped.
 
 ## Standing Constraints
 
 - Launched only on the operator's word, after PLAN-02 and PLAN-01 have landed and the operator accepted the run budget
   (task 6 of the package names about 55 USD and about 240 h as the default, an estimate from the smoke figures; the
-  operator has asked for the smaller scale below, and task 6 recomputes the budget for it, which the operator then
-  confirms or replaces).
-- Antigravity availability (operator, 2026-10-28 18:10 CET: "available in 2 d 13 h"): Gemini / Antigravity is not usable
-  before about **2026-10-31 07:10 CET**, a time computed from that statement, so accurate to the operator's rounding, not
-  to the minute. No Antigravity run (task 4, and the Antigravity groups of tasks 8 to 10) starts before then; the plan
-  runs the Claude Code and OpenCode groups first (the cheap hosts first order of task 6 already puts them first) and
-  starts the Antigravity groups at or after that time. The plan is not closed while an Antigravity group is neither run
-  nor carries a recorded reason, so it may finish its other work and wait. The run plan of task 6 names the start time
-  of the Antigravity groups, and records the time the operator gives if the date moves.
+  operator has asked for the smaller scale below and for the Claude Code groups alone, and task 6 recomputes the
+  budget for them, which the operator then confirms or replaces).
+- Host split (operator, 2026-10-29; reason: the harnesses change nearly daily, so a measured value is a statement about
+  the client versions it was measured on; the OpenCode 2.x profile (Roadmap Milestone 14) and the shipped profile
+  documents of `pm-mcp-clients` have no work package, so OpenCode and Antigravity values have no consumer yet, and
+  Antigravity is not available before about 2026-10-31). This plan covers the extraction, the evidence store and the
+  Claude Code groups. Its first act, together with the Scale revision, is to amend the package so that each task names
+  its part: tasks 3 and 4, the OpenCode and Antigravity groups of tasks 7 to 11, the OpenCode and Antigravity values of
+  task 12 and the Q2 observation on Antigravity belong to PLAN-04. The package is not closed by this plan: its index row
+  stays and its task 13 closes it only when PLAN-04's part is done or recorded as moved to a successor package. The
+  extracted driver keeps its OpenCode and Antigravity launch and classification code, with unit tests and a gated
+  smoke-level check that it starts, so that PLAN-04 starts from maintained code and not from the branch.
+  - The question bound is settled here for Claude Code and stated as Claude Code's; the package's rule "the smallest
+    candidate at which no run of any group reached the bound" is applied to the Claude Code groups and the value is
+    recorded as host-specific. Whether one bound spans the hosts is PLAN-04's to close.
+  - A `questions` value or `resumability` form of a shipped role or host this plan did not measure stays as shipped
+    (`false`, `null`, open) and is named so for `client-profile-measured-values`.
+- Antigravity availability (operator, 2026-10-28 18:10 CET: "available in 2 d 13 h", about 2026-10-31 07:10 CET) and
+  every OpenCode and Antigravity run condition (the inline settings and their effect check, the data home) now bind
+  PLAN-04, not this plan. This plan runs no OpenCode and no Antigravity group.
 - Scale revision (operator, 2026-10-28; reason: the harnesses change nearly daily, so a value measured over days is
   stale on arrival; the reason is not drawn from any run of the follow-up, so it satisfies the package's rule on changes
   before the first run). As its first act the plan amends the package (tasks 4, 6, 8, 9, 10, 11 and Done When) and the
@@ -82,12 +98,6 @@ so), and every published figure has its source in the evidence store.
 - The evidence store is the branch `question-loop-follow-up` of `cuioss/plan-marshall-telemetry`; it does not exist yet,
   and this plan creates it and pushes to it before the first measured run.
 - The criteria are fixed before the first measured run and not changed by it.
-- OpenCode runs use the configuration the package names (the inline settings of the profile, with the unset defaults as
-  control only where the package says so), and the effect of each setting is checked before the first measured run, never
-  its acceptance (`PM-WATCH-CLIENT-17`).
-- The per-worker data home of an OpenCode 2.x worker follows the operator's decision on the open question
-  `opencode-worker-login`, recorded in the package; without one, OpenCode runs serially on the operator's data home and
-  every result says so.
 - Evidence is never kept only in a worktree: before the plan's worktree is removed, the evidence store holds every run.
 - Every figure comes from the stub's event log, the relay's host-side log and the worker's output, never from what a
   model reports about itself.
@@ -119,6 +129,7 @@ so), and every published figure has its source in the evidence store.
 - HYPOTHESIS: `../plan-marshall-mcp/pm-e2e/src/test/java/de/planmarshall/e2e/` — the extracted experiment code, in the sibling repository (verify-at-outline)
 - HYPOTHESIS: `../plan-marshall-mcp/doc/plans/question-loop-follow-up.adoc` — the package file, closed when done
 - HYPOTHESIS: `../plan-marshall-documentation/doc/specification/evaluation.adoc` — the result rows
+- OBSERVED: `../plan-marshall-documentation/doc/developer/question-loop-experiment.adoc` — the developer document that tasks 1 and 6 of the package update (exists on `main`, swept 2026-10-29)
 
 ## Dependencies and Sequencing
 
@@ -131,8 +142,9 @@ so), and every published figure has its source in the evidence store.
 - Hands over to: `pm-mcp-core` / `client-profile-measured-values`, which carries the settled values into the
   specifications and the profile schema, and to `pm-mcp-clients` (`pm-api`), where the shipped profile documents live and
   which has no work package for the owed change.
-- Also waits for: the operator's decision on `opencode-worker-login`, which PLAN-02 records in the package, or the
-  recorded choice to run OpenCode serially on the operator's data home.
+- Hands over to PLAN-04 (OpenCode and Antigravity, staged and deferred): the maintained driver, the evidence store and the
+  amended package, in which each task names its part.
+- Waits for: nothing beyond the operator's word and the confirmed run budget for the Claude Code groups.
 - Adjacent to: PLAN-73 of `pm-mcp-core-m2-m4` shipped the library core of `question-continuation` (#201); the rest of
   that package waits for this plan's values.
 
