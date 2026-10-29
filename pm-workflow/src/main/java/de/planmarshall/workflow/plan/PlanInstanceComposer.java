@@ -138,8 +138,15 @@ public final class PlanInstanceComposer {
                 request.verificationSteps(), request.finalizeSteps(), lanePruned);
         var version = request.nextVersion();
         var composedUnits = composedUnits(request, pruned.states(), effects, bound, lanePruned, version);
+        var composedIds = new LinkedHashSet<String>();
+        composedUnits.forEach(unit -> composedIds.add(unit.unit()));
         var positionStates = new LinkedHashSet<>(pruned.states().keySet());
         composedUnits.forEach(unit -> positionStates.addAll(unit.definition().states().keySet()));
+        var reached = called(pruned.states().values(), request.subUnits());
+        request.subUnits().stream()
+                .filter(subUnit -> reached.contains(subUnit.definition().id()))
+                .filter(subUnit -> !composedIds.contains(subUnit.definition().id()))
+                .forEach(subUnit -> positionStates.addAll(subUnit.definition().states().keySet()));
         var missing = request.position().missingFrom(positionStates);
         if (!missing.isEmpty()) {
             return new CompositionResult.Refused(CompositionResult.Refusal.POSITION_NOT_CONTAINED, missing.stream()
@@ -150,7 +157,7 @@ public final class PlanInstanceComposer {
                 inputs(request, pruned.states().values(), composedUnits, version), facts.lane(), facts.posture(),
                 pruned.steps(), pruned.pruned(), pruned.policyCalls(), pruned.waivedGates());
         var unit = unit(request.template(), header, pruned.states());
-        var violations = verify(request, header, unit, composedUnits, lanePruned, pruned.settled());
+        var violations = verify(request, header, unit, lanePruned, pruned.settled());
         if (!violations.isEmpty()) {
             return new CompositionResult.Refused(CompositionResult.Refusal.INVARIANT_FAILED, violations);
         }
@@ -309,7 +316,7 @@ public final class PlanInstanceComposer {
      *         invariants, each listed once
      */
     private List<String> verify(CompositionRequest request, PlanInstanceHeader header, WorkflowDefinition unit,
-            List<ComposedUnit> composedUnits, Optional<PlanInstanceHeader.Lane> lane, Map<String, Set<String>> settled) {
+            Optional<PlanInstanceHeader.Lane> lane, Map<String, Set<String>> settled) {
         var found = new ArrayList<String>();
         HeaderSchemaCheck.check(header).forEach(violation -> found.add("header '%s': %s"
                 .formatted(violation.pointer(), violation.reason())));

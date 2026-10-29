@@ -439,8 +439,7 @@ class WorkflowDiagramGeneratorTest {
             var rendered = render.apply(composed, Optional.empty());
 
             assertAll(form,
-                    () -> assertTrue(rendered.contains("instance/phase-x.v3.pmwf"), rendered),
-                    () -> assertTrue(rendered.contains("phase-x"), rendered));
+                    () -> assertTrue(rendered.contains("instance/phase-x.v3.pmwf"), rendered));
         }
 
         @ParameterizedTest(name = "{0}")

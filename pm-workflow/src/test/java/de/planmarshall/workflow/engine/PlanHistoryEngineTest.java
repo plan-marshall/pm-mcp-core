@@ -172,6 +172,8 @@ class PlanHistoryEngineTest {
                         && "sub.commit".equals(line.node())), lines::toString),
                 () -> assertTrue(lines.stream().anyMatch(line -> line.event() == PlanHistoryLine.Event.RETURNED
                         && "sub.commit".equals(line.node())), lines::toString),
+                () -> assertTrue(lines.stream().anyMatch(line -> line.event() == PlanHistoryLine.Event.LEFT
+                        && "sub.done".equals(line.node()) && "done".equals(line.outcome())), lines::toString),
                 () -> assertEquals(List.of(), lines.stream()
                         .filter(line -> line.event() == PlanHistoryLine.Event.RETURNED).findFirst().orElseThrow()
                         .callPath(), "the returned line names the stack without the popped frame"));

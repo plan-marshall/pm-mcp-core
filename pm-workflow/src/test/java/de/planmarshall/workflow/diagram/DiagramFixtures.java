@@ -154,7 +154,7 @@ final class DiagramFixtures {
     /**
      * Gives the fixture instance one composed unit of its version, so the three forms render the composed set.
      *
-     * @return the fixture instance with the composed file {@code instance/phase-x.v4.pmwf}
+     * @return the fixture instance with the composed file {@code instance/phase-x.v3.pmwf}
      */
     static PlanInstance instanceWithComposedFile() {
         var base = instance();
