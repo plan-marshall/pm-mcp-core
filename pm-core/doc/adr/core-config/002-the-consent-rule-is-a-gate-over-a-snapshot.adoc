@@ -1,0 +1,62 @@
+= ADR 002: The Consent Rule Is a Gate over a Snapshot, Not a State Machine
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-29
+
+== Context
+
+`store-schemas/12#consent` states the consent-before-acting rule: every action has a consent state named
+`<sub-workflow>.consent` (or `<sub-workflow>.<action>-consent`), answered `yes`, `yes_remember` or `no`; a remembered
+kind is passed without a question; `no` records nothing and leaves the scope in the consent state; only an optional
+action goes on without it; an act of the operator's own needs no consent.
+
+The onboarding's states are units of `plan-marshall-mcp` and are not units of this repository. What is left for this
+repository is the rule itself and the store, and the rule has to be provable over fixtures without a workflow.
+
+The choice was whether the rule should be an object that holds a state and moves through it, or a function over the
+store's snapshot and one answer.
+
+== Decision
+
+* `ConsentStore.Snapshot.isRemembered(kind, project, scripts)` answers whether the kind is remembered for the scope: a
+  machine kind by any entry of its kind, a project kind by an entry of its kind and project, and `run_checkout_scripts`
+  only by an entry that lists every requested script with the same digest.
+* `ConsentGate` takes that snapshot and the operator's answer and answers a `Decision`: whether the action runs, and the
+  `Consent` to record for a `yes_remember`. It writes nothing; the caller records the entry through
+  `ConsentStore.grant` in the same step as the action's state.
+* `yes_remember` for a kind that is never remembered (`verify_harness_profile`, `auto_run`) is refused, not silently
+  degraded to `yes`.
+* `ConsentGate.operatorAct()` is the second half of the rule: it answers "runs, record nothing" without a store, so a
+  typed credential is stored on the operator's act.
+
+== Alternatives Considered
+
+1. *A `ConsentState` object that holds the scope and moves between asking, granted and denied.* _Not taken_: the state
+   lives in the workflow, which this repository does not own; a second state machine here would have to be kept in step
+   with it and would duplicate the scope rules.
+2. *Let the caller decide from `isRemembered` alone.* _Not taken_: the rule's other halves — `yes_remember` of a
+   never-remembered kind, a project that does not belong to its kind, a device on a CLI answer — would then be repeated
+   at every call site, and one call site would get one of them wrong.
+3. *Record a `yes_remember` inside the gate.* _Not taken_: the gate would need a revision and a write transaction, and
+   the specification ties the write to the transaction of the answered state, which the caller owns.
+
+== Consequences
+
+* The rule is a pure function over the snapshot and one answer, so it is proved with six tests and no store.
+* A caller cannot accidentally treat a remembered kind as a question, and cannot remember a kind the specification says
+  is never remembered.
+* The gate's `Decision.toRecord` must be written by the caller with the snapshot's revision; a caller that ignores it
+  keeps asking the same question, which is visible in the store's revision rather than silent.
+
+== Source
+
+* Plan PLAN-46, deliverable 3
+* link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#consent[Store Schemas § Consent Before Acting]
+* `pm-core/src/main/java/de/planmarshall/core/config/ConsentGate.java`,
+  `pm-core/src/test/java/de/planmarshall/core/config/ConsentGateTest.java`
