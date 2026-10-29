@@ -32,10 +32,10 @@ import java.util.Objects;
 public final class SettingsConflict extends RuntimeException {
 
     /** The error code of the local API. */
-    public static final String CODE = "conflict";
+    public static final String ERROR_CODE = "conflict";
 
     /** The HTTP status of the error code. */
-    public static final int STATUS = 409;
+    public static final int HTTP_STATUS = 409;
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -57,26 +57,32 @@ public final class SettingsConflict extends RuntimeException {
      * @param currentValue     the current value of the setting
      */
     public SettingsConflict(Path file, long expectedRevision, long currentRevision, Object currentValue) {
-        super("%s: %s: the write names revision %d, the document holds %d".formatted(
-                Objects.requireNonNull(file, "file"), CODE, expectedRevision, currentRevision));
-        if (expectedRevision == currentRevision) {
-            throw new IllegalArgumentException("A conflict names another revision than the current one: "
-                    + expectedRevision);
-        }
+        super(message(file, expectedRevision, currentRevision));
         this.file = file;
         this.expectedRevision = expectedRevision;
         this.currentRevision = currentRevision;
         this.currentValue = Objects.requireNonNull(currentValue, "currentValue");
     }
 
-    /** @return the error code of the local API, {@value #CODE} */
-    public String code() {
-        return CODE;
+    /** Validates the revision pair and renders the refusal's message before the constructor's call to {@code super}. */
+    private static String message(Path file, long expectedRevision, long currentRevision) {
+        Objects.requireNonNull(file, "file");
+        if (expectedRevision == currentRevision) {
+            throw new IllegalArgumentException("A conflict names another revision than the current one: "
+                    + expectedRevision);
+        }
+        return "%s: %s: the write names revision %d, the document holds %d".formatted(file, ERROR_CODE,
+                expectedRevision, currentRevision);
     }
 
-    /** @return the HTTP status of the error code, {@value #STATUS} */
+    /** @return the error code of the local API, {@value #ERROR_CODE} */
+    public String code() {
+        return ERROR_CODE;
+    }
+
+    /** @return the HTTP status of the error code, {@value #HTTP_STATUS} */
     public int status() {
-        return STATUS;
+        return HTTP_STATUS;
     }
 
     /** @return the refused document; {@code null} only after the refusal was deserialized */

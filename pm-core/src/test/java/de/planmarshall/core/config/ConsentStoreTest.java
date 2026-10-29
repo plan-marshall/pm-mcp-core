@@ -138,7 +138,7 @@ class ConsentStoreTest {
 
     @Test
     @DisplayName("granting the same (kind, project) again replaces the entry instead of adding one")
-    void replaceEntry() throws Exception {
+    void replaceEntry() {
         store.grant(Consent.project(ConsentKind.MODEL_COST, "pm-mcp-core", GRANTED, Consent.Channel.CLI,
                 Optional.empty()), 0L);
         var replacedAt = GRANTED.plusSeconds(60);
@@ -159,12 +159,12 @@ class ConsentStoreTest {
     void staleRevision() {
         store.grant(machine(ConsentKind.SCAN_HARNESSES), 0L);
 
-        var conflict = assertThrows(SettingsConflict.class,
-                () -> store.grant(machine(ConsentKind.FETCH_ICONS), 0L));
+        var conflicting = machine(ConsentKind.FETCH_ICONS);
+        var conflict = assertThrows(SettingsConflict.class, () -> store.grant(conflicting, 0L));
 
         assertAll(
-                () -> assertEquals(SettingsConflict.CODE, conflict.code()),
-                () -> assertEquals(SettingsConflict.STATUS, conflict.status()),
+                () -> assertEquals(SettingsConflict.ERROR_CODE, conflict.code()),
+                () -> assertEquals(SettingsConflict.HTTP_STATUS, conflict.status()),
                 () -> assertEquals(409, conflict.status()),
                 () -> assertEquals(0L, conflict.expectedRevision()),
                 () -> assertEquals(1L, conflict.currentRevision()),
@@ -224,13 +224,15 @@ class ConsentStoreTest {
     @Test
     @DisplayName("a kind that is never remembered cannot be granted")
     void neverRemembered() {
+        var harnessProfileRefused = assertThrows(IllegalArgumentException.class,
+                () -> Consent.machine(ConsentKind.VERIFY_HARNESS_PROFILE, GRANTED, Consent.Channel.CLI,
+                        Optional.empty()));
+        var autoRunRefused = assertThrows(IllegalArgumentException.class,
+                () -> Consent.machine(ConsentKind.AUTO_RUN, GRANTED, Consent.Channel.CLI, Optional.empty()));
+
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> store.grant(machine(ConsentKind.VERIFY_HARNESS_PROFILE), 0L)),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> store.grant(machine(ConsentKind.AUTO_RUN), 0L)),
-                () -> assertThrows(IllegalArgumentException.class, () -> Consent.machine(ConsentKind.AUTO_RUN, GRANTED,
-                        Consent.Channel.CLI, Optional.empty())),
+                () -> assertTrue(harnessProfileRefused.getMessage().contains("verify_harness_profile")),
+                () -> assertTrue(autoRunRefused.getMessage().contains("auto_run")),
                 () -> assertFalse(Files.exists(file)));
     }
 
@@ -241,9 +243,12 @@ class ConsentStoreTest {
             throw new UncheckedIOException("audit sink refuses the record",
                     new IOException("unavailable"));
         });
+        var consent = machine(ConsentKind.SCAN_HARNESSES);
 
-        assertThrows(UncheckedIOException.class, () -> failing.grant(machine(ConsentKind.SCAN_HARNESSES), 0L));
+        var refused = assertThrows(UncheckedIOException.class, () -> failing.grant(consent, 0L));
+
         assertAll(
+                () -> assertTrue(refused.getMessage().contains("audit sink")),
                 () -> assertTrue(store.read().consents().isEmpty()),
                 () -> assertEquals(0L, store.read().revision()),
                 () -> assertFalse(Files.exists(file)));
@@ -279,8 +284,11 @@ class ConsentStoreTest {
     void lockKey() {
         var wrong = new AtomicStoreFile(file, LockKey.machineConfiguration(base));
 
+        var wrongLock = assertThrows(IllegalArgumentException.class,
+                () -> new ConsentStore(wrong, locks, events::add));
+
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class, () -> new ConsentStore(wrong, locks, events::add)),
+                () -> assertTrue(wrongLock.getMessage().contains("consents")),
                 () -> assertEquals(LockKey.consents(base).lockFile(),
                         ConsentStore.file(base).lockKey().lockFile()));
     }

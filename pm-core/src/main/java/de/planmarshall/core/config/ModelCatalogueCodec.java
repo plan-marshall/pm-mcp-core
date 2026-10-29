@@ -83,6 +83,12 @@ public class ModelCatalogueCodec {
             harnesses = unmodifiable(harnesses);
         }
 
+        private static Map<String, List<CatalogueModel>> unmodifiable(Map<String, List<CatalogueModel>> harnesses) {
+            var copy = new LinkedHashMap<String, List<CatalogueModel>>();
+            harnesses.forEach((harness, models) -> copy.put(harness, List.copyOf(new ArrayList<>(models))));
+            return Collections.unmodifiableMap(copy);
+        }
+
         /**
          * @return the read projection the role package validates a model against
          */
@@ -112,7 +118,7 @@ public class ModelCatalogueCodec {
      * @return the document, UTF-8 encoded
      */
     public static byte[] write(Map<String, List<CatalogueModel>> harnesses, long revision) {
-        Objects.requireNonNull(harnesses, "harnesses");
+        Objects.requireNonNull(harnesses, FIELD_HARNESSES);
         var out = new ByteArrayOutputStream();
         try (var generator = StrictJson.factory().createGenerator(out, JsonEncoding.UTF8)) {
             generator.writeStartObject();
@@ -225,11 +231,5 @@ public class ModelCatalogueCodec {
         if (!CLIENT_ID.matcher(harness).matches()) {
             throw new IllegalArgumentException("Not a client id of an enrolled harness: " + harness);
         }
-    }
-
-    private static Map<String, List<CatalogueModel>> unmodifiable(Map<String, List<CatalogueModel>> harnesses) {
-        var copy = new LinkedHashMap<String, List<CatalogueModel>>();
-        harnesses.forEach((harness, models) -> copy.put(harness, List.copyOf(new ArrayList<>(models))));
-        return Collections.unmodifiableMap(copy);
     }
 }

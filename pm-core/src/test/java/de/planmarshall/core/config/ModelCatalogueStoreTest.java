@@ -98,10 +98,11 @@ class ModelCatalogueStoreTest {
     @Test
     @DisplayName("a change against an older revision is refused with the current catalogue")
     void conflict() {
-        store.write(Map.of("acme-cli", List.of(probe("acme-standard"))), Set.of("acme-cli"), 0L);
+        var enrolled = Set.of("acme-cli");
+        store.write(Map.of("acme-cli", List.of(probe("acme-standard"))), enrolled, 0L);
+        var stale = Map.of("acme-cli", List.of(probe("acme-fast")));
 
-        var conflict = assertThrows(SettingsConflict.class,
-                () -> store.write(Map.of("acme-cli", List.of(probe("acme-fast"))), Set.of("acme-cli"), 0L));
+        var conflict = assertThrows(SettingsConflict.class, () -> store.write(stale, enrolled, 0L));
 
         assertAll(
                 () -> assertEquals(1L, conflict.currentRevision()),
@@ -132,11 +133,16 @@ class ModelCatalogueStoreTest {
         var file = base.resolve(ModelCatalogueStore.FILE_NAME);
         Files.writeString(file, "{\"format_version\":1,\"revision\":1,\"harnesses\":{\"Upper\":{\"models\":[]}}}",
                 UTF_8);
+        var upper = Map.of("Upper", List.of(probe("x")));
+        var upperSet = Set.of("Upper");
+
+        var writeRefused = assertThrows(IllegalArgumentException.class,
+                () -> store.write(upper, upperSet, 0L));
+        var readRefused = assertThrows(StoreRefusal.class, store::read);
 
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> store.write(Map.of("Upper", List.of(probe("x"))), Set.of("Upper"), 0L)),
-                () -> assertEquals(file, assertThrows(StoreRefusal.class, store::read).file()));
+                () -> assertTrue(writeRefused.getMessage().contains("Upper")),
+                () -> assertEquals(file, readRefused.file()));
     }
 
     @Test
@@ -157,6 +163,9 @@ class ModelCatalogueStoreTest {
     void lockKey() {
         var wrong = new AtomicStoreFile(base.resolve("model-catalogue.json"), LockKey.harnesses(base));
 
-        assertThrows(IllegalArgumentException.class, () -> new ModelCatalogueStore(wrong, new TestLocks()));
+        var wrongLock = new TestLocks();
+        var refused = assertThrows(IllegalArgumentException.class, () -> new ModelCatalogueStore(wrong, wrongLock));
+
+        assertTrue(refused.getMessage().contains("catalogue"));
     }
 }

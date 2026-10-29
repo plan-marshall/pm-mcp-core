@@ -15,14 +15,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.file.Path;
-import java.util.List;
+import java.nio.file.Path;import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.role.EffortValue;
 import de.planmarshall.core.role.HarnessProfile;
@@ -50,9 +48,6 @@ class RoleAssignmentProposalTest {
                           "advisory":"Screens untrusted text."},
               "steward":{"tier":"standard","effort":"medium","preferred_harness":"acme-cli",
                          "advisory":"Advises the operator."}}}""";
-
-    @TempDir
-    Path base;
 
     private static byte[] artifact(String name, RoleClass roleClass) {
         var tools = roleClass == RoleClass.WRITER

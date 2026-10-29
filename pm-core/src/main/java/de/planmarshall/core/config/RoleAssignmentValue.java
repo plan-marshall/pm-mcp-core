@@ -32,7 +32,7 @@ import de.planmarshall.core.role.RoleAssignment;
 public record RoleAssignmentValue(String harness, String model, EffortSetting effort,
 Optional<EffortValue> effortValue, Optional<Escalation> escalation) {
 
-    private static final Pattern HARNESS = Pattern.compile("[a-z][a-z0-9-]{1,31}");
+    private static final Pattern HARNESS_ID = Pattern.compile("[a-z][a-z0-9-]{1,31}");
 
     /**
      * @throws IllegalArgumentException if the harness or the model is empty, the harness is not a client id, or the
@@ -44,7 +44,7 @@ Optional<EffortValue> effortValue, Optional<Escalation> escalation) {
         Objects.requireNonNull(effort, "effort");
         Objects.requireNonNull(effortValue, "effortValue");
         Objects.requireNonNull(escalation, "escalation");
-        if (!HARNESS.matcher(harness).matches()) {
+        if (!HARNESS_ID.matcher(harness).matches()) {
             throw new IllegalArgumentException("Not a client id of a role assignment: " + harness);
         }
         if (model.isEmpty() || model.length() > 128) {
