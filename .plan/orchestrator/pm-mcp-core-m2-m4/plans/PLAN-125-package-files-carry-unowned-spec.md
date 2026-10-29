@@ -1,0 +1,105 @@
+# PLAN-125: Package files carry the specification content that no package names
+
+epic: pm-mcp-core-m2-m4
+workstream: WS-10
+
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
+> Lives at `plans/PLAN-125-package-files-carry-unowned-spec.md` and is queued as one row file, `queue/PLAN-125.json`,
+> in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
+> This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
+> the emitted command is a one-line pointer and carries no brief, so every per-plan carry is
+> authored here and the epic-wide rules are in `standing-rules.md`, read first.
+> See `persona-plan-orchestrator/standards/orchestration-model.md` for the tier and
+> hand-off contract.
+
+> **Why this plan exists (2026-10-29).** PLAN-103 (#151) cut eight package files, and the specification pull requests #165, #171, #177, #179, #186, #189 and #191 added requirements after the packages were cut. A search of `doc/plans/*.adoc` and of the staged specs finds the content below in none of them, so the next `decompose` would stage the eight packages without it. This plan is documentation only: it changes package files, the index row of one new package and one stale watch item, and no source file, no test and no schema.
+
+## First Instruction: Read The Standing Rules
+
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r2`), and repeat the revision and the rule ids in your landing message.
+
+Rules that apply to this plan: R01, R02, R05, R07, R08, R10, R13, R17, R18, R19. (R05: this plan adds no implemented code, so it deletes only the one watch item of Deliverable 4; R10 because the package files link specification anchors and one watch item is deleted; R13 because the package files quote members of versioned records; R17 because the plan runs the links check; R18 only as a check, no Java is touched.)
+
+Plan parameters (the values the rules ask for):
+
+- R06 (module documentation) and R12 (log messages) do not apply: no source file is changed and no design decision is taken (an ADR is written only if the outline finds a choice between alternatives, in `doc/adr/`, the next free number of that directory).
+- R17 (the links check): `python3 /home/oliver/git/plan-marshall-documentation/.claude/skills/doc-review/scripts/trace.py /home/oliver/git/plan-marshall-documentation/doc .` run from the checkout of this repository after `git -C /home/oliver/git/plan-marshall-documentation fetch origin main` and a fast-forward (the sibling checkout lags); the number of broken links must not rise against the base.
+- Layout: workstream WS-10.
+
+## Objective
+
+Make each package file of `doc/plans/` carry the specification content that belongs to its package and that no package file or staged spec names today, and cut the one missing package, so the next `decompose` stages complete packages. Serves: roadmap Milestones 5, 8 and 10 (the items named per deliverable). Where: `doc/plans/` and one watch item. **No code is written, no specification part is edited** (so no schema a parity test pins can move): a package file gets a bullet under its _What_ naming the source section and what is owed, a clause in its _Done When_ where the item is acceptance, and the anchors in its _Trace_. The package file `doc/plans/finalize-pipeline-and-merge.adoc` is the model of the shape (its _What_ bullets name classes and anchors in the words of the specification).
+
+## Deliverables
+
+1. **`finalize-pipeline-and-merge`: the pre-merge checks beside the Dependency Delta Check.** Add to its _What_, _Trace_ and _Done When_: (a) the **Merge Danger** section of the pull-request body (`phase-workflows/05-finalize-review-metrics-descriptor.adoc#merge-danger`, the server-owned section rendered with the other server sections; its hard-to-undo input belongs to `decision-engine` and its reach part to `change-map`, so this package owns the rendering and the section's place in the body, not those two inputs); (b) the **Capability Test Guard (Pre-Merge)** (`#capability-test-guard`, `PM-WATCH-PHASE-119`), run with the Dependency Delta Check at the same three run points; (c) the **Added-Line Scan (Pre-Merge)** (`#added-line-scan`, `PM-WATCH-PHASE-122`) and the **Credential-Shaped Values** and **Outbound Text** checks (`#outbound-text-credential-check`, `PM-WATCH-PHASE-123`), the siblings of the same git-object read seam; (d) the **closed suppression reason** as the server checks it at triage (`store-schemas/03-findings-and-review-records.adoc` bullet _Closed Suppression Reason_: `duplicate` resolves `evidence.ref` in the plan's findings, `rule_exception` resolves the skill file, `generated_code` is checked at `raised_at_head`, no reason "other"; the record-level rule `suppress_reason` set exactly for `SUPPRESS` is already in `Finding`) and the report figures keyed by `suppress_reason` (the keyed figures are rendered by `operator-reports`; this package owns the check); (e) the watch item **`PM-WATCH-PHASE-115`** (ADR number at landing), which the _What_ bullet on `finalize.merge-sync` already implies, named in the _Watch_ line. Each with the guard of its watch item as a _Done When_ clause.
+2. **`remediation-units`: fix attribution and culprit localisation.** Add: the **Fix Attribution** (`store-schemas/03...#fix-attribution`: `introduced_by` written by the server at filing from the change ledger's fix commits mapped forward to `raised_at_head`; `findings_cleared`, `findings_introduced`, `net_worse` in the landing record and the completion report; the `IntroducedBy` record and the `Finding` member exist, the attribution logic does not) with its `fix_balance[]` facts (`phase-workflows/05...` bullet _Fix Balance_) and `PM-WATCH-PHASE-116`; and the **Culprit Localisation** of the verify sweep (`phase-workflows/03-q-gate-and-execute.adoc#sweep-culprit`, the state `execute.localise-sweep` of `state-catalogue/03`, `PM-WATCH-PHASE-117`), with the guards as _Done When_ clauses. Verify first that `plan-and-epic-control` (PLAN-51) names `execute.localise-sweep` only as a consumer; the package keeps the state.
+3. **`decision-quorum-and-calibration`: the corpus export.** Add the as-of **Corpus Export** (`model-work/11-decision-records.adoc#corpus-export`, `pm-operator decisions export`, the export half of `PM-WATCH-DISP-66`: an exported item sees only what was knowable at the decision) and the calibration's use of the exported real questions (`model-work/10-decision-quorum.adoc`, the paragraph that begins "The calibration grows with the corpus"), with `PM-WATCH-DISP-66` in its _Watch_ line. The grading half of `PM-WATCH-DISP-66` stays shipped with `role-qualification` (#196, its landing asks whether the export half stays here: this deliverable answers yes).
+4. **`migration-trigger-measurement`: a new package file and its index row.** The roadmap item _Implement the measurement behind the `PM-MIG-5` triggers_ (Milestone 5, the second `[ ]` item naming `migration-trigger-evaluation`) and _Measure and publish the legacy baseline for the parallel runs_ have no package; the specification (`phase-workflows/05...#migration-trigger-evaluation`, with `MigrationTriggerMinimums`, `PricingWeights` and the Caller-Drift Rate `#caller-drift-rate` that counts the `shape` rejections and reports the `content` rejections beside them) exists and no code does (`git grep` finds neither class). Write `doc/plans/migration-trigger-measurement.adoc` in the shape of the other package files (_Serves_, _Where_, _What_, _Trace_, _Done When_) and add its row to `doc/plans/README.adoc` (`open`; _Depends on_ per the outline: read which stores the triggers read, `runtime-metrics` and `operator-reports` are the likely ones; add no dependency on a `blocked` package). Delete the watch item **`PM-WATCH-PHASE-104`** ("Open: which rejections the caller-drift rate counts"): the specification (`#caller-drift-rate`) and the requirement (`requirements/11-migration.adoc` in the documentation checkout, the bullet on the per-plan rate) now agree on the `shape` subset, which is the item's option 3; cite both in the PR body. `PM-WATCH-PHASE-97`, `-98` and `-103` stay and are named in the new package's _Trace_. **Where the package lands** (`pm-workflow` or `pm-core`) is read from the source fields of the specification at the outline; it changes the _Where_ line only.
+5. **`domain-extensions-and-architecture`: the capability write of `finalize.architecture-refresh`.** Add the part of the step that this package owns: the deterministic write of the intent record's capability changes into `.marshall/capabilities/` in one transaction, the per-requirement `verified_by` and fingerprint rule (`phase-workflows/01-planning-phases-1-2.adoc` § Capability Specs; `phase-workflows/04-finalize-step-bands.adoc` row of `finalize.architecture-refresh`), the discovery job and the enrichment judgment that follow it. `re-planning` already names the triggers `capability_conflict` and `intent_amended` (checked) and stays as it is. **Verify first** that `phase-sub-workflows` (the step bands and the step catalogue) does not already name the step's capability write, and that PLAN-43's staged spec (it names `verified_by`) does not carry it; if it does, record the owner in the PR body and write no bullet.
+6. **The index and the check.** `doc/plans/README.adoc` carries exactly one new row (Deliverable 4) and no other change; every anchor a new bullet links exists (`git grep -n '\[#<anchor>\]' doc/specification`); a table in the PR body maps each source section of this plan to the package file and bullet that now carries it, and lists any section found already owned (not written twice).
+
+**Done when:** each of the five package files names, under _What_, every item of its deliverable with its source anchor and, where the item is acceptance, a _Done When_ clause; `doc/plans/migration-trigger-measurement.adoc` exists with one row in the index and `PM-WATCH-PHASE-104` is gone with its backlinks (`git grep -n 'PM-WATCH-PHASE-104'` finds none); `git diff --stat origin/main` lists only `doc/plans/*.adoc`, `doc/implementation-watch/phase-workflows.adoc` and `doc/Traceability.adoc`; no file under `doc/specification/` is changed, so no parity test reads a changed byte; the links check count does not rise; `verify` is green in CI. **Sonar:** the SonarCloud search of the pull request (`pullRequest=<N>&resolved=false`) lists no open issue other than one dismissed with its reason (none expected: no Java file changes), and its quality gate is green, before the pull request is reported ready. **Build:** a documentation plan: the pull request builds in CI (the skip on documentation-only pull requests is off since #185, `.github/project.yml:31`); run `verify` of `pm-core` locally once (`-Dtest=FindingSchemaParityTest+TaskQueueSchemaParityTest+WorkflowStatusSchemaParityTest` suffices, a full run exceeds the host's bound) to show that nothing a parity test reads moved, and report the run in the pull request body. **Links:** run the links check (R17) from the main checkout against the documentation checkout at its `origin/main`; a `BROKEN LINKS` count that names an item deleted in the sibling is the sibling's own links, not a defect of this change.
+
+**Trace starting set:** the package files named per deliverable; the specification anchors named per deliverable; the watch items `PM-WATCH-PHASE-97`, `-98`, `-103`, `-104`, `-115`, `-116`, `-117`, `-119`, `-122`, `-123`, `PM-WATCH-DISP-66` (`doc/implementation-watch/phase-workflows.adoc`, `model-work.adoc`); the epic Open Defects "Specification content of #141, #165, #171, #173 and #174 has no staged owner" and "The specification of #181, #186 to #189, #191, #192 added requirements no staged package carries" (read from `epic.md`, whose content this spec carries).
+
+## Standing Constraints
+
+None beyond the standing rules named in the First Instruction above. Plan-specific: **a package file states tasks only** (`CLAUDE.md` § Work Packages): link the specification and the watch item by relative path, do not copy the specification's text.
+
+## Claim Labels
+
+- OBSERVED: `Merge Danger` is named in no file of `doc/plans/` and no package file names `suppress_reason`, `introduced_by`, `fix_balance`, `Fix Attribution`, `localise`, `Corpus Export`, `Capability Test Guard`, `Added-Line Scan` or the watch items `PM-WATCH-PHASE-115`, `-116`, `-117`, `-119`, `-122`, `-123`, `PM-WATCH-DISP-66` — `git grep -i` over `doc/plans` at `a8da4104` (empty for each); `PM-WATCH-DISP-66` and `PM-WATCH-PHASE-119` appear in staged specs only (`plans/PLAN-34-role-qualification.md`, `plans/PLAN-101-change-map.md`)
+  - verdict: corroborated | checked_at: a8da4104e3efad83b2ca9c1b28ec724ad402fd8a | by: pm-mcp-core-m2-m4/spec-bookkeeping | rescoped: n/a | evidence: git grep over doc/plans and grep over plans/*.md at a8da4104
+- OBSERVED: the staged `PLAN-101-change-map.md` (line 158) says the Capability Test Guard "is not this package's (no doc/plans file names capability_test or verified_by so it has no owner)" and (line 109) that the Added-Line Scan and Credential-Shaped Values have "no effect on the `change_map` result" — read in `plans/PLAN-101-change-map.md` at the ledger head
+  - verdict: corroborated | checked_at: a8da4104e3efad83b2ca9c1b28ec724ad402fd8a | by: pm-mcp-core-m2-m4/spec-bookkeeping | rescoped: n/a | evidence: the spec text read; PLAN-101 is parked
+- OBSERVED: the specification anchors exist — `phase-workflows/05-finalize-review-metrics-descriptor.adoc`: Capability Test Guard line 250, Added-Line Scan line 261 (`[#added-line-scan]`), Merge Danger line 291, Caller-Drift Rate line 106 (`[[caller-drift-rate]]`), Fix Balance line 154, Migration Trigger Evaluation line 115; `phase-workflows/03-q-gate-and-execute.adoc` line 254 (`[[sweep-culprit]]`); `store-schemas/03-findings-and-review-records.adoc` line 291 (Closed Suppression Reason) and line 292 (`[[fix-attribution]]`); `model-work/11-decision-records.adoc` line 241 (`[#corpus-export]`)
+  - verdict: corroborated | checked_at: a8da4104e3efad83b2ca9c1b28ec724ad402fd8a | by: pm-mcp-core-m2-m4/spec-bookkeeping | rescoped: n/a | evidence: grep -n at a8da4104
+- OBSERVED: `Finding` carries `suppressReason` and `IntroducedBy introducedBy` and refuses `suppress_reason` set other than exactly for `SUPPRESS` — `pm-core/src/main/java/de/planmarshall/core/findings/Finding.java` lines 95, 96, 162-163; no class computes the attribution (`git grep -n 'findings_introduced\|net_worse'` over `*.java` finds nothing)
+  - verdict: corroborated | checked_at: a8da4104e3efad83b2ca9c1b28ec724ad402fd8a | by: pm-mcp-core-m2-m4/spec-bookkeeping | rescoped: n/a | evidence: Finding.java read; grep over *.java empty
+- OBSERVED: `PM-WATCH-PHASE-104` ("Open: which rejections the caller-drift rate counts") stands at `doc/implementation-watch/phase-workflows.adoc` line 1524 although `phase-workflows/05...#caller-drift-rate` (line 106) already counts only the `shape` rejections and the repeated identical rejected calls and the documentation checkout's `doc/requirements/11-migration.adoc` (line 66) states the same split — the item's option 3
+  - verdict: corroborated | checked_at: a8da4104e3efad83b2ca9c1b28ec724ad402fd8a | by: pm-mcp-core-m2-m4/spec-bookkeeping | rescoped: n/a | evidence: read at a8da4104; the documentation checkout read is at its local head fe91f42 (27 Oct), which lags origin/main: re-read it after the fetch
+- OBSERVED: no package file names `migration-trigger`, `PM-MIG-5` or `MigrationTrigger`, and no Java class named `MigrationTrigger*` or `PricingWeights` exists — `grep -il` over `doc/plans`; `git grep -i` over `*.java` at `a8da4104`
+  - verdict: corroborated | checked_at: a8da4104e3efad83b2ca9c1b28ec724ad402fd8a | by: pm-mcp-core-m2-m4/spec-bookkeeping | rescoped: n/a | evidence: both searches empty
+- OBSERVED: `re-planning.adoc` names `capability_conflict` and `intent_amended` (2 hits) and `architecture-refresh` (1 hit); `domain-extensions-and-architecture.adoc` names neither — `grep -c` at `a8da4104`
+  - verdict: corroborated | checked_at: a8da4104e3efad83b2ca9c1b28ec724ad402fd8a | by: pm-mcp-core-m2-m4/spec-bookkeeping | rescoped: n/a | evidence: grep -c over the two files
+- HYPOTHESIS: the owner of the capability write of `finalize.architecture-refresh` is `domain-extensions-and-architecture` (the epic entry's reading), not `phase-sub-workflows` (which holds the step bands and catalogue) — confirm/refute at `doc/plans/phase-sub-workflows.adoc` and PLAN-43 (verify-at-outline; Deliverable 5 says what to do either way)
+  - verdict: unverifiable | checked_at: a8da4104e3efad83b2ca9c1b28ec724ad402fd8a | by: pm-mcp-core-m2-m4/spec-bookkeeping | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
+- HYPOTHESIS: the closed suppression reason belongs with the finalize triage (this plan's Deliverable 1d), not with `operator-reports` or the owner of the findings store — confirm/refute at the `finalize.automatic-review` and triage text of `operator-reports.adoc` and `finalize-pipeline-and-merge.adoc` (verify-at-outline; if another package already owns the server-side triage check, write the bullet there and say so)
+  - verdict: unverifiable | checked_at: a8da4104e3efad83b2ca9c1b28ec724ad402fd8a | by: pm-mcp-core-m2-m4/spec-bookkeeping | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
+- Verify-first clause: before editing, fetch `origin/main` of this repository and of `plan-marshall-documentation`, list the open pull requests for one that touches `doc/plans/` (the `decompose` that stages the eight packages may be running), re-run the `git grep` searches of the first claim, and re-read `doc/plans/README.adoc` for a package that already carries a Deliverable (a hit loops back to re-scope that deliverable).
+  - verdict: unverifiable | checked_at: a8da4104e3efad83b2ca9c1b28ec724ad402fd8a | by: pm-mcp-core-m2-m4/spec-bookkeeping | rescoped: n/a | evidence: procedure: runs at the lane's refine
+
+## Expected Surface
+
+- OBSERVED: `doc/plans/finalize-pipeline-and-merge.adoc` — package file, Deliverable 1
+- OBSERVED: `doc/plans/remediation-units.adoc` — package file, Deliverable 2
+- OBSERVED: `doc/plans/decision-quorum-and-calibration.adoc` — package file, Deliverable 3
+- OBSERVED: `doc/plans/domain-extensions-and-architecture.adoc` — package file, Deliverable 5
+- OBSERVED: `doc/implementation-watch/phase-workflows.adoc` — watch document; `PM-WATCH-PHASE-104` deleted (Deliverable 4)
+- HYPOTHESIS: `doc/plans/migration-trigger-measurement.adoc` — new package file (Deliverable 4)
+
+Shared bookkeeping, not surface (R19): `doc/plans/README.adoc` (the one new row), `doc/Traceability.adoc`.
+
+## Dependencies and Sequencing
+
+- Depends on: nothing
+- Overlaps with live plans: none on code. `doc/implementation-watch/phase-workflows.adoc` is on the Expected Surface of PLAN-68, PLAN-100 and PLAN-101 (all parked; one entry each, this plan deletes one item they do not name). `doc/plans/` package files: none is on the surface of PLAN-46, PLAN-105, PLAN-108 or PLAN-109. A staged spec names `doc/plans/re-planning.adoc` (PLAN-68) and `doc/plans/operator-reports.adoc` (PLAN-58); this plan edits neither.
+- Pairwise with the other drafts of this cluster: disjoint from the two reduction plans (they edit `doc/specification/` and the watch documents `job-runtime.adoc`, `model-work.adoc` and `client-profiles.adoc`; this plan edits `phase-workflows.adoc` and `doc/plans/`).
+- Precedes: the `decompose` that stages the eight packages of #151 (it should read these package files); this plan has no outbound dependency.
+- A documentation plan changes no schema file, so nothing a parity test reads moves (memory: a specification-only change once broke `main` through `FindingSchemaParityTest`; the CI skip for such pull requests is off since #185).
+
+## Hand-Off Command
+
+```text
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-125-package-files-carry-unowned-spec.md
+```
+
+## Write-Boundary
+
+The plan implementing this spec touches only its own repository source and tests. It creates
+and edits NO file under `.plan/orchestrator/` other than its own
+`inbox/{sender}-{seq}` message — the orchestrator owns every other ledger write — and reports
+its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
+sole sanctioned write mechanism are stated in
+`persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
