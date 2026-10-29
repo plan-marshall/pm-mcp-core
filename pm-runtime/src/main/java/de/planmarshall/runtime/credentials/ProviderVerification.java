@@ -53,6 +53,7 @@ public final class ProviderVerification {
 
     private static final String OK = "ok";
     private static final String FAILED = "failed";
+    private static final String TOOL_IDENTITY = "tool_identity";
 
     /** One answer a probe gives: whether the check passed and the provider's or the tool's own answer. */
     public record Answer(boolean ok, String detail) {
@@ -246,16 +247,16 @@ public final class ProviderVerification {
      */
     private static CheckLine sameIdentity(Provider provider, Answer credential, Answer login) {
         if (!credential.ok()) {
-            return new CheckLine("tool_identity", false,
-                    MESSAGE_KEY_PREFIX + "tool_identity.credential_unknown", List.of(provider.wireName()),
+            return new CheckLine(TOOL_IDENTITY, false,
+                    MESSAGE_KEY_PREFIX + TOOL_IDENTITY + ".credential_unknown", List.of(provider.wireName()),
                     Optional.of(credential.detail()));
         }
         if (!login.ok()) {
-            return line(provider, "tool_identity", login, "identity");
+            return line(provider, TOOL_IDENTITY, login, "identity");
         }
         var same = credential.detail().equals(login.detail());
-        return new CheckLine("tool_identity", same,
-                MESSAGE_KEY_PREFIX + "tool_identity." + (same ? OK : "differs"), List.of(provider.wireName(),
+        return new CheckLine(TOOL_IDENTITY, same,
+                MESSAGE_KEY_PREFIX + TOOL_IDENTITY + "." + (same ? OK : "differs"), List.of(provider.wireName(),
                         credential.detail(), login.detail()),
                 Optional.of(login.detail()));
     }

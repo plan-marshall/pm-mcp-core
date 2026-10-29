@@ -105,7 +105,7 @@ public class MachineConfigurationCodec {
     public static byte[] write(Path file, byte[] document, ProviderDefaults providers, long revision) {
         Objects.requireNonNull(file, "file");
         Objects.requireNonNull(document, "document");
-        Objects.requireNonNull(providers, "providers");
+        Objects.requireNonNull(providers, FIELD_PROVIDERS);
         StrictJson.requireCurrentVersion(file, document, FORMAT_VERSION);
         var pass = new Pass(file, providers, revision);
         pass.run(document);
@@ -201,9 +201,7 @@ public class MachineConfigurationCodec {
                 if (replacement != null) {
                     rewritten = out.toByteArray();
                 }
-            } catch (IOException e) {
-                throw StoreRefusal.unreadable(file, FORMAT_VERSION, String.valueOf(e.getMessage()), e);
-            } catch (StrictJson.Malformed e) {
+            } catch (IOException | StrictJson.Malformed e) {
                 throw StoreRefusal.unreadable(file, FORMAT_VERSION, String.valueOf(e.getMessage()), e);
             }
         }

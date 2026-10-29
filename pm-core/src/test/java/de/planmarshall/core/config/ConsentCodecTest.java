@@ -87,9 +87,11 @@ class ConsentCodecTest {
     @MethodSource("refusedDocuments")
     @DisplayName("a document outside the store's one shape is refused")
     void refused(String document, String what) {
-        var refusal = assertThrows(StoreRefusal.class,
-                () -> ConsentCodec.read(file(), document.getBytes(UTF_8)), what);
-        assertEquals(file(), refusal.file());
+        var path = file();
+        var bytes = document.getBytes(UTF_8);
+
+        var refusal = assertThrows(StoreRefusal.class, () -> ConsentCodec.read(path, bytes), what);
+        assertEquals(path, refusal.file());
     }
 
     @Test

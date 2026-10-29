@@ -102,7 +102,7 @@ public class ConsentCodec {
      * @return the document, UTF-8 encoded
      */
     public static byte[] write(List<Consent> consents, long revision) {
-        Objects.requireNonNull(consents, "consents");
+        Objects.requireNonNull(consents, FIELD_CONSENTS);
         var out = new ByteArrayOutputStream();
         try (var generator = StrictJson.factory().createGenerator(out, JsonEncoding.UTF8)) {
             generator.writeStartObject();

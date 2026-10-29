@@ -58,6 +58,12 @@ public record DefaultAssignment(Map<String, DefaultRole> roles) {
     /** The format version of the default assignment. */
     public static final int FORMAT_VERSION = 1;
 
+    private static final String FIELD_ROLES = "roles";
+    private static final String FIELD_TIER = "tier";
+    private static final String FIELD_EFFORT = "effort";
+    private static final String FIELD_PREFERRED_HARNESS = "preferred_harness";
+    private static final String FIELD_ADVISORY = "advisory";
+
     /** Copies the map. */
     public DefaultAssignment {
         roles = Collections.unmodifiableMap(new LinkedHashMap<>(Objects.requireNonNull(roles, "roles")));
@@ -142,11 +148,11 @@ public record DefaultAssignment(Map<String, DefaultRole> roles) {
             var field = nextField(parser, seen);
             switch (field) {
                 case FIELD_FORMAT_VERSION -> version(parser);
-                case "roles" -> roles = map(parser, "roles", DefaultAssignment::role);
+                case FIELD_ROLES -> roles = map(parser, FIELD_ROLES, DefaultAssignment::role);
                 default -> throw undeclared(field);
             }
         }
-        requireFields(seen, "default assignment", FIELD_FORMAT_VERSION, "roles");
+        requireFields(seen, "default assignment", FIELD_FORMAT_VERSION, FIELD_ROLES);
         return new DefaultAssignment(roles);
     }
 
@@ -166,17 +172,17 @@ public record DefaultAssignment(Map<String, DefaultRole> roles) {
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {
-                case "tier" -> tier = string(parser, field);
-                case "effort" -> {
+                case FIELD_TIER -> tier = string(parser, field);
+                case FIELD_EFFORT -> {
                     var value = nullableString(parser, field);
                     effort = value == null ? Optional.empty() : Optional.of(new EffortValue(value));
                 }
-                case "preferred_harness" -> preferredHarness = string(parser, field);
-                case "advisory" -> advisory = string(parser, field);
+                case FIELD_PREFERRED_HARNESS -> preferredHarness = string(parser, field);
+                case FIELD_ADVISORY -> advisory = string(parser, field);
                 default -> throw undeclared(field);
             }
         }
-        requireFields(seen, "default role", "tier", "effort", "preferred_harness", "advisory");
+        requireFields(seen, "default role", FIELD_TIER, FIELD_EFFORT, FIELD_PREFERRED_HARNESS, FIELD_ADVISORY);
         try {
             return new DefaultRole(tier, effort, preferredHarness, advisory);
         } catch (IllegalArgumentException | NullPointerException e) {

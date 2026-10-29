@@ -98,7 +98,7 @@ public class RoleAssignmentsCodec {
      * @return the document, UTF-8 encoded
      */
     public static byte[] write(Map<String, RoleAssignmentValue> roles, long revision) {
-        Objects.requireNonNull(roles, "roles");
+        Objects.requireNonNull(roles, FIELD_ROLES);
         var out = new ByteArrayOutputStream();
         try (var generator = StrictJson.factory().createGenerator(out, JsonEncoding.UTF8)) {
             generator.writeStartObject();

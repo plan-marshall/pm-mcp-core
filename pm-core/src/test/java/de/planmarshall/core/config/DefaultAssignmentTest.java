@@ -79,17 +79,20 @@ class DefaultAssignmentTest {
     @DisplayName("a tier outside the closed list, a missing member or another format version is refused")
     void refused() {
         var file = base.resolve("default-assignment.json");
+        var newer = "{\"format_version\":2,\"roles\":{}}".getBytes(UTF_8);
+        var missing = "{\"format_version\":1,\"roles\":{\"implement\":{\"tier\":\"standard\"}}}".getBytes(UTF_8);
+        var withoutRoles = "{\"format_version\":1}".getBytes(UTF_8);
+        var badTier = assertThrows(IllegalArgumentException.class,
+                () -> new DefaultAssignment.DefaultRole("enormous", Optional.empty(), "acme-cli", "advice"));
+        var newerVersion = assertThrows(StoreRefusal.class, () -> DefaultAssignment.read(file, newer));
+        var missingMember = assertThrows(StoreRefusal.class, () -> DefaultAssignment.read(file, missing));
+        var noRoles = assertThrows(StoreRefusal.class, () -> DefaultAssignment.read(file, withoutRoles));
 
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> new DefaultAssignment.DefaultRole("enormous", Optional.empty(), "acme-cli", "advice")),
-                () -> assertEquals(StoreRefusal.Outcome.FORMAT_NEWER,
-                        assertThrows(StoreRefusal.class, () -> DefaultAssignment.read(file,
-                                "{\"format_version\":2,\"roles\":{}}".getBytes(UTF_8))).outcome()),
-                () -> assertThrows(StoreRefusal.class, () -> DefaultAssignment.read(file,
-                        "{\"format_version\":1,\"roles\":{\"implement\":{\"tier\":\"standard\"}}}".getBytes(UTF_8))),
-                () -> assertThrows(StoreRefusal.class,
-                        () -> DefaultAssignment.read(file, "{\"format_version\":1}".getBytes(UTF_8))));
+                () -> assertTrue(badTier.getMessage().contains("enormous")),
+                () -> assertEquals(StoreRefusal.Outcome.FORMAT_NEWER, newerVersion.outcome()),
+                () -> assertEquals(file, missingMember.file()),
+                () -> assertEquals(file, noRoles.file()));
     }
 
     @Test

@@ -153,12 +153,10 @@ public final class CredentialStoreAspect {
         }
     }
 
+    private final Path base;
     private final CredentialStoreChoice choice;
     private final LockManager locks;
-    private final AuditSink auditSink;
     private final String user;
-    private final Clock clock;
-    private final Path base;
     private final CredentialStoreCheck check;
     private final CredentialStoreMove move;
 
@@ -176,11 +174,9 @@ public final class CredentialStoreAspect {
         this.base = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
         this.choice = Objects.requireNonNull(choice, "choice");
         this.locks = Objects.requireNonNull(locks, "locks");
-        this.auditSink = Objects.requireNonNull(auditSink, "auditSink");
         this.user = Objects.requireNonNull(user, "user");
-        this.clock = Objects.requireNonNull(clock, "clock");
         this.check = new CredentialStoreCheck(random);
-        this.move = new CredentialStoreMove(this.base, choice, locks, auditSink, user, clock);
+        this.move = new CredentialStoreMove(this.base, choice, this.locks, auditSink, this.user, clock);
     }
 
     /**
@@ -206,7 +202,7 @@ public final class CredentialStoreAspect {
      * @return the next state: {@code store.consent} for an OS store, {@code store.check} for the file store
      */
     public Transition choose(Store store) {
-        Objects.requireNonNull(store, "store");
+        Objects.requireNonNull(store, STEP);
         if (store == Store.OS && choice.osStore().isEmpty()) {
             return Transition.unavailable(OS_UNAVAILABLE,
                     "the OS credential store '%s' is unavailable now".formatted(choice.osStoreName()));
@@ -247,7 +243,7 @@ public final class CredentialStoreAspect {
      * @return the next state, with the check's lines
      */
     public Transition check(Store store) {
-        Objects.requireNonNull(store, "store");
+        Objects.requireNonNull(store, STEP);
         var result = check.check(choice.backendOf(store));
         if (!result.passed()) {
             var last = result.lines().getLast();
@@ -310,8 +306,8 @@ public final class CredentialStoreAspect {
      * @param store the store the aspect records
      * @return the terminal state {@code store.done}, or {@code store.unavailable} with the refusal
      */
-    public Transition record(Store store) {
-        Objects.requireNonNull(store, "store");
+    public Transition recordStore(Store store) {
+        Objects.requireNonNull(store, STEP);
         try {
             choice.record(locks, user, store);
             return Transition.to(State.DONE);

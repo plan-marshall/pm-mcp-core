@@ -102,9 +102,9 @@ class RoleAssignmentsStoreTest {
     @DisplayName("a change against an older revision is refused with the assignments the document holds")
     void conflict() throws Exception {
         Files.writeString(file, DOCUMENT, UTF_8);
+        var stale = Map.of("implement", RoleAssignmentValue.of("acme-cli", "acme-fast", "low"));
 
-        var conflict = assertThrows(SettingsConflict.class,
-                () -> store.write(Map.of("implement", RoleAssignmentValue.of("acme-cli", "acme-fast", "low")), 1L));
+        var conflict = assertThrows(SettingsConflict.class, () -> store.write(stale, 1L));
 
         assertAll(
                 () -> assertEquals(1L, conflict.expectedRevision()),
@@ -133,19 +133,22 @@ class RoleAssignmentsStoreTest {
     void refusedValues() throws Exception {
         var fileWithBadRole = base.resolve("other.json");
         Files.writeString(fileWithBadRole, "{\"format_version\":1,\"revision\":1,\"roles\":{\"Upper\":{}}}", UTF_8);
+        var missingEffort = assertThrows(IllegalArgumentException.class, () -> new RoleAssignmentValue("acme-cli",
+                "acme-standard", EffortSetting.VALUE, Optional.empty(), Optional.empty()));
+        var effortWithoutSetting = assertThrows(IllegalArgumentException.class, () -> new RoleAssignmentValue(
+                "acme-cli", "acme-standard", EffortSetting.INHERIT, Optional.of(new EffortValue("high")),
+                Optional.empty()));
+        var upper = Map.of("Upper", RoleAssignmentValue.of("acme-cli", "acme-standard", "high"));
+        var badRole = assertThrows(IllegalArgumentException.class, () -> store.write(upper, 0L));
+        var readRefused = assertThrows(StoreRefusal.class,
+                () -> RoleAssignmentsCodec.read(fileWithBadRole, Files.readAllBytes(fileWithBadRole)));
 
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class, () -> new RoleAssignmentValue("acme-cli",
-                        "acme-standard", EffortSetting.VALUE, Optional.empty(), Optional.empty())),
-                () -> assertThrows(IllegalArgumentException.class, () -> new RoleAssignmentValue("acme-cli",
-                        "acme-standard", EffortSetting.INHERIT, Optional.of(new EffortValue("high")),
-                        Optional.empty())),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> store.write(Map.of("Upper", RoleAssignmentValue.of("acme-cli", "acme-standard", "high")),
-                                0L)),
+                () -> assertTrue(missingEffort.getMessage().contains("effort")),
+                () -> assertTrue(effortWithoutSetting.getMessage().contains("effort")),
+                () -> assertTrue(badRole.getMessage().contains("Upper")),
                 () -> assertFalse(Files.exists(file)),
-                () -> assertThrows(StoreRefusal.class, () -> RoleAssignmentsCodec.read(fileWithBadRole,
-                        Files.readAllBytes(fileWithBadRole))));
+                () -> assertEquals(fileWithBadRole, readRefused.file()));
     }
 
     @Test
@@ -160,7 +163,10 @@ class RoleAssignmentsStoreTest {
     @DisplayName("the store is guarded by the assignment lock of the machine or a project's local configuration")
     void lockKey() {
         var wrong = new AtomicStoreFile(file, LockKey.harnesses(base));
+        var wrongLocks = new TestLocks();
 
-        assertThrows(IllegalArgumentException.class, () -> new RoleAssignmentsStore(wrong, new TestLocks()));
+        var refused = assertThrows(IllegalArgumentException.class, () -> new RoleAssignmentsStore(wrong, wrongLocks));
+
+        assertTrue(refused.getMessage().contains("role assignments"));
     }
 }

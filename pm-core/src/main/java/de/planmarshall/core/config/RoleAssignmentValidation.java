@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.config;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -40,40 +41,58 @@ public final class RoleAssignmentValidation {
     }
 
     /**
-     * @param role      the role the assignment is written for
-     * @param value     the assignment
-     * @param artifact  the role's effective artifact, which names the class and the model's requirements
-     * @param profiles  the facts of a harness's profile by client id; empty when no profile has the client id
-     * @param enrolments the enrolled build of a harness by client id; empty when it is not enrolled
-     * @param catalogue the effective model catalogue; empty when the machine has none yet
+     * The lookups every value is validated against.
+     *
+     * @param profiles   the facts of a harness's profile by client id
+     * @param enrolments the enrolled build of a harness by client id
+     * @param catalogue  the effective model catalogue
+     * @since 0.1
+     */
+    public record Facts(Function<String, Optional<HarnessProfile>> profiles,
+            Function<String, Optional<EnrolledHarness>> enrolments, Optional<ModelCatalogue> catalogue) {
+
+        /** Rejects {@code null} components. */
+        public Facts {
+            Objects.requireNonNull(profiles, "profiles");
+            Objects.requireNonNull(enrolments, "enrolments");
+            Objects.requireNonNull(catalogue, "catalogue");
+        }
+    }
+
+    /**
+     * @param role     the role the assignment is written for
+     * @param value    the assignment
+     * @param artifact the role's effective artifact, which names the class and the model's requirements
+     * @param facts    the profile, enrolment and catalogue lookups
      * @throws RoleRefusal with the reason of the failing row of the validation table
      */
-    public static void require(String role, RoleAssignmentValue value, RoleArtifact artifact,
-            Function<String, Optional<HarnessProfile>> profiles,
-            Function<String, Optional<EnrolledHarness>> enrolments, Optional<ModelCatalogue> catalogue) {
-        check(role, value.harness(), value.model(), value.effortValue(), artifact, profiles, enrolments, catalogue);
+    public static void require(String role, RoleAssignmentValue value, RoleArtifact artifact, Facts facts) {
+        Objects.requireNonNull(facts, "facts");
+        check(role, value.harness(), value.model(), value.effortValue(), artifact, facts);
         value.escalation().ifPresent(escalation -> check(role, escalation.harness(), escalation.model(),
-                escalation.effort(), artifact, profiles, enrolments, catalogue));
+                escalation.effort(), artifact, facts));
     }
 
     private static void check(String role, String harness, String model, Optional<EffortValue> effort,
-            RoleArtifact artifact, Function<String, Optional<HarnessProfile>> profiles,
-            Function<String, Optional<EnrolledHarness>> enrolments, Optional<ModelCatalogue> catalogue) {
-        var facts = profiles.apply(harness).orElseThrow(() -> invalid(RoleValidationReason.HARNESS_UNKNOWN, role,
-                artifact, "no client profile has the client id '%s'".formatted(harness)));
+            RoleArtifact artifact, Facts facts) {
+        var profile = facts.profiles();
+        var enrolments = facts.enrolments();
+        var catalogue = facts.catalogue();
+        var harnessFacts = profile.apply(harness).orElseThrow(() -> invalid(RoleValidationReason.HARNESS_UNKNOWN,
+                role, artifact, "no client profile has the client id '%s'".formatted(harness)));
         if (enrolments.apply(harness).isEmpty()) {
             throw invalid(RoleValidationReason.HARNESS_UNKNOWN, role, artifact,
                     "the harness '%s' is not enrolled".formatted(harness));
         }
-        if (!facts.eligible()) {
+        if (!harnessFacts.eligible()) {
             throw invalid(RoleValidationReason.HARNESS_NOT_ELIGIBLE, role, artifact,
                     "the profile of '%s' is not worker-eligible".formatted(harness));
         }
-        if (!facts.runs(artifact.roleClass())) {
+        if (!harnessFacts.runs(artifact.roleClass())) {
             throw invalid(RoleValidationReason.HARNESS_CLASS_NOT_RUNNABLE, role, artifact,
                     "the profile of '%s' runs no %s role".formatted(harness, artifact.roleClass().wireName()));
         }
-        if (!effortSupported(facts, model, effort)) {
+        if (!effortSupported(harnessFacts, model, effort)) {
             throw invalid(RoleValidationReason.EFFORT_UNSUPPORTED, role, artifact,
                     "the harness '%s' does not accept the effort %s for '%s'".formatted(harness,
                             effort.map(EffortValue::value).orElse("null"), model));
