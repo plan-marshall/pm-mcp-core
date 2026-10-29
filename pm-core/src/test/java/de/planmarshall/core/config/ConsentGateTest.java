@@ -131,14 +131,15 @@ class ConsentGateTest {
     @Test
     @DisplayName("yes_remember is refused for a kind that is never remembered")
     void neverRemembered() {
+        var gate = empty();
         var verifyProfileRequest = ConsentGate.Request.machine(ConsentKind.VERIFY_HARNESS_PROFILE);
         var autoRunRequest = ConsentGate.Request.machine(ConsentKind.AUTO_RUN);
+        var noDevice = Optional.<String>empty();
         var harnessProfile = assertThrows(IllegalArgumentException.class,
-                () -> empty().answer(verifyProfileRequest, ConsentGate.Answer.YES_REMEMBER, Consent.Channel.CLI,
-                        Optional.empty()));
+                () -> gate.answer(verifyProfileRequest, ConsentGate.Answer.YES_REMEMBER, Consent.Channel.CLI,
+                        noDevice));
         var autoRun = assertThrows(IllegalArgumentException.class,
-                () -> empty().answer(autoRunRequest, ConsentGate.Answer.YES_REMEMBER, Consent.Channel.CLI,
-                        Optional.empty()));
+                () -> gate.answer(autoRunRequest, ConsentGate.Answer.YES_REMEMBER, Consent.Channel.CLI, noDevice));
         var harnessMessage = harnessProfile.getMessage();
         var autoRunMessage = autoRun.getMessage();
 
@@ -150,16 +151,18 @@ class ConsentGateTest {
     @Test
     @DisplayName("a project kind names its project, and a machine kind names none")
     void scope() {
+        var gate = empty();
         var inspect = ConsentGate.Request.machine(ConsentKind.INSPECT_CHECKOUT);
         var withProject = new ConsentGate.Request(ConsentKind.SCAN_HARNESSES, Optional.of("pm-mcp-core"), List.of());
         var withScripts = new ConsentGate.Request(ConsentKind.SCAN_HARNESSES, Optional.empty(),
                 List.of(new ConsentScript("bin/a.sh", SHA)));
+        var noProject = Optional.<String>empty();
         var machineKindWithProject = assertThrows(IllegalArgumentException.class,
-                () -> empty().answer(inspect, ConsentGate.Answer.YES, Consent.Channel.CLI, Optional.empty()));
+                () -> gate.answer(inspect, ConsentGate.Answer.YES, Consent.Channel.CLI, noProject));
         var projectKindWithoutProject = assertThrows(IllegalArgumentException.class,
-                () -> empty().answer(withProject, ConsentGate.Answer.YES, Consent.Channel.CLI, Optional.empty()));
+                () -> gate.answer(withProject, ConsentGate.Answer.YES, Consent.Channel.CLI, noProject));
         var scriptsOnAnotherKind = assertThrows(IllegalArgumentException.class,
-                () -> empty().answer(withScripts, ConsentGate.Answer.YES, Consent.Channel.CLI, Optional.empty()));
+                () -> gate.answer(withScripts, ConsentGate.Answer.YES, Consent.Channel.CLI, noProject));
         var machineMessage = machineKindWithProject.getMessage();
         var projectMessage = projectKindWithoutProject.getMessage();
         var scriptsMessage = scriptsOnAnotherKind.getMessage();
@@ -173,19 +176,21 @@ class ConsentGateTest {
     @Test
     @DisplayName("a paired device belongs to the web channel and its grammar")
     void device() {
+        var gate = empty();
         var request = ConsentGate.Request.machine(ConsentKind.SCAN_PROVIDERS);
-        var remembered = empty().answer(request, ConsentGate.Answer.YES_REMEMBER, Consent.Channel.WEB,
-                Optional.of("dev-0123456789ab"));
+        var paired = Optional.of("dev-0123456789ab");
+        var laptop = Optional.of("laptop");
+        var remembered = gate.answer(request, ConsentGate.Answer.YES_REMEMBER, Consent.Channel.WEB, paired);
         var device = remembered.toRecord().orElseThrow().deviceId();
-        var deviceOnCli = assertThrows(IllegalArgumentException.class, () -> empty().answer(request,
-                ConsentGate.Answer.YES_REMEMBER, Consent.Channel.CLI, Optional.of("dev-0123456789ab")));
-        var notADevice = assertThrows(IllegalArgumentException.class, () -> empty().answer(request,
-                ConsentGate.Answer.YES_REMEMBER, Consent.Channel.WEB, Optional.of("laptop")));
+        var deviceOnCli = assertThrows(IllegalArgumentException.class,
+                () -> gate.answer(request, ConsentGate.Answer.YES_REMEMBER, Consent.Channel.CLI, paired));
+        var notADevice = assertThrows(IllegalArgumentException.class,
+                () -> gate.answer(request, ConsentGate.Answer.YES_REMEMBER, Consent.Channel.WEB, laptop));
         var deviceOnCliMessage = deviceOnCli.getMessage();
         var notADeviceMessage = notADevice.getMessage();
 
         assertAll(
-                () -> assertEquals(Optional.of("dev-0123456789ab"), device),
+                () -> assertEquals(paired, device),
                 () -> assertTrue(deviceOnCliMessage.contains("dev-0123456789ab")),
                 () -> assertTrue(notADeviceMessage.contains("laptop")));
     }
