@@ -2,10 +2,10 @@
   "id": "PLAN-35",
   "slug": "supervision-scenarios",
   "workstream": "WS-06",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-35-supervision-scenarios",
+  "pr": "#229",
+  "landing": "landings/PLAN-35.md",
   "seq": 35
 }
