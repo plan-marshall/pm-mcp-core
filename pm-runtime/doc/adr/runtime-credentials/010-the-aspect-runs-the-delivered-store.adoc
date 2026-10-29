@@ -1,0 +1,66 @@
+= ADR 010: The Aspect Runs the Delivered Store, and the Verification Runs over a Seam
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-29
+
+== Context
+
+`Credentials & Enrolment § Credential Store as an Operator Choice` describes the aspect as states of the machine's
+onboarding, and `§ Provider Verification` as checks that run per selected provider on a consent. The onboarding's units
+live in `plan-marshall-mcp`, not in this repository; the store, the check and the move are delivered here
+(`CredentialStoreChoice`, `CredentialStoreCheck`, `CredentialStoreMove`), and `CredentialStoreChoice.record` has no
+production caller.
+
+Two things had to be settled: how this repository proves the aspect's order and its consent without owning the units,
+and how the provider verification is specified while the CI contract has no module here and no provider module answers
+`ci.whoami`.
+
+== Decision
+
+* `CredentialStoreAspect` is a class of `runtime.credentials` with one method per state and one `Transition` value per
+  answer. It calls the delivered `CredentialStoreCheck` and `CredentialStoreMove`; it does not re-implement either.
+* The consent is `core.config.ConsentGate` with the kind `check_credential_store`. A `no` stays in `store.consent` and
+  the check is not run; the file store is checked without a consent, as the specification says.
+* A move that fails before the switch keeps the old store recorded and untouched — the delivered move's behaviour — and
+  the aspect answers `store.unavailable` with `credential_store_failed`.
+* `ProviderVerification` is specified against two interfaces, `ProviderProbe` and `ToolProbe`, which the assembly
+  implements over the provider modules and the enrolled CLI tools. Its lines are values; it records nothing.
+
+== Alternatives Considered
+
+1. *Wait for the onboarding units and prove the aspect in `plan-marshall-mcp`.* _Not taken_: the credential store is on
+   the critical path — the daemon refuses every credential operation until `credentials.store` is recorded — and the
+   order of the states is engine behaviour that can be proved here today. The units remain owed and are named as owed in
+   the landing.
+2. *Implement the provider checks directly in the runtime.* _Not taken_: the checks are HTTP calls and CLI invocations
+   of provider modules that do not exist in this repository yet (R03 keeps HTTP out of the foundation); a direct
+   implementation would duplicate the provider contract and have to be deleted when the modules arrive.
+3. *Let the aspect record the consent itself.* _Not taken_: the consent is written in the transaction of the answered
+   state, which the caller owns; the aspect would need a revision and a write transaction, and the gate already hands the
+   entry back.
+
+== Consequences
+
+* The aspect's order, its consent and its failed move are proved over fixtures without a workflow: thirteen tests.
+* The verification is a seam until the CI contract and the provider modules land; a probe that cannot answer reports the
+  failed line it got, never a silent pass.
+* The assembly must implement both seams and drive the aspect's states; until it does, `providers.record` writes nothing
+  and the credential-store aspect has no caller, as `CredentialStoreChoice.record` had none before.
+
+== Source
+
+* Plan PLAN-46, deliverable 6
+* link:../../../../doc/specification/credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[Credentials
+  & Enrolment § Credential Store as an Operator Choice], link:../../../../doc/specification/credentials-and-enrolment/01-provider-credentials.adoc#provider-verification[§
+  Provider Verification]
+* link:../../../../doc/specification/state-catalogue/19-onboarding-aspects-models-providers.adoc#state-catalogue-store[State
+  Catalogue § Credential Store], link:../../../../doc/specification/state-catalogue/19-onboarding-aspects-models-providers.adoc#state-catalogue-providers[§
+  Providers]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreAspect.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/credentials/ProviderVerification.java`

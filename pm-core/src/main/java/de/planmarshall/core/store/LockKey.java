@@ -256,6 +256,30 @@ public record LockKey(LockLevel level, Path lockFile, String id) implements Comp
 
     /**
      * @param base the base directory of the runtime
+     * @return the key of the lock of the machine's remembered consents
+     */
+    public static LockKey consents(Path base) {
+        return ofMachineStore(base, "consents");
+    }
+
+    /**
+     * @param base the base directory of the runtime
+     * @return the key of the lock of the model catalogues of the machine and its projects
+     */
+    public static LockKey modelCatalogue(Path base) {
+        return ofMachineStore(base, "model-catalogue");
+    }
+
+    /**
+     * @param base the base directory of the runtime
+     * @return the key of the lock of the role assignments of the machine and its projects
+     */
+    public static LockKey roleAssignments(Path base) {
+        return ofMachineStore(base, "role-assignments");
+    }
+
+    /**
+     * @param base the base directory of the runtime
      * @return the key of the lock of the model slot leases
      */
     public static LockKey modelSlots(Path base) {
