@@ -34,7 +34,8 @@ import de.planmarshall.core.spi.PrimitiveRegistry;
 import de.planmarshall.core.spi.PrimitiveResult;
 import de.planmarshall.core.spi.QuestionRecordReader;
 import de.planmarshall.core.spi.QueueTaskCreator;
-import de.planmarshall.core.spi.WorkflowClock;import de.planmarshall.core.spi.WorkflowExecutionContext;
+import de.planmarshall.core.spi.WorkflowClock;
+import de.planmarshall.core.spi.WorkflowExecutionContext;
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.LockKey;
@@ -143,6 +144,9 @@ final class ScenarioFixtures {
     /** The question port of the engine. */
     final ScriptedQuestionRecordReader questionReader = new ScriptedQuestionRecordReader();
 
+    /** The free-parameter primitive of the operator unit, which records the notes its links submitted. */
+    final Note note = new Note();
+
     /**
      * Parses a unit; it must follow the grammar.
      *
@@ -224,12 +228,12 @@ final class ScenarioFixtures {
     }
 
     /** @return the registry of the primitives the fixture unit names */
-    static PrimitiveRegistry registry() {
+    PrimitiveRegistry registry() {
         return new PrimitiveRegistry(List.of(
                 new Fixed<>("scenario.prepare", StepOutcome.DONE, AwaitedEvent.NONE),
                 new Fixed<>("scenario.build", FateOutcome.SUCCEEDED, AwaitedEvent.JOB_SETTLED),
                 new Fixed<>("scenario.evaluate", EvaluateOutcome.APPROVED, AwaitedEvent.NONE),
-                new Note()));
+                note));
     }
 
     /** @return the default entity kinds plus {@link #CHANGE_KIND}, which needs no entity unit */
@@ -432,8 +436,15 @@ final class ScenarioFixtures {
     record NoteParams(@FreeParam(minLength = 1, maxLength = 80) String note) {
     }
 
-    /** The primitive {@code scenario.note} of the fixture operator unit: always {@code done}. */
+    /** The primitive {@code scenario.note} of the fixture operator unit: records its note, always {@code done}. */
     static final class Note implements Primitive<NoteParams, StepOutcome> {
+
+        private final List<String> notes = new ArrayList<>();
+
+        /** @return the notes the operator links submitted, in order */
+        List<String> notes() {
+            return List.copyOf(notes);
+        }
 
         @Override
         public String id() {
@@ -452,6 +463,7 @@ final class ScenarioFixtures {
 
         @Override
         public PrimitiveResult<StepOutcome> execute(WorkflowExecutionContext context, NoteParams parameters) {
+            notes.add(parameters.note());
             return new PrimitiveResult<>(StepOutcome.DONE, Map.of(), Optional.empty());
         }
 
@@ -461,7 +473,8 @@ final class ScenarioFixtures {
         }
     }
 
-    /** A clock the replay moves by {@link ScenarioFixtures#STEP} per step. */    static final class ManualClock implements WorkflowClock {
+    /** A clock the replay moves by {@link ScenarioFixtures#STEP} per step. */
+    static final class ManualClock implements WorkflowClock {
 
         private Instant now;
 

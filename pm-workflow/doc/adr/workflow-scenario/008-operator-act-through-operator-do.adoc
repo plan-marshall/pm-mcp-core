@@ -43,9 +43,11 @@ link with one free text parameter (`choose`, primitive `scenario.note`).
 == Consequences
 
 * A scenario can replay an operator wait deterministically; `ScenarioReplayRunnerTest` (nested class `Operator acts`)
-  proves the act, its parameters, the refusal of an unoffered link, and the byte-identical replay of the script twice.
+  proves the act, the free parameter the primitive receives, the refusal of an unoffered link, and the byte-identical
+  replay of the script twice.
 * The directives `operator_cli` and the worker faults stay refused with their work packages; a script that names them
-  still fails before it runs.
+  still fails before it runs. `worker_wait` and `worker_do` still name `task-queue-and-protocol` in `REFUSED`; the
+  package that shipped did not implement them, and this package does not take them.
 
 == Source
 

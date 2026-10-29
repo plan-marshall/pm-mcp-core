@@ -329,7 +329,10 @@ class ScenarioReplayRunnerTest {
 
             var stored = new WorkflowStatusStore(ScenarioFixtures.scope(directory, JournalScopeType.PLAN,
                     "scenario-operator"));
-            assertEquals("completed", stored.read().orElseThrow().state());
+            assertAll(
+                    () -> assertEquals("completed", stored.read().orElseThrow().state()),
+                    () -> assertEquals(List.of("go"), runner.fixtures().note.notes(),
+                            "the primitive received the parameter the script named"));
         }
 
         @Test

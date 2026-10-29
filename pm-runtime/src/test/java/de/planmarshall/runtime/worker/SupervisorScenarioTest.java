@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -272,7 +273,7 @@ class SupervisorScenarioTest {
         var generation = assertInstanceOf(StartOutcome.Started.class,
                 supervisor.start(List.of(fixture.freshRequest(role))).getFirst()).generation();
         var leased = generation.withLeasedTask(TASK);
-        var successors = new java.util.concurrent.atomic.AtomicInteger();
+        var successors = new AtomicInteger();
         var ending = new WorkerEnding(environment, () -> false, successors::incrementAndGet);
 
         ending.forceEnd(leased, EndCause.PAUSE_AT_ONCE);

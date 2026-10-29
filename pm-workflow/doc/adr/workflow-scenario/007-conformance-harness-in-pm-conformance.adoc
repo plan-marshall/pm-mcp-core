@@ -31,7 +31,12 @@ The repository facts the decision rests on, read at the head of `main` before th
 
 D6 and D7 are not built in `pm-workflow`. They belong to `pm-conformance` in `plan-marshall-mcp`, and a plan there
 builds them on top of the shipped `pm-scenario` harness. This plan records the decision here, names it in the pull
-request and reports it as a finding in its inbox message, and delivers D1 to D5 of the package.
+request and reports it as a finding in its inbox message, and delivers D2, D3 and the operator act of D4 in this
+repository. D1 is delivered only in part: the supervision scenarios of #190 cover the faults, recycling, the
+start-failure guard and consultation of the fault matrix, and the `pm-scenario` fault directives (`kill_worker`,
+`stall_worker`, `end_turn`, `kill_relay`, `restart_runtime`, `assert_worker_state`, `assert_refused`) stay refused
+with `supervision-scenarios`, as does the runtime-crash-with-a-leased-task scenario. D5 names the real-process tests of
+`plan-marshall-mcp` and builds nothing here.
 
 == Alternatives Considered
 
@@ -45,10 +50,12 @@ request and reports it as a finding in its inbox message, and delivers D1 to D5 
 == Consequences
 
 * The package is not complete: its row stays in `doc/plans/README.adoc` and its package file stays in `doc/plans/`.
+  Standing Rule R01, which has the plan's pull request remove both, is deferred with the package's unfinished
+  deliverables.
 * The remaining work of the package is a plan in `plan-marshall-mcp` that hosts the behavioural scenarios, the
   baselines and the comparison footprint in `pm-conformance`.
-* The `pm-scenario` harness in this repository keeps the deterministic half: the operator act directive of D4 and the
-  fault directives that later packages bring.
+* The `pm-scenario` harness in this repository keeps the deterministic half: the operator act directive of D4, and the
+  fault directives that `supervision-scenarios` still owns.
 
 == Source
 

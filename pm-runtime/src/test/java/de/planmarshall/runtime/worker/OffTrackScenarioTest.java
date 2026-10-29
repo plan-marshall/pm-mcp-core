@@ -31,8 +31,8 @@ import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.queue.ActivityEventMapping;
@@ -94,8 +94,8 @@ class OffTrackScenarioTest {
     }
 
     /** The observed run: the report count after every line of the stream, and every report in order. */
-    private record Observed(List<Integer> reportsAfterEachLine, List<Reported> reports, List<String> fences,
-            List<String> closedUnavailable) {
+    private record Observed(List<Integer> reportsAfterEachLine, List<Reported> reports,
+            List<String> fences, List<String> closedUnavailable) {
     }
 
     private static List<String> arguments(List<String> stream) {
@@ -178,9 +178,8 @@ class OffTrackScenarioTest {
     private void assertNothingEndedThePlanOrWaitedForTheOperator(Observed observed) {
         assertAll(
                 () -> assertTrue(observed.fences().isEmpty(), "an off-track signal never fences the generation"),
-                () -> assertTrue(observed.closedUnavailable().isEmpty(), "an off-track signal closes no task"),
-                () -> assertTrue(observed.reports().isEmpty() || observed.reports().getFirst().action() != null,
-                        "every report names its action"));
+                () -> assertTrue(observed.closedUnavailable().isEmpty(),
+                        "an off-track signal closes no task and raises no operator wait"));
     }
 
     @Test
@@ -235,6 +234,8 @@ class OffTrackScenarioTest {
     @DisplayName("outside_footprint is raised at its threshold and never one file before it")
     void outsideFootprintAtItsThreshold() throws IOException {
         var role = role(RoleArtifact.OffTrackSignal.OUTSIDE_FOOTPRINT, RoleArtifact.OffTrackAction.SHOW);
+        // outside_footprint is measured on the task's recorded unplanned changes, not on the journal: the stream is the
+        // worker's output, and the recorded footprint is the other half of the task's facts.
         var stream = List.of(TURN, "{\"type\":\"file\",\"path\":\"outside/A.java\"}");
 
         var below = replay(stream, role, 100.0, 2);
@@ -249,27 +250,64 @@ class OffTrackScenarioTest {
     }
 
     @Test
-    @DisplayName("every action is recorded with its signal, its measurement and its threshold")
+    @DisplayName("every action is recorded with its signal and takes no ending and no operator wait")
     void everyActionIsRecordedWithItsSignal() throws IOException {
-        var byAction = new LinkedHashMap<RoleArtifact.OffTrackAction, List<Reported>>();
+        var byAction = new LinkedHashMap<RoleArtifact.OffTrackAction, Observed>();
         for (var action : RoleArtifact.OffTrackAction.values()) {
             var role = role(RoleArtifact.OffTrackSignal.REPEATING, action);
-            byAction.put(action, replay(repeats(5), role, null, -1).reports());
+            byAction.put(action, replay(repeats(5), role, null, -1));
         }
 
         var assertions = new ArrayList<Executable>();
         for (var entry : byAction.entrySet()) {
             assertions.add(() -> {
-                var reports = entry.getValue();
+                var observed = entry.getValue();
+                var reports = observed.reports();
                 assertEquals(1, reports.size(), "one report for " + entry.getKey());
                 assertEquals(entry.getKey().wireName(), reports.getFirst().action());
                 assertEquals("repeating", reports.getFirst().signal());
                 assertEquals(5.0, reports.getFirst().measurement());
                 assertEquals(5.0, reports.getFirst().threshold());
+                assertTrue(observed.fences().isEmpty(), "no action fences the generation on the runtime's side");
+                assertTrue(observed.closedUnavailable().isEmpty(), "no action closes a task or raises an operator wait");
             });
         }
 
         assertAll(assertions);
+    }
+
+    @Test
+    @DisplayName("each scenario replayed twice reports the same signals and actions in the same order")
+    void everyScenarioReplaysTwiceToTheSameReports() throws IOException {
+        var scenarios = List.<Scenario>of(
+                new Scenario(repeats(5), RoleArtifact.OffTrackSignal.REPEATING, RoleArtifact.OffTrackAction.SHOW,
+                        null, -1),
+                new Scenario(turns(40, 1, 1), RoleArtifact.OffTrackSignal.NO_PROGRESS,
+                        RoleArtifact.OffTrackAction.NUDGE, null, -1),
+                new Scenario(turns(6, 40, 10), RoleArtifact.OffTrackSignal.OVER_SIZE,
+                        RoleArtifact.OffTrackAction.YIELD, 100.0, -1),
+                new Scenario(List.of(TURN, "{\"type\":\"file\",\"path\":\"outside/A.java\"}"),
+                        RoleArtifact.OffTrackSignal.OUTSIDE_FOOTPRINT, RoleArtifact.OffTrackAction.RESTART, 100.0,
+                        3));
+
+        var assertions = new ArrayList<Executable>();
+        for (var scenario : scenarios) {
+            var role = role(scenario.signal(), scenario.action());
+            var once = replay(scenario.stream(), role, scenario.predictedCost(), scenario.unplannedChanges());
+            var twice = replay(scenario.stream(), role, scenario.predictedCost(), scenario.unplannedChanges());
+            assertions.add(() -> {
+                assertEquals(once.reportsAfterEachLine(), twice.reportsAfterEachLine(),
+                        "the same signal on the same entry for " + scenario.signal());
+                assertEquals(once.reports(), twice.reports(), "the same action for " + scenario.signal());
+            });
+        }
+
+        assertAll(assertions);
+    }
+
+    /** One off-track scenario: its scripted stream, its signal and action, and the task's recorded facts. */
+    private record Scenario(List<String> stream, RoleArtifact.OffTrackSignal signal,
+            RoleArtifact.OffTrackAction action, Double predictedCost, int unplannedChanges) {
     }
 
     @Test

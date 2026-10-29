@@ -433,11 +433,13 @@ of this package's supervision work add the pause at once of a plan with a leased
 the attempt's re-offer budget is not spent) and the missing acknowledgement of a continuing worker (a loss at the
 answer's deadline, with an acknowledging worker as the matched control).
 link:{test}/OffTrackScenarioTest.java[`OffTrackScenarioTest`]:: The off-track scenarios of Model Work § A Worker Off
-Track ("Verified by scenarios"): the harness prints a scripted output stream that the real `WorkerActivityPump`,
-`ActivityRecorder` and `OffTrackDetector` read, one scenario per signal raised at its threshold and never one entry
-before it, and one per action recorded with its signal, its measured value and its threshold. An action never fences a
-generation, closes a task or waits for the operator — the runtime reports the signal and the task protocol takes the
-action.
+Track ("Verified by scenarios"): the harness prints a scripted output stream that the test reads back, writes to the
+worker's log in its step order, and hands to the real `WorkerActivityPump`, `ActivityRecorder` and `OffTrackDetector` —
+one scenario per signal raised at its threshold and never one entry before it (the `outside_footprint` signal reads the
+task's recorded unplanned changes beside the stream), each scenario replayed twice to the same reports, and one
+scenario per action recorded with its signal, its measured value and its threshold. An action never fences a
+generation or closes a task on the runtime's side, and it raises no operator wait: the runtime reports the signal and
+the task protocol takes the action, `show`, `nudge`, `yield` or `restart`.
 
 The unit tests bound each collaborator: link:{test}/WorkerLossDetectionTest.java[`WorkerLossDetectionTest`],
 link:{test}/WorkerEndingTest.java[`WorkerEndingTest`], link:{test}/WorkerDrainParticipantTest.java[`WorkerDrainParticipantTest`],
