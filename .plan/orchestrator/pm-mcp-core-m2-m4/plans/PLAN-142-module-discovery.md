@@ -48,7 +48,7 @@ Fourth part of the work package `domain-extensions-and-architecture`: the discov
 
 Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named in the First Instruction above):
 
-- **Operator questions** (R07): the TOML reader; the owner of `derived-facts.json`.
+- **Operator questions** (R07): the owner of `derived-facts.json`. **TOML decided 2026-10-29 (operator walk, decision 11B of 18): a strict subset reader in `pm-core`, no library, no new dependency.** It reads tables, strings, numbers, booleans, arrays and inline tables; for any construct it does not support it reports "unsupported TOML construct" for that module and reads nothing from the file (it never guesses); the supported subset and the refusals are written into the developer guide and an ADR. Deliverable 3 and the `pyproject.toml` dependency parser of deliverable 5 use it.
 - **Fixtures, not product content.** Where a component is ported from `plan-marshall`, the expected values are derived from the original at a pinned commit, committed as plain files and the commit recorded; no test runs Python or reads the sibling checkout.
 - R09: a refused path is a `ConfinementOutcome` value; no checked exception is added.
 
@@ -67,6 +67,8 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Expected Surface
 
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/discovery/package-info.java` — existing, extended
+- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/discovery/TomlSubsetReader.java` — new: the strict TOML subset reader of the decision of 2026-10-29 (verify-at-outline the final name)
+- HYPOTHESIS: `pm-core/src/test/java/de/planmarshall/core/discovery/TomlSubsetReaderTest.java` — new: supported constructs and the refusal of every unsupported one
 - HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/discovery/` new classes: `ModuleDiscovery`, the parsers (`PomDescriptorParser`, `GradleDescriptorParser`, `PackageJsonParser`, `PyprojectParser`, `PythonImportScan`, `DocumentationScan`, `MarshallPluginScan`) and the build-file dependency parsers with their coordinate and diagnostic types (exact names at the outline)
 - HYPOTHESIS: `pm-core/src/test/java/de/planmarshall/core/discovery/` new test classes and fixture trees under `pm-core/src/test/resources/discovery/` (new)
 - OBSERVED: `doc/plans/domain-extensions-and-architecture.adoc`, `doc/specification/domain-extensions/03-module-discovery.adoc` (the discovery section), `doc/implementation-watch/domain-extensions.adoc` (PM-WATCH-EXT-6, -7)
@@ -74,7 +76,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-137 (`domain-axes-and-descriptors`) (`DiscoveredModuleFacts`).
+- Depends on: PLAN-137 (`domain-axes-and-descriptors`) (`DiscoveredModuleFacts`).; PLAN-156 (`derived-facts-store-operations`) (the Derived Facts Store: records, kind registry, derivation and staleness rules; operator decision 12 of 18)
 - Overlaps with: PLAN-101 `change-map` (parked) declares the directory `pm-core/src/main/java/de/planmarshall/core/discovery/`: 1 shared entry; it depends on this package by the index, so it follows. None with PLAN-46, 105, 108, 109 (PLAN-45/46/63 declare `core/config/`, not `core/discovery/`). Documents: `03-module-discovery.adoc` is shared with PLAN-132 (`build-map-and-derive-verification`) and PLAN-130 (`architecture-queries`), in different sections.
 - Adjacent to: PLAN-131 (`architecture-resolvers`) (uses the import scan and the coordinates); `project-onboarding-unit` PLAN-45 (`setup.discover-modules`).
 

@@ -77,6 +77,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Dependencies and Sequencing
 
 - Depends on: PLAN-143 (`native-build-parsers-jvm`) and PLAN-144 (`native-build-parsers-npm-and-python`) (the nine parsers it dispatches).
+- Sequenced 2026-10-29 (decision 14 of 18): PLAN-157 (`egress-record`) is the only plan of this group that edits the pinned job-record block of `store-schemas/10` (and `JobRecord`, `JobRecordCodec`); run it first and merge the base before your gate.
 - Overlaps with: PLAN-60 `runtime-metrics` (staged, depends on `plan-and-epic-control`) declares `SubprocessJobRunner.java` and `SubprocessJobRunnerTest.java`: 2 shared entries; whichever merges second merges the base branch first. PLAN-128 (`adaptive-timeout-learning`) and PLAN-139 (`gate-baseline-separation`) depend on this plan for the seams, so they share nothing with it. PLAN-46, 105, 108 and 109 do not name `runtime/job/`. PLAN-27 (job confinement) is shipped. PLAN-84 and PLAN-87, which named the runner, are shipped.
 - Adjacent to: `remediation-units` (the failure envelope and the `build` gathering that wrap `UnparsedEvidence`; blocked, no spec); `plan-marshall-mcp` `pm-mcp-server` (the construction of the runner).
 

@@ -152,7 +152,7 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-42 (`operator-wait-and-machine-scope`); PLAN-46 (`machine-onboarding-unit`)
+- Depends on: PLAN-42 (`operator-wait-and-machine-scope`); PLAN-46 (`machine-onboarding-unit`); PLAN-146 (`ci-contract-module`) (`ci.whoami` for `setup.verify-credentials` and the probe variants; operator decision 2 of 18: the contract is the module `pm-provider-ci`); PLAN-156 (`derived-facts-store-operations`) (the Derived Facts Store: records, kind registry, derivation and staleness rules; operator decision 12 of 18)
 - Blocks: PLAN-48 (`start-from-clients`); PLAN-51 (`plan-and-epic-control`); PLAN-63 (`cleanup`); PLAN-76 (`start-source-intake`)
 - Overlaps with: the `core.store` plans; PLAN-11's `runtime.enrolment`
 

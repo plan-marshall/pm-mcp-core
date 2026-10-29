@@ -138,7 +138,9 @@ Specification changes carried (not yet in the Deliverables above):
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-42 (`operator-wait-and-machine-scope`); PLAN-55 (`chat`); PLAN-77 (`epic-resource-and-release`) (the archive check, next plan)
+- Depends on: PLAN-42 (`operator-wait-and-machine-scope`); PLAN-55 (`chat`); PLAN-77 (`epic-resource-and-release`) (the archive check, next plan); PLAN-153 (`epic-ledger-header-and-queue`) (the epic header, queue row and their stores; operator decision 3 of 18)
+- Operator decision 24 (2026-10-29): six pieces around the epic ledger have no package (the shared epic worktree, the ledger resolution seam, the epic landing, the plan mailbox store, the outbox link, `landings.jsonl`); none is cut yet. If this plan's outline needs one, ask the operator at refine (R07) instead of inventing a home; see the Open Defect "The epic ledger's surrounding pieces have no package" in `epic.md`.
+- Operator decision 22 (2026-10-29): the epic queue row has 11 statuses, not 16 (`parked`, `superseded`, `retired`, `resolved`, `split` are cut by PLAN-153); if this plan needs one of them it adds it back with its writer and its own justification in its own pull request.
 - Blocks: PLAN-57 (`epic-auto`)
 - Sequenced with: PLAN-92 (`epic-review`): the two packages are the halves of what PLAN-75 merged and #111 split again, and both edit `model-work/08-epic-coordination.adoc`, `state-catalogue/06-setup-epic-other.adoc`, `state-catalogue/17-epic-decomposition-and-review.adoc` and `store-schemas/04-epic-and-change-ledger.adoc`; run them one after the other, not in parallel
 - Overlaps with: computed by `corpus cross-check` at emit time; every plan through `doc/plans/README.adoc` and `doc/Traceability.adoc`; the plans of the same module through its log holder, which is not a declared surface

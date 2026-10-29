@@ -153,7 +153,7 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-42 (`operator-wait-and-machine-scope`); PLAN-76 (`start-source-intake`) (the entry's decision stores and their move)
+- Depends on: PLAN-42 (`operator-wait-and-machine-scope`); PLAN-76 (`start-source-intake`) (the entry's decision stores and their move); PLAN-158 (`role-name-single-definition`) (`RoleName` and `ClientId` in `core.id`: the one definition of the role-name pattern, enforced by a guard that fails on a copy)
 - Blocks: PLAN-55 (`chat`); PLAN-58 (`operator-reports`)
 
 ## Hand-Off Command

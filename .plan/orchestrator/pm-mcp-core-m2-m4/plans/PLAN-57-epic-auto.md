@@ -129,7 +129,9 @@ Specification changes carried (not yet in the Deliverables above):
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-51 (`plan-and-epic-control`) (the operator's acts on a plan); PLAN-77 (`epic-resource-and-release`) (next plan, the toggle among the epic's actions, archive, the release); PLAN-53 (`epic-decomposition`)
+- Depends on: PLAN-51 (`plan-and-epic-control`) (the operator's acts on a plan); PLAN-77 (`epic-resource-and-release`) (next plan, the toggle among the epic's actions, archive, the release); PLAN-53 (`epic-decomposition`); PLAN-153 (`epic-ledger-header-and-queue`) (the epic header, queue row and their stores; operator decision 3 of 18)
+- Operator decision 24 (2026-10-29): six pieces around the epic ledger have no package (the shared epic worktree, the ledger resolution seam, the epic landing, the plan mailbox store, the outbox link, `landings.jsonl`); none is cut yet. If this plan's outline needs one, ask the operator at refine (R07) instead of inventing a home; see the Open Defect "The epic ledger's surrounding pieces have no package" in `epic.md`.
+- Operator decision 22 (2026-10-29): the epic queue row has 11 statuses, not 16 (`parked`, `superseded`, `retired`, `resolved`, `split` are cut by PLAN-153); if this plan needs one of them it adds it back with its writer and its own justification in its own pull request.
 - Blocks: PLAN-58 (`operator-reports`)
 
 ## Hand-Off Command

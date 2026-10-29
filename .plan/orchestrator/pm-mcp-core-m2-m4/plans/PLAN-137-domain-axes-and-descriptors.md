@@ -47,7 +47,7 @@ First part of the work package `domain-extensions-and-architecture` (Milestone 6
 
 Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named in the First Instruction above):
 
-- **Open operator decision:** PM-WATCH-EXT-36 (`build_systems` array versus one build system per module). R07 applies.
+- **Decided 2026-10-29 (operator walk, decision 11A of 18; the orchestrator was above 95% sure): option 1, a module record `build_systems` array (empty means none).** The specification sentence already reads "a member of the module's build systems", the watch item recommends it, and `plan-marshall` carries a list (`javascript-cui` needs npm and maven); one build system per module would split multi-system modules. R07 is satisfied; the plan records the result in the specification and the requirement and deletes PM-WATCH-EXT-36.
 - **Fixtures, not product content:** descriptors and skill URIs in tests are written for the test. Where a component is ported from `plan-marshall`, the expected values are derived from the original at a pinned commit, committed as plain files and the commit recorded; no test runs Python or reads the sibling checkout.
 - No new dependency (`CLAUDE.md`): validation is hand-written over `jackson-core`, like `ProfileValidator`.
 
@@ -60,7 +60,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/ProfileValidator.java` is the precedent for a hand-written closed-schema validator over Jackson streaming with JSON-pointer refusals; `pm-core/pom.xml` declares `jackson-core` and no JSON-schema library at compile scope (`json-schema-validator` is test scope)
 - HYPOTHESIS: the technique preconditions (descriptor member `technique_preconditions`, Core Architectural Invariant 4) share the `when` grammar of Axis A and are evaluated by the renderer (PLAN-133 (`client-profile-renderer`)) from the results this plan's evaluator produces — confirm at the specification (verify-at-outline)
 - HYPOTHESIS: the shipped descriptors (`classpath:/domains/<domain_id>.json`) are content of `plan-marshall-mcp` (they name `skill://` URIs); confirm with a look at that repository's `src` and `pm-modules` before deciding the test location
-- Verify-first clause: before editing, list the open pull requests touching `core/domain/`, re-read the schema block of `01-four-axis-architecture.adoc` and PM-WATCH-EXT-36 at the head, and ask the operator the `build_systems` question before the first class is written; a refutation loops back to re-scope.
+- Verify-first clause: before editing, list the open pull requests touching `core/domain/`, re-read the schema block of `01-four-axis-architecture.adoc` and PM-WATCH-EXT-36 at the head, and build the `build_systems` array as decided on 2026-10-29 (no question to the operator is left); a refutation loops back to re-scope.
 
 ## Expected Surface
 
@@ -72,7 +72,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 
 ## Dependencies and Sequencing
 
-- Depends on: nothing.
+- Depends on: nothing.; PLAN-158 (`role-name-single-definition`) (`RoleName` and `ClientId` in `core.id`: the one definition of the role-name pattern, enforced by a guard that fails on a copy)
 - Overlaps with: none with PLAN-46, 105, 108, 109 (no `core/domain/` entry; PLAN-45/46/63 declare `core/config/`, which this plan does not touch). `01-four-axis-architecture.adoc` is shared with PLAN-136 (`documentation-domain-verbs`) (different section); `store-schemas/09` and the watch file with the other plans of the package (different sections).
 - Adjacent to: PLAN-133 (`client-profile-renderer`) (reads the precondition results); `project-onboarding-unit` PLAN-45 (the setup that reads the descriptors); the shipped descriptors in `plan-marshall-mcp`.
 

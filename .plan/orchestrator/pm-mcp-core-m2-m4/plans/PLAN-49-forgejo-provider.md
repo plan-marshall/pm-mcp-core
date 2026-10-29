@@ -27,7 +27,7 @@ Plan parameters (the values the rules ask for):
 
 Implement the work package `forgejo-provider` of `doc/plans/forgejo-provider.adoc`: codeberg and Forgejo as a provider. Serves: roadmap Milestone 6 (the native `pm-provider-forgejo` for Codeberg and every Forgejo or Gitea forge); Use Cases, UC-STA-4; issues of Codeberg in both clients of `pm-mcp-clients`. Where: pm-providers (the module `pm-provider-forgejo`, listed in the Module Structure Specification); pm-core (the value `forgejo` in every closed list of providers). The package file is the brief; this spec adds what the orchestrator observed and the constraints of the epic.
 
-**Parked (cleanup 2026-10-21):** the index gives the package the status `blocked`; its open dependency is the CI contract of `pm-provider-ci` (no work package). The HTTP base it depends on is the module `pm-provider-http`, which PLAN-86 builds. Unpark when the index row is `open`. Re-ground this spec before emitting it.
+**Parked (cleanup 2026-10-21):** the index gives the package the status `blocked`; its open dependency is PLAN-146 (`ci-contract-module`) (the CI contract is the module `pm-provider-ci`, re-added by the operator's decision 2 of 18; this plan stays parked until it has landed and its index row is `open`). The HTTP base it depends on is the module `pm-provider-http`, which PLAN-86 builds. Unpark when the index row is `open`. Re-ground this spec before emitting it.
 
 **The HTTP base moves to its own module (plan-marshall-documentation #94, `273171d`, 2026-10-18).** The Module Structure Specification now has the module `pm-provider-http` (`de.planmarshall.provider.http.*`, the shared origin-pinned HTTP base over `cui-http`, depends on `pm-core`), on which `pm-provider-ci` and every provider adapter depend; `pm-provider-forgejo` depends on `pm-provider-ci`, `pm-provider-http` and `pm-core`. "The shared HTTP base" in deliverable 2 below is that module, not a package of `pm-provider-ci`. The move itself is PLAN-86 `provider-http-module` (staged 2026-10-19); until it is done this spec builds on the HTTP base where it is today, and it is re-grounded after PLAN-86 lands. PLAN-86 deletes the empty `pm-provider-ci` (operator decision, 2026-10-19), so until the package that builds the CI contract recreates that module, `pm-provider-forgejo` depends on `pm-provider-http` and `pm-core` alone, and the Module Structure Specification is corrected for it in a pull request of PLAN-86.
 
@@ -144,7 +144,7 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 
 ## Dependencies and Sequencing
 
-- Depends on: the CI contract of `pm-provider-ci` (no work package)
+- Depends on: the CI contract of `pm-provider-ci` (no work package); PLAN-156 (`derived-facts-store-operations`) (the Derived Facts Store: records, kind registry, derivation and staleness rules; operator decision 12 of 18)
 
 ## Hand-Off Command
 

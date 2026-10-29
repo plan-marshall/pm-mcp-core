@@ -68,7 +68,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 
 ## Dependencies and Sequencing
 
-- Depends on: nothing in code. The rest of `decision-quorum-and-calibration` depends on `decision-engine` (PLAN-47, staged) and is not drafted.
+- Depends on: nothing in code. The rest of `decision-quorum-and-calibration` depends on `decision-engine` (PLAN-47, staged) and is not drafted.; PLAN-158 (`role-name-single-definition`) (`RoleName` and `ClientId` in `core.id`: the one definition of the role-name pattern, enforced by a guard that fails on a copy)
 - Sequenced 2026-10-29 by the cross-check: shares `JudgeCheckCodec`, `QualificationRecordCodec` and `TokenTotal` (6 code entries) with PLAN-113 (`qualification-token-split`); run after PLAN-113 has merged.
 - Overlaps with: none with PLAN-46, 105, 108, 109 (PLAN-46 declares `core/role/MachineConfiguration`, `ModelCatalogue`, `RoleAssignments`, not `core/role/qualification/`). PLAN-99 (`judgment-votes`, parked) declares `core/role/corpus/ImportedItem.java` and `core/store/` (directory): no shared class. PLAN-47 (`decision-engine`) declares `workflow/decision/`, not `core.role`.
 - Adjacent to: `decision-engine` (PLAN-47) and the blocked part of `decision-quorum-and-calibration`; `plan-marshall-mcp` `default-units-and-drift-tests` (the default unit files).

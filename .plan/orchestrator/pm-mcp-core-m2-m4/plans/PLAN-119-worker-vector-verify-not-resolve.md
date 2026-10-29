@@ -78,6 +78,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Dependencies and Sequencing
 
 - Depends on: nothing. PLAN-29 (`worker-launch`, #172) and PLAN-30 (`supervisor`, #190) are shipped.
+- Sequenced 2026-10-29 (decision 14 of 18): PLAN-157 (`egress-record`) is the only plan of this group that edits the pinned job-record block of `store-schemas/10` (and `JobRecord`, `JobRecordCodec`); run it first and merge the base before your gate.
 - Overlaps with, by file: `doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc` is declared by PLAN-60 (`runtime-metrics`, staged: "the implemented sections deleted"), 1 shared entry, only if this plan edits that part; `doc/specification/model-work/04-worker-launch.adoc` by no live plan. No live plan declares `LaunchComposer`, `LaunchRefusal`, `LaunchFixtures` or their tests (PLAN-60 names `ModelSlotScheduler` of the same package; PLAN-97 and PLAN-98 are shipped). PLAN-46, 105, 108 and 109: no shared file (PLAN-108 declares `HarnessEnrolmentStore` and the harness store schema, not the launch package). The other plans of this cluster: disjoint, no shared file.
 - Adjacent to: `pm-api` of `pm-mcp-clients` (the shipped profiles and their templates): a change of a template there is a pull request in that repository; the Quarkus assembly stays untouched.
 

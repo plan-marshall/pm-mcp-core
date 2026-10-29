@@ -73,6 +73,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Dependencies and Sequencing
 
 - Depends on: PLAN-143 (`native-build-parsers-jvm`) and PLAN-144 (`native-build-parsers-npm-and-python`) (the parsed-build model, the skipped tests); PLAN-134 (`coverage-report-parsers`) is read for the coverage dimension of `gate_coverage` if merged, otherwise the dimension is `UNKNOWN`.
+- Sequenced 2026-10-29 (decision 14 of 18): PLAN-157 (`egress-record`) is the only plan of this group that edits the pinned job-record block of `store-schemas/10` (and `JobRecord`, `JobRecordCodec`); run it first and merge the base before your gate.
 - Overlaps with: code-disjoint from PLAN-139 (`gate-baseline-separation`) (that plan reads `GateFacts` and adds the verdicts) and from every live plan: PLAN-46, 105, 108, 109 do not name `core/build/` or `JobRecord`. `JobRecord.java` is named by PLAN-48, 58, 63, 66, 67, 76 as text but declared in the surface of none of the staged specs read here (R19 class lists name `QueueTaskRecord`, `WorkflowStatus`…) — if the outline must edit it, that is an undeclared overlap to report.
 - Adjacent to: PLAN-139 (`gate-baseline-separation`) (the settlement step and the baseline verdicts); `remediation-units` (its gather states read the gate facts).
 
