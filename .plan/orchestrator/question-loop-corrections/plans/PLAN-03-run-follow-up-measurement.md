@@ -13,8 +13,9 @@ workstream: WS-02
 
 Implement the work package `question-loop-follow-up` of `plan-marshall-mcp` (`doc/plans/question-loop-follow-up.adoc`)
 in the form PLAN-02 leaves it: extract the durable parts of the experiment from the branch
-`verification/question-loop-experiment`, re-measure Q1 to Q7 and R1 to R4 at 20 runs per fixture and host with the
-criteria of the original package unchanged, keep every run's evidence in the store the package names, and record the
+`verification/question-loop-experiment`, re-measure Q1 to Q7 and R1 to R4 at the revised scale of the Standing Constraint
+"Scale revision" (not the 20 runs per fixture and host the package states) with the criteria of the original package
+unchanged, keep every run's evidence in the store the package names, and record the
 settled values (`headless.resumability` per shipped profile, the `questions` values of the shipped roles, the question
 bound) with their evidence and name them for `pm-mcp-core` / `client-profile-measured-values`, the package of this
 repository that carries them into the specifications and the profiles, so that `question-continuation` implements
@@ -28,19 +29,56 @@ file is their only source. In outline:
 
 1. The experiment's durable parts as maintained code, from the branch `verification/question-loop-experiment`.
 2. The operator decisions the package records before the first run (criteria questions, budget, Codex, R2 at 24 h).
-3. The re-measurement of every item at the specified scale, with its evidence in the named store.
+3. The re-measurement of every item at the revised scale, with its evidence in the named store and the client version
+   of every run.
 4. The results in the evaluation reference and the settled values recorded with their evidence in the package file and
    named for `client-profile-measured-values`, the package of this repository PLAN-02 created; that package, not this
    plan, writes them into `doc/specification/` and the profiles.
 
-**Done when**: the package's own Done When is met item by item, and every published figure has its source in the
-evidence store.
+**Done when**: the package's own Done When is met item by item, read at the revised scale (its "specified scale" and
+"20 runs per fixture and host" read as the Standing Constraint "Scale revision" states, with the package amended to say
+so), and every published figure has its source in the evidence store.
 
 ## Standing Constraints
 
 - Launched only on the operator's word, after PLAN-02 and PLAN-01 have landed and the operator accepted the run budget
-  the package states (task 6 names about 55 USD and about 240 h as the default, an estimate from the smoke figures that
-  the operator confirms or replaces).
+  (task 6 of the package names about 55 USD and about 240 h as the default, an estimate from the smoke figures; the
+  operator has asked for the smaller scale below, and task 6 recomputes the budget for it, which the operator then
+  confirms or replaces).
+- Antigravity availability (operator, 2026-10-28 18:10 CET: "available in 2 d 13 h"): Gemini / Antigravity is not usable
+  before about **2026-10-31 07:10 CET**, a time computed from that statement, so accurate to the operator's rounding, not
+  to the minute. No Antigravity run (task 4, and the Antigravity groups of tasks 8 to 10) starts before then; the plan
+  runs the Claude Code and OpenCode groups first (the cheap hosts first order of task 6 already puts them first) and
+  starts the Antigravity groups at or after that time. The plan is not closed while an Antigravity group is neither run
+  nor carries a recorded reason, so it may finish its other work and wait. The run plan of task 6 names the start time
+  of the Antigravity groups, and records the time the operator gives if the date moves.
+- Scale revision (operator, 2026-10-28; reason: the harnesses change nearly daily, so a value measured over days is
+  stale on arrival; the reason is not drawn from any run of the follow-up, so it satisfies the package's rule on changes
+  before the first run). As its first act the plan amends the package (tasks 4, 6, 8, 9, 10, 11 and Done When) and the
+  Evaluation Reference (its definition of the "specified scale" and the rows that say "not at the specified scale") to
+  this scale, and records the decision in the package; no run starts before that record exists.
+  - The measurement is decision-driven, not scale-driven: it runs only as much as the values it settles need
+    (`headless.resumability`, the `questions` values of the shipped roles, the question bound). The base is 3 runs per
+    fixture, host and form, the scale of the smoke run, with the driver defects fixed, so that the mechanisms are
+    confirmed and every figure has durable evidence.
+  - *Criteria.* The rate thresholds of the original package (at least 95 % for Q1, Q2's asks, Q4, R1 and R2; at least 90 %
+    for the second ask of Q5) are testable only at about 20 runs. They are replaced, before the first run, by "every run
+    of the group passes". A group whose runs disagree (some pass, some fail) is extended to 10 runs and reported with its
+    rate; a group whose runs all agree is not extended. A value is shipped only for a duration, bound or rule at which
+    every run passed. The clauses that were already "every run" or "no run" (Q2's no-host-tool and no-guess clauses, Q3,
+    Q5's bound clause, Q6, Q7, R3) and R4's missing criterion are unchanged.
+  - *Q5, the question bound.* Sequential: run the shipped `3` first; if no run reached the bound, `3` stays and the
+    candidates `4` and `5` are not run; only where a run reached it, run `4`, then `5`, by the package's rule.
+  - *R1 and R2, hold and resume.* Longest first: run the cap (3,600 s hold; a resume after 1 hour) per host; where every
+    run passes, that duration is the host's value and the shorter durations are not run; where one fails, descend through
+    30, 15 and 5 minutes until one passes. R2 stays at 1 hour at most (not 24 h).
+  - The Sonnet repeats of task 11 stay by the operator's recorded decision per group.
+  - A verdict is stated with the number of runs behind it and the client version, never as "passed at the specified
+    scale"; a rule of the form "no run reached the bound" is stated with the pooled count it rests on.
+  - The client version (the version each run's output names, or the version probe where it names none) and the model are
+    recorded for every run and published with every value, so that a settled value carries the version range it was
+    measured on. The driver and its gate are kept so that the measurement can be repeated per version; the plan does not
+    ship a scheduled repeat.
 - The evidence store is the branch `question-loop-follow-up` of `cuioss/plan-marshall-telemetry`; it does not exist yet,
   and this plan creates it and pushes to it before the first measured run.
 - The criteria are fixed before the first measured run and not changed by it.

@@ -76,6 +76,18 @@ when the three plans have landed and the roadmap item of Milestone 4 can be chec
   ran across two repositories, a fifth and final self-review round, and #127 merged without a review bot through
   `gh pr merge` directly. Consequence for this epic: PLAN-03 may extend `evaluation.adoc` on the corrected rows; the
   missing limit is offered to the operator as a one-sentence direct pull request (see Open Defects).
+- 2026-10-28 — PLAN-03 made decision-driven, not scale-driven (operator). The harnesses change nearly daily, so values
+  measured over days are stale on arrival, and the 20 runs of the original package exist only to test its 95 % and 90 %
+  rate criteria (Q1, Q2, Q4, Q5, R1, R2); the other criteria are "every run" and need no statistics. Decided: base of 3
+  runs per fixture, host and form (the smoke scale, driver defects fixed); the rate criteria become "every run passes",
+  with a group whose runs disagree extended to 10 and reported with its rate; Q5's bound runs sequentially (`3` first,
+  `4` and `5` only if a run reached it); R1 and R2 run longest first (3,600 s, resume after 1 h) and descend only on a
+  failure; client version and model recorded per run. The plan amends the package, its criteria and the Evaluation
+  Reference's "specified scale" first, before any run. Consequence: no row claims the specified scale, and every verdict
+  states its run count and version; a 95 % reliability is no longer claimed, the runtime's acknowledgement and re-offer
+  path covers a failed hold. Supersedes the 5 and 8 runs recorded earlier the same day. Alternatives not taken: 20 runs
+  for all items (the 240 h default); 20 only for the rate items (the cost is mostly there); dropping the measurement (the
+  values stay provisional).
 - 2026-10-27 — The `pm-mcp-core` executor in the main checkout was stale (0.1.1924 against the registry's 0.1.2017) and
   was regenerated from the plugin cache before scaffolding; the old file is kept in the session scratchpad. The shared
   ledger worktree was fast-forwarded from #78 to `origin/main` (#195), with no pending paths.
@@ -136,6 +148,18 @@ when the three plans have landed and the roadmap item of Milestone 4 can be chec
   measure it (the local `plan-marshall-mcp` checkout is behind `origin/main`). The clause is still in the spec of a
   shipped plan. — measure on current checkouts before PLAN-03 repeats the clause.
 - The run budget PLAN-03 waits on: task 6 of the package names about 55 USD and about 240 h as the default, an estimate
-  from the smoke figures. — the operator confirms or replaces it before PLAN-03 is launched.
+  from the smoke figures. The scale was reduced 2026-10-28 (see Decisions); the orchestrator's rough estimate for the
+  decision-driven scale is 12 to 25 USD and 15 to 25 h of machine time (one to two days elapsed), unmeasured, and task 6
+  of the package recomputes it. — the operator confirms or replaces it before PLAN-03 is launched.
+- Gemini / Antigravity is available from about 2026-10-31 07:10 CET (operator, 2026-10-28 18:10 CET, "in 2 d 13 h"). PLAN-03
+  starts its Antigravity groups at or after that time and does the Claude Code and OpenCode groups first; the Claude Code
+  and OpenCode part (about one to two days) fits before it. — retire when the Antigravity groups have run, or move the
+  date if the operator gives a new one.
+- The 55 USD default may be low for the full scale: the smoke invocation of 24 Claude Code runs cost 2.3 to 2.9 USD, which
+  scaled linearly to 20 runs per fixture and host is above 55 USD. Not reproduced from the package text. — task 6 settles
+  it; moot if the reduced scale stands.
+- `question-continuation` should read `headless.resumability`, the `questions` values and the bound from the profile at
+  runtime and fall back conservatively, since measured values go stale with the harness version. Outside PLAN-03 and this
+  epic. — raise with the owner of `question-continuation` (`pm-mcp-core-m2-m4`) when its remaining package is staged.
 - Resolved 2026-10-27: the local main checkout of `plan-marshall-mcp` pulled #107 and #108 and is level with
   `origin/main` (`3b93248`).
