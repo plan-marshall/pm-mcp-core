@@ -20,7 +20,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -150,11 +149,11 @@ class ConsentGateTest {
                                 ConsentGate.Answer.YES, Consent.Channel.CLI, Optional.empty())),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> empty().answer(new ConsentGate.Request(ConsentKind.SCAN_HARNESSES,
-                                Optional.of("pm-mcp-core"), List.of()), ConsentGate.Answer.YES, Consent.Channel.CLI,
+                                        Optional.of("pm-mcp-core"), List.of()), ConsentGate.Answer.YES, Consent.Channel.CLI,
                                 Optional.empty())),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> empty().answer(new ConsentGate.Request(ConsentKind.SCAN_HARNESSES, Optional.empty(),
-                                List.of(new ConsentScript("bin/a.sh", SHA))), ConsentGate.Answer.YES,
+                                        List.of(new ConsentScript("bin/a.sh", SHA))), ConsentGate.Answer.YES,
                                 Consent.Channel.CLI, Optional.empty())));
     }
 
