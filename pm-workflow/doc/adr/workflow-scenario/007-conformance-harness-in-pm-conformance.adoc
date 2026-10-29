@@ -1,0 +1,58 @@
+= ADR 007: The Behavioural Conformance Harness and the Comparison Footprint Live in `pm-conformance`, Not in `pm-workflow`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-29
+
+== Context
+
+Work package `supervision-scenarios` names seven deliverables. D6 (the behavioural conformance harness) and D7 (the
+comparison footprint) both run a live model as a worker of a role on a fixture repository, build baselines from the
+recorded trajectories, and report tokens and revisits per run. The package's `Where` line places its work in
+`pm-workflow`, test scope, package `workflow.scenario`; its re-grounding records (2026-10-26, HEAD `f4a1bd07`) refute
+that placement for D6 and D7 and leave the home to the outline.
+
+The repository facts the decision rests on, read at the head of `main` before this decision:
+
+* `pm-workflow` depends on `pm-core` alone and its build forbids `cui-http` (Standing Rule R03), so no live model call
+  can be made from it.
+* The conformance harness is the module `pm-conformance` of `plan-marshall-mcp`
+  (link:../../../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-conformance[Module
+  Structure, `pm-conformance`]): out of band, built and run only through its own Maven profile, never bound to `verify`.
+* The specification places its scenarios, baselines and comparison report in that module
+  (link:../../../../doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#behavioural-conformance-harness[Workflow DSL § Behavioural Conformance Harness]).
+
+== Decision
+
+D6 and D7 are not built in `pm-workflow`. They belong to `pm-conformance` in `plan-marshall-mcp`, and a plan there
+builds them on top of the shipped `pm-scenario` harness. This plan records the decision here, names it in the pull
+request and reports it as a finding in its inbox message, and delivers D1 to D5 of the package.
+
+== Alternatives Considered
+
+1. *Build D6 and D7 in `pm-workflow` test scope.* _Rejected_: the module has no HTTP client and must not gain one, and
+   the specification puts the harness in its own out-of-band module that `verify` never invokes.
+2. *Create a new `pm-conformance` module in this repository.* _Rejected_: the module is a module of
+   `plan-marshall-mcp`, and a module of another repository is a pull request there, not a directory here.
+3. *Deliver the package without D6 and D7 and delete the package file.* _Rejected_: the package's Done When names
+   their acceptance, so the package stays open until a plan in `plan-marshall-mcp` delivers them.
+
+== Consequences
+
+* The package is not complete: its row stays in `doc/plans/README.adoc` and its package file stays in `doc/plans/`.
+* The remaining work of the package is a plan in `plan-marshall-mcp` that hosts the behavioural scenarios, the
+  baselines and the comparison footprint in `pm-conformance`.
+* The `pm-scenario` harness in this repository keeps the deterministic half: the operator act directive of D4 and the
+  fault directives that later packages bring.
+
+== Source
+
+* Work package `supervision-scenarios`, § Dependencies and Sequencing (home of D6 and D7)
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4],
+  link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-6[PM-TEST-6]
+* link:../../../../doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#behavioural-conformance-harness[Workflow DSL § Behavioural Conformance Harness]

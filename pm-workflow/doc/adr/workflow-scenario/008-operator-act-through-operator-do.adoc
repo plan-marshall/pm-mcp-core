@@ -1,0 +1,54 @@
+= ADR 008: The Scenario Script Gives an Operator Act Through `operator_do`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-29
+
+== Context
+
+The specification lists `operator_do` among the simulated actor actions of a scenario: it takes an operator link of an
+operator wait, on the channel `web` or `cli`
+(link:../../../../doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#_deterministic_scenario_replay_harness_pm_scenario_pm_test_4[Workflow DSL § Deterministic Scenario Replay Harness]).
+The engine already models the act as `EngineEvent.OperatorAct(stateId, linkId, parameters)` and refuses an act the
+resting state does not offer, an act at another state, a link with free parameters that arrives without its submission
+and a link without free parameters that arrives with one. The harness refused `operator_do` as an unknown word until
+now; the package asks for the operator acts at operator waits to be given by the scenario script.
+
+== Decision
+
+The harness reads `operator_do <link> <channel> [{"<name>":"<value>", …}]`: the link id as the state offers it, the
+operator's channel (`web` or `cli`, validated and otherwise refused with the line), and the free parameters of the link
+as an optional scalar-object argument. The runner delivers it as `EngineEvent.OperatorAct` at the state the scope rests
+in, through the same transaction and clock step as the other events. A parameter-aware binder in the fixtures binds the
+free parameters into the primitive's parameter record; the engine's own refusals are reported as a `ScenarioFailure` at
+the step's line, never skipped.
+
+The fixture unit `OPERATOR_UNIT` carries a plan that starts in an operator wait with a plain link (`proceed`) and a
+link with one free text parameter (`choose`, primitive `scenario.note`).
+
+== Alternatives Considered
+
+1. *Pass the channel to the engine.* _Rejected_: the engine has no channel; the channel is a property of the client
+   that carried the act, so the harness validates it and records it in the step only, as `answer_question` does.
+2. *Require the JSON argument on every `operator_do`.* _Rejected_: a link without free parameters takes no submission,
+   and the engine refuses a surplus one.
+3. *Leave `operator_do` refused and let a later package bring it.* _Rejected_: the package's D4 names the operator acts
+   at operator waits as this package's, and the engine supports the act today.
+
+== Consequences
+
+* A scenario can replay an operator wait deterministically; `ScenarioReplayRunnerTest` (nested class `Operator acts`)
+  proves the act, its parameters, the refusal of an unoffered link, and the byte-identical replay of the script twice.
+* The directives `operator_cli` and the worker faults stay refused with their work packages; a script that names them
+  still fails before it runs.
+
+== Source
+
+* Work package `supervision-scenarios`, D4
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4]
+* link:../../../../doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#_deterministic_scenario_replay_harness_pm_scenario_pm_test_4[Workflow DSL § Deterministic Scenario Replay Harness]

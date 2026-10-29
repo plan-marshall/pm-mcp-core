@@ -177,6 +177,7 @@ final class ScenarioReplayRunner {
             }
             case ScenarioDirective.AssertOutcome assertion -> assertOutcome(assertion);
             case ScenarioDirective.AssertTaskOutcome assertion -> assertTaskOutcome(assertion);
+            case ScenarioDirective.OperatorDo act -> operatorAct(act);
         }
     }
 
@@ -206,8 +207,18 @@ final class ScenarioReplayRunner {
         }
     }
 
-    private void start(ScenarioDirective.Start start) {
-        if (status != null) {
+    /**
+     * Takes an operator act at the resting operator wait: the operator follows one offered link of the state the scope
+     * rests in.
+     */
+    private void operatorAct(ScenarioDirective.OperatorDo act) {
+        if (status == null) {
+            throw new ScenarioFailure(act.line(), "the scope has not been started");
+        }
+        advance(act.line(), new EngineEvent.OperatorAct(status.state(), act.link(), act.parameters()));
+    }
+
+    private void start(ScenarioDirective.Start start) {        if (status != null) {
             throw new ScenarioFailure(start.line(), "the scope was started already");
         }
         scope = ScenarioFixtures.scope(directory, start.scope(), start.scopeId());

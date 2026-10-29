@@ -210,6 +210,12 @@ record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<
                 yield line.build(() -> new ScenarioDirective.AssertTaskOutcome(line.number(), line.args().getFirst(),
                         line.args().get(1)));
             }
+            case "operator_do" -> {
+                line.requireArity(2, "operator_do <link> <channel> {\"<name>\":\"<value>\"}");
+                var parameters = line.jsonMembers();
+                yield line.build(() -> new ScenarioDirective.OperatorDo(line.number(), line.args().getFirst(),
+                        line.args().get(1), parameters));
+            }
             default -> throw line.refused("'%s' is no directive".formatted(word));
         };
     }
@@ -300,7 +306,21 @@ record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<
             if (json == null) {
                 throw refused("missing argument: %s takes {\"%s\":\"…\"}".formatted(word, member));
             }
+            var members = jsonMembers();
+            if (!members.containsKey(member)) {
+                throw refused("missing argument: the JSON member '%s'".formatted(member));
+            }
+            return members.get(member);
+        }
+
+        /**
+         * @return the scalar members of the JSON-shaped argument; empty when the directive carries none
+         */
+        Map<String, String> jsonMembers() {
             var members = new LinkedHashMap<String, String>();
+            if (json == null) {
+                return Map.copyOf(members);
+            }
             try (var parser = JSON.createParser(json)) {
                 if (parser.nextToken() != JsonToken.START_OBJECT) {
                     throw refused("the JSON argument is no object");
@@ -321,10 +341,7 @@ record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<
                         : e.getMessage();
                 throw refused("the JSON argument is malformed: " + reason);
             }
-            if (!members.containsKey(member)) {
-                throw refused("missing argument: the JSON member '%s'".formatted(member));
-            }
-            return members.get(member);
+            return Map.copyOf(members);
         }
     }
 }

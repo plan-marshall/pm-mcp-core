@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -33,6 +34,7 @@ import de.planmarshall.workflow.scenario.ScenarioDirective.AssertOutcome;
 import de.planmarshall.workflow.scenario.ScenarioDirective.AssertState;
 import de.planmarshall.workflow.scenario.ScenarioDirective.AssertTaskOutcome;
 import de.planmarshall.workflow.scenario.ScenarioDirective.CompleteJob;
+import de.planmarshall.workflow.scenario.ScenarioDirective.OperatorDo;
 import de.planmarshall.workflow.scenario.ScenarioDirective.Start;
 import de.planmarshall.workflow.scenario.ScenarioDirective.Worker;
 
@@ -82,6 +84,10 @@ class ScenarioScriptTest {
                 Arguments.of("start workspace w-1", "surplus argument 'w-1'"),
                 Arguments.of("worker reviewer", "missing argument"),
                 Arguments.of("worker reviewer submitted finished", "'finished' is no outcome of a task"),
+                Arguments.of("operator_do", "missing argument"),
+                Arguments.of("operator_do proceed", "missing argument"),
+                Arguments.of("operator_do proceed terminal", "'terminal' is no operator channel"),
+                Arguments.of("operator_do proceed web {\"note\":{\"x\":1}}", "is no scalar"),
                 Arguments.of("{\"outcome\":\"succeeded\"}", "a line starts with a directive"),
                 Arguments.of("scenario other", "a script names one scenario"),
                 Arguments.of("finish_plan", "'finish_plan' is no directive"));
@@ -104,6 +110,7 @@ class ScenarioScriptTest {
                     complete_job b-00000000000000a1 {"outcome":"succeeded","worktree_sha":"e3b0c442"}
                     assert_task_outcome reviewer submitted
                     answer_question Q-003 web {"branch_key":"approve"}   # the review question
+                    operator_do choose cli {"note":"go"}
                     assert_state completed
                     assert_outcome completed
                     """);
@@ -118,8 +125,9 @@ class ScenarioScriptTest {
                             new CompleteJob(7, "b-00000000000000a1", "succeeded"),
                             new AssertTaskOutcome(8, "reviewer", "submitted"),
                             new AnswerQuestion(9, "Q-003", "web", "approve"),
-                            new AssertState(10, "completed"),
-                            new AssertOutcome(11, "completed")), script.directives()));
+                            new OperatorDo(10, "choose", "cli", Map.of("note", "go")),
+                            new AssertState(11, "completed"),
+                            new AssertOutcome(12, "completed")), script.directives()));
         }
 
         @Test
