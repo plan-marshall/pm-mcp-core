@@ -87,6 +87,8 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Dependencies and Sequencing
 
+
+- **Landing note (2026-10-29):** PLAN-46 landed (#233): the consent kinds `scan_harnesses`, `fetch_icons`, `probe_harness_login`, `probe_harness_models` and `verify_harness_profile` (never remembered) exist, and the stores already drop an unenrolled harness; the dependency on PLAN-46 is spent.
 - Depends on: PLAN-46 (the consent store and its kind `verify_harness_profile`); PLAN-98 (`judgment-endpoint`: `ProfileValidator`, `doc/specification/store-schemas/11-enrolment-store.adoc` and `doc/implementation-watch/client-profiles.adoc` are shared, so it runs after PLAN-98 has merged); `token-usage` is spent (PLAN-107, #215).
 - Blocks: PLAN-V2-43 (the harness list in the settings and the automatic run).
 

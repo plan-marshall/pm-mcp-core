@@ -132,6 +132,8 @@ Not surface (R19, bookkeeping): `doc/plans/README.adoc` (the one cell of the row
 
 ## Dependencies and Sequencing
 
+
+- **Landing note (2026-10-29):** PLAN-46 landed (#233): `ProviderProbe` is the seam that waits for the real `ci.whoami` probe built here.
 - Depends on: nothing. It builds on `pm-provider-http` (shipped, #156).; PLAN-V2-05 (`derived-facts-store-operations`) (the Derived Facts Store: records, kind registry, derivation and staleness rules; operator decision 12 of 18)
 - **The plans that need the contract depend on this one (the orchestrator edits their specs):**
   - PLAN-V2-17 `project-onboarding-unit` (`setup.verify-credentials`, probe variants): add this plan to its dependencies; its line 148 says no `ci.whoami` exists. It consumes `ci.whoami` from `pm-workflow`, which cannot depend on the module: it needs its own port or the primitive by name (Standing Constraints). Shared files with this plan: `doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc` (1 of 1; trace-only entry on its side, one sentence on this side).

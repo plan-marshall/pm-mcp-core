@@ -147,6 +147,8 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 
 ## Dependencies and Sequencing
 
+
+- **Landing note (2026-10-29):** PLAN-105 landed (#230): `instance_version` is still not a status field (the history-aware `advance` takes it as an int); the engine must write the `instance` history line, which nothing writes today; nested policy calls are not in the header or the ceiling diff and have no other owner; "verified" means plan-unit-verified (composed files are not verified standalone, ADR `workflow-plan/020`).
 - After #150 (`ac34703`, 2026-10-23): `icon` is a required key of every unit's frontmatter, kept by `PlanInstanceComposer` and `PlanUnitMerger`; 18 test files of `pm-workflow` (`EngineFixtures`, `EngineResumeTest`, `GuardEvaluatorTest`, `WorkflowEngineTest`, `InstancePrunerTest`, `PlanFixtures` and the verify tests among them) were migrated and are the fixtures this plan builds on: read them at the head of `main`. The stored unit text `mcp/units/<digest>.pmwf` is a unit like any other and carries its `icon:` line; a stored text from before #150 does not load (no compatibility path, format 1, pre-1.0).
 - Depends on: PLAN-26 (`role-sets-and-model-caller`)
 - Builds on PLAN-26 (`role-sets-and-model-caller`, shipped as #146): the composition refuses a missing role, a role of the wrong class and a quorum on one model through the role sets and the effective configuration of `core.role`, which are on `main`; read them at the head of `main` and use their types.

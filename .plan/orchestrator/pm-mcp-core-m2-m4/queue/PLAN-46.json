@@ -2,10 +2,10 @@
   "id": "PLAN-46",
   "slug": "machine-onboarding-unit",
   "workstream": "WS-03",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "unknown",
+  "pr": "#233",
+  "landing": "landings/PLAN-46.md",
   "seq": 46
 }

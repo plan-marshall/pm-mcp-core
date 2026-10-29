@@ -153,6 +153,8 @@ The specification pull requests #177 (capability specs: Proportion, Amended afte
 
 ## Dependencies and Sequencing
 
+
+- **Landing note (2026-10-29):** PLAN-46 landed (#233): the dependency is met for the stores; the plan axes are still owed by PLAN-V2-43.
 - Depends on: PLAN-42 (`operator-wait-and-machine-scope`); PLAN-46 (`machine-onboarding-unit`); PLAN-V2-17 (`project-onboarding-unit`); PLAN-V2-22 (`start-source-intake`) (coupling: its rate limits, documents copy or move, source directory and move at creation, screening, failing closed, and claimed lesson build on the setup gate, the sources as a list, and the other sources built here; recorded on this edge, not as a reverse dependency); PLAN-V2-12 (`ci-contract-module`) and PLAN-V2-62 (`ci-contract-pull-request-view`) (`ci.issue-view` for `source-issue`; `ci.pr-view` for `source-pr`; operator decision 2 of 18); PLAN-V2-16 (`lesson-store-operations`) (the lesson store: `LessonStore`, the resolver, claim, release and retire; operator decision 3 of 18); PLAN-V2-01 (`primitive-failure-reasons`) (the first primitives of `pm-workflow/.../primitive/` follow the settled SPI: a failure is its own outcome only where the graph continues differently, otherwise one outcome of its class plus a closed reason carried as data; operator decision of 2026-10-29)
 - Blocks: PLAN-V2-54 (`recipe-workflows`); PLAN-V2-29 (`chat`)
 - Overlaps with: computed by `corpus cross-check` at emit time; every plan through `doc/plans/README.adoc` and `doc/Traceability.adoc`; the plans of the same module through its log holder, which is not a declared surface

@@ -1,1 +1,1 @@
-Drain: wait for the landings of PLAN-46 and PLAN-105 and run analyze for each; then run /plan-orchestrator close slug=pm-mcp-core-m2-m4 and archive slug=pm-mcp-core-m2-m4, then land the ledger. The successor pm-mcp-core-m2-m4-v2 starts only after that. Stage no new plans here.
+epic closed — see history.md

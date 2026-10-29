@@ -74,7 +74,7 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, the ADR dir
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-V2-39 (`machine-harness-verification`): it declares `ProfileValidator.java` and `ProfileValidatorTest.java` (2 shared entries), and PLAN-V2-39 itself waits for PLAN-46 (running); PLAN-46 and PLAN-V2-43 name `ProfileValidator` in their text but not in their Expected Surface. PLAN-98, which lifted the refusals of the validator, is shipped.
+- Depends on: PLAN-V2-39 (`machine-harness-verification`): it declares `ProfileValidator.java` and `ProfileValidatorTest.java` (2 shared entries), and PLAN-V2-39 itself waits for PLAN-46 (landed #233); PLAN-46 and PLAN-V2-43 name `ProfileValidator` in their text but not in their Expected Surface. PLAN-98, which lifted the refusals of the validator, is shipped.
 - Sequenced 2026-10-29 by the cross-check: `ProfileValidator` is shared ground; the group PLAN-V2-68, PLAN-V2-71, PLAN-V2-52 and PLAN-V2-70 runs after PLAN-V2-39, one at a time in that order (or each merges the base before its gate).
 - Overlaps with the live plans (class level): the two entries above with PLAN-V2-39 only.
 - Disjoint from the other drafts of this cluster (no shared class): PLAN-V2-46 (`runtime-endpoint-residues`), PLAN-V2-56 (`qualification-token-split`), PLAN-V2-65 (`corpus-schema-length-bounds`), PLAN-V2-67 (`main-hygiene-leftovers`).

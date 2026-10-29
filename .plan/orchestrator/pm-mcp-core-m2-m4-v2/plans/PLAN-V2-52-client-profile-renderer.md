@@ -76,6 +76,8 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 
 ## Dependencies and Sequencing
 
+
+- **Landing note (2026-10-29):** PLAN-46 landed (#233): the dependency on PLAN-46 for `ProfileValidator` is spent.
 - Depends on: nothing (the package depends on nothing in the index).
 - Sequenced 2026-10-29 by the cross-check: it shares `ProfileValidator` and `ProfileStages` with PLAN-V2-39, PLAN-V2-68 and PLAN-V2-71; run after PLAN-V2-39 (the group PLAN-V2-68, PLAN-V2-71, PLAN-V2-52, PLAN-V2-70 in that order).
 - Overlaps with: PLAN-46, PLAN-105, PLAN-V2-39 and PLAN-V2-43: none — the renderer adds classes beside, and does not edit, `ProfileValidator.java`, `VerificationRecord.java` (PLAN-V2-39) or `ProfileSets.java`. `CoreLogMessages.java` is the shared log holder (R12, not a declared surface). Documents: the package file is shared with the two other plans of the package (different bullets); `02-placeholders.adoc` is shared with PLAN-V2-70 (`host-resident-surface-inventory`) (different section: the inventory).

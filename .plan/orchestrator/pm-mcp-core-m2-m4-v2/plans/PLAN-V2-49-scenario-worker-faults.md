@@ -88,7 +88,7 @@ Finish D1 of the work package `supervision-scenarios` for the deterministic harn
 ## Dependencies and Sequencing
 
 - Depends on: PLAN-V2-33 (`scenario-task-protocol`) (this cluster; same classes, strictly after its merge). Nothing among the other live plans.
-- Overlaps with: PLAN-46 and PLAN-105 (running): no shared file. No staged plan declares a file of `workflow/scenario`. `doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc` is also named by PLAN-V2-44 (`positioned-layout`) (§ Positioned Layout), PLAN-V2-26 (staged) and PLAN-V2-78 (parked): 1 shared specification file with each, different sections; whichever merges second merges the base branch before the merge gate.
+- Overlaps with: PLAN-46 and PLAN-105 (landed #233 and #230): no shared file. No staged plan declares a file of `workflow/scenario`. `doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc` is also named by PLAN-V2-44 (`positioned-layout`) (§ Positioned Layout), PLAN-V2-26 (staged) and PLAN-V2-78 (parked): 1 shared specification file with each, different sections; whichever merges second merges the base branch before the merge gate.
 - Package bookkeeping (R01/R05): the work package `supervision-scenarios` stays open (D6 and D7 external); this plan reduces its file and does not delete it or its index row.
 - Adjacent to: `plan-marshall-mcp` / `worker-integration-tests` (real processes), `pm-conformance` (D6, D7), the assembly `pm-mcp-server` and `pm-api`, which stay untouched.
 

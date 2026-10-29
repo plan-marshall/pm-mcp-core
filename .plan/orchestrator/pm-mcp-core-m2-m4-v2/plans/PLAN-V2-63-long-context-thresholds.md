@@ -86,7 +86,9 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, the ADR dir
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-V2-40 (`envelope-packing`) (it creates `EnvelopeBudget`, the package file and its row, and the developer guide this plan extends); PLAN-V2-39 (`machine-harness-verification`, staged): it declares `ProfileValidator.java`, `ProfileValidatorTest.java` and `client-profiles/01-profile-schema.adoc` (3 shared entries), and PLAN-V2-39 itself waits for PLAN-46 (running).
+
+- **Landing note (2026-10-29):** PLAN-46 landed (#233): the dependency on PLAN-46 is spent.
+- Depends on: PLAN-V2-40 (`envelope-packing`) (it creates `EnvelopeBudget`, the package file and its row, and the developer guide this plan extends); PLAN-V2-39 (`machine-harness-verification`, staged): it declares `ProfileValidator.java`, `ProfileValidatorTest.java` and `client-profiles/01-profile-schema.adoc` (3 shared entries), and PLAN-V2-39 itself waits for PLAN-46 (landed #233).
 - Sequenced: `ProfileValidator` is shared ground; the group PLAN-V2-68, PLAN-V2-71, PLAN-V2-52, PLAN-V2-70 runs after PLAN-V2-39 one at a time, and this plan joins that group after PLAN-V2-68 and PLAN-V2-71 (the two that edit `ProfileValidatorTest` as well); the gate decides against PLAN-V2-52 and PLAN-V2-70, with which it shares no class by its own surface.
 - Overlaps with the live plans (class level): PLAN-46 and PLAN-105 none (PLAN-46 names `ProfileValidator` in its text, not in its surface); PLAN-V2-39: the 3 entries above; PLAN-V2-43: none.
 - Overlaps with the other plan of this cut: PLAN-V2-40 (`envelope-packing`) — the package file, its row and the guide (bookkeeping; hence the dependency). Disjoint in classes.

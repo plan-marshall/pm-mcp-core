@@ -167,6 +167,8 @@ The specification pull requests #177 (capability specs: Proportion, Amended afte
 
 ## Dependencies and Sequencing
 
+
+- **Landing note (2026-10-29):** PLAN-105 landed (#230): the override check now runs over the composed set, with the bare-id caveat (a state pruned from its own unit passes if another unit declares the same id; see PLAN-V2-82).
 - Depends on: PLAN-42 (`operator-wait-and-machine-scope`); PLAN-46 (`machine-onboarding-unit`); PLAN-V2-17 (`project-onboarding-unit`); PLAN-28 (`task-queue-and-protocol`); PLAN-30 (`supervisor`); PLAN-V2-16 (`lesson-store-operations`) (the lesson store: `LessonStore`, the resolver, claim, release and retire; operator decision 3 of 18); PLAN-V2-03 (`epic-ledger-header-and-queue`) (the epic header, queue row and their stores; operator decision 3 of 18); PLAN-V2-07 (`epic-ledger-inbox-and-registers`) (the epic inbox and the registers; operator decision 3 of 18)
 - Operator decision 24 (2026-10-29): six pieces around the epic ledger have no package (the shared epic worktree, the ledger resolution seam, the epic landing, the plan mailbox store, the outbox link, `landings.jsonl`); none is cut yet. If this plan's outline needs one, ask the operator at refine (R07) instead of inventing a home; see the Open Defect "The epic ledger's surrounding pieces have no package" in `epic.md`.
 - Operator decision 22 (2026-10-29): the epic queue row has 11 statuses, not 16 (`parked`, `superseded`, `retired`, `resolved`, `split` are cut by PLAN-V2-03); if this plan needs one of them it adds it back with its writer and its own justification in its own pull request.

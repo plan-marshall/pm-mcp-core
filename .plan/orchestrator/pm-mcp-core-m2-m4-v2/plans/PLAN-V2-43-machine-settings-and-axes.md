@@ -82,6 +82,8 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Dependencies and Sequencing
 
+
+- **Landing note (2026-10-29):** PLAN-46 landed (#233) as part 1 of 3: the writers for settings, documents mode and cleanup durations do NOT exist; `MachineConfigurationStore` lives in `pm-runtime` and writes `providers` only, copying other members through. This plan is the last part, so it removes the package file `machine-onboarding-unit.adoc` and its index row, and reduces the four spec parts that the lane left untouched.
 - Depends on: PLAN-46 (the stores and the credential-store aspect); PLAN-V2-39 (the harness verification and the harness list); `token-usage` is spent.
 - Overlaps with: PLAN-43 (running) on `doc/specification/workflow-dsl/01-grammar.adoc` and PLAN-105 (staged) on `doc/specification/workflow-dsl/09-plan-instance.adoc` (documentation only; PLAN-43 merges before this plan starts).
 - Blocks: PLAN-V2-17 (`project-onboarding-unit`); PLAN-V2-24 (`start-from-clients`); PLAN-V2-21 (`plan-and-epic-control`); PLAN-V2-73 (`runtime-control`); PLAN-V2-69 (`process-designer`); PLAN-V2-74 (`cleanup`); PLAN-V2-22 (`start-source-intake`) — the package's dependents, released when the package is done.

@@ -4,11 +4,8 @@
 
 ## START HERE
 
-**Resume anchor**: Drain: wait for the landings of PLAN-46 and PLAN-105 and run analyze for each; then run /plan-orchestrator close slug=pm-mcp-core-m2-m4 and archive slug=pm-mcp-core-m2-m4, then land the ledger. The successor pm-mcp-core-m2-m4-v2 starts only after that. Stage no new plans here.
-**Phase**: orchestrating
-**Running**:
-- PLAN-46 (WS-03)
-- PLAN-105 (WS-03)
+**Resume anchor**: epic closed — see history.md
+**Phase**: closed
 **Queue** (staged, in order):
 - (empty)
 - PLAN-01 (WS-01) — plan=lock-manager-and-leases — PR #20 — landing=landings/PLAN-01.md — status: shipped
@@ -56,6 +53,7 @@
 - PLAN-43 (WS-03) — plan=rb-43-phase-sub-workflows — PR #220 — landing=landings/PLAN-43.md — status: shipped
 - PLAN-44 (WS-03) — plan=plan-44-static-verifier-rule-gaps — PR #38 — landing=landings/PLAN-44.md — status: shipped
 - PLAN-45 (WS-03) — status: transferred
+- PLAN-46 (WS-03) — plan=unknown — PR #233 — landing=landings/PLAN-46.md — status: shipped
 - PLAN-47 (WS-03) — status: transferred
 - PLAN-48 (WS-03) — status: transferred
 - PLAN-49 (WS-08) — status: transferred
@@ -114,6 +112,7 @@
 - PLAN-102 (WS-04) — plan=rb-102-native-build-package-in-plan-marshall-mcp — PR plan-marshall-mcp#109 — landing=landings/PLAN-102.md — status: shipped
 - PLAN-103 (WS-10) — plan=rb-103-spec-coverage-pass — PR #151 — landing=landings/PLAN-103.md — status: shipped
 - PLAN-104 (WS-06) — plan=rb-104-main-green-and-leftovers — PR #185 — landing=landings/PLAN-104.md — status: shipped
+- PLAN-105 (WS-03) — plan=unknown — PR #230 — landing=landings/PLAN-105.md — status: shipped
 - PLAN-106 (WS-03) — plan=rb-106-plan-intent-and-outline-records — PR #210 — landing=landings/PLAN-106.md — status: shipped
 - PLAN-107 (WS-04) — plan=rb-107-token-usage-closure — PR #215 — landing=landings/PLAN-107.md — status: shipped
 - PLAN-108 (WS-03) — status: transferred
@@ -176,5 +175,4 @@
 
 | # | Plan | Workstream | Status | Surface (expected) | Lane |
 |---|------|------------|--------|--------------------|------|
-| 1 | PLAN-46 | WS-03 | running | doc/specification/credentials-and-enrolment/01-provider-credentials.adoc; doc/specification/model-work/01-roles-and-configuration.adoc; doc/specification/state-catalogue/19-onboarding-aspects-models-providers.adoc; doc/specification/store-schemas/12-machine-stores.adoc; pm-core/doc/developer/core-config.adoc; pm-core/src/main/java/de/planmarshall/core/config/; pm-core/src/main/java/de/planmarshall/core/role/MachineConfiguration.java; pm-core/src/main/java/de/planmarshall/core/role/ModelCatalogue.java; pm-core/src/main/java/de/planmarshall/core/role/RoleAssignments.java; pm-runtime/src/main/java/de/planmarshall/runtime/credentials/ | runbook |
-| 2 | PLAN-105 | WS-03 | running | doc/specification/store-schemas/02-workflow-state-store.adoc; doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc; doc/specification/workflow-dsl/09-plan-instance.adoc; pm-core/src/main/java/de/planmarshall/core/store/PlanHistory.java; pm-core/src/main/java/de/planmarshall/core/store/PlanHistoryCodec.java; pm-core/src/test/java/de/planmarshall/core/store/PlanHistoryTest.java; pm-workflow/src/main/java/de/planmarshall/workflow/diagram/InstanceMermaidRenderer.java; pm-workflow/src/main/java/de/planmarshall/workflow/engine/WorkflowEngine.java; pm-workflow/src/main/java/de/planmarshall/workflow/plan/HeaderJson.java; pm-workflow/src/main/java/de/planmarshall/workflow/plan/HeaderSchemaCheck.java; pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstance.java; pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java; pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceStore.java; pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java; pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceStoreTest.java | runbook |
+| — | (empty) | — | — | — | — |

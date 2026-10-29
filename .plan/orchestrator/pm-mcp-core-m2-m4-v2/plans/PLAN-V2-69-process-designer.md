@@ -189,6 +189,8 @@ Applicability:
 
 ## Dependencies and Sequencing
 
+
+- **Landing note (2026-10-29):** PLAN-105 landed (#230): the Mermaid instance form lists composed files with digests but has no phase composites.
 - After #150 (`ac34703`, 2026-10-23): `icon` is a required key of every unit's frontmatter (a stable icon id, never a file path; grammar `[a-z][a-z0-9._-]{0,63}`, no `..` segment). The designer's catalogue and validate endpoints (deliverables 6 and 7) list and check the frontmatter fields exactly as the loader does, so `icon` is one of them: a machine or project copy of a unit keeps the icon of the unit it copies, a unit without one is refused as the loader refuses it. Whether the catalogue entry of a unit also shows its icon id is for the specification to say (not read for this note). The icon assets and the visual language are the `pm-mcp-clients` plan `workflow-visual-language-and-icons`, not this one. The `workflow-dsl` ADR directory exists (ADRs 001 to 008): the next free number is 009 (R11).
 - Depends on: PLAN-43 (`phase-sub-workflows`); PLAN-V2-54 (`recipe-workflows`); PLAN-46 (`machine-onboarding-unit`) (the plan axes and their variants); PLAN-V2-22 (`start-source-intake`) (the short landings); PLAN-26 (`role-sets-and-model-caller`) (the effective role set)
 

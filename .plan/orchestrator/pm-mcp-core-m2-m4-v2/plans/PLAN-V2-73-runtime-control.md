@@ -147,6 +147,8 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 
 ## Dependencies and Sequencing
 
+
+- **Landing note (2026-10-29):** PLAN-46 landed (#233): `check_updates` now exists in `ConsentKind`.
 - Depends on: PLAN-30 (`supervisor`); PLAN-28 (`task-queue-and-protocol`); PLAN-46 (`machine-onboarding-unit`) (the consent store); the operator's answer to the open question of the registry credential, for the update check and the fetch (no work package)
 
 ## Hand-Off Command

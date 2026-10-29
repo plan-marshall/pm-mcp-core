@@ -153,6 +153,8 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 
 ## Dependencies and Sequencing
 
+
+- **Landing note (2026-10-29):** PLAN-46 landed (#233): `ConsentStore`, the project-scoped consent kind `RUN_CHECKOUT_SCRIPTS` and the `ConsentScript` digests exist, which answers the open question which store API to use; the consents lock is separate, so there is no joint transaction with `Enrolments.enrol`; a concurrent change of a project value uses `SettingsConflict`.
 - Depends on: PLAN-42 (`operator-wait-and-machine-scope`); PLAN-46 (`machine-onboarding-unit`); PLAN-V2-12 (`ci-contract-module`) (`ci.whoami` for `setup.verify-credentials` and the probe variants; operator decision 2 of 18: the contract is the module `pm-provider-ci`); PLAN-V2-05 (`derived-facts-store-operations`) (the Derived Facts Store: records, kind registry, derivation and staleness rules; operator decision 12 of 18)
 - Blocks: PLAN-V2-24 (`start-from-clients`); PLAN-V2-21 (`plan-and-epic-control`); PLAN-V2-74 (`cleanup`); PLAN-V2-22 (`start-source-intake`)
 - Overlaps with: the `core.store` plans; PLAN-11's `runtime.enrolment`

@@ -65,7 +65,9 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-46 (`machine-onboarding-unit`, running), PLAN-V2-39 (`machine-harness-verification`, staged) and PLAN-V2-43 (`machine-settings-and-axes`, staged): all three declare `ProfileValidator.java` in their Expected Surface.
+
+- **Landing note (2026-10-29):** PLAN-46 landed (#233): the dependency on PLAN-46 for `ProfileValidator` is spent.
+- Depends on: PLAN-46 (`machine-onboarding-unit`, part 1 landed #233), PLAN-V2-39 (`machine-harness-verification`, staged) and PLAN-V2-43 (`machine-settings-and-axes`, staged): all three declare `ProfileValidator.java` in their Expected Surface.
 - Sequenced 2026-10-29 by the cross-check: `ProfileValidator` is shared ground; run after PLAN-V2-39 and PLAN-V2-68 (the group PLAN-V2-68, PLAN-V2-71, PLAN-V2-52, PLAN-V2-70 in that order).
 - Overlaps with: `ProfileValidator.java` with PLAN-46, PLAN-V2-39 and PLAN-V2-43 (3 plans, 1 shared entry each; PLAN-V2-39 and PLAN-V2-43 also `ProfileValidatorTest.java`): the reason for the dependency. No other shared entry.
 - Adjacent to: PLAN-V2-52 (`client-profile-renderer`) (the renderer's refusal for a profile that lacks a resolution is the fail-closed twin of this check).

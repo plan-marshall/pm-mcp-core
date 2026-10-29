@@ -83,7 +83,9 @@ Shared bookkeeping, not surface (R19): `doc/Traceability.adoc`. No `doc/plans/` 
 
 ## Dependencies and Sequencing
 
-- Depends on: the sibling plan PLAN-V2-34 (`r05-reduction-waits-launch-protocol`) (it writes the ADR this plan cites and edits `doc/implementation-watch/model-work.adoc`, the one shared file) and the operator's confirmation of the practice; PLAN-46 (running; `model-work/01` and `store-schemas/12`: run after it lands, or the lane leaves those two files for a later pass and says so)
+
+- **Landing note (2026-10-29):** PLAN-46 landed (#233) without reducing the four spec parts of `machine-onboarding-unit`; the two spec inconsistencies it found are cut into PLAN-V2-81.
+- Depends on: the sibling plan PLAN-V2-34 (`r05-reduction-waits-launch-protocol`) (it writes the ADR this plan cites and edits `doc/implementation-watch/model-work.adoc`, the one shared file) and the operator's confirmation of the practice; PLAN-46 (landed #233; `model-work/01` and `store-schemas/12`: run after it lands, or the lane leaves those two files for a later pass and says so)
 - Overlaps with live plans: `model-work/01` with PLAN-46, PLAN-V2-17, PLAN-V2-29, PLAN-V2-64, PLAN-V2-76 (5); `store-schemas/12` with PLAN-46, PLAN-V2-17, PLAN-V2-41, PLAN-V2-72, PLAN-V2-73, PLAN-V2-74 (6); `client-profiles/01` with PLAN-V2-39, PLAN-V2-41, PLAN-V2-42 (3); `store-schemas/16` with PLAN-V2-76 (1); `implementation-watch/client-profiles.adoc` with PLAN-V2-39 (1); `implementation-watch/model-work.adoc` with PLAN-V2-42 and PLAN-V2-76 (2). Of the running plans only PLAN-46 shares files. PLAN-105 and PLAN-V2-43 share none.
 - Pairwise with the other drafts of this cluster: not disjoint from PLAN-V2-34 (`r05-reduction-waits-launch-protocol`) (one file: `implementation-watch/model-work.adoc`; sequence it after); disjoint from PLAN-V2-45 (`package-files-carry-unowned-spec`).
 - A documentation plan, but three of its files are read by parity tests; see Standing Constraints.

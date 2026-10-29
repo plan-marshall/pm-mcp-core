@@ -192,6 +192,8 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 
 ## Dependencies and Sequencing
 
+
+- **Landing note (2026-10-29):** PLAN-46 landed (#233): the dependency is met for the stores; the plan axes are still owed by PLAN-V2-43.
 - Depends on: PLAN-42 (`operator-wait-and-machine-scope`); PLAN-46 (`machine-onboarding-unit`); PLAN-V2-17 (`project-onboarding-unit`); PLAN-V2-16 (`lesson-store-operations`) (the lesson store: `LessonStore`, the resolver, claim, release and retire; operator decision 3 of 18); PLAN-V2-01 (`primitive-failure-reasons`) (the primitives of this plan follow the settled SPI)
 - Blocks: PLAN-V2-23 (`decision-engine`); PLAN-V2-24 (`start-from-clients`); PLAN-V2-29 (`chat`); PLAN-V2-41 (`operator-reports`); PLAN-V2-69 (`process-designer`)
 - Overlaps with: computed by `corpus cross-check` at emit time; every plan through `doc/plans/README.adoc` and `doc/Traceability.adoc`; the plans of the same module through its log holder, which is not a declared surface

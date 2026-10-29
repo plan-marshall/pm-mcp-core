@@ -1,7 +1,7 @@
 {
   "kind": "orchestrator",
   "title": "pm-mcp-core work packages, roadmap Milestones 2 to 4",
-  "phase": "orchestrating",
+  "phase": "closed",
   "workstreams": [
     "WS-01-runtime-foundation",
     "WS-02-stores",

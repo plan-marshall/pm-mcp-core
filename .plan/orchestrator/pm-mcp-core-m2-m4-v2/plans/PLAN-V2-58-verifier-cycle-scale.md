@@ -73,7 +73,7 @@ Plan parameters (the values the rules ask for):
 ## Dependencies and Sequencing
 
 - Depends on: nothing.
-- Overlaps with: PLAN-46 and PLAN-105 (running): no shared file. Staged plans that declare other classes of `workflow.verify` (`WorkflowValidator.java`: PLAN-V2-24 and PLAN-V2-13; `CompiledInvariants.java`, `InvariantId.java`, `CompiledInvariantsTest.java`, `DeclarationBounds.java`: PLAN-V2-69): 0 shared files, because this plan changes no caller and adds its test as a new class. `UnitGraph.java` is declared by no live plan.
+- Overlaps with: PLAN-46 and PLAN-105 (landed #233 and #230): no shared file. Staged plans that declare other classes of `workflow.verify` (`WorkflowValidator.java`: PLAN-V2-24 and PLAN-V2-13; `CompiledInvariants.java`, `InvariantId.java`, `CompiledInvariantsTest.java`, `DeclarationBounds.java`: PLAN-V2-69): 0 shared files, because this plan changes no caller and adds its test as a new class. `UnitGraph.java` is declared by no live plan.
 - Disjoint from the other plans of this cluster (PLAN-V2-33 (`scenario-task-protocol`), PLAN-V2-49 (`scenario-worker-faults`), PLAN-V2-57 (`default-plan-lanes-and-run`), PLAN-V2-44 (`positioned-layout`)) by file.
 - Package bookkeeping (R01/R05): no package file covers this plan (like PLAN-95).
 - Adjacent to: `plan-marshall-mcp` / `default-units-and-drift-tests` (blocked), which runs this code over the product's units; its numbers can supersede the generated ones.

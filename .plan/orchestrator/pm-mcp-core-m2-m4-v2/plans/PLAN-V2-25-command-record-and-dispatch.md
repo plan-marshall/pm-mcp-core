@@ -12,7 +12,7 @@ workstream: WS-01
 > See `persona-plan-orchestrator/standards/orchestration-model.md` for the tier and
 > hand-off contract.
 >
-> This is the THIRD of three specs of the command-model groundwork (decided by the operator on 2026-10-29: option B1 first, building toward C). It `Depends on:` PLAN-V2-19 (`engine-carries-reasons`, the second: the engine's reason handling, which this plan's dispatch carries on), PLAN-V2-15 (`call-time-inputs-and-slots`, AMENDED to carry `command_id` and `correlation_id` in the call frame: it brings the id types `CommandId` and `CorrelationId` in `core.id`, the id source in `Ports`, and the frame members this plan reuses) and PLAN-105 (`plan-instance-files-and-history`, running). The first is PLAN-V2-01 (`primitive-failure-reasons`).
+> This is the THIRD of three specs of the command-model groundwork (decided by the operator on 2026-10-29: option B1 first, building toward C). It `Depends on:` PLAN-V2-19 (`engine-carries-reasons`, the second: the engine's reason handling, which this plan's dispatch carries on), PLAN-V2-15 (`call-time-inputs-and-slots`, AMENDED to carry `command_id` and `correlation_id` in the call frame: it brings the id types `CommandId` and `CorrelationId` in `core.id`, the id source in `Ports`, and the frame members this plan reuses) and PLAN-105 (`plan-instance-files-and-history`, landed #230). The first is PLAN-V2-01 (`primitive-failure-reasons`).
 
 ## First Instruction: Read The Standing Rules
 
@@ -121,7 +121,9 @@ Not surface (R19, shared bookkeeping): `doc/plans/README.adoc`, `doc/Traceabilit
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-V2-19 (`engine-carries-reasons`); PLAN-V2-15 (`call-time-inputs-and-slots`, amended: `CommandId`, `CorrelationId`, the generator in `Ports`, the frame members); PLAN-105 (`plan-instance-files-and-history`, running). Transitively PLAN-V2-01 (`primitive-failure-reasons`) and PLAN-V2-04.
+
+- **Landing note (2026-10-29):** PLAN-105 landed (#230): the places that create a `Run` are now seven, not five, and `Run` already holds the history, the transaction and `instanceVersion`.
+- Depends on: PLAN-V2-19 (`engine-carries-reasons`); PLAN-V2-15 (`call-time-inputs-and-slots`, amended: `CommandId`, `CorrelationId`, the generator in `Ports`, the frame members); PLAN-105 (`plan-instance-files-and-history`, landed #230). Transitively PLAN-V2-01 (`primitive-failure-reasons`) and PLAN-V2-04.
 - **Overlaps with live plans** (exact entries of the Expected Surfaces, counted over `plans/*.md` on 2026-10-29, live = staged, running, parked): `WorkflowEngine.java`: `PLAN-V2-21`, `PLAN-V2-42`, `PLAN-V2-13`, `PLAN-105`, `PLAN-V2-15` (5 plans); `WorkflowEngineTest.java`: `PLAN-V2-21`, `PLAN-V2-42`, `PLAN-V2-13` (3); `05-primitives.adoc`: `PLAN-V2-69`, `PLAN-V2-20` (2; also `PLAN-V2-01` and `PLAN-V2-19`, which precede this plan); `core/spi/package-info.java`: no live plan declares it besides `PLAN-V2-01`; `EngineStep.java`, `EngineResumeTest.java`: 0; `EngineFixtures` and `ScenarioFixtures` are read, not edited (`PLAN-V2-13`, `PLAN-V2-15`, `PLAN-V2-33`, `PLAN-V2-49` own them): 0. `PLAN-46`, `PLAN-V2-39`, `PLAN-V2-43`, `PLAN-V2-57`, `PLAN-V2-58`, `PLAN-V2-10`: 0.
 - **Verdict for the disjointness gate:** NOT disjoint from `PLAN-V2-13`, `PLAN-V2-21` and `PLAN-V2-42` (the engine file, merge order only for `PLAN-V2-21` and `PLAN-V2-42`, a real rebase for `PLAN-V2-13`), and from `PLAN-V2-69` and `PLAN-V2-20` on `05-primitives.adoc` (byte-disjoint hunks); sequenced after `PLAN-V2-19`, `PLAN-V2-15` and `PLAN-105`. Do not emit together with `PLAN-V2-13`; recommended order `PLAN-V2-01`, `PLAN-V2-15`, `PLAN-V2-19`, `PLAN-V2-25`, then `PLAN-V2-13`.
 - Blocks: the follow-up below.

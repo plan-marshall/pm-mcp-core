@@ -129,6 +129,8 @@ Applicability:
 
 ## Dependencies and Sequencing
 
+
+- **Landing note (2026-10-29):** PLAN-105 landed (#230): the Mermaid instance form lists composed files with digests but has no phase composites.
 - After #150 (`ac34703`, 2026-10-23): `icon` is a required key of every unit's frontmatter, recipes included (a recipe is a unit of type `recipe`; grammar `[a-z][a-z0-9._-]{0,63}`, no `..` segment; `PlanInstanceComposer` keeps the icon of the template it composes). A recipe unit this plan writes, and every fixture or inline unit of its tests, carries an `icon:` line; the recipe descriptor needs no icon of its own unless the specification says so, which this verb did not check. The `workflow-dsl` ADR directory exists (ADRs 001 to 008): the next free number is 009 (R11).
 - Depends on: PLAN-43 (`phase-sub-workflows`); PLAN-V2-24 (`start-from-clients`)
 - Blocks: PLAN-V2-69 (`process-designer`)
