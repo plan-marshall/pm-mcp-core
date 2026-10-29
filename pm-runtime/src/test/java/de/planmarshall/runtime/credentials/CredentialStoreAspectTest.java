@@ -70,7 +70,7 @@ class CredentialStoreAspectTest {
     void openRuntime() throws Exception {
         AuditSink sink = events::add;
         locks = new FileLockManager(sink);
-        consents = new ConsentStore(ConsentStore.file(base), locks);
+        consents = new ConsentStore(ConsentStore.file(base), locks, events::add);
         choice = choice(true);
         Files.createDirectories(base.resolve("state"));
         Files.createDirectories(base.resolve("locks"));

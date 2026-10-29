@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,6 +28,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.store.AtomicStoreFile;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.StoreRefusal;
@@ -48,12 +50,13 @@ class ConsentStoreTest {
 
     private Path file;
     private TestLocks locks;
+    private final List<AuditEvent> events = new ArrayList<>();
     private ConsentStore store;
 
     @BeforeEach
     void createStore() {
         locks = new TestLocks();
-        store = new ConsentStore(ConsentStore.file(base), locks);
+        store = new ConsentStore(ConsentStore.file(base), locks, events::add);
         file = base.resolve("consents.json");
     }
 
@@ -224,7 +227,25 @@ class ConsentStoreTest {
                         () -> store.grant(machine(ConsentKind.VERIFY_HARNESS_PROFILE), 0L)),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> store.grant(machine(ConsentKind.AUTO_RUN), 0L)),
+                () -> assertThrows(IllegalArgumentException.class, () -> Consent.machine(ConsentKind.AUTO_RUN, GRANTED,
+                        Consent.Channel.CLI, Optional.empty())),
                 () -> assertFalse(Files.exists(file)));
+    }
+
+    @Test
+    @DisplayName("a remembered and a withdrawn consent append their operator records")
+    void audit() {
+        store.grant(Consent.project(ConsentKind.MODEL_COST, "pm-mcp-core", GRANTED, Consent.Channel.CLI,
+                Optional.empty()), 0L);
+        store.withdraw(ConsentKind.MODEL_COST, Optional.of("pm-mcp-core"), store.read().revision());
+
+        assertAll(
+                () -> assertEquals(List.of("consent_remembered", "consent_withdrawn"),
+                        events.stream().map(AuditEvent::event).toList()),
+                () -> assertEquals("pm-mcp-core",
+                        events.getFirst().details().get(AuditEvent.DETAIL_PROJECT_ID)),
+                () -> assertEquals("model_cost",
+                        events.getFirst().details().get(AuditEvent.DETAIL_KIND)));
     }
 
     @Test
@@ -242,7 +263,7 @@ class ConsentStoreTest {
         var wrong = new AtomicStoreFile(file, LockKey.machineConfiguration(base));
 
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class, () -> new ConsentStore(wrong, locks)),
+                () -> assertThrows(IllegalArgumentException.class, () -> new ConsentStore(wrong, locks, events::add)),
                 () -> assertEquals(LockKey.consents(base).lockFile(),
                         ConsentStore.file(base).lockKey().lockFile()));
     }

@@ -48,7 +48,7 @@ store's snapshot and one answer.
 
 == Consequences
 
-* The rule is a pure function over the snapshot and one answer, so it is proved with six tests and no store.
+* The rule is a pure function over the snapshot and one answer, so it is proved with eleven tests and no store.
 * A caller cannot accidentally treat a remembered kind as a question, and cannot remember a kind the specification says
   is never remembered.
 * The gate's `Decision.toRecord` must be written by the caller with the snapshot's revision; a caller that ignores it

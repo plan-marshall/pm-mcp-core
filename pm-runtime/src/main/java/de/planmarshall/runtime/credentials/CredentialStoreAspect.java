@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.credentials;
 
 import de.cuioss.tools.logging.CuiLogger;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
@@ -274,7 +275,7 @@ public final class CredentialStoreAspect {
         try {
             return new Transition(State.MOVE, Optional.empty(), Optional.empty(), Optional.empty(), List.of(),
                     OptionalInt.of(move.recordedEntries()));
-        } catch (Refusal | SecretStoreException e) {
+        } catch (Refusal | SecretStoreException | StoreRefusal | UncheckedIOException e) {
             return Transition.unavailable(CREDENTIAL_STORE_FAILED, e.getMessage());
         }
     }
@@ -282,7 +283,8 @@ public final class CredentialStoreAspect {
     /**
      * {@code store.move}: moves every entry into {@code to} and switches {@code credentials.store} last. A move that
      * fails before the switch keeps the old store recorded and untouched, and is reported as
-     * {@code credential_store_failed} with the old store kept.
+     * {@code credential_store_failed} with the old store kept; a machine configuration that cannot be read, a record
+     * that cannot be written and a first recording that cannot carry the key fail the same way.
      *
      * @param to the store to move to
      * @return the next state {@code store.record}, or {@code store.unavailable} with the failure
@@ -292,9 +294,11 @@ public final class CredentialStoreAspect {
         try {
             move.move(to);
             return Transition.to(State.RECORD);
-        } catch (SecretStoreException e) {
+        } catch (SecretStoreException | StoreRefusal | UncheckedIOException e) {
             LOGGER.warn(WARN.CREDENTIAL_STORE_ASPECT_MOVE_FAILED, e.getMessage());
             return Transition.unavailable(CREDENTIAL_STORE_FAILED, e.getMessage());
+        } catch (Refusal e) {
+            return Transition.unavailable(e.reason().code(), e.getMessage());
         } catch (IllegalStateException | IllegalArgumentException e) {
             return Transition.unavailable(CREDENTIAL_STORE_FAILED, e.getMessage());
         }
@@ -313,7 +317,7 @@ public final class CredentialStoreAspect {
             return Transition.to(State.DONE);
         } catch (Refusal e) {
             return Transition.unavailable(e.reason().code(), e.getMessage());
-        } catch (StoreRefusal e) {
+        } catch (StoreRefusal | SecretStoreException e) {
             return Transition.unavailable(CREDENTIAL_STORE_FAILED, e.getMessage());
         }
     }

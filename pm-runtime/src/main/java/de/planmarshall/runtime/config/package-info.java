@@ -12,7 +12,7 @@
  * operator's machine document the provider step of the machine's onboarding writes.
  * <p>
  * The package lies in the runtime because the document's other writer, {@code credentials.store}, is the runtime's
- * {@code CredentialStoreChoice}: one package reads and writes the machine document, and {@code pm-core} stays
+ * {@code CredentialStoreChoice}: one module reads and writes the machine document, and {@code pm-core} stays
  * provider-neutral, as its architecture guard requires.
  * <p>
  * Specification:

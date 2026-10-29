@@ -82,6 +82,10 @@ Channel channel, Optional<String> deviceId) {
         Objects.requireNonNull(grantedAt, "grantedAt");
         Objects.requireNonNull(channel, "channel");
         Objects.requireNonNull(deviceId, "deviceId");
+        if (!kind.rememberable()) {
+            throw new IllegalArgumentException(
+                    "The consent kind '%s' is never remembered, so no entry of it exists".formatted(kind.wireName()));
+        }
         requireProject(kind, projectId);
         requireScripts(kind, scripts);
         requireDevice(channel, deviceId);

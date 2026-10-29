@@ -156,6 +156,20 @@ class ProviderVerificationTest {
     }
 
     @Test
+    @DisplayName("a credential that did not authenticate leaves the tool identity unproven")
+    void identityUnknown() {
+        credentialOk = false;
+
+        var result = verify(defaults(ProviderVariant.CLI, "github"), ConsentGate.Answer.YES);
+
+        assertAll(
+                () -> assertFalse(result.passed()),
+                () -> assertFalse(result.lines().getLast().ok()),
+                () -> assertEquals("provider_verification.tool_identity.credential_unknown",
+                        result.lines().getLast().messageKey()));
+    }
+
+    @Test
     @DisplayName("an unreachable origin and a refused credential fail with the provider's own answer")
     void failures() {
         originReachable = false;

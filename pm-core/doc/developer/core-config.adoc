@@ -26,7 +26,8 @@ writes and that everything else only reads:
   operator-file revision rule).
 
 The package never reads a file for a fact another package owns: the role package reads the assignments through
-`RoleEnvironment`, the model catalogue through the same port, and the runtime wires both. The package names no provider
+`RoleEnvironment`, the model catalogue through the same port, and the runtime is to wire both (no production
+implementation of the port exists in this repository yet; the onboarding's units and the assembly are owed). The package names no provider
 and no harness beyond the client-id grammar; the machine's provider defaults live in the runtime
 (link:../../../pm-runtime/doc/developer/runtime-config.adoc[`runtime.config`]), because `pm-core` stays
 provider-neutral (its architecture guard).

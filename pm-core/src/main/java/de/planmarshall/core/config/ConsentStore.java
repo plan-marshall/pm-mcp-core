@@ -16,6 +16,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.service.LockTransaction;
@@ -51,6 +53,7 @@ public final class ConsentStore {
 
     private final AtomicStoreFile storeFile;
     private final LockManager lockManager;
+    private final AuditSink auditSink;
 
     /**
      * What a read of the store found.
@@ -125,11 +128,13 @@ public final class ConsentStore {
     /**
      * @param storeFile   the {@code consents.json} file with the key of the consents lock
      * @param lockManager the lock manager of the runtime
+     * @param auditSink   where a remembered and a withdrawn consent are recorded
      * @throws IllegalArgumentException if the key of the store file is not the consents lock
      */
-    public ConsentStore(AtomicStoreFile storeFile, LockManager lockManager) {
+    public ConsentStore(AtomicStoreFile storeFile, LockManager lockManager, AuditSink auditSink) {
         this.storeFile = Objects.requireNonNull(storeFile, "storeFile");
         this.lockManager = Objects.requireNonNull(lockManager, "lockManager");
+        this.auditSink = Objects.requireNonNull(auditSink, "auditSink");
         if (storeFile.lockKey().level() != LockLevel.MACHINE_STORE
                 || !LOCK.equals(storeFile.lockKey().id())) {
             throw new IllegalArgumentException("The consent store is guarded by the machine's consents lock: "
@@ -180,7 +185,8 @@ public final class ConsentStore {
             entries.removeIf(entry -> sameScope(entry, consent));
             entries.add(consent);
             return 1;
-        });
+        }, Optional.of(AuditEvent.consentRemembered(consent.kind().wireName(),
+                consent.projectId().orElse(null))));
     }
 
     /**
@@ -199,7 +205,8 @@ public final class ConsentStore {
         Objects.requireNonNull(kind, "kind");
         Objects.requireNonNull(projectId, "projectId");
         return mutate(revision, entries -> entries.removeIf(entry -> entry.kind() == kind
-                && sameProject(entry, projectId)) ? 1 : 0) > 0;
+                        && sameProject(entry, projectId)) ? 1 : 0,
+                Optional.of(AuditEvent.consentWithdrawn(kind.wireName(), projectId.orElse(null)))) > 0;
     }
 
     /**
@@ -218,16 +225,16 @@ public final class ConsentStore {
             var before = entries.size();
             entries.removeIf(entry -> entry.belongsTo(projectId));
             return before - entries.size();
-        });
+        }, Optional.empty());
     }
 
     /**
-     * Reads the document again under the lock, checks the caller's revision, lets the change revise the entries and
-     * writes the document when the change changed anything.
+     * Reads the document again under the lock, checks the caller's revision, lets the change revise the entries,
+     * writes the document when the change changed anything and appends the record the write owes.
      *
      * @return the number of entries the change reports as changed
      */
-    private int mutate(long revision, Change change) {
+    private int mutate(long revision, Change change, Optional<AuditEvent> event) {
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(storeFile.lockKey());
             var current = readLocked(transaction);
@@ -238,6 +245,7 @@ public final class ConsentStore {
             var changed = change.apply(entries);
             if (changed > 0) {
                 storeFile.write(transaction, ConsentCodec.write(entries, revision + 1));
+                event.ifPresent(auditSink::append);
             }
             return changed;
         }

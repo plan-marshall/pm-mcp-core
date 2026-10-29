@@ -28,7 +28,7 @@ refusal type of the new stores.
 * A new `de.planmarshall.core.config.SettingsConflict` carries the document, the revision the change named, the revision
   the document holds and the current value of the setting, typed by the store that refused.
 * Its code is `conflict` and its status `409`, the values of the specification.
-* The four stores of `core.config` (`consents.json`, `model-catalogue.json`, `role-assignments.json`) and the runtime's
+* The three stores of `core.config` (`consents.json`, `model-catalogue.json`, `role-assignments.json`) and the runtime's
   provider-defaults writer raise it. `QualificationSettingsStore` and `StoreRefusal` stay as they are: they were shipped
   with their own conflict refusal and their caller has no use for the value.
 

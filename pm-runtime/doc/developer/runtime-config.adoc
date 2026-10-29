@@ -51,6 +51,14 @@ The codec reads `format_version` first, so a document of another version is refu
 unreadable for a field that version changed. It refuses an unknown provider, an unknown variant, an unknown member of a
 provider's object and a negative revision.
 
+== The Machine's Own Check of its Plan Defaults
+
+`MachineDefaultsValidation` is `defaults.validate` of the plan-defaults aspect, as far as the machine alone can decide
+it: a `landing.pull-request` needs a provider the machine serves (git hosting: `git`, `github`, `gitlab` or `forgejo`),
+`landing.main` and `landing.files` need none, and an unknown variant is refused. The check reads the machine's provider
+defaults only; it never reads a repository, and whether a base branch is protected, or a landing variant fits a project,
+is the project's own check where the project is known.
+
 == Pitfalls
 
 1. **The document has two writers.** The provider step writes `providers`; the credential-store aspect writes

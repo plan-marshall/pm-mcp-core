@@ -120,7 +120,10 @@ public final class RoleAssignmentProposal {
             return unresolved(role, defaultRole, "the harness '%s' maps no model to the tier '%s'"
                     .formatted(harness.get().clientId(), defaultRole.tier()));
         }
-        if (catalogue.filter(allowed -> allowed.allows(harness.get().clientId(), model.get())).isEmpty()) {
+        if (catalogue.isEmpty()) {
+            return unresolved(role, defaultRole, "no effective model catalogue exists yet");
+        }
+        if (!catalogue.get().allows(harness.get().clientId(), model.get())) {
             return unresolved(role, defaultRole, "the effective model catalogue does not allow '%s' on '%s'"
                     .formatted(model.get(), harness.get().clientId()));
         }

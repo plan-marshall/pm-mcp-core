@@ -24,8 +24,8 @@ import java.util.Objects;
  * and the current value of the setting, so a client can show what the change collided with and offer the act again.
  * <p>
  * The current value is typed by the store that refused: the raw document value of the setting that was written, as the
- * store reads it (for the machine configuration's provider defaults that is the {@link ProviderDefaults} it holds, for
- * the consent store its list of {@link Consent} entries).
+ * store reads it (for the machine configuration's provider defaults the runtime's {@code ProviderDefaults}, for the
+ * consent store its list of {@link Consent} entries).
  *
  * @since 0.1
  */

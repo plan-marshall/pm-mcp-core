@@ -66,7 +66,10 @@ public final class RoleAssignmentsStore {
         }
 
         /**
-         * @return the assignments as the role package reads them
+         * @return the assignments as the role package reads them. The store's {@link EffortSetting#DEFAULT} (the level
+         *         names {@code null} and clears the effort) and {@link EffortSetting#INHERIT} (the level names none)
+         *         both read as an empty effort here, because {@code RoleAssignment} carries no third state; a caller
+         *         that must tell them apart reads {@link #roles()}
          */
         public RoleAssignments assignments() {
             var read = new LinkedHashMap<String, RoleAssignment>();

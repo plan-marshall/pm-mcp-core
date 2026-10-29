@@ -245,7 +245,12 @@ public final class ProviderVerification {
      * the two answers of {@code ci.whoami} and the tool's status decide.
      */
     private static CheckLine sameIdentity(Provider provider, Answer credential, Answer login) {
-        if (!login.ok() || !credential.ok()) {
+        if (!credential.ok()) {
+            return new CheckLine("tool_identity", false,
+                    MESSAGE_KEY_PREFIX + "tool_identity.credential_unknown", List.of(provider.wireName()),
+                    Optional.of(credential.detail()));
+        }
+        if (!login.ok()) {
             return line(provider, "tool_identity", login, "identity");
         }
         var same = credential.detail().equals(login.detail());

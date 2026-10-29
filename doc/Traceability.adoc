@@ -713,12 +713,15 @@ link:../pm-workflow/doc/adr/workflow-verify/031-the-machine-unit-is-resident.ado
 
 Pulled forward by PLAN-46 (the stores the first run of the onboarding writes and their revision rule, over fixtures:
 `consents.json`, `model-catalogue.json` and `role-assignments.json` in `core.config`, `providers` of
-`machine-config.json` in `runtime.config`, and the credential-store aspect's states with their consent. The run from
+`machine-config.json` in `runtime.config`, the credential-store aspect's states with their consent, and the machine's own
+check of its plan defaults — a `landing.pull-request` needs a provider the machine serves, and no repository is consulted.
+The run from
 `onboard.entry` to `onboard.completed`, the aspects' sub-workflows, the harness scan and the plan axes are PLAN-108's and
 PLAN-109's, and the units themselves are `plan-marshall-mcp`'s; the landing names them as owed): Implementation: link:../pm-core/src/main/java/de/planmarshall/core/config/ConsentStore.java[ConsentStore],
 link:../pm-core/src/main/java/de/planmarshall/core/config/ModelCatalogueStore.java[ModelCatalogueStore],
 link:../pm-core/src/main/java/de/planmarshall/core/config/RoleAssignmentsStore.java[RoleAssignmentsStore],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/MachineConfigurationStore.java[MachineConfigurationStore],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/MachineDefaultsValidation.java[MachineDefaultsValidation],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreAspect.java[CredentialStoreAspect],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/ProviderVerification.java[ProviderVerification]
 
@@ -726,6 +729,7 @@ Verified by: link:../pm-core/src/test/java/de/planmarshall/core/config/ConsentSt
 link:../pm-core/src/test/java/de/planmarshall/core/config/ModelCatalogueStoreTest.java[ModelCatalogueStoreTest],
 link:../pm-core/src/test/java/de/planmarshall/core/config/RoleAssignmentsStoreTest.java[RoleAssignmentsStoreTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineConfigurationStoreTest.java[MachineConfigurationStoreTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineDefaultsValidationTest.java[MachineDefaultsValidationTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/credentials/CredentialStoreAspectTest.java[CredentialStoreAspectTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/credentials/ProviderVerificationTest.java[ProviderVerificationTest]
 
@@ -957,7 +961,7 @@ Documentation: link:../pm-providers/pm-provider-git/doc/developer/provider-git.a
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-CRED-2[PM-CRED-2]
 
-Implementation (the bullets on the one recorded store and on no fallback: `credentials.store` of `machine-config.json` read for every operation and written only by the credential-store aspect and the store move, the refusal `onboarding_incomplete` before a store is recorded, the integrity key kept before the choice where the runtime finds a store and reconciled with the key of the other store at the first recording (the key every sidecar verifies under is brought into the store being recorded, read back and verified there before the switch, and the key of the other store is deleted after it; two different keys the sidecars do not decide between refuse the recording, naming both stores), the record of that first recording and its resume after a stop (`operation: first_recording`), the aspect refused with `aspect_owned` while the record of an operation exists, an unavailable recorded OS store failing with `credential_store_unavailable` or `credential_store_locked` and no write to the other store; the check of the OS store before it is recorded; the enumeration of every store; the move of every entry in either direction with its record, the key last after every sidecar verifies under it, one switch, the deletion from the old store, its failure before the switch, its resume after a stop, and its audit record with the transaction id of the operation; the credential-store aspect with its consent, the reporting of both clients, `pm-operator credentials migrate` and the wiring of the store, the move and the resume in the assembly are not implemented yet; the Keychain ACL and signing and the Secret Service bullets are not traced here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreChoice.java[CredentialStoreChoice],
+Implementation (the bullets on the one recorded store and on no fallback: `credentials.store` of `machine-config.json` read for every operation and written only by the credential-store aspect and the store move, the refusal `onboarding_incomplete` before a store is recorded, the integrity key kept before the choice where the runtime finds a store and reconciled with the key of the other store at the first recording (the key every sidecar verifies under is brought into the store being recorded, read back and verified there before the switch, and the key of the other store is deleted after it; two different keys the sidecars do not decide between refuse the recording, naming both stores), the record of that first recording and its resume after a stop (`operation: first_recording`), the aspect refused with `aspect_owned` while the record of an operation exists, an unavailable recorded OS store failing with `credential_store_unavailable` or `credential_store_locked` and no write to the other store; the check of the OS store before it is recorded; the enumeration of every store; the move of every entry in either direction with its record, the key last after every sidecar verifies under it, one switch, the deletion from the old store, its failure before the switch, its resume after a stop, and its audit record with the transaction id of the operation; the credential-store aspect's engine half, the reporting of both clients, `pm-operator credentials migrate` and the wiring of the store, the move and the resume in the assembly are not implemented yet; the Keychain ACL and signing and the Secret Service bullets are not traced here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreChoice.java[CredentialStoreChoice],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreCheck.java[CredentialStoreCheck],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreMove.java[CredentialStoreMove],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreMoveRecord.java[CredentialStoreMoveRecord],
@@ -1933,9 +1937,11 @@ profile and the catalogue with the ten reasons of the table; the composition che
 and the steward's harness from `harnesses.default` of `machine-config.json` and its model from the tier `standard`; and an
 endpoint harness runs the class `zero_tool` alone, its projection carrying no other class (Client Profiles § Endpoint
 Harness, ADR core-profile/011). Not
-implemented here, and not claimed by this package: the escalation assignment (bullet 9), the shipped artifacts, tiers,
+implemented here, and not claimed by this package: the launch's use of the escalation assignment (bullet 9, whose storage
+and validation PLAN-46 adds below), the shipped artifacts, tiers,
 qualification records and their calibration (bullets 7 and 8, which are the release assembly's and
-`machine-onboarding-unit`'s), the resolution `roles.default`, the grading and the record validity (PM-WORK-6), and the
+`machine-onboarding-unit`'s), the unit that applies the `roles.default` proposal (PLAN-46 proposes it), the grading and
+the record validity (PM-WORK-6), and the
 launch): link:../pm-core/src/main/java/de/planmarshall/core/role/RoleArtifact.java[RoleArtifact],
 link:../pm-core/src/main/java/de/planmarshall/core/role/RoleArtifactValidator.java[RoleArtifactValidator],
 link:../pm-core/src/main/java/de/planmarshall/core/role/RoleSetLoader.java[RoleSetLoader],
