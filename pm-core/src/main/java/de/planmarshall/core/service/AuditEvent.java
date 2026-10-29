@@ -571,6 +571,52 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
                 answered ? OUTCOME_SUCCEEDED : OUTCOME_FAILED, details);
     }
 
+    /** The name of the event that records a remembered consent. */
+    public static final String CONSENT_REMEMBERED = "consent_remembered";
+
+    /** The name of the event that records a withdrawn consent. */
+    public static final String CONSENT_WITHDRAWN = "consent_withdrawn";
+
+    /** The detail that names a consent kind by its wire name. */
+    public static final String DETAIL_KIND = "kind";
+
+    /**
+     * The record of a remembered consent (Store Schemas § Consent Before Acting): an {@code operator} record with the
+     * kind and, for a kind remembered for a project, the project. It is appended in the transaction of the answered
+     * state that wrote the entry.
+     *
+     * @param kind      the consent kind, by its wire name
+     * @param projectId the project, or {@code null} for a kind remembered for the machine
+     * @return the record of the remembered consent
+     * @throws NullPointerException if the kind is {@code null}
+     */
+    public static AuditEvent consentRemembered(String kind, String projectId) {
+        return consent(CONSENT_REMEMBERED, kind, projectId);
+    }
+
+    /**
+     * The record of a withdrawn consent (Store Schemas § Consent Before Acting): an {@code operator} record with the
+     * kind and, for a kind remembered for a project, the project. Withdrawing changes nothing recorded with the
+     * consent; its state asks again the next time its action runs.
+     *
+     * @param kind      the consent kind, by its wire name
+     * @param projectId the project, or {@code null} for a kind remembered for the machine
+     * @return the record of the withdrawn consent
+     * @throws NullPointerException if the kind is {@code null}
+     */
+    public static AuditEvent consentWithdrawn(String kind, String projectId) {
+        return consent(CONSENT_WITHDRAWN, kind, projectId);
+    }
+
+    private static AuditEvent consent(String event, String kind, String projectId) {
+        var details = new HashMap<String, Object>();
+        details.put(DETAIL_KIND, Objects.requireNonNull(kind, DETAIL_KIND));
+        if (projectId != null) {
+            details.put(DETAIL_PROJECT_ID, projectId);
+        }
+        return new AuditEvent(event, CATEGORY_OPERATOR, OUTCOME_SUCCEEDED, details);
+    }
+
     private static AuditEvent refusal(String event, String category, String projectId, String reason) {
         return new AuditEvent(event, category, OUTCOME_REFUSED,
                 Map.of(DETAIL_PROJECT_ID, Objects.requireNonNull(projectId, PROJECT_ID_ARGUMENT), DETAIL_REASON,

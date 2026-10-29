@@ -1,0 +1,66 @@
+= ADR 001: The Provider Defaults Are Written in the Runtime, Not in `pm-core`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-29
+
+== Context
+
+`Store Schemas § Machine Provider Defaults` puts `providers` into `machine-config.json`, and the machine's onboarding
+writes it. `machine-config.json` already has a writer in this repository: `runtime.credentials.CredentialStoreChoice`
+records `credentials.store` under `locks/machine-config.lock`, and `runtime.start.DrainTimeout` reads the drain timeout.
+The staging of the work package proposed `pm-core` package `core.config` for the machine configuration store.
+
+`pm-core` carries an architecture guard (`ProviderNeutralityArchTest`): no class, package or **member** of the foundation
+may be named after a provider — `github`, `gitlab`, `sonar`, `codeql`. A provider defaults model needs a closed list of
+providers, and an enum's constants are member names: `GITHUB`, `GITLAB`, `SONAR`. The guard is not a formality: the
+foundation stays provider-neutral, and a provider is added as a module that implements its contracts.
+
+The choice was to encode the providers as opaque strings in `pm-core`, to weaken the guard, or to put the provider
+defaults model in the runtime beside the document's other writer.
+
+== Decision
+
+* `Provider`, `ProviderVariant`, `ProviderDefault`, `ProviderDefaults`, `MachineConfigurationCodec` and
+  `MachineConfigurationStore` live in `de.planmarshall.runtime.config` of `pm-runtime`.
+* `pm-core`'s `core.config` keeps the consent, catalogue and role-assignment stores, which name no provider and no
+  harness.
+* The provider-neutrality guard stays as it is; no exemption is added.
+* The codec copies every member of `machine-config.json` it does not own through unchanged, so the two writers of the
+  document do not overwrite each other, and the revision rule of `core.config.SettingsConflict` applies to both.
+
+== Alternatives Considered
+
+1. *Keep the enum in `pm-core` and add an exemption to the guard.* _Not taken_: an exemption for exactly the names the
+   guard exists for turns the guard off; the next provider would be added the same way.
+2. *Model a provider as a validated string in `pm-core`.* _Not taken_: the closed list would then be string literals in
+   the foundation, the variant rule would compare strings, and the code would lie about what the list is. The strings
+   would also make a future rename a search-and-replace across modules.
+3. *Move the whole `machine-config.json` document into `pm-core`.* _Not taken_: `credentials.store` is written by the
+   runtime's `CredentialStoreChoice` for the credential store's own reasons, and `DrainTimeout` reads the document in the
+   runtime; splitting one document's writers across modules would be worse than one extra runtime package.
+
+== Consequences
+
+* `pm-core` stays provider-neutral; the runtime names the providers it serves, which is what a runtime does.
+* The work package's Expected Surface is corrected: the machine configuration store is `runtime.config`, not
+  `core.config`. The landing reports it as the surface delta.
+* Two packages now hold writers of `machine-config.json`, in two modules, coordinated by one lock and one revision rule;
+  a test of each writer asserts that the other's members survive.
+* `runtime.config` is a new package of the module: it has its developer guide, an ADR directory and one line in the
+  module's `README.adoc`.
+
+== Source
+
+* Plan PLAN-46, deliverable 6
+* link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#machine-config[Store Schemas § Machine
+  Configuration Store], link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#provider-defaults[§ Machine
+  Provider Defaults]
+* `pm-core/src/test/java/de/planmarshall/core/guard/ProviderNeutralityArchTest.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/config/`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreChoice.java`

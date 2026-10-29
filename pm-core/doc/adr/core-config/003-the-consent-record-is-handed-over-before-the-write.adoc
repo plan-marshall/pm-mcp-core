@@ -1,0 +1,61 @@
+= ADR 003: The Consent's Audit Record Is Handed Over Before the Write
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-29
+
+== Context
+
+`Store Schemas § Consent Before Acting` states that both a remembered and a withdrawn consent append an `operator` audit
+record (`consent_remembered`, `consent_withdrawn`, `details{kind, project_id}`) in the transaction of the answered state.
+
+`AuditSink`'s contract is that a producer keeps a durable intent of a record until the sink accepted it, and hands it over
+again after a failure; the enrolment writes implement that with an intent file (ADR core-store/022). `core.config`'s
+consent store is a small machine document with no intent machinery of its own, and the record must not be lost for a
+consent that is committed.
+
+The choice was: hand the record over after the write (and lose it if the sink fails), hand it over before the write (and
+refuse the change if the sink fails), or add a durable intent to `consents.json`'s write.
+
+== Decision
+
+* `ConsentStore.grant` and `ConsentStore.withdraw` hand their record to the `AuditSink` **inside** the write's
+  transaction and **before** the store file is replaced.
+* A sink that refuses the record aborts the change: nothing is written, and the caller sees the sink's failure, so a
+  committed consent always has its record.
+* A failure of the store write after the hand-over leaves a record for a change that was not stored. That window is one
+  atomic rename wide, and the operator's next attempt repeats the change; a withdrawn record for a consent that is still
+  there is corrected by the next withdrawal. The alternative — a missing security record for a committed consent — is
+  the direction this decision refuses.
+
+== Alternatives Considered
+
+1. *Append after the write.* _Not taken_: a failing sink then throws after the consent and its revision are committed, and
+   the audit record is lost for good; a security record of a consent is exactly what must not be lost.
+2. *Add a durable intent file to the consent store.* _Not taken_: the consent document is small and the intent machinery
+   (intent file, replay at start, deduplication key) is the enrolment writer's; reproducing it here would add a second
+   recovery path for a hand-over that is one statement.
+3. *Let the caller append the record.* _Not taken_: the caller would have to hold the revision, the transaction and the
+   event, and one call site would forget one of them.
+
+== Consequences
+
+* A committed consent or withdrawal always has its record; the inverse window (a record without its change) is one
+  rename wide and is repeated by the next attempt.
+* The record carries no `transaction_id`; a replay/deduplication of consent records is owed with the record's intent if
+  the client ever needs to read them back.
+* The `channel` and `device_id` of the consent are not in the record: the consent-specific entry of the specification
+  lists `details{kind, project_id}` only. A later general rule for operator-act records would have to widen it.
+
+== Source
+
+* Plan PLAN-46, deliverable 3
+* link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#consent[Store Schemas § Consent Before Acting]
+* `pm-core/src/main/java/de/planmarshall/core/service/AuditSink.java`,
+  `pm-core/src/main/java/de/planmarshall/core/config/ConsentStore.java`,
+  `pm-core/src/test/java/de/planmarshall/core/config/ConsentStoreTest.java`

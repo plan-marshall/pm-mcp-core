@@ -50,6 +50,7 @@ resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshal
 == Developer Documentation
 
 * link:doc/developer/core-analysis.adoc[Code Analysis (`core.analysis`)]
+* link:doc/developer/core-config.adoc[Consents, Model Catalogue and Role Assignments (`core.config`)]
 * link:doc/developer/core-findings.adoc[Findings (`core.findings`)]
 * link:doc/developer/core-log.adoc[Log Messages (`core.log`)]
 * link:doc/developer/core-queue.adoc[Task Queue (`core.queue`)]
@@ -62,6 +63,8 @@ resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshal
 == ADRs
 
 * link:doc/adr/core-analysis/[`doc/adr/core-analysis/`]: the code-analysis contract.
+* link:doc/adr/core-config/[`doc/adr/core-config/`]: the consent store's gate and the settings conflict that carries the
+  current value.
 * link:doc/adr/core-findings/[`doc/adr/core-findings/`]: the findings contract.
 * link:doc/adr/core-profile/[`doc/adr/core-profile/`]: the client profile validator, its digest and sidecar, the refused
   profile as a value, the bundle-managed paths as installation data, the schema literals named once per class and the

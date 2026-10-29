@@ -380,6 +380,23 @@ public final class RuntimeLogMessages {
                 .identifier(39)
                 .template("Judgment task of model '%s' on the endpoint '%s' answered (input %s, output %s, %s ms)")
                 .build();
+
+        /**
+         * Logged when a credential store passed its check: one test entry was written, read back and deleted. Names the
+         * store the operator chose; never the test value.
+         */
+        public static final LogRecord CREDENTIAL_STORE_CHECK_PASSED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(40)
+                .template("The credential store '%s' passed its check (write, read back, delete)")
+                .build();
+
+        /** Logged when a provider passed its verification; names the provider and the number of check lines. */
+        public static final LogRecord PROVIDER_VERIFIED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(41)
+                .template("Provider '%s' verified (%s check lines)")
+                .build();
     }
 
     /** WARN level messages. */
@@ -815,6 +832,26 @@ public final class RuntimeLogMessages {
                 .prefix(PREFIX)
                 .identifier(143)
                 .template("The task of model '%s' on the endpoint '%s' ended: %s")
+                .build();
+
+        /**
+         * Logged when a provider failed its verification; names the provider and the message keys of the failed check
+         * lines, never the credential. The provider is recorded only on the operator's word, and then as not available.
+         */
+        public static final LogRecord PROVIDER_VERIFICATION_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(145)
+                .template("Provider '%s' failed its verification: %s")
+                .build();
+
+        /**
+         * Logged when the credential-store aspect's move fails; names the failure, which the aspect reports as
+         * {@code credential_store_failed} with the old store kept. Never an entry or a secret.
+         */
+        public static final LogRecord CREDENTIAL_STORE_ASPECT_MOVE_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(146)
+                .template("The credential store move of the aspect failed, the old store stays recorded: %s")
                 .build();
     }
 
