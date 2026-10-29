@@ -65,6 +65,13 @@ final class InstanceAsciiDocTableRenderer {
                 .orElse(InstanceAnnotations.NONE));
         out.append(TABLE_DELIMITER).append('\n');
         out.append('\n').append(AsciiDocTableRenderer.render(unit));
+        if (!annotations.composed().isEmpty()) {
+            out.append('\n');
+            header("Instance: composed files", "1,2,2", "Unit", "File", "Digest");
+            annotations.composed().forEach(composed -> row(code(composed.unit()), code(composed.file()),
+                    code(composed.digest())));
+            out.append(TABLE_DELIMITER).append('\n');
+        }
         if (!annotations.pruned().isEmpty()) {
             out.append('\n');
             header("Instance: pruned elements", "1,2,1,2", "Element", "Id", "Reason", "Source fact");

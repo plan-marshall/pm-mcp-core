@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -36,13 +37,18 @@ import de.planmarshall.workflow.dsl.WorkflowParser;
  * of the machine store (PM-IMPL-5, PM-WF-1), written through a {@link ScopeTransaction} of the plan the caller holds
  * and commits:
  * <ul>
- * <li>{@code instance/plan.v<N>.pmwf}: the text of version {@code N}, written once and never rewritten;</li>
+ * <li>{@code instance/plan.v<N>.pmwf}: the plan unit of version {@code N} with its header, written once and never
+ * rewritten;</li>
+ * <li>{@code instance/<unit>.v<N>.pmwf}: the composed file of every phase sub-workflow and bound axis variant of the
+ * version, written in the same transaction, once, and never rewritten;</li>
  * <li>{@code instance/composition.jsonl}: one line per composition attempt, whatever its result; the line of a
  * composed version carries its {@code diff_summary} against the recorded version before it ({@link DiffSummary}),
  * {@code null} for version 1;</li>
  * <li>{@code mcp/units/<digest>.pmwf}: the verified text of each sub-unit a version names, content-addressed, written
  * in the transaction of the first version naming the digest and never rewritten.</li>
  * </ul>
+ * The set of files is one value: the header names every composed file by digest ({@code inputs.templates}), so a
+ * header digest that names no file and a file the header does not name are both refused before anything is written.
  * The digest sidecar of the plan covers every file through the commit of the transaction. A refused composition writes
  * only its log line. The store never replaces a version file, and it refuses one twice: {@link #recordComposed} refuses
  * a version whose file exists when it is called, before anything is recorded, and the version file is collected with
@@ -82,7 +88,16 @@ public final class PlanInstanceStore {
      * @return the file of the version, relative to the directory of the plan
      */
     public static String versionPath(int version) {
-        return "%s/plan.v%d.pmwf".formatted(INSTANCE_DIRECTORY, version);
+        return unitPath(PlanInstanceComposer.PLAN_UNIT, version);
+    }
+
+    /**
+     * @param unit    the id of a composed unit
+     * @param version an instance version
+     * @return the file of the composed unit, relative to the directory of the plan
+     */
+    public static String unitPath(String unit, int version) {
+        return "%s/%s.v%d.pmwf".formatted(INSTANCE_DIRECTORY, unit, version);
     }
 
     /**
@@ -122,6 +137,7 @@ public final class PlanInstanceStore {
             throw new IllegalArgumentException("the record does not record the composition of version "
                     + instance.version());
         }
+        checkComposedSet(instance);
         var byDigest = new HashMap<String, SubUnitText>();
         for (var text : texts) {
             if (!text.matchesDigest()) {
@@ -145,11 +161,56 @@ public final class PlanInstanceStore {
         createDirectory(INSTANCE_DIRECTORY);
         createDirectory(UNITS_DIRECTORY);
         transaction.create(versionPath, instance.text().getBytes(StandardCharsets.UTF_8));
+        instance.units().forEach(composed -> transaction.create(composed.file(),
+                composed.text().getBytes(StandardCharsets.UTF_8)));
         named.stream().map(UnitReference::digest).distinct().filter(digest -> !exists(subUnitPath(digest)))
                 .forEach(digest -> transaction.replace(subUnitPath(digest), byDigest.get(digest).bytes()));
         transaction.append(COMPOSITION_LOG, line(compositionRecord));
         LOGGER.info(INFO.PLAN_INSTANCE_VERSION_RECORDED, instance.version(), scope.scopeId(),
                 instance.header().event().wireName());
+    }
+
+    /**
+     * The set the version is: the header names the plan unit's file and one composed file per composed unit, each by
+     * the digest of its text, and the version composes exactly those files.
+     *
+     * @param instance the composed version
+     * @throws IllegalArgumentException if the header names no file for the plan unit or a file the version does not
+     *                                  compose, a composed file the header does not name, a digest that is not the
+     *                                  digest of its file, or a file twice; nothing was recorded
+     */
+    private static void checkComposedSet(PlanInstance instance) {
+        var version = instance.version();
+        var named = new HashMap<String, String>();
+        for (var reference : instance.header().inputs().templates()) {
+            reference.file().ifPresent(file -> named.put(file, reference.digest()));
+        }
+        var planFile = versionPath(version);
+        if (!named.containsKey(planFile)) {
+            throw new IllegalArgumentException("the header of version %d names no file for the plan unit"
+                    .formatted(version));
+        }
+        var composedFiles = new HashSet<String>();
+        for (var composed : instance.units()) {
+            if (!composedFiles.add(composed.file())) {
+                throw new IllegalArgumentException("the version composes the file '%s' twice".formatted(composed.file()));
+            }
+            var digest = named.get(composed.file());
+            if (digest == null) {
+                throw new IllegalArgumentException("the header of version %d does not name the composed file '%s'"
+                        .formatted(version, composed.file()));
+            }
+            if (!digest.equals(composed.digest())) {
+                throw new IllegalArgumentException("the header names the digest %s for the composed file '%s', whose"
+                        .formatted(digest, composed.file()) + " text has the digest " + composed.digest());
+            }
+        }
+        for (var file : named.keySet()) {
+            if (!file.equals(planFile) && !composedFiles.contains(file)) {
+                throw new IllegalArgumentException("the header of version %d names the file '%s', which the version"
+                        .formatted(version, file) + " does not compose");
+            }
+        }
     }
 
     /**
@@ -182,6 +243,16 @@ public final class PlanInstanceStore {
      */
     public Optional<String> readVersion(int version) {
         return read(versionPath(version));
+    }
+
+    /**
+     * @param version an instance version
+     * @param unit    the id of a composed unit
+     * @return the text of the composed file of the unit, if the version wrote it
+     * @throws UncheckedIOException if the file exists but cannot be read
+     */
+    public Optional<String> readUnit(int version, String unit) {
+        return read(unitPath(unit, version));
     }
 
     /**

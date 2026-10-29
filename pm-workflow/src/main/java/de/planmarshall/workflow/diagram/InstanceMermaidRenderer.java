@@ -61,6 +61,8 @@ final class InstanceMermaidRenderer {
         out.append("---\n").append("title: ").append(yamlQuoted(annotations.title())).append('\n').append("---\n");
         out.append(MermaidRenderer.render(unit, annotations.activeState()));
         var identifiers = Identifiers.of(unit);
+        composite(out, identifiers, "composed units", "instance_composed", annotations.composed(),
+                InstanceAnnotations.Composed::describe);
         composite(out, identifiers, "pruned", "instance_pruned", annotations.pruned(),
                 InstanceAnnotations.Pruned::describe);
         composite(out, identifiers, "waived gates", "instance_waived", annotations.waivedGates(),

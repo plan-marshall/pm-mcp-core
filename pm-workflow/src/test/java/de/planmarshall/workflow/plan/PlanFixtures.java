@@ -62,7 +62,8 @@ final class PlanFixtures {
     static final String PER_LANE_FILE = "plan/per-lane-rework.pmwf";
 
     /** The identifiers of the phase units the per-lane plan unit calls. */
-    private static final List<String> PER_LANE_PHASE_UNITS = List.of("phase-plan", "phase-execute");
+    private static final List<String> PER_LANE_PHASE_UNITS = List.of("phase-plan", "phase-execute",
+            "phase-plan-light", "phase-execute-light");
 
     /** The call site of the asking axis in the template, which calls {@link #QUESTIONS_ONLY}. */
     static final String ASK_SITE = "phases.ask";

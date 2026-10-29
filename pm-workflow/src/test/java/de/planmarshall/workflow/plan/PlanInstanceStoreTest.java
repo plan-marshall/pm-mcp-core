@@ -47,10 +47,12 @@ import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
 import de.planmarshall.core.service.LockTransaction;
+import de.planmarshall.core.store.DigestSidecar;
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.ScopeTransaction;
 import de.planmarshall.workflow.ast.UnitOrigin;
+import de.planmarshall.workflow.dsl.WorkflowPrinter;
 import de.planmarshall.workflow.verify.DeclarationBounds;
 import de.planmarshall.workflow.verify.InvariantFixtures;
 
@@ -698,6 +700,128 @@ class PlanInstanceStoreTest {
                                 () -> store.recordComposed(transaction, instance, missing, compositionRecord)),
                         () -> assertFalse(Files.exists(scope.resolve("instance"))),
                         () -> assertThrows(IllegalStateException.class, transaction::commit));
+            }
+        }
+    }
+
+    /**
+     * The version as one set of files: the plan unit's file and one file per composed unit, all written in the
+     * transaction that composes the version, and the set refused when it disagrees with its header.
+     */
+    @Nested
+    @DisplayName("Composed set")
+    class ComposedSet {
+
+        private static final InstancePosition AT_INIT = InstancePosition.at("init.ready");
+
+        private static PlanInstance merged() {
+            var result = PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(CompositionEvent.START,
+                    facts().build(), Optional.empty(), AT_INIT, List.of()));
+            return assertInstanceOf(CompositionResult.Composed.class, result, result::toString).instance();
+        }
+
+        private Path instanceFile(ComposedUnit unit) {
+            return scope.resolve(unit.file());
+        }
+
+        @Test
+        @DisplayName("a composed version writes the plan file and one file per composed unit in the one transaction, "
+                + "covered by the digest sidecar")
+        void writtenAsOneSet() throws Exception {
+            var instance = merged();
+            var texts = textsOf(instance);
+
+            recordComposed(instance, texts);
+
+            assertAll(
+                    () -> assertTrue(instance.units().size() > 2, instance.units()::toString),
+                    () -> instance.units().forEach(unit -> assertEquals(Optional.of(unit.text()),
+                            store.readUnit(instance.version(), unit.unit()))),
+                    () -> instance.units().forEach(unit -> assertEquals(Optional.of(unit.text()),
+                            read(instanceFile(unit)))),
+                    () -> assertEquals(Optional.of(instance.text()), store.readVersion(instance.version())),
+                    () -> assertTrue(instance.units().stream().allMatch(unit -> Files.exists(
+                            instanceFile(unit)))));
+            var sidecar = DigestSidecar.load(scope.sidecarFile());
+            assertAll(
+                    () -> assertTrue(sidecar.digest(PlanInstanceStore.versionPath(instance.version())).isPresent()),
+                    () -> instance.units().forEach(unit -> assertTrue(sidecar.digest(unit.file()).isPresent(),
+                            unit.file())));
+        }
+
+        /** @return the text of every sub-unit the version binds by digest, as the request composed it */
+        private static List<SubUnitText> textsOf(PlanInstance instance) {
+            var units = InvariantFixtures.passingUnits(UnitOrigin.PROJECT);
+            return instance.header().inputs().subUnits().stream().map(reference -> new SubUnitText(reference,
+                    WorkflowPrinter.print(units.get(reference.unit())))).toList();
+        }
+
+        @Test
+        @DisplayName("a header that names a composed file the version does not write is refused before any write")
+        void headerNamesNoFile() {
+            var instance = merged();
+            var withoutUnits = new PlanInstance(instance.version(), instance.header(), instance.unit(),
+                    instance.text());
+
+            try (var lock = new HoldingEverything()) {
+                var transaction = ScopeTransaction.open(lock, scope, event -> {
+                    // no audit record is owed
+                }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
+                assertAll(
+                        () -> assertThrows(IllegalArgumentException.class, () -> store.recordComposed(transaction,
+                                withoutUnits, textsOf(withoutUnits), CompositionRecord.composed(withoutUnits,
+                                        Optional.empty(), COMPOSED_AT))),
+                        () -> assertFalse(Files.exists(scope.resolve("instance"))),
+                        () -> assertThrows(IllegalStateException.class, transaction::commit));
+            }
+        }
+
+        @Test
+        @DisplayName("a composed file the header does not name is refused before any write")
+        void fileNotNamed() {
+            var header = deepOutline();
+            var unitsOfAnother = lightOutline();
+            var mixed = new PlanInstance(header.version(), header.header(), header.unit(), header.text(),
+                    unitsOfAnother.units());
+
+            try (var lock = new HoldingEverything()) {
+                var transaction = ScopeTransaction.open(lock, scope, event -> {
+                    // no audit record is owed
+                }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
+                assertAll(
+                        () -> assertThrows(IllegalArgumentException.class, () -> store.recordComposed(transaction,
+                                mixed, textsOf(mixed), CompositionRecord.composed(mixed, Optional.empty(),
+                                        COMPOSED_AT))),
+                        () -> assertFalse(Files.exists(scope.resolve("instance"))),
+                        () -> assertThrows(IllegalStateException.class, transaction::commit));
+            }
+        }
+
+        /** @return a deep version at the outline event, which composes no light phase file */
+        private static PlanInstance deepOutline() {
+            return outline(PlanInstanceHeader.Lane.DEEP, "outline.deep");
+        }
+
+        /** @return a light version at the outline event, which composes the light phase files */
+        private static PlanInstance lightOutline() {
+            return outline(PlanInstanceHeader.Lane.LIGHT, "outline.light");
+        }
+
+        private static PlanInstance outline(PlanInstanceHeader.Lane lane, String position) {
+            var start = PlanFixtures.perLaneComposer().compose(PlanFixtures.perLaneRequest(CompositionEvent.START,
+                    facts().lane(lane).build(), Optional.empty(), AT_INIT));
+            var first = assertInstanceOf(CompositionResult.Composed.class, start, start::toString).instance();
+            var outline = PlanFixtures.perLaneComposer().compose(PlanFixtures.perLaneRequest(
+                    CompositionEvent.OUTLINE, facts().lane(lane).build(), Optional.of(first),
+                    InstancePosition.at(position)));
+            return assertInstanceOf(CompositionResult.Composed.class, outline, outline::toString).instance();
+        }
+
+        private static Optional<String> read(Path file) {
+            try {
+                return Optional.of(Files.readString(file, StandardCharsets.UTF_8));
+            } catch (IOException e) {
+                return Optional.empty();
             }
         }
     }

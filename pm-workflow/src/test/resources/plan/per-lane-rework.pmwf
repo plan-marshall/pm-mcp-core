@@ -72,7 +72,7 @@ state phases.plan
         stepped_out -> finalize.hand-back
 
 state phases.plan-light
-    call phase-plan
+    call phase-plan-light
         ready -> phases.execute-light
         fix_requested -> outline.light-regate
         loop_back -> outline.light-regate
@@ -88,7 +88,7 @@ state phases.execute
         stepped_out -> finalize.hand-back
 
 state phases.execute-light
-    call phase-execute
+    call phase-execute-light
         ready -> finalize.create-pr
         fix_requested -> outline.light-regate
         loop_back -> outline.light-regate

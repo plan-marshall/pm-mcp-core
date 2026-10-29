@@ -87,6 +87,10 @@ public final class PlanInstanceComposer {
     /** The id of every plan instance unit. */
     public static final String PLAN_UNIT = "plan";
 
+    /** The sub-units the header binds by digest rather than as composed files of the version. */
+    private static final Set<String> BOUND_SUB_UNITS = Set.of("git.commit_and_push", "replan",
+            DeclarationBounds.ADJUDICATION_UNIT);
+
     private final VerificationContext context;
 
     private final CompiledInvariants invariants;
@@ -134,22 +138,74 @@ public final class PlanInstanceComposer {
                 request.verificationSteps(), request.finalizeSteps(), lanePruned);
         var version = request.nextVersion();
         var positionStates = new LinkedHashSet<>(pruned.states().keySet());
-        request.subUnits().forEach(subUnit -> subUnit.definition().states().keySet().forEach(positionStates::add));
+        var reached = called(pruned.states().values(), request.subUnits());
+        request.subUnits().stream().filter(subUnit -> reached.contains(subUnit.definition().id()))
+                .forEach(subUnit -> subUnit.definition().states().keySet().forEach(positionStates::add));
         var missing = request.position().missingFrom(positionStates);
         if (!missing.isEmpty()) {
             return new CompositionResult.Refused(CompositionResult.Refusal.POSITION_NOT_CONTAINED, missing.stream()
                     .map(state -> "position: version %d does not contain the state '%s'".formatted(version, state))
                     .toList());
         }
+        var composedUnits = composedUnits(request, pruned.states(), effects, bound, lanePruned, version);
         var header = new PlanInstanceHeader(request.planId(), version, request.event(), clock.instant(),
-                inputs(request, pruned.states().values()), facts.lane(), facts.posture(), pruned.steps(),
+                inputs(request, pruned.states().values(), composedUnits, version), facts.lane(), facts.posture(), pruned.steps(),
                 pruned.pruned(), pruned.policyCalls(), pruned.waivedGates());
         var unit = unit(request.template(), header, pruned.states());
         var violations = verify(request, header, unit, lanePruned, pruned.settled());
         if (!violations.isEmpty()) {
             return new CompositionResult.Refused(CompositionResult.Refusal.INVARIANT_FAILED, violations);
         }
-        return new CompositionResult.Composed(new PlanInstance(version, header, unit, WorkflowPrinter.print(unit)));
+        return new CompositionResult.Composed(new PlanInstance(version, header, unit, WorkflowPrinter.print(unit),
+                composedUnits));
+    }
+
+    /**
+     * @param id a sub-unit id
+     * @return whether the version persists the unit as a composed file of its own: every sub-workflow a kept call
+     *         reaches except the units the header binds by digest ({@code git.commit_and_push}, the
+     *         {@code remediation.*} units, {@code replan} and the adjudication unit the engine runs)
+     */
+    static boolean isComposedUnit(String id) {
+        return !id.startsWith("remediation.") && !BOUND_SUB_UNITS.contains(id);
+    }
+
+    /**
+     * The composed files of the version: one per kept call of a phase sub-workflow and one per bound axis variant the
+     * kept states call. A pruned call composes no file, and the sub-units the version only binds by digest
+     * ({@code git.commit_and_push}, the {@code remediation.*} units, {@code replan}) stay content-addressed.
+     *
+     * @return the composed units in the order of the request's sub-units
+     */
+    private static List<ComposedUnit> composedUnits(CompositionRequest request, Map<String, StateNode> keptStates,
+            RuleEffects effects, List<PlanFacts.BoundVariant> bound, Optional<PlanInstanceHeader.Lane> lane, int version) {
+        var keptCalls = new LinkedHashSet<String>();
+        keptStates.values().forEach(state -> callee(state).ifPresent(keptCalls::add));
+        var composed = new ArrayList<ComposedUnit>();
+        for (var subUnit : request.subUnits()) {
+            var id = subUnit.definition().id();
+            if (keptCalls.contains(id) && isComposedUnit(id)) {
+                composed.add(composeUnit(subUnit.definition(), request, effects, bound, lane, version));
+            }
+        }
+        return List.copyOf(composed);
+    }
+
+    /**
+     * Composes the file of one phase sub-workflow or bound axis variant: the prunes of the composition that fall inside
+     * it applied, the axis call sites it holds bound, and the version repeated, the frontmatter, id, type, entries and
+     * exits of its template kept and no {@code instance} line added.
+     */
+    private static ComposedUnit composeUnit(WorkflowDefinition definition, CompositionRequest request,
+            RuleEffects effects, List<PlanFacts.BoundVariant> bound, Optional<PlanInstanceHeader.Lane> lane, int version) {
+        var pruned = InstancePruner.prune(definition, effects, bound, request.waivers(), request.verificationSteps(),
+                request.finalizeSteps(), lane);
+        var composed = new WorkflowDefinition(definition.frontmatter(), definition.id(), version, definition.scope(),
+                definition.params(), definition.resultSchema(), Optional.empty(), definition.declarations(),
+                definition.decisions(), definition.formatVersion(), definition.origin(), definition.derivedFrom(),
+                definition.startState(), definition.entryBindings(), definition.migrations(), pruned.states(),
+                definition.location());
+        return ComposedUnit.of(definition.id(), composed);
     }
 
     /**
@@ -169,17 +225,33 @@ public final class PlanInstanceComposer {
     }
 
     /**
-     * @return the inputs of the header: the sub-units a call of the states reaches, and the adjudication unit
+     * @return the inputs of the header: the composed files of the version as its templates, the sub-units a call of the
+     *         states reaches and that the version does not compose, and the adjudication unit
      *         {@value DeclarationBounds#ADJUDICATION_UNIT} whenever the request supplies it, which no call site calls
      *         because the engine runs it for the decisions of the version
      */
-    private CompositionInputs inputs(CompositionRequest request, Collection<StateNode> states) {
+    private CompositionInputs inputs(CompositionRequest request, Collection<StateNode> states,
+            List<ComposedUnit> composedUnits, int version) {
         var called = called(states, request.subUnits());
+        var composedIds = new LinkedHashSet<String>();
+        composedUnits.forEach(composed -> composedIds.add(composed.unit()));
+        var templates = new ArrayList<UnitReference>();
+        for (var reference : request.templates()) {
+            templates.add(new UnitReference(reference.unit(), Optional.of(PlanInstanceStore.versionPath(version)),
+                    reference.digest(), reference.origin()));
+        }
+        for (var composed : composedUnits) {
+            var source = request.subUnits().stream()
+                    .filter(subUnit -> subUnit.definition().id().equals(composed.unit())).findFirst().orElseThrow();
+            templates.add(new UnitReference(composed.unit(), Optional.of(composed.file()), composed.digest(),
+                    source.reference().origin()));
+        }
         var subUnits = request.subUnits().stream().map(CompositionRequest.SubUnit::reference)
+                .filter(reference -> !composedIds.contains(reference.unit()))
                 .filter(reference -> called.contains(reference.unit())
                         || DeclarationBounds.ADJUDICATION_UNIT.equals(reference.unit()))
                 .toList();
-        return new CompositionInputs(request.configHash(), request.templates(), subUnits, rules.revision(),
+        return new CompositionInputs(request.configHash(), templates, subUnits, rules.revision(),
                 rules.digest(), request.facts().digest(), request.realizedFootprintDigest(),
                 request.facts().changeType(), request.providersDigest());
     }
