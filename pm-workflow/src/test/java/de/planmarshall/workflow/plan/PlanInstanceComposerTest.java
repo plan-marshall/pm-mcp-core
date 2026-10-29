@@ -956,6 +956,57 @@ class PlanInstanceComposerTest {
         }
 
         @Test
+        @DisplayName("a call prune on an entry-bound call state is ignored: the call stays and its callee is composed")
+        void entryBoundCallSurvivesAPrune() {
+            var rules = ((CompositionRules.Loaded) CompositionRules.parse("""
+                    {"format_version": 1, "revision": "t3", "rules": [
+                      {"id": "prune-an-entry-call",
+                       "when": {"fact": "lane", "equals": "deep"},
+                       "then": {"prune": [{"element": "call", "id": "execute.land-entry/land",
+                                           "reason": "other_lane"}]}}]}
+                    """.getBytes(StandardCharsets.UTF_8))).rules();
+            var instance = composed(PlanFixtures.mergedComposer(rules).compose(PlanFixtures.mergedRequest(
+                    CompositionEvent.START, facts().build(), Optional.empty(), AT_INIT, List.of())));
+            var phase = instance.composed("phase-5-execute").orElseThrow();
+
+            assertAll(
+                    () -> assertTrue(phase.definition().states().containsKey("execute.land-entry"),
+                            phase.definition().states().keySet()::toString),
+                    () -> assertTrue(instance.composed("land").isPresent(), instance.units()::toString),
+                    () -> assertFalse(instance.header().pruned().stream()
+                            .anyMatch(pruned -> "execute.land-entry/land".equals(pruned.id())),
+                            instance.header().pruned()::toString));
+        }
+
+        @Test
+        @DisplayName("a call the lane prunes reaches nothing, so a request that omits its callee still composes")
+        void prunedCallWithOmittedCalleeComposes() {
+            var start = composed(PlanFixtures.perLaneComposer().compose(PlanFixtures.perLaneRequest(
+                    CompositionEvent.START, facts().lane(Lane.DEEP).build(), Optional.empty(),
+                    InstancePosition.at("init.ready"))));
+            var outline = PlanFixtures.perLaneRequest(CompositionEvent.OUTLINE, facts().lane(Lane.DEEP).build(),
+                    Optional.of(start), InstancePosition.at("outline.deep"));
+            var withoutLightCalves = outline.subUnits().stream().filter(subUnit ->
+                    !"phase-plan-light".equals(subUnit.definition().id())
+                            && !"phase-execute-light".equals(subUnit.definition().id())).toList();
+            var instance = composed(PlanFixtures.perLaneComposer().compose(new CompositionRequest(
+                    outline.planId(), outline.event(), outline.template(), outline.templates(), withoutLightCalves,
+                    outline.facts(), outline.configHash(), outline.realizedFootprintDigest(),
+                    outline.providersDigest(), outline.waivers(), outline.position(), outline.previous(),
+                    outline.verificationSteps(), outline.finalizeSteps())));
+
+            assertAll(
+                    () -> assertFalse(instance.unit().states().containsKey("phases.plan-light"),
+                            instance.unit().states().keySet()::toString),
+                    () -> assertTrue(instance.composed("phase-plan-light").isEmpty(), instance.units()::toString),
+                    () -> assertTrue(instance.composed("phase-execute-light").isEmpty(), instance.units()::toString),
+                    () -> assertTrue(instance.composed("phase-plan").isPresent(), instance.units()::toString),
+                    () -> assertFalse(instance.header().inputs().subUnits().stream()
+                            .anyMatch(reference -> "phase-plan-light".equals(reference.unit())),
+                            instance.header().inputs().subUnits()::toString));
+        }
+
+        @Test
         @DisplayName("a prune never removes a state an entry binds to, so a composed file keeps every entry")
         void entryStatesSurviveAPrune() {
             var rules = ((CompositionRules.Loaded) CompositionRules.parse(("""

@@ -404,11 +404,19 @@ final class PlanFixtures {
      *         phase units it calls
      */
     static PlanInstanceComposer perLaneComposer() {
+        return perLaneComposer(((CompositionRules.Loaded) CompositionRules.shipped()).rules());
+    }
+
+    /**
+     * @param rules the composition rules
+     * @return a composer over the per-lane plan unit and the phase units it calls
+     */
+    static PlanInstanceComposer perLaneComposer(CompositionRules rules) {
         var defaults = new ArrayList<WorkflowDefinition>();
         defaults.add(parse(PER_LANE_FILE, read(PER_LANE_FILE), UnitOrigin.DEFAULT));
         phaseUnits().forEach(subUnit -> defaults.add(subUnit.definition()));
-        return new PlanInstanceComposer(context(), defaults, InvariantFixtures.defaultRoster(),
-                ((CompositionRules.Loaded) CompositionRules.shipped()).rules(), Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
+        return new PlanInstanceComposer(context(), defaults, InvariantFixtures.defaultRoster(), rules,
+                Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
     }
 
     /**
