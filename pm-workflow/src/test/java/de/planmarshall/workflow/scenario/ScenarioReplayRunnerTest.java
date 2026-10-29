@@ -283,9 +283,110 @@ class ScenarioReplayRunnerTest {
     }
 
     @Nested
+    @DisplayName("Operator acts")
+    class OperatorActs {
+
+        private static final String OPERATOR_SCRIPT = """
+                scenario operator-act
+                start plan scenario-operator
+                assert_state execute.wait
+                operator_do proceed web
+                assert_state completed
+                assert_outcome merged
+                """;
+
+        private ScenarioReplayRunner operatorRunner(Path directory) {
+            return new ScenarioReplayRunner(ScenarioFixtures.operatorUnit(), directory);
+        }
+
+        @Test
+        @DisplayName("Should take the operator act of an operator wait and reach the state its link leads to")
+        void shouldTakeTheOperatorAct() {
+            var runner = operatorRunner(directory);
+
+            runner.run(ScenarioScript.read(OPERATOR_SCRIPT));
+
+            var stored = new WorkflowStatusStore(ScenarioFixtures.scope(directory, JournalScopeType.PLAN,
+                    "scenario-operator"));
+            assertAll(
+                    () -> assertEquals("completed", stored.read().orElseThrow().state()),
+                    () -> assertEquals(List.of(2, 3, 4, 5, 6),
+                            runner.snapshots().stream().map(ScenarioReplayRunner.Snapshot::line).toList()),
+                    () -> assertArrayEquals(Files.readAllBytes(stored.store()), runner.snapshots().getLast().status()));
+        }
+
+        @Test
+        @DisplayName("Should give a link of the operator wait the parameters the script names")
+        void shouldGiveTheLinkItsParameters() {
+            var runner = operatorRunner(directory);
+
+            runner.run(ScenarioScript.read("""
+                    scenario operator-parameters
+                    start plan scenario-operator
+                    operator_do choose cli {"note":"go"}
+                    assert_state completed
+                    """));
+
+            var stored = new WorkflowStatusStore(ScenarioFixtures.scope(directory, JournalScopeType.PLAN,
+                    "scenario-operator"));
+            assertAll(
+                    () -> assertEquals("completed", stored.read().orElseThrow().state()),
+                    () -> assertEquals(List.of("go"), runner.fixtures().note.notes(),
+                            "the primitive received the parameter the script named"));
+        }
+
+        @Test
+        @DisplayName("Should refuse an act the resting operator wait does not offer, at the step's line")
+        void shouldFailAnActTheStateDoesNotOffer() {
+            var runner = operatorRunner(directory);
+            var script = ScenarioScript.read("""
+                    scenario operator-unknown-link
+                    start plan scenario-operator
+                    operator_do unknown web
+                    """);
+
+            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script));
+
+            assertAll(
+                    () -> assertEquals(3, failure.line()),
+                    () -> assertTrue(failure.getMessage().contains("offers no link 'unknown'"),
+                            failure.getMessage()));
+        }
+
+        @Test
+        @DisplayName("Should refuse a link whose declared free parameter the act omits, at the step's line")
+        void shouldFailAnActWithoutItsFreeParameter() {
+            var runner = operatorRunner(directory);
+            var script = ScenarioScript.read("""
+                    scenario operator-missing-parameter
+                    start plan scenario-operator
+                    operator_do choose cli {"other":"x"}
+                    """);
+
+            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script));
+
+            assertAll(
+                    () -> assertEquals(3, failure.line()),
+                    () -> assertTrue(failure.getMessage().contains("free parameter 'note'"),
+                            failure.getMessage()));
+        }
+
+        @Test
+        @DisplayName("Should replay an operator script twice to the same bytes after every step")
+        void shouldReplayAnOperatorScriptToTheSameBytes() throws Exception {
+            var first = operatorRunner(directory);
+            var second = operatorRunner(Files.createDirectory(directory.resolve("second")));
+
+            first.run(ScenarioScript.read(OPERATOR_SCRIPT));
+            second.run(ScenarioScript.read(OPERATOR_SCRIPT));
+
+            assertEquals(first.snapshots(), second.snapshots());
+        }
+    }
+
+    @Nested
     @DisplayName("Stored bytes")
     class StoredBytes {
-
         @Test
         @DisplayName("Should keep the stored status bytes after every step, unchanged by an assertion")
         void shouldKeepBytesAfterEveryStep() {

@@ -39,7 +39,8 @@ import de.planmarshall.workflow.engine.WorkflowEngine;
  * <ul>
  * <li>{@code start} starts the scope ({@link WorkflowEngine#start});</li>
  * <li>{@code complete_job} delivers {@link EngineEvent.JobSettled}, {@code answer_question} the answer's
- * {@link EngineEvent.QuestionResolved};</li>
+ * {@link EngineEvent.QuestionResolved}, and {@code operator_do} the {@link EngineEvent.OperatorAct} of an operator
+ * link of an operator wait;</li>
  * <li>{@code assert_state} compares the state of the stored status, {@code assert_outcome} the outcome the run ended
  * with, and {@code assert_task_outcome} the outcome of the last task the worker of a role settled.</li>
  * </ul>
@@ -177,6 +178,7 @@ final class ScenarioReplayRunner {
             }
             case ScenarioDirective.AssertOutcome assertion -> assertOutcome(assertion);
             case ScenarioDirective.AssertTaskOutcome assertion -> assertTaskOutcome(assertion);
+            case ScenarioDirective.OperatorDo act -> operatorAct(act);
         }
     }
 
@@ -204,6 +206,17 @@ final class ScenarioReplayRunner {
             throw new ScenarioFailure(assertion.line(), message.formatted(assertion.outcome(), assertion.role(),
                     actual));
         }
+    }
+
+    /**
+     * Takes an operator act at the resting operator wait: the operator follows one offered link of the state the scope
+     * rests in.
+     */
+    private void operatorAct(ScenarioDirective.OperatorDo act) {
+        if (status == null) {
+            throw new ScenarioFailure(act.line(), "the scope has not been started");
+        }
+        advance(act.line(), new EngineEvent.OperatorAct(status.state(), act.link(), act.parameters()));
     }
 
     private void start(ScenarioDirective.Start start) {
