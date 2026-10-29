@@ -229,8 +229,11 @@ public final class ConsentStore {
     }
 
     /**
-     * Reads the document again under the lock, checks the caller's revision, lets the change revise the entries,
-     * writes the document when the change changed anything and appends the record the write owes.
+     * Reads the document again under the lock, checks the caller's revision, lets the change revise the entries, hands
+     * the record the write owes to the audit sink and writes the document when the change changed anything. The record
+     * is handed over before the write: a sink that refuses it aborts the change, so a committed consent always has its
+     * record; a failure of the write after the hand-over leaves a record for a change that was not stored, which the
+     * operator's next attempt repeats.
      *
      * @return the number of entries the change reports as changed
      */
@@ -244,8 +247,8 @@ public final class ConsentStore {
             var entries = new ArrayList<>(current.consents());
             var changed = change.apply(entries);
             if (changed > 0) {
-                storeFile.write(transaction, ConsentCodec.write(entries, revision + 1));
                 event.ifPresent(auditSink::append);
+                storeFile.write(transaction, ConsentCodec.write(entries, revision + 1));
             }
             return changed;
         }

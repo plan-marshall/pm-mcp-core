@@ -17,6 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -229,6 +231,21 @@ class ConsentStoreTest {
                         () -> store.grant(machine(ConsentKind.AUTO_RUN), 0L)),
                 () -> assertThrows(IllegalArgumentException.class, () -> Consent.machine(ConsentKind.AUTO_RUN, GRANTED,
                         Consent.Channel.CLI, Optional.empty())),
+                () -> assertFalse(Files.exists(file)));
+    }
+
+    @Test
+    @DisplayName("a failing audit sink aborts the change, so no consent is committed without its record")
+    void failingAuditSink() {
+        var failing = new ConsentStore(ConsentStore.file(base), locks, event -> {
+            throw new UncheckedIOException("audit sink refuses the record",
+                    new IOException("unavailable"));
+        });
+
+        assertThrows(UncheckedIOException.class, () -> failing.grant(machine(ConsentKind.SCAN_HARNESSES), 0L));
+        assertAll(
+                () -> assertTrue(store.read().consents().isEmpty()),
+                () -> assertEquals(0L, store.read().revision()),
                 () -> assertFalse(Files.exists(file)));
     }
 

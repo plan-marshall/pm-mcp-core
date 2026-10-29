@@ -163,6 +163,20 @@ class RoleAssignmentValidationTest {
     }
 
     @Test
+    @DisplayName("the escalation's enrolment is looked up by its own harness")
+    void escalationEnrolmentOnItsOwnHarness() {
+        var escalation = new Escalation(ESCALATION_HARNESS, "beta-standard", Optional.empty());
+        var value = RoleAssignmentValue.of(HARNESS, MODEL, "high").withEscalation(escalation);
+
+        var refusal = assertThrows(RoleRefusal.class, () -> require(value, artifact(RoleClass.READ_ONLY),
+                new HarnessProfile[]{profile(), profile(ESCALATION_HARNESS)}, new String[]{HARNESS},
+                Optional.of(catalogue())));
+
+        assertEquals(RoleValidationReason.HARNESS_UNKNOWN, refusal.reason());
+        assertEquals("the harness 'beta-cli' is not enrolled", refusal.detail());
+    }
+
+    @Test
     @DisplayName("the escalation is validated against its own harness")
     void escalationOnAnotherHarness() {
         var escalation = new Escalation(ESCALATION_HARNESS, "beta-standard", Optional.empty());

@@ -161,6 +161,17 @@ class RoleAssignmentProposalTest {
     }
 
     @Test
+    @DisplayName("a missing catalogue is reported as such, not as an allowance")
+    void absentCatalogue() {
+        var proposal = propose(Optional.empty()).get("implement");
+
+        assertAll(
+                () -> assertTrue(proposal.assignment().isEmpty()),
+                () -> assertEquals("no effective model catalogue exists yet",
+                        proposal.unresolved().orElseThrow()));
+    }
+
+    @Test
     @DisplayName("a role the default names but no enrolled harness runs is reported without a value")
     void noHarness() {
         var proposals = RoleAssignmentProposal.propose(roleSet(), defaults(), List.of(), catalogue());

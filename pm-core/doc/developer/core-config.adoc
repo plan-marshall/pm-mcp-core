@@ -74,6 +74,11 @@ A consent covers its kind and never a wider one, because the lookup is by the ki
 runs no login or model probe. `ConsentStore.ofProject` and `removeProject` carry the entries of a project, which the
 cleanup drops with the project's machine store.
 
+A remembered and a withdrawn consent each append their `operator` audit record (`consent_remembered`,
+`consent_withdrawn`) inside the write's transaction and before the store is replaced, so a committed consent always has
+its record and a sink that refuses it aborts the change
+(link:../../doc/adr/core-config/003-the-consent-record-is-handed-over-before-the-write.adoc[ADR 003]).
+
 == The Model Catalogue
 
 `ModelCatalogueStore` reads and writes `model-catalogue.json` of the machine (under `locks/model-catalogue.lock`) or of a

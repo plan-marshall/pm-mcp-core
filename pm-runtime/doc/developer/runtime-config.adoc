@@ -54,10 +54,10 @@ provider's object and a negative revision.
 == The Machine's Own Check of its Plan Defaults
 
 `MachineDefaultsValidation` is `defaults.validate` of the plan-defaults aspect, as far as the machine alone can decide
-it: a `landing.pull-request` needs a provider the machine serves (git hosting: `git`, `github`, `gitlab` or `forgejo`),
-`landing.main` and `landing.files` need none, and an unknown variant is refused. The check reads the machine's provider
-defaults only; it never reads a repository, and whether a base branch is protected, or a landing variant fits a project,
-is the project's own check where the project is known.
+it: a `landing.pull-request` needs a forge the machine serves (`github`, `gitlab` or `forgejo` — not the `git`
+transport, which opens no pull request), `landing.main` and `landing.files` need none, and an unknown variant is refused.
+The check reads the machine's provider defaults only; it never reads a repository, and whether a base branch is
+protected, or a landing variant fits a project, is the project's own check where the project is known.
 
 == Pitfalls
 

@@ -681,6 +681,14 @@ link:../pm-workflow/doc/developer/workflow-verify.adoc#_declaration_bounds[Workf
 link:../pm-workflow/doc/adr/workflow-plan/015-axis-levels-and-overrides-carried-in-plan-facts.adoc[ADR workflow-plan/015],
 link:../pm-workflow/doc/adr/workflow-verify/028-axis-variant-declarations-as-enum-values.adoc[ADR workflow-verify/028]
 
+Pulled forward by PLAN-46 (the machine's own half of the landing validation: a `landing.pull-request` needs a forge the
+machine serves, `landing.main` and `landing.files` need none, and no repository is consulted; the project's check, which
+refuses `landing.main` on a protected base branch, is a later plan's): Implementation: link:../pm-runtime/src/main/java/de/planmarshall/runtime/config/MachineDefaultsValidation.java[MachineDefaultsValidation]
+
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineDefaultsValidationTest.java[MachineDefaultsValidationTest]
+
+Documentation: link:../pm-runtime/doc/developer/runtime-config.adoc#_the_machines_own_check_of_its_plan_defaults[Developer Guide § The Machine's Own Check of its Plan Defaults (`runtime.config`)]
+
 [#PM-WF-26]
 === PM-WF-26: Machine Onboarding & the Machine Scope
 
@@ -961,7 +969,7 @@ Documentation: link:../pm-providers/pm-provider-git/doc/developer/provider-git.a
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-CRED-2[PM-CRED-2]
 
-Implementation (the bullets on the one recorded store and on no fallback: `credentials.store` of `machine-config.json` read for every operation and written only by the credential-store aspect and the store move, the refusal `onboarding_incomplete` before a store is recorded, the integrity key kept before the choice where the runtime finds a store and reconciled with the key of the other store at the first recording (the key every sidecar verifies under is brought into the store being recorded, read back and verified there before the switch, and the key of the other store is deleted after it; two different keys the sidecars do not decide between refuse the recording, naming both stores), the record of that first recording and its resume after a stop (`operation: first_recording`), the aspect refused with `aspect_owned` while the record of an operation exists, an unavailable recorded OS store failing with `credential_store_unavailable` or `credential_store_locked` and no write to the other store; the check of the OS store before it is recorded; the enumeration of every store; the move of every entry in either direction with its record, the key last after every sidecar verifies under it, one switch, the deletion from the old store, its failure before the switch, its resume after a stop, and its audit record with the transaction id of the operation; the credential-store aspect's engine half, the reporting of both clients, `pm-operator credentials migrate` and the wiring of the store, the move and the resume in the assembly are not implemented yet; the Keychain ACL and signing and the Secret Service bullets are not traced here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreChoice.java[CredentialStoreChoice],
+Implementation (the bullets on the one recorded store and on no fallback: `credentials.store` of `machine-config.json` read for every operation and written only by the credential-store aspect and the store move, the refusal `onboarding_incomplete` before a store is recorded, the integrity key kept before the choice where the runtime finds a store and reconciled with the key of the other store at the first recording (the key every sidecar verifies under is brought into the store being recorded, read back and verified there before the switch, and the key of the other store is deleted after it; two different keys the sidecars do not decide between refuse the recording, naming both stores), the record of that first recording and its resume after a stop (`operation: first_recording`), the aspect refused with `aspect_owned` while the record of an operation exists, an unavailable recorded OS store failing with `credential_store_unavailable` or `credential_store_locked` and no write to the other store; the check of the OS store before it is recorded; the enumeration of every store; the move of every entry in either direction with its record, the key last after every sidecar verifies under it, one switch, the deletion from the old store, its failure before the switch, its resume after a stop, and its audit record with the transaction id of the operation; the reporting of both clients, `pm-operator credentials migrate` and the wiring of the store, the move and the resume in the assembly are not implemented yet; the Keychain ACL and signing and the Secret Service bullets are not traced here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreChoice.java[CredentialStoreChoice],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreCheck.java[CredentialStoreCheck],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreMove.java[CredentialStoreMove],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreMoveRecord.java[CredentialStoreMoveRecord],
@@ -1237,7 +1245,8 @@ link:../pm-core/src/test/java/de/planmarshall/core/config/ConsentGateTest.java[C
 link:../pm-core/src/test/java/de/planmarshall/core/config/ConsentCodecTest.java[ConsentCodecTest]
 
 Documentation: link:../pm-core/doc/developer/core-config.adoc#_the_consent_store[Developer Guide § The Consent Store (`core.config`)],
-link:../pm-core/doc/adr/core-config/002-the-consent-rule-is-a-gate-over-a-snapshot.adoc[ADR core-config/002]
+link:../pm-core/doc/adr/core-config/002-the-consent-rule-is-a-gate-over-a-snapshot.adoc[ADR core-config/002],
+link:../pm-core/doc/adr/core-config/003-the-consent-record-is-handed-over-before-the-write.adoc[ADR core-config/003]
 
 == link:../../plan-marshall-documentation/doc/requirements/09-technology.adoc[Technology]
 

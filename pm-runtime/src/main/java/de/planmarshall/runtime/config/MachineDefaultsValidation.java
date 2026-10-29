@@ -14,8 +14,8 @@ import java.util.Optional;
 
 /**
  * The machine's own check of its plan defaults (State Catalogue § Plan Defaults, {@code defaults.validate}): only what
- * the machine itself provides is checked, never a repository. A {@code landing.pull-request} needs a provider the
- * machine serves — the git hosting provider a pull request is opened on — and {@code landing.main} and
+ * the machine itself provides is checked, never a repository. A {@code landing.pull-request} needs a forge the machine
+ * serves — a pull request is opened on a code-hosting provider, not on the git transport — and {@code landing.main} and
  * {@code landing.files} need none. Whether a base branch is protected, and whether a landing variant fits a project, is
  * the project's own check, made where the project is known; it is never made here, because the machine has no
  * repository.
@@ -34,7 +34,7 @@ public final class MachineDefaultsValidation {
     public static final String LANDING_FILES = "landing.files";
 
     /** The prefix of every message key of a verdict. */
-    static final String MESSAGE_KEY_PREFIX = "defaults.validation.landing.";
+    static final String MESSAGE_KEY_PREFIX = "defaults.validation.";
 
     private MachineDefaultsValidation() {
     }
@@ -74,14 +74,14 @@ public final class MachineDefaultsValidation {
                     MESSAGE_KEY_PREFIX + "unknown");
         }
         if (hostingProvider(providers)) {
-            return new Verdict(true, Optional.empty(), MESSAGE_KEY_PREFIX + LANDING_PULL_REQUEST + ".ok");
+            return new Verdict(true, Optional.empty(), MESSAGE_KEY_PREFIX + variant + ".ok");
         }
         return new Verdict(false, Optional.of("no provider the machine serves opens a pull request"),
-                MESSAGE_KEY_PREFIX + LANDING_PULL_REQUEST + ".no-provider");
+                MESSAGE_KEY_PREFIX + variant + ".no-provider");
     }
 
     private static boolean hostingProvider(ProviderDefaults providers) {
-        return providers.available(Provider.GIT) || providers.available(Provider.GITHUB)
-                || providers.available(Provider.GITLAB) || providers.available(Provider.FORGEJO);
+        return providers.available(Provider.GITHUB) || providers.available(Provider.GITLAB)
+                || providers.available(Provider.FORGEJO);
     }
 }

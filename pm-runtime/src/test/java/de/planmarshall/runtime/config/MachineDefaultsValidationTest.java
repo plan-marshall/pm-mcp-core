@@ -42,7 +42,7 @@ class MachineDefaultsValidationTest {
         assertAll(
                 () -> assertFalse(without.valid()),
                 () -> assertTrue(without.reason().orElseThrow().contains("no provider")),
-                () -> assertEquals("defaults.validation.landing.landing.pull-request.no-provider",
+                () -> assertEquals("defaults.validation.landing.pull-request.no-provider",
                         without.messageKey()),
                 () -> assertTrue(with.valid()),
                 () -> assertTrue(with.reason().isEmpty()));
@@ -56,6 +56,16 @@ class MachineDefaultsValidationTest {
     }
 
     @Test
+    @DisplayName("the git transport alone does not open a pull request")
+    void gitTransportIsNoForge() {
+        var gitOnly = new ProviderDefaults(Map.of(Provider.GIT, new ProviderDefault(true,
+                Optional.of(ProviderVariant.NATIVE), Optional.empty())));
+
+        assertFalse(MachineDefaultsValidation.landing(MachineDefaultsValidation.LANDING_PULL_REQUEST,
+                gitOnly).valid());
+    }
+
+    @Test
     @DisplayName("landing.main and landing.files need no provider, and an unknown variant is refused")
     void otherVariants() {
         assertAll(
@@ -65,7 +75,7 @@ class MachineDefaultsValidationTest {
                         ProviderDefaults.none()).valid()),
                 () -> assertFalse(MachineDefaultsValidation.landing("landing.teleport",
                         ProviderDefaults.none()).valid()),
-                () -> assertEquals("defaults.validation.landing.unknown",
+                () -> assertEquals("defaults.validation.unknown",
                         MachineDefaultsValidation.landing("landing.teleport", ProviderDefaults.none()).messageKey()));
     }
 }

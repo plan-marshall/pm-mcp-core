@@ -317,7 +317,7 @@ public final class CredentialStoreAspect {
             return Transition.to(State.DONE);
         } catch (Refusal e) {
             return Transition.unavailable(e.reason().code(), e.getMessage());
-        } catch (StoreRefusal | SecretStoreException e) {
+        } catch (StoreRefusal | SecretStoreException | UncheckedIOException e) {
             return Transition.unavailable(CREDENTIAL_STORE_FAILED, e.getMessage());
         }
     }
