@@ -60,6 +60,10 @@ classes, ADR `runtime-config/001`: provider-named members barred from `pm-core` 
      assignment's harness/model optional while `store-schemas/12` requires them).
   5. The merge-queue head carried a `merge: origin/main` commit (17:24Z); the PR list shows only 8 commits, all `plan-marshall`-trailer commits.
 
+## Addendum 2026-10-30: the follow-up #238
+
+After this analysis was written, PR #238 (`dcf83b46`, "refactor(onboarding): clear the SonarCloud findings of PLAN-46", merged 2026-10-29T22:59:19Z, 21 files, +334/-217, "No behaviour changes") fixed the Sonar issues of Anomaly 1 in the code: the constants `HARNESS_ID`, `ERROR_CODE` and `HTTP_STATUS`, `RoleAssignmentValidation.Facts`, the unused fields of `CredentialStoreAspect` removed, `record` renamed `recordStore` without a suppression, the 38 `assertThrows` lambdas. Read at `origin/main` `6847c748`: the named constants and `Facts` are present. `branch=main&resolved=false` lists 13 issues, four of them in these packages (`java:S1192`: `DefaultAssignment` x3, `MachineConfigurationCodec` x1); the analysed revision was not read. #238 did not answer the CodeRabbit findings of Anomaly 2 (`ConsentGate.requireDevice` is still called from `remember` only, line 202) and ran no coverage. So Anomaly 1 is closed except those four issues, and Anomalies 2 and 3 stand. The follow-up plan PLAN-V2-81 was re-scoped accordingly; this record was not otherwise changed, and the row stays `shipped`, the terminal status of every merged plan of this ledger.
+
 ## Routing and Merge Behavior
 
 - Review: coderabbit COMMENTED once (13 unresolved threads, see above; check `CodeRabbit` SUCCESS); sourcery refused 3 times (diff over its 150,000-char
