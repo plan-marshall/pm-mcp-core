@@ -4,7 +4,7 @@
 
 ## START HERE
 
-**Resume anchor**: Land the shared ledger worktree (blocked by PR #228 of question-loop-corrections: run /plan-orchestrator land when it merged), then /plan-orchestrator next slug=pm-mcp-core-m2-m4-v2 emits up to 4 plans (PLAN-V2-01, 02, 03 first; PLAN-46 and PLAN-105 of the predecessor hold two slots until they land).
+**Resume anchor**: Land the shared ledger worktree (blocked by PR #228 of question-loop-corrections: run /plan-orchestrator land once it merged), then run /plan-orchestrator next slug=pm-mcp-core-m2-m4-v2: it fills up to four slots, starting with PLAN-V2-01, 02 and 03; PLAN-46 and PLAN-105 of the predecessor hold two slots until they land.
 **Phase**: orchestrating
 **Parked**:
 - PLAN-V2-72 (WS-09)
