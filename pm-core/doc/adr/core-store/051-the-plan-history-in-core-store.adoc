@@ -1,0 +1,51 @@
+= ADR 051: The Plan's History in `core.store`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-29
+
+== Context
+
+Store Schemas 02 § The Plan's History states `plans/<plan_id>/mcp/history.jsonl`: an append-only line per state entered
+and left, per sub-workflow called and returned, and per instance version taking force. No such type existed; the
+history-like logs (`ActivityJournal`, `AuditLog`, `QuestionLog`, `WaiverLog`, `ChangeLedger`,
+`PlanInstanceStore.COMPOSITION_LOG`) each record something else. The engine wrote `mcp/status.json` only, so a runtime
+that restarted could read where the plan is but not where it has been or which branch it took.
+
+== Decision
+
+* `PlanHistoryLine` is the line model, `PlanHistoryCodec` its strict codec, and `PlanHistory` the store of
+  `mcp/history.jsonl` in the plan scope, appended through `ScopeTransaction` like every other log, so the digest sidecar
+  covers it and a transition writes its state change and its lines in one journaled write.
+* The engine appends the lines of one advance as one append target: `entered` in the transition that makes a state
+  current, `left` with the outcome the transition was chosen by, `called` before the frame is pushed and `returned`
+  after it is popped. A terminal state is entered and never left; its state is derived from its terminal outcome.
+* The instance version in force is passed to the advance that writes the lines; it is never re-derived per line.
+* `PlanProcessStates` derives the node states from the stored lines and the version's composed files — done, running,
+  waiting for the operator, failed with its outcome, planned, not taken, and not in this plan with the prune reason of
+  a pruned call — so a restart derives the same states without any other durable state.
+
+== Alternatives Considered
+
+1. *Record the history in the status document.* Rejected: the status is the "where it is" record, and a rewritten
+   document cannot keep an append-only history of every state and call.
+2. *Derive node states from `mcp/status.json` alone.* Rejected: it holds the current state and the call stack, not the
+   branches not taken, the failures of earlier runs or the version in force at each line.
+3. *Write from a separate component after the transition commits.* Rejected: a crash between the two writes would lose
+   a line of a transition that committed, and the specification states every line is a target of that transaction.
+
+== Consequences
+
+The history grows with every transition and is archived and deleted with the plan only. A loop-back writes the second
+run's lines beside the first, so both runs are readable. The engine's advance methods carry the history and the
+instance version; the earlier overloads keep their signature and write no history.
+
+== Source
+
+* Work package `doc/plans/phase-sub-workflows.adoc`; PLAN-105, Deliverable 2.
+* Store Schemas 02 § The Plan's History; ADR core-store 044 (the scope transaction).

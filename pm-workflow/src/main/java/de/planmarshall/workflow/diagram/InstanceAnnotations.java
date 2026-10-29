@@ -9,6 +9,7 @@
  */
 package de.planmarshall.workflow.diagram;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -37,10 +38,11 @@ import de.planmarshall.workflow.plan.WaivedGate;
  * @param activeState the state to highlight or mark; empty for none
  * @param pruned      every pruned element in header order
  * @param waivedGates every waived gate in header order
+ * @param composed    every composed file of the version, the plan unit's included, in header order
  * @since 0.1
  */
 record InstanceAnnotations(String planId, int version, String event, String lane, String posture,
-Optional<String> activeState, List<Pruned> pruned, List<Waived> waivedGates) {
+Optional<String> activeState, List<Pruned> pruned, List<Waived> waivedGates, List<Composed> composed) {
 
     /** The value shown for a header value that is not set. */
     static final String NONE = "-";
@@ -60,6 +62,7 @@ Optional<String> activeState, List<Pruned> pruned, List<Waived> waivedGates) {
      * @param activeState the state to highlight or mark
      * @param pruned      every pruned element
      * @param waivedGates every waived gate
+     * @param composed    every composed file of the version
      */
     InstanceAnnotations {
         Objects.requireNonNull(planId, "planId");
@@ -69,6 +72,7 @@ Optional<String> activeState, List<Pruned> pruned, List<Waived> waivedGates) {
         Objects.requireNonNull(activeState, "activeState");
         pruned = List.copyOf(pruned);
         waivedGates = List.copyOf(waivedGates);
+        composed = List.copyOf(composed);
     }
 
     /**
@@ -80,11 +84,18 @@ Optional<String> activeState, List<Pruned> pruned, List<Waived> waivedGates) {
      */
     static InstanceAnnotations of(PlanInstance instance, Optional<String> activeState) {
         var header = instance.header();
+        var composed = new ArrayList<Composed>();
+        header.inputs().templates().stream()
+                .filter(reference -> reference.file().filter(file -> file.startsWith("instance/")).isPresent())
+                .forEach(reference -> composed.add(new Composed(reference.unit(), reference.file().orElseThrow(),
+                        reference.digest())));
+        instance.units().forEach(unit -> composed.removeIf(existing -> existing.unit().equals(unit.unit())));
+        instance.units().forEach(unit -> composed.add(new Composed(unit.unit(), unit.file(), unit.digest())));
         return new InstanceAnnotations(header.planId(), header.version(), header.event().wireName(),
                 header.lane().map(PlanInstanceHeader.Lane::wireName).orElse(NONE),
                 header.posture().map(PlanInstanceHeader.Posture::wireName).orElse(NONE), activeState,
                 header.pruned().stream().map(Pruned::of).toList(),
-                header.waivedGates().stream().map(Waived::of).toList());
+                header.waivedGates().stream().map(Waived::of).toList(), composed);
     }
 
     /**
@@ -138,6 +149,23 @@ Optional<String> activeState, List<Pruned> pruned, List<Waived> waivedGates) {
          */
         String describe() {
             return "%s %s: %s (%s)".formatted(element, id, reason, sourceFact);
+        }
+    }
+
+    /**
+     * One composed file of the version, as every form shows it.
+     *
+     * @param unit   the id of the composed unit
+     * @param file   the file of the unit, relative to the directory of the plan
+     * @param digest the SHA-256 of the file's text
+     */
+    record Composed(String unit, String file, String digest) {
+
+        /**
+         * @return the one-line description of the composed file: {@code <unit> -> <file> (<digest>)}
+         */
+        String describe() {
+            return "%s -> %s (%s)".formatted(unit, file, digest);
         }
     }
 

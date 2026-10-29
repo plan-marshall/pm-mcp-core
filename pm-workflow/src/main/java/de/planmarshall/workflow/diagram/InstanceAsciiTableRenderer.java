@@ -49,6 +49,11 @@ final class InstanceAsciiTableRenderer {
                 List.of("Posture", annotations.posture()),
                 List.of("Active state", annotations.activeState().orElse(InstanceAnnotations.NONE))));
         out.append('\n').append(AsciiTableRenderer.render(unit, annotations.activeState()));
+        if (!annotations.composed().isEmpty()) {
+            out.append('\n');
+            table(out, List.of("Unit", "File", "Digest"), annotations.composed().stream()
+                    .map(composed -> List.of(composed.unit(), composed.file(), composed.digest())).toList());
+        }
         if (!annotations.pruned().isEmpty()) {
             out.append('\n');
             table(out, List.of("Element", "Id", "Reason", "Source fact"), annotations.pruned().stream()

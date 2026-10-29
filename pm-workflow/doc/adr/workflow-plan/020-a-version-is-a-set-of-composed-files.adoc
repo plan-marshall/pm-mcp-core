@@ -1,0 +1,57 @@
+= ADR 020: A Version Is a Set of Composed Files
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-29
+
+== Context
+
+Store Schemas 14 § Storage and Workflow DSL 09 § Plan Instance state a version as a set of immutable files:
+`instance/plan.v<N>.pmwf` with the version's header, and `instance/<unit>.v<N>.pmwf` for each composed phase
+sub-workflow and bound axis variant. `PlanInstanceStore` wrote the plan unit's file, the content-addressed sub-unit
+texts and the composition log only; the phase set as files, and lane pruning over it, waited for this plan (ADR
+workflow-plan 019).
+
+== Decision
+
+* `PlanInstance` carries the composed units beside the plan unit: one `ComposedUnit` per phase sub-workflow and bound
+  axis variant the kept calls reach, each with its printed text and the SHA-256 of that text.
+* The composer composes each of them by applying the same composition effects it applies to the plan unit: the states,
+  calls and policy bindings that fall inside the unit are pruned or bound, the frontmatter, id, type, entries and exits
+  of the template stay, the version is repeated and no `instance` line is added.
+* The header's `inputs.templates` names every composed file by its version path and the digest of its text, the plan
+  unit's included; the plan unit's entry keeps the *template's* digest, because the composed file embeds the header
+  that names it and cannot digest itself. `inputs.sub_units` names only the units the version binds by digest
+  (`git.commit_and_push`, the `remediation.*` units, `replan`, `adjudicate.decisions`).
+* `PlanInstanceStore` writes the whole set in the transaction that composes the version, refuses a header digest that
+  names no file, a file the header does not name, a file twice and a unit name that disagrees with its file, and
+  validates before it stages anything.
+* A pruned call composes no file; the position rule counts only the states the kept calls reach, so a version that no
+  longer contains the current state is refused `position_not_contained`.
+* The three instance diagram forms list the composed set beside the pruned elements and the waived gates.
+
+== Alternatives Considered
+
+1. *Keep one flat plan file and address the phases through the content-addressed units.* Rejected: the specification
+   states one file per composed unit, and the operator's decision of 2026-10-28 named this plan to deliver it.
+2. *Compose the landing variant's states inline into `phase-6-finalize`.* Deferred: the bound variant is composed as
+   its own file of the version, and inlining it needs the real landing units, which live in `plan-marshall-mcp`. The
+   verification already covers the call, and the dispatch hub reads the phase's kept steps.
+
+== Consequences
+
+The version's directory is the version: a header and its files are one value, checked as one value. A reader that needs
+one phase reads `instance/<unit>.v<N>.pmwf` without parsing the plan unit. The composer verifies the plan unit over the
+call-resolved catalog and the header schema; it does not run the verifier over each composed file on its own, so ADR
+001's "verified in full" is scoped to the plan unit here. The inline landing composition and the deletion of the
+implemented specification sections remain owed.
+
+== Source
+
+* Work package `doc/plans/phase-sub-workflows.adoc`; PLAN-105, Deliverable 1.
+* Store Schemas 14 § Storage, § Header, § Sub-Units; Workflow DSL 09 § Plan Instance, § Composition Rules.

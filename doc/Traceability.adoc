@@ -551,7 +551,9 @@ link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java[Wor
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java[WorkflowValidator],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/CompiledInvariants.java[CompiledInvariants],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/SubWorkflowInvariants.java[SubWorkflowInvariants],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/RemediationInvariants.java[RemediationInvariants]
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/RemediationInvariants.java[RemediationInvariants],
+link:../pm-core/src/main/java/de/planmarshall/core/store/PlanHistory.java[PlanHistory],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanProcessStates.java[PlanProcessStates]
 
 Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/WorkflowValidatorTest.java[WorkflowValidatorTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/CompiledInvariantsTest.java[CompiledInvariantsTest],
@@ -560,7 +562,10 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowParserRef
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowPrinterTest.java[WorkflowPrinterTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/ast/AstNodeModelTest.java[AstNodeModelTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/SubWorkflowExecutionTest.java[SubWorkflowExecutionTest],
-link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineResumeTest.java[EngineResumeTest]
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineResumeTest.java[EngineResumeTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/PlanHistoryTest.java[PlanHistoryTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/PlanHistoryEngineTest.java[PlanHistoryEngineTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanProcessStatesTest.java[PlanProcessStatesTest]
 
 Implementation (the planning phases' records and their checks: the plan's intent record `intent.json` with its `intent-record` schema, its EARS form, its true deciders, the epic's required claims and its revision history in `history[]`; the outline record `outline.json` with its `outline-record` schema and the `outline.md` rendered from it; the outline's `satisfies` coverage and the refusal of an `unchanged` guard downstream of the change it guards; the builder check's submission and its conversation-free facts; the self-review's constraint, non-goal and decision results; the capability spec and the index of a tree's specs; and the read-only simplify step with the clone candidates the server computes and the apply of the accepted subset): link:../pm-core/src/main/java/de/planmarshall/core/store/IntentRecord.java[IntentRecord],
 link:../pm-core/src/main/java/de/planmarshall/core/store/IntentStore.java[IntentStore],
@@ -1615,7 +1620,11 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WorkflowEngine
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/EngineStep.java[EngineStep],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/GuardEvaluator.java[GuardEvaluator],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/LoopBackBudget.java[LoopBackBudget],
-link:../pm-workflow/src/main/java/de/planmarshall/workflow/diagram/WorkflowDiagramGenerator.java[WorkflowDiagramGenerator]
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/diagram/WorkflowDiagramGenerator.java[WorkflowDiagramGenerator],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java[PlanInstanceComposer],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceStore.java[PlanInstanceStore],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanProcessStates.java[PlanProcessStates],
+link:../pm-core/src/main/java/de/planmarshall/core/store/PlanHistory.java[PlanHistory]
 
 Verified by (the workflow DSL, its verifier, interpreter and diagram generator): link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowParserTest.java[WorkflowParserTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowParserRefusalTest.java[WorkflowParserRefusalTest],
@@ -1628,7 +1637,12 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/GuardEvaluator
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineEventTest.java[EngineEventTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/LoopBackBudgetTest.java[LoopBackBudgetTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/diagram/WorkflowDiagramGeneratorTest.java[WorkflowDiagramGeneratorTest],
-link:../pm-workflow/src/test/java/de/planmarshall/workflow/diagram/StateKindTest.java[StateKindTest]
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/diagram/StateKindTest.java[StateKindTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java[PlanInstanceComposerTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceStoreTest.java[PlanInstanceStoreTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanProcessStatesTest.java[PlanProcessStatesTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/PlanHistoryEngineTest.java[PlanHistoryEngineTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/PlanHistoryTest.java[PlanHistoryTest]
 
 Implementation (the named parameter schemas `intent-record` and `outline-record` of the registry, and the simplify step's descriptor in the finalize roster): link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/SchemaRegistry.java[SchemaRegistry],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/finalize/SimplifyStep.java[SimplifyStep],
@@ -1661,7 +1675,7 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/DeclarationBou
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/finalize/FinalizePipelineValidatorTest.java[FinalizePipelineValidatorTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/finalize/FinalizeStepDescriptorTest.java[FinalizeStepDescriptorTest]
 
-Implementation (the plan instance of the fifth statement and its rendering of the sixth, as far as the library module `pm-workflow` carries them: the instance header with its canonical JSON line and the check of every constraint of the schema it implements; the shipped composition rule file with its revision and digest, and the evaluator of its rules over the plan facts and the effective configuration, each prune with its reason and source fact; the composer, which prunes and binds the merged plan template by the rules and the waivers in force, applies the position rule, verifies each version against Rules 1-12, the finalize pipeline, the compiled invariants and the header schema, and refuses a failing version as a value while the version in force stays; the store that writes each version once as `instance/plan.v<N>.pmwf`, one line of `instance/composition.jsonl` per composition attempt, and the text of each bound sub-unit once per digest as `mcp/units/<digest>.pmwf`, all through the plan's scope transaction; the rendering of an instance as a Mermaid diagram, AsciiDoc tables and a terminal table with the active state, the pruned elements with their reason and the waived gates with their waiver id. Not implemented yet: the instance of a plan unit made of phase sub-workflows, with one composed file per phase sub-workflow and bound axis variant, and the landing variant composed into the finalize phase; the level `machine` of a unit in the header; Rules 13 and 14 at composition, the triggers of the composition events, the engine's switch to a new version in force and its read of the stored sub-unit texts, and the read-only resources of an instance): link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceHeader.java[PlanInstanceHeader],
+Implementation (the plan instance of the fifth statement and its rendering of the sixth, as far as the library module `pm-workflow` carries them: the instance header with its canonical JSON line and the check of every constraint of the schema it implements; the shipped composition rule file with its revision and digest, and the evaluator of its rules over the plan facts and the effective configuration, each prune with its reason and source fact; the composer, which prunes and binds the merged plan template by the rules and the waivers in force, applies the position rule, verifies each version against Rules 1-12, the finalize pipeline, the compiled invariants and the header schema, and refuses a failing version as a value while the version in force stays; the store that writes each version once as `instance/plan.v<N>.pmwf`, one line of `instance/composition.jsonl` per composition attempt, and the text of each bound sub-unit once per digest as `mcp/units/<digest>.pmwf`, all through the plan's scope transaction; the rendering of an instance as a Mermaid diagram, AsciiDoc tables and a terminal table with the active state, the pruned elements with their reason and the waived gates with their waiver id; and the instance of a plan unit made of phase sub-workflows as the set of files the specification states: one composed file per phase sub-workflow and bound axis variant a kept call reaches, named by the header by digest and written with the plan unit's file in the composing transaction, a pruned call composing no file, with the position rule and the header-schema check over the set. Not implemented yet: the landing variant composed into the finalize phase; the level `machine` of a unit in the header; Rules 13 and 14 at composition, the triggers of the composition events, the engine's switch to a new version in force and its read of the stored sub-unit texts, and the read-only resources of an instance): link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceHeader.java[PlanInstanceHeader],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/HeaderSchemaCheck.java[HeaderSchemaCheck],
 link:../pm-workflow/src/main/resources/de/planmarshall/workflow/plan/composition-rules.json[composition-rules.json],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionRules.java[CompositionRules],

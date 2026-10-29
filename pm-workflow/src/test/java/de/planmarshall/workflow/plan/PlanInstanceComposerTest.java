@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 
@@ -212,9 +213,9 @@ class PlanInstanceComposerTest {
                     () -> assertEquals(BoundArgument.fromTemplate(new CallValue.IntValue(3), TEMPLATE_FILE),
                             call.args().get("fix_budget")),
                     () -> assertEquals(1, instance.header().policyCalls().size()),
-                    () -> assertEquals(List.of("git.commit_and_push", "remediation.qgate-findings", QUESTIONS_ONLY),
+                    () -> assertEquals(List.of("git.commit_and_push", "remediation.qgate-findings"),
                             instance.header().inputs().subUnits().stream().map(UnitReference::unit).toList()),
-                    () -> assertEquals(List.of("plan"),
+                    () -> assertEquals(List.of("plan", QUESTIONS_ONLY),
                             instance.header().inputs().templates().stream().map(UnitReference::unit).toList()));
         }
 
@@ -230,7 +231,7 @@ class PlanInstanceComposerTest {
             var line = instance.unit().instance().orElseThrow().inputs().subUnits().getLast();
 
             assertAll(
-                    () -> assertEquals(List.of("git.commit_and_push", "remediation.qgate-findings", QUESTIONS_ONLY,
+                    () -> assertEquals(List.of("git.commit_and_push", "remediation.qgate-findings",
                             DeclarationBounds.ADJUDICATION_UNIT), subUnits.stream().map(UnitReference::unit).toList()),
                     () -> assertEquals(Optional.of(InvariantFixtures.ADJUDICATION_FILE), adjudication.file()),
                     () -> assertEquals(PlanFacts.sha256(text), adjudication.digest()),
@@ -497,9 +498,9 @@ class PlanInstanceComposerTest {
                     () -> assertEquals(List.of(planDefault(KEY_POINTS, "plan.axes.asking"),
                             planDefault(QUESTIONS_ONLY, "plan.axes.asking")), instance.header().pruned()),
                     () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header())),
-                    () -> assertTrue(instance.header().inputs().subUnits().stream().map(UnitReference::unit)
+                    () -> assertTrue(instance.header().inputs().templates().stream().map(UnitReference::unit)
                             .toList().contains(EVERY_PHASE)),
-                    () -> assertFalse(instance.header().inputs().subUnits().stream().map(UnitReference::unit)
+                    () -> assertFalse(instance.header().inputs().templates().stream().map(UnitReference::unit)
                             .anyMatch(unit -> KEY_POINTS.equals(unit) || QUESTIONS_ONLY.equals(unit))));
         }
 
@@ -817,6 +818,163 @@ class PlanInstanceComposerTest {
                     () -> assertTrue(routes(instance, "outline.light-review", "failed", "outline.light-regate"),
                             "the light review re-enters the light re-gate"),
                     () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header())));
+        }
+    }
+
+    /**
+     * The version as the set of files the specification states: the plan unit's file and one file per composed phase
+     * sub-workflow and bound axis variant, all named by the header by digest, a pruned call composing no file.
+     */
+    @Nested
+    @DisplayName("Composed set")
+    class ComposedSet {
+
+        private static final InstancePosition AT_INIT = InstancePosition.at("init.begin");
+
+        private static PlanInstance merged() {
+            return composed(PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(CompositionEvent.START,
+                    facts().build(), Optional.empty(), AT_INIT, List.of())));
+        }
+
+        private static PlanInstance perLane(CompositionEvent event, Lane lane, String position) {
+            var previous = event == CompositionEvent.START ? Optional.<PlanInstance>empty()
+                    : Optional.of(composed(PlanFixtures.perLaneComposer().compose(PlanFixtures.perLaneRequest(
+                    CompositionEvent.START, facts().lane(lane).build(), Optional.empty(),
+                    InstancePosition.at("init.ready")))));
+            return composed(PlanFixtures.perLaneComposer().compose(PlanFixtures.perLaneRequest(event,
+                    facts().lane(lane).build(), previous, InstancePosition.at(position))));
+        }
+
+        @Test
+        @DisplayName("the header names the plan unit's file and one composed file per phase unit, each by the digest "
+                + "of its text, and the version composes exactly those files")
+        void headerNamesTheSet() {
+            var instance = merged();
+            var composedUnits = instance.header().inputs().templates().stream()
+                    .filter(reference -> reference.file().filter(file -> file.startsWith("instance/"))
+                            .isPresent())
+                    .toList();
+
+            assertAll(
+                    () -> assertEquals(PlanInstanceStore.versionPath(1),
+                            composedUnits.getFirst().file().orElseThrow()),
+                    () -> assertTrue(composedUnits.size() > 2, composedUnits::toString),
+                    () -> composedUnits.stream().skip(1).forEach(reference ->
+                            assertEquals(reference.digest(), instance.composed(reference.unit()).orElseThrow()
+                                    .digest())),
+                    () -> assertEquals(instance.units().size(), composedUnits.size() - 1),
+                    () -> instance.units().forEach(unit -> assertEquals(PlanFacts.sha256(unit.text()),
+                            unit.digest())),
+                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header())));
+        }
+
+        @Test
+        @DisplayName("a composed phase file keeps the id, type, entries and exits of its template, repeats the "
+                + "version, and carries no instance line")
+        void phaseFileKeepsItsTemplate() {
+            var instance = merged();
+            var phase = instance.units().stream().filter(unit -> unit.unit().startsWith("phase-")).findFirst()
+                    .orElseThrow();
+            var template = InvariantFixtures.passingUnits(UnitOrigin.PROJECT).get(phase.unit());
+
+            assertAll(
+                    () -> assertEquals(template.id(), phase.definition().id()),
+                    () -> assertEquals(template.scope(), phase.definition().scope()),
+                    () -> assertEquals(template.entryBindings(), phase.definition().entryBindings()),
+                    () -> assertEquals(template.frontmatter().entries(), phase.definition().frontmatter().entries()),
+                    () -> assertEquals(template.frontmatter().exits(), phase.definition().frontmatter().exits()),
+                    () -> assertEquals(UnitType.SUBWORKFLOW, phase.definition().frontmatter().type()),
+                    () -> assertEquals(1, phase.version()),
+                    () -> assertTrue(phase.definition().instance().isEmpty()),
+                    () -> assertTrue(phase.text().startsWith("---\n")),
+                    () -> assertTrue(phase.text().contains("version 1 format 1"), phase.text()));
+        }
+
+        @Test
+        @DisplayName("a pruned call composes no file: the light calls of a deep version have neither a call state nor "
+                + "a file, and a light version keeps both routes and their files")
+        void prunedCallComposesNoFile() {
+            var deep = perLane(CompositionEvent.OUTLINE, Lane.DEEP, "outline.deep");
+            var light = perLane(CompositionEvent.OUTLINE, Lane.LIGHT, "outline.light");
+
+            assertAll(
+                    () -> assertFalse(deep.unit().states().containsKey("phases.plan-light")),
+                    () -> assertTrue(deep.composed("phase-plan-light").isEmpty(), deep.units()::toString),
+                    () -> assertTrue(deep.composed("phase-execute-light").isEmpty(), deep.units()::toString),
+                    () -> assertTrue(deep.composed("phase-plan").isPresent(), deep.units()::toString),
+                    () -> assertTrue(light.composed("phase-plan-light").isPresent(), light.units()::toString),
+                    () -> assertTrue(light.composed("phase-execute-light").isPresent(), light.units()::toString),
+                    () -> assertEquals(deep.units().size() + 2, light.units().size(),
+                            () -> deep.units() + " / " + light.units()));
+        }
+
+        @Test
+        @DisplayName("the shared states before the lane split survive in both lanes' versions, and only the other "
+                + "lane's call states are pruned")
+        void sharedStatesSurvive() {
+            var deep = perLane(CompositionEvent.OUTLINE, Lane.DEEP, "outline.deep");
+            var light = perLane(CompositionEvent.OUTLINE, Lane.LIGHT, "outline.light");
+
+            assertAll(
+                    () -> assertTrue(deep.unit().states().containsKey("refine.baseline-reconcile"),
+                            deep.unit().states().keySet()::toString),
+                    () -> assertTrue(light.unit().states().containsKey("refine.baseline-reconcile"),
+                            light.unit().states().keySet()::toString),
+                    () -> assertTrue(deep.unit().states().containsKey("outline.deep")),
+                    () -> assertTrue(light.unit().states().containsKey("outline.deep")),
+                    () -> assertTrue(light.unit().states().containsKey("phases.execute-light")),
+                    () -> assertFalse(deep.unit().states().containsKey("phases.execute-light")));
+        }
+
+        @Test
+        @DisplayName("a call pruned inside a composed phase reaches nothing: its callee is composed as no file and its "
+                + "states are no position of the version")
+        void prunedCallInsideAComposedUnit() {
+            var rules = ((CompositionRules.Loaded) CompositionRules.parse("""
+                    {"format_version": 1, "revision": "t1", "rules": [
+                      {"id": "prune-land-call",
+                       "when": {"fact": "lane", "equals": "deep"},
+                       "then": {"prune": [{"element": "call", "id": "execute.land-entry/land",
+                                           "reason": "other_lane"}]}}]}
+                    """.getBytes(StandardCharsets.UTF_8))).rules();
+            var instance = composed(PlanFixtures.mergedComposer(rules).compose(PlanFixtures.mergedRequest(
+                    CompositionEvent.START, facts().build(), Optional.empty(), AT_INIT, List.of())));
+            var refused = refused(PlanFixtures.mergedComposer(rules).compose(PlanFixtures.mergedRequest(
+                    CompositionEvent.START, facts().build(), Optional.empty(),
+                    InstancePosition.at("land.verify-sweep"), List.of())));
+
+            assertAll(
+                    () -> assertTrue(instance.composed("phase-5-execute").isPresent(), instance.units()::toString),
+                    () -> assertTrue(instance.composed("land").isEmpty(),
+                            () -> "land is reached only through a pruned call: " + instance.units()),
+                    () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal()),
+                    () -> assertEquals(List.of("position: version 1 does not contain the state 'land.verify-sweep'"),
+                            refused.violations()),
+                    () -> assertTrue(instance.header().pruned().stream().anyMatch(pruned ->
+                                    pruned.element() == PrunedElement.Kind.CALL
+                                            && "execute.land-entry/land".equals(pruned.id())
+                                            && pruned.reason() == PruneReason.OTHER_LANE),
+                            instance.header().pruned()::toString),
+                    () -> assertEquals(PlanProcessStates.State.NOT_IN_THIS_PLAN,
+                            PlanProcessStates.derive(instance, List.of()).stream()
+                                    .filter(node -> "execute.land-entry".equals(node.node())).findFirst()
+                                    .orElseThrow().state()));
+        }
+
+        @Test
+        @DisplayName("a state only a pruned call reaches is no position of the version, so a version that no longer "
+                + "contains the current state is refused position_not_contained")
+        void positionOverTheSet() {
+            var refused = refused(PlanFixtures.perLaneComposer().compose(PlanFixtures.perLaneRequest(
+                    CompositionEvent.OUTLINE, facts().lane(Lane.DEEP).build(),
+                    Optional.of(perLane(CompositionEvent.START, Lane.DEEP, "init.ready")),
+                    InstancePosition.at("phase-plan-light.begin"))));
+
+            assertAll(
+                    () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal()),
+                    () -> assertTrue(refused.violations().contains(
+                                    "position: version 2 does not contain the state 'phase-plan-light.begin'"),
+                            refused.violations()::toString));
         }
     }
 
