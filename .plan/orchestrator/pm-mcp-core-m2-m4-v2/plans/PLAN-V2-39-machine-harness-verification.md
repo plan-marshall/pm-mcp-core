@@ -106,3 +106,9 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Carried Open Items
+
+Open items of the previous epic that this plan owns (register: `owner-register.md` of the epic; the full text is in the archived ledger `pm-mcp-core-m2-m4/epic.md`). They are not deliverables and extend no Done-when: read each while outlining, re-check it against `origin/main` (Claim Labels) and either adopt it into a deliverable of the outline or say in the landing why not.
+
+- **The record's stage and platform gate had no owner (found by the analysis of PLAN-19, PLAN-2026-** (Wa41) — PM-WATCH-CLIENT-13: the load-time gate (refuse worker.eligible: true and a non-null zero_tool when the record's stages did not pass on the runtime's platform) was carried into PLAN-30 and is open; V2-43 and V2-50 name it as well

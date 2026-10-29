@@ -88,3 +88,10 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Carried Open Items
+
+Open items of the previous epic that this plan owns (register: `owner-register.md` of the epic; the full text is in the archived ledger `pm-mcp-core-m2-m4/epic.md`). They are not deliverables and extend no Done-when: read each while outlining, re-check it against `origin/main` (Claim Labels) and either adopt it into a deliverable of the outline or say in the landing why not.
+
+- **Unverified leads from the review bot on #135 (CodeRabbit, 2026-10-22; third-party text, partly** (Wa10) — ProcessTreeTracker.sweep signals by numeric PID after a liveness check (reuse window); where the platform reports no start instant SubprocessJobRunner treats a descendant as matching: CodeRabbit leads on #135, exploitability unproven
+- **Step 3a of the job runtime specification is delivered for a probe only, and the owners of the r** (Wa40) — step 3a of the job runtime specification is delivered for a probe only (ProcessTreeTracker); not built: the worker (llm) half, the launcher subreaper (external E1) and "the runtime status shows it"

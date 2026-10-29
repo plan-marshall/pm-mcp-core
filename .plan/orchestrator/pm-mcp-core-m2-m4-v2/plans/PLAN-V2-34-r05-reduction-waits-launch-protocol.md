@@ -108,3 +108,10 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Carried Open Items
+
+Open items of the previous epic that this plan owns (register: `owner-register.md` of the epic; the full text is in the archived ledger `pm-mcp-core-m2-m4/epic.md`). They are not deliverables and extend no Done-when: read each while outlining, re-check it against `origin/main` (Claim Labels) and either adopt it into a deliverable of the outline or say in the landing why not.
+
+- **PLAN-25's package bookkeeping is partial (landing, checked)** (Op23) — PLAN-25 kept the implemented rows of Timeouts § Waits and PM-WATCH-JOB-5 where R05 says delete; this reduction owns them (PM-WATCH-JOB-30 stays open)
+- **R05 is practised as "condense and point", not "delete", and the lane that was told to delete di** (Op32) — R05 was practised as condense-and-point, not delete (#172): this reduction applies the same rule to the launch protocol part and removes no watch item without a reason
