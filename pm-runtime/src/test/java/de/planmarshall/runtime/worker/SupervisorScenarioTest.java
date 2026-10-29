@@ -262,6 +262,76 @@ class SupervisorScenarioTest {
     }
 
     @Test
+    @DisplayName("a pause at once of a plan with a leased task withdraws it, fences its generation and re-offers nothing")
+    void aPauseAtOnceWithALeasedTask() throws Exception {
+        var fixture = new SupervisorTestFixture(base);
+        var environment = fixture.environment(SupervisorEnvironment.StartGuard.open(),
+                SupervisorEnvironment.EligibilityGate.open());
+        var supervisor = new WorkerSupervisor(environment);
+        var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
+        var generation = assertInstanceOf(StartOutcome.Started.class,
+                supervisor.start(List.of(fixture.freshRequest(role))).getFirst()).generation();
+        var leased = generation.withLeasedTask(TASK);
+        var ending = new WorkerEnding(environment, () -> false, () -> {
+        });
+
+        ending.forceEnd(leased, EndCause.PAUSE_AT_ONCE);
+        var terminal = ending.exited(leased);
+
+        assertAll(
+                () -> assertEquals(TASK, leased.leasedTask(), "the paused generation holds the task's lease"),
+                () -> assertEquals(List.of(JobRunner.CancelCause.PLAN_PAUSED_NOW), fixture.starter.cancels,
+                        "the leased worker is cancelled with the operator's pause"),
+                () -> assertEquals(List.of(generation.generationId()), fixture.protocol.fences,
+                        "the fence is recorded for the paused generation"),
+                () -> assertFalse(EndCause.PAUSE_AT_ONCE.spendsReoffer(),
+                        "the paused attempt's re-offer budget is not spent"),
+                () -> assertEquals(1, fixture.stateWriter.writes.size(), "the terminal state is written once"),
+                () -> assertEquals(WorkerState.EndReason.WITHDRAWN,
+                        fixture.stateWriter.writes.getFirst().endReason(), "the record names the withdrawal"),
+                () -> assertTrue(terminal.terminal(), "the generation ends"));
+    }
+
+    @Test
+    @DisplayName("a continuing worker's missing answer acknowledgement is a loss at its deadline, and an acknowledged one is none")
+    void theMissingAnswerAcknowledgementOfAContinuingWorker() throws Exception {
+        var fixture = new SupervisorTestFixture(base);
+        var parameters = parameters(OptionalInt.of(ACK_SECONDS), false);
+        var answeredAt = NOW.plusSeconds(2);
+        var silent = fixture.detection(RoleClass.WRITER, parameters);
+        silent.started(NOW);
+        silent.offered(TASK, NOW);
+        silent.acknowledged(NOW.plusSeconds(1));
+        silent.waitOpened(answeredAt);
+        silent.waitClosed(answeredAt);
+        silent.answerDelivered(answeredAt);
+        var acknowledging = fixture.detection(RoleClass.WRITER, parameters);
+        acknowledging.started(NOW);
+        acknowledging.offered(TASK, NOW);
+        acknowledging.acknowledged(NOW.plusSeconds(1));
+        acknowledging.waitOpened(answeredAt);
+        acknowledging.waitClosed(answeredAt);
+        acknowledging.answerDelivered(answeredAt);
+        acknowledging.acknowledged(answeredAt.plusSeconds(1));
+        var deadline = answeredAt.plusSeconds(ACK_SECONDS);
+
+        fixture.clock.moveTo(deadline.minusMillis(1));
+        var before = fixture.signals.size();
+        fixture.clock.moveTo(deadline);
+        var at = fixture.signals.size();
+
+        assertAll(
+                () -> assertEquals(0, before, "nothing fires a millisecond before the answer's deadline"),
+                () -> assertEquals(1, at, "one continuing worker missed its acknowledgement"),
+                () -> assertEquals(LossReason.ACK_MISSED, fixture.signals.getFirst().reason(),
+                        "the loss is the missing acknowledgement"),
+                () -> assertEquals(TASK, fixture.signals.getFirst().leasedTask(),
+                        "the loss names the task the worker holds"),
+                () -> assertTrue(acknowledging.due(deadline.plusSeconds(1)).isEmpty(),
+                        "a worker that acknowledges the answer has no acknowledgement loss"));
+    }
+
+    @Test
     @DisplayName("a consulting wait_again is no idle wake-up, while an idle warm worker recycles at its bound")
     void aConsultingWaitAgainIsNoIdleWakeUp() throws Exception {
         var fixture = new SupervisorTestFixture(base);

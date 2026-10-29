@@ -31,7 +31,7 @@ All types are package-private test code.
 from the text of a script and refuses every line the harness does not run; `REFUSED` maps each refused directive of
 the specification to the work package that brings it.
 `ScenarioDirective`:: The sealed step of a script, each with its line: `Start`, `AssertState`, `AssertOutcome`,
-`CompleteJob`, `AnswerQuestion`, `AssertTaskOutcome`. `Worker` is the declaration of the scripted
+`CompleteJob`, `AnswerQuestion`, `AssertTaskOutcome`, `OperatorDo`. `Worker` is the declaration of the scripted
 worker of one role; it is no step. Job ids, question ids, fates and task outcomes are checked against the shapes and
 closed sets `EngineEvent` states.
 `ScenarioReplayRunner`:: Replays one script once against the real engine and keeps the stored status bytes after every
@@ -81,9 +81,9 @@ assert_outcome merged
 * One directive per line; words are separated by blanks; a `#` outside a quoted string starts a comment.
 * `worker <role> <task outcome>...` declares the scripted worker of a role and the task outcomes it delivers, one per
   task, in order; a role is declared at most once.
-* The JSON-shaped argument of `complete_job` and `answer_question` is read with its scalar members, and the directive
-  uses one of them: `outcome` (the fate of the job) and `branch_key` (the outcome the answer chooses). Other scalar
-  members are accepted and not used.
+* The JSON-shaped argument of `complete_job`, `answer_question` and `operator_do` is read with its scalar members, and
+  the directive uses one of them: `outcome` (the fate of the job), `branch_key` (the outcome the answer chooses) and
+  the free parameters of an operator link. Other scalar members are accepted and not used.
 
 [cols="2,3"]
 |===
@@ -108,6 +108,12 @@ directive that fires a deadline.
 
 |`assert_task_outcome <role> <task outcome>`
 |Compares the outcome of the last task the worker of the role settled.
+
+|`operator_do <link> <channel> [{"<name>":"<value>"}]`
+|Delivers `OperatorAct` at the state the scope rests in: the operator follows the offered link on the channel `web` or
+`cli`, with the free parameters of the link when it has any
+(link:../adr/workflow-scenario/008-operator-act-through-operator-do.adoc[ADR 008]). The channel is recorded in the step
+only, as it is for `answer_question`; the engine refuses an act the resting state does not offer, at the step's line.
 |===
 
 Every other directive the specification names is refused by name when the script is read, with its line and the work
@@ -183,6 +189,9 @@ package-private `EngineFixtures` of the engine tests
   role `reviewer` (`execute.review`, entity kind `change`), a question state of the class `review` (`execute.ask`), a
   question state of the class `clarification` (`execute.confirm`), and the terminals `completed` (outcome `merged`) and
   `handed_back`.
+* `OPERATOR_UNIT`: a plan unit that starts in an operator wait (`execute.wait`) with the plain link `proceed` and the
+  link `choose` with one free text parameter, both running a primitive of the fixtures, and the same two terminals.
+  The fixture binder binds the link's parameter into the record of `scenario.note`.
 * The primitives `scenario.prepare`, `scenario.build` and `scenario.evaluate` each return one fixed outcome. The job
   state is entered without a job-starting outcome, so the engine starts its job through the job port.
 * The entity kind `change` is registered with no entity unit and the return evaluation `scenario.evaluate`
@@ -226,7 +235,8 @@ _Requirements: link:{docs}/Requirements.adoc#PM-TEST-4[PM-TEST-4]_
 . Replay it with `new ScenarioReplayRunner(ScenarioFixtures.planUnit(), directory).run(ScenarioScript.read(text))`, the
   directory a `@TempDir`.
 . A scenario that needs another unit writes its own unit as DSL text and parses it with `ScenarioFixtures.parse`; a
-  new primitive or entity kind goes into `ScenarioFixtures.registry()` and `entityKinds()`.
+  new primitive or entity kind goes into `ScenarioFixtures.registry()` and `entityKinds()`. An operator wait is
+  replayed through `ScenarioFixtures.operatorUnit()` and the `operator_do` directive.
 
 [cols="1,3"]
 |===
@@ -237,7 +247,8 @@ refused directive refused by name and line with its package; malformed lines ref
 |`ScenarioReplayRunnerTest` |A replay to the unit's terminal with every directive; each assertion failing at its line
 with the expected and actual value; an unaccepted event failing, never skipped; the worker settling `submitted`,
 `infeasible` and `lost`; a missing worker, an `asked` task and a surplus outcome failing with the role; the bytes kept
-after every step
+after every step; an operator act taking its link and its free parameters, an unoffered link failing at its line, and
+the operator script replaying twice to the same bytes
 |`ScenarioDeterminismTest` |Two replays with identical bytes after every step; a changed transition failing at the
 assertion after the step that takes it, with the same bytes before it
 |===
@@ -264,9 +275,13 @@ The harness runs what the engine supports today. These parts of the specificatio
 
 * the link and worker directives (`assert_links`, `assert_skill`, `assert_rejected`, `do`, `worker_wait`,
   `worker_do`) and a worker that follows the offered links, with the task protocol;
-* the worker faults and the supervision assertions, with `supervision-scenarios`;
+* the worker faults and the supervision assertions, with `supervision-scenarios` (the operator act of that package is
+  here, ADR 008);
 * the hermetic git repository, with the first package that has a git step;
 * the sixteen regression scenarios of the specification, as the layers they need land.
+
+The behavioural conformance harness of the specification (`PM-TEST-6`) and its comparison footprint are not a part of
+this package: they live in `pm-conformance` of `plan-marshall-mcp` (link:../adr/workflow-scenario/007-conformance-harness-in-pm-conformance.adoc[ADR 007]).
 
 == Decisions
 
@@ -281,3 +296,7 @@ The harness runs what the engine supports today. These parts of the specificatio
 * link:../adr/workflow-scenario/005-scenario-script-as-text-in-the-test.adoc[ADR 005]: the script is text in the test.
 * link:../adr/workflow-scenario/006-own-fixtures-of-the-scenario-package.adoc[ADR 006]: the scenario package has its
   own fixtures.
+* link:../adr/workflow-scenario/007-conformance-harness-in-pm-conformance.adoc[ADR 007]: the behavioural conformance
+  harness and the comparison footprint live in `pm-conformance`, not here.
+* link:../adr/workflow-scenario/008-operator-act-through-operator-do.adoc[ADR 008]: an operator act is given by the
+  `operator_do` directive.
