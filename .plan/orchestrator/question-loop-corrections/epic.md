@@ -35,10 +35,15 @@ when the three plans have landed and the roadmap item of Milestone 4 can be chec
 - PLAN-02 — touches `doc/plans/` here and `doc/plans/` of `plan-marshall-mcp`; disjoint from PLAN-01. Its change to
   `doc/plans/question-continuation.adoc` concerns PLAN-73 of the sibling epic `pm-mcp-core-m2-m4`, shipped as #201 (see
   Watches). Its sixth deliverable follows the OpenCode 2.x worker of #206 and documentation #125.
-- PLAN-03 — runs in `plan-marshall-mcp` (the package `question-loop-follow-up` as PLAN-02 leaves it); its surface lies
-  outside this repository, so the gate reads it as indeterminate and sequences it. It is launched by the operator's word
-  after PLAN-01 and PLAN-02 have landed and the operator accepted the run budget the package asks for. PLAN-02 and PLAN-01
-  both landed 2026-10-28; only the run budget (and the data-home choice the package records) is still open.
+- PLAN-03 — runs in `plan-marshall-mcp` (the package `question-loop-follow-up` as PLAN-02 leaves it). Since 2026-10-29
+  it is the Claude Code part only: the package amendment, the extracted driver, the evidence store and the Claude Code
+  groups. It is launched by the operator's word after PLAN-01 and PLAN-02 have landed (both did, 2026-10-28) and the
+  operator accepted the run budget recomputed for the Claude Code groups. Its declared surface lies in the sibling
+  repositories and is read as declarative (`corpus surfaces`, 2026-10-29).
+- PLAN-04 — the OpenCode and Antigravity part, split from PLAN-03 on 2026-10-29; staged and deferred. Launch conditions
+  (spec, Standing Constraints): PLAN-03 landed, a consumer package for the OpenCode values (Milestone 14 or `pm-mcp-clients`)
+  or the operator's recorded decision to go without, Antigravity usable (about 2026-10-31 07:10 CET), and the run budget
+  and data home confirmed. Same surface as PLAN-03, so it is sequenced after it, never concurrent.
 
 ## Decisions
 
@@ -88,6 +93,16 @@ when the three plans have landed and the roadmap item of Milestone 4 can be chec
   path covers a failed hold. Supersedes the 5 and 8 runs recorded earlier the same day. Alternatives not taken: 20 runs
   for all items (the 240 h default); 20 only for the rate items (the cost is mostly there); dropping the measurement (the
   values stay provisional).
+- 2026-10-29 — PLAN-03 split by host (operator, after a benefit-versus-cost analysis; `next` emitted nothing). Reason: the
+  harnesses change nearly daily, so a measured value is a statement about the client versions it was measured on and goes
+  stale within days; the repeatable driver and the evidence store keep their value, the numbers do not. The OpenCode 2.x
+  profile (Milestone 14) and the shipped profile documents of `pm-mcp-clients` have no work package, so OpenCode and
+  Antigravity values have no consumer yet, and Antigravity is unavailable before about 2026-10-31. Decided: PLAN-03 keeps
+  the package amendment, the extraction of the driver for all three hosts, the evidence store and the Claude Code groups;
+  PLAN-04 (new, staged, deferred) takes tasks 3 and 4, the OpenCode and Antigravity groups, their values and the close of
+  the package. The package stays open until PLAN-04's part is done; the bound is settled for Claude Code as host-specific.
+  Alternatives not taken: emit PLAN-03 whole (spends budget on values without a consumer, and waits on Antigravity);
+  defer it entirely (leaves the driver and the Claude Code values, the one part with a consumer, undone).
 - 2026-10-27 — The `pm-mcp-core` executor in the main checkout was stale (0.1.1924 against the registry's 0.1.2017) and
   was regenerated from the plugin cache before scaffolding; the old file is kept in the session scratchpad. The shared
   ledger worktree was fast-forwarded from #78 to `origin/main` (#195), with no pending paths.
@@ -121,7 +136,9 @@ when the three plans have landed and the roadmap item of Milestone 4 can be chec
 
 - Launching a plan from the main checkout reads that checkout's copy of the spec, which is older than the ledger copy
   when the orchestrator has incorporated changes (PLAN-01's landing: `spec_differ: true`, and its D3 limit was lost to it).
-  Before PLAN-03 is emitted, compare the two copies or hand the ledger copy over. — retire when PLAN-03 is launched.
+  Before PLAN-03 is emitted, compare the two copies or hand the ledger copy over. The copies were identical on
+  2026-10-29, before the host split rewrote PLAN-03 and staged PLAN-04 in the ledger copy; landing the ledger fast-forwards
+  the main checkout, so compare again after the land. — retire when PLAN-03 is launched.
 
 - `pm-mcp-core-m2-m4` PLAN-73 (`question-continuation`) read `question-loop-verification` as `done` and its
   dependencies as met, although no `headless.resumability`, `questions` or bound value was settled. A finding was sent to
@@ -148,13 +165,14 @@ when the three plans have landed and the roadmap item of Milestone 4 can be chec
   measure it (the local `plan-marshall-mcp` checkout is behind `origin/main`). The clause is still in the spec of a
   shipped plan. — measure on current checkouts before PLAN-03 repeats the clause.
 - The run budget PLAN-03 waits on: task 6 of the package names about 55 USD and about 240 h as the default, an estimate
-  from the smoke figures. The scale was reduced 2026-10-28 (see Decisions); the orchestrator's rough estimate for the
-  decision-driven scale is 12 to 25 USD and 15 to 25 h of machine time (one to two days elapsed), unmeasured, and task 6
-  of the package recomputes it. — the operator confirms or replaces it before PLAN-03 is launched.
-- Gemini / Antigravity is available from about 2026-10-31 07:10 CET (operator, 2026-10-28 18:10 CET, "in 2 d 13 h"). PLAN-03
-  starts its Antigravity groups at or after that time and does the Claude Code and OpenCode groups first; the Claude Code
-  and OpenCode part (about one to two days) fits before it. — retire when the Antigravity groups have run, or move the
-  date if the operator gives a new one.
+  from the smoke figures. The scale was reduced 2026-10-28 and the plan split by host 2026-10-29 (see Decisions); the
+  orchestrator's rough estimate of 12 to 25 USD and 15 to 25 h of machine time covered all three hosts, is unmeasured, and
+  was not recomputed for the Claude Code groups alone (smoke figure: 24 Claude Code runs cost 2.3 to 2.9 USD). Task 6 of
+  the package recomputes it per part. — the operator confirms or replaces it before PLAN-03 is launched, and again
+  before PLAN-04.
+- Gemini / Antigravity is available from about 2026-10-31 07:10 CET (operator, 2026-10-28 18:10 CET, "in 2 d 13 h"). Since
+  the split this binds PLAN-04's Antigravity groups, not PLAN-03. — retire when the Antigravity groups have run, or move
+  the date if the operator gives a new one.
 - The 55 USD default may be low for the full scale: the smoke invocation of 24 Claude Code runs cost 2.3 to 2.9 USD, which
   scaled linearly to 20 runs per fixture and host is above 55 USD. Not reproduced from the package text. — task 6 settles
   it; moot if the reduced scale stands.
