@@ -140,8 +140,8 @@ public final class PlanInstanceComposer {
         var composed = composedUnits(request, pruned.states(), effects, bound, lanePruned, version);
         if (!composed.unresolved().isEmpty()) {
             return new CompositionResult.Refused(CompositionResult.Refusal.INVARIANT_FAILED,
-                    composed.unresolved().stream().map(id -> "the call of '%s' names no sub-unit of the request"
-                            .formatted(id)).toList());
+                    composed.unresolved().stream()
+                            .map("the call of '%s' names no sub-unit of the request"::formatted).toList());
         }
         var positionStates = new LinkedHashSet<>(pruned.states().keySet());
         positionStates.addAll(composed.positionStates());
@@ -198,24 +198,23 @@ public final class PlanInstanceComposer {
         keptStates.values().forEach(state -> callee(state).ifPresent(queue::add));
         while (!queue.isEmpty()) {
             var id = queue.poll();
-            if (!visited.add(id)) {
-                continue;
-            }
-            if (!byId.containsKey(id)) {
-                unresolved.add(id);
-                continue;
-            }
-            if (isComposedUnit(id)) {
-                var unit = composeUnit(byId.get(id).definition(), request, effects, boundVariants, lane, version);
-                units.put(id, unit.file());
-                prunes.addAll(unit.pruned());
-                states.addAll(unit.file().definition().states().keySet());
-                unit.file().definition().states().values().forEach(state -> callee(state).ifPresent(queue::add));
-            } else {
-                bound.add(id);
-                var definition = byId.get(id).definition();
-                states.addAll(definition.states().keySet());
-                definition.states().values().forEach(state -> callee(state).ifPresent(queue::add));
+            if (visited.add(id)) {
+                var subUnit = byId.get(id);
+                if (subUnit == null) {
+                    unresolved.add(id);
+                } else if (isComposedUnit(id)) {
+                    var unit = composeUnit(subUnit.definition(), request, effects, boundVariants, lane, version);
+                    units.put(id, unit.file());
+                    prunes.addAll(unit.pruned());
+                    states.addAll(unit.file().definition().states().keySet());
+                    unit.file().definition().states().values()
+                            .forEach(state -> callee(state).ifPresent(queue::add));
+                } else {
+                    bound.add(id);
+                    states.addAll(subUnit.definition().states().keySet());
+                    subUnit.definition().states().values()
+                            .forEach(state -> callee(state).ifPresent(queue::add));
+                }
             }
         }
         var ordered = request.subUnits().stream().map(subUnit -> subUnit.definition().id())
