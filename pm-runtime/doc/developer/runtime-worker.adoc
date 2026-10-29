@@ -429,9 +429,9 @@ scenario reads its real output stream through `Handle.awaitLine(Duration)`.
 link:{test}/SupervisorScenarioTest.java[`SupervisorScenarioTest`]:: The package's Done When. Every deadline is asserted at
 deadline−1, at the deadline and after it; the consultation, resume and `agent_started` scenarios start
 `FixtureHarness` and read its scripted stream, so what the harness does is observed rather than assumed. The scenarios
-of this package's supervision work add the pause at once of a plan with a leased task (the fence releases the lease and
-the attempt's re-offer budget is not spent) and the missing acknowledgement of a continuing worker (a loss at the
-answer's deadline, with an acknowledging worker as the matched control).
+of this package's supervision work add the pause at once of a plan with a leased task (the generation is fenced and
+its cause spends no re-offer) and the missing acknowledgement of a continuing worker (a loss at the answer's
+deadline, with an acknowledging worker as the matched control).
 link:{test}/OffTrackScenarioTest.java[`OffTrackScenarioTest`]:: The off-track scenarios of Model Work § A Worker Off
 Track ("Verified by scenarios"): the harness prints a scripted output stream that the test reads back, writes to the
 worker's log in its step order, and hands to the real `WorkerActivityPump`, `ActivityRecorder` and `OffTrackDetector` —

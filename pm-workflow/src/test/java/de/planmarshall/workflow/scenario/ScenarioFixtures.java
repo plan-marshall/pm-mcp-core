@@ -268,7 +268,10 @@ final class ScenarioFixtures {
         @Override
         public Record bind(Primitive<?, ?> primitive, WorkflowStatus status, Map<String, String> parameters) {
             if ("scenario.note".equals(primitive.id())) {
-                return new NoteParams(parameters.getOrDefault("note", ""));
+                if (!parameters.containsKey("note")) {
+                    throw new IllegalArgumentException("the link of 'scenario.note' takes its free parameter 'note'");
+                }
+                return new NoteParams(parameters.get("note"));
             }
             return bind(primitive, status);
         }

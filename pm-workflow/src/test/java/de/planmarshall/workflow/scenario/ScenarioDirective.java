@@ -179,11 +179,12 @@ sealed interface ScenarioDirective {
             if (!CHANNELS.contains(channel)) {
                 throw new IllegalArgumentException("'%s' is no operator channel: web or cli".formatted(channel));
             }
-            parameters = Map.copyOf(parameters);
+            Objects.requireNonNull(parameters, "parameters");
             parameters.forEach((name, value) -> {
                 requireToken(name, "parameter name");
                 Objects.requireNonNull(value, name);
             });
+            parameters = Map.copyOf(parameters);
         }
     }
 

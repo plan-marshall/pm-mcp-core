@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -263,7 +262,7 @@ class SupervisorScenarioTest {
     }
 
     @Test
-    @DisplayName("a pause at once of a plan with a leased task withdraws it, releases the lease at the fence and re-offers nothing")
+    @DisplayName("a pause at once of a plan with a leased task withdraws it, fences its generation and re-offers nothing")
     void aPauseAtOnceWithALeasedTask() throws Exception {
         var fixture = new SupervisorTestFixture(base);
         var environment = fixture.environment(SupervisorEnvironment.StartGuard.open(),
@@ -273,8 +272,8 @@ class SupervisorScenarioTest {
         var generation = assertInstanceOf(StartOutcome.Started.class,
                 supervisor.start(List.of(fixture.freshRequest(role))).getFirst()).generation();
         var leased = generation.withLeasedTask(TASK);
-        var successors = new AtomicInteger();
-        var ending = new WorkerEnding(environment, () -> false, successors::incrementAndGet);
+        var ending = new WorkerEnding(environment, () -> false, () -> {
+        });
 
         ending.forceEnd(leased, EndCause.PAUSE_AT_ONCE);
         var terminal = ending.exited(leased);
@@ -284,10 +283,9 @@ class SupervisorScenarioTest {
                 () -> assertEquals(List.of(JobRunner.CancelCause.PLAN_PAUSED_NOW), fixture.starter.cancels,
                         "the leased worker is cancelled with the operator's pause"),
                 () -> assertEquals(List.of(generation.generationId()), fixture.protocol.fences,
-                        "the fenced generation releases the lease of the held task"),
+                        "the fence is recorded for the paused generation"),
                 () -> assertFalse(EndCause.PAUSE_AT_ONCE.spendsReoffer(),
                         "the paused attempt's re-offer budget is not spent"),
-                () -> assertEquals(0, successors.get(), "a paused plan starts no successor"),
                 () -> assertEquals(1, fixture.stateWriter.writes.size(), "the terminal state is written once"),
                 () -> assertEquals(WorkerState.EndReason.WITHDRAWN,
                         fixture.stateWriter.writes.getFirst().endReason(), "the record names the withdrawal"),

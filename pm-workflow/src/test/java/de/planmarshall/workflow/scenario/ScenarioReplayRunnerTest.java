@@ -349,7 +349,25 @@ class ScenarioReplayRunnerTest {
 
             assertAll(
                     () -> assertEquals(3, failure.line()),
-                    () -> assertTrue(failure.getMessage().contains("the event was not accepted"),
+                    () -> assertTrue(failure.getMessage().contains("offers no link 'unknown'"),
+                            failure.getMessage()));
+        }
+
+        @Test
+        @DisplayName("Should refuse a link whose declared free parameter the act omits, at the step's line")
+        void shouldFailAnActWithoutItsFreeParameter() {
+            var runner = operatorRunner(directory);
+            var script = ScenarioScript.read("""
+                    scenario operator-missing-parameter
+                    start plan scenario-operator
+                    operator_do choose cli {"other":"x"}
+                    """);
+
+            var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script));
+
+            assertAll(
+                    () -> assertEquals(3, failure.line()),
+                    () -> assertTrue(failure.getMessage().contains("free parameter 'note'"),
                             failure.getMessage()));
         }
 
