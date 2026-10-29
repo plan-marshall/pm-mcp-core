@@ -60,6 +60,7 @@ class LockKeyTest {
     static Stream<Arguments> machineStoreKeys() {
         return Stream.of(
                 Arguments.of(LockKey.buildSlots(BASE), "locks/build-slots.lock", "state/build-slots.json"),
+                Arguments.of(LockKey.consents(BASE), "locks/consents.lock", "consents.json"),
                 Arguments.of(LockKey.credentials(BASE), "locks/credentials.lock", "credentials"),
                 Arguments.of(LockKey.enrolment(BASE, PROJECT), "locks/enrolments/sample-project.lock",
                         "enrolments/sample-project.json"),
@@ -68,9 +69,12 @@ class LockKeyTest {
                         "state/install-records.json"),
                 Arguments.of(LockKey.machineConfiguration(BASE), "locks/machine-config.lock", "machine-config.json"),
                 Arguments.of(LockKey.mergeQueue(BASE), "locks/merge.lock", "state/merge-queue.json"),
+                Arguments.of(LockKey.modelCatalogue(BASE), "locks/model-catalogue.lock", "model-catalogue.json"),
                 Arguments.of(LockKey.modelSlots(BASE), "locks/model-slots.lock", "state/model-slots.json"),
                 Arguments.of(LockKey.reviewBotWindows(BASE), "locks/review-bot.lock",
                         "state/review-bot-windows.json"),
+                Arguments.of(LockKey.roleAssignments(BASE), "locks/role-assignments.lock",
+                        "role-assignments.json"),
                 Arguments.of(LockKey.webDevices(BASE), "locks/web-devices.lock", "state/web-devices.json"));
     }
 
@@ -142,7 +146,7 @@ class LockKeyTest {
     class Order {
 
         @Test
-        @DisplayName("the ten machine store locks sort alphabetically by lock path")
+        @DisplayName("the thirteen machine store locks sort alphabetically by lock path")
         void machineStoreLocks() {
             var keys = machineStoreKeys().map(arguments -> (LockKey) arguments.get()[0]).toList();
             var alphabetical = keys.stream().map(key -> BASE.relativize(key.lockFile()).toString()).sorted().toList();
@@ -150,7 +154,7 @@ class LockKeyTest {
             var sorted = sortedAfterShuffle(keys);
 
             assertAll(
-                    () -> assertEquals(10, sorted.size()),
+                    () -> assertEquals(13, sorted.size()),
                     () -> assertEquals(alphabetical,
                             sorted.stream().map(key -> BASE.relativize(key.lockFile()).toString()).toList()));
         }
