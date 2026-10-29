@@ -2,10 +2,10 @@
   "id": "PLAN-43",
   "slug": "phase-sub-workflows",
   "workstream": "WS-03",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-43-phase-sub-workflows",
+  "pr": "#220",
+  "landing": "landings/PLAN-43.md",
   "seq": 43
 }
