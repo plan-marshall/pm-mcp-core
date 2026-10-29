@@ -117,8 +117,9 @@ class MachineConfigurationStoreTest {
     @DisplayName("a change against an older revision is refused with the current value, and nothing is written")
     void conflict() throws Exception {
         Files.writeString(file, DOCUMENT, UTF_8);
+        var stale = defaults();
 
-        var conflict = assertThrows(SettingsConflict.class, () -> store.writeProviders(defaults(), 2L));
+        var conflict = assertThrows(SettingsConflict.class, () -> store.writeProviders(stale, 2L));
 
         assertAll(
                 () -> assertEquals(2L, conflict.expectedRevision()),
@@ -159,8 +160,12 @@ class MachineConfigurationStoreTest {
     @Test
     @DisplayName("a cli variant is refused for a provider without one")
     void cliVariantOfForgejo() {
-        assertThrows(IllegalArgumentException.class, () -> new ProviderDefaults(Map.of(Provider.FORGEJO,
-                new ProviderDefault(true, Optional.of(ProviderVariant.CLI), Optional.empty()))));
+        var cliForgejo = new ProviderDefault(true, Optional.of(ProviderVariant.CLI), Optional.empty());
+        var cli = Map.of(Provider.FORGEJO, cliForgejo);
+
+        var refused = assertThrows(IllegalArgumentException.class, () -> new ProviderDefaults(cli));
+
+        assertTrue(refused.getMessage().contains("forgejo"));
     }
 
     @Test
@@ -170,21 +175,28 @@ class MachineConfigurationStoreTest {
         Files.writeString(version, "{\"format_version\":2,\"revision\":0}", UTF_8);
         Files.writeString(file, "{\"format_version\":1,\"revision\":0,\"max_build_slots\":2,"
                 + "\"lsp_idle_timeout_seconds\":900,\"providers\":{\"mystery\":{\"available\":true}}}", UTF_8);
+        var versionBytes = Files.readAllBytes(version);
+
+        var outdated = assertThrows(StoreRefusal.class,
+                () -> MachineConfigurationCodec.read(version, versionBytes));
+        var unknownProvider = assertThrows(StoreRefusal.class, store::read);
 
         assertAll(
-                () -> assertEquals(StoreRefusal.Outcome.FORMAT_NEWER, assertThrows(StoreRefusal.class,
-                        () -> MachineConfigurationCodec.read(version, Files.readAllBytes(version))).outcome()),
-                () -> assertEquals(file, assertThrows(StoreRefusal.class, store::read).file()));
+                () -> assertEquals(StoreRefusal.Outcome.FORMAT_NEWER, outdated.outcome()),
+                () -> assertEquals(file, unknownProvider.file()));
     }
 
     @Test
     @DisplayName("the store is guarded by the machine configuration lock only")
     void lockKey() {
         var wrong = new AtomicStoreFile(file, LockKey.consents(base));
+        var wrongLocks = new TestLocks();
+
+        var refused = assertThrows(IllegalArgumentException.class,
+                () -> new MachineConfigurationStore(wrong, wrongLocks));
 
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> new MachineConfigurationStore(wrong, new TestLocks())),
+                () -> assertTrue(refused.getMessage().contains("machine configuration")),
                 () -> assertEquals(LockKey.machineConfiguration(base).lockFile(),
                         MachineConfigurationStore.file(base).lockKey().lockFile()));
     }

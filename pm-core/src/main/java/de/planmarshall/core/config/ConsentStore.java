@@ -45,6 +45,9 @@ import de.planmarshall.core.store.StoreSnapshot;
  */
 public final class ConsentStore {
 
+    /** The parameter name {@link #belongsTo(String)} and its callers report for a missing project id. */
+    private static final String PROJECT_ID = "projectId";
+
     /** The revision a document that does not exist reads as. */
     private static final long NO_DOCUMENT = 0L;
 
@@ -81,7 +84,7 @@ public final class ConsentStore {
          */
         public boolean isRemembered(ConsentKind kind, Optional<String> projectId, List<ConsentScript> scripts) {
             Objects.requireNonNull(kind, "kind");
-            Objects.requireNonNull(projectId, "projectId");
+            Objects.requireNonNull(projectId, PROJECT_ID);
             Objects.requireNonNull(scripts, "scripts");
             return consents.stream()
                     .filter(consent -> consent.kind() == kind)
@@ -160,7 +163,7 @@ public final class ConsentStore {
      */
     public Snapshot read() {
         return StoreSnapshot.read(storeFile.store()).content()
-                .map(document -> snapshot(document))
+                .map(this::snapshot)
                 .orElseGet(() -> new Snapshot(List.of(), NO_DOCUMENT));
     }
 
@@ -203,7 +206,7 @@ public final class ConsentStore {
      */
     public boolean withdraw(ConsentKind kind, Optional<String> projectId, long revision) {
         Objects.requireNonNull(kind, "kind");
-        Objects.requireNonNull(projectId, "projectId");
+        Objects.requireNonNull(projectId, PROJECT_ID);
         return mutate(revision, entries -> entries.removeIf(entry -> entry.kind() == kind
                         && sameProject(entry, projectId)) ? 1 : 0,
                 Optional.of(AuditEvent.consentWithdrawn(kind.wireName(), projectId.orElse(null)))) > 0;
@@ -220,7 +223,7 @@ public final class ConsentStore {
      * @throws UncheckedIOException if the document cannot be read or written
      */
     public int removeProject(String projectId, long revision) {
-        Objects.requireNonNull(projectId, "projectId");
+        Objects.requireNonNull(projectId, PROJECT_ID);
         return mutate(revision, entries -> {
             var before = entries.size();
             entries.removeIf(entry -> entry.belongsTo(projectId));

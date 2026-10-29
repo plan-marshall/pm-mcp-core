@@ -164,7 +164,7 @@ class CredentialStoreAspectTest {
     @DisplayName("the file store is checked without a consent and recorded last")
     void fileStoreCheckAndRecord() {
         var checked = aspect.check(Store.FILE);
-        var recorded = aspect.record(Store.FILE);
+        var recorded = aspect.recordStore(Store.FILE);
 
         assertAll(
                 () -> assertEquals(State.RECORD, checked.next()),
@@ -191,7 +191,7 @@ class CredentialStoreAspectTest {
     @Test
     @DisplayName("a passed check with another store recorded reaches store.confirm-move with the entry count")
     void confirmMove() {
-        aspect.record(Store.FILE);
+        aspect.recordStore(Store.FILE);
         new FileSecretStore(base.resolve("credentials")).put(CredentialAccount.global("github"), "secret");
 
         var checked = aspect.check(Store.OS);
@@ -206,7 +206,7 @@ class CredentialStoreAspectTest {
     @Test
     @DisplayName("a failed move keeps the old store and reports credential_store_failed")
     void moveFailed() {
-        aspect.record(Store.FILE);
+        aspect.recordStore(Store.FILE);
         secretService.put(CredentialAccount.global("github"), "secret");
         secretService.failWith(SecretStoreException.Reason.FAILED);
 
@@ -221,22 +221,22 @@ class CredentialStoreAspectTest {
     @Test
     @DisplayName("a move into an empty target switches the store and reaches store.record")
     void move() {
-        aspect.record(Store.FILE);
+        aspect.recordStore(Store.FILE);
 
         var transition = aspect.move(Store.OS);
 
         assertAll(
                 () -> assertEquals(State.RECORD, transition.next()),
                 () -> assertEquals(Optional.of(Store.OS), choice.recorded()),
-                () -> assertEquals(State.DONE, aspect.record(Store.OS).next()));
+                () -> assertEquals(State.DONE, aspect.recordStore(Store.OS).next()));
     }
 
     @Test
     @DisplayName("detect reports a move an earlier run began")
     void interrupted() throws Exception {
-        var record = CredentialStoreMoveRecord.file(base);
-        Files.createDirectories(record.getParent());
-        Files.writeString(record, "{}");
+        var recordFile = CredentialStoreMoveRecord.file(base);
+        Files.createDirectories(recordFile.getParent());
+        Files.writeString(recordFile, "{}");
 
         assertTrue(aspect.detect().moveInterrupted());
     }
@@ -244,10 +244,10 @@ class CredentialStoreAspectTest {
     @Test
     @DisplayName("recording the recorded store again changes nothing")
     void recordAgain() {
-        aspect.record(Store.FILE);
+        aspect.recordStore(Store.FILE);
         var revision = machineConfigurationRevision();
 
-        var transition = aspect.record(Store.FILE);
+        var transition = aspect.recordStore(Store.FILE);
 
         assertAll(
                 () -> assertEquals(State.DONE, transition.next()),
