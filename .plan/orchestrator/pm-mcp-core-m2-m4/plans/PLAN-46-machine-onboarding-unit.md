@@ -93,7 +93,7 @@ None beyond the standing rules named in the First Instruction above.
 ## Dependencies and Sequencing
 
 - Depends on: PLAN-42 (`operator-wait-and-machine-scope`, shipped #199/#203); `token-usage` is spent (PLAN-107, #215).
-- Overlaps with: PLAN-98 (`judgment-endpoint`) on `doc/specification/credentials-and-enrolment/01-provider-credentials.adoc` (PLAN-98 edits its `credential_key` entry) and on the directory `pm-runtime/src/main/java/de/planmarshall/runtime/credentials/` (PLAN-98's remote form reads the token lane; this plan's provider verification may add classes there). The code files `ProfileValidator.java` and its test went to PLAN-108 to keep the rest disjoint. **Sequenced after PLAN-98 (operator, 2026-10-28, answering the overlap prompt with "Wait for PLAN-98 to land first"): emit this plan only when PLAN-98 has merged.**
+- Overlaps with: PLAN-98 (`judgment-endpoint`) on `doc/specification/credentials-and-enrolment/01-provider-credentials.adoc` (PLAN-98 edits its `credential_key` entry) and on the directory `pm-runtime/src/main/java/de/planmarshall/runtime/credentials/` (PLAN-98's remote form reads the token lane; this plan's provider verification may add classes there). The code files `ProfileValidator.java` and its test went to PLAN-108 to keep the rest disjoint. Sequenced after PLAN-98 (operator, 2026-10-28, "Wait for PLAN-98 to land first"): **PLAN-98 MERGED (#222 `d4d25e2a`, 2026-10-28), the overlap is spent and this plan is ready to emit.** `ProfileValidator` now carries PLAN-98's lifted refusals (the remote form, `system_one`); re-read it at the outline.
 - Blocks: PLAN-108, PLAN-109 (and through them the package's dependents PLAN-45, 48, 51, 59, 62, 63, 76).
 
 ## Hand-Off Command
