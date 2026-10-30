@@ -4,7 +4,7 @@
 
 ## START HERE
 
-**Resume anchor**: The predecessor is archived and landed (#237, #239). Wave 0 first (operator decision 2026-10-30): the skills conformance family PLAN-V2-83 to 94 (WS-11); PLAN-V2-83 alone, then PLAN-V2-84 alone, then PLAN-V2-85, 86, 87, 88. Run /plan-orchestrator next slug=pm-mcp-core-m2-m4-v2. The plans of the feature queue (PLAN-V2-01 to 04, then PLAN-V2-82 and 81) follow as the disjointness gate allows; every one depends on PLAN-V2-83.
+**Resume anchor**: PLAN-V2-83 emitted (runbook lane), awaiting operator-confirmed launch; nothing is running yet. Wave 0 order unchanged (operator decision 2026-10-30): PLAN-V2-83 alone, then PLAN-V2-84 alone, then PLAN-V2-85, 86, 87, 88; every other plan depends on PLAN-V2-83. After the operator confirms the launch, record launched via queue --transition; after PLAN-V2-83 lands, run analyze, then next.
 **Phase**: orchestrating
 **Parked**:
 - PLAN-V2-72 (WS-09)
