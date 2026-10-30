@@ -17,9 +17,9 @@ origin: PLAN-125 of the epic pm-mcp-core-m2-m4
 
 ## First Instruction: Read The Standing Rules
 
-**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r2`), and repeat the revision and the rule ids in your landing message.
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r4`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R05, R07, R08, R10, R13, R17, R18, R19. (R05: this plan adds no implemented code, so it deletes only the one watch item of Deliverable 4; R10 because the package files link specification anchors and one watch item is deleted; R13 because the package files quote members of versioned records; R17 because the plan runs the links check; R18 only as a check, no Java is touched.)
+Rules that apply to this plan: R01, R02, R05, R07, R08, R10, R13, R17, R18, R19, R20. (R05: this plan adds no implemented code, so it deletes only the one watch item of Deliverable 4; R10 because the package files link specification anchors and one watch item is deleted; R13 because the package files quote members of versioned records; R17 because the plan runs the links check; R18 only as a check, no Java is touched.)
 
 Plan parameters (the values the rules ask for):
 
@@ -84,7 +84,7 @@ Shared bookkeeping, not surface (R19): `doc/plans/README.adoc` (the one new row)
 
 ## Dependencies and Sequencing
 
-- Depends on: nothing
+- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: nothing
 - Overlaps with live plans: none on code. `doc/implementation-watch/phase-workflows.adoc` is on the Expected Surface of PLAN-V2-75, PLAN-V2-77 and PLAN-V2-78 (all parked; one entry each, this plan deletes one item they do not name). `doc/plans/` package files: none is on the surface of PLAN-46, PLAN-105, PLAN-V2-39 or PLAN-V2-43. A staged spec names `doc/plans/re-planning.adoc` (PLAN-V2-75) and `doc/plans/operator-reports.adoc` (PLAN-V2-41); this plan edits neither.
 - Pairwise with the other drafts of this cluster: disjoint from the two reduction plans (they edit `doc/specification/` and the watch documents `job-runtime.adoc`, `model-work.adoc` and `client-profiles.adoc`; this plan edits `phase-workflows.adoc` and `doc/plans/`).
 - Precedes: the `decompose` that stages the eight packages of #151 (it should read these package files); this plan has no outbound dependency.

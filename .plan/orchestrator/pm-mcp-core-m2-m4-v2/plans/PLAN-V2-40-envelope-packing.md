@@ -16,9 +16,9 @@ lane: runbook
 
 ## First Instruction: Read The Standing Rules
 
-**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r2`), and repeat the revision and the rule ids in your landing message.
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r4`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01 (as amended in Standing Constraints), R02, R03, R04, R05, R06, R07, R08, R09, R11, R13, R15, R17, R18, R19. (R10 is dropped: no test reads `model-work/06-envelopes-questions-deadlines.adoc`, checked with `grep -rln "06-envelopes" pm-*/src/test` at `a8da4104`; R12 is dropped, the code is pure functions and logs nothing; R14 and R16 are dropped, no `core.store` and no `pm-runtime` class changes; R15 applies because the plan changes `pm-workflow`; R17 because the plan runs the links check.)
+Rules that apply to this plan: R01, R20 (as amended in Standing Constraints), R02, R03, R04, R05, R06, R07, R08, R09, R11, R13, R15, R17, R18, R19. (R10 is dropped: no test reads `model-work/06-envelopes-questions-deadlines.adoc`, checked with `grep -rln "06-envelopes" pm-*/src/test` at `a8da4104`; R12 is dropped, the code is pure functions and logs nothing; R14 and R16 are dropped, no `core.store` and no `pm-runtime` class changes; R15 applies because the plan changes `pm-workflow`; R17 because the plan runs the links check.)
 
 Plan parameters (the values the rules ask for):
 
@@ -89,7 +89,7 @@ Not surface (R19): `doc/plans/README.adoc` (the new row), `doc/Traceability.adoc
 
 ## Dependencies and Sequencing
 
-- Depends on: nothing. The plan reads no profile, role or store type and edits no file of `pm-core`.
+- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: nothing. The plan reads no profile, role or store type and edits no file of `pm-core`.
 - Overlaps with the live plans (class level): none with PLAN-46, PLAN-105, PLAN-V2-39 and PLAN-V2-43 (they declare no file of `pm-workflow/.../workflow/envelope/` or of `model-work/06`). Staged: `model-work/06-envelopes-questions-deadlines.adoc` with PLAN-V2-23 (`decision-engine`) and PLAN-V2-29 (`chat`), one shared entry each, different sections (they work § Questions and § Answers; this plan § Cost Sizing and § Packing): merge the base before the gate, or run one at a time.
 - Disjoint from the other drafts of this cluster: yes — the follow-up plan PLAN-V2-63 (`long-context-thresholds`) shares only the package file and its row (bookkeeping) and depends on this plan.
 - Is depended on by: PLAN-V2-63 (`long-context-thresholds`) (it removes the row and the package file this plan creates, and tests the cap through `EnvelopeBudget`).

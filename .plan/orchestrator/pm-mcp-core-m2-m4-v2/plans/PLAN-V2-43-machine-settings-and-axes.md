@@ -17,9 +17,9 @@ origin: PLAN-109 of the epic pm-mcp-core-m2-m4
 
 ## First Instruction: Read The Standing Rules
 
-**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r2`), and repeat the revision and the rule ids in your landing message.
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r4`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R17, R18, R19.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R17, R18, R19, R20.
 
 Plan parameters (the values the rules ask for):
 
@@ -84,7 +84,7 @@ None beyond the standing rules named in the First Instruction above.
 
 
 - **Landing note (2026-10-29):** PLAN-46 landed (#233) as part 1 of 3: the writers for settings, documents mode and cleanup durations do NOT exist; `MachineConfigurationStore` lives in `pm-runtime` and writes `providers` only, copying other members through. This plan is the last part, so it removes the package file `machine-onboarding-unit.adoc` and its index row, and reduces the four spec parts that the lane left untouched.
-- Depends on: PLAN-46 (the stores and the credential-store aspect); PLAN-V2-39 (the harness verification and the harness list); `token-usage` is spent.; PLAN-V2-81 (`machine-stores-residue`) (its settings writers edit `MachineConfigurationCodec` and `MachineConfigurationStore`, which that plan hardens first)
+- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: PLAN-46 (the stores and the credential-store aspect); PLAN-V2-39 (the harness verification and the harness list); `token-usage` is spent.; PLAN-V2-81 (`machine-stores-residue`) (its settings writers edit `MachineConfigurationCodec` and `MachineConfigurationStore`, which that plan hardens first)
 - Overlaps with: PLAN-43 (running) on `doc/specification/workflow-dsl/01-grammar.adoc` and PLAN-105 (staged) on `doc/specification/workflow-dsl/09-plan-instance.adoc` (documentation only; PLAN-43 merges before this plan starts).
 - Blocks: PLAN-V2-17 (`project-onboarding-unit`); PLAN-V2-24 (`start-from-clients`); PLAN-V2-21 (`plan-and-epic-control`); PLAN-V2-73 (`runtime-control`); PLAN-V2-69 (`process-designer`); PLAN-V2-74 (`cleanup`); PLAN-V2-22 (`start-source-intake`) — the package's dependents, released when the package is done.
 

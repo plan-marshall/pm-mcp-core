@@ -17,9 +17,9 @@ origin: PLAN-127 of the epic pm-mcp-core-m2-m4
 
 ## First Instruction: Read The Standing Rules
 
-**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r2`), and repeat the revision and the rule ids in your landing message.
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r4`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R05, R06, R07, R08, R10, R11, R13, R17, R18, R19. (R06 and R11 only for the one repository ADR of Deliverable 1; R10 is the heart of the plan: a block a test reads is not touched; R13 because examples quote versioned records; R17 because the plan runs the links check; R18 only as a check, no Java is touched.)
+Rules that apply to this plan: R01, R02, R05, R06, R07, R08, R10, R11, R13, R17, R18, R19, R20. (R06 and R11 only for the one repository ADR of Deliverable 1; R10 is the heart of the plan: a block a test reads is not touched; R13 because examples quote versioned records; R17 because the plan runs the links check; R18 only as a check, no Java is touched.)
 
 Plan parameters (the values the rules ask for):
 
@@ -88,7 +88,7 @@ Shared bookkeeping, not surface (R19): `doc/Traceability.adoc`. No `doc/plans/` 
 
 ## Dependencies and Sequencing
 
-- Depends on: the operator's confirmation of the practice (see the note at the top); nothing else
+- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: the operator's confirmation of the practice (see the note at the top); nothing else
 - Overlaps with live plans: `doc/implementation-watch/model-work.adoc` is on the Expected Surface of PLAN-V2-42 (`runtime-metrics`) and PLAN-V2-76 (parked), one entry each (a shared watch document: textual conflict is possible in different items). `timeouts/01`, `model-work/02`, `04`, `05` and `job-runtime.adoc` are on the surface of no running or staged plan (PLAN-46, PLAN-105, PLAN-V2-39, PLAN-V2-43 share none of the six files).
 - Pairwise with the other drafts of this cluster: PLAN-V2-45 (`package-files-carry-unowned-spec`) is disjoint (it edits `doc/plans/` and `implementation-watch/phase-workflows.adoc`). PLAN-V2-50 (`r05-reduction-role-sets`) shares `doc/implementation-watch/model-work.adoc` with this plan: **run this plan first**; the sibling depends on it.
 - A documentation plan changes no schema file and none of the parity-pinned parts (Standing Constraints), so nothing a parity test reads moves (memory: a specification-only change once broke `main` through `FindingSchemaParityTest`; the CI skip for such pull requests is off since #185).

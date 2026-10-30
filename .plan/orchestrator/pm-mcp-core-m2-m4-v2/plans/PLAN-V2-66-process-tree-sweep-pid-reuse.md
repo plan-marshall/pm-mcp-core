@@ -15,9 +15,9 @@ origin: PLAN-117 of the epic pm-mcp-core-m2-m4
 
 ## First Instruction: Read The Standing Rules
 
-**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r2`), and repeat the revision and the rule ids in your landing message.
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r4`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R16, R17, R18, R19. (R12 applies only if the trace matrix shows a message to add, see Standing Constraints; R14 and R16 apply because the plan changes `pm-runtime`, R16 (3) and (4) in particular — signal numbers differ per operating system, and a suppression is made inline with its reason; R15 does not apply, no `pm-workflow` code changes; R17 because the plan runs the links check.)
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R16, R17, R18, R19, R20. (R12 applies only if the trace matrix shows a message to add, see Standing Constraints; R14 and R16 apply because the plan changes `pm-runtime`, R16 (3) and (4) in particular — signal numbers differ per operating system, and a suppression is made inline with its reason; R15 does not apply, no `pm-workflow` code changes; R17 because the plan runs the links check.)
 
 Plan parameters (the values the rules ask for):
 
@@ -70,7 +70,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 
 ## Dependencies and Sequencing
 
-- Depends on: nothing. PLAN-84 (`job-runner-residuals`, #135) and PLAN-29 (#172, the worker half) are shipped.
+- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: nothing. PLAN-84 (`job-runner-residuals`, #135) and PLAN-29 (#172, the worker half) are shipped.
 - Overlaps with, by file: none of the live plans declares `ProcessTreeTracker` or its test. `SubprocessJobRunner.java` and `SubprocessJobRunnerTest.java` are declared by PLAN-V2-42 (`runtime-metrics`, staged) and are not edited here, unless Deliverable 1 cannot be built without a helper (then 1 shared entry, `SubprocessJobRunnerTest`, named in the landing). PLAN-46, PLAN-105, PLAN-V2-39 and PLAN-V2-43: no shared file (PLAN-V2-39 declares other classes of `runtime.worker`, PLAN-V2-43 and PLAN-V2-17 other classes of `runtime.job`). The other plans of this cluster: disjoint, no shared file.
 - Adjacent to: the launcher's Linux child subreaper (`PR_SET_CHILD_SUBREAPER` in `pm-exec`, `pm-mcp-clients`), which makes the tracker's sweep redundant on Linux and is owed by a package there; this plan does not wait for it. The "runtime status shows a survivor" clause of Step 3a has no runtime-status surface in this repository (the specification says so: `doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc:128`) and belongs to the status of `runtime-control` (PLAN-V2-73, staged); it is not part of this plan.
 

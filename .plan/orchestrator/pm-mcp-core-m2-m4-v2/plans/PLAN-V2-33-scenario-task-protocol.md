@@ -17,9 +17,9 @@ origin: PLAN-122 of the epic pm-mcp-core-m2-m4
 
 ## First Instruction: Read The Standing Rules
 
-**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r2`), and repeat the revision and the rule ids in your landing message.
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r4`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R15, R17, R18, R19. (R12 applies only if the trace matrix shows a message to add, see Standing Constraints; R14 and R16 do not apply: the plan changes test scope of `pm-workflow` only and reads `core.store` and `core.queue` without changing them; R17 because the plan runs the links check.)
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R15, R17, R18, R19, R20. (R12 applies only if the trace matrix shows a message to add, see Standing Constraints; R14 and R16 do not apply: the plan changes test scope of `pm-workflow` only and reads `core.store` and `core.queue` without changing them; R17 because the plan runs the links check.)
 
 Plan parameters (the values the rules ask for):
 
@@ -88,7 +88,7 @@ Give the deterministic scenario harness `pm-scenario` (PM-TEST-4, package `workf
 
 ## Dependencies and Sequencing
 
-- Depends on: nothing among the live plans. The shipped plans it builds on: PLAN-28 `task-queue-and-protocol` (#160), PLAN-32 `consultation` (#169), PLAN-35 D2 to D4 (#229).
+- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: nothing among the live plans. The shipped plans it builds on: PLAN-28 `task-queue-and-protocol` (#160), PLAN-32 `consultation` (#169), PLAN-35 D2 to D4 (#229).
 - Overlaps with: PLAN-46 and PLAN-105 (landed #233 and #230): no shared file (`corpus cross-check` at emit time decides; by the declared surfaces: 0). PLAN-V2-13 (`plan-instance-versions`, staged) declares `doc/implementation-watch/workflow-dsl.adoc`, which this plan does not touch; no staged plan declares a file of `workflow/scenario`. `doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc` is also edited by the plan PLAN-V2-44 (`positioned-layout`) (a different section, § Positioned Layout) and PLAN-V2-26 and PLAN-V2-78 name it (parked or staged): 1 shared specification file with each, different sections; whichever merges second merges the base branch before the merge gate.
 - Followed by: PLAN-V2-49 (`scenario-worker-faults`) (depends on this plan; same classes, strictly after the merge).
 - Package bookkeeping (R01/R05): the work package `supervision-scenarios` stays open after this plan (D6 and D7 are external, ADR 007 of `workflow-scenario`); this plan edits its file and does not delete it or its index row.

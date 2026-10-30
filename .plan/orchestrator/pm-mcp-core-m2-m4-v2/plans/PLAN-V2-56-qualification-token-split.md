@@ -16,9 +16,9 @@ lane: runbook
 
 ## First Instruction: Read The Standing Rules
 
-**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r2`), and repeat the revision and the rule ids in your landing message.
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r4`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R13, R14, R17, R18, R19. (R10 binds Deliverable 2, which reads blocks of `store-schemas/16`; R13 binds Deliverable 1, which changes a record in place; R14 because `AttemptEnd` and `UsageAggregate` are in `core.store`; R12 is dropped, no message is added; R15 and R16 are dropped, neither `pm-workflow` nor `pm-runtime` changes; R17 because the plan runs the links check.)
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R13, R14, R17, R18, R19, R20. (R10 binds Deliverable 2, which reads blocks of `store-schemas/16`; R13 binds Deliverable 1, which changes a record in place; R14 because `AttemptEnd` and `UsageAggregate` are in `core.store`; R12 is dropped, no message is added; R15 and R16 are dropped, neither `pm-workflow` nor `pm-runtime` changes; R17 because the plan runs the links check.)
 
 Plan parameters (the values the rules ask for):
 
@@ -84,7 +84,7 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, the ADR dir
 
 ## Dependencies and Sequencing
 
-- Depends on: nothing (PLAN-107 shipped, #215)
+- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: nothing (PLAN-107 shipped, #215)
 - Overlaps with the live plans (class level): none. `store-schemas/16` is read, not edited; the staged plans that edit it (PLAN-V2-76 `judgment-votes`, parked, and others) are not blocked, but a plan that edits the two blocks changes the parity test's input: whichever merges second merges the base branch first. PLAN-V2-76 reads `core.role.corpus.ImportedItem` and writes the calibration record, no class of this plan.
 - Disjoint from the other drafts of this cluster (no shared class): PLAN-V2-46 (`runtime-endpoint-residues`), PLAN-V2-65 (`corpus-schema-length-bounds`), PLAN-V2-67 (`main-hygiene-leftovers`) (`StoreDigest` is a different class of `core.store`), PLAN-V2-68 (`profile-wait-margin`).
 - Adjacent to: the decision calibration codec (owed to `judgment-votes`) for which `TokenTotal`'s split stays.

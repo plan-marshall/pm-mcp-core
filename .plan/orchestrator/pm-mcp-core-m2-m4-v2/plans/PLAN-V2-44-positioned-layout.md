@@ -16,9 +16,9 @@ origin: PLAN-121 of the epic pm-mcp-core-m2-m4
 
 ## First Instruction: Read The Standing Rules
 
-**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r2`), and repeat the revision and the rule ids in your landing message.
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r4`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R15, R17, R18, R19. (R12 applies only if the trace matrix shows a message to add; R14 and R16 do not apply: `pm-workflow` only; R15 item (4), a completeness test over an enum derives the expected set from the enum, applies to the node-kind table of D1; R17 because the plan runs the links check.)
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R15, R17, R18, R19, R20. (R12 applies only if the trace matrix shows a message to add; R14 and R16 do not apply: `pm-workflow` only; R15 item (4), a completeness test over an enum derives the expected set from the enum, applies to the node-kind table of D1; R17 because the plan runs the links check.)
 
 Plan parameters (the values the rules ask for):
 
@@ -89,7 +89,7 @@ Implement Workflow DSL § Positioned Layout (`doc/specification/workflow-dsl/07-
 
 
 - **Landing note (2026-10-29):** PLAN-105 landed (#230): the Mermaid instance form lists composed files with digests but has no phase composites.
-- Depends on: nothing. It builds the layout; PLAN-V2-26 (`process-and-overview`, staged) and PLAN-V2-78 (`change-map`, parked) call it.
+- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: nothing. It builds the layout; PLAN-V2-26 (`process-and-overview`, staged) and PLAN-V2-78 (`change-map`, parked) call it.
 - Overlaps with: PLAN-46 and PLAN-105 (landed #233 and #230): PLAN-105 declares `workflow/diagram/InstanceMermaidRenderer.java`; this plan adds new files and one method of `WorkflowDiagramGenerator.java`, neither of which PLAN-105 declares: 0 shared files (a rebase conflict in the facade is possible if PLAN-105 adds a call there; `corpus cross-check` at emit time decides). Staged and parked plans that declare the same part files: PLAN-V2-26 (`workflow-dsl/07` and the `node_id` note), PLAN-V2-13 and PLAN-V2-69 (`doc/implementation-watch/workflow-dsl.adoc`), PLAN-V2-78 (`workflow-dsl/07`, the watch document, the `diagram/` directory): 1 shared specification or watch file with each, in different sections or items; whichever merges second merges the base branch before the merge gate. PLAN-V2-26 and PLAN-V2-78 should drop their notes on the layout and name this plan when they are next re-grounded.
 - Shares `doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc` with PLAN-V2-33 (`scenario-task-protocol`) and PLAN-V2-49 (`scenario-worker-faults`) (different sections): 1 shared specification file, to be merged in order of merge.
 - Disjoint from the other plans of this cluster (PLAN-V2-58 (`verifier-cycle-scale`), PLAN-V2-57 (`default-plan-lanes-and-run`)) by file.

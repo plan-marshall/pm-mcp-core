@@ -15,9 +15,9 @@ origin: PLAN-68 of the epic pm-mcp-core-m2-m4
 
 ## First Instruction: Read The Standing Rules
 
-**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r4`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R18, R19.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R18, R19, R20.
 
 Plan parameters (the values the rules ask for):
 
@@ -160,7 +160,7 @@ Applicability:
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-V2-29 (`chat`); the re-planning of a running plan, its unit `replan` and its guards (no work package)
+- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: PLAN-V2-29 (`chat`); the re-planning of a running plan, its unit `replan` and its guards (no work package)
 - Overlaps with: PLAN-01 (`lock-manager-and-leases`) in `core.store`; PLAN-06 (`store-substrate`) in `core.store`; PLAN-09 (`audit-trail`) in `core.store`; PLAN-11 (`enrolment-store`) in `core.store`; PLAN-12 (`session-log-and-generations`) in `core.store`; PLAN-13 (`workflow-engine`) in `core.store`; PLAN-14 (`operator-and-question-stores`) in `core.store`; PLAN-17 (`project-units-and-invariants`) in `workflow.unit`; PLAN-20 (`job-runner`) in `core.store`; PLAN-31 (`slots-usage-and-budgets`) in `core.store`; PLAN-42 (`operator-wait-and-machine-scope`) in `core.store`; PLAN-43 (`phase-sub-workflows`) in `core.store`, `workflow.unit`; PLAN-V2-17 (`project-onboarding-unit`) in `core.store`, `workflow.unit`; PLAN-46 (`machine-onboarding-unit`) in `core.store`, `workflow.unit`; PLAN-V2-23 (`decision-engine`) in `core.store`; PLAN-V2-24 (`start-from-clients`) in `core.store`, `workflow.unit`; PLAN-V2-21 (`plan-and-epic-control`) in `core.store`; PLAN-V2-32 (`epic-decomposition`) in `core.store`, `workflow.unit`; PLAN-V2-29 (`chat`) in `core.store`, `workflow.unit`; PLAN-V2-38 (`epic-auto`) in `core.store`; PLAN-V2-41 (`operator-reports`) in `core.store`; PLAN-V2-73 (`runtime-control`) in `core.store`; PLAN-61 (`token-usage`) in `core.store`; PLAN-V2-69 (`process-designer`) in `core.store`, `workflow.unit`; PLAN-V2-74 (`cleanup`) in `core.store`, `workflow.unit`; PLAN-64 (`removed-concepts`) in `core.store`; PLAN-66 (`worker-activity`) in `core.store`; PLAN-V2-26 (`process-and-overview`) in `core.store`; every plan through `doc/plans/README.adoc`; the plans of the same module through its log holder, which is not a declared surface
 - Adjacent to: the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` and the client contract `pm-api` in `pm-mcp-clients`, which stay untouched — a change there is a pull request in that repository; and `plan-marshall-documentation`, where only a requirement correction or a change of `cross-cutting.adoc` or of a specification that lives there goes, in a pull request there
 

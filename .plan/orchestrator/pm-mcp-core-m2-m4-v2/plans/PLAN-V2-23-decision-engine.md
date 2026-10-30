@@ -15,9 +15,9 @@ origin: PLAN-47 of the epic pm-mcp-core-m2-m4
 
 ## First Instruction: Read The Standing Rules
 
-**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r4`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18, R19.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18, R19, R20.
 
 Plan parameters (the values the rules ask for):
 
@@ -154,7 +154,7 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `88ec9c70` (t
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-42 (`operator-wait-and-machine-scope`); PLAN-V2-22 (`start-source-intake`) (the entry's decision stores and their move); PLAN-V2-06 (`role-name-single-definition`) (`RoleName` and `ClientId` in `core.id`: the one definition of the role-name pattern, enforced by a guard that fails on a copy)
+- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: PLAN-42 (`operator-wait-and-machine-scope`); PLAN-V2-22 (`start-source-intake`) (the entry's decision stores and their move); PLAN-V2-06 (`role-name-single-definition`) (`RoleName` and `ClientId` in `core.id`: the one definition of the role-name pattern, enforced by a guard that fails on a copy)
 - Blocks: PLAN-V2-29 (`chat`); PLAN-V2-41 (`operator-reports`)
 
 ## Hand-Off Command
