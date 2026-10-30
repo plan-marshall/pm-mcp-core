@@ -49,7 +49,7 @@ public final class RoleAssignmentValidation {
      * @since 0.1
      */
     public record Facts(Function<String, Optional<HarnessProfile>> profiles,
-            Function<String, Optional<EnrolledHarness>> enrolments, Optional<ModelCatalogue> catalogue) {
+    Function<String, Optional<EnrolledHarness>> enrolments, Optional<ModelCatalogue> catalogue) {
 
         /** Rejects {@code null} components. */
         public Facts {

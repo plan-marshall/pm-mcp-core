@@ -39,6 +39,10 @@
             <groupId>de.cuioss</groupId>
             <artifactId>cui-java-tools</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.jspecify</groupId>
+            <artifactId>jspecify</artifactId>
+        </dependency>
         <!-- URL validation pipelines of the ingestion validator -->
         <dependency>
             <groupId>de.cuioss</groupId>
@@ -70,6 +74,11 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>de.cuioss.test</groupId>
+            <artifactId>cui-test-value-objects</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
@@ -78,6 +87,11 @@
         <dependency>
             <groupId>de.cuioss.test</groupId>
             <artifactId>cui-test-mockwebserver-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.easymock</groupId>
+            <artifactId>easymock</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

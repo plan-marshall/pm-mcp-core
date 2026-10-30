@@ -112,10 +112,10 @@ class RoleAssignmentValidationTest {
         var machineCatalogue = catalogue();
         var harnessProfile = profile();
         var facts = Optional.of(machineCatalogue);
-        var withoutProfile = assertThrows(RoleRefusal.class, () -> require(value, artifact, new HarnessProfile[] {},
-                new String[] {HARNESS}, facts));
+        var withoutProfile = assertThrows(RoleRefusal.class, () -> require(value, artifact, new HarnessProfile[]{},
+                new String[]{HARNESS}, facts));
         var withoutEnrolment = assertThrows(RoleRefusal.class, () -> require(value, artifact,
-                new HarnessProfile[] {harnessProfile}, new String[] {}, facts));
+                new HarnessProfile[]{harnessProfile}, new String[]{}, facts));
         var profileReason = withoutProfile.reason();
         var enrolmentReason = withoutEnrolment.reason();
 
@@ -141,15 +141,15 @@ class RoleAssignmentValidationTest {
         var fastFacts = Optional.of(fastOnly);
         var noFacts = Optional.<ModelCatalogue>empty();
         var ineligibleRefused = assertThrows(RoleRefusal.class, () -> require(value, artifact,
-                new HarnessProfile[] {ineligible}, new String[] {HARNESS}, facts));
+                new HarnessProfile[]{ineligible}, new String[]{HARNESS}, facts));
         var classRefused = assertThrows(RoleRefusal.class, () -> require(value, artifact,
-                new HarnessProfile[] {noReadOnly}, new String[] {HARNESS}, facts));
+                new HarnessProfile[]{noReadOnly}, new String[]{HARNESS}, facts));
         var unsupportedEffort = RoleAssignmentValue.of(HARNESS, "acme-frontier", "high");
         var effortRefused = assertThrows(RoleRefusal.class, () -> require(unsupportedEffort, artifact));
         var refusedModel = assertThrows(RoleRefusal.class, () -> require(value, artifact,
-                new HarnessProfile[] {base}, new String[] {HARNESS}, fastFacts));
+                new HarnessProfile[]{base}, new String[]{HARNESS}, fastFacts));
         var noCatalogue = assertThrows(RoleRefusal.class, () -> require(value, artifact,
-                new HarnessProfile[] {base}, new String[] {HARNESS}, noFacts));
+                new HarnessProfile[]{base}, new String[]{HARNESS}, noFacts));
         var ineligibleReason = ineligibleRefused.reason();
         var classReason = classRefused.reason();
         var effortReason = effortRefused.reason();
@@ -181,12 +181,12 @@ class RoleAssignmentValidationTest {
         var escalation = new Escalation(ESCALATION_HARNESS, "beta-standard", Optional.empty());
         var value = RoleAssignmentValue.of(HARNESS, MODEL, "high").withEscalation(escalation);
         var artifact = artifact(RoleClass.READ_ONLY);
-        var bothHarnesses = new HarnessProfile[] {profile(), profile(ESCALATION_HARNESS)};
+        var bothHarnesses = new HarnessProfile[]{profile(), profile(ESCALATION_HARNESS)};
         var machineCatalogue = catalogue();
         var facts = Optional.of(machineCatalogue);
 
         var refusal = assertThrows(RoleRefusal.class, () -> require(value, artifact, bothHarnesses,
-                new String[] {HARNESS}, facts));
+                new String[]{HARNESS}, facts));
         var reason = refusal.reason();
         var detail = refusal.detail();
 
@@ -200,12 +200,12 @@ class RoleAssignmentValidationTest {
     void escalationOnAnotherHarness() {
         var escalation = new Escalation(ESCALATION_HARNESS, "beta-standard", Optional.empty());
         var value = RoleAssignmentValue.of(HARNESS, MODEL, "high").withEscalation(escalation);
-        var withoutBeta = new HarnessProfile[] {profile()};
+        var withoutBeta = new HarnessProfile[]{profile()};
         var artifact = artifact(RoleClass.READ_ONLY);
         var machineCatalogue = catalogue();
         var facts = Optional.of(machineCatalogue);
         var refused = assertThrows(RoleRefusal.class, () -> require(value, artifact, withoutBeta,
-                new String[] {HARNESS, ESCALATION_HARNESS}, facts));
+                new String[]{HARNESS, ESCALATION_HARNESS}, facts));
         var reason = refused.reason();
 
         assertDoesNotThrow(() -> require(value, artifact));
