@@ -15,9 +15,9 @@ origin: PLAN-124 of the epic pm-mcp-core-m2-m4
 
 ## First Instruction: Read The Standing Rules
 
-**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r2`), and repeat the revision and the rule ids in your landing message.
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r4`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R15, R17, R18, R19. (R12 applies only if the trace matrix shows a message to add; R14 and R16 do not apply: `pm-workflow` only; R15 because the plan changes `pm-workflow` code: item (1), one owner per refusal, is why no caller of `findSimpleCycles` changes.)
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R15, R17, R18, R19, R20. (R12 applies only if the trace matrix shows a message to add; R14 and R16 do not apply: `pm-workflow` only; R15 because the plan changes `pm-workflow` code: item (1), one owner per refusal, is why no caller of `findSimpleCycles` changes.)
 
 Plan parameters (the values the rules ask for):
 
@@ -72,7 +72,7 @@ Plan parameters (the values the rules ask for):
 
 ## Dependencies and Sequencing
 
-- Depends on: nothing.
+- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: nothing.
 - Overlaps with: PLAN-46 and PLAN-105 (landed #233 and #230): no shared file. Staged plans that declare other classes of `workflow.verify` (`WorkflowValidator.java`: PLAN-V2-24 and PLAN-V2-13; `CompiledInvariants.java`, `InvariantId.java`, `CompiledInvariantsTest.java`, `DeclarationBounds.java`: PLAN-V2-69): 0 shared files, because this plan changes no caller and adds its test as a new class. `UnitGraph.java` is declared by no live plan.
 - Disjoint from the other plans of this cluster (PLAN-V2-33 (`scenario-task-protocol`), PLAN-V2-49 (`scenario-worker-faults`), PLAN-V2-57 (`default-plan-lanes-and-run`), PLAN-V2-44 (`positioned-layout`)) by file.
 - Package bookkeeping (R01/R05): no package file covers this plan (like PLAN-95).

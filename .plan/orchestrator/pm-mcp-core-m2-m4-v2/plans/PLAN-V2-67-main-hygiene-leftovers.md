@@ -16,9 +16,9 @@ lane: runbook
 
 ## First Instruction: Read The Standing Rules
 
-**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r2`), and repeat the revision and the rule ids in your landing message.
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r4`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R13, R14, R16, R17, R18, R19. (R14 because `StoreDigest` is in `core.store`; R16 because `MacSecurity` is in `pm-runtime`, and R16 (4) is the rule Deliverable 2 applies; R12 is dropped, no message is added; R15 is dropped; R17 because the plan runs the links check.)
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R13, R14, R16, R17, R18, R19, R20. (R14 because `StoreDigest` is in `core.store`; R16 because `MacSecurity` is in `pm-runtime`, and R16 (4) is the rule Deliverable 2 applies; R12 is dropped, no message is added; R15 is dropped; R17 because the plan runs the links check.)
 
 Plan parameters (the values the rules ask for):
 
@@ -69,7 +69,7 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, the ADR dir
 
 ## Dependencies and Sequencing
 
-- Depends on: nothing
+- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: nothing
 - Overlaps with the live plans (class level): none with a declared class. PLAN-46 declares the directory `pm-runtime/src/main/java/de/planmarshall/runtime/credentials/` as a HYPOTHESIS entry (the provider verification and any change to the delivered credential store): `MacSecurity` is in it, one interface of one class; D2 is an annotation. If the orchestrator reads a directory hypothesis as an overlap, emit this plan after PLAN-46 lands; D1 and D3 are free regardless. PLAN-V2-72 `forgejo-provider` (parked) owns `doc/plans/forgejo-provider.adoc` and the row of the index, which this plan leaves alone.
 - Disjoint from the other drafts of this cluster (no shared class): PLAN-V2-46 (`runtime-endpoint-residues`) (the seven Sonar issues of `runtime.endpoint`), PLAN-V2-56 (`qualification-token-split`) (`core.store` `AttemptEnd`, `UsageAggregate`, other classes), PLAN-V2-65 (`corpus-schema-length-bounds`), PLAN-V2-68 (`profile-wait-margin`).
 - Adjacent to: the parent POM (the OpenRewrite recipe that inserts the `TODO` comments is its, and is not needed once PLAN-V2-46 (`runtime-endpoint-residues`) has narrowed the catches).

@@ -15,9 +15,9 @@ origin: PLAN-119 of the epic pm-mcp-core-m2-m4
 
 ## First Instruction: Read The Standing Rules
 
-**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r2`), and repeat the revision and the rule ids in your landing message.
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r4`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R16, R17, R18, R19. (R12 applies only if the trace matrix shows a message to add, see Standing Constraints; R14 and R16 apply because the plan changes `pm-runtime`; R15 does not apply, no `pm-workflow` code changes; R17 because the plan edits a specification part and runs the links check.)
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R16, R17, R18, R19, R20. (R12 applies only if the trace matrix shows a message to add, see Standing Constraints; R14 and R16 apply because the plan changes `pm-runtime`; R15 does not apply, no `pm-workflow` code changes; R17 because the plan edits a specification part and runs the links check.)
 
 Plan parameters (the values the rules ask for):
 
@@ -78,7 +78,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 
 ## Dependencies and Sequencing
 
-- Depends on: nothing. PLAN-29 (`worker-launch`, #172) and PLAN-30 (`supervisor`, #190) are shipped.
+- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: nothing. PLAN-29 (`worker-launch`, #172) and PLAN-30 (`supervisor`, #190) are shipped.
 - Sequenced 2026-10-29 (decision 14 of 18): PLAN-V2-59 (`egress-record`) is the only plan of this group that edits the pinned job-record block of `store-schemas/10` (and `JobRecord`, `JobRecordCodec`); run it first and merge the base before your gate.
 - Overlaps with, by file: `doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc` is declared by PLAN-V2-42 (`runtime-metrics`, staged: "the implemented sections deleted"), 1 shared entry, only if this plan edits that part; `doc/specification/model-work/04-worker-launch.adoc` by no live plan. No live plan declares `LaunchComposer`, `LaunchRefusal`, `LaunchFixtures` or their tests (PLAN-V2-42 names `ModelSlotScheduler` of the same package; PLAN-97 and PLAN-98 are shipped). PLAN-46, PLAN-105, PLAN-V2-39 and PLAN-V2-43: no shared file (PLAN-V2-39 declares `HarnessEnrolmentStore` and the harness store schema, not the launch package). The other plans of this cluster: disjoint, no shared file.
 - Adjacent to: `pm-api` of `pm-mcp-clients` (the shipped profiles and their templates): a change of a template there is a pull request in that repository; the Quarkus assembly stays untouched.

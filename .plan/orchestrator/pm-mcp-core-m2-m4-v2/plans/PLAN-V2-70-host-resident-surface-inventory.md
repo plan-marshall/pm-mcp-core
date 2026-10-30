@@ -15,9 +15,9 @@ origin: PLAN-141 of the epic pm-mcp-core-m2-m4
 
 ## First Instruction: Read The Standing Rules
 
-**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r2`), and repeat the revision and the rule ids in your landing message.
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r4`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R17, R18, R19. Package bookkeeping (R01, R05): this plan is 3 of 3 plans of the package `client-profile-rendering` (`doc/plans/client-profile-rendering.adoc`). It deletes from the package file the bullets of _What_ and the _Done When_ paragraphs it delivers and drops its deliverables from the covered sections of the specification and watch items; the plan that delivers the last bullet removes the package's row from `doc/plans/README.adoc` and deletes the package file. The plans of the package edit different sections of the same documents; whichever merges second merges the base branch (the lane's step 7) before the merge gate. In-repo share only: see the objective.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R17, R18, R19, R20. Package bookkeeping (R01, R05): this plan is 3 of 3 plans of the package `client-profile-rendering` (`doc/plans/client-profile-rendering.adoc`). It deletes from the package file the bullets of _What_ and the _Done When_ paragraphs it delivers and drops its deliverables from the covered sections of the specification and watch items; the plan that delivers the last bullet removes the package's row from `doc/plans/README.adoc` and deletes the package file. The plans of the package edit different sections of the same documents; whichever merges second merges the base branch (the lane's step 7) before the merge gate. In-repo share only: see the objective.
 
 Plan parameters (the values the rules ask for):
 
@@ -67,7 +67,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 
 ## Dependencies and Sequencing
 
-- Depends on: nothing.
+- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: nothing.
 - Sequenced 2026-10-29 by the cross-check: it shares `ProfileValidator` and `ProfileStages` with PLAN-V2-39, PLAN-V2-68 and PLAN-V2-71; run after PLAN-V2-39 (the group PLAN-V2-68, PLAN-V2-71, PLAN-V2-52, PLAN-V2-70 in that order).
 - Overlaps with: disjoint in code from PLAN-V2-52 (`client-profile-renderer`) and PLAN-V2-71 (`profile-skill-load-template-check`) and from PLAN-46, PLAN-105, PLAN-V2-39, PLAN-V2-43 (new classes only). `02-placeholders.adoc` and the package file are shared with PLAN-V2-52 (`client-profile-renderer`), in different sections.
 - Adjacent to: `plan-marshall-mcp` `worker-surface-tools` (the served set); `plan-marshall` (the PM-MIG-5 baseline measurement).

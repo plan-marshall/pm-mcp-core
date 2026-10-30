@@ -16,9 +16,9 @@ lane: runbook
 
 ## First Instruction: Read The Standing Rules
 
-**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r2`), and repeat the revision and the rule ids in your landing message.
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r4`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R13, R17, R18, R19. (R10 because several tests read specification parts; this plan edits none; R12, R14, R15 and R16 are dropped, no message is added and no `core.store`, `pm-workflow` or `pm-runtime` class changes; R17 because the plan runs the links check.)
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R13, R17, R18, R19, R20. (R10 because several tests read specification parts; this plan edits none; R12, R14, R15 and R16 are dropped, no message is added and no `core.store`, `pm-workflow` or `pm-runtime` class changes; R17 because the plan runs the links check.)
 
 Plan parameters (the values the rules ask for):
 
@@ -74,7 +74,7 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, the ADR dir
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-V2-39 (`machine-harness-verification`): it declares `ProfileValidator.java` and `ProfileValidatorTest.java` (2 shared entries), and PLAN-V2-39 itself waits for PLAN-46 (landed #233); PLAN-46 and PLAN-V2-43 name `ProfileValidator` in their text but not in their Expected Surface. PLAN-98, which lifted the refusals of the validator, is shipped.
+- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: PLAN-V2-39 (`machine-harness-verification`): it declares `ProfileValidator.java` and `ProfileValidatorTest.java` (2 shared entries), and PLAN-V2-39 itself waits for PLAN-46 (landed #233); PLAN-46 and PLAN-V2-43 name `ProfileValidator` in their text but not in their Expected Surface. PLAN-98, which lifted the refusals of the validator, is shipped.
 - Sequenced 2026-10-29 by the cross-check: `ProfileValidator` is shared ground; the group PLAN-V2-68, PLAN-V2-71, PLAN-V2-52 and PLAN-V2-70 runs after PLAN-V2-39, one at a time in that order (or each merges the base before its gate).
 - Overlaps with the live plans (class level): the two entries above with PLAN-V2-39 only.
 - Disjoint from the other drafts of this cluster (no shared class): PLAN-V2-46 (`runtime-endpoint-residues`), PLAN-V2-56 (`qualification-token-split`), PLAN-V2-65 (`corpus-schema-length-bounds`), PLAN-V2-67 (`main-hygiene-leftovers`).

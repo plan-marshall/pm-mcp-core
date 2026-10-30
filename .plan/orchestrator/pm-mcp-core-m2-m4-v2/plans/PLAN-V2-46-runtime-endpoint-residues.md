@@ -16,9 +16,9 @@ lane: runbook
 
 ## First Instruction: Read The Standing Rules
 
-**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r2`), and repeat the revision and the rule ids in your landing message.
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r4`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R16, R17, R18, R19. (R12 applies only if the trace matrix shows a message to add, see Deliverable 4; R14 and R16 apply because the plan changes `pm-runtime`, `HarnessEnrolmentStore` being a durable store reader; R15 is dropped, the plan does not change `pm-workflow`; R17 because the plan runs the links check.)
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R16, R17, R18, R19, R20. (R12 applies only if the trace matrix shows a message to add, see Deliverable 4; R14 and R16 apply because the plan changes `pm-runtime`, `HarnessEnrolmentStore` being a durable store reader; R15 is dropped, the plan does not change `pm-workflow`; R17 because the plan runs the links check.)
 
 Plan parameters (the values the rules ask for):
 
@@ -95,7 +95,7 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, `doc/LogMes
 
 ## Dependencies and Sequencing
 
-- Depends on: nothing
+- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: nothing
 - Overlaps with the live plans (class level, from the Expected Surface sections of `plans/`): none with PLAN-46 (its `pm-runtime/.../credentials/` entry names no class of this plan), PLAN-105, PLAN-V2-39 (its `pm-core/.../profile/` and `pm-runtime/.../worker/` classes; `HarnessEnrolmentStore` is not declared there, see the hypothesis above), PLAN-V2-43. No staged plan names a class of `runtime.endpoint`.
 - Disjoint from the other drafts of this cluster: PLAN-V2-56 (`qualification-token-split`), PLAN-V2-65 (`corpus-schema-length-bounds`), PLAN-V2-67 (`main-hygiene-leftovers`), PLAN-V2-68 (`profile-wait-margin`) (no shared class). PLAN-V2-67 (`main-hygiene-leftovers`) touches `MacSecurity`, a class of the same module but of `runtime.credentials`.
 - Adjacent to: the client contract and the assembly (`EndpointEnrolment`, `EndpointHarness`, `EndpointVerification` have no production caller in this repository; the callers are the onboarding units and `pm-mcp-server`), which stay untouched; the six generated comments are inserted by an OpenRewrite recipe of the parent POM, whose change is a pull request there and is not needed once the catches are specific.

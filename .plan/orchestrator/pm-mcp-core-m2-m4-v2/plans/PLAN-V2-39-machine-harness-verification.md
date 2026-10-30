@@ -17,9 +17,9 @@ origin: PLAN-108 of the epic pm-mcp-core-m2-m4
 
 ## First Instruction: Read The Standing Rules
 
-**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r2`), and repeat the revision and the rule ids in your landing message.
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r4`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20.
 
 Plan parameters (the values the rules ask for):
 
@@ -89,7 +89,7 @@ None beyond the standing rules named in the First Instruction above.
 
 
 - **Landing note (2026-10-29):** PLAN-46 landed (#233): the consent kinds `scan_harnesses`, `fetch_icons`, `probe_harness_login`, `probe_harness_models` and `verify_harness_profile` (never remembered) exist, and the stores already drop an unenrolled harness; the dependency on PLAN-46 is spent.
-- Depends on: PLAN-46 (the consent store and its kind `verify_harness_profile`); PLAN-98 (`judgment-endpoint`: `ProfileValidator`, `doc/specification/store-schemas/11-enrolment-store.adoc` and `doc/implementation-watch/client-profiles.adoc` are shared, so it runs after PLAN-98 has merged); `token-usage` is spent (PLAN-107, #215).
+- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: PLAN-46 (the consent store and its kind `verify_harness_profile`); PLAN-98 (`judgment-endpoint`: `ProfileValidator`, `doc/specification/store-schemas/11-enrolment-store.adoc` and `doc/implementation-watch/client-profiles.adoc` are shared, so it runs after PLAN-98 has merged); `token-usage` is spent (PLAN-107, #215).
 - Blocks: PLAN-V2-43 (the harness list in the settings and the automatic run).
 
 ## Hand-Off Command

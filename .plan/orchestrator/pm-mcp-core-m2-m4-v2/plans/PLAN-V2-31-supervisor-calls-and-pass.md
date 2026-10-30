@@ -15,9 +15,9 @@ origin: PLAN-118 of the epic pm-mcp-core-m2-m4
 
 ## First Instruction: Read The Standing Rules
 
-**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r2`), and repeat the revision and the rule ids in your landing message.
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r4`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R16, R17, R18, R19. (R12 applies only if the trace matrix shows a message to add, see Standing Constraints; R14 and R16 apply because the plan changes `pm-runtime`; R15 does not apply, no `pm-workflow` code changes; R17 because the plan edits a specification part and runs the links check.)
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R16, R17, R18, R19, R20. (R12 applies only if the trace matrix shows a message to add, see Standing Constraints; R14 and R16 apply because the plan changes `pm-runtime`; R15 does not apply, no `pm-workflow` code changes; R17 because the plan edits a specification part and runs the links check.)
 
 Plan parameters (the values the rules ask for):
 
@@ -80,7 +80,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 
 ## Dependencies and Sequencing
 
-- Depends on: nothing. PLAN-30 (`supervisor`, #190), PLAN-66 (`worker-activity`, #198, partial) and PLAN-73 (`question-continuation`, #201, partial) are shipped; read their code at the head of `main`.
+- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: nothing. PLAN-30 (`supervisor`, #190), PLAN-66 (`worker-activity`, #198, partial) and PLAN-73 (`question-continuation`, #201, partial) are shipped; read their code at the head of `main`.
 - Overlaps with, by file: none of the live plans declares `SupervisorCalls`, `SupervisionPass` or their tests (new files). By package: PLAN-V2-73 (`runtime-control`, staged: `WorkerSupervisor`, `WorkerDrainParticipant`, `WorkerDrainParticipantTest`), PLAN-V2-42 (`runtime-metrics`, staged: `WorkerSupervisor`), PLAN-V2-27 (`epic-resource-and-release`, staged: `WorkerSupervisor`, `WorkerEnding`, `EndCause`, `WorkerEndingTest`) and PLAN-V2-23 (`decision-engine`, staged) share the package `runtime.worker`, not a file, as long as this plan keeps its constraint of leaving those classes alone. PLAN-46, PLAN-105, PLAN-V2-39 and PLAN-V2-43: no shared file (PLAN-V2-39 declares `ProbeWorkspace`, `DecoyServers`, `VerifyingBinaryCheck` and their tests of the same package). The sibling plan of this cluster, PLAN-V2-47 (`continuation-hold-and-budget`), extends `SupervisorCalls` and must run after this one.
 - Adjacent to: `scenarios-workflow` cluster / PLAN-35 (landed #229): `SupervisorScenarioTest`, `FixtureHarness` and `OffTrackScenarioTest` are not touched here. The Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` stays untouched: it is the caller of `SupervisorCalls` and `SupervisionPass`, a follow-up there after the SNAPSHOT deploy (R16 (2): name it in the pull request body).
 

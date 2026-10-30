@@ -15,9 +15,9 @@ origin: PLAN-62 of the epic pm-mcp-core-m2-m4
 
 ## First Instruction: Read The Standing Rules
 
-**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r1`), and repeat the revision and the rule ids in your landing message.
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r4`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18, R19.
+Rules that apply to this plan: R01, R02, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18, R19, R20.
 
 Plan parameters (the values the rules ask for):
 
@@ -192,7 +192,7 @@ Applicability:
 
 - **Landing note (2026-10-29):** PLAN-105 landed (#230): the Mermaid instance form lists composed files with digests but has no phase composites.
 - After #150 (`ac34703`, 2026-10-23): `icon` is a required key of every unit's frontmatter (a stable icon id, never a file path; grammar `[a-z][a-z0-9._-]{0,63}`, no `..` segment). The designer's catalogue and validate endpoints (deliverables 6 and 7) list and check the frontmatter fields exactly as the loader does, so `icon` is one of them: a machine or project copy of a unit keeps the icon of the unit it copies, a unit without one is refused as the loader refuses it. Whether the catalogue entry of a unit also shows its icon id is for the specification to say (not read for this note). The icon assets and the visual language are the `pm-mcp-clients` plan `workflow-visual-language-and-icons`, not this one. The `workflow-dsl` ADR directory exists (ADRs 001 to 008): the next free number is 009 (R11).
-- Depends on: PLAN-43 (`phase-sub-workflows`); PLAN-V2-54 (`recipe-workflows`); PLAN-46 (`machine-onboarding-unit`) (the plan axes and their variants); PLAN-V2-22 (`start-source-intake`) (the short landings); PLAN-26 (`role-sets-and-model-caller`) (the effective role set)
+- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: PLAN-43 (`phase-sub-workflows`); PLAN-V2-54 (`recipe-workflows`); PLAN-46 (`machine-onboarding-unit`) (the plan axes and their variants); PLAN-V2-22 (`start-source-intake`) (the short landings); PLAN-26 (`role-sets-and-model-caller`) (the effective role set)
 
 ## Hand-Off Command
 

@@ -12,7 +12,8 @@
     "WS-07-build-chain",
     "WS-08-architecture-and-domains",
     "WS-09-ci-and-providers",
-    "WS-10-spec-bookkeeping-and-hygiene"
+    "WS-10-spec-bookkeeping-and-hygiene",
+    "WS-11-skills-conformance"
   ],
   "metadata": {
     "parallelization_scope": "4"

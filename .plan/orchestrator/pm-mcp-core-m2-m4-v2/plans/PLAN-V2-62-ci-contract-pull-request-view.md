@@ -15,9 +15,9 @@ origin: PLAN-147 of the epic pm-mcp-core-m2-m4
 
 ## First Instruction: Read The Standing Rules
 
-**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r3`), and repeat the revision and the rule ids in your landing message.
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`; from another repository: `/home/oliver/git/pm-mcp-core/.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md`). They bind this plan exactly as if they were written below, and a rule that is not named here does not apply. Say in your first progress note that you read them, with their revision (`r4`), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R02, R03, R04, R05, R06, R07, R08, R11, R12, R17, R18, R19. (R01 does not apply as a package rule: the plan works no package of `doc/plans/`. R12 applies only if the trace matrix shows a message to add. R17 because the plan runs the links check. R09 to R10 and R13 to R16 do not apply: no project path, no versioned artifact, no specification part is edited, and neither `core.store`, `pm-runtime` nor `pm-workflow` changes.)
+Rules that apply to this plan: R02, R03, R04, R05, R06, R07, R08, R11, R12, R17, R18, R19, R20. (R01 does not apply as a package rule: the plan works no package of `doc/plans/`. R12 applies only if the trace matrix shows a message to add. R17 because the plan runs the links check. R09 to R10 and R13 to R16 do not apply: no project path, no versioned artifact, no specification part is edited, and neither `core.store`, `pm-runtime` nor `pm-workflow` changes.)
 
 Plan parameters (the values the rules ask for):
 
@@ -81,7 +81,7 @@ Not surface (R19, bookkeeping): `doc/Traceability.adoc`, the ADR directory `pm-p
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-V2-12 (`ci-contract-module`) (it creates the module and every class this plan extends; the surfaces of the two plans share `CiProvider`, `ForgeUrl`, `GitHubCiProvider`, `GitLabCiProvider`, `GitHubClient`, `GitHubOperation`, `GitLabClient`, their tests and the guides, 14 entries, so they cannot run beside each other).
+- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies and rule R20); and then: PLAN-V2-12 (`ci-contract-module`) (it creates the module and every class this plan extends; the surfaces of the two plans share `CiProvider`, `ForgeUrl`, `GitHubCiProvider`, `GitLabCiProvider`, `GitHubClient`, `GitHubOperation`, `GitLabClient`, their tests and the guides, 14 entries, so they cannot run beside each other).
 - **The plans that need `ci.pr-view` depend on this one (the orchestrator edits their specs):** PLAN-V2-24 `start-from-clients` for `source-pr` (with PLAN-V2-12 (`ci-contract-module`) for `source-issue`; no shared file with this plan). The adopt lane's re-observation is the owning plan's outline (Standing Constraints).
 - Overlaps with the live specs: none beyond the first plan; disjoint from the running PLAN-46 and PLAN-105 and from the staged PLAN-V2-39, PLAN-V2-43, PLAN-V2-13, PLAN-V2-17, PLAN-V2-72 in every file (PLAN-V2-72 `forgejo-provider` implements `CiProvider` in its own module after both plans and adds its `prView` then or leaves it Remaining).
 - Adjacent to: the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp`, which wires the primitive (list what it needs in the pull request body as **Owed outside this repository**).
