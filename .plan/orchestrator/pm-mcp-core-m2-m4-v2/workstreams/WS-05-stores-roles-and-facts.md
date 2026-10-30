@@ -30,6 +30,8 @@ The durable stores and records of the core: the epic ledger records, the lesson 
 | PLAN-V2-56-qualification-token-split | staged | Bring the qualification and judge-check codecs to the token-usage closure and fix the comments it left stale |
 | PLAN-V2-60-decision-calibration-record | staged | The decision calibration record: codec, store and declaration digest in core.role.qualification |
 | PLAN-V2-65-corpus-schema-length-bounds | staged | Bound the strings the shipped corpus schemas match with a pattern |
+| PLAN-V2-95-lock-manager-channel-close | staged | Keep the lock manager OS lock across a JSONL append |
+| PLAN-V2-96-role-qualification-adapter | staged | The grading adapter of role qualification |
 
 ## Sequencing and Surface Notes
 

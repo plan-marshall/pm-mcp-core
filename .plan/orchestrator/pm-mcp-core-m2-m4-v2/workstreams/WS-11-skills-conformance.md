@@ -32,8 +32,19 @@ Bring the existing code of all modules to the coding skills of the marketplace (
 | PLAN-V2-92-providers-tests | staged | Generated test data, provider modules |
 | PLAN-V2-93-http-tests-annotations | staged | The twelve HTTP test classes to the annotations; first sonar HTTP test |
 | PLAN-V2-94-utility-classes-and-generic-catches | staged | @UtilityClass and the generic catches of pm-runtime |
+| PLAN-V2-97-optional-conversion-core | staged | Optional to @Nullable, pm-core |
+| PLAN-V2-98-optional-conversion-workflow | staged | Optional to @Nullable, pm-workflow |
+| PLAN-V2-99-optional-conversion-runtime-and-providers | staged | Optional to @Nullable, runtime and providers |
+| PLAN-V2-100-builders-for-large-records | staged | @Builder for records of seven or more components |
+| PLAN-V2-101-assertion-messages-core-store | staged | Assertion messages, core store |
+| PLAN-V2-102-assertion-messages-core-rest | staged | Assertion messages, core rest |
+| PLAN-V2-103-assertion-messages-workflow-and-providers | staged | Assertion messages, workflow and providers |
+| PLAN-V2-104-assertion-messages-runtime-a | staged | Assertion messages, runtime a |
+| PLAN-V2-105-assertion-messages-runtime-b | staged | Assertion messages, runtime b |
+| PLAN-V2-106-easymock-for-fakes | staged | EasyMock doubles for the hand-written fakes |
 
 ## Sequencing and Surface Notes
 
 - The family is ordered by negative `seq` values (PLAN-V2-83 first); `next` fills the free slots in that order and the disjointness gate decides each emit. The wave plans declare their test packages by directory (R19 replaced), so no other plan that edits a test of those packages runs beside them.
+- The wave also holds PLAN-V2-95 and PLAN-V2-96 of WS-05 (lock manager, grading adapter); see `epic.md` wave 0 for the order.
 - PLAN-V2-83 and PLAN-V2-84 run alone; PLAN-V2-85 to PLAN-V2-88 run together; PLAN-V2-89 to PLAN-V2-91 and PLAN-V2-94 next; PLAN-V2-92 and PLAN-V2-93 last.

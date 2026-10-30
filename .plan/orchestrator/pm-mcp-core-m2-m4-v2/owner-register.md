@@ -9,7 +9,7 @@ The owning plan carries the item in its section `Carried Open Items`; it is not 
 | Item | Plan(s) | Note |
 |------|---------|------|
 | Op1: PLAN-98 residues (analysis of #222, 2026-10-29). | PLAN-V2-53, PLAN-V2-67 | the repository-wide architecture rule and the recording-test-network test of the Closed List of Outbound Calls belong to V2-53; the small residues (the two limits bisections as one helper, a WARN for a pre-send refusal, a negative |
-| Op3: PLAN-97 shipped 9 of 10; three residues (analysis of #214, 2026-10-28) | PLAN-V2-46 | Sonar: java:S3776 in AnswerSchema.check (complexity 25 against 15) is a refactor of this plan's surface; the six java:S1135 TODO comments come from the OpenRewrite recipe of the parent POM (operator decision D6); the unwired seams |
+| Op3: PLAN-97 shipped 9 of 10; three residues (analysis of #214, 2026-10-28) | PLAN-V2-46 | Sonar: java:S3776 in AnswerSchema.check (complexity 25 against 15) is a refactor of this plan's surface; the six java:S1135 issues are the generated TODO comments above the six catch (RuntimeException _) clauses that Deliverable 3 replaces (decision 6, closed); the unwired seams |
 | Op6: PLAN-43 open items the lane recorded, not fixed (message `-004`, 2026- | PLAN-V2-57, PLAN-V2-82 | handed_back/returned end with phase aborted (WorkflowEngine.ended) is V2-57; the cross-unit duplicate state ids in CallGraphExpansion are V2-82; the end-to-end default-plan test and the unmodelled adopt/land lanes are to be named  |
 | Op12: Two code residues of the token-usage closure (analysis of #215, 2026-1 | PLAN-V2-56 | store-schemas/16 no longer lists tokens_in/tokens_out on the qualification and judge-check records while QualificationRecordCodec and JudgeCheckCodec still write and require them: change the code to match; and the source comments  |
 | Op21: `SchemaSubset.checkString` evaluates a pattern before it checks `maxLe | PLAN-V2-65 | SchemaSubset.checkString compiles and matches the pattern before it tests maxLength (lines 139 to 153): test maxLength first; whether a corpus value can be attacker-controlled was not assessed |
@@ -62,16 +62,21 @@ The owning plan carries the item in its section `Carried Open Items`; it is not 
 | E23 Wa33 | Owed to the milestone exit by PLAN-72 (listed in the body of | plan-marshall-documentation | roadmap item of the spend removal checked off at the Milestone 3 exit batch |
 | E24 Wa43 | `StalledHold.kind()` became `StalledHold.KIND` (PLAN-87, #14 | plan-marshall-mcp (SNAPSHOT build) | StalledHold.kind() became StalledHold.KIND; retire when a SNAPSHOT-based build of pm-mcp-server compiles |
 
-## D. Awaiting a decision of the operator
+## D. Decisions of the operator (all answered on 2026-10-30)
 
-| Id | Question | Recommendation |
-|----|----------|----------------|
-| D1 Op15 | The roadmap item behind PLAN-02 is partly delivered (validators for request.md and PR bodies PM-WF-6, OutlineValidator rules that need the working tree, task derivation, registry checks that need the closed gate list, binding of free parameters); the plan's own statement, not checked against the roadmap. | Check the roadmap item against main, then stage the remainder as a plan or retire the lead. |
-| D2 Op18 | QuestionRecordReader.ReadRequest cannot address a pending entry (an entity of the workspace scope), so a question state of a pending entry cannot be resolved through the PLAN-88 adapter; the operator decides the owner. | Owner V2-22 (start-source-intake works on pending entries); port change in pm-core core.spi, adapter in pm-runtime. |
-| D3 Wa1 | Audit identity of judgment_task_completed (deferred by decision 10 of 18, "decide after PLAN-46 has landed", which it now has): machine-level os_principal or the worker-call shape of store-schemas/12. | Decide now; the answer is a one-line change of store-schemas/12 and of AuditEvent.judgmentTaskCompleted, to be carried by V2-81. |
-| D4 Wa26/new | A plan for the lock-manager fix behind Wa26 (JsonlStoreFile appends lose the OS lock): no staged plan owns it and V2-07 builds two more JSONL stores on it. | Stage one small plan "lock-manager-channel-close" before V2-07, or accept the loss per store as ADR core-store/024 did. |
-| D5 Op48 | The grading adapter of role-qualification has no owner: offer of corpus items as tasks, run at the origin commit in a detached worktree (Checkout.ITEM_COMMIT), warm-worker and contamination handling, the entry pm-operator roles qualify (ADR core-role/004); RoleGrader and QualificationCheck are referenced from nowhere in src/main; also open: the review roles' planted CN-<n> corpus item. | Stage a plan "role-qualification-adapter" in WS-05 after V2-31; V2-50 and V2-53 only name the classes. |
-| D6 Op3/S1135 | Six java:S1135 TODO comments are inserted on every build by the OpenRewrite suppression recipe of the parent POM; the dismissal surface refuses without a write credential. | Change the recipe in the parent POM (outside this repository) or give the dismissal credential; no plan here. |
+| Id | Question | Decision | Carried by |
+|----|----------|----------|------------|
+| D1 Wa1 | Audit identity of `judgment_task_completed` | Machine-level `os_principal` | PLAN-V2-81 (Carried Open Items) |
+| D2 Op18 | Owner of the pending-entry port of `QuestionRecordReader` | PLAN-V2-22 | PLAN-V2-22 (Carried Open Items) |
+| D3 Wa26 | The OS lock lost on a JSONL append | Fix in the lock manager before PLAN-V2-07 | PLAN-V2-95 (new); PLAN-V2-07 depends on it |
+| D4 Op48 | Owner of the grading adapter of role qualification | A plan after PLAN-V2-31 | PLAN-V2-96 (new) |
+| D5 Op15 | The remainder of the PLAN-02 roadmap item | Check the roadmap first, then stage or retire | Orchestrator check (`plan02-roadmap-check.md`), result below |
+| D6 Op3 | Six `java:S1135` TODO issues | Closed: they are the TODO comments above the six generic catches that PLAN-V2-46 replaces | PLAN-V2-46 Deliverable 3 |
+| D7 | `Optional` as parameter, field, record component | Convert all (reverses the earlier choice) | PLAN-V2-97, 98, 99 (new) |
+| D8 | `@Builder` on records | From seven components | PLAN-V2-100 (new) |
+| D9 | Test class layout and the 400-line budget | Behaviour tests stay; 400 lines reported only | the one exception, ADR of PLAN-V2-83 |
+| D10 | Assertion messages | Every assertion everywhere | PLAN-V2-101 to 105 (new) |
+| D11 | Hand-written fakes | Replace with EasyMock | PLAN-V2-106 (new); the dependency in PLAN-V2-83 |
 
 ## H. Dropped as history (the record stays in the archived ledger)
 
