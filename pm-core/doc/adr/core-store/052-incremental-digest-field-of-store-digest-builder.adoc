@@ -33,7 +33,7 @@ private final MessageDigest digest = StoreSnapshot.newSha256();
 ----
 
 The Javadoc of `Builder` states the invariant the suppression rests on: a builder is confined to the thread that
-creates it and is never shared, so it exists for the span of one computation and is discarded with it. No behaviour
+creates it and must not be shared, so it exists for the span of one computation and is discarded with it. No behaviour
 changes; `StoreDigestTest` stays green unchanged.
 
 == Alternatives Considered
