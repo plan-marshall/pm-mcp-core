@@ -196,7 +196,8 @@ current `agreement_level` and `allowed_gap`, which form the record qualifies. A 
 existing record at once.
 ====
 
-`QualificationCheck` refuses (or downgrades) a record for these reasons:
+`QualificationCheck` refuses (or downgrades) a record for these reasons. Its `catchRate` answers
+`Optional<BigDecimal>`: a form the record did not grade, or a corpus without suspicious items, is `Optional.empty()`.
 
 [cols="2,4"]
 |===

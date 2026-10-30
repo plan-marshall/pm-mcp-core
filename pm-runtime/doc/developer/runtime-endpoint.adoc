@@ -66,6 +66,7 @@ digest the enrolment recorded, so another build at the same path is refused too.
 `EndpointHarness`::
 One task: the owner check, the request, the acceptance of the answer. It refuses a foreign program `harness_not_enrolled`
 before any task text is sent, records a readiness failure and logs an attempt that ended without a valid answer.
+`listing` answers `Optional<JsonNode>`: a listing it cannot read is `Optional.empty()`, never `null`.
 
 [[weights-identity]]
 `WeightsReader`::

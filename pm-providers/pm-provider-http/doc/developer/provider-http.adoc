@@ -56,7 +56,8 @@ keeping a credential refusal (`AUTH_FAILED`, `PERMISSION_DENIED`) apart from a p
 
 |link:{src}/Json.java[`Json`]
 |Minimal reflection-free JSON tree over `jackson-core`: objects are insertion-ordered maps, arrays
-lists, numbers `BigDecimal`s.
+lists, numbers `BigDecimal`s. `Json.parseOrNull` answers `Optional<Object>`: text that is not JSON is
+`Optional.empty()`, never `null`.
 |===
 
 == Using the Base

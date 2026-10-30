@@ -280,7 +280,9 @@ endpoint block (`protocol`, `locality`, `base_url`, `readiness_path`, `models_pa
 probe. `EndpointProfile.Endpoint.remote()` and `judgment()` answer the form and the protocol, and
 `ProfileStages.stagesFor(protocol)` the stages a verification runs — a judgment endpoint has no `classes` stage.
 `EndpointProfile.weightsProbeOf` answers the probe of either kind of profile: the endpoint profile's own
-`weights_probe`, or `headless.weights_probe` of a client profile.
+`weights_probe`, or `headless.weights_probe` of a client profile. It answers `Optional<WeightsProbe>`: a profile
+without a probe is `Optional.empty()`, never `null`, because every production package is `@NullMarked` and absence is
+an `Optional` return.
 
 The loader treats both kinds alike and differs in one rule: an endpoint profile declares no supported version range, so a
 record measured on another build of the serving program leaves the profile `VERIFIED_ON_OTHER_BUILD` and launches go on,
