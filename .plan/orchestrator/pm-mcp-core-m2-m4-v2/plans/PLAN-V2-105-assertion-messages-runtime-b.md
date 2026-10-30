@@ -1,11 +1,11 @@
-# PLAN-V2-05: A message on every assertion of the pm-runtime worker, endpoint, credentials, enrolment and question tests
+# PLAN-V2-105: A message on every assertion of the pm-runtime worker, endpoint, credentials, enrolment and question tests
 
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-11
 lane: runbook
 
 > Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
-> Lives at `plans/PLAN-V2-05-assertion-messages-runtime-b.md` and is queued as one row file, `queue/PLAN-V2-05.json`,
+> Lives at `plans/PLAN-V2-105-assertion-messages-runtime-b.md` and is queued as one row file, `queue/PLAN-V2-105.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
 > the emitted command is a one-line pointer and carries no brief, so every per-plan carry is
@@ -73,7 +73,7 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, `doc/LogMes
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-05-assertion-messages-runtime-b.md
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-105-assertion-messages-runtime-b.md
 ```
 
 ## Write-Boundary
