@@ -70,7 +70,7 @@ The owning plan carries the item in its section `Carried Open Items`; it is not 
 | D2 Op18 | Owner of the pending-entry port of `QuestionRecordReader` | PLAN-V2-22 | PLAN-V2-22 (Carried Open Items) |
 | D3 Wa26 | The OS lock lost on a JSONL append | Fix in the lock manager before PLAN-V2-07 | PLAN-V2-95 (new); PLAN-V2-07 depends on it |
 | D4 Op48 | Owner of the grading adapter of role qualification | A plan after PLAN-V2-31 | PLAN-V2-96 (new) |
-| D5 Op15 | The remainder of the PLAN-02 roadmap item | Check the roadmap first, then stage or retire | Orchestrator check (`plan02-roadmap-check.md`), result below |
+| D5 Op15 | The remainder of the PLAN-02 roadmap item | Checked 2026-10-30 (`plan02-roadmap-check-2026-10-30.md`): lead 5, the runtime binding of free parameters, is a real gap and is carried by PLAN-V2-15; leads 1 (request.md and PR body validators) and 4b (keyword list) are stale and retired; leads 2 and 3 (OutlineValidator rules that need the working tree, task derivation) are Milestone 8 work for a later outline-validation package after PLAN-V2-35, not staged now; lead 4a (closed gate list) belongs inside the open packages `remediation-units` and `finalize-pipeline-and-merge` | PLAN-V2-15 (Carried Open Items) |
 | D6 Op3 | Six `java:S1135` TODO issues | Closed: they are the TODO comments above the six generic catches that PLAN-V2-46 replaces | PLAN-V2-46 Deliverable 3 |
 | D7 | `Optional` as parameter, field, record component | Convert all (reverses the earlier choice) | PLAN-V2-97, 98, 99 (new) |
 | D8 | `@Builder` on records | From seven components | PLAN-V2-100 (new) |

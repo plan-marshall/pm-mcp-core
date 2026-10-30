@@ -175,3 +175,9 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Carried Open Items
+
+Open items of the previous epic that this plan owns (register: `owner-register.md` of the epic; the full text is in the archived ledger `pm-mcp-core-m2-m4/epic.md`). They are not deliverables and extend no Done-when: read each while outlining, re-check it against `origin/main` (Claim Labels) and either adopt it into a deliverable of the outline or say in the landing why not.
+
+- **The runtime binding of free parameters is not implemented** (Op15 lead 5, verified 2026-10-30, `plan02-roadmap-check-2026-10-30.md`) — PM-WF-6 bullets 3 to 5 and Workflow DSL § Reusable Sub-Workflows step 5 require the validation of call arguments (`undeclared_param`, `missing_param`, `invalid_link_args`); the declaration side is on main (`MALFORMED_FREE_PARAMETER`, the verifier's `compareFreeParameters`), the runtime side is not: `ParameterBinder`'s default throws `UnsupportedOperationException` for any parameter (`WorkflowEngine.java` lines 174 to 196) and no `*.java` file names `undeclared_param` or `missing_param`; `doc/Traceability.adoc` says 'Not implemented yet'. The specification does not say how a `ContentValidator` attaches to a free parameter: this plan decides that at the outline together with the call-time `input.<name>` binding it already owns (one binder, not two)
