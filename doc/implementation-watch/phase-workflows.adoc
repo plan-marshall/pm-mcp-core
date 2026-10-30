@@ -1827,3 +1827,16 @@ the tree before it and the verification is green. Matched controls: a record wit
 criterion verified by `inspection` owe nothing; an unreadable ledger is `indeterminate`, never clean.
 Source:: Article analysis `ai-native-sdlc-playbook-anthropic` of plan-marshall-documentation (the failing test committed
 before the fix, which the agent may not rewrite).
+
+[#PM-WATCH-PHASE-125]
+=== PM-WATCH-PHASE-125: Two readings stay independent and their union stays whole
+
+Anchor:: link:../specification/phase-workflows/04-finalize-step-bands.adoc#second-code-reading[Phase Workflows § Second Code Reading]
+Hazard:: A warm worker or shared facts let the second reading see the first, so the two agree by copying; a filing step
+that merges findings by location drops a second defect on the same line; a duplicate counted as a yield of the second
+reading makes it look useful; one reading ending `lost` leaves the round reported clean.
+Guard:: Scenario with `code_readings: 2`: each reading runs on its own entity in a fresh worker and its facts hold no
+finding of the other; two different findings on one line are both filed; a finding answered `SUPPRESS` as a duplicate
+leaves `second_reading_yield` unchanged; a lost reading records `not_run`, never `clean_full`. Matched controls: the
+default value runs one task, a delta round and terminus mode run one task with the value `2`, and findings carry `reading: null`.
+Source:: Article analysis `review-like-my-team` of plan-marshall-documentation.
