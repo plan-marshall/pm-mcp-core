@@ -4,8 +4,10 @@
 
 ## START HERE
 
-**Resume anchor**: PLAN-V2-84 (null-safety-nullmarked) launched, runbook lane, alone (wave 0); await running confirmation, its PR and landing, then analyze. After it: 107, then 85 to 88; 85 to 89, 94, 95, 97, 100, 106 depend on 84; the feature plans (01 to 04, 82, 81) overlap it and follow the family. main is green (gate OK). PLAN-V2-83 and PLAN-V2-109 shipped. PLAN-V2-67 keeps D2 only, verdict bullets unparseable (cleanup). Every ledger-only PR runs the full 16-25 min build (skip-on-docs-only false, ADR 009).
+**Resume anchor**: PLAN-V2-84 (null-safety-nullmarked) running, runbook lane, alone (wave 0); await its PR and landing, then analyze, then next (PLAN-V2-107). 85 to 89, 94, 95, 97, 100, 106 depend on 84; the feature plans (01 to 04, 82, 81) overlap it and follow the family. main is green. PLAN-V2-83 and PLAN-V2-109 shipped. PLAN-V2-67 keeps D2 only, verdict bullets unparseable (cleanup).
 **Phase**: orchestrating
+**Running**:
+- PLAN-V2-84 (WS-11)
 **Parked**:
 - PLAN-V2-72 (WS-09)
 - PLAN-V2-73 (WS-06)
@@ -115,14 +117,13 @@
 97. PLAN-V2-82 (WS-02)
 98. PLAN-V2-96 (WS-05)
 - PLAN-V2-83 (WS-11) — plan=v2-83-skills-conformance-foundation — PR 248 — landing=landings/PLAN-V2-83.md — status: shipped
-- PLAN-V2-84 (WS-11) — status: launched
 - PLAN-V2-109 (WS-10) — plan=v2-109-store-digest-main-green — PR 250 — landing=landings/PLAN-V2-109.md — status: shipped
 
 ## Ordered Queue
 
 | # | Plan | Workstream | Status | Surface (expected) | Lane |
 |---|------|------------|--------|--------------------|------|
-| 1 | PLAN-V2-84 | WS-11 | launched | pm-core/src/main/java/; pm-core/src/main/java/de/planmarshall/core/; pm-core/src/test/java/de/planmarshall/core/guard/; pm-providers/*/src/main/java/; pm-runtime/src/main/java/; pm-runtime/src/main/java/de/planmarshall/runtime/; pm-workflow/src/main/java/; pm-workflow/src/main/java/de/planmarshall/workflow/ | runbook |
+| 1 | PLAN-V2-84 | WS-11 | running | pm-core/src/main/java/; pm-core/src/main/java/de/planmarshall/core/; pm-core/src/test/java/de/planmarshall/core/guard/; pm-providers/*/src/main/java/; pm-runtime/src/main/java/; pm-runtime/src/main/java/de/planmarshall/runtime/; pm-workflow/src/main/java/; pm-workflow/src/main/java/de/planmarshall/workflow/ | runbook |
 | 2 | PLAN-V2-107 | WS-11 | staged | CLAUDE.md; doc/adr/NNN-generator-artifacts.adoc; doc/adr/README.adoc; pm-core/pom.xml; pm-core/src/test/java/de/planmarshall/core/BuildGuardsIT.java; pm-core/src/test/java/de/planmarshall/core/testing/generators/; pm-providers/pm-provider-github/pom.xml; pm-providers/pm-provider-gitlab/pom.xml; pm-providers/pm-provider-http/pom.xml; pm-providers/pm-provider-http/src/test/java/de/planmarshall/provider/http/testing/generators/; pm-providers/pm-provider-sonar/pom.xml; pm-runtime/pom.xml; pm-runtime/src/test/java/de/planmarshall/runtime/testing/generators/; pm-workflow/pom.xml; pm-workflow/src/test/java/de/planmarshall/workflow/testing/generators/ | runbook |
 | 3 | PLAN-V2-85 | WS-11 | staged | pm-core/src/test/java/de/planmarshall/core/store/ | runbook |
 | 4 | PLAN-V2-86 | WS-11 | staged | pm-core/src/test/java/de/planmarshall/core/store/ | runbook |
