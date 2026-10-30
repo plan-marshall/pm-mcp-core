@@ -25,7 +25,7 @@ text, that the raw evidence was deleted with the plan's worktree, and that the f
 (a dependency cycle with `question-continuation`, no durable evidence, a weakened scale and criteria rule). This epic
 corrects the published results, repairs the follow-up package and its dependencies, and then runs the re-measurement at
 the specified scale, so that `question-continuation` implements settled values and not smoke-scale candidates. Done
-when the three plans have landed and the roadmap item of Milestone 4 can be checked on settled values.
+when the four plans have landed and the roadmap item of Milestone 4 can be checked on settled values.
 
 ## Queue annotations
 
@@ -103,6 +103,14 @@ when the three plans have landed and the roadmap item of Milestone 4 can be chec
   the package. The package stays open until PLAN-04's part is done; the bound is settled for Claude Code as host-specific.
   Alternatives not taken: emit PLAN-03 whole (spends budget on values without a consumer, and waits on Antigravity);
   defer it entirely (leaves the driver and the Claude Code values, the one part with a consumer, undone).
+- 2026-10-30 — Hand-off and limit (operator). The operator launches PLAN-03 from `plan-marshall-mcp` on `main`, with the
+  sibling path to the ledger copy of the spec, and the landing is analyzed from the PR and the final report, because the
+  plan cannot reach this epic's inbox. The missing no-inline-settings limit stays with PLAN-03, as its spec says.
+- 2026-10-30 — Budget and parallel limit (operator). Budget accepted at a cap of 60 USD for the Claude Code groups, R4 large
+  work last. PLAN-03 also measures how many workers Claude Code sustains at once (1, 3, 6, and 12 if 6 is clean) and runs
+  its groups at that limit; written into its spec as a finding, not a shipped value.
+- 2026-10-30 — Q6's quorum moves to PLAN-04 (operator), because it votes on OpenCode as well and settles none of PLAN-03's
+  values; PLAN-03 keeps Q6's consultation part. PLAN-04's hand-off takes the same sibling path as PLAN-03's.
 - 2026-10-27 — The `pm-mcp-core` executor in the main checkout was stale (0.1.1924 against the registry's 0.1.2017) and
   was regenerated from the plugin cache before scaffolding; the old file is kept in the session scratchpad. The shared
   ledger worktree was fast-forwarded from #78 to `origin/main` (#195), with no pending paths.
@@ -130,7 +138,18 @@ when the three plans have landed and the roadmap item of Milestone 4 can be chec
 - Merged `main` fails `BROKEN LINKS 0` (the landing reports 12 and four undefined watch ids; this analysis confirmed
   `PM-WATCH-CLIENT-14` cited at `model-work/01-roles-and-configuration.adoc:357` and not defined in
   `implementation-watch/client-profiles.adoc`). None comes from this epic's diffs; the owners are the plans that removed
-  the watch items. — source: PLAN-01 landing, partly verified 2026-10-28.
+  the watch items. — source: PLAN-01 landing, partly verified 2026-10-28. Measured 2026-10-30 on `origin/main` of
+  documentation (`53a514e`) and core (`03f182c9`): 1 broken link, 0 undefined watch ids and 0 undefined requirement ids. The
+  one is `pm-runtime/doc/developer/runtime-config.adoc:10`, a missing anchor `#PM-EXT-6` in
+  `requirements/16-model-work.adoc`; it is outside this epic. The documentation's `origin/main` has no
+  `.github/workflows/` file, so the `links.yml` that `CLAUDE.md` names does not run from there.
+- PLAN-03's hand-off does not work as written: its command runs in the `plan-marshall-mcp` checkout and points at
+  `.plan/orchestrator/question-loop-corrections/plans/…`, which exists only in `pm-mcp-core`. A sibling or absolute path
+  reads the spec, but `inbox detect` answers `not_orchestrator_pointer` for it, and the epic does not resolve in that
+  repository's store (`exists: false`), so the plan cannot file its landing to the inbox. The same holds for PLAN-04.
+  — source: tested 2026-10-30. Settled for PLAN-03 by the operator's decision of 2026-10-30 (see Decisions) and written into
+  the specs of both plans. The operator also brings that checkout to `main` first; it stands on the
+  merged branch `fix/exclude-orchestrator-ledger-push-builds` (#111).
 
 ## Watches
 
@@ -138,7 +157,11 @@ when the three plans have landed and the roadmap item of Milestone 4 can be chec
   when the orchestrator has incorporated changes (PLAN-01's landing: `spec_differ: true`, and its D3 limit was lost to it).
   Before PLAN-03 is emitted, compare the two copies or hand the ledger copy over. The copies were identical on
   2026-10-29, before the host split rewrote PLAN-03 and staged PLAN-04 in the ledger copy; landing the ledger fast-forwards
-  the main checkout, so compare again after the land. — retire when PLAN-03 is launched.
+  the main checkout, so compare again after the land. Compared 2026-10-30: PLAN-03, PLAN-04 and `epic.md` were
+  byte-identical in both copies (before this day's `epic.md` edit, which is narrative only). — retire when PLAN-03 is launched.
+- Client versions, re-checked 2026-10-30: Claude Code 2.1.314 (also the npm latest; the smoke run was 2.1.306 to 2.1.310),
+  OpenCode 2.2.3 (smoke 2.1.2 to 2.1.4), `agy` 1.4.7 (smoke 1.4.7 at the end). — re-read at the first run; the plan records
+  the version per run.
 
 - `pm-mcp-core-m2-m4` PLAN-73 (`question-continuation`) read `question-loop-verification` as `done` and its
   dependencies as met, although no `headless.resumability`, `questions` or bound value was settled. A finding was sent to
@@ -160,16 +183,21 @@ when the three plans have landed and the roadmap item of Milestone 4 can be chec
   `client-profile-measured-values` is launched.
 - `doc/plans/worker-integration-tests.adoc:14` still names `question-loop-verification` as the measurer of the real
   harnesses; it lies outside PLAN-02's declared surface and was not edited. — a row in a later plan, or a fold into one.
-- Unverified lead: PLAN-02's Done-when clause "`BROKEN LINKS 0` against both repositories' `main`" was reported as 0
-  for `pm-mcp-core` and 2843 for `plan-marshall-mcp`, the latter described as pre-existing. This analysis could not
-  measure it (the local `plan-marshall-mcp` checkout is behind `origin/main`). The clause is still in the spec of a
-  shipped plan. — measure on current checkouts before PLAN-03 repeats the clause.
+- Resolved 2026-10-30: PLAN-02's reported 2843 `BROKEN LINKS` for `plan-marshall-mcp` is an artefact, not a defect count.
+  `trace.py` takes the documentation tree and the core tree as its only two arguments; given `plan-marshall-mcp` as the
+  second (2936 on `origin/main` `b66fe12`), it reports the links into core as missing, among them about 2840 GitHub URLs of
+  `pm-mcp-core`. The check has no reading for that repository. Neither PLAN-03's spec nor the package file carries the
+  clause, so PLAN-03 does not repeat it.
 - The run budget PLAN-03 waits on: task 6 of the package names about 55 USD and about 240 h as the default, an estimate
   from the smoke figures. The scale was reduced 2026-10-28 and the plan split by host 2026-10-29 (see Decisions); the
   orchestrator's rough estimate of 12 to 25 USD and 15 to 25 h of machine time covered all three hosts, is unmeasured, and
   was not recomputed for the Claude Code groups alone (smoke figure: 24 Claude Code runs cost 2.3 to 2.9 USD). Task 6 of
-  the package recomputes it per part. — the operator confirms or replaces it before PLAN-03 is launched, and again
-  before PLAN-04.
+  the package recomputes it per part. Recomputed 2026-10-30 for the Claude Code groups from the smoke figures of
+  `evaluation.adoc` (estimate, unmeasured at this scale): 270 base runs plus 24 to reproduce a smoke group, 28 to 36 USD and
+  about 32 to 49 h serial; with Q5's further bounds, groups extended to 10 and Q6's voters, 41 to 52 USD. Not included: R4
+  large work (36 runs, one smoke run took up to 18.2 million tokens on OpenCode) and the Sonnet repeats. Accepted for PLAN-03 2026-10-30 at a cap of 60 USD; the parallel-limit runs add 48 to 72 runs
+  (5 to 9 USD); with Q6's quorum moved to PLAN-04 that leaves about 5 to 16 USD for R4 large work in the case with extras. — the operator confirms or
+  replaces it again before PLAN-04.
 - Gemini / Antigravity is available from about 2026-10-31 07:10 CET (operator, 2026-10-28 18:10 CET, "in 2 d 13 h"). Since
   the split this binds PLAN-04's Antigravity groups, not PLAN-03. — retire when the Antigravity groups have run, or move
   the date if the operator gives a new one.
