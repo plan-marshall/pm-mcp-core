@@ -26,6 +26,7 @@ The repository:
 
 * link:./[`doc/adr/`]: the decisions that concern the whole repository.
 ** link:009-no-build-skip-for-a-specification-only-pull-request.adoc[009 No Build Skip for a Specification-Only Pull Request]: every pull request runs the full build, including one that changes only the specification.
+** link:010-the-coding-skills-and-the-accepted-exception.adoc[010 The Coding Skills and the Accepted Exception]: the marketplace coding skills bind every plan that touches Java, the six dependencies they need are allowed, and tests follow behaviour (the one accepted exception).
 
 `pm-core`:
 

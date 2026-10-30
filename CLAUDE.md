@@ -88,7 +88,14 @@ its own pull request.
   the managed third-party versions, the plugin management, the quality-gate recipes and the deployment target.
 - `pm-api` comes from `pm-mcp-clients` as a `SNAPSHOT`, named by the property `version.pm-mcp-clients` in the root
   POM; a change to it is a pull request there, and its merge deploys the `SNAPSHOT` this repository builds against.
-- Never add a dependency or a plugin without asking the user first.
+- The coding-skill dependencies are allowed (operator decision 2026-10-30; ADR `doc/adr/010`):
+  `de.cuioss.test:cui-test-generator` (test), `de.cuioss.test:cui-test-value-objects` (test),
+  `org.jspecify:jspecify` (compile), `org.projectlombok:lombok` (provided and annotation processor) in
+  `pm-workflow` and `pm-provider-sonar`, `de.cuioss.test:cui-test-mockwebserver-junit5` (test) in
+  `pm-provider-sonar`, and `org.easymock:easymock` (test). Their versions come from the parent POM; a module POM
+  carries no version literal.
+- Never add a dependency or a plugin without asking the user first. The six above are the operator's answer for the
+  coding-skill conformance family (PLAN-V2-83 to PLAN-V2-108); anything else still needs a decision.
 - Pre-1.0: no deprecation cycles, no backward-compatibility shims.
 
 ## Dependency Rules (enforced by the build)
@@ -116,8 +123,14 @@ them with a fixture project below `src/guard-controls`:
 - Java 25, Lombok (`@UtilityClass`, `@Value`, `@Builder`), prefer records, `var` for obvious types, final fields,
   package-private over public where possible. No Quarkus, no CDI: a class that needs a framework type belongs in
   `pm-mcp-server`.
-- Every package has a `package-info.java` with Javadoc; every public type is documented.
-- Never catch or throw generic `Exception`/`RuntimeException` in production code.
+- Every package has a `package-info.java` with Javadoc and `@NullMarked` (JSpecify); every public type is
+  documented.
+- Absence is returned as `Optional<T>`, never as `null` and never as a `@Nullable` return. `Optional` is a return
+  type only: a parameter, field or record component that may be absent is `@Nullable`.
+- A record of four or more components carries `@Builder` (the documented rule of `java-lombok`); a smaller one keeps
+  its canonical constructor. A class that holds only static methods is a Lombok `@UtilityClass`.
+- Never catch or throw generic `Exception`/`RuntimeException`/`Throwable` in production code; a last-resort handler
+  that a specification names carries a `@SuppressWarnings` with its reason.
 - Logging: `private static final CuiLogger LOGGER = new CuiLogger(X.class);` (cui-java-tools), `%s` placeholders,
   exception first; no slf4j, log4j, `System.out`/`System.err`. INFO/WARN/ERROR messages are `LogRecord` constants in
   the holder of the module that logs them, one holder per module in its own `log` package: `CoreLogMessages`
@@ -128,7 +141,23 @@ them with a fixture project below `src/guard-controls`:
   only through its own holder and that of `pm-core`. Each record is documented in `doc/LogMessages.adoc` (of this
   repository).
 - JUnit 5 only (`@DisplayName`, `@Nested`, AAA, `@ParameterizedTest` for 3+ variants), on the JVM without Quarkus.
-  Forbidden: Mockito, PowerMock, Hamcrest. Test data: cui-test-generator; log assertions: cui-test-juli-logger.
+  Forbidden: Mockito, PowerMock, Hamcrest; test doubles are EasyMock, and no new hand-written fake is added. No AAA
+  phase comments.
+- Test data come from `cui-test-generator` (`@EnableGeneratorController`, `Generators.*`, `@GeneratorsSource`). A
+  literal stays only where it is the contract — a wire format, an error or reason code, a schema or specification
+  string, a golden file or a fixture path — and the test says so in its display name or a one-line comment. The
+  reusable generators of a module live in that module's generator artifact (a test JAR deployed with the
+  `SNAPSHOT`): `pm-core`'s are usable by `pm-workflow`, `pm-runtime` and the providers; `pm-provider-http`'s by
+  `-github`, `-gitlab` and `-sonar`; those of `pm-workflow` and `pm-runtime` by the assembly only. A test that
+  needs a generator for another module's type takes it from that module's artifact.
+- A class with a hand-written `equals`/`hashCode` (not a record or an enum) has a contract test through
+  `ShouldHandleObjectContracts` (`cui-test-value-objects`).
+- Every assertion carries a message of 20 to 60 characters that says what is checked (`junit-core`).
+- Every `LogRecord` a class logs is asserted by its constant with `LogAsserts` (`@EnableTestLogger`); no hand-made
+  log handler.
+- HTTP tests use `@EnableMockWebServer` with `@MockResponseConfig` or `@ModuleDispatcher` and an injected
+  `URIBuilder`; no hand-written `Dispatcher` (ADR `doc/adr/010`, which supersedes ADR `doc/adr/002`; PLAN-V2-93
+  migrates the existing test classes).
 - OS-specific behaviour (Secret Service, Keychain) is tested with `@EnabledOnOs`.
 - `pm-runtime` builds a test JAR with the fixtures the assembly's tests share (`TestBases`, `FakeBus`,
   `FakeSecretService`); it is deployed with the `SNAPSHOT`.

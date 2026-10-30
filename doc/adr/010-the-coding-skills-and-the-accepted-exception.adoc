@@ -1,0 +1,127 @@
+= ADR 010: The Coding Skills and the Accepted Exception
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-30
+
+== Context
+
+The conformance audit of 2026-10-30 (`skills-audit-2026-10-30.md`) measured the eight modules against the coding
+skills of the plan-marshall marketplace: `cui-logging`, `cui-testing` and `cui-http-testing` of the
+`pm-dev-java-cui` bundle, and `java-core`, `java-lombok`, `java-null-safety`, `javadoc`, `junit-core` and
+`junit-integration` of the `pm-dev-java` bundle. It found logging and Javadoc conforming, and generated test data,
+value-object contract tests, JSpecify null safety, the annotation-based HTTP test style, `Optional` in parameters,
+fields and record components, `@Builder` on large records, assertion messages and EasyMock doubles not conforming.
+
+`CLAUDE.md` forbids adding a dependency or a plugin without asking the operator. The six artifacts the skills need
+therefore required a decision, and so did the scope of several rules where the skills and `CLAUDE.md` disagreed (the
+audit's section 5). The operator answered on 2026-10-30.
+
+== Decision
+
+The coding skills of the marketplace are binding for every plan that touches Java, production or test
+(`standing-rules.md` r4, R20). The code is brought to them first, by the family PLAN-V2-83 to PLAN-V2-108.
+
+The operator's answers of 2026-10-30, quoted from the epic's decision log:
+
+[quote]
+____
+the coding skills of the marketplace are binding (R20), and the code is brought to them first. […] the
+dependencies `cui-test-generator`, `cui-test-value-objects`, JSpecify (direct), Lombok in `pm-workflow` and
+`pm-provider-sonar` and EasyMock are allowed; all tests are migrated to generated data (exemption: a literal that is
+the contract); the twelve HTTP test classes go to `@MockResponseConfig` / `@ModuleDispatcher` and ADR 002 is
+superseded; every production package is `@NullMarked`, absence is `Optional`, and every existing `Optional`
+parameter, field and record component is converted to `@Nullable`; records of four or more components get `@Builder`
+(the documented rule); every assertion gets a message; the hand-written fakes become EasyMock doubles; the one
+exception: tests follow behaviour and the 400-line budget is only reported. Logging stays as it is: one message
+holder per module, never one for the whole repository (R12, R20). Each module with reusable test-data generators
+publishes a generator artifact (a test JAR deployed with the `SNAPSHOT`) that the modules allowed to depend on it use
+(PLAN-V2-107).
+____
+
+The six allowed dependencies, with the scope in which this repository declares them:
+
+* `de.cuioss.test:cui-test-generator` (test).
+* `de.cuioss.test:cui-test-value-objects` (test).
+* `org.jspecify:jspecify` (compile).
+* `org.projectlombok:lombok` (provided and annotation processor) in `pm-workflow` and `pm-provider-sonar`.
+* `de.cuioss.test:cui-test-mockwebserver-junit5` (test) in `pm-provider-sonar`.
+* `org.easymock:easymock` (test).
+
+Their versions come from the parent POM `de.planmarshall:pm-mcp-parent`; a module POM carries no version literal. A
+version the parent does not manage is a finding for the parent, never a literal here.
+
+The rules, in the repository's own words, are recorded in `CLAUDE.md` § Code Standards and § Dependencies and
+Versions: generated test data with the literal-is-the-contract exemption, the generator artifact of each module,
+contract tests through `ShouldHandleObjectContracts`, `LogAsserts` for every `LogRecord`, annotation-based HTTP tests,
+`@NullMarked` on every production package, `Optional` as a return type only, `@Builder` on records of four or more
+components, a message on every assertion, EasyMock for test doubles with no new hand-written fake, `@UtilityClass`
+for static-only classes, and no catch or throw of `Exception`, `RuntimeException` or `Throwable` (a last-resort
+handler a specification names carries a `@SuppressWarnings` with its reason).
+
+The one accepted exception is: *tests follow behaviour, not one test class per production class, and the 400-line
+budget of `junit-core` is reported by the landing, not enforced.* The build enforces 80 % line and branch coverage
+per module instead.
+
+The log message holder rule stays unchanged and binds this family. It is repeated here word for word from
+`CLAUDE.md` § Code Standards:
+
+[quote]
+____
+Logging: `private static final CuiLogger LOGGER = new CuiLogger(X.class);` (cui-java-tools), `%s` placeholders,
+exception first; no slf4j, log4j, `System.out`/`System.err`. INFO/WARN/ERROR messages are `LogRecord` constants in
+the holder of the module that logs them, one holder per module in its own `log` package: `CoreLogMessages`
+(`de.planmarshall.core.log`, prefix `PM_CORE`), `RuntimeLogMessages` (`de.planmarshall.runtime.log`, `PM_RUNTIME`),
+`WorkflowLogMessages` (`de.planmarshall.workflow.log`, `PM_WORKFLOW`), a provider `<X>LogMessages`
+(`de.planmarshall.provider.<x>.log`, `PM_PROVIDER_<X>`), created with its first record. Ranges in every holder:
+INFO 001–099, WARN 100–199, ERROR 200–299; a new record takes the next free identifier of its level. A module logs
+only through its own holder and that of `pm-core`. Each record is documented in `doc/LogMessages.adoc` (of this
+repository).
+____
+
+The annotation-based HTTP test rule supersedes ADR link:002-cui-http-and-the-mock-web-server-for-http.adoc[002], which
+allowed a hand-written dispatcher. PLAN-V2-93 migrates the twelve existing HTTP test classes to
+`@MockResponseConfig` / `@ModuleDispatcher` with an injected `URIBuilder`; this ADR records the rule, that plan carries
+the migration.
+
+== Alternatives Considered
+
+1. *Leave the skills advisory and keep the current code.* Rejected: the operator's decision of 2026-10-30 makes the
+   skills binding and the conformance family the first work of the epic.
+2. *Add each dependency ad hoc in the plan that first needs it.* Rejected: the same six artifacts are needed across
+   eight modules and twenty-five plans; one decision record and one `CLAUDE.md` text keep them consistent.
+3. *Enforce one test class per production class.* Rejected: tests follow behaviour, and 152 of 307 `pm-core`
+   production classes have no name-matching test while coverage is green; the exception is recorded above.
+4. *Enforce the 400-line test-class budget.* Rejected: the budget is reported by the landing, not enforced; the build
+   enforces the 80 % coverage threshold.
+
+== Consequences
+
+Every plan of the family PLAN-V2-83 to PLAN-V2-108 reads `CLAUDE.md` and this ADR, and every later plan that touches
+Java reads R20. What is *not* an exception, with the plan that closes it:
+
+* `Optional` as a parameter, field or record component is converted to `@Nullable`: PLAN-V2-97, PLAN-V2-98 and
+  PLAN-V2-99.
+* Records of four or more components get `@Builder`: PLAN-V2-100 (pm-core) and PLAN-V2-108 (the other modules).
+* Every assertion gets a message: PLAN-V2-101 to PLAN-V2-105.
+* The hand-written fakes become EasyMock doubles: PLAN-V2-106.
+* Generated test data and `@NullMarked` with `Optional` returns: PLAN-V2-84 to PLAN-V2-92.
+* Annotation-based HTTP tests: PLAN-V2-93.
+* `@UtilityClass` and the generic catches: PLAN-V2-94.
+
+No plan of the family merges, renames or moves a log message holder; `doc/LogMessages.adoc` stays the one
+documentation file of the records. A later plan that disagrees with this decision supersedes it by a new ADR; it does
+not work around it.
+
+== Source
+
+The operator's decision of 2026-10-30, quoted above from the epic's decision log; the conformance audit
+`skills-audit-2026-10-30.md` §§ 1, 4 and 5; the standing rules of the epic, revision r4, R20; the plan spec
+`+.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-83-skills-conformance-foundation.md+`; the parent POM
+`de.planmarshall:pm-mcp-parent` for the managed versions; ADR
+link:002-cui-http-and-the-mock-web-server-for-http.adoc[002] for the HTTP test style this decision supersedes.
