@@ -71,9 +71,10 @@ String reasoning, String costUsd, String toolUses) {
         if (!usage.isObject()) {
             throw new IllegalArgumentException("'headless.usage' must be an object");
         }
-        return new UsagePointers(member(usage, "input_tokens"), member(usage, "output_tokens"),
-                member(usage, "cache_read"), member(usage, "cache_creation"), member(usage, "reasoning"),
-                member(usage, "cost_usd"), member(usage, "tool_uses"));
+        return new UsagePointers(member(usage, "input_tokens").orElse(null), member(usage, "output_tokens").orElse(null),
+                member(usage, "cache_read").orElse(null), member(usage, "cache_creation").orElse(null),
+                member(usage, "reasoning").orElse(null), member(usage, "cost_usd").orElse(null),
+                member(usage, "tool_uses").orElse(null));
     }
 
     /**
@@ -97,16 +98,16 @@ String reasoning, String costUsd, String toolUses) {
                 reason);
     }
 
-    private static String member(JsonNode usage, String name) {
+    private static Optional<String> member(JsonNode usage, String name) {
         var value = usage.member(name).orElseThrow(
                 () -> new IllegalArgumentException("'headless.usage.%s' is missing".formatted(name)));
         if (value.isNull()) {
-            return null;
+            return Optional.empty();
         }
         if (!value.isString()) {
             throw new IllegalArgumentException("'headless.usage.%s' must be a pointer or null".formatted(name));
         }
-        return value.text().orElseThrow();
+        return Optional.of(value.text().orElseThrow());
     }
 
     private static Measurement component(JsonNode turn, String pointer, boolean[] unparsed) {

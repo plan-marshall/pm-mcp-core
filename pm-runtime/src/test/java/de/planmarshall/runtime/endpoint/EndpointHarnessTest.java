@@ -13,7 +13,6 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.mockwebserver.EnableMockWebServer;
@@ -205,7 +204,8 @@ class EndpointHarnessTest {
         var enrolled = EndpointFixtures.enrolment();
         var harness = new EndpointHarness(new EndpointClient(), owner(enrolled.executablePath().toString()));
 
-        assertNull(harness.listing(EndpointFixtures.profile(base())));
+        assertTrue(harness.listing(EndpointFixtures.profile(base())).isEmpty(),
+                "an unreadable listing yields no models");
     }
 
     @Test
@@ -221,11 +221,10 @@ class EndpointHarnessTest {
         var enrolled = EndpointFixtures.enrolment();
         var harness = new EndpointHarness(new EndpointClient(), owner(enrolled.executablePath().toString()));
 
-        var listing = harness.listing(EndpointFixtures.profile(base()));
+        var listing = harness.listing(EndpointFixtures.profile(base())).orElseThrow();
 
         assertAll(
-                () -> assertNotNull(listing),
-                () -> assertTrue(listing.isArray()),
-                () -> assertEquals(1, listing.elements().size()));
+                () -> assertTrue(listing.isArray(), "the listing resolves to an array"),
+                () -> assertEquals(1, listing.elements().size(), "the listing holds one model"));
     }
 }

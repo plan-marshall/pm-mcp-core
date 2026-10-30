@@ -118,7 +118,7 @@ ActivityEventMapping events) {
                 tiers(headless.member("model_tiers").orElse(JsonNode.nullValue())),
                 efforts(headless.member("model_efforts").orElse(JsonNode.nullValue())),
                 strings(headless.member("resource_tools").orElse(JsonNode.nullValue())),
-                dataHome(headless.member("data_home").orElse(JsonNode.nullValue())),
+                dataHome(headless.member("data_home").orElse(JsonNode.nullValue())).orElse(null),
                 residue(text(headless, "session_residue").orElse("persisted")),
                 resumeArgv(headless.member("resumability").orElse(JsonNode.nullValue())),
                 capabilities(headless.member("capabilities").orElse(JsonNode.nullValue())),
@@ -130,7 +130,7 @@ ActivityEventMapping events) {
                         .orElse(null),
                 strings(headless.member("writable_paths").orElse(JsonNode.nullValue())),
                 usagePointers(headless.member("usage").orElse(JsonNode.nullValue())),
-                ActivityEventMapping.of(headless.member("events").orElse(JsonNode.nullValue())));
+                ActivityEventMapping.of(headless.member("events").orElse(JsonNode.nullValue())).orElse(null));
     }
 
     /**
@@ -265,11 +265,13 @@ ActivityEventMapping events) {
         return values;
     }
 
-    private static DataHome dataHome(JsonNode dataHome) {
+    /** @return the data home, or empty when the harness shares one store */
+    private static Optional<DataHome> dataHome(JsonNode dataHome) {
         if (dataHome.isNull()) {
-            return null;
+            return Optional.empty();
         }
-        return new DataHome(text(dataHome, "variable").orElseThrow(), text(dataHome, "login_file").orElseThrow());
+        return Optional.of(new DataHome(text(dataHome, "variable").orElseThrow(),
+                text(dataHome, "login_file").orElseThrow()));
     }
 
     private static SessionResidue residue(String name) {

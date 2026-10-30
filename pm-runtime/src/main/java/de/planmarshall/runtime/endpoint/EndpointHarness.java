@@ -128,20 +128,20 @@ public final class EndpointHarness {
 
     /**
      * @param profile the endpoint profile
-     * @return the model objects of the models listing, or {@code null} when the listing cannot be read
+     * @return the model objects of the models listing, or empty when the listing cannot be read
      */
-    public JsonNode listing(EndpointProfile profile) {
+    public Optional<JsonNode> listing(EndpointProfile profile) {
         var response = client.get(profile, profile.endpoint().modelsPath());
         if (!response.successful()) {
-            return null;
+            return Optional.empty();
         }
         try {
             var document = JsonDocument.parse(response.body().getBytes(StandardCharsets.UTF_8), "models");
-            return JsonPointer.resolve(document, profile.endpoint().modelsPointer(), "models listing");
+            return Optional.of(JsonPointer.resolve(document, profile.endpoint().modelsPointer(), "models listing"));
         }
         /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
         catch (RuntimeException _) {
-            return null;
+            return Optional.empty();
         }
     }
 }

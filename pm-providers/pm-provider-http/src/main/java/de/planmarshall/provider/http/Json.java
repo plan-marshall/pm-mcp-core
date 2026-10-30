@@ -56,13 +56,13 @@ public final class Json {
 
     /**
      * @param json the JSON text
-     * @return the tree, or {@code null} if the text is not JSON
+     * @return the tree, or empty if the text is not JSON
      */
-    public static Object parseOrNull(String json) {
+    public static Optional<Object> parseOrNull(String json) {
         try {
-            return parse(json);
+            return Optional.of(parse(json));
         } catch (JsonFormatException _) {
-            return null;
+            return Optional.empty();
         }
     }
 

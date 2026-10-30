@@ -88,11 +88,11 @@ public final class JudgmentEndpoint {
         Objects.requireNonNull(model, "model");
         var started = clock.millis();
         var notEnrolled = ownerRefusal(profile, enrolled);
-        if (notEnrolled != null) {
-            var refused = new Attempt(EndpointOutcome.refused(EndpointOutcome.Reason.HARNESS_NOT_ENROLLED, notEnrolled),
-                    null);
+        if (notEnrolled.isPresent()) {
+            var refused = new Attempt(EndpointOutcome.refused(EndpointOutcome.Reason.HARNESS_NOT_ENROLLED,
+                    notEnrolled.get()), null);
             var refusal = new Answers(null, refused, null);
-            logLaunchRefusal(profile, notEnrolled);
+            logLaunchRefusal(profile, notEnrolled.get());
             appendRecord(profile, model, refusal, started);
             return refusal;
         }
@@ -117,38 +117,40 @@ public final class JudgmentEndpoint {
     }
 
     /**
-     * @return why no task text may be sent, or {@code null} when the endpoint is the enrolled one
+     * @return why no task text may be sent, or empty when the endpoint is the enrolled one
      */
-    private String ownerRefusal(EndpointProfile profile, HarnessEnrolment enrolled) {
+    private Optional<String> ownerRefusal(EndpointProfile profile, HarnessEnrolment enrolled) {
         if (profile.endpoint().remote()) {
             if (enrolled.binding() == null) {
-                return "the remote endpoint '%s' is enrolled as a serving program".formatted(profile.clientId());
+                return Optional.of("the remote endpoint '%s' is enrolled as a serving program"
+                        .formatted(profile.clientId()));
             }
             var origin = TokenLaneCredential.origin(URI.create(profile.endpoint().baseUrl()));
             if (!origin.equals(enrolled.binding().origin())) {
-                return "the remote endpoint is enrolled for another origin than '%s'".formatted(origin);
+                return Optional.of("the remote endpoint is enrolled for another origin than '%s'".formatted(origin));
             }
             if (!Objects.equals(profile.endpoint().credentialKey(), enrolled.binding().credentialKey())) {
-                return "the remote endpoint is enrolled with another credential entry";
+                return Optional.of("the remote endpoint is enrolled with another credential entry");
             }
-            return null;
+            return Optional.empty();
         }
         if (enrolled.isEndpoint()) {
-            return "the loopback endpoint '%s' is enrolled as a remote endpoint".formatted(profile.clientId());
+            return Optional.of("the loopback endpoint '%s' is enrolled as a remote endpoint"
+                    .formatted(profile.clientId()));
         }
         var endpoint = URI.create(profile.endpoint().baseUrl());
         var lookup = owner.ownerOf(endpoint.getHost(), endpoint.getPort());
         if (!lookup.runs(enrolled.executablePath().toString())) {
-            return lookup.isFound()
+            return Optional.of(lookup.isFound()
                     ? "the program on the port is '%s', the enrolled executable is '%s'".formatted(
                     lookup.executablePath(), enrolled.executablePath())
-                    : lookup.detail();
+                    : lookup.detail());
         }
         var digest = executableDigest(lookup.executablePath());
         if (digest.isEmpty() || !digest.get().equals(enrolled.sha256())) {
-            return "the program on the port is not the build the enrolment recorded";
+            return Optional.of("the program on the port is not the build the enrolment recorded");
         }
-        return null;
+        return Optional.empty();
     }
 
     private static Optional<String> executableDigest(String executablePath) {

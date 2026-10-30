@@ -818,7 +818,7 @@ class WorkflowParserRefusalTest {
                     () -> assertEquals(Optional.of("g"), inputs.realizedFootprintDigest()),
                     () -> assertEquals(Optional.empty(), inputs.changeType()),
                     () -> assertEquals(Optional.empty(), inputs.providersDigest()),
-                    () -> assertEquals(json, header.json()));
+                    () -> assertEquals(json, header.json(), "the read stops at the closing brace"));
         }
 
         @Test

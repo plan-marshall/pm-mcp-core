@@ -1505,13 +1505,14 @@ class SubprocessJobRunnerTest {
             var endedAt = spawnedAt.plusMillis(1500);
 
             assertAll(
-                    () -> assertNull(SubprocessJobRunner.childWallMs(null, spawnedAt, endedAt), "no reported start"),
+                    () -> assertTrue(SubprocessJobRunner.childWallMs(null, spawnedAt, endedAt).isEmpty(),
+                            "no reported start yields no wall time"),
                     () -> assertEquals(1400L, SubprocessJobRunner.childWallMs(spawnedAt.plusMillis(100), spawnedAt,
-                            endedAt)),
+                            endedAt).orElseThrow(), "a reported start after the spawn bounds the wall"),
                     () -> assertEquals(1500L, SubprocessJobRunner.childWallMs(spawnedAt.minusSeconds(1), spawnedAt,
-                            endedAt), "a start reported before the spawn is bounded by the job's wall time"),
+                            endedAt).orElseThrow(), "a start before the spawn is bounded by the job wall"),
                     () -> assertEquals(0L, SubprocessJobRunner.childWallMs(endedAt.plusMillis(5), spawnedAt,
-                            endedAt)));
+                            endedAt).orElseThrow(), "a start after the end is bounded to zero"));
         }
 
         @Test

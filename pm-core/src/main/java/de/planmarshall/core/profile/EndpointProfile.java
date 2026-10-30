@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * The validated values of an endpoint profile (PM-CLIENT-2, Client Profiles § Endpoint Profile Schema): the profile of
@@ -187,11 +188,11 @@ Endpoint endpoint, Map<String, String> modelTiers, WeightsProbe weightsProbe) {
         var block = profile.member("endpoint").orElseThrow();
         return new EndpointProfile(ProfileValidator.clientId(profile),
                 member(profile, "executable"),
-                identity(profile),
-                updateEvidence(profile),
+                identity(profile).orElse(null),
+                updateEvidence(profile).orElse(null),
                 endpoint(block),
                 tiers(profile),
-                weightsProbe(profile.member(WEIGHTS_PROBE).orElse(null)));
+                weightsProbe(profile.member(WEIGHTS_PROBE).orElse(null)).orElse(null));
     }
 
     /**
@@ -199,7 +200,7 @@ Endpoint endpoint, Map<String, String> modelTiers, WeightsProbe weightsProbe) {
      * @return the weights probe of the profile, {@code null} when it declares none: the endpoint profile's own
      *         {@code weights_probe}, or {@code headless.weights_probe} of a client profile
      */
-    public static WeightsProbe weightsProbeOf(JsonNode document) {
+    public static Optional<WeightsProbe> weightsProbeOf(JsonNode document) {
         var declared = ProfileValidator.isEndpoint(document)
                 ? document.member(WEIGHTS_PROBE).orElse(null)
                 : document.member("headless").filter(headless -> !headless.isNull())
@@ -207,23 +208,23 @@ Endpoint endpoint, Map<String, String> modelTiers, WeightsProbe weightsProbe) {
         return weightsProbe(declared);
     }
 
-    private static Identity identity(JsonNode profile) {
+    private static Optional<Identity> identity(JsonNode profile) {
         var declared = profile.member("identity").orElse(null);
         if (declared == null || declared.isNull()) {
-            return null;
+            return Optional.empty();
         }
         var probe = declared.member("version_probe").orElseThrow();
-        return new Identity(probe.elements().stream().map(value -> value.text().orElse("")).toList(),
-                declared.member("version_pattern").flatMap(JsonNode::text).orElse(""));
+        return Optional.of(new Identity(probe.elements().stream().map(value -> value.text().orElse("")).toList(),
+                declared.member("version_pattern").flatMap(JsonNode::text).orElse("")));
     }
 
-    private static UpdateEvidence updateEvidence(JsonNode profile) {
+    private static Optional<UpdateEvidence> updateEvidence(JsonNode profile) {
         var declared = profile.member("update_evidence").orElse(null);
         if (declared == null || declared.isNull()) {
-            return null;
+            return Optional.empty();
         }
-        return new UpdateEvidence(declared.member("method").flatMap(JsonNode::text).orElse("none"),
-                member(declared, "signer"));
+        return Optional.of(new UpdateEvidence(declared.member("method").flatMap(JsonNode::text).orElse("none"),
+                member(declared, "signer")));
     }
 
     private static Endpoint endpoint(JsonNode block) {
@@ -247,16 +248,16 @@ Endpoint endpoint, Map<String, String> modelTiers, WeightsProbe weightsProbe) {
         return tiers;
     }
 
-    private static WeightsProbe weightsProbe(JsonNode declared) {
+    private static Optional<WeightsProbe> weightsProbe(JsonNode declared) {
         if (declared == null || declared.isNull()) {
-            return null;
+            return Optional.empty();
         }
         var argv = declared.member("argv").orElse(null);
-        return new WeightsProbe(declared.member("source").flatMap(JsonNode::text).orElseThrow(),
+        return Optional.of(new WeightsProbe(declared.member("source").flatMap(JsonNode::text).orElseThrow(),
                 member(declared, "pointer"),
                 argv == null || argv.isNull() ? null
                         : argv.elements().stream().map(value -> value.text().orElse("")).toList(),
-                member(declared, "pattern"));
+                member(declared, "pattern")));
     }
 
     private static String member(JsonNode node, String name) {

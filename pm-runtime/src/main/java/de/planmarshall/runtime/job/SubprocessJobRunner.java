@@ -546,7 +546,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         store.lockKey(request.scope());
         var jobId = workerId(launch.generationId());
         JobRecord first;
-        RunningJob job;
+        Optional<RunningJob> job;
         admission.lock();
         try {
             try (var transaction = lockManager.openTransaction()) {
@@ -557,14 +557,14 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         } finally {
             admission.unlock();
         }
-        if (job == null) {
+        if (job.isEmpty()) {
             return new JobRunner.StartResult.Started(first.jobId());
         }
         if (jobTokens != null && !launch.jobTokenSha256().isEmpty()) {
             jobTokens.register(jobId.value(), launch.jobTokenSha256());
         }
         var token = launch.jobToken().isEmpty() ? Optional.<String>empty() : Optional.of(launch.jobToken());
-        return run(job, log -> new Launch(launch.workingDirectory(), launch.argv(), environment.ofWorker(request
+        return run(job.get(), log -> new Launch(launch.workingDirectory(), launch.argv(), environment.ofWorker(request
                         .enrolment(), jobId, launch.env(), token, Optional.empty(), request.egressProxy()), Optional.empty(),
                 log, confinementComposer.forJob(request.enrolment(), jobId, request.writablePaths(), false)));
     }
@@ -643,7 +643,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 : JobRecordStore.ofEntry(base, scope.id());
         JobRecord first;
         ProbeVerification.Result verification;
-        RunningJob job = null;
+        Optional<RunningJob> job = Optional.empty();
         admission.lock();
         try {
             try (var transaction = lockManager.openTransaction()) {
@@ -678,14 +678,14 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             LOGGER.info(INFO.JOB_SETTLED, first.jobId(), first.fate().wireName(), first.outcomeRow());
             return new JobRunner.StartResult.Refused(refusal.reason().code());
         }
-        if (job == null) {
+        if (job.isEmpty()) {
             return new JobRunner.StartResult.Started(first.jobId());
         }
         var verified = (ProbeVerification.Verified) verification;
         var checkoutRoot = candidate.workingDirectory() instanceof ProbeCandidate.CheckoutRoot(Path root)
                 ? Optional.of(root)
                 : Optional.<Path>empty();
-        return run(job, log -> new Launch(verified.workingDirectory(), verified.argv(),
+        return run(job.get(), log -> new Launch(verified.workingDirectory(), verified.argv(),
                 probeEnvironment.of(candidate, first.jobId()), Optional.empty(), log,
                 confinementComposer.forProbe(first.jobId(), checkoutRoot, List.of(),
                         candidate.kind() != ProbeCandidate.Kind.SCRIPT, List.of())));
@@ -717,16 +717,16 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * write-ahead record is closed, so a failure of that transaction leaves no job running that nothing launches,
      * waits for or settles.
      *
-     * @return the running job; {@code null} for a job that was refused or recorded {@code queued}
+     * @return the running job; empty for a job that was refused or recorded {@code queued}
      */
-    private RunningJob register(JobRecord first, JobRecordStore store, JobBudget budget,
+    private Optional<RunningJob> register(JobRecord first, JobRecordStore store, JobBudget budget,
             Set<Integer> successExitCodes) {
         if (first.status() != Status.RUNNING) {
-            return null;
+            return Optional.empty();
         }
         var job = new RunningJob(first, store, budget, successExitCodes);
         running.put(first.jobId(), job);
-        return job;
+        return Optional.of(job);
     }
 
     /**
@@ -919,7 +919,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private JobRunner.StartResult launch(JobRunner.StartRequest<JobRequest> request, JobBudget budget,
             JobRecordStore store, VerifiedJob verified) {
         JobRecord first;
-        RunningJob job;
+        Optional<RunningJob> job;
         admission.lock();
         try {
             try (var transaction = lockManager.openTransaction()) {
@@ -931,11 +931,13 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         } finally {
             admission.unlock();
         }
-        if (job == null) {
+        if (job.isEmpty()) {
             return new JobRunner.StartResult.Started(first.jobId());
         }
-        return run(job, log -> Launch.of(verified, environment.of(verified, job.latest.jobId()), request.stdin(), log,
-                confinementComposer.forJob(verified.enrolment(), job.latest.jobId(), List.of(), false)));
+        var running = job.get();
+        return run(running, log -> Launch.of(verified, environment.of(verified, running.latest.jobId()),
+                request.stdin(), log,
+                confinementComposer.forJob(verified.enrolment(), running.latest.jobId(), List.of(), false)));
     }
 
     /**
@@ -1476,7 +1478,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 .spawnedAt(ended.spawnedAt()).endedAt(ended.endedAt())
                 .exitCode(waitStatus instanceof Exited(var code) ? Long.valueOf(code) : null)
                 .signal(waitStatus instanceof Signalled(var signal) ? signal : null)
-                .childWallMs(childWallMs(current.processStartedAt(), ended.spawnedAt(), ended.endedAt()))
+                .childWallMs(childWallMs(current.processStartedAt(), ended.spawnedAt(), ended.endedAt()).orElse(null))
                 .cancelBeforeGroup(ended.cancelBeforeGroup())
                 .selfReportContradiction(outcome.row() == 6 ? parse.selfReportContradiction().orElse(null) : null)
                 .build();
@@ -1541,15 +1543,15 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
     /**
      * The wall time of the child from its reported start to the exit the runner observed, bounded by the job's wall
-     * time; {@code null} without a reported start.
+     * time; empty without a reported start.
      */
-    static Long childWallMs(Instant processStartedAt, Instant spawnedAt, Instant endedAt) {
+    static Optional<Long> childWallMs(Instant processStartedAt, Instant spawnedAt, Instant endedAt) {
         if (processStartedAt == null) {
-            return null;
+            return Optional.empty();
         }
         var jobWall = Math.max(0, Duration.between(spawnedAt, endedAt).toMillis());
         var childWall = Duration.between(processStartedAt, endedAt).toMillis();
-        return Math.clamp(childWall, 0, jobWall);
+        return Optional.of(Math.clamp(childWall, 0, jobWall));
     }
 
     /**

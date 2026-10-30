@@ -157,10 +157,10 @@ public final class HuggingFaceSourceRepository implements SourceRepository {
             return log(repository, refused.get());
         }
         var revision = endpoint(repository, DATASETS_API, "/revision/" + commit);
-        if (revision == null) {
+        if (revision.isEmpty()) {
             return log(repository, notADataset(repository));
         }
-        return log(repository, confirm(revision, commit));
+        return log(repository, confirm(revision.get(), commit));
     }
 
     /**
@@ -182,10 +182,10 @@ public final class HuggingFaceSourceRepository implements SourceRepository {
             return log(repository, refused.get());
         }
         var raw = endpoint(repository, DATASETS, "/raw/" + commit + "/" + path);
-        if (raw == null) {
+        if (raw.isEmpty()) {
             return log(repository, notADataset(repository));
         }
-        return log(repository, download(raw));
+        return log(repository, download(raw.get()));
     }
 
     /**
@@ -316,39 +316,40 @@ public final class HuggingFaceSourceRepository implements SourceRepository {
      * @param repository the repository of a source
      * @param root       the path the endpoint is rooted at below the host
      * @param suffix     the path below the dataset
-     * @return the URL of the endpoint, or null when the repository is not a dataset URL or the URL is no URI
+     * @return the URL of the endpoint, or empty when the repository is not a dataset URL or the URL is no URI
      */
-    private static URI endpoint(URI repository, String root, String suffix) {
+    private static Optional<URI> endpoint(URI repository, String root, String suffix) {
         var dataset = dataset(repository);
-        if (dataset == null) {
-            return null;
+        if (dataset.isEmpty()) {
+            return Optional.empty();
         }
         try {
             // Built through the URI API so every character a path may not carry verbatim is encoded: a space, a '%',
             // a '#' and a '?' all reach the endpoint as the file name holds them, where concatenation would cut the
             // path at a '#' or a '?' and misread a '%'.
-            return new URI(repository.getScheme(), repository.getRawAuthority(), root + dataset + suffix, null, null);
+            return Optional.of(new URI(repository.getScheme(), repository.getRawAuthority(),
+                    root + dataset.get() + suffix, null, null));
         } catch (URISyntaxException _) {
-            return null;
+            return Optional.empty();
         }
     }
 
     /**
      * @param repository a Hugging Face dataset repository URL
-     * @return the dataset below {@code /datasets/}, {@code <owner>/<name>}; null when the URL names no such dataset
+     * @return the dataset below {@code /datasets/}, {@code <owner>/<name>}; empty when the URL names no such dataset
      */
-    private static String dataset(URI repository) {
+    private static Optional<String> dataset(URI repository) {
         var path = repository.getPath();
         if (path == null) {
-            return null;
+            return Optional.empty();
         }
         while (path.endsWith("/")) {
             path = path.substring(0, path.length() - 1);
         }
         if (!path.startsWith(DATASETS) || path.length() == DATASETS.length()) {
-            return null;
+            return Optional.empty();
         }
-        return path.substring(DATASETS.length());
+        return Optional.of(path.substring(DATASETS.length()));
     }
 
     private static String scheme(URI uri) {

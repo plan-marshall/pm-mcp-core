@@ -138,7 +138,7 @@ public record Result<V>(Outcome outcome, Optional<V> value, boolean complete, Op
 
     /** The provider's reason in an error body: {@code message} (GitHub, GitLab) or {@code error} (GitLab). */
     private static Optional<String> reasonOf(String body) {
-        if (!(Json.parseOrNull(body) instanceof Map<?, ?> map)) {
+        if (!(Json.parseOrNull(body).orElse(null) instanceof Map<?, ?> map)) {
             return Optional.empty();
         }
         Object reason = map.get("message") != null ? map.get("message") : map.get("error");

@@ -12,6 +12,7 @@ package de.planmarshall.runtime.start;
 import de.cuioss.tools.logging.CuiLogger;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.Optional;
 
 import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
@@ -107,11 +108,11 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
             try {
                 unit.remove();
             } catch (ServiceUnitException e) {
-                throw firstOf(failure, e);
+                throw firstOf(failure.orElse(null), e);
             }
             var unloadFailure = callManager("unload", () -> manager.unload(path));
-            if (failure != null || unloadFailure != null) {
-                throw firstOf(failure, unloadFailure);
+            if (failure.isPresent() || unloadFailure.isPresent()) {
+                throw firstOf(failure.orElse(null), unloadFailure.orElse(null));
             }
         }
         LOGGER.info(INFO.SERVICE_UNIT_UNINSTALLED, path);
@@ -213,15 +214,15 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
     /**
      * Runs one step of the service manager and logs its failure.
      *
-     * @return the failure, or {@code null} if the step succeeded
+     * @return the failure, or empty if the step succeeded
      */
-    private static ServiceUnitException callManager(String operation, Runnable step) {
+    private static Optional<ServiceUnitException> callManager(String operation, Runnable step) {
         try {
             step.run();
-            return null;
+            return Optional.empty();
         } catch (ServiceUnitException e) {
             LOGGER.error(e, ERROR.SERVICE_MANAGER_FAILED, operation, e.getMessage());
-            return e;
+            return Optional.of(e);
         }
     }
 

@@ -86,7 +86,7 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
         bounded(why, "why", 20, 1000);
         bounded(goal, "goal", 10, 300);
         criteria = copy(criteria, "criteria", 1, 30);
-        currentBehaviour = optionalBounded(currentBehaviour, "current_behaviour", 10, 500);
+        currentBehaviour = optionalBounded(currentBehaviour, "current_behaviour", 10, 500).orElse(null);
         nonGoals = copy(nonGoals, "non_goals", 1, 20);
         constraints = copy(constraints, "constraints", 0, 20);
         decisions = copy(decisions, "decisions", 0, 30);
@@ -224,11 +224,11 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
         return value;
     }
 
-    private static String optionalBounded(String value, String member, int min, int max) {
+    private static Optional<String> optionalBounded(String value, String member, int min, int max) {
         if (value == null) {
-            return null;
+            return Optional.empty();
         }
-        return bounded(value, member, min, max);
+        return Optional.of(bounded(value, member, min, max));
     }
 
     private static <T> List<T> copy(List<T> values, String member, int min, int max) {

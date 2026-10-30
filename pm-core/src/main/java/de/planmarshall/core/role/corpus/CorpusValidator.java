@@ -131,7 +131,7 @@ public final class CorpusValidator {
 
         private final List<CorpusViolation> violations = new ArrayList<>();
         private final Set<String> seen = new HashSet<>();
-        private JsonValue itemSchema;
+        private Optional<JsonValue> itemSchema = Optional.empty();
 
         private List<CorpusViolation> corpus() {
             if (!Files.isDirectory(corpusRoot)) {
@@ -173,29 +173,28 @@ public final class CorpusValidator {
             return List.copyOf(violations);
         }
 
-        private JsonValue itemSchema() {
+        private Optional<JsonValue> itemSchema() {
             var file = corpusRoot.resolve(ITEM_SCHEMA);
             if (!Files.isRegularFile(file)) {
                 add(ITEM_SCHEMA, Rule.ITEM_SCHEMA, "the item schema is missing");
-                return null;
+                return Optional.empty();
             }
             try {
-                return JsonValue.parse(Files.readAllBytes(file));
+                return Optional.of(JsonValue.parse(Files.readAllBytes(file)));
             } catch (IOException e) {
                 add(ITEM_SCHEMA, Rule.UNREADABLE, describe(e));
             } catch (MalformedJson e) {
                 add(ITEM_SCHEMA, Rule.ITEM_SCHEMA, NOT_JSON + e.getMessage());
             }
-            return null;
+            return Optional.empty();
         }
 
         private void item(Path file, String id, boolean generated) {
             var document = document(file, id);
             if (document.isPresent()) {
                 var item = document.get();
-                if (itemSchema != null) {
-                    SchemaSubset.validate(item, itemSchema).forEach(error -> add(id, Rule.SCHEMA, error));
-                }
+                itemSchema.ifPresent(schema ->
+                        SchemaSubset.validate(item, schema).forEach(error -> add(id, Rule.SCHEMA, error)));
                 if (generated) {
                     SchemaSubset.validate(item, Schemas.IMPORTED_ITEM)
                             .forEach(error -> add(id, Rule.IMPORTED_ITEM, error));

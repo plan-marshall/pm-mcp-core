@@ -241,8 +241,8 @@ public class QualificationRecordCodec {
                 case TOPICS -> topics = readTopics(parser);
                 case FORM_ITEMS -> items = count(parser, field);
                 case TOTAL_TOKENS -> totalTokens = readTokens(parser, field);
-                case TOKENS_IN -> tokensIn = readSplit(parser, field);
-                case TOKENS_OUT -> tokensOut = readSplit(parser, field);
+                case TOKENS_IN -> tokensIn = readSplit(parser, field).orElse(null);
+                case TOKENS_OUT -> tokensOut = readSplit(parser, field).orElse(null);
                 case DURATION_MS -> duration = integer(parser, field);
                 default -> throw undeclared(field);
             }
@@ -313,8 +313,8 @@ public class QualificationRecordCodec {
                 case ANSWER -> answer = value(parser);
                 case SCORE -> score = readGrade(parser, field);
                 case TOTAL_TOKENS -> totalTokens = readTokens(parser, field);
-                case TOKENS_IN -> tokensIn = readSplit(parser, field);
-                case TOKENS_OUT -> tokensOut = readSplit(parser, field);
+                case TOKENS_IN -> tokensIn = readSplit(parser, field).orElse(null);
+                case TOKENS_OUT -> tokensOut = readSplit(parser, field).orElse(null);
                 case DURATION_MS -> duration = nullableInteger(parser, field);
                 default -> throw undeclared(field);
             }
@@ -338,11 +338,11 @@ public class QualificationRecordCodec {
         return new TokenTotal(declared.measured() ? declared.tokens() : null, tokensIn, tokensOut);
     }
 
-    private static Long readSplit(JsonParser parser, String field) throws IOException {
+    private static Optional<Long> readSplit(JsonParser parser, String field) throws IOException {
         if (parser.currentToken() == JsonToken.VALUE_STRING) {
             var text = string(parser, field);
             if (TokenTotal.UNMEASURED_MARK.equals(text)) {
-                return null;
+                return Optional.empty();
             }
             throw unreadable("'%s' is a count or '%s': %s".formatted(field, TokenTotal.UNMEASURED_MARK, text));
         }
@@ -350,7 +350,7 @@ public class QualificationRecordCodec {
         if (value < 0) {
             throw unreadable("'%s' must not be negative: %d".formatted(field, value));
         }
-        return value;
+        return Optional.of(value);
     }
 
     private static Grade readGrade(JsonParser parser, String field) throws IOException {

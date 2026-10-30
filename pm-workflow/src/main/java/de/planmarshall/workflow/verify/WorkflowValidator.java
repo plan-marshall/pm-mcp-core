@@ -1266,7 +1266,7 @@ public final class WorkflowValidator {
                         : "not the phase's fallback state 'plan.return' or 'finalize.hand-back'";
                 case EPIC, WORKSPACE, MACHINE, ENTITY -> isRestingState(target) ? null
                         : "not a resting state of the unit";
-                case SUBWORKFLOW -> subWorkflowSteppedOutDetail(definition, target, targetClass);
+                case SUBWORKFLOW -> subWorkflowSteppedOutDetail(definition, target, targetClass).orElse(null);
             };
         }
         if (detail != null) {
@@ -1276,23 +1276,24 @@ public final class WorkflowValidator {
     }
 
     /**
-     * @return {@code null} when a sub-workflow may route {@code stepped_out} to the target, otherwise what the target
+     * @return an empty value when a sub-workflow may route {@code stepped_out} to the target, otherwise what the target
      *         is not
      */
-    private static String subWorkflowSteppedOutDetail(WorkflowDefinition definition, StateNode target,
+    private static Optional<String> subWorkflowSteppedOutDetail(WorkflowDefinition definition, StateNode target,
             Optional<OutcomeClass> targetClass) {
         var continuesStepOut = target.behavior() instanceof StateBehavior.InteractiveLinks
                 || targetClass.filter(outcomeClass -> outcomeClass == OutcomeClass.STEPPED_OUT
                 || outcomeClass == OutcomeClass.FAILURE).isPresent();
         if (continuesStepOut) {
-            return null;
+            return Optional.empty();
         }
         if (!definition.id().startsWith(REMEDIATION_UNIT_PREFIX)) {
-            return "neither a terminal of class STEPPED_OUT or FAILURE nor a link state that continues the step-out";
+            return Optional.of(
+                    "neither a terminal of class STEPPED_OUT or FAILURE nor a link state that continues the step-out");
         }
-        return isBudgetCheck(target) ? null
-                : "neither a terminal of class STEPPED_OUT or FAILURE, nor a link state that continues the step-out, nor the budget re-check 'remediation-<class>%s' running '%s'"
-                .formatted(BUDGET_CHECK_SUFFIX, CHECK_BUDGETS);
+        return isBudgetCheck(target) ? Optional.empty()
+                : Optional.of("neither a terminal of class STEPPED_OUT or FAILURE, nor a link state that continues the step-out, nor the budget re-check 'remediation-<class>%s' running '%s'"
+                        .formatted(BUDGET_CHECK_SUFFIX, CHECK_BUDGETS));
     }
 
     /**

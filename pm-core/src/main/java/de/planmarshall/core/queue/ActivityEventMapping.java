@@ -53,13 +53,13 @@ public record ActivityEventMapping(String kindPointer, Map<ActivityEntry.Kind, K
 
     /**
      * @param events the {@code headless.events} value of a profile
-     * @return the mapping, or {@code null} when the value is {@code null}
+     * @return the mapping, or empty when the value is {@code null}
      * @throws IllegalArgumentException if the value is not the object {@code ProfileValidator} admitted
      */
-    public static ActivityEventMapping of(JsonNode events) {
+    public static Optional<ActivityEventMapping> of(JsonNode events) {
         Objects.requireNonNull(events, "events");
         if (events.isNull()) {
-            return null;
+            return Optional.empty();
         }
         var kindPointer = text(events, "kind_pointer");
         var kinds = events.member("kinds").orElseThrow(
@@ -71,7 +71,7 @@ public record ActivityEventMapping(String kindPointer, Map<ActivityEntry.Kind, K
                 mapped.put(kind, kindMapping(kind, declaration));
             }
         }
-        return new ActivityEventMapping(kindPointer, mapped);
+        return Optional.of(new ActivityEventMapping(kindPointer, mapped));
     }
 
     private static KindMapping kindMapping(ActivityEntry.Kind kind, JsonNode declaration) {

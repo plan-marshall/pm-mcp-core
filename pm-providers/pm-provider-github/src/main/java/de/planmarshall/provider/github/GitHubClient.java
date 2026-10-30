@@ -185,7 +185,7 @@ public final class GitHubClient {
         if (!response.isOk()) {
             return Result.failed(response);
         }
-        return Json.string(Json.parseOrNull(response.body()), "id").map(Result::ok)
+        return Json.string(Json.parseOrNull(response.body()).orElse(null), "id").map(Result::ok)
                 .orElseGet(() -> Result.of(Result.Outcome.FAILED, "comment response without id"));
     }
 
@@ -197,7 +197,7 @@ public final class GitHubClient {
         if (!response.isOk()) {
             return Result.failed(response);
         }
-        Object json = Json.parseOrNull(response.body());
+        Object json = Json.parseOrNull(response.body()).orElse(null);
         List<Object> errors = Json.list(json, "errors");
         if (!errors.isEmpty()) {
             Object first = errors.getFirst();

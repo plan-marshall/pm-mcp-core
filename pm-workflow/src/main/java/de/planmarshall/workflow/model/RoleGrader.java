@@ -143,7 +143,7 @@ public final class RoleGrader {
             results.addAll(formResults);
         }
         var entry = new QualificationRecord(name, role.qualificationDigest(), GradedConfiguration.of(role),
-                plan.corpusRevision(), missedSources(plan), forms, warmFreshGap(forms), ungraded(results),
+                plan.corpusRevision(), missedSources(plan), forms, warmFreshGap(forms).orElse(null), ungraded(results),
                 clock.instant(), results);
         records.write(entry);
         return new GradingOutcome.Graded(entry);
@@ -311,11 +311,11 @@ public final class RoleGrader {
         return Scoring.judged(item) ? Scoring.right(item, result.score().score()) : result.score().judgedRight();
     }
 
-    private static BigDecimal warmFreshGap(Map<RoleForm, QualificationRecord.FormResult> forms) {
+    private static Optional<BigDecimal> warmFreshGap(Map<RoleForm, QualificationRecord.FormResult> forms) {
         var fresh = forms.get(RoleForm.FRESH);
         var warm = forms.get(RoleForm.WARM);
         if (fresh == null || warm == null) {
-            return null;
+            return Optional.empty();
         }
         BigDecimal gap = null;
         for (var entry : fresh.topics().entrySet()) {
@@ -325,9 +325,9 @@ public final class RoleGrader {
             gap = gap == null || measured.compareTo(gap) > 0 ? measured : gap;
         }
         if (gap == null) {
-            return BigDecimal.ZERO;
+            return Optional.of(BigDecimal.ZERO);
         }
-        return gap.stripTrailingZeros().scale() < 0 ? gap.setScale(0) : gap.stripTrailingZeros();
+        return Optional.of(gap.stripTrailingZeros().scale() < 0 ? gap.setScale(0) : gap.stripTrailingZeros());
     }
 
     private static int ungraded(List<QualificationRecord.ItemResult> results) {

@@ -18,6 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Optional;
 import lombok.experimental.UtilityClass;
 
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
@@ -73,7 +74,7 @@ public class DrainTimeout {
             return invalid(file, "not readable: " + e.getMessage());
         }
         // The whole document is parsed before the value counts: a truncated file is invalid, not a short timeout
-        String rejected = null;
+        Optional<String> rejected = Optional.empty();
         Long seconds = null;
         try (var parser = JSON.createParser(document)) {
             if (parser.nextToken() != JsonToken.START_OBJECT) {
@@ -84,7 +85,7 @@ public class DrainTimeout {
                 parser.nextToken();
                 if (KEY.equals(field)) {
                     rejected = rejection(parser);
-                    seconds = rejected == null ? parser.getLongValue() : null;
+                    seconds = rejected.isEmpty() ? parser.getLongValue() : null;
                 }
                 parser.skipChildren();
             }
@@ -94,25 +95,25 @@ public class DrainTimeout {
         } catch (IOException _) {
             return invalid(file, "does not parse as JSON");
         }
-        if (rejected != null) {
-            return invalid(file, rejected);
+        if (rejected.isPresent()) {
+            return invalid(file, rejected.get());
         }
         return Duration.ofSeconds(seconds == null ? DEFAULT_SECONDS : seconds);
     }
 
-    /** @return why the value of the key is not a drain timeout, or {@code null} when it is one */
-    private static String rejection(JsonParser parser) throws IOException {
+    /** @return why the value of the key is not a drain timeout, or empty when it is one */
+    private static Optional<String> rejection(JsonParser parser) throws IOException {
         if (parser.currentToken() != JsonToken.VALUE_NUMBER_INT
                 || parser.getNumberType() == JsonParser.NumberType.BIG_INTEGER) {
-            return "not an integer: " + parser.getText();
+            return Optional.of("not an integer: " + parser.getText());
         }
         if (parser.getLongValue() < 0) {
-            return "negative: " + parser.getLongValue();
+            return Optional.of("negative: " + parser.getLongValue());
         }
         if (parser.getLongValue() > MAX_SECONDS) {
-            return "too large: " + parser.getLongValue();
+            return Optional.of("too large: " + parser.getLongValue());
         }
-        return null;
+        return Optional.empty();
     }
 
     private static Duration invalid(Path file, String reason) {

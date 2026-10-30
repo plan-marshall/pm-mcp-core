@@ -308,7 +308,7 @@ public class MetricsCodec {
         var idle = new ArrayList<WorkerIdleRow>();
         var foreign = new ArrayList<String>();
         for (var row : rows) {
-            var kind = kindOf(row);
+            var kind = kindOf(row).orElse(null);
             if (MetricsRow.KIND.equals(kind)) {
                 tasks.add(readTaskRow(row));
             } else if (WorkerIdleRow.KIND.equals(kind)) {
@@ -341,7 +341,7 @@ public class MetricsCodec {
         return out.toString(StandardCharsets.UTF_8);
     }
 
-    private static String kindOf(String row) {
+    private static Optional<String> kindOf(String row) {
         try (var parser = StrictJson.factory().createParser(row)) {
             if (parser.nextToken() != JsonToken.START_OBJECT) {
                 throw unreadable("a row of 'rows' is not a JSON object");
@@ -350,11 +350,13 @@ public class MetricsCodec {
                 var field = parser.currentName();
                 parser.nextToken();
                 if (FIELD_KIND.equals(field)) {
-                    return parser.currentToken() == JsonToken.VALUE_STRING ? parser.getText() : null;
+                    return parser.currentToken() == JsonToken.VALUE_STRING
+                            ? Optional.of(parser.getText())
+                            : Optional.empty();
                 }
                 parser.skipChildren();
             }
-            return null;
+            return Optional.empty();
         } catch (IOException e) {
             throw unreadable("a row of 'rows' is not readable", e);
         }
@@ -410,26 +412,30 @@ public class MetricsCodec {
                 case FIELD_HARNESS_VERSION -> harnessVersion = nullableString(parser, field);
                 case FIELD_MODEL -> model = nullableString(parser, field);
                 case FIELD_EFFORT -> effort = nullableString(parser, field);
-                case FIELD_FORM -> form = enumValue(parser, field, MetricsRow.Form::fromWireName);
-                case FIELD_PHASE -> phase = enumValue(parser, field, MetricsRow.Phase::fromWireName);
+                case FIELD_FORM -> form = enumValue(parser, field, MetricsRow.Form::fromWireName).orElse(null);
+                case FIELD_PHASE -> phase = enumValue(parser, field, MetricsRow.Phase::fromWireName).orElse(null);
                 case FIELD_STEP_ID -> stepId = nullableString(parser, field);
                 case FIELD_ENVELOPE_ID -> envelopeId = nullableString(parser, field);
-                case FIELD_PREDICTED_COST -> predictedCost = nullablePredictedCost(parser, field);
-                case FIELD_YIELD_REASON -> yieldReason = enumValue(parser, field, MetricsRow.YieldReason::fromWireName);
-                case FIELD_OUTCOME -> outcome = enumValue(parser, field, MetricsRow.Outcome::fromWireName);
-                case FIELD_ATTEMPT_END -> attemptEnd = enumValue(parser, field, AttemptEnd::fromWireName);
+                case FIELD_PREDICTED_COST -> predictedCost = nullablePredictedCost(parser, field).orElse(null);
+                case FIELD_YIELD_REASON -> yieldReason =
+                        enumValue(parser, field, MetricsRow.YieldReason::fromWireName).orElse(null);
+                case FIELD_OUTCOME -> outcome = enumValue(parser, field, MetricsRow.Outcome::fromWireName).orElse(null);
+                case FIELD_ATTEMPT_END -> attemptEnd = enumValue(parser, field, AttemptEnd::fromWireName).orElse(null);
                 case FIELD_CONTINUATION -> continuation = enumValue(parser, field,
-                        MetricsRow.ContinuationMark::fromWireName);
-                case FIELD_CAUSE_CLASS -> causeClass = enumValue(parser, field, MetricsRow.CauseClass::fromWireName);
-                case FIELD_SPEND_CLASS -> spendClass = enumValue(parser, field, MetricsRow.SpendClass::fromWireName);
-                case FIELD_POPULATION -> population = enumValue(parser, field, MetricsRow.Population::fromWireName);
+                        MetricsRow.ContinuationMark::fromWireName).orElse(null);
+                case FIELD_CAUSE_CLASS -> causeClass =
+                        enumValue(parser, field, MetricsRow.CauseClass::fromWireName).orElse(null);
+                case FIELD_SPEND_CLASS -> spendClass =
+                        enumValue(parser, field, MetricsRow.SpendClass::fromWireName).orElse(null);
+                case FIELD_POPULATION -> population =
+                        enumValue(parser, field, MetricsRow.Population::fromWireName).orElse(null);
                 case FIELD_TOTAL_TOKENS, FIELD_INPUT_TOKENS, FIELD_OUTPUT_TOKENS, FIELD_CACHE_READ,
                     FIELD_CACHE_CREATION, FIELD_REASONING, FIELD_TOOL_USES, FIELD_COST_USD,
                     FIELD_UNMEASURED_REASON ->
                     usageState.read(parser, field);
                 case FIELD_DURATION_MS -> durationMs = nullableLong(parser, field);
                 case FIELD_DURATION_BASIS -> durationBasis = enumValue(parser, field,
-                        MetricsRow.DurationBasis::fromWireName);
+                        MetricsRow.DurationBasis::fromWireName).orElse(null);
                 case FIELD_QUEUED_MS -> queuedMs = nullableLong(parser, field);
                 case FIELD_CONSULTATION_OF -> consultationOf = nullableString(parser, field);
                 case FIELD_RECORDED_AT -> recordedAt = instant(parser, field);
@@ -446,7 +452,7 @@ public class MetricsCodec {
         if (!MetricsRow.KIND.equals(kind)) {
             throw unreadable("a task row declares the kind 'task'");
         }
-        var usage = usageState.build();
+        var usage = usageState.build().orElse(null);
         requireCompleteUsage(usage);
         if (outcome == null || causeClass == null || spendClass == null || population == null) {
             throw unreadable("a task row declares a non-null outcome, cause_class, spend_class and population");
@@ -510,7 +516,7 @@ public class MetricsCodec {
         if (!WorkerIdleRow.KIND.equals(kind) || !WorkerIdleRow.POPULATION.equals(population)) {
             throw unreadable("a worker-idle row declares the kind 'worker_idle' and its population");
         }
-        var usage = usageState.build();
+        var usage = usageState.build().orElse(null);
         requireCompleteUsage(usage);
         try {
             return new WorkerIdleRow(jobId, role, harness, harnessVersion, model, usage, idleWakeups, recordedAt);
@@ -591,7 +597,7 @@ public class MetricsCodec {
 
         private static <T> Optional<T> nullableEnum(JsonParser parser, String field,
                 Function<String, Optional<T>> of) throws IOException {
-            return Optional.ofNullable(enumValue(parser, field, of));
+            return enumValue(parser, field, of);
         }
 
         private static Optional<BigDecimal> cost(JsonParser parser, String field) throws IOException {
@@ -612,10 +618,10 @@ public class MetricsCodec {
             return Optional.of(value);
         }
 
-        HarnessUsage build() {
+        Optional<HarnessUsage> build() {
             if (inputTokens == null || outputTokens == null || cacheReadInputTokens == null
                     || cacheCreationInputTokens == null || reasoningTokens == null || toolUses == null) {
-                return null;
+                return Optional.empty();
             }
             final HarnessUsage usage;
             try {
@@ -625,7 +631,7 @@ public class MetricsCodec {
                 throw unreadable(e.getMessage(), e);
             }
             requireDerivedTotal(totalTokens, usage);
-            return usage;
+            return Optional.of(usage);
         }
 
         /**
@@ -647,9 +653,10 @@ public class MetricsCodec {
         }
     }
 
-    private static MetricsRow.PredictedCost nullablePredictedCost(JsonParser parser, String field) throws IOException {
+    private static Optional<MetricsRow.PredictedCost> nullablePredictedCost(JsonParser parser, String field)
+            throws IOException {
         if (parser.currentToken() == JsonToken.VALUE_NULL) {
-            return null;
+            return Optional.empty();
         }
         requireObject(parser, field);
         Long tokens = null;
@@ -659,7 +666,8 @@ public class MetricsCodec {
             var name = nextField(parser, seen);
             switch (name) {
                 case FIELD_TOKENS -> tokens = integer(parser, name);
-                case FIELD_BASIS -> basis = enumValue(parser, name, MetricsRow.PredictedCost.Basis::fromWireName);
+                case FIELD_BASIS -> basis =
+                        enumValue(parser, name, MetricsRow.PredictedCost.Basis::fromWireName).orElse(null);
                 default -> throw undeclared(name);
             }
         }
@@ -668,7 +676,7 @@ public class MetricsCodec {
             throw unreadable("'%s.basis' is missing".formatted(field));
         }
         try {
-            return new MetricsRow.PredictedCost(tokens, basis);
+            return Optional.of(new MetricsRow.PredictedCost(tokens, basis));
         } catch (IllegalArgumentException e) {
             throw unreadable(e.getMessage(), e);
         }
@@ -696,13 +704,15 @@ public class MetricsCodec {
         return parser.currentToken() == JsonToken.VALUE_NULL ? null : string(parser, field);
     }
 
-    private static <T> T enumValue(JsonParser parser, String field, Function<String, Optional<T>> of)
+    private static <T> Optional<T> enumValue(JsonParser parser, String field, Function<String, Optional<T>> of)
             throws IOException {
         if (parser.currentToken() == JsonToken.VALUE_NULL) {
-            return null;
+            return Optional.empty();
         }
         var name = string(parser, field);
         return of.apply(name)
-                .orElseThrow(() -> unreadable("'%s' has the undeclared value '%s'".formatted(field, name)));
+                .or(() -> {
+                    throw unreadable("'%s' has the undeclared value '%s'".formatted(field, name));
+                });
     }
 }

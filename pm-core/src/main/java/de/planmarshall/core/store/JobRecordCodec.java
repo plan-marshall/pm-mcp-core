@@ -196,7 +196,7 @@ public class JobRecordCodec {
                 case KIND -> kind = closed(parser, field, JobId.Kind::fromWireName);
                 case EXECUTION -> job.execution(closed(parser, field, Execution::fromWireName));
                 case SCOPE -> job.scope(readScope(parser));
-                case WORKER -> job.worker(rawObjectOrNull(parser, document, field));
+                case WORKER -> job.worker(rawObjectOrNull(parser, document, field).orElse(null));
                 case BUDGET_KEY -> job.budgetKey(string(parser, field));
                 case BUDGET_SECONDS -> job.budgetSeconds(integer(parser, field));
                 case BUDGET_DERIVATION -> job.budgetDerivation(readBudgetDerivation(parser));
@@ -220,7 +220,7 @@ public class JobRecordCodec {
                         isNull(parser) ? null : readContradiction(parser));
                 case CLAMPED_VALUES -> job.clampedValues(
                         StrictJson.array(parser, field, (element, name) -> readClampedValue(element, name, document)));
-                case GATE_FACTS -> job.gateFacts(rawObjectOrNull(parser, document, field));
+                case GATE_FACTS -> job.gateFacts(rawObjectOrNull(parser, document, field).orElse(null));
                 default -> throw undeclared(field);
             }
         }
@@ -330,12 +330,12 @@ public class JobRecordCodec {
                 .orElseThrow(() -> unreadable("'%s' has the undeclared value '%s'".formatted(field, wireName)));
     }
 
-    private static String rawObjectOrNull(JsonParser parser, byte[] document, String field) throws IOException {
+    private static Optional<String> rawObjectOrNull(JsonParser parser, byte[] document, String field) throws IOException {
         if (isNull(parser)) {
-            return null;
+            return Optional.empty();
         }
         requireObject(parser, field);
-        return WorkflowStatusCodec.raw(parser, document);
+        return Optional.of(WorkflowStatusCodec.raw(parser, document));
     }
 
     private static Long nullableInteger(JsonParser parser, String field) throws IOException {

@@ -187,10 +187,11 @@ public record CompositionRules(String revision, String digest, List<CompositionR
                     || version.compareTo(BigDecimal.valueOf(FORMAT_VERSION)) != 0) {
                 return refuse(Refusal.MALFORMED, "'format_version' must be " + FORMAT_VERSION);
             }
-            revision = text(members.get(REVISION_MEMBER), "'revision'");
-            if (revision == null || revision.isEmpty()) {
+            var revisionText = text(members.get(REVISION_MEMBER), "'revision'");
+            if (revisionText.isEmpty() || revisionText.get().isEmpty()) {
                 return refuse(Refusal.MALFORMED, "'revision' must be a non-empty string");
             }
+            revision = revisionText.get();
             if (!(members.get("rules") instanceof ArrayNode(var elements))) {
                 return refuse(Refusal.MALFORMED, "'rules' must be an array");
             }
@@ -198,144 +199,149 @@ public record CompositionRules(String revision, String digest, List<CompositionR
             var ids = new HashSet<String>();
             for (var element : elements) {
                 var rule = rule(element);
-                if (refusal.isPresent()) {
+                if (rule.isEmpty()) {
                     return List.of();
                 }
-                if (!ids.add(rule.id())) {
-                    return refuse(Refusal.MALFORMED, "rule '%s' is declared twice".formatted(rule.id()));
+                if (!ids.add(rule.get().id())) {
+                    return refuse(Refusal.MALFORMED, "rule '%s' is declared twice".formatted(rule.get().id()));
                 }
-                rules.add(rule);
+                rules.add(rule.get());
             }
             return rules;
         }
 
-        private CompositionRule rule(Node node) {
+        private Optional<CompositionRule> rule(Node node) {
             var members = object(node, "a rule");
             if (refusal.isPresent()) {
-                return null;
+                return Optional.empty();
             }
             var id = text(members.get("id"), "the id of a rule");
-            if (id == null || !RULE_ID.matcher(id).matches()) {
+            if (id.isEmpty() || !RULE_ID.matcher(id.get()).matches()) {
                 refuse(Refusal.MALFORMED, "a rule id must match " + RULE_ID.pattern());
-                return null;
+                return Optional.empty();
             }
-            var name = "rule '%s'".formatted(id);
+            var name = "rule '%s'".formatted(id.get());
             if (!only(members, name, Set.of("id", "when", "then"))) {
-                return null;
+                return Optional.empty();
             }
             var when = condition(members.get("when"), name);
             var then = object(members.get("then"), name + " 'then'");
-            if (when == null || refusal.isPresent()) {
-                return null;
+            if (when.isEmpty() || refusal.isPresent()) {
+                return Optional.empty();
             }
             if (then.containsKey("add")) {
                 refuse(Refusal.ADDS_ELEMENT, name + " adds an element");
-                return null;
+                return Optional.empty();
             }
             if (then.containsKey(GATE) || then.containsKey("waive")) {
                 refuse(Refusal.NAMES_GATE, name + " names a gate");
-                return null;
+                return Optional.empty();
             }
             if (!only(then, name + " 'then'", Set.of(PRUNE_MEMBER, "bind"))) {
-                return null;
+                return Optional.empty();
             }
             var prunes = list(then.get(PRUNE_MEMBER), name + " 'prune'").stream()
-                    .map(entry -> prune(entry, name)).toList();
+                    .map(entry -> prune(entry, name)).flatMap(Optional::stream).toList();
             var bindings = list(then.get("bind"), name + " 'bind'").stream()
-                    .map(entry -> binding(entry, name)).toList();
-            return refusal.isPresent() ? null : new CompositionRule(id, when, prunes, bindings);
+                    .map(entry -> binding(entry, name)).flatMap(Optional::stream).toList();
+            return refusal.isPresent() ? Optional.empty()
+                    : Optional.of(new CompositionRule(id.get(), when.get(), prunes, bindings));
         }
 
-        private CompositionRule.Condition condition(Node node, String name) {
+        private Optional<CompositionRule.Condition> condition(Node node, String name) {
             var members = object(node, name + " 'when'");
             if (refusal.isPresent()) {
-                return null;
+                return Optional.empty();
             }
             var fact = text(members.get("fact"), name + " 'fact'");
-            if (fact == null) {
-                return null;
+            if (fact.isEmpty()) {
+                return Optional.empty();
             }
-            if (!registered(fact)) {
-                refuse(Refusal.MALFORMED, "%s reads the unregistered fact '%s'".formatted(name, fact));
-                return null;
+            if (!registered(fact.get())) {
+                refuse(Refusal.MALFORMED, "%s reads the unregistered fact '%s'".formatted(name, fact.get()));
+                return Optional.empty();
             }
             var operators = members.keySet().stream().filter(key -> !"fact".equals(key)).toList();
             if (operators.size() != 1 || !OPERATORS.contains(operators.getFirst())) {
                 refuse(Refusal.MALFORMED, "%s 'when' must name its fact and exactly one of %s".formatted(name,
                         OPERATORS));
-                return null;
+                return Optional.empty();
             }
             var operand = members.get(operators.getFirst());
             return switch (operators.getFirst()) {
-                case "equals" -> Optional.ofNullable(text(operand, name + " 'equals'"))
-                        .map(value -> (CompositionRule.Condition) new CompositionRule.Equals(fact, value)).orElse(null);
-                case "in" -> new CompositionRule.In(fact, texts(operand, name + " 'in'"));
-                case "empty" -> flag(operand, name + " 'empty'") ? new CompositionRule.Empty(fact) : null;
-                case "unset" -> flag(operand, name + " 'unset'") ? new CompositionRule.Unset(fact) : null;
-                default -> new CompositionRule.Disjoint(fact, texts(operand, name + " 'disjoint'"));
+                case "equals" -> text(operand, name + " 'equals'")
+                        .map(value -> (CompositionRule.Condition) new CompositionRule.Equals(fact.get(), value));
+                case "in" -> Optional.of(new CompositionRule.In(fact.get(), texts(operand, name + " 'in'")));
+                case "empty" -> flag(operand, name + " 'empty'")
+                        ? Optional.of(new CompositionRule.Empty(fact.get())) : Optional.empty();
+                case "unset" -> flag(operand, name + " 'unset'")
+                        ? Optional.of(new CompositionRule.Unset(fact.get())) : Optional.empty();
+                default -> Optional.of(new CompositionRule.Disjoint(fact.get(), texts(operand, name + " 'disjoint'")));
             };
         }
 
-        private CompositionRule.Prune prune(Node node, String name) {
+        private Optional<CompositionRule.Prune> prune(Node node, String name) {
             var members = object(node, name + " prune entry");
             if (refusal.isPresent()) {
-                return null;
+                return Optional.empty();
             }
             if (members.get(ELEMENT_MEMBER) instanceof StringNode(var kind) && GATE.equals(kind)) {
                 refuse(Refusal.NAMES_GATE, name + " prunes a gate");
-                return null;
+                return Optional.empty();
             }
             if (!only(members, name + " prune entry", Set.of(ELEMENT_MEMBER, "id", "reason"))) {
-                return null;
+                return Optional.empty();
             }
-            var element = PrunedElement.Kind.fromWireName(String.valueOf(text(members.get(ELEMENT_MEMBER),
-                    name + " 'element'")));
+            var element = PrunedElement.Kind.fromWireName(text(members.get(ELEMENT_MEMBER),
+                    name + " 'element'").orElse("null"));
             var id = text(members.get("id"), name + " prune 'id'");
-            var reason = PruneReason.fromWireName(String.valueOf(text(members.get("reason"), name + " 'reason'")));
+            var reason = PruneReason.fromWireName(text(members.get("reason"), name + " 'reason'").orElse("null"));
             if (refusal.isPresent()) {
-                return null;
+                return Optional.empty();
             }
-            if (element.isEmpty() || reason.isEmpty() || id == null || id.isEmpty()) {
+            if (element.isEmpty() || reason.isEmpty() || id.isEmpty() || id.get().isEmpty()) {
                 refuse(Refusal.MALFORMED, name + " has a prune entry with an undeclared element, reason or empty id");
-                return null;
+                return Optional.empty();
             }
-            return new CompositionRule.Prune(element.get(), id, reason.get());
+            return Optional.of(new CompositionRule.Prune(element.get(), id.get(), reason.get()));
         }
 
-        private CompositionRule.Binding binding(Node node, String name) {
+        private Optional<CompositionRule.Binding> binding(Node node, String name) {
             var members = object(node, name + " bind entry");
             if (refusal.isPresent()) {
-                return null;
+                return Optional.empty();
             }
             var argument = text(members.get("argument"), name + " bind 'argument'");
-            if (argument != null && CompiledInvariants.remediationBudgetParameters().contains(argument)) {
-                refuse(Refusal.RAISES_BUDGET, "%s binds the budget '%s'".formatted(name, argument));
-                return null;
+            if (argument.isPresent()
+                    && CompiledInvariants.remediationBudgetParameters().contains(argument.get())) {
+                refuse(Refusal.RAISES_BUDGET, "%s binds the budget '%s'".formatted(name, argument.get()));
+                return Optional.empty();
             }
-            if (GATE.equals(argument)) {
+            if (argument.filter(GATE::equals).isPresent()) {
                 refuse(Refusal.NAMES_GATE, name + " binds a gate");
-                return null;
+                return Optional.empty();
             }
             if (!only(members, name + " bind entry", Set.of("call_site", "argument", "value"))) {
-                return null;
+                return Optional.empty();
             }
             var callSite = text(members.get("call_site"), name + " bind 'call_site'");
             var value = literal(members.get("value"), name + " bind 'value'");
-            return refusal.isPresent() ? null : new CompositionRule.Binding(callSite, argument, value);
+            return refusal.isPresent() ? Optional.empty()
+                    : Optional.of(new CompositionRule.Binding(callSite.get(), argument.get(), value.get()));
         }
 
-        private CallValue literal(Node node, String what) {
+        private Optional<CallValue> literal(Node node, String what) {
             return switch (node) {
-                case StringNode(var text) -> new CallValue.EnumValue(text);
+                case StringNode(var text) -> Optional.of(new CallValue.EnumValue(text));
                 case NumberNode number when number.integral() && number.value().abs().compareTo(
                         BigDecimal.valueOf(Integer.MAX_VALUE)) <= 0 ->
-                    new CallValue.IntValue(number.value().intValueExact());
+                    Optional.of(new CallValue.IntValue(number.value().intValueExact()));
                 case ArrayNode array when array.elements().stream().allMatch(StringNode.class::isInstance)
                         && array.elements().stream().distinct().count() == array.elements().size() ->
-                    new CallValue.EnumList(texts(array, what));
+                    Optional.of(new CallValue.EnumList(texts(array, what)));
                 case null, default -> {
                     refuse(Refusal.MALFORMED, what + " must be a string, an integer or a list of distinct strings");
-                    yield null;
+                    yield Optional.empty();
                 }
             };
         }
@@ -385,16 +391,17 @@ public record CompositionRules(String revision, String digest, List<CompositionR
             return List.of();
         }
 
-        private String text(Node node, String what) {
+        private Optional<String> text(Node node, String what) {
             if (node instanceof StringNode(var value)) {
-                return value;
+                return Optional.of(value);
             }
             refuse(Refusal.MALFORMED, what + " must be a string");
-            return null;
+            return Optional.empty();
         }
 
         private List<String> texts(Node node, String what) {
-            var values = list(node, what).stream().map(element -> text(element, what + " element")).toList();
+            var values = list(node, what).stream().map(element -> text(element, what + " element"))
+                    .flatMap(Optional::stream).toList();
             return refusal.isPresent() ? List.of() : values;
         }
 

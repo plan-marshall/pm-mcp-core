@@ -16,6 +16,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -846,7 +847,7 @@ public final class ProfileValidator {
                         "zero_tool.args", SLOTS, 0);
                 zeroToolRunnable = true;
             }
-            if (!exclusive && (writer != null || readOnly != null || zeroToolRunnable)) {
+            if (!exclusive && (writer.isPresent() || readOnly.isPresent() || zeroToolRunnable)) {
                 throw invalid(pointer,
                         "a profile whose MCP configuration is not exclusive declares writer, read_only and zero_tool "
                                 + "all null");
@@ -856,21 +857,21 @@ public final class ProfileValidator {
                 throw invalid(pointer + PTR_ZERO_TOOL,
                         "a runnable zero_tool class requires the capability project_settings_control");
             }
-            if ((writer != null || readOnly != null) && !hasCapability(capabilities, "extension_isolation")) {
+            if ((writer.isPresent() || readOnly.isPresent()) && !hasCapability(capabilities, "extension_isolation")) {
                 throw invalid(pointer,
                         "a runnable writer or read_only class requires the capability extension_isolation");
             }
         }
 
-        /** @return the tool_set of a runnable class, or {@code null} for a class the harness cannot run */
-        private String toolClass(JsonNode declaration, String pointer, String name) {
+        /** @return the tool_set of a runnable class, or empty for a class the harness cannot run */
+        private Optional<String> toolClass(JsonNode declaration, String pointer, String name) {
             if (declaration.isNull()) {
-                return null;
+                return Optional.empty();
             }
             object(declaration, pointer, name, Set.of("args", NAME_TOOL_SET), Set.of("args", NAME_TOOL_SET));
             launchArguments(required(declaration, pointer, "args"), pointer + "/args", name + ".args", SLOTS, 0);
-            return enumValue(required(declaration, pointer, NAME_TOOL_SET), pointer + "/tool_set", NAME_TOOL_SET,
-                    Set.of(ENFORCED, "advisory"));
+            return Optional.of(enumValue(required(declaration, pointer, NAME_TOOL_SET), pointer + "/tool_set",
+                    NAME_TOOL_SET, Set.of(ENFORCED, "advisory")));
         }
 
         private boolean hasCapability(JsonNode capabilities, String capability) {
@@ -1168,16 +1169,17 @@ public final class ProfileValidator {
                     && bool(informational, pointer + "/ack_informational", NAME_ACK_INFORMATIONAL);
         }
 
-        private Long grace(JsonNode worker, String pointer) {
+        private Optional<Long> grace(JsonNode worker, String pointer) {
             var grace = optional(worker, NAME_SILENCE_GRACE_SECONDS);
             if (grace == null || grace.isNull()) {
-                return null;
+                return Optional.empty();
             }
-            return integer(grace, pointer + "/silence_grace_seconds", NAME_SILENCE_GRACE_SECONDS, 5, 600);
+            return Optional.of(integer(grace, pointer + "/silence_grace_seconds", NAME_SILENCE_GRACE_SECONDS, 5, 600));
         }
 
-        private void requireDeadlineAndGrace(JsonNode ackDeadline, Long graceValue, JsonNode profile, String pointer) {
-            if (ackDeadline == null || ackDeadline.isNull() || graceValue == null) {
+        private void requireDeadlineAndGrace(JsonNode ackDeadline, Optional<Long> graceValue, JsonNode profile,
+                String pointer) {
+            if (ackDeadline == null || ackDeadline.isNull() || graceValue.isEmpty()) {
                 throw invalid(pointer + PTR_ACK_DEADLINE_SECONDS,
                         "an informational acknowledgement names its deadline and silence grace");
             }
@@ -1185,10 +1187,10 @@ public final class ProfileValidator {
             var boundedNode = connection.member(NAME_BOUNDED_WAIT_SECONDS).orElseThrow();
             var bounded = boundedNode.integerValue().orElseThrow();
             var deadline = ackDeadline.integerValue().orElseThrow();
-            if (deadline != bounded + graceValue) {
+            if (deadline != bounded + graceValue.get()) {
                 throw invalid(pointer + PTR_ACK_DEADLINE_SECONDS,
                         ("with an informational acknowledgement the deadline is the bounded wait %d plus the grace "
-                                + "%d, not %d").formatted(bounded, graceValue, deadline));
+                                + "%d, not %d").formatted(bounded, graceValue.get(), deadline));
             }
         }
 

@@ -12,6 +12,7 @@ package de.planmarshall.runtime.endpoint;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import de.planmarshall.core.profile.CanonicalJson;
@@ -85,11 +86,11 @@ public final class AnswerSchema {
                 return Check.refused(pointer, "the result schema refers to '%s'".formatted(reference));
             }
             var target = resolve(root, reference);
-            if (target == null) {
+            if (target.isEmpty()) {
                 return Check.refused(pointer,
                         "the result schema refers to '%s', which does not resolve".formatted(reference));
             }
-            return check(root, target, answer, pointer, depth + 1);
+            return check(root, target.get(), answer, pointer, depth + 1);
         }
         var types = typeNames(schema);
         if (!types.isEmpty() && types.stream().noneMatch(name -> typeMatches(name, answer))) {
@@ -118,13 +119,13 @@ public final class AnswerSchema {
         return Check.ok();
     }
 
-    private static JsonNode resolve(JsonNode root, String reference) {
+    private static Optional<JsonNode> resolve(JsonNode root, String reference) {
         try {
-            return JsonPointer.resolve(root, reference.substring(1), "result schema");
+            return Optional.of(JsonPointer.resolve(root, reference.substring(1), "result schema"));
         }
         /*TODO: Catch specific not RuntimeException. Suppress: // cui-rewrite:disable InvalidExceptionUsageRecipe*/
         catch (RuntimeException _) {
-            return null;
+            return Optional.empty();
         }
     }
 
@@ -159,12 +160,12 @@ public final class AnswerSchema {
     private static Check array(JsonNode root, JsonNode schema, JsonNode answer, String pointer, int depth) {
         var elements = answer.elements();
         var minimum = integer(schema, "minItems");
-        if (minimum != null && elements.size() < minimum) {
-            return Check.refused(pointer, "the array has fewer than %d items".formatted(minimum));
+        if (minimum.isPresent() && elements.size() < minimum.get()) {
+            return Check.refused(pointer, "the array has fewer than %d items".formatted(minimum.get()));
         }
         var maximum = integer(schema, "maxItems");
-        if (maximum != null && elements.size() > maximum) {
-            return Check.refused(pointer, "the array has more than %d items".formatted(maximum));
+        if (maximum.isPresent() && elements.size() > maximum.get()) {
+            return Check.refused(pointer, "the array has more than %d items".formatted(maximum.get()));
         }
         var items = schema.member("items");
         if (items.isPresent()) {
@@ -180,12 +181,12 @@ public final class AnswerSchema {
 
     private static Check string(JsonNode schema, String value, String pointer) {
         var minimum = integer(schema, "minLength");
-        if (minimum != null && value.length() < minimum) {
-            return Check.refused(pointer, "the string is shorter than %d characters".formatted(minimum));
+        if (minimum.isPresent() && value.length() < minimum.get()) {
+            return Check.refused(pointer, "the string is shorter than %d characters".formatted(minimum.get()));
         }
         var maximum = integer(schema, "maxLength");
-        if (maximum != null && value.length() > maximum) {
-            return Check.refused(pointer, "the string is longer than %d characters".formatted(maximum));
+        if (maximum.isPresent() && value.length() > maximum.get()) {
+            return Check.refused(pointer, "the string is longer than %d characters".formatted(maximum.get()));
         }
         return Check.ok();
     }
@@ -217,12 +218,12 @@ public final class AnswerSchema {
         return value.elements().stream().map(element -> element.text().orElse("")).toList();
     }
 
-    private static Integer integer(JsonNode schema, String member) {
+    private static Optional<Integer> integer(JsonNode schema, String member) {
         var value = schema.member(member).orElse(null);
         if (value == null || !value.isInteger()) {
-            return null;
+            return Optional.empty();
         }
-        return (int) value.integerValue().orElseThrow();
+        return Optional.of((int) value.integerValue().orElseThrow());
     }
 
     private static BigDecimal decimal(JsonNode schema, String member) {

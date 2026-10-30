@@ -90,7 +90,7 @@ public final class LaunchComposer {
         var effort = narrowEffort(role, model, block);
         var prompt = composePrompt(request, role, roleClass);
         var promptFile = writeFile(jobPrivate.resolve(PROMPT_FILE), prompt.text());
-        var resultSchema = resultSchemaFile(request, roleClass, jobPrivate);
+        var resultSchema = resultSchemaFile(request, roleClass, jobPrivate).orElse(null);
         var token = roleClass == RoleClass.ZERO_TOOL ? "" : JobTokens.mint();
         var tokenSha256 = token.isEmpty() ? "" : JobTokens.sha256Hex(token);
         var mcp = composeMcp(request, roleClass, workingDirectory, token);
@@ -238,12 +238,12 @@ public final class LaunchComposer {
         }
     }
 
-    private static Path resultSchemaFile(LaunchRequest request, RoleClass roleClass, Path jobPrivate) {
+    private static Optional<Path> resultSchemaFile(LaunchRequest request, RoleClass roleClass, Path jobPrivate) {
         if (roleClass == RoleClass.ZERO_TOOL || !request.fresh() || request.envelope() == null) {
-            return null;
+            return Optional.empty();
         }
-        return writeFile(jobPrivate.resolve(RESULT_SCHEMA_FILE),
-                CanonicalJson.write(request.envelope().resultSchema()) + "\n");
+        return Optional.of(writeFile(jobPrivate.resolve(RESULT_SCHEMA_FILE),
+                CanonicalJson.write(request.envelope().resultSchema()) + "\n"));
     }
 
     private static McpComposition composeMcp(LaunchRequest request, RoleClass roleClass, Path workingDirectory,

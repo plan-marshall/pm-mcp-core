@@ -201,7 +201,7 @@ public class AnalysisResultCodec {
                 case FIELD_PROVIDER -> provider = string(parser, field);
                 case FIELD_TARGET -> target = readTarget(parser);
                 case FIELD_STATUS -> status = wireValue(parser, field, AnalysisResultCodec::analysisStatus);
-                case FIELD_GATE -> gate = readGate(parser);
+                case FIELD_GATE -> gate = readGate(parser).orElse(null);
                 case FIELD_COUNT_STATUS -> countStatus = wireValue(parser, field, CountStatus::fromWireName);
                 case FIELD_NEW_CODE_ISSUE_COUNT -> newCodeIssueCount = nullableInteger(parser, field);
                 case FIELD_ISSUES_FETCHED -> issuesFetched = integer(parser, field);
@@ -252,9 +252,9 @@ public class AnalysisResultCodec {
         }
     }
 
-    private static Gate readGate(JsonParser parser) throws IOException {
+    private static Optional<Gate> readGate(JsonParser parser) throws IOException {
         if (parser.currentToken() == JsonToken.VALUE_NULL) {
-            return null;
+            return Optional.empty();
         }
         requireObject(parser, FIELD_GATE);
         GateResult result = null;
@@ -270,7 +270,7 @@ public class AnalysisResultCodec {
         }
         requireFields(seen, FIELD_GATE, FIELD_RESULT, FIELD_CONDITIONS);
         try {
-            return new Gate(result, conditions);
+            return Optional.of(new Gate(result, conditions));
         } catch (IllegalArgumentException e) {
             throw refused("the gate breaks a rule: " + e.getMessage(), e);
         }

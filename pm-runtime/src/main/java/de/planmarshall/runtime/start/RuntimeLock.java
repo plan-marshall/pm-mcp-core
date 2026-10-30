@@ -59,11 +59,11 @@ public final class RuntimeLock implements AutoCloseable {
         var channel = open(lockFile);
         try {
             var lock = tryLock(channel);
-            if (lock == null) {
+            if (lock.isEmpty()) {
                 channel.close();
                 return Optional.empty();
             }
-            return Optional.of(new RuntimeLock(channel, lock));
+            return Optional.of(new RuntimeLock(channel, lock.get()));
         } catch (IOException e) {
             closeAfterFailure(channel, e);
             throw e;
@@ -79,11 +79,11 @@ public final class RuntimeLock implements AutoCloseable {
                 PosixModes.fileAttribute());
     }
 
-    private static FileLock tryLock(FileChannel channel) throws IOException {
+    private static Optional<FileLock> tryLock(FileChannel channel) throws IOException {
         try {
-            return channel.tryLock();
+            return Optional.ofNullable(channel.tryLock());
         } catch (OverlappingFileLockException _) {
-            return null;
+            return Optional.empty();
         }
     }
 

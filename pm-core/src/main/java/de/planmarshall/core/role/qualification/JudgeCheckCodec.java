@@ -161,8 +161,8 @@ public class JudgeCheckCodec {
                 case ORACLE_SCORE -> oracleScore = grade(parser, field);
                 case BLIND_SCORE -> blindScore = grade(parser, field);
                 case TOTAL_TOKENS -> totalTokens = tokens(parser, field);
-                case TOKENS_IN -> tokensIn = split(parser, field);
-                case TOKENS_OUT -> tokensOut = split(parser, field);
+                case TOKENS_IN -> tokensIn = split(parser, field).orElse(null);
+                case TOKENS_OUT -> tokensOut = split(parser, field).orElse(null);
                 case DURATION_MS -> duration = parser.currentToken() == JsonToken.VALUE_NULL ? null
                         : integer(parser, field);
                 default -> throw undeclared(field);
@@ -189,11 +189,11 @@ public class JudgeCheckCodec {
         return Grade.scored(decimal(parser, field));
     }
 
-    private static Long split(JsonParser parser, String field) throws IOException {
+    private static Optional<Long> split(JsonParser parser, String field) throws IOException {
         if (parser.currentToken() == JsonToken.VALUE_STRING) {
             var text = string(parser, field);
             if (TokenTotal.UNMEASURED_MARK.equals(text)) {
-                return null;
+                return Optional.empty();
             }
             throw unreadable("'%s' is a count or '%s': %s".formatted(field, TokenTotal.UNMEASURED_MARK, text));
         }
@@ -201,7 +201,7 @@ public class JudgeCheckCodec {
         if (value < 0) {
             throw unreadable("'%s' must not be negative: %d".formatted(field, value));
         }
-        return value;
+        return Optional.of(value);
     }
 
     private static TokenTotal tokens(JsonParser parser, String field) throws IOException {

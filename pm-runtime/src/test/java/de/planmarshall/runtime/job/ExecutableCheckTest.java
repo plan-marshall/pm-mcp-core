@@ -127,6 +127,20 @@ class ExecutableCheckTest {
         }
 
         @Test
+        @DisplayName("whose enrolled path is not absolute is refused as executable_not_enrolled")
+        void notAbsolute() {
+            var relative = JobEnrolmentFixture.withHostToolPath(enrolment, HostToolName.GH, "gh");
+
+            assertAll(
+                    () -> assertEquals(Reason.EXECUTABLE_NOT_ENROLLED,
+                            refused(relative, call(HostToolName.GH)).reason(),
+                            "a non-absolute enrolled path is refused"),
+                    () -> assertEquals("the enrolled path of the host tool gh is not absolute",
+                            refused(relative, call(HostToolName.GH)).detail(),
+                            "the refusal names the non-absolute path"));
+        }
+
+        @Test
         @DisplayName("replaced by a symbolic link to its unchanged content is refused as executable_digest_mismatch")
         void replacedBySymlink() throws Exception {
             var git = fixture.tools.get(HostToolName.GIT);

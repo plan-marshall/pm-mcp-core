@@ -42,6 +42,7 @@ import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.role.corpus.ImportedItem.Grading;
@@ -258,7 +259,7 @@ public class SourceOverlayCodec {
                 case FIELD_QUESTION -> values.question = string(parser, field);
                 case FIELD_FACTS -> values.facts = string(parser, field);
                 case FIELD_CHOICES -> values.choices = nullableStringList(parser, field);
-                case FIELD_ANSWER_SCHEMA -> values.answerSchema = nullableValue(parser, field);
+                case FIELD_ANSWER_SCHEMA -> values.answerSchema = nullableValue(parser, field).orElse(null);
                 case FIELD_TARGET -> values.target = readTarget(parser);
                 case FIELD_GRADING -> values.grading = readGrading(parser);
                 case FIELD_REVIEW -> values.review = readReview(parser);
@@ -274,9 +275,9 @@ public class SourceOverlayCodec {
                 values.grading, values.review, values.contamination));
     }
 
-    private static JsonValue nullableValue(JsonParser parser, String field) throws IOException {
+    private static Optional<JsonValue> nullableValue(JsonParser parser, String field) throws IOException {
         if (parser.currentToken() == JsonToken.VALUE_NULL) {
-            return null;
+            return Optional.empty();
         }
         JsonValue value;
         try {
@@ -287,7 +288,7 @@ public class SourceOverlayCodec {
         if (!(value instanceof JsonValue.JsonObject)) {
             throw unreadable("'%s' must be an object or null".formatted(field));
         }
-        return value;
+        return Optional.of(value);
     }
 
     private static Target readTarget(JsonParser parser) throws IOException {

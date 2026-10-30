@@ -224,7 +224,7 @@ public class ChangeLedgerCodec {
                 case FIELD_KIND -> kind = enumValue(parser, field, Kind::fromWireName);
                 case FIELD_WORKTREE_SHA -> worktreeSha = string(parser, field);
                 case FIELD_WORKTREE_SHA_VERSION -> worktreeShaVersion = intValue(parser, field);
-                case FIELD_WORKTREE_SHA_FAILURE -> failure = nullableWorktreeShaFailure(parser, field);
+                case FIELD_WORKTREE_SHA_FAILURE -> failure = nullableWorktreeShaFailure(parser, field).orElse(null);
                 case FIELD_GATE_KIND -> gateKind = nullableString(parser, field);
                 case FIELD_OUTCOME -> outcome = nullableEnum(parser, field, Outcome::fromWireName);
                 case FIELD_DURATION_MS -> durationMs = nullableLong(parser, field);
@@ -234,7 +234,7 @@ public class ChangeLedgerCodec {
                 case FIELD_CHANGE_ORIGIN -> changeOrigin = nullableEnum(parser, field, ChangeOrigin::fromWireName);
                 case FIELD_EXPECT -> expect = nullableEnum(parser, field, Expect::fromWireName);
                 case FIELD_EXPECT_RESULT -> expectResult = nullableEnum(parser, field, ExpectResult::fromWireName);
-                case FIELD_BASELINE -> baseline = nullableBaseline(parser, field);
+                case FIELD_BASELINE -> baseline = nullableBaseline(parser, field).orElse(null);
                 case FIELD_DELIVERABLE_ID -> deliverableId = nullableString(parser, field);
                 case FIELD_TASK_ID -> taskId = nullableString(parser, field);
                 case FIELD_RECORDED_AT -> recordedAt = instant(parser, field);
@@ -254,9 +254,10 @@ public class ChangeLedgerCodec {
         }
     }
 
-    private static WorktreeShaFailure nullableWorktreeShaFailure(JsonParser parser, String field) throws IOException {
+    private static Optional<WorktreeShaFailure> nullableWorktreeShaFailure(JsonParser parser, String field)
+            throws IOException {
         if (parser.currentToken() == JsonToken.VALUE_NULL) {
-            return null;
+            return Optional.empty();
         }
         requireObject(parser, field);
         List<String> command = null;
@@ -276,12 +277,12 @@ public class ChangeLedgerCodec {
             }
         }
         requireFields(seen, field, FIELD_COMMAND, FIELD_FAILURE);
-        return new WorktreeShaFailure(command, failure, exitCode, signal);
+        return Optional.of(new WorktreeShaFailure(command, failure, exitCode, signal));
     }
 
-    private static Baseline nullableBaseline(JsonParser parser, String field) throws IOException {
+    private static Optional<Baseline> nullableBaseline(JsonParser parser, String field) throws IOException {
         if (parser.currentToken() == JsonToken.VALUE_NULL) {
-            return null;
+            return Optional.empty();
         }
         requireObject(parser, field);
         String gateKind = null;
@@ -305,7 +306,7 @@ public class ChangeLedgerCodec {
         }
         requireFields(seen, field, FIELD_GATE_KIND, FIELD_MERGE_BASE, FIELD_BASE_COMMIT, FIELD_PROOF_SOURCE,
                 FIELD_DIAGNOSTICS_DIGEST, FIELD_FINGERPRINTS);
-        return new Baseline(gateKind, mergeBase, baseCommit, proofSource, diagnosticsDigest, fingerprints);
+        return Optional.of(new Baseline(gateKind, mergeBase, baseCommit, proofSource, diagnosticsDigest, fingerprints));
     }
 
     private static Integer nullableInteger(JsonParser parser, String field) throws IOException {
