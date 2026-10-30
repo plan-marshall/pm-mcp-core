@@ -239,6 +239,7 @@ The plan's `quality-report.json` is written once per firing of `default:plan-ret
       "description": "Corpus mode: plans per population; plans without a plan instance form the separately sized indeterminate population.",
       "additionalProperties": { "type": "array", "items": { "type": "string" } }
     },
+    "repaired_landings": { "$ref": "#/$defs/count", "description": "Corpus mode: landed plans a later plan names in repairs (numerator) over the plans that landed (denominator); a lower bound." },
     "quality_chain": {
       "type": "object",
       "properties": {

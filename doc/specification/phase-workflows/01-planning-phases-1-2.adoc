@@ -426,6 +426,7 @@ The refine task does not submit the clarified request as prose. It submits the p
 |`goal` |One outcome sentence that a check can decide (`10` to `300` characters).
 |`criteria[]` |One to `30` acceptance criteria `AC-<n>`, each a statement in EARS form (below), its `kind` (`new`, `fix`, `unchanged`), and how it is verified (`test`, `demonstration`, `inspection`).
 |`current_behaviour` |For a record with a `fix` criterion: the behaviour the fix replaces, in the form `WHEN <condition> THEN THE <system> <behaviour>`; `null` otherwise.
+|`repairs` |For a record with a `fix` criterion: the `plan_id` of the landed plan whose work this plan repairs, when the source or the operator names one; `null` otherwise. Feeds the figure _Repaired Landings_ (xref:05-finalize-review-metrics-descriptor.adoc#repaired-landings[Quality Report, Corpus Mode]).
 |`non_goals[]` |One to `20` items `NG-<n>`: what the plan deliberately does not do.
 |`constraints[]` |Items `CN-<n>` that each rule something out, with their `source` (`code`, `operator`, `external`) and, for `code`, the path or `pm://` URI that shows it.
 |`decisions[]` |Items `DC-<n>`: the decision, the options weighed, the architecture decision record it follows or contradicts (`adr`, optional), and the `decider`: `operator` or `quorum` (with the `question_id` of the answered part), `model` (the role's own call), or `fact` (found by exploring, with its evidence path or `pm://` URI).
@@ -439,6 +440,7 @@ The refine task does not submit the clarified request as prose. It submits the p
 
 . *EARS form*: every criterion matches the EARS grammar: optional preconditions `WHERE <feature>`, `WHILE <state>`, `WHEN <trigger>` (in that order, each at most once), optionally `IF <condition> THEN`, then `THE <system> SHALL <response>`; a `kind: unchanged` criterion's response begins with `CONTINUE TO`. The keywords are these uppercase English tokens whatever the project's model language (link:../../../../plan-marshall-documentation/doc/specification/module-structure.adoc#i18n[Module Structure, Languages]); the rest is written in the model language.
 . *A fix carries its triple*: a record with a `fix` criterion has `current_behaviour` and at least one `unchanged` criterion.
+. *A repair names a landed plan*: `repairs` is set only on a record with a `fix` criterion and names a plan of this project whose `merge_outcome` is `merged`.
 . *Deciders are true*: a `DC` item of decider `operator` or `quorum` names a part of an answered question record of this plan whose answer channel matches (`web` or `cli` for `operator`, `quorum` for `quorum`); a `fact` names its evidence, and a path must exist in the tree. A model's call is never recorded as the operator's, and a decision that `contradicts` an architecture decision record has decider `operator`.
 . *Assumptions*: a record with an `unverified` assumption marks exactly one `riskiest`, which carries its test.
 . *Identifiers*: unique within the record; an identifier that a revision of the record removed is never reused for another item (checked against the plan's previous records).

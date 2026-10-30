@@ -1812,3 +1812,18 @@ the pattern table's example set, and a PEM public key are no hits; an operator w
 proceed.
 Source:: Article analysis `digitalocean-agent-credentials` of plan-marshall-documentation (credentials kept outside the
 agent's reach because a persuaded agent sends on whatever it can read).
+
+[#PM-WATCH-PHASE-124]
+=== PM-WATCH-PHASE-124: A red run proves a fix only when a test failed, before the green
+
+Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#fix-proof[Phase Workflows § Fix Proof Guard]
+Hazard:: A compile error of the new test counts as its red, so the proof holds for a test that never ran; or a red run
+after the last green is taken for the proof; or a worker edits the test after its red run and the edit goes unseen; or
+the `FIX` of a missing proof leaves the reverted production change in the worktree.
+Guard:: Scenario over a plan with a `fix` criterion verified by `test`: a red run through a compile error, one
+`failed_unparsed`, and one that went green each leave `fix_red_missing` open; a red run with a failed test closes it;
+an edit of a `red_tests` file afterwards files `fix_test_changed`, non-blocking; after the `FIX` task the tree equals
+the tree before it and the verification is green. Matched controls: a record with only `new` criteria and a `fix`
+criterion verified by `inspection` owe nothing; an unreadable ledger is `indeterminate`, never clean.
+Source:: Article analysis `ai-native-sdlc-playbook-anthropic` of plan-marshall-documentation (the failing test committed
+before the fix, which the agent may not rewrite).
