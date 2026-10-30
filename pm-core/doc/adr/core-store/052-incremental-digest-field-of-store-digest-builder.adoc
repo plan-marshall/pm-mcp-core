@@ -12,8 +12,8 @@ Accepted
 == Context
 
 The SonarCloud quality gate of `branch=main` is red on one condition alone: `new_reliability_rating` reads 4 against
-the threshold 1, because of one bug, `java:S9428` ("Make this MessageDigest a local variable") at
-`StoreDigest.java:97`. `StoreDigest.Builder` holds `private final MessageDigest digest = StoreSnapshot.newSha256();`
+the threshold 1, because of one bug, `java:S9428` ("Make this MessageDigest a local variable") that the issue search
+reports at `StoreDigest.java:97`. `StoreDigest.Builder` holds `private final MessageDigest digest = StoreSnapshot.newSha256();`
 because the builder *is* the incremental digest: `JournalRecovery` (lines 216, 222, 262) and `ScopeTransaction`
 (line 396) build one digest from chunks fed over several calls and read it once at `build()`, with a bounded buffer
 for files and no chunk kept. The module already suppresses Sonar rules inline with a stated reason beside the
@@ -64,5 +64,9 @@ changes; `StoreDigestTest` stays green unchanged.
 == Source
 
 * Pull request: the pull request that carries this ADR (PLAN-V2-109)
-* Epic plan spec `.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-109-store-digest-main-green.md`
+* Epic plan spec: `.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-109-store-digest-main-green.md`
+* SonarCloud, read 2026-10-30: `qualitygates/project_status?projectKey=plan-marshall_pm-mcp-core&branch=main` (one
+  failing condition, `new_reliability_rating` actual 4 against threshold 1) and
+  `issues/search?componentKeys=plan-marshall_pm-mcp-core&branch=main&resolved=false` (`java:S9428` at
+  `StoreDigest.java:97`)
 * link:../../../../doc/specification/store-schemas/13-leases-integrity-testing.adoc#store-digest-verification[Store Schemas § Store Digest Verification]

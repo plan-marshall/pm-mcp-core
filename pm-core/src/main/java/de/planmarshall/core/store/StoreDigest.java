@@ -85,8 +85,8 @@ public record StoreDigest(long size, String sha256) {
     /**
      * Computes the digest of content that arrives in chunks: bytes in memory and files streamed through a bounded
      * buffer, in the order they are added. No chunk is kept; the digest equals {@link #of(byte[])} of the
-     * concatenation. A builder is confined to the thread that creates it and is never shared: it exists for the span
-     * of one computation and is discarded with it.
+     * concatenation. A builder is confined to the thread that creates it and must not be shared: it exists for the
+     * span of one computation and is discarded with it.
      *
      * @since 0.1
      */
