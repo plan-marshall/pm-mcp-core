@@ -50,8 +50,10 @@ The six allowed dependencies, with the scope in which this repository declares t
 * `de.cuioss.test:cui-test-value-objects` (test).
 * `org.jspecify:jspecify` (compile).
 * `org.projectlombok:lombok` (provided and annotation processor) in `pm-workflow` and `pm-provider-sonar`.
-* `de.cuioss.test:cui-test-mockwebserver-junit5` (test) in `pm-provider-sonar`.
 * `org.easymock:easymock` (test).
+
+`de.cuioss.test:cui-test-mockwebserver-junit5` (test) in `pm-provider-sonar` is the HTTP-test dependency that R04
+already authorises (operator decision 2026-10-09); it is not part of the 2026-10-30 answer.
 
 Their versions come from the parent POM `de.planmarshall:pm-mcp-parent`; a module POM carries no version literal. A
 version the parent does not manage is a finding for the parent, never a literal here.
@@ -65,8 +67,8 @@ for static-only classes, and no catch or throw of `Exception`, `RuntimeException
 handler a specification names carries a `@SuppressWarnings` with its reason).
 
 The one accepted exception is: *tests follow behaviour, not one test class per production class, and the 400-line
-budget of `junit-core` is reported by the landing, not enforced.* The build enforces 80 % line and branch coverage
-per module instead.
+budget of `junit-core` is reported by the landing, not enforced.* The build enforces 80 % instruction and branch
+coverage per module instead.
 
 The log message holder rule stays unchanged and binds this family. It is repeated here word for word from
 `CLAUDE.md` § Code Standards:
@@ -84,10 +86,10 @@ only through its own holder and that of `pm-core`. Each record is documented in 
 repository).
 ____
 
-The annotation-based HTTP test rule supersedes ADR link:002-cui-http-and-the-mock-web-server-for-http.adoc[002], which
-allowed a hand-written dispatcher. PLAN-V2-93 migrates the twelve existing HTTP test classes to
-`@MockResponseConfig` / `@ModuleDispatcher` with an injected `URIBuilder`; this ADR records the rule, that plan carries
-the migration.
+The annotation-based HTTP test rule replaces ADR link:002-cui-http-and-the-mock-web-server-for-http.adoc[002], which
+allowed a hand-written dispatcher. ADR 002 is superseded by PLAN-V2-93, which migrates the twelve existing HTTP test
+classes to `@MockResponseConfig` / `@ModuleDispatcher` with an injected `URIBuilder`; this ADR records the rule, that
+plan carries the migration.
 
 == Alternatives Considered
 

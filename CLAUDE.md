@@ -91,9 +91,9 @@ its own pull request.
 - The coding-skill dependencies are allowed (operator decision 2026-10-30; ADR `doc/adr/010`):
   `de.cuioss.test:cui-test-generator` (test), `de.cuioss.test:cui-test-value-objects` (test),
   `org.jspecify:jspecify` (compile), `org.projectlombok:lombok` (provided and annotation processor) in
-  `pm-workflow` and `pm-provider-sonar`, `de.cuioss.test:cui-test-mockwebserver-junit5` (test) in
-  `pm-provider-sonar`, and `org.easymock:easymock` (test). Their versions come from the parent POM; a module POM
-  carries no version literal.
+  `pm-workflow` and `pm-provider-sonar`, and `org.easymock:easymock` (test). `de.cuioss.test:cui-test-mockwebserver-junit5`
+  (test) in `pm-provider-sonar` is the R04 dependency (operator decision 2026-10-09). Their versions come from the
+  parent POM; a module POM carries no version literal.
 - Never add a dependency or a plugin without asking the user first. The six above are the operator's answer for the
   coding-skill conformance family (PLAN-V2-83 to PLAN-V2-108); anything else still needs a decision.
 - Pre-1.0: no deprecation cycles, no backward-compatibility shims.
@@ -123,8 +123,8 @@ them with a fixture project below `src/guard-controls`:
 - Java 25, Lombok (`@UtilityClass`, `@Value`, `@Builder`), prefer records, `var` for obvious types, final fields,
   package-private over public where possible. No Quarkus, no CDI: a class that needs a framework type belongs in
   `pm-mcp-server`.
-- Every package has a `package-info.java` with Javadoc and `@NullMarked` (JSpecify); every public type is
-  documented.
+- Every production package has a `package-info.java` with Javadoc and `@NullMarked` (JSpecify); every public type
+  is documented.
 - Absence is returned as `Optional<T>`, never as `null` and never as a `@Nullable` return. `Optional` is a return
   type only: a parameter, field or record component that may be absent is `@Nullable`.
 - A record of four or more components carries `@Builder` (the documented rule of `java-lombok`); a smaller one keeps
@@ -156,8 +156,8 @@ them with a fixture project below `src/guard-controls`:
 - Every `LogRecord` a class logs is asserted by its constant with `LogAsserts` (`@EnableTestLogger`); no hand-made
   log handler.
 - HTTP tests use `@EnableMockWebServer` with `@MockResponseConfig` or `@ModuleDispatcher` and an injected
-  `URIBuilder`; no hand-written `Dispatcher` (ADR `doc/adr/010`, which supersedes ADR `doc/adr/002`; PLAN-V2-93
-  migrates the existing test classes).
+  `URIBuilder`; no hand-written `Dispatcher` (R20 replaces ADR `doc/adr/002`, which PLAN-V2-93 supersedes and whose
+  migration carries the existing test classes).
 - OS-specific behaviour (Secret Service, Keychain) is tested with `@EnabledOnOs`.
 - `pm-runtime` builds a test JAR with the fixtures the assembly's tests share (`TestBases`, `FakeBus`,
   `FakeSecretService`); it is deployed with the `SNAPSHOT`.
