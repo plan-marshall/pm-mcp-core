@@ -2,10 +2,10 @@
   "id": "PLAN-V2-83",
   "slug": "skills-conformance-foundation",
   "workstream": "WS-11",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-83-skills-conformance-foundation",
+  "pr": "248",
+  "landing": "landings/PLAN-V2-83.md",
   "seq": -25
 }
