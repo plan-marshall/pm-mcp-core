@@ -65,7 +65,7 @@ changes; `StoreDigestTest` stays green unchanged.
 
 == Source
 
-* Pull request: the pull request that carries this ADR (PLAN-V2-109)
+* Pull request #250, `fix(store): settle java:S9428 at StoreDigest.Builder and turn the main gate green`
 * Epic plan spec: `.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-109-store-digest-main-green.md`
 * SonarCloud, read 2026-10-30: `qualitygates/project_status?projectKey=plan-marshall_pm-mcp-core&branch=main` (one
   failing condition, `new_reliability_rating` actual 4 against threshold 1) and
