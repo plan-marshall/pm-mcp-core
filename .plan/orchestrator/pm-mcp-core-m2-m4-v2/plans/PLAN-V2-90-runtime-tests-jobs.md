@@ -13,7 +13,7 @@ lane: runbook
 > See `persona-plan-orchestrator/standards/orchestration-model.md` for the tier and
 > hand-off contract.
 >
-> Origin: the skills conformance audit of 2026-10-30 (`skills-audit-2026-10-30.md` in the epic directory), taken at `origin/main` `6847c748`, and the operator's decisions of the same day (Decisions in `epic.md`). The plan family is PLAN-V2-83 to PLAN-V2-106 (workstream WS-11, with PLAN-V2-95 and PLAN-V2-96 in WS-05); it runs first, except PLAN-V2-96, which follows PLAN-V2-31.
+> Origin: the skills conformance audit of 2026-10-30 (`skills-audit-2026-10-30.md` in the epic directory), taken at `origin/main` `6847c748`, and the operator's decisions of the same day (Decisions in `epic.md`). The plan family is PLAN-V2-83 to PLAN-V2-108 (workstream WS-11, with PLAN-V2-95 and PLAN-V2-96 in WS-05); it runs first, except PLAN-V2-96, which follows PLAN-V2-31.
 
 ## First Instruction: Read The Standing Rules
 
@@ -34,7 +34,7 @@ The audit found that effectively every test of pm-runtime builds its data from l
 
 ## Deliverables
 
-1. **Generated test data in every test class of the scope (class by class, no test removed).** For each test class in the test classes of `pm-runtime` in `job`, `launch`, `lsp`, `lock` and `audit`: enable the generator controller, replace every literal that is not a contract (see the Standing Constraints) by `Generators.*` data (`letterStrings`, `integers`, `longs`, `bytes`, `fixedValues`, `@GeneratorsSource` for the parameterized tests with three or more variants), and keep the assertions equivalent. Test first in the sense that the existing tests are the guard: run the class before and after, same method count. Start with the helper and fixture classes of the scope, because the other classes call them.
+1. **Generated test data in every test class of the scope (class by class, no test removed).** For each test class in the test classes of `pm-runtime` in `job`, `launch`, `lsp`, `lock` and `audit`: enable the generator controller, replace every literal that is not a contract (see the Standing Constraints) by `Generators.*` data (`letterStrings`, `integers`, `longs`, `bytes`, `fixedValues`, `@GeneratorsSource` for the parameterized tests with three or more variants), and keep the assertions equivalent. Test first in the sense that the existing tests are the guard: run the class before and after, same method count. Start with the helper and fixture classes of the scope, because the other classes call them. **Reuse before you write:** where a typed generator for a domain type already exists in a generator artifact (PLAN-V2-107: `CoreGenerators` of `pm-core`, `HttpGenerators` of `pm-provider-http`, the module's own), use it; a new generator for a type of this module goes into this module's generator artifact, not into a test class, and a type of another module is taken from that module's artifact.
 2. **Contract tests for the value classes of the scope.** `AuditRotation` (`pm-runtime/src/main/java/de/planmarshall/runtime/audit/AuditRotation.java`, hand-written `equals`/`hashCode`) gets a contract test through `ShouldHandleObjectContracts` (`AuditRotationContractTest`, new).
 3. **Log assertions of the scope.** Every `RuntimeLogMessages` record logged by a class of these packages and not referenced by constant in a test (the constants used in `src/main` of the packages minus the constants named in `src/test`; for example `LSP_STARTED`, `RUNTIME_DRAIN_STARTED`, `PERIODIC_SWEEP_FINISHED`) is asserted with `LogAsserts` and `@EnableTestLogger`.
 
@@ -69,7 +69,7 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, `doc/LogMes
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies) and PLAN-V2-84 (`null-safety-nullmarked`: it changes signatures and tests of the same classes).
+- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies), PLAN-V2-107 (`generator-artifacts`: the shared domain generators) and PLAN-V2-84 (`null-safety-nullmarked`: it changes signatures and tests of the same classes).
 - Siblings of the family (disjoint packages, run in parallel): PLAN-V2-85 to PLAN-V2-92 each own other test packages.
 - Overlaps: by directory with every plan that edits a test of these packages (R19 replacement): the orchestrator pairs them and runs this plan first.
 

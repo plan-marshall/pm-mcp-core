@@ -73,10 +73,11 @@ The owning plan carries the item in its section `Carried Open Items`; it is not 
 | D5 Op15 | The remainder of the PLAN-02 roadmap item | Checked 2026-10-30 (`plan02-roadmap-check-2026-10-30.md`): lead 5, the runtime binding of free parameters, is a real gap and is carried by PLAN-V2-15; leads 1 (request.md and PR body validators) and 4b (keyword list) are stale and retired; leads 2 and 3 (OutlineValidator rules that need the working tree, task derivation) are Milestone 8 work for a later outline-validation package after PLAN-V2-35, not staged now; lead 4a (closed gate list) belongs inside the open packages `remediation-units` and `finalize-pipeline-and-merge` | PLAN-V2-15 (Carried Open Items) |
 | D6 Op3 | Six `java:S1135` TODO issues | Closed: they are the TODO comments above the six generic catches that PLAN-V2-46 replaces | PLAN-V2-46 Deliverable 3 |
 | D7 | `Optional` as parameter, field, record component | Convert all (reverses the earlier choice) | PLAN-V2-97, 98, 99 (new) |
-| D8 | `@Builder` on records | From seven components | PLAN-V2-100 (new) |
+| D8 | `@Builder` on records | From four components, the documented rule (corrected from seven) | PLAN-V2-100 (pm-core), PLAN-V2-108 (the rest) |
 | D9 | Test class layout and the 400-line budget | Behaviour tests stay; 400 lines reported only | the one exception, ADR of PLAN-V2-83 |
 | D10 | Assertion messages | Every assertion everywhere | PLAN-V2-101 to 105 (new) |
-| D11 | Hand-written fakes | Replace with EasyMock | PLAN-V2-106 (new); the dependency in PLAN-V2-83 |
+| D11 | Hand-written fakes | Replace with EasyMock; the shared test JAR is changed too (its users in `plan-marshall-mcp` follow) | PLAN-V2-106 (new); the dependency in PLAN-V2-83 |
+| D12 | Generator artifacts | Each module with reusable generators deploys a generator artifact that the permitted modules use | PLAN-V2-107 (new) |
 
 ## H. Dropped as history (the record stays in the archived ledger)
 
