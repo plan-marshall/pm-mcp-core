@@ -4,7 +4,7 @@
 
 ## START HERE
 
-**Resume anchor**: PLAN-V2-83 (#248) and PLAN-V2-109 (#250) shipped. Nothing running. PLAN-V2-84 (null-safety-nullmarked) emitted, awaiting operator-confirmed launch; run it alone (wave 0): 107, 85 to 89, 94, 95, 97, 100, 106 depend on it, and PLAN-V2-01 to 04, 81, 82 overlap it by 3 to 16 files. OPEN check: branch=main gate OK and Maven Build green at 03f182c9 (was still running when read); until it reads OK the red-main fix is unconfirmed. Then wave 0 continues: 107, then 85 to 88; the feature plans (01 to 04, 82, 81) after the family. PLAN-V2-67 keeps D2 only and its verdict bullets are unparseable (cleanup). Run analyze when a plan lands.
+**Resume anchor**: PLAN-V2-83 (#248) and PLAN-V2-109 (#250) shipped; main is green again (Maven Build success at 03f182c9, gate of branch=main OK). Ledger landed as #252. Nothing running. PLAN-V2-84 (null-safety-nullmarked) emitted, awaiting operator-confirmed launch; run it alone (wave 0): 107, 85 to 89, 94, 95, 97, 100, 106 depend on it and PLAN-V2-01 to 04, 81, 82 overlap it by 3 to 16 files. Then 107, then 85 to 88; the feature plans after the family. PLAN-V2-67 keeps D2 only and its verdict bullets are unparseable (cleanup). Open: every ledger-only PR runs the full 16-20 min build (skip-on-docs-only false, ADR 009). Run analyze when a plan lands.
 **Phase**: orchestrating
 **Parked**:
 - PLAN-V2-72 (WS-09)

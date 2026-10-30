@@ -43,7 +43,7 @@ Surface delta (`inbox landing-check`, base `origin/main` at `03f182c9`, not stal
 - [x] epic.md narrative reconciled: recurrence of the Open Defect on `total_tokens`/`plugin_version`; the Watch on `sonar: not_configured` retired; the broken-links Watch updated (the lane's run saw one link, not eight); D1 removed from PLAN-V2-67
 - [x] message archived after the disposition
 - [x] resume anchor updated; `queue-view.md` regenerated and committed with the row change
-- [ ] **post-merge check of `main` (open):** `branch=main` gate `OK` and the `Maven Build` of the push at `03f182c9` green — read again at the end of this analysis
+- [x] **post-merge check of `main` (closed 2026-10-30 ~16:45 UTC):** the `Maven Build` of the push at `03f182c9` concluded `success` (the first green push build after 30+ red ones), and `qualitygates/project_status?projectKey=plan-marshall_pm-mcp-core&branch=main` reads `OK` with `new_reliability_rating` actual 1. HYPOTHESIS "with `java:S9428` gone the gate of `main` turns green with nothing else changed": **confirmed at the `main` level.**
 
 ## Follow-Ups
 
