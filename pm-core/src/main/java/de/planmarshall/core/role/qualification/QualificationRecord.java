@@ -20,6 +20,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+import org.jspecify.annotations.Nullable;
+
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.role.RoleForm;
 
@@ -47,8 +49,8 @@ import de.planmarshall.core.role.RoleForm;
  * @since 0.1
  */
 public record QualificationRecord(String role, String qualificationDigest, GradedConfiguration configuration,
-String corpusRevision, List<String> missedSources, Map<RoleForm, FormResult> forms, BigDecimal warmFreshGap,
-int ungraded, Instant gradedAt, List<ItemResult> items) {
+String corpusRevision, List<String> missedSources, Map<RoleForm, FormResult> forms,
+@Nullable BigDecimal warmFreshGap, int ungraded, Instant gradedAt, List<ItemResult> items) {
 
     /** The format version of a qualification record. */
     public static final int FORMAT_VERSION = 1;

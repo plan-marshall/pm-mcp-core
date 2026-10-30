@@ -52,10 +52,10 @@ import lombok.Builder;
  */
 @Builder(toBuilder = true)
 public record ChangeLedgerRecord(Kind kind, String worktreeSha, int worktreeShaVersion,
-@Nullable WorktreeShaFailure worktreeShaFailure, @Nullable String gateKind, Outcome outcome,
+@Nullable WorktreeShaFailure worktreeShaFailure, @Nullable String gateKind, @Nullable Outcome outcome,
 @Nullable Long durationMs, @Nullable String jobId, @Nullable String commitSha, List<String> changedPaths,
-ChangeOrigin changeOrigin, Expect expect, ExpectResult expectResult, @Nullable Baseline baseline,
-String deliverableId, @Nullable String taskId, Instant recordedAt) {
+@Nullable ChangeOrigin changeOrigin, @Nullable Expect expect, @Nullable ExpectResult expectResult,
+@Nullable Baseline baseline, @Nullable String deliverableId, @Nullable String taskId, Instant recordedAt) {
 
     /** The format version of a change-ledger record that is read and written. */
     public static final int FORMAT_VERSION = 1;

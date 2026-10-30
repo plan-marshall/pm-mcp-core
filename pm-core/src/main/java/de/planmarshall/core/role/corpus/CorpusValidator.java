@@ -29,6 +29,8 @@ import java.util.function.BiFunction;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import org.jspecify.annotations.Nullable;
+
 import de.planmarshall.core.role.corpus.CorpusViolation.Rule;
 import de.planmarshall.core.role.corpus.JsonValue.JsonBoolean;
 import de.planmarshall.core.role.corpus.JsonValue.JsonList;
@@ -131,14 +133,14 @@ public final class CorpusValidator {
 
         private final List<CorpusViolation> violations = new ArrayList<>();
         private final Set<String> seen = new HashSet<>();
-        private Optional<JsonValue> itemSchema = Optional.empty();
+        private @Nullable JsonValue itemSchema;
 
         private List<CorpusViolation> corpus() {
             if (!Files.isDirectory(corpusRoot)) {
                 add(CORPUS, Rule.UNREADABLE, "the corpus root %s is no directory".formatted(corpusRoot));
                 return List.copyOf(violations);
             }
-            itemSchema = itemSchema();
+            itemSchema = itemSchema().orElse(null);
             var files = files(corpusRoot, CORPUS);
             for (var file : files) {
                 var relative = relative(corpusRoot, file);
@@ -193,8 +195,9 @@ public final class CorpusValidator {
             var document = document(file, id);
             if (document.isPresent()) {
                 var item = document.get();
-                itemSchema.ifPresent(schema ->
-                        SchemaSubset.validate(item, schema).forEach(error -> add(id, Rule.SCHEMA, error)));
+                if (itemSchema != null) {
+                    SchemaSubset.validate(item, itemSchema).forEach(error -> add(id, Rule.SCHEMA, error));
+                }
                 if (generated) {
                     SchemaSubset.validate(item, Schemas.IMPORTED_ITEM)
                             .forEach(error -> add(id, Rule.IMPORTED_ITEM, error));

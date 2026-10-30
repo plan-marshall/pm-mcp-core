@@ -77,7 +77,7 @@ public class InternalFaultException extends RuntimeException {
      * @param details the details of the fault, as its audit record carries them
      * @throws NullPointerException if an argument, a detail key or a detail value is {@code null}
      */
-    public InternalFaultException(Reason reason, String message, @Nullable Map<String, Object> details) {
+    public InternalFaultException(Reason reason, String message, Map<String, Object> details) {
         super(Objects.requireNonNull(message, "message"));
         this.reason = Objects.requireNonNull(reason, "reason");
         this.details = Map.copyOf(details);

@@ -20,6 +20,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Validates a client profile as a whole against the client profile schema and the rules stated with its blocks
  * (PM-CLIENT-5).
@@ -1156,7 +1158,7 @@ public final class ProfileValidator {
                 integer(wakeups, pointer + "/idle_wakeups", NAME_IDLE_WAKEUPS, 1, 100);
             }
             if (informationalValue) {
-                requireDeadlineAndGrace(ackDeadline, graceValue, profile, pointer);
+                requireDeadlineAndGrace(ackDeadline, graceValue.orElse(null), profile, pointer);
             }
             if (!headless.isNull()) {
                 enforcedClasses(headless, restricted, pointer);
@@ -1177,9 +1179,9 @@ public final class ProfileValidator {
             return Optional.of(integer(grace, pointer + "/silence_grace_seconds", NAME_SILENCE_GRACE_SECONDS, 5, 600));
         }
 
-        private void requireDeadlineAndGrace(JsonNode ackDeadline, Optional<Long> graceValue, JsonNode profile,
-                String pointer) {
-            if (ackDeadline == null || ackDeadline.isNull() || graceValue.isEmpty()) {
+        private void requireDeadlineAndGrace(@Nullable JsonNode ackDeadline, @Nullable Long graceValue,
+                JsonNode profile, String pointer) {
+            if (ackDeadline == null || ackDeadline.isNull() || graceValue == null) {
                 throw invalid(pointer + PTR_ACK_DEADLINE_SECONDS,
                         "an informational acknowledgement names its deadline and silence grace");
             }
@@ -1187,10 +1189,10 @@ public final class ProfileValidator {
             var boundedNode = connection.member(NAME_BOUNDED_WAIT_SECONDS).orElseThrow();
             var bounded = boundedNode.integerValue().orElseThrow();
             var deadline = ackDeadline.integerValue().orElseThrow();
-            if (deadline != bounded + graceValue.get()) {
+            if (deadline != bounded + graceValue) {
                 throw invalid(pointer + PTR_ACK_DEADLINE_SECONDS,
                         ("with an informational acknowledgement the deadline is the bounded wait %d plus the grace "
-                                + "%d, not %d").formatted(bounded, graceValue.get(), deadline));
+                                + "%d, not %d").formatted(bounded, graceValue, deadline));
             }
         }
 

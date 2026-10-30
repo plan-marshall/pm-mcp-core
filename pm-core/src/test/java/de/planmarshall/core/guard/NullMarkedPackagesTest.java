@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -27,9 +28,9 @@ import org.junit.jupiter.api.io.TempDir;
  * Guards {@code @NullMarked} on every production package of the reactor.
  * <p>
  * The contract of the coding skills is that every production package carries a {@code package-info.java} annotated
- * with {@code org.jspecify.annotations.NullMarked}. The scan reads the source trees of the reactor from the repository
- * root, the same way {@code BuildGuardsIT} finds its fixtures, so a later plan that adds a package without the
- * annotation fails this build instead of leaving the contract incomplete.
+ * with {@code org.jspecify.annotations.NullMarked}. The scan finds the production source trees of the reactor by
+ * walking up from the module's working directory to the repository root, so a later plan that adds a package or a
+ * module without the annotation fails this build instead of leaving the contract incomplete.
  */
 @DisplayName("Production packages are @NullMarked")
 class NullMarkedPackagesTest {
@@ -38,7 +39,7 @@ class NullMarkedPackagesTest {
 
     private static final String PACKAGE_INFO = "package-info.java";
 
-    private static final String NULL_MARKED = "@NullMarked";
+    private static final Pattern NULL_MARKED_DECLARATION = Pattern.compile("(?m)^\\s*@NullMarked\\b");
 
     @Test
     @DisplayName("every production package of the reactor is @NullMarked")
@@ -80,6 +81,16 @@ class NullMarkedPackagesTest {
         assertFalse(unmarkedPackages(temp).contains(packageDir), "An annotated package must not be reported");
     }
 
+    @Test
+    @DisplayName("a package-info.java with only the import is reported")
+    void packageInfoWithOnlyTheImportIsReported(@TempDir Path temp) throws Exception {
+        var packageDir = packageDirectory(temp, "unmarked/with/import");
+        writeSource(packageDir, PACKAGE_INFO,
+                "package unmarked.with.import;\n\nimport org.jspecify.annotations.NullMarked;");
+
+        assertTrue(unmarkedPackages(temp).contains(packageDir), "An import alone must not mark the package");
+    }
+
     private static Path repositoryRoot() {
         var current = Path.of("").toAbsolutePath().normalize();
         for (var candidate = current; candidate != null; candidate = candidate.getParent()) {
@@ -93,20 +104,32 @@ class NullMarkedPackagesTest {
 
     private static List<Path> productionRoots(Path root) {
         var roots = new ArrayList<Path>();
-        roots.add(root.resolve("pm-core").resolve(PRODUCTION_SOURCE));
-        roots.add(root.resolve("pm-workflow").resolve(PRODUCTION_SOURCE));
-        roots.add(root.resolve("pm-runtime").resolve(PRODUCTION_SOURCE));
-        var providers = root.resolve("pm-providers");
-        try (var modules = Files.list(providers)) {
-            modules.filter(Files::isDirectory)
-                    .map(module -> module.resolve(PRODUCTION_SOURCE))
-                    .filter(Files::isDirectory)
+        try (var children = Files.list(root)) {
+            children.filter(Files::isDirectory)
+                    .filter(child -> !child.getFileName().toString().startsWith("."))
                     .sorted()
-                    .forEach(roots::add);
+                    .forEach(child -> {
+                        addIfProduction(child, roots);
+                        try (var nested = Files.list(child)) {
+                            nested.filter(Files::isDirectory)
+                                    .filter(grandchild -> !grandchild.getFileName().toString().startsWith("."))
+                                    .sorted()
+                                    .forEach(grandchild -> addIfProduction(grandchild, roots));
+                        } catch (IOException exception) {
+                            throw new UncheckedIOException(exception);
+                        }
+                    });
         } catch (IOException exception) {
             throw new UncheckedIOException(exception);
         }
         return roots;
+    }
+
+    private static void addIfProduction(Path module, List<Path> roots) {
+        var productionRoot = module.resolve(PRODUCTION_SOURCE);
+        if (Files.isDirectory(productionRoot)) {
+            roots.add(productionRoot);
+        }
     }
 
     private static List<Path> unmarkedPackages(Path productionRoot) {
@@ -132,7 +155,7 @@ class NullMarkedPackagesTest {
             return false;
         }
         try {
-            return Files.readString(packageInfo).contains(NULL_MARKED);
+            return NULL_MARKED_DECLARATION.matcher(Files.readString(packageInfo)).find();
         } catch (IOException exception) {
             throw new UncheckedIOException(exception);
         }

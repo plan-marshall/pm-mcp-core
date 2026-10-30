@@ -16,6 +16,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * The validated values of an endpoint profile (PM-CLIENT-2, Client Profiles § Endpoint Profile Schema): the profile of
  * a model this machine serves on the loopback interface, or of the remote form of the protocol {@code system_one} that
@@ -35,8 +37,9 @@ import java.util.Optional;
  * @param weightsProbe   how the identity of the model's weights is read; {@code null} when the harness reports none
  * @since 0.1
  */
-public record EndpointProfile(String clientId, String executable, Identity identity, UpdateEvidence updateEvidence,
-Endpoint endpoint, Map<String, String> modelTiers, WeightsProbe weightsProbe) {
+public record EndpointProfile(String clientId, @Nullable String executable, @Nullable Identity identity,
+@Nullable UpdateEvidence updateEvidence, Endpoint endpoint, Map<String, String> modelTiers,
+@Nullable WeightsProbe weightsProbe) {
 
     /** The member of the document that carries the weights probe, on either kind of profile. */
     private static final String WEIGHTS_PROBE = "weights_probe";
@@ -71,7 +74,7 @@ Endpoint endpoint, Map<String, String> modelTiers, WeightsProbe weightsProbe) {
      * @param signer the signer the method names; {@code null} for {@code none}
      * @since 0.1
      */
-    public record UpdateEvidence(String method, String signer) {
+    public record UpdateEvidence(String method, @Nullable String signer) {
 
         /** @return whether a changed program can pass this evidence at all */
         public boolean verifiable() {
@@ -155,7 +158,8 @@ Endpoint endpoint, Map<String, String> modelTiers, WeightsProbe weightsProbe) {
      * @param pattern the pattern whose first group is the identity; {@code null} for {@code models_listing}
      * @since 0.1
      */
-    public record WeightsProbe(String source, String pointer, List<String> argv, String pattern) {
+    public record WeightsProbe(String source, @Nullable String pointer, @Nullable List<String> argv,
+            @Nullable String pattern) {
 
         /** Copies the argument vector. */
         public WeightsProbe {
@@ -197,7 +201,7 @@ Endpoint endpoint, Map<String, String> modelTiers, WeightsProbe weightsProbe) {
 
     /**
      * @param document a validated profile document
-     * @return the weights probe of the profile, {@code null} when it declares none: the endpoint profile's own
+     * @return the weights probe of the profile, empty when it declares none: the endpoint profile's own
      *         {@code weights_probe}, or {@code headless.weights_probe} of a client profile
      */
     public static Optional<WeightsProbe> weightsProbeOf(JsonNode document) {

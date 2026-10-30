@@ -422,7 +422,7 @@ SortedMap<String, String> buildEnvironment) {
      * @param sha256       the SHA-256 of the file, lowercase hex; {@code null} if the file must stay absent
      * @since 0.1
      */
-    public record PinnedFile(String relativePath, String sha256) {
+    public record PinnedFile(String relativePath, @Nullable String sha256) {
 
         /**
          * @throws NullPointerException     if the path is {@code null}

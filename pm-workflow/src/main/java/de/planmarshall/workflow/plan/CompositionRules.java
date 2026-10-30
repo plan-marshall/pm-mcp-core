@@ -357,7 +357,7 @@ public record CompositionRules(String revision, String digest, List<CompositionR
          * The members of an object; for any other node the refusal is recorded and the map is empty, so the caller
          * decides on {@link #refusal}, never on the map.
          */
-        private Map<String, Node> object(Node node, String what) {
+        private Map<String, Node> object(@Nullable Node node, String what) {
             if (node instanceof ObjectNode(var members)) {
                 return members;
             }
@@ -392,7 +392,7 @@ public record CompositionRules(String revision, String digest, List<CompositionR
             return List.of();
         }
 
-        private Optional<String> text(Node node, String what) {
+        private Optional<String> text(@Nullable Node node, String what) {
             if (node instanceof StringNode(var value)) {
                 return Optional.of(value);
             }
@@ -400,13 +400,13 @@ public record CompositionRules(String revision, String digest, List<CompositionR
             return Optional.empty();
         }
 
-        private List<String> texts(Node node, String what) {
+        private List<String> texts(@Nullable Node node, String what) {
             var values = list(node, what).stream().map(element -> text(element, what + " element"))
                     .flatMap(Optional::stream).toList();
             return refusal.isPresent() ? List.of() : values;
         }
 
-        private boolean flag(Node node, String what) {
+        private boolean flag(@Nullable Node node, String what) {
             if (node instanceof BooleanNode(var value) && value) {
                 return true;
             }

@@ -24,6 +24,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import org.jspecify.annotations.Nullable;
 import lombok.experimental.UtilityClass;
 
 /**
@@ -98,7 +100,7 @@ public final class Json {
      * @param value the tree
      * @return compact JSON
      */
-    public static String write(Object value) {
+    public static String write(@Nullable Object value) {
         var out = new StringWriter();
         try (JsonGenerator generator = FACTORY.createGenerator(out)) {
             write(generator, value);
@@ -141,7 +143,7 @@ public final class Json {
      * @param keys the keys
      * @return the value at the path, if every step is an object holding the key
      */
-    public static Optional<Object> at(Object root, String... keys) {
+    public static Optional<Object> at(@Nullable Object root, String... keys) {
         Object current = root;
         for (String key : keys) {
             if (!(current instanceof Map<?, ?> map) || !map.containsKey(key)) {
@@ -157,7 +159,7 @@ public final class Json {
      * @param keys the keys
      * @return the string at the path; numbers and booleans in their JSON form
      */
-    public static Optional<String> string(Object root, String... keys) {
+    public static Optional<String> string(@Nullable Object root, String... keys) {
         return at(root, keys).map(v -> v instanceof BigDecimal d ? d.toPlainString() : String.valueOf(v));
     }
 
@@ -166,7 +168,7 @@ public final class Json {
      * @param keys the keys
      * @return the elements of the array at the path, empty when absent
      */
-    public static List<Object> list(Object root, String... keys) {
+    public static List<Object> list(@Nullable Object root, String... keys) {
         if (at(root, keys).orElse(null) instanceof List<?> list) {
             return Collections.unmodifiableList(new ArrayList<Object>(list));
         }
@@ -178,7 +180,7 @@ public final class Json {
      * @param keys the keys
      * @return the boolean at the path, {@code false} when absent
      */
-    public static boolean bool(Object root, String... keys) {
+    public static boolean bool(@Nullable Object root, String... keys) {
         return at(root, keys).map(Boolean.TRUE::equals).orElse(false);
     }
 

@@ -49,8 +49,8 @@ import java.util.Optional;
  */
 public record RoleArtifact(int formatVersion, String name, String description, RoleClass roleClass, List<String> tools,
 String harness, String model, EffortValue effort, RoleForm form, int count, List<String> skills,
-Recycling recycling, int budgetFloorSeconds, Integer contextBudgetTokens, Questions questions,
-Map<OffTrackSignal, OffTrackSetting> offTrack) {
+@Nullable Recycling recycling, int budgetFloorSeconds, @Nullable Integer contextBudgetTokens,
+@Nullable Questions questions, Map<OffTrackSignal, OffTrackSetting> offTrack) {
 
     /** Copies the lists and the map. */
     public RoleArtifact {

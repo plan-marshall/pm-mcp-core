@@ -1546,7 +1546,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * The wall time of the child from its reported start to the exit the runner observed, bounded by the job's wall
      * time; empty without a reported start.
      */
-    static Optional<Long> childWallMs(Instant processStartedAt, Instant spawnedAt, Instant endedAt) {
+    static Optional<Long> childWallMs(@Nullable Instant processStartedAt, Instant spawnedAt, Instant endedAt) {
         if (processStartedAt == null) {
             return Optional.empty();
         }
