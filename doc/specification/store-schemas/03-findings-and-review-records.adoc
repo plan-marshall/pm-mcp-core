@@ -220,6 +220,7 @@ Each line in `findings.jsonl` (of a plan, or of the workspace scope for the find
     "author": { "type": ["string", "null"], "description": "Structured provider author login of a review comment; never parsed from comment text." },
     "bot_kind": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]{0,31}$", "description": "Review-bot registry key resolved from author (<<review-bot-registry>>)." },
     "raised_at_head": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$", "description": "HEAD the finding was raised against; required for self_review, qgate, code_review, security_audit, arch_gate, and ci findings (for ci the head SHA of the checked run)." },
+    "reading": { "type": ["integer", "null"], "enum": [1, 2, null], "description": "Which review-code task of a round with two readings filed the finding (Phase Workflows Specification, second-code-reading); null otherwise." },
     "reviewed_commit_sha": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$", "description": "Commit the reviewer covered, taken only from provider evidence (<<review-participation>>); null when the evidence names no commit." },
     "edit_marker": { "type": ["string", "null"], "format": "date-time", "description": "Provider updated_at of the ingested comment when it differs from its created_at." },
     "evidence": {
