@@ -38,11 +38,13 @@ changes; `StoreDigestTest` stays green unchanged.
 
 == Alternatives Considered
 
-* **A redesign: `StoreDigest.compute(consumer)`.** The digest becomes a local variable of one method and the three
-  call sites move into the consumer. Not taken: it grows the surface by `JournalRecovery`, `ScopeTransaction` and
-  their tests, forces the builder to keep its chunks (changing the documented bounded-memory property) and moves the
-  file read from `update` to `build()`. The choice changes the file set, so it is the operator's at refine (R07),
-  not a silent implementation decision.
+* **A literal local-variable fix inside `Builder` as it stands.** The digest becomes a local of `build()`, so
+  `update()` must retain every chunk until then: that loses the documented bounded-memory property and moves the file
+  read from `update` to `build()`. Not taken for that reason.
+* **A redesign: `StoreDigest.compute(consumer)`.** The digest stays local to one method and the builder uses in
+  `JournalRecovery` and `ScopeTransaction` move into the consumer, so the streamed collection is unchanged. Not taken:
+  it grows the surface by `JournalRecovery`, `ScopeTransaction` and their tests. The choice changes the file set, so
+  it is the operator's at refine (R07), not a silent implementation decision.
 * **A file-level or project-level exclusion of `java:S9428`.** Not taken: the rule is suppressed at the one
   declaration whose design requires the flagged shape, so the reason sits beside the code and no other declaration
   of the module escapes the rule.
