@@ -19,8 +19,9 @@ value-object contract tests, JSpecify null safety, the annotation-based HTTP tes
 fields and record components, `@Builder` on large records, assertion messages and EasyMock doubles not conforming.
 
 `CLAUDE.md` forbids adding a dependency or a plugin without asking the operator. The six artifacts the skills need
-therefore required a decision, and so did the scope of several rules where the skills and `CLAUDE.md` disagreed (the
-audit's section 5). The operator answered on 2026-10-30.
+therefore required a decision — five of them on 2026-10-30, the sixth (`cui-test-mockwebserver-junit5`) earlier by
+R04 — and so did the scope of several rules where the skills and `CLAUDE.md` disagreed (the audit's section 5). The
+operator answered on 2026-10-30.
 
 == Decision
 
@@ -44,7 +45,7 @@ publishes a generator artifact (a test JAR deployed with the `SNAPSHOT`) that th
 (PLAN-V2-107).
 ____
 
-The six allowed dependencies, with the scope in which this repository declares them:
+The five dependencies the 2026-10-30 answer allows, with the scope in which this repository declares them:
 
 * `de.cuioss.test:cui-test-generator` (test).
 * `de.cuioss.test:cui-test-value-objects` (test).

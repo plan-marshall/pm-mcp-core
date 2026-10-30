@@ -124,8 +124,8 @@ them with a fixture project below `src/guard-controls`:
 - Java 25, Lombok (`@UtilityClass`, `@Value`, `@Builder`), prefer records, `var` for obvious types, final fields,
   package-private over public where possible. No Quarkus, no CDI: a class that needs a framework type belongs in
   `pm-mcp-server`.
-- Every production package has a `package-info.java` with Javadoc and `@NullMarked` (JSpecify); every public type
-  is documented.
+- Every package has a `package-info.java` with Javadoc; every public type is documented. The `package-info.java` of
+  every production package carries `@NullMarked` (JSpecify).
 - Absence is returned as `Optional<T>`, never as `null` and never as a `@Nullable` return. `Optional` is a return
   type only: a parameter, field or record component that may be absent is `@Nullable`.
 - A record of four or more components carries `@Builder` (the documented rule of `java-lombok`); a smaller one keeps
