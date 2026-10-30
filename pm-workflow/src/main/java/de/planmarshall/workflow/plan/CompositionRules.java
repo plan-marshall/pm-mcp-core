@@ -123,8 +123,8 @@ public record CompositionRules(String revision, String digest, List<CompositionR
         var checker = new Checker();
         var rules = checker.file(root);
         return checker.refusal.<Loading>map(refusal -> refusal)
-                .orElseGet(() -> new Loaded(new CompositionRules(Objects.requireNonNull(checker.revision, "revision"),
-                        PlanFacts.sha256(content), rules)));
+                .orElseGet(() -> new Loaded(new CompositionRules(
+                        Objects.requireNonNull(checker.revision, REVISION_MEMBER), PlanFacts.sha256(content), rules)));
     }
 
     /**

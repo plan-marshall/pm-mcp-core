@@ -59,8 +59,7 @@ public final class CompositionRefusal extends RuntimeException {
     private final String detail;
 
     private CompositionRefusal(Reason reason, String role, String stateId, @Nullable RoleClass roleClass,
-            Set<RoleClass> requiredClasses, Optional<RoleValidationReason> validationReason,
-            @Nullable String detail) {
+            Set<RoleClass> requiredClasses, Optional<RoleValidationReason> validationReason, String detail) {
         super(message(reason, role, stateId, roleClass, validationReason, detail));
         this.reason = Objects.requireNonNull(reason, "reason");
         this.role = Objects.requireNonNull(role, "role");
@@ -68,7 +67,7 @@ public final class CompositionRefusal extends RuntimeException {
         this.roleClass = roleClass;
         this.requiredClasses = requiredClasses;
         this.validationReason = validationReason.orElse(null);
-        this.detail = detail == null ? "" : detail;
+        this.detail = detail;
     }
 
     /**

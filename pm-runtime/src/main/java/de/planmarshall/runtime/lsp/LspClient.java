@@ -127,7 +127,9 @@ public final class LspClient implements AutoCloseable {
         Future<Void> listening = launcher.startListening();
         LanguageServer server = launcher.getRemoteProxy();
         try {
-            InitializeResult result = await(() -> server.initialize(initializeParams(workspace)), timeout);
+            InitializeResult result = await(() -> server.initialize(initializeParams(workspace)), timeout)
+                    .orElseThrow(() -> new LspException(LspException.Kind.REQUEST_FAILED,
+                            "the server answered no initialization result", null));
             server.initialized(new InitializedParams());
             String encoding = Optional.ofNullable(result.getCapabilities().getPositionEncoding()).orElse("utf-16");
             LOGGER.info(INFO.LSP_STARTED, command.getFirst(), process.pid(), encoding);
@@ -190,16 +192,18 @@ public final class LspClient implements AutoCloseable {
      */
     public List<LspLocation> definition(Path file, int line, int character) throws LspException {
         var params = new DefinitionParams(new TextDocumentIdentifier(file.toUri().toString()), new Position(line, character));
-        @Nullable Either<List<? extends Location>, List<? extends LocationLink>> answer = await(
+        var answer = await(
                 () -> server.getTextDocumentService().definition(params), timeout);
         var locations = new ArrayList<LspLocation>();
-        if (answer == null) {
+        if (answer.isEmpty()) {
             return locations;
         }
-        if (answer.isLeft()) {
-            answer.getLeft().forEach(l -> locations.add(LspLocation.of(l.getUri(), l.getRange())));
+        var definition = answer.get();
+        if (definition.isLeft()) {
+            definition.getLeft().forEach(l -> locations.add(LspLocation.of(l.getUri(), l.getRange())));
         } else {
-            answer.getRight().forEach(l -> locations.add(LspLocation.of(l.getTargetUri(), l.getTargetSelectionRange())));
+            definition.getRight()
+                    .forEach(l -> locations.add(LspLocation.of(l.getTargetUri(), l.getTargetSelectionRange())));
         }
         return locations;
     }
@@ -259,7 +263,7 @@ public final class LspClient implements AutoCloseable {
         }
     }
 
-    private static <T> T await(Supplier<CompletableFuture<T>> request, Duration timeout) throws LspException {
+    private static <T> Optional<T> await(Supplier<CompletableFuture<T>> request, Duration timeout) throws LspException {
         CompletableFuture<T> future;
         try {
             future = request.get();
@@ -267,7 +271,7 @@ public final class LspClient implements AutoCloseable {
             throw new LspException(LspException.Kind.REQUEST_FAILED, "cannot send: " + e.getMessage(), e);
         }
         try {
-            return future.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+            return Optional.ofNullable(future.get(timeout.toMillis(), TimeUnit.MILLISECONDS));
         } catch (TimeoutException e) {
             future.cancel(true);
             throw new LspException(LspException.Kind.TIMEOUT, "no answer within " + timeout, e);

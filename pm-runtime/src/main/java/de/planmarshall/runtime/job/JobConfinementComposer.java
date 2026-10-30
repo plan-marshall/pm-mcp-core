@@ -282,7 +282,8 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
         var denied = new ArrayList<Path>();
         denied.add(base);
         sessionBusSocket.ifPresent(denied::add);
-        if (enrolment == null || enrolment.containerEngine() == null) {
+        var noContainer = enrolment == null || enrolment.containerEngine() == null;
+        if (noContainer) {
             for (var socket : CONTAINER_SOCKETS) {
                 denied.add(Path.of(socket));
             }

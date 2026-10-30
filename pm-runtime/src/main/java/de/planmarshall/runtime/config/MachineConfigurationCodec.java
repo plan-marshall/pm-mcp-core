@@ -166,7 +166,7 @@ public class MachineConfigurationCodec {
         private final long writeRevision;
         private ProviderDefaults providers = ProviderDefaults.none();
         private long readRevision;
-        private @Nullable byte[] rewritten;
+        private @Nullable byte[] rewritten = null;
 
         Pass(Path file, @Nullable ProviderDefaults replacement, long writeRevision) {
             this.file = file;

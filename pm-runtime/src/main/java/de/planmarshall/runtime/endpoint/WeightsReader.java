@@ -62,7 +62,7 @@ public final class WeightsReader {
         return fromProbe(model, probe);
     }
 
-    private Reading fromListing(String model, String pointer, @Nullable JsonNode listing) {
+    private Reading fromListing(String model, @Nullable String pointer, @Nullable JsonNode listing) {
         if (listing == null || !listing.isArray()) {
             return Reading.unread(model, "the models listing was not read");
         }
