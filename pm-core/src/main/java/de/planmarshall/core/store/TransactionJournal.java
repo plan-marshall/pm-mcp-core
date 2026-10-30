@@ -22,6 +22,8 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -71,8 +73,8 @@ import de.planmarshall.core.service.AuditEvent;
  * @param owedEvents    the audit records the transaction hands over once its targets are applied, in their order
  * @since 0.1
  */
-public record TransactionJournal(TransactionId transactionId, JournalScopeType scopeType, String scopeId,
-Instant createdAt, List<Target> targets, List<AuditEvent> owedEvents) {
+public record TransactionJournal(TransactionId transactionId, JournalScopeType scopeType,
+@Nullable String scopeId, Instant createdAt, List<Target> targets, List<AuditEvent> owedEvents) {
 
     /** The format version of a transaction journal that is read and written. */
     public static final int FORMAT_VERSION = 1;
@@ -130,7 +132,8 @@ Instant createdAt, List<Target> targets, List<AuditEvent> owedEvents) {
      *                   leaves no store
      * @since 0.1
      */
-    public record Target(String path, Mode mode, String stagedPath, OptionalLong sizeBefore, StoreDigest newDigest) {
+    public record Target(String path, Mode mode, @Nullable String stagedPath, OptionalLong sizeBefore,
+    @Nullable StoreDigest newDigest) {
 
         /**
          * @throws NullPointerException     if the path, the mode or the size before is {@code null}, or the staged path
@@ -272,12 +275,12 @@ Instant createdAt, List<Target> targets, List<AuditEvent> owedEvents) {
     }
 
     private static TransactionJournal readDocument(JsonParser parser) throws IOException {
-        TransactionId transactionId = null;
-        JournalScopeType scopeType = null;
-        String scopeId = null;
-        Instant createdAt = null;
-        List<Target> targets = null;
-        List<AuditEvent> owedEvents = null;
+        @Nullable TransactionId transactionId = null;
+        @Nullable JournalScopeType scopeType = null;
+        @Nullable String scopeId = null;
+        @Nullable Instant createdAt = null;
+        @Nullable List<Target> targets = null;
+        @Nullable List<AuditEvent> owedEvents = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -351,12 +354,12 @@ Instant createdAt, List<Target> targets, List<AuditEvent> owedEvents) {
 
     private static Target readTarget(JsonParser parser) throws IOException {
         requireObject(parser, TARGET);
-        String path = null;
-        Mode mode = null;
-        String stagedPath = null;
+        @Nullable String path = null;
+        @Nullable Mode mode = null;
+        @Nullable String stagedPath = null;
         var sizeBefore = OptionalLong.empty();
         long newSize = 0;
-        String newSha256 = null;
+        @Nullable String newSha256 = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

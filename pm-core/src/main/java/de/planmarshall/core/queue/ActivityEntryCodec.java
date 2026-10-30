@@ -22,6 +22,8 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -186,7 +188,7 @@ public class ActivityEntryCodec {
         generator.writeEndObject();
     }
 
-    private static void writeNullable(JsonGenerator generator, String field, String value) throws IOException {
+    private static void writeNullable(JsonGenerator generator, String field, @Nullable String value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -241,8 +243,8 @@ public class ActivityEntryCodec {
 
     private static Tool readTool(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_TOOL);
-        String name = null;
-        String target = null;
+        @Nullable String name = null;
+        @Nullable String target = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -283,8 +285,8 @@ public class ActivityEntryCodec {
 
     private static Link readLink(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_LINK);
-        LinkRelation rel = null;
-        String target = null;
+        @Nullable LinkRelation rel = null;
+        @Nullable String target = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -304,8 +306,8 @@ public class ActivityEntryCodec {
 
     private static Signal readSignal(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_SIGNAL);
-        SignalName signal = null;
-        SignalAction action = null;
+        @Nullable SignalName signal = null;
+        @Nullable SignalAction action = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

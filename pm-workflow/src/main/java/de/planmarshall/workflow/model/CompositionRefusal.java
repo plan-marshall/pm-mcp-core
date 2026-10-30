@@ -16,6 +16,7 @@ import java.util.Set;
 
 import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.role.RoleValidationReason;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A composition refused because a model state or a consultation clause names a role it cannot use (PM-WORK-1, Composition
@@ -52,13 +53,14 @@ public final class CompositionRefusal extends RuntimeException {
     private final Reason reason;
     private final String role;
     private final String stateId;
-    private final RoleClass roleClass;
+    private final @Nullable RoleClass roleClass;
     private final Set<RoleClass> requiredClasses;
-    private final RoleValidationReason validationReason;
+    private final @Nullable RoleValidationReason validationReason;
     private final String detail;
 
-    private CompositionRefusal(Reason reason, String role, String stateId, RoleClass roleClass,
-            Set<RoleClass> requiredClasses, Optional<RoleValidationReason> validationReason, String detail) {
+    private CompositionRefusal(Reason reason, String role, String stateId, @Nullable RoleClass roleClass,
+            Set<RoleClass> requiredClasses, Optional<RoleValidationReason> validationReason,
+            @Nullable String detail) {
         super(message(reason, role, stateId, roleClass, validationReason, detail));
         this.reason = Objects.requireNonNull(reason, "reason");
         this.role = Objects.requireNonNull(role, "role");
@@ -88,7 +90,7 @@ public final class CompositionRefusal extends RuntimeException {
      * @param requiredClasses the classes the use admits
      * @return the refusal
      */
-    public static CompositionRefusal classMismatch(String role, String stateId, RoleClass roleClass,
+    public static CompositionRefusal classMismatch(String role, String stateId, @Nullable RoleClass roleClass,
             Set<RoleClass> requiredClasses) {
         var required = requiredClasses.stream().map(RoleClass::wireName).sorted().toList();
         return new CompositionRefusal(Reason.CLASS_MISMATCH, role, stateId, roleClass, Set.copyOf(requiredClasses),
@@ -131,7 +133,7 @@ public final class CompositionRefusal extends RuntimeException {
         return detail;
     }
 
-    private static String message(Reason reason, String role, String stateId, RoleClass roleClass,
+    private static String message(Reason reason, String role, String stateId, @Nullable RoleClass roleClass,
             Optional<RoleValidationReason> validationReason, String detail) {
         var validation = validationReason.isEmpty()
                 ? ""

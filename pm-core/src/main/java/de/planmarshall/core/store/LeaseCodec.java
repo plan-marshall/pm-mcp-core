@@ -23,6 +23,8 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -142,7 +144,7 @@ public class LeaseCodec {
     }
 
     private static List<LeaseRecord> readDocument(JsonParser parser) throws IOException {
-        List<LeaseRecord> leases = null;
+        @Nullable List<LeaseRecord> leases = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -172,10 +174,10 @@ public class LeaseCodec {
 
     private static LeaseRecord readLease(JsonParser parser) throws IOException {
         requireObject(parser, "lease");
-        String key = null;
-        LeaseOwner owner = null;
-        Instant acquiredAt = null;
-        Instant leaseExpiresAt = null;
+        @Nullable String key = null;
+        @Nullable LeaseOwner owner = null;
+        @Nullable Instant acquiredAt = null;
+        @Nullable Instant leaseExpiresAt = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -197,11 +199,11 @@ public class LeaseCodec {
 
     private static LeaseOwner readOwner(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_OWNER);
-        String projectId = null;
-        ScopeType scopeType = null;
-        String scopeId = null;
-        HolderInstance holder = null;
-        Instant orphanedAt = null;
+        @Nullable String projectId = null;
+        @Nullable ScopeType scopeType = null;
+        @Nullable String scopeId = null;
+        @Nullable HolderInstance holder = null;
+        @Nullable Instant orphanedAt = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -228,7 +230,7 @@ public class LeaseCodec {
     private static HolderInstance readHolder(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_HOLDER_INSTANCE);
         long runtimePid = 0;
-        Instant runtimeStartedAt = null;
+        @Nullable Instant runtimeStartedAt = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

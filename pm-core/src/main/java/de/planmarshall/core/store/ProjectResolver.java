@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -145,7 +147,7 @@ public final class ProjectResolver {
      */
     private ProjectResolution enrolledProject(Path mainCheckout) {
         var matches = new TreeSet<String>();
-        StoreRefusal refused = null;
+        @Nullable StoreRefusal refused = null;
         for (var projectId : enrolments.projectIds()) {
             var match = match(projectId, mainCheckout);
             if (match.matches()) {

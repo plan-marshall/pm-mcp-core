@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.profile;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -150,7 +152,7 @@ public final class SupportedVersions {
         }
     }
 
-    private record Version(int major, int minor, int patch, String suffix) implements Comparable<Version> {
+    private record Version(int major, int minor, int patch, @Nullable String suffix) implements Comparable<Version> {
 
         private Optional<Version> next() {
             if (suffix != null) {

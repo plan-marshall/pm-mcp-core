@@ -20,6 +20,8 @@ import static de.planmarshall.core.store.StrictJson.string;
 import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -180,8 +182,8 @@ public class RoleAssignmentsCodec {
         }
         requireObject(parser, role);
         var seen = new HashSet<String>();
-        String harness = null;
-        String model = null;
+        @Nullable String harness = null;
+        @Nullable String model = null;
         var effort = EffortSetting.INHERIT;
         Optional<EffortValue> effortValue = Optional.empty();
         Optional<Escalation> escalation = Optional.empty();
@@ -217,8 +219,8 @@ public class RoleAssignmentsCodec {
         }
         requireObject(parser, FIELD_ESCALATION);
         var seen = new HashSet<String>();
-        String harness = null;
-        String model = null;
+        @Nullable String harness = null;
+        @Nullable String model = null;
         Optional<EffortValue> effort = Optional.empty();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

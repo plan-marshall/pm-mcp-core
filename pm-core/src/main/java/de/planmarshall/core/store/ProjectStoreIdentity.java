@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.time.Instant;
 import java.util.Objects;
 
@@ -29,7 +31,7 @@ import java.util.Objects;
  * @since 0.1
  */
 public record ProjectStoreIdentity(String projectId, String projectRoot, String displayName, Instant createdAt,
-Instant unenrolledAt) {
+@Nullable Instant unenrolledAt) {
 
     /** The format version of a store identity that is read and written. */
     public static final int FORMAT_VERSION = 1;

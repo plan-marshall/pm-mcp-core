@@ -22,6 +22,8 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -174,7 +176,7 @@ public class ChangeLedgerCodec {
         generator.writeEndObject();
     }
 
-    private static void writeNullableString(JsonGenerator generator, String field, String value) throws IOException {
+    private static void writeNullableString(JsonGenerator generator, String field, @Nullable String value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -182,7 +184,7 @@ public class ChangeLedgerCodec {
         }
     }
 
-    private static void writeNullableLong(JsonGenerator generator, String field, Long value) throws IOException {
+    private static void writeNullableLong(JsonGenerator generator, String field, @Nullable Long value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -190,7 +192,7 @@ public class ChangeLedgerCodec {
         }
     }
 
-    private static void writeNullableInteger(JsonGenerator generator, String field, Integer value) throws IOException {
+    private static void writeNullableInteger(JsonGenerator generator, String field, @Nullable Integer value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -199,23 +201,23 @@ public class ChangeLedgerCodec {
     }
 
     private static ChangeLedgerRecord readRecord(JsonParser parser) throws IOException {
-        Kind kind = null;
-        String worktreeSha = null;
-        Integer worktreeShaVersion = null;
-        WorktreeShaFailure failure = null;
-        String gateKind = null;
-        Outcome outcome = null;
-        Long durationMs = null;
-        String jobId = null;
-        String commitSha = null;
+        @Nullable Kind kind = null;
+        @Nullable String worktreeSha = null;
+        @Nullable Integer worktreeShaVersion = null;
+        @Nullable WorktreeShaFailure failure = null;
+        @Nullable String gateKind = null;
+        @Nullable Outcome outcome = null;
+        @Nullable Long durationMs = null;
+        @Nullable String jobId = null;
+        @Nullable String commitSha = null;
         List<String> changedPaths = List.of();
-        ChangeOrigin changeOrigin = null;
-        Expect expect = null;
-        ExpectResult expectResult = null;
-        Baseline baseline = null;
-        String deliverableId = null;
-        String taskId = null;
-        Instant recordedAt = null;
+        @Nullable ChangeOrigin changeOrigin = null;
+        @Nullable Expect expect = null;
+        @Nullable ExpectResult expectResult = null;
+        @Nullable Baseline baseline = null;
+        @Nullable String deliverableId = null;
+        @Nullable String taskId = null;
+        @Nullable Instant recordedAt = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -260,10 +262,10 @@ public class ChangeLedgerCodec {
             return Optional.empty();
         }
         requireObject(parser, field);
-        List<String> command = null;
-        WorktreeShaFailure.FailureKind failure = null;
-        Integer exitCode = null;
-        Integer signal = null;
+        @Nullable List<String> command = null;
+        WorktreeShaFailure.@Nullable FailureKind failure = null;
+        @Nullable Integer exitCode = null;
+        @Nullable Integer signal = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var name = nextField(parser, seen);
@@ -285,12 +287,12 @@ public class ChangeLedgerCodec {
             return Optional.empty();
         }
         requireObject(parser, field);
-        String gateKind = null;
-        String mergeBase = null;
-        String baseCommit = null;
-        Baseline.ProofSource proofSource = null;
-        String diagnosticsDigest = null;
-        List<String> fingerprints = null;
+        @Nullable String gateKind = null;
+        @Nullable String mergeBase = null;
+        @Nullable String baseCommit = null;
+        Baseline.@Nullable ProofSource proofSource = null;
+        @Nullable String diagnosticsDigest = null;
+        @Nullable List<String> fingerprints = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var name = nextField(parser, seen);

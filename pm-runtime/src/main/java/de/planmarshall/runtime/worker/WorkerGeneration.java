@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import lombok.With;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.store.JobId;
@@ -51,10 +52,10 @@ import de.planmarshall.runtime.launch.LaunchRequest;
  */
 @With
 public record WorkerGeneration(String generationId, String role, String harness, String model, RoleForm form,
-LaunchRequest.WorkdirKind workdirKind, String planId, Path workdir, String configurationDigest,
-Instant startedAt, JobId jobId, ModelSlots.Lease slot, WorkerLifecycle lifecycle, String leasedTask,
+LaunchRequest.WorkdirKind workdirKind, @Nullable String planId, Path workdir, String configurationDigest,
+Instant startedAt, JobId jobId, ModelSlots.Lease slot, WorkerLifecycle lifecycle, @Nullable String leasedTask,
 List<String> servedTasks, long idleWakeups, WorkerState.ContextTokens contextTokens,
-WorkerState.WorktreeMark worktreeMark) {
+WorkerState.@Nullable WorktreeMark worktreeMark) {
 
     /**
      * @throws NullPointerException     if a required component is {@code null}

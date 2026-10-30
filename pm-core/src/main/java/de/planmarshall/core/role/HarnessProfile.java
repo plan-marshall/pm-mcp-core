@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.role;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -45,8 +47,8 @@ import de.planmarshall.core.profile.ProfileValidator;
  */
 public record HarnessProfile(String clientId, boolean eligible, boolean restrictedModelsDeclared,
 Set<String> restrictedModels, Map<RoleClass, ToolSet> classes, Map<String, List<String>> modelEfforts,
-Map<String, String> modelTiers, Integer contextBudgetTokens, Integer idleWakeups, Resumability resumability,
-String askUserTool) {
+Map<String, String> modelTiers, @Nullable Integer contextBudgetTokens, @Nullable Integer idleWakeups,
+Resumability resumability, String askUserTool) {
 
     /** Copies the collections. */
     public HarnessProfile {
@@ -75,7 +77,8 @@ String askUserTool) {
      * @param maxResumeAgeSeconds  the oldest stored session measured to resume; {@code null} when resume is false
      * @since 0.1
      */
-    public record Resumability(boolean hold, Integer maxHoldSeconds, boolean resume, Integer maxResumeAgeSeconds) {
+    public record Resumability(boolean hold, @Nullable Integer maxHoldSeconds, boolean resume,
+    @Nullable Integer maxResumeAgeSeconds) {
     }
 
     /** @return whether the harness runs the class */

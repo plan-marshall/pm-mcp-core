@@ -22,6 +22,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.api.MachinePaths;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
@@ -129,7 +130,7 @@ public final class RuntimeDrain {
         }
         // The run is taken on the calling thread; an exceptional end completes the shared future with its cause, so
         // a concurrent caller is told the cause instead of waiting forever or seeing a bare cancellation
-        CompletableFuture.supplyAsync(this::runOnce, Runnable::run).whenComplete((outcome, failure) -> {
+        CompletableFuture.supplyAsync(this::runOnce, Runnable::run).whenComplete((var outcome, @Nullable var failure) -> {
             if (failure == null) {
                 mine.complete(outcome);
             } else {
@@ -268,6 +269,6 @@ public final class RuntimeDrain {
      * @param value   the value of the phase, {@code null} when it failed
      * @param failure what the phase threw, {@code null} when it succeeded
      */
-    private record Attempt<T>(T value, Throwable failure) {
+    private record Attempt<T>(@Nullable T value, @Nullable Throwable failure) {
     }
 }

@@ -22,6 +22,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.corpus.SourceFetch;
 import de.planmarshall.core.role.corpus.SourceManifest;
@@ -375,7 +376,7 @@ public final class HuggingFaceSourceRepository implements SourceRepository {
     }
 
     /** The response of a request, or the outcome of a request that got none. */
-    private record Answer(HttpResponse<byte[]> response, Optional<SourceFetch> failure) {
+    private record Answer(@Nullable HttpResponse<byte[]> response, Optional<SourceFetch> failure) {
 
         static Answer failed(SourceFetch failure) {
             return new Answer(null, Optional.of(failure));

@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.io.Serial;
 import java.nio.file.Path;
 import java.util.Locale;
@@ -101,7 +103,8 @@ public final class StoreRefusal extends RuntimeException {
     /** The current format version of the file kind. */
     private final int current;
 
-    private StoreRefusal(Outcome outcome, Path file, int found, int current, String detail, Throwable cause) {
+    private StoreRefusal(Outcome outcome, Path file, int found, int current, @Nullable String detail,
+            @Nullable Throwable cause) {
         super(message(outcome, file, found, current, detail), cause);
         this.outcome = outcome;
         this.file = file;
@@ -233,7 +236,7 @@ public final class StoreRefusal extends RuntimeException {
         return current;
     }
 
-    private static String message(Outcome outcome, Path file, int found, int current, String detail) {
+    private static String message(Outcome outcome, Path file, int found, int current, @Nullable String detail) {
         if (outcome == Outcome.ENROLMENT_TAMPERED || outcome == Outcome.ENROLMENT_INSECURE
                 || outcome == Outcome.ENROLMENT_INVALID) {
             return "%s: %s: %s".formatted(file, outcome.code(), detail);

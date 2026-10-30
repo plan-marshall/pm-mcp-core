@@ -43,6 +43,7 @@ import de.planmarshall.core.role.qualification.RoleTopics;
 import de.planmarshall.core.role.qualification.Scoring;
 import de.planmarshall.core.role.qualification.TokenTotal;
 import de.planmarshall.core.role.qualification.Topic;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The grading run of one role's configuration (Model Work § Grading; § Judge Instrument Check; § Corpus Sources).
@@ -272,7 +273,7 @@ public final class RoleGrader {
         }
         var measured = new EnumMap<Topic, QualificationRecord.TopicResult>(Topic.class);
         var graded = 0;
-        TokenTotal tokens = null;
+        @Nullable TokenTotal tokens = null;
         long duration = 0;
         for (var topic : topics.topics()) {
             var topicItems = RoleTopics.items(plan.items(), topic, plan.role().artifact().name());
@@ -304,7 +305,7 @@ public final class RoleGrader {
         return Optional.of(new QualificationRecord.FormResult(measured, graded, totalTokens, duration));
     }
 
-    private static boolean right(ImportedItem item, QualificationRecord.ItemResult result) {
+    private static boolean right(@Nullable ImportedItem item, QualificationRecord.ItemResult result) {
         if (item == null || result.score().isUngraded()) {
             return false;
         }
@@ -317,7 +318,7 @@ public final class RoleGrader {
         if (fresh == null || warm == null) {
             return Optional.empty();
         }
-        BigDecimal gap = null;
+        @Nullable BigDecimal gap = null;
         for (var entry : fresh.topics().entrySet()) {
             var warmTopic = warm.topics().get(entry.getKey());
             var warmAgreement = warmTopic == null ? BigDecimal.ZERO : warmTopic.agreement();

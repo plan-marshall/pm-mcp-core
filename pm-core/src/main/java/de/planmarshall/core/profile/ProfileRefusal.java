@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.profile;
 
+import org.jspecify.annotations.Nullable;
+
 import java.io.Serial;
 import java.util.Objects;
 
@@ -60,7 +62,8 @@ public final class ProfileRefusal extends RuntimeException {
     private final String pointer;
     private final String detail;
 
-    private ProfileRefusal(Outcome outcome, String document, String pointer, String detail, Throwable cause) {
+    private ProfileRefusal(Outcome outcome, String document, @Nullable String pointer, @Nullable String detail,
+            @Nullable Throwable cause) {
         super(message(outcome, document, pointer, detail), cause);
         this.outcome = outcome;
         this.document = Objects.requireNonNull(document, "document");
@@ -141,7 +144,8 @@ public final class ProfileRefusal extends RuntimeException {
         return detail;
     }
 
-    private static String message(Outcome outcome, String document, String pointer, String detail) {
+    private static String message(Outcome outcome, String document, @Nullable String pointer,
+            @Nullable String detail) {
         var where = pointer == null || pointer.isEmpty() ? "" : " at '%s'".formatted(pointer);
         return "%s: %s%s: %s".formatted(document, outcome.code(), where, detail == null ? "" : detail);
     }

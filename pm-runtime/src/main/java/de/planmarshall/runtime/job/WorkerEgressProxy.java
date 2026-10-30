@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -236,7 +237,7 @@ public final class WorkerEgressProxy implements AutoCloseable {
     }
 
     private static void drainHeaders(InputStream input) throws IOException {
-        String line;
+        @Nullable String line;
         do {
             line = readLine(input);
         } while (line != null && !line.isEmpty());

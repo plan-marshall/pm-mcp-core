@@ -16,6 +16,7 @@ import java.util.regex.Pattern;
 import org.eclipse.jgit.errors.AmbiguousObjectException;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.Repository;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The identity rules of the git contract (PM-WATCH-GEN-59): a pinned commit is an identity that is checked, never a
@@ -67,7 +68,7 @@ public final class GitIdentity {
      * @param value a revision string
      * @return whether it is a full 40-character commit id
      */
-    public static boolean isFullCommitId(String value) {
+    public static boolean isFullCommitId(@Nullable String value) {
         return value != null && FULL_COMMIT_ID.matcher(value).matches();
     }
 
@@ -75,7 +76,7 @@ public final class GitIdentity {
      * @param value a revision string
      * @return whether it is a hexadecimal prefix shorter than a full commit id
      */
-    public static boolean isAbbreviatedCommitId(String value) {
+    public static boolean isAbbreviatedCommitId(@Nullable String value) {
         return value != null && ABBREVIATED_COMMIT_ID.matcher(value).matches();
     }
 

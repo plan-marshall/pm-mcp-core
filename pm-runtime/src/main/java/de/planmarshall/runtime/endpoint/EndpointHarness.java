@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.EndpointProfile;
 import de.planmarshall.core.profile.JsonDocument;
@@ -63,7 +64,7 @@ public final class EndpointHarness {
      * @return the outcome of the task
      */
     public EndpointOutcome task(EndpointProfile profile, HarnessEnrolment enrolled, EndpointRequest request,
-            JsonNode schema) {
+            @Nullable JsonNode schema) {
         Objects.requireNonNull(profile, "profile");
         Objects.requireNonNull(enrolled, "enrolled");
         Objects.requireNonNull(request, "request");

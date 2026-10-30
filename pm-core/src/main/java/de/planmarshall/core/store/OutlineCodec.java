@@ -23,6 +23,8 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -264,7 +266,7 @@ public class OutlineCodec {
     }
 
     private static OutlineStore readDocument(JsonParser parser) throws IOException {
-        Revision current = null;
+        @Nullable Revision current = null;
         Map<Integer, DeliveryStatus> statuses = Map.of();
         List<Revision> history = List.of();
         var seen = new HashSet<String>();
@@ -295,10 +297,10 @@ public class OutlineCodec {
 
     private static Revision readRevision(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        Long revision = null;
-        Instant submittedAt = null;
-        String taskId = null;
-        OutlineRecord outlineRecord = null;
+        @Nullable Long revision = null;
+        @Nullable Instant submittedAt = null;
+        @Nullable String taskId = null;
+        @Nullable OutlineRecord outlineRecord = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -320,10 +322,10 @@ public class OutlineCodec {
 
     private static OutlineRecord readRecord(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String summary = null;
-        String overview = null;
-        ScopeEstimate scope = null;
-        List<Deliverable> deliverables = null;
+        @Nullable String summary = null;
+        @Nullable String overview = null;
+        @Nullable ScopeEstimate scope = null;
+        @Nullable List<Deliverable> deliverables = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -345,23 +347,23 @@ public class OutlineCodec {
 
     private static Deliverable readDeliverable(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        Long number = null;
-        String title = null;
-        String intentGloss = null;
-        ChangeType changeType = null;
-        ExecutionMode executionMode = null;
-        String domain = null;
-        String module = null;
+        @Nullable Long number = null;
+        @Nullable String title = null;
+        @Nullable String intentGloss = null;
+        @Nullable ChangeType changeType = null;
+        @Nullable ExecutionMode executionMode = null;
+        @Nullable String domain = null;
+        @Nullable String module = null;
         List<Integer> depends = List.of();
-        String designNotes = null;
-        List<Profile> profiles = null;
-        List<AffectedFile> affectedFiles = null;
-        String changePerFile = null;
-        List<Verification> verification = null;
-        List<String> satisfies = null;
-        List<AddedDependency> addedDependencies = null;
-        List<Interface> interfaces = null;
-        List<KeyLink> keyLinks = null;
+        @Nullable String designNotes = null;
+        @Nullable List<Profile> profiles = null;
+        @Nullable List<AffectedFile> affectedFiles = null;
+        @Nullable String changePerFile = null;
+        @Nullable List<Verification> verification = null;
+        @Nullable List<String> satisfies = null;
+        @Nullable List<AddedDependency> addedDependencies = null;
+        @Nullable List<Interface> interfaces = null;
+        @Nullable List<KeyLink> keyLinks = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -415,9 +417,9 @@ public class OutlineCodec {
 
     private static AffectedFile readAffectedFile(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String path = null;
-        FileIntent intent = null;
-        String gate = null;
+        @Nullable String path = null;
+        @Nullable FileIntent intent = null;
+        @Nullable String gate = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -438,8 +440,8 @@ public class OutlineCodec {
 
     private static Verification readVerification(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String command = null;
-        String criterion = null;
+        @Nullable String command = null;
+        @Nullable String criterion = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -459,9 +461,9 @@ public class OutlineCodec {
 
     private static AddedDependency readAddedDependency(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String coordinate = null;
-        String why = null;
-        String rejected = null;
+        @Nullable String coordinate = null;
+        @Nullable String why = null;
+        @Nullable String rejected = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -482,9 +484,9 @@ public class OutlineCodec {
 
     private static Interface readInterface(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        Direction direction = null;
-        String symbol = null;
-        String signature = null;
+        @Nullable Direction direction = null;
+        @Nullable String symbol = null;
+        @Nullable String signature = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -505,9 +507,9 @@ public class OutlineCodec {
 
     private static KeyLink readKeyLink(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String from = null;
-        String to = null;
-        String pattern = null;
+        @Nullable String from = null;
+        @Nullable String to = null;
+        @Nullable String pattern = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

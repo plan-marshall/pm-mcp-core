@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Objects;
 
 import de.planmarshall.core.queue.QueueTaskRecord;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What following a consultation link, or recording the answer of a consultation, did: it opened the consultation and
@@ -47,7 +48,8 @@ public sealed interface ConsultationOutcome
      * @param facts      the consultations the asking task currently carries, in the order they were asked
      * @since 0.1
      */
-    record Answered(QueueTaskRecord askingTask, List<ConsultationFact> facts) implements ConsultationOutcome {
+    record Answered(@Nullable QueueTaskRecord askingTask, List<ConsultationFact> facts)
+            implements ConsultationOutcome {
 
         /** @throws NullPointerException if the list is {@code null} */
         public Answered {

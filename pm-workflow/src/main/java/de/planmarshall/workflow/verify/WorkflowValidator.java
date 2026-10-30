@@ -52,6 +52,7 @@ import de.planmarshall.workflow.ast.UnitFrontmatter;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
 import de.planmarshall.workflow.setup.MachineOnboarding;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The static verifier of one workflow unit (PM-IMPL-5, PM-TEST-3): it runs every check of {@link VerificationRule}
@@ -1293,7 +1294,7 @@ public final class WorkflowValidator {
         }
         return isBudgetCheck(target) ? Optional.empty()
                 : Optional.of("neither a terminal of class STEPPED_OUT or FAILURE, nor a link state that continues the step-out, nor the budget re-check 'remediation-<class>%s' running '%s'"
-                        .formatted(BUDGET_CHECK_SUFFIX, CHECK_BUDGETS));
+                .formatted(BUDGET_CHECK_SUFFIX, CHECK_BUDGETS));
     }
 
     /**
@@ -1835,7 +1836,7 @@ public final class WorkflowValidator {
      * A position of a pass of a dispatch hub: the state reached, the distinct steps settled on the way (at most two)
      * and the first of them completed a second time on the way ({@code null} while none is).
      */
-    private record PassPosition(String stateId, Set<String> settled, String repeated) {
+    private record PassPosition(String stateId, Set<String> settled, @Nullable String repeated) {
     }
 
     /**

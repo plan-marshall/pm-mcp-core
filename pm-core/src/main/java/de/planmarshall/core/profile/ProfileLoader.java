@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.profile;
 
+import org.jspecify.annotations.Nullable;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -92,7 +94,7 @@ public final class ProfileLoader {
      * @param projectId the project whose project set is read; {@code null} for no project set
      * @return the effective profile set
      */
-    public ProfileSet load(ProfileSets sets, String projectId) {
+    public ProfileSet load(ProfileSets sets, @Nullable String projectId) {
         Objects.requireNonNull(sets, "sets");
         var effective = new TreeMap<String, LoadedProfile>();
         var refused = new ArrayList<ProfileSet.RefusedProfile>();
@@ -317,7 +319,7 @@ public final class ProfileLoader {
         return value.isPresent() ? Optional.of(value.getAsLong()) : Optional.empty();
     }
 
-    private static List<String> clientIds(Path directory) {
+    private static List<String> clientIds(@Nullable Path directory) {
         if (directory == null || !Files.isDirectory(directory)) {
             return List.of();
         }

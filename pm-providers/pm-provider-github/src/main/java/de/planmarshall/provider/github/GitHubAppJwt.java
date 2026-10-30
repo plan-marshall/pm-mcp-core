@@ -21,6 +21,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.provider.http.Json;
 
@@ -152,7 +153,7 @@ public final class GitHubAppJwt {
          * @param message the reason
          * @param cause   the cause, or {@code null}
          */
-        public JwtSigningException(String message, Throwable cause) {
+        public JwtSigningException(String message, @Nullable Throwable cause) {
             super(message, cause);
         }
     }

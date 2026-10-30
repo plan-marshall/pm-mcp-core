@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.EffectiveRole;
 import de.planmarshall.core.role.RoleForm;
@@ -37,9 +38,9 @@ import de.planmarshall.runtime.launch.LaunchRequest;
  * @param resumeSessionId the stored session a resumed generation continues; empty for a new session
  * @since 0.1
  */
-public record WorkerStartRequest(EffectiveRole role, LaunchRequest.WorkdirKind workdirKind, String planId, Path workdir,
-ContractEnvelope envelope, boolean writesFreeText, List<String> stateSkills, List<String> domainSkills,
-String zeroToolPrompt, Optional<String> resumeSessionId) {
+public record WorkerStartRequest(EffectiveRole role, LaunchRequest.WorkdirKind workdirKind, @Nullable String planId,
+@Nullable Path workdir, @Nullable ContractEnvelope envelope, boolean writesFreeText, List<String> stateSkills,
+List<String> domainSkills, String zeroToolPrompt, Optional<String> resumeSessionId) {
 
     /**
      * @throws NullPointerException     if a required component is {@code null}

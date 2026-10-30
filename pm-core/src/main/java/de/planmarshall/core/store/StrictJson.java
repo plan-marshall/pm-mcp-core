@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -155,7 +157,7 @@ public class StrictJson {
     public static void requireCurrentVersion(Path file, byte[] document, int current) {
         Objects.requireNonNull(file, "file");
         Objects.requireNonNull(document, "document");
-        Integer found = null;
+        @Nullable Integer found = null;
         try (var parser = JSON.createParser(document)) {
             if (parser.nextToken() != JsonToken.START_OBJECT) {
                 throw unreadable("not a JSON object");
@@ -398,7 +400,7 @@ public class StrictJson {
      * @param instant   the instant; {@code null} writes a JSON {@code null}
      * @throws IOException if the generator cannot write
      */
-    public static void writeInstant(JsonGenerator generator, String field, Instant instant) throws IOException {
+    public static void writeInstant(JsonGenerator generator, String field, @Nullable Instant instant) throws IOException {
         if (instant == null) {
             generator.writeNullField(field);
         } else {

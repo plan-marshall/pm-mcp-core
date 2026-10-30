@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.analysis;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -172,7 +174,7 @@ public class AnalysisResultCodec {
         generator.writeEndObject();
     }
 
-    private static void writeNullableString(JsonGenerator generator, String field, String value) throws IOException {
+    private static void writeNullableString(JsonGenerator generator, String field, @Nullable String value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -183,16 +185,16 @@ public class AnalysisResultCodec {
     private static AnalysisResult readResult(JsonParser parser) throws IOException {
         requireObject(parser, "analysis result");
         long formatVersion = 0;
-        String provider = null;
-        FindingScope target = null;
-        AnalysisStatus status = null;
-        Gate gate = null;
-        CountStatus countStatus = null;
-        Long newCodeIssueCount = null;
+        @Nullable String provider = null;
+        @Nullable FindingScope target = null;
+        @Nullable AnalysisStatus status = null;
+        @Nullable Gate gate = null;
+        @Nullable CountStatus countStatus = null;
+        @Nullable Long newCodeIssueCount = null;
         long issuesFetched = 0;
         var workPerformed = false;
-        String analysisRef = null;
-        Instant observedAt = null;
+        @Nullable String analysisRef = null;
+        @Nullable Instant observedAt = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -228,9 +230,9 @@ public class AnalysisResultCodec {
 
     private static FindingScope readTarget(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_TARGET);
-        FindingScope.Kind kind = null;
-        String commitSha = null;
-        Long prNumber = null;
+        FindingScope.@Nullable Kind kind = null;
+        @Nullable String commitSha = null;
+        @Nullable Long prNumber = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -257,8 +259,8 @@ public class AnalysisResultCodec {
             return Optional.empty();
         }
         requireObject(parser, FIELD_GATE);
-        GateResult result = null;
-        List<Condition> conditions = null;
+        @Nullable GateResult result = null;
+        @Nullable List<Condition> conditions = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -289,11 +291,11 @@ public class AnalysisResultCodec {
 
     private static Condition readCondition(JsonParser parser) throws IOException {
         requireObject(parser, "condition");
-        String metric = null;
-        Comparator comparator = null;
-        String threshold = null;
-        String actual = null;
-        GateResult result = null;
+        @Nullable String metric = null;
+        @Nullable Comparator comparator = null;
+        @Nullable String threshold = null;
+        @Nullable String actual = null;
+        @Nullable GateResult result = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

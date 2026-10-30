@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.credentials;
 
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The redaction registry a Token Lane secret is registered with before it is sent (Credentials &amp; Enrolment §
@@ -33,7 +34,7 @@ public interface SecretRegistry {
      * @param registry a registry
      * @return the registry, or one that keeps nothing when none was given
      */
-    static SecretRegistry orNone(SecretRegistry registry) {
+    static SecretRegistry orNone(@Nullable SecretRegistry registry) {
         return registry == null ? none() : registry;
     }
 

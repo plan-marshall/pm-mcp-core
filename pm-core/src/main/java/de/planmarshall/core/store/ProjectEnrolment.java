@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.math.BigDecimal;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -74,7 +76,7 @@ String projectRoot,
 Instant enrolledAt,
 boolean pilot,
 ContainerEngine containerEngine,
-Instant releasedAt,
+@Nullable Instant releasedAt,
 List<Wrapper> wrappers,
 List<HostTool> hostTools,
 Build build,
@@ -389,7 +391,7 @@ SortedMap<String, String> buildEnvironment) {
      * @since 0.1
      */
     public record Wrapper(WrapperName name, String relativePath, String sha256, List<PinnedFile> pinnedFiles,
-    Interpreter interpreter) {
+    @Nullable Interpreter interpreter) {
 
         /**
          * @throws NullPointerException     if a component other than the interpreter is {@code null}
@@ -450,8 +452,8 @@ SortedMap<String, String> buildEnvironment) {
      * @param version        the version printed at enrolment; {@code null} if none was printed
      * @since 0.1
      */
-    public record HostTool(HostToolName name, String executablePath, String sha256, Interpreter interpreter,
-    String version) {
+    public record HostTool(HostToolName name, String executablePath, String sha256, @Nullable Interpreter interpreter,
+    @Nullable String version) {
 
         /**
          * @throws NullPointerException     if the name, the path or the SHA-256 is {@code null}
@@ -669,9 +671,10 @@ SortedMap<String, String> buildEnvironment) {
      *                   and the enrolment policy refuses one above it; {@code null} if absent
      * @since 0.1
      */
-    public record ArgumentSchema(SchemaType type, SortedMap<String, ArgumentSchema> properties,
-    List<String> required, boolean closed, List<EnumValue> enumValues, String pattern, BigDecimal minimum,
-    BigDecimal maximum, Long maxLength) {
+    public record ArgumentSchema(@Nullable SchemaType type, @Nullable SortedMap<String, ArgumentSchema> properties,
+    @Nullable List<String> required, boolean closed, @Nullable List<EnumValue> enumValues,
+    @Nullable String pattern, @Nullable BigDecimal minimum, @Nullable BigDecimal maximum,
+    @Nullable Long maxLength) {
 
         /**
          * The greatest {@code maxLength} a schema that matches a string by a {@code pattern} admits: 256 code points.

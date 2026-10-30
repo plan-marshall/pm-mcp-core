@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Locale;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The unit file of the per-user service that starts {@code pm-mcpd} at login and restarts it on failure, the
@@ -39,7 +40,7 @@ import java.util.Objects;
  * @param daemon        the absolute path of {@code <PM_MCP_HOME>/bin/pm-mcpd}
  * @since 0.1
  */
-public record ServiceUnitFile(Platform platform, Path home, String xdgConfigHome, Path daemon) {
+public record ServiceUnitFile(Platform platform, Path home, @Nullable String xdgConfigHome, Path daemon) {
 
     /** The {@code launchd} job label, also the base name of the LaunchAgent file. */
     public static final String LAUNCHD_LABEL = "de.planmarshall.mcpd";

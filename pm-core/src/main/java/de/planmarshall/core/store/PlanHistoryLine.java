@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -36,7 +38,7 @@ import java.util.regex.Pattern;
  * @since 0.1
  */
 public record PlanHistoryLine(int formatVersion, long seq, Event event, String node, List<String> callPath,
-String phase, String outcome, int instanceVersion, Instant at) {
+@Nullable String phase, @Nullable String outcome, int instanceVersion, Instant at) {
 
     /** The format version of the history line. */
     public static final int FORMAT_VERSION = 1;

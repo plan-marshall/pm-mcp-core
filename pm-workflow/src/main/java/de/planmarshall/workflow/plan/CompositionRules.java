@@ -29,6 +29,7 @@ import de.planmarshall.workflow.plan.HeaderJson.NumberNode;
 import de.planmarshall.workflow.plan.HeaderJson.ObjectNode;
 import de.planmarshall.workflow.plan.HeaderJson.StringNode;
 import de.planmarshall.workflow.verify.CompiledInvariants;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The composition rule file (PM-IMPL-5, PM-EXT-7): the declarative rules that map a plan fact or an effective
@@ -330,7 +331,7 @@ public record CompositionRules(String revision, String digest, List<CompositionR
                     : Optional.of(new CompositionRule.Binding(callSite.get(), argument.get(), value.get()));
         }
 
-        private Optional<CallValue> literal(Node node, String what) {
+        private Optional<CallValue> literal(@Nullable Node node, String what) {
             return switch (node) {
                 case StringNode(var text) -> Optional.of(new CallValue.EnumValue(text));
                 case NumberNode number when number.integral() && number.value().abs().compareTo(
@@ -380,7 +381,7 @@ public record CompositionRules(String revision, String digest, List<CompositionR
             return true;
         }
 
-        private List<Node> list(Node node, String what) {
+        private List<Node> list(@Nullable Node node, String what) {
             if (node == null) {
                 return List.of();
             }

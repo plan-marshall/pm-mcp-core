@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.role.corpus;
 
+import org.jspecify.annotations.Nullable;
+
 import java.io.Serial;
 import java.util.Objects;
 
@@ -27,7 +29,7 @@ public final class MalformedJson extends IllegalArgumentException {
      * @param detail what is malformed
      * @param cause  the failure that found it; {@code null} if there is none
      */
-    public MalformedJson(String detail, Throwable cause) {
+    public MalformedJson(String detail, @Nullable Throwable cause) {
         super(Objects.requireNonNull(detail, "detail"), cause);
     }
 }

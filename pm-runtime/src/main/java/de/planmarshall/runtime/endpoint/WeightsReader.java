@@ -18,6 +18,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.EndpointProfile;
 import de.planmarshall.core.profile.JsonNode;
@@ -48,7 +49,7 @@ public final class WeightsReader {
      * @param modelsListing the array of model objects of the listing; {@code null} when it was not read
      * @return the identity of the model's weights, or why none was read
      */
-    public Reading read(EndpointProfile profile, String model, JsonNode modelsListing) {
+    public Reading read(EndpointProfile profile, String model, @Nullable JsonNode modelsListing) {
         Objects.requireNonNull(profile, "profile");
         Objects.requireNonNull(model, "model");
         var probe = profile.weightsProbe();
@@ -61,7 +62,7 @@ public final class WeightsReader {
         return fromProbe(model, probe);
     }
 
-    private Reading fromListing(String model, String pointer, JsonNode listing) {
+    private Reading fromListing(String model, String pointer, @Nullable JsonNode listing) {
         if (listing == null || !listing.isArray()) {
             return Reading.unread(model, "the models listing was not read");
         }
@@ -99,7 +100,7 @@ public final class WeightsReader {
      * @param pattern the profile's pattern; {@code null} when the profile declares none
      * @return the first captured group, or the whole match when the pattern captures nothing
      */
-    static Optional<String> match(String output, String pattern) {
+    static Optional<String> match(String output, @Nullable String pattern) {
         if (pattern == null) {
             return Optional.empty();
         }
@@ -122,7 +123,7 @@ public final class WeightsReader {
         if (argv.isEmpty()) {
             return Optional.empty();
         }
-        Process process = null;
+        @Nullable Process process = null;
         try (var output = new ByteArrayOutputStream()) {
             var started = new ProcessBuilder(argv).redirectErrorStream(true).start();
             process = started;
@@ -164,7 +165,7 @@ public final class WeightsReader {
      * @param detail    what happened, for a record
      * @since 0.1
      */
-    public record Reading(String model, String weightsId, String detail) {
+    public record Reading(String model, @Nullable String weightsId, String detail) {
 
         /** Copies the values. */
         public Reading {

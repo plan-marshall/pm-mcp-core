@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.queue;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -140,9 +142,9 @@ public record ActivityEventMapping(String kindPointer, Map<ActivityEntry.Kind, K
      * @param stopReasonPointer the pointer to the turn's stop reason; {@code turn} only, may be {@code null}
      * @since 0.1
      */
-    public record KindMapping(List<String> match, String textPointer, String toolPointer,
-    List<String> targetPointers, String sizePointer, String isErrorPointer, String pathPointer,
-    String stopReasonPointer) {
+    public record KindMapping(List<String> match, @Nullable String textPointer, @Nullable String toolPointer,
+    List<String> targetPointers, @Nullable String sizePointer, @Nullable String isErrorPointer,
+    @Nullable String pathPointer, @Nullable String stopReasonPointer) {
 
         /** Copies the lists. */
         public KindMapping {

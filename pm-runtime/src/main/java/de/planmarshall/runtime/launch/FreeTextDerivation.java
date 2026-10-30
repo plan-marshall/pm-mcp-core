@@ -11,6 +11,7 @@ package de.planmarshall.runtime.launch;
 
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.JsonNode;
 
@@ -48,7 +49,7 @@ public final class FreeTextDerivation {
      * @param schema a registered named parameter schema; {@code null} for a parameter without one
      * @return whether the schema holds a free {@code string} field
      */
-    static boolean freeStringField(JsonNode schema) {
+    static boolean freeStringField(@Nullable JsonNode schema) {
         if (schema == null) {
             return false;
         }

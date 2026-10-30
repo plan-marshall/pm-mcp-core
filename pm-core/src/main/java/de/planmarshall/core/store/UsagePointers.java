@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.Optional;
@@ -43,8 +45,9 @@ import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
  * @param toolUses         the pointer of the tool calls, or {@code null}
  * @since 0.1
  */
-public record UsagePointers(String inputTokens, String outputTokens, String cacheRead, String cacheCreation,
-String reasoning, String costUsd, String toolUses) {
+public record UsagePointers(@Nullable String inputTokens, @Nullable String outputTokens, @Nullable String cacheRead,
+@Nullable String cacheCreation, @Nullable String reasoning, @Nullable String costUsd,
+@Nullable String toolUses) {
 
     /** The declaration of a figure that does not exist for a harness by design. */
     public static final String NOT_APPLICABLE = "not_applicable";

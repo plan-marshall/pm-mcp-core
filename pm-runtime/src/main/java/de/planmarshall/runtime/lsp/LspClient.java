@@ -50,6 +50,7 @@ import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.launch.LSPLauncher;
 import org.eclipse.lsp4j.services.LanguageServer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One language-server instance: a child process spoken to over {@code stdio} with LSP4J.
@@ -189,7 +190,7 @@ public final class LspClient implements AutoCloseable {
      */
     public List<LspLocation> definition(Path file, int line, int character) throws LspException {
         var params = new DefinitionParams(new TextDocumentIdentifier(file.toUri().toString()), new Position(line, character));
-        Either<List<? extends Location>, List<? extends LocationLink>> answer = await(
+        @Nullable Either<List<? extends Location>, List<? extends LocationLink>> answer = await(
                 () -> server.getTextDocumentService().definition(params), timeout);
         var locations = new ArrayList<LspLocation>();
         if (answer == null) {

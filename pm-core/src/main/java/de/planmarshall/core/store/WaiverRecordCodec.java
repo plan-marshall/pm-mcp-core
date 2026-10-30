@@ -21,6 +21,8 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -159,9 +161,9 @@ public class WaiverRecordCodec {
 
     private static Operator readOperator(JsonParser parser) throws IOException {
         requireObject(parser, OPERATOR);
-        Channel channel = null;
-        String deviceId = null;
-        String osPrincipal = null;
+        @Nullable Channel channel = null;
+        @Nullable String deviceId = null;
+        @Nullable String osPrincipal = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

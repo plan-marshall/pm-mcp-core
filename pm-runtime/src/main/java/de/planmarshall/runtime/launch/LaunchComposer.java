@@ -28,6 +28,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.CanonicalJson;
 import de.planmarshall.core.profile.JsonNode;
@@ -194,7 +195,7 @@ public final class LaunchComposer {
      * @param declared the role's effective effort
      * @return the nearest accepted lower value, never a higher one
      */
-    public static NarrowedEffort narrow(List<String> accepted, String declared) {
+    public static NarrowedEffort narrow(List<String> accepted, @Nullable String declared) {
         if (declared == null) {
             return new NarrowedEffort(null, null);
         }
@@ -205,7 +206,7 @@ public final class LaunchComposer {
             return new NarrowedEffort(declared, null);
         }
         var rank = EFFORT_SCALE.indexOf(declared);
-        String lower = null;
+        @Nullable String lower = null;
         var lowerRank = -1;
         for (var value : accepted) {
             var candidateRank = EFFORT_SCALE.indexOf(value);
@@ -308,7 +309,7 @@ public final class LaunchComposer {
         return request.role().questions().resumeWithinSeconds() > 0 && !request.block().resumeArgv().isEmpty();
     }
 
-    private static String inlineAgent(LaunchRequest request, String model, String effort, List<String> tools) {
+    private static String inlineAgent(LaunchRequest request, String model, @Nullable String effort, List<String> tools) {
         var agent = new LinkedHashMap<String, JsonNode>();
         agent.put("description", JsonNode.string("PM-MCP worker '%s'".formatted(request.role().artifact().name())));
         agent.put(MEMBER_TOOLS, JsonNode.array(tools.stream().map(JsonNode::string).toList()));
@@ -435,10 +436,10 @@ public final class LaunchComposer {
      * @param narrowedFrom   the role's effective effort when it was narrowed; {@code null} otherwise
      * @since 0.1
      */
-    public record NarrowedEffort(String value, String narrowedFrom) {
+    public record NarrowedEffort(@Nullable String value, @Nullable String narrowedFrom) {
     }
 
-    private record McpComposition(Path file, String content) {
+    private record McpComposition(@Nullable Path file, @Nullable String content) {
 
         private String slot() {
             return content;

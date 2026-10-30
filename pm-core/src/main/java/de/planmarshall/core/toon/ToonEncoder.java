@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.toon;
 
+import org.jspecify.annotations.Nullable;
+
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -135,7 +137,7 @@ public final class ToonEncoder {
     }
 
     /** Keyed tabular form of § 9.5; {@code key == null} at the root. */
-    private static void encodeKeyed(String key, ToonObject object, int depth, List<String> lines) {
+    private static void encodeKeyed(@Nullable String key, ToonObject object, int depth, List<String> lines) {
         List<ToonValue> values = entryValues(object);
         var first = (ToonObject) values.getFirst();
         lines.add(INDENT.repeat(depth) + (key == null ? "" : key(key)) + "[" + values.size() + ":]"
@@ -149,7 +151,7 @@ public final class ToonEncoder {
     /**
      * An array in field position ({@code key != null}) or at the root (§ 9.1, § 9.3, § 9.4).
      */
-    private static void encodeArray(String key, ToonArray array, int depth, List<String> lines) {
+    private static void encodeArray(@Nullable String key, ToonArray array, int depth, List<String> lines) {
         String indent = INDENT.repeat(depth);
         String prefix = key == null ? "" : key(key);
         List<ToonValue> elements = array.elements();
@@ -263,7 +265,7 @@ public final class ToonEncoder {
      * uniform-primitive or nested-uniform.
      */
     private static boolean isUniformObjects(List<ToonValue> values) {
-        Set<String> keySet = null;
+        @Nullable Set<String> keySet = null;
         for (ToonValue value : values) {
             if (!(value instanceof ToonObject object) || object.fields().isEmpty()) {
                 return false;

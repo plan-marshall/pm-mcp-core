@@ -21,6 +21,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
@@ -55,7 +56,7 @@ public final class PeriodicSweep {
     private final Predicate<String> recovered;
     private final List<SweepStep> steps;
     private final Clock clock;
-    private ScheduledFuture<?> schedule;
+    private @Nullable ScheduledFuture<?> schedule;
 
     /**
      * The counts of one run.

@@ -14,6 +14,7 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A D-Bus message: the fixed header, the header fields this client uses, and the body.
@@ -31,8 +32,9 @@ import java.util.List;
  * @param signature   header field 8, empty for an empty body
  * @param body        the body values, one per complete type of the signature
  */
-public record DbusMessage(int type, int flags, long serial, String path, String iface, String member,
-String errorName, long replySerial, String destination, String sender, String signature, List<Object> body) {
+public record DbusMessage(int type, int flags, long serial, @Nullable String path, @Nullable String iface,
+@Nullable String member, @Nullable String errorName, long replySerial, @Nullable String destination,
+@Nullable String sender, String signature, List<Object> body) {
 
     /** Message type {@code METHOD_CALL}. */
     public static final int METHOD_CALL = 1;
@@ -124,7 +126,7 @@ String errorName, long replySerial, String destination, String sender, String si
         return message;
     }
 
-    private static void addField(List<List<Object>> fields, int code, String type, Object value) {
+    private static void addField(List<List<Object>> fields, int code, String type, @Nullable Object value) {
         if (value != null) {
             fields.add(List.of((byte) code, new Variant(type, value)));
         }
@@ -160,13 +162,13 @@ String errorName, long replySerial, String destination, String sender, String si
         int flags = Byte.toUnsignedInt((Byte) header.get(2));
         long bodyLength = (Long) header.get(4);
         long serial = (Long) header.get(5);
-        String path = null;
-        String iface = null;
-        String member = null;
-        String errorName = null;
+        @Nullable String path = null;
+        @Nullable String iface = null;
+        @Nullable String member = null;
+        @Nullable String errorName = null;
         long replySerial = 0;
-        String destination = null;
-        String sender = null;
+        @Nullable String destination = null;
+        @Nullable String sender = null;
         String signature = "";
         for (var field : (List<?>) header.get(6)) {
             var entry = (List<?>) field;

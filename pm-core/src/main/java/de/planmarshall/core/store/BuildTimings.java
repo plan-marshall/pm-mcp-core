@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
@@ -72,7 +74,7 @@ public record BuildTimings(Map<String, KeyTimings> keys) {
      * @param observations   the number of finished runs the baseline rests on
      * @since 0.1
      */
-    public record Baseline(Long learnedSeconds, int observations) {
+    public record Baseline(@Nullable Long learnedSeconds, int observations) {
 
         /**
          * @throws IllegalArgumentException if the observations are negative, a baseline has a value but no observation,
@@ -124,8 +126,8 @@ public record BuildTimings(Map<String, KeyTimings> keys) {
      * @param lastObservedAt    the instant of the last finished run; {@code null} before the first
      * @since 0.1
      */
-    public record KeyTimings(Baseline clean, Baseline poisoned, Baseline cold, Long escalationSeconds,
-    Instant lastObservedAt) {
+    public record KeyTimings(Baseline clean, Baseline poisoned, Baseline cold, @Nullable Long escalationSeconds,
+    @Nullable Instant lastObservedAt) {
 
         /**
          * @throws NullPointerException     if a baseline is {@code null}
@@ -171,7 +173,7 @@ public record BuildTimings(Map<String, KeyTimings> keys) {
      * @param observations the number of observations
      * @since 0.1
      */
-    public record Learned(Long seconds, int observations) {
+    public record Learned(@Nullable Long seconds, int observations) {
     }
 
     /**

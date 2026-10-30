@@ -53,6 +53,7 @@ import org.eclipse.jgit.transport.URIish;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 import org.eclipse.jgit.treewalk.TreeWalk;
 import org.eclipse.jgit.util.FS;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The native variant of the git contract on JGit.
@@ -212,7 +213,7 @@ public final class JGitOperations implements GitOperations {
     }
 
     /** The commit a new worktree starts at, or the refusal that ends the operation. */
-    private record StartPoint(ObjectId id, GitResult<Worktree> refusal) {
+    private record StartPoint(@Nullable ObjectId id, @Nullable GitResult<Worktree> refusal) {
 
         static StartPoint of(ObjectId id) {
             return new StartPoint(id, null);
@@ -577,7 +578,7 @@ public final class JGitOperations implements GitOperations {
      * @param message the message of a transport failure; {@code null} if it has none
      * @return {@code true} if the message is one of the set
      */
-    static boolean isUnservedWant(String message) {
+    static boolean isUnservedWant(@Nullable String message) {
         if (message == null) {
             return false;
         }
@@ -649,7 +650,7 @@ public final class JGitOperations implements GitOperations {
                 committer.getWhenAsInstant(), commit.getFullMessage());
     }
 
-    private static Optional<String> id(ObjectId id) {
+    private static Optional<String> id(@Nullable ObjectId id) {
         return id == null || ObjectId.zeroId().equals(id) ? Optional.empty() : Optional.of(id.name());
     }
 

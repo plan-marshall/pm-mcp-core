@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.role.corpus;
 
+import org.jspecify.annotations.Nullable;
+
 import java.io.Serial;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -45,7 +47,7 @@ public record SourceRow(int line, Map<String, String> fields) {
          * @param detail what is malformed
          * @param cause  the failure that found it; {@code null} if there is none
          */
-        public MalformedSource(int line, String detail, Throwable cause) {
+        public MalformedSource(int line, String detail, @Nullable Throwable cause) {
             super("line " + line + ": " + Objects.requireNonNull(detail, "detail"), cause);
             this.line = line;
         }

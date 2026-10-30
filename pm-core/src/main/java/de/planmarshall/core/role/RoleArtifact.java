@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.role;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -224,7 +226,7 @@ Map<OffTrackSignal, OffTrackSetting> offTrack) {
      * @param action    the action the server takes when the signal holds
      * @since 0.1
      */
-    public record OffTrackSetting(Double threshold, OffTrackAction action) {
+    public record OffTrackSetting(@Nullable Double threshold, OffTrackAction action) {
 
         /** @throws NullPointerException if the action is {@code null} */
         public OffTrackSetting {

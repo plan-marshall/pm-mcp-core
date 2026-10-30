@@ -23,6 +23,8 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -267,7 +269,7 @@ public class QuestionRecordCodec {
         }
     }
 
-    private static void writeNullable(JsonGenerator generator, String field, String value) throws IOException {
+    private static void writeNullable(JsonGenerator generator, String field, @Nullable String value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -283,7 +285,7 @@ public class QuestionRecordCodec {
         requireObject(parser, RECORD);
         var question = QuestionRecord.builder();
         var seen = new HashSet<String>();
-        QuestionEvent event = null;
+        @Nullable QuestionEvent event = null;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {
@@ -330,12 +332,12 @@ public class QuestionRecordCodec {
 
     private static Decision readDecision(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_DECISION);
-        String title = null;
-        String header = null;
-        String description = null;
-        List<Evidence> evidence = null;
-        Blocks blocks = null;
-        Reversibility reversibility = null;
+        @Nullable String title = null;
+        @Nullable String header = null;
+        @Nullable String description = null;
+        @Nullable List<Evidence> evidence = null;
+        @Nullable Blocks blocks = null;
+        @Nullable Reversibility reversibility = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -360,9 +362,9 @@ public class QuestionRecordCodec {
 
     private static Evidence readEvidence(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        EvidenceKind kind = null;
-        String ref = null;
-        String label = null;
+        @Nullable EvidenceKind kind = null;
+        @Nullable String ref = null;
+        @Nullable String label = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -383,12 +385,12 @@ public class QuestionRecordCodec {
 
     private static Answer readAnswer(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_ANSWER);
-        AnswerKind kind = null;
-        List<String> branchKeys = null;
-        AnswerValue value = null;
-        String ownWords = null;
-        String note = null;
-        Interpretation interpretation = null;
+        @Nullable AnswerKind kind = null;
+        @Nullable List<String> branchKeys = null;
+        @Nullable AnswerValue value = null;
+        @Nullable String ownWords = null;
+        @Nullable String note = null;
+        @Nullable Interpretation interpretation = null;
         var afterChat = false;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
@@ -425,10 +427,10 @@ public class QuestionRecordCodec {
 
     private static Interpretation readInterpretation(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_INTERPRETATION);
-        InterpretationResult result = null;
-        String condition = null;
-        List<String> passages = null;
-        String queueTaskId = null;
+        @Nullable InterpretationResult result = null;
+        @Nullable String condition = null;
+        @Nullable List<String> passages = null;
+        @Nullable String queueTaskId = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

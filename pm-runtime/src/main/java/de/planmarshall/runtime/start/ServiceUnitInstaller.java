@@ -13,6 +13,7 @@ import de.cuioss.tools.logging.CuiLogger;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
@@ -229,7 +230,8 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
     /**
      * @return {@code first} with {@code later} suppressed, or {@code later} when there is no first failure
      */
-    private static ServiceUnitException firstOf(ServiceUnitException first, ServiceUnitException later) {
+    private static ServiceUnitException firstOf(@Nullable ServiceUnitException first,
+            @Nullable ServiceUnitException later) {
         if (first == null) {
             return later;
         }

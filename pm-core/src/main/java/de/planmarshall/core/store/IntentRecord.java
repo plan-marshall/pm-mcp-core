@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -47,7 +49,7 @@ import java.util.regex.Pattern;
  * @param sourceClaims    one to 60 source claims, each landed or dropped with a reason
  * @since 0.1
  */
-public record IntentRecord(String why, String goal, List<Criterion> criteria, String currentBehaviour,
+public record IntentRecord(String why, String goal, List<Criterion> criteria, @Nullable String currentBehaviour,
 List<NonGoal> nonGoals, List<Constraint> constraints, List<Decision> decisions, List<Assumption> assumptions,
 List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sourceClaims) {
 
@@ -320,7 +322,7 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
      * @since 0.1
      */
     public record Criterion(String id, String text, CriterionKind kind, VerifiedBy verifiedBy,
-    CapabilityLink capability) {
+    @Nullable CapabilityLink capability) {
 
         /**
          * @throws IllegalArgumentException if a member is out of its bounds or the text is not in EARS form
@@ -351,7 +353,8 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
      * @param base       for modified and removed, the requirement's base fingerprint; {@code null} for added
      * @since 0.1
      */
-    public record CapabilityLink(String capability, String requirement, CapabilityChange change, String base) {
+    public record CapabilityLink(String capability, String requirement, CapabilityChange change,
+    @Nullable String base) {
 
         private static final Pattern NAME =
                 Pattern.compile("[a-z0-9][a-z0-9-]{0,62}[a-z0-9](/[a-z0-9][a-z0-9-]{0,62}[a-z0-9]){0,3}");
@@ -440,7 +443,7 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
      * @param evidence for {@code code}, the path or {@code pm://} URI that shows it; may be {@code null} otherwise
      * @since 0.1
      */
-    public record Constraint(String id, String text, ConstraintSource source, String evidence) {
+    public record Constraint(String id, String text, ConstraintSource source, @Nullable String evidence) {
 
         /**
          * @throws IllegalArgumentException if a member is out of its bounds or a code constraint carries no evidence
@@ -503,8 +506,8 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
      * @param adr            the architecture decision record the decision follows or contradicts; may be {@code null}
      * @since 0.1
      */
-    public record Decision(String id, String text, List<String> optionsWeighed, Decider decider, String questionId,
-    String evidence, AdrRef adr) {
+    public record Decision(String id, String text, List<String> optionsWeighed, Decider decider,
+    @Nullable String questionId, @Nullable String evidence, @Nullable AdrRef adr) {
 
         /**
          * @throws IllegalArgumentException if a member is out of its bounds, the decider's part is missing, or a
@@ -635,7 +638,8 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
      * @param test     for the riskiest assumption, the cheap test that would refute it
      * @since 0.1
      */
-    public record Assumption(String id, String text, AssumptionStatus status, boolean riskiest, String test) {
+    public record Assumption(String id, String text, AssumptionStatus status, boolean riskiest,
+    @Nullable String test) {
 
         /**
          * @throws IllegalArgumentException if a member is out of its bounds
@@ -759,7 +763,7 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
      * @param reason   for {@code dropped}, the reason; {@code null} otherwise
      * @since 0.1
      */
-    public record SourceClaim(String claim, String landedIn, String reason) {
+    public record SourceClaim(String claim, String landedIn, @Nullable String reason) {
 
         private static final Pattern LANDED_IN = Pattern.compile("((AC|NG|CN|DC|AN|DF)-\\d{1,4}|goal|why|dropped)");
 

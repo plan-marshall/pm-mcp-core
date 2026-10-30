@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.core.store.StrictJson;
@@ -161,13 +162,13 @@ public class MachineConfigurationCodec {
     private static final class Pass {
 
         private final Path file;
-        private final ProviderDefaults replacement;
+        private final @Nullable ProviderDefaults replacement;
         private final long writeRevision;
         private ProviderDefaults providers = ProviderDefaults.none();
         private long readRevision;
-        private byte[] rewritten;
+        private @Nullable byte[] rewritten;
 
-        Pass(Path file, ProviderDefaults replacement, long writeRevision) {
+        Pass(Path file, @Nullable ProviderDefaults replacement, long writeRevision) {
             this.file = file;
             this.replacement = replacement;
             this.writeRevision = writeRevision;
@@ -253,7 +254,7 @@ public class MachineConfigurationCodec {
         private static ProviderDefault providerDefault(JsonParser parser, Provider provider) throws IOException {
             requireObject(parser, provider.wireName());
             var seen = new HashSet<String>();
-            Boolean available = null;
+            @Nullable Boolean available = null;
             Optional<ProviderVariant> variant = Optional.empty();
             Optional<String> credentialKey = Optional.empty();
             while (parser.nextToken() == JsonToken.FIELD_NAME) {

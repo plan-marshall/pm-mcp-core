@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.queue;
 
+import org.jspecify.annotations.Nullable;
+
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
@@ -193,7 +195,7 @@ Outcome outcome, LostReason reason, String questionId, Instant createdAt, Instan
      * @param id   the plan or epic id; {@code null} for the workspace and the machine scope
      * @since 0.1
      */
-    public record Scope(ScopeType type, String id) {
+    public record Scope(ScopeType type, @Nullable String id) {
 
         private static final Pattern SCOPE_ID = Pattern.compile("[a-z0-9][a-z0-9-]{1,62}[a-z0-9]");
 
@@ -621,9 +623,9 @@ Outcome outcome, LostReason reason, String questionId, Instant createdAt, Instan
      * @param fallbackReason  why the continuation fell back; {@code null} when it did not
      * @since 0.1
      */
-    public record Continuation(String questionId, ContinuationForm form, Instant holdUntil, String sessionId,
-    Instant suspendedAt, Instant resumeUntil, String suspendedDigest, String suspendedHead,
-    FallbackReason fallbackReason) {
+    public record Continuation(String questionId, ContinuationForm form, @Nullable Instant holdUntil,
+    @Nullable String sessionId, @Nullable Instant suspendedAt, @Nullable Instant resumeUntil,
+    @Nullable String suspendedDigest, @Nullable String suspendedHead, @Nullable FallbackReason fallbackReason) {
 
         /**
          * @throws NullPointerException     if the question id or the form is {@code null}
@@ -651,7 +653,7 @@ Outcome outcome, LostReason reason, String questionId, Instant createdAt, Instan
      * @param acknowledgedAt the instant the {@code ack} link was followed; {@code null} until then
      * @since 0.1
      */
-    public record Lease(String generationId, String jobId, Instant leasedAt, Instant acknowledgedAt) {
+    public record Lease(String generationId, String jobId, Instant leasedAt, @Nullable Instant acknowledgedAt) {
 
         /**
          * @throws NullPointerException     if a required component is {@code null}
@@ -682,7 +684,8 @@ Outcome outcome, LostReason reason, String questionId, Instant createdAt, Instan
      * @since 0.1
      */
     public record Attempt(int attempt, String generationId, String jobId, String configurationDigest,
-    Instant offeredAt, Instant acknowledgedAt, Instant endedAt, AttemptEnd end, boolean counts) {
+    Instant offeredAt, @Nullable Instant acknowledgedAt, @Nullable Instant endedAt, @Nullable AttemptEnd end,
+    boolean counts) {
 
         /**
          * @throws NullPointerException     if a required component is {@code null}
@@ -771,7 +774,8 @@ Outcome outcome, LostReason reason, String questionId, Instant createdAt, Instan
      * @since 0.1
      */
     public record Consultation(String consultationId, String role, String askedBy, Instant askedAt,
-    ConsultationStatus status, String answer, Instant closedAt, Instant deliveredAt, DeliveredTo deliveredTo) {
+    ConsultationStatus status, @Nullable String answer, @Nullable Instant closedAt, @Nullable Instant deliveredAt,
+    @Nullable DeliveredTo deliveredTo) {
 
         /**
          * @throws NullPointerException     if a required component is {@code null}

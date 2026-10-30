@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.launch;
 
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.JsonNode;
 
@@ -23,7 +24,7 @@ import de.planmarshall.core.profile.JsonNode;
  * @param schema the registered schema of a {@code schema[…]} parameter; {@code null} for every other type
  * @since 0.1
  */
-public record LinkParameter(String name, String type, JsonNode schema) {
+public record LinkParameter(String name, String type, @Nullable JsonNode schema) {
 
     /** @throws NullPointerException if the name or the type is {@code null} */
     public LinkParameter {

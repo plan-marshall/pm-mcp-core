@@ -11,6 +11,7 @@ package de.planmarshall.runtime.worker;
 
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.LeaseOwner;
 import de.planmarshall.core.store.ModelSlotStore;
@@ -106,7 +107,7 @@ public interface ModelSlots {
      * @throws NullPointerException if the scheduler, the owner, the class or the form is {@code null}
      */
     static ModelSlots over(ModelSlotScheduler scheduler, LeaseOwner owner, ModelSlotStore.WorkerClass workerClass,
-            ModelSlotStore.Form form, String planId) {
+            ModelSlotStore.Form form, @Nullable String planId) {
         Objects.requireNonNull(scheduler, "scheduler");
         Objects.requireNonNull(owner, "owner");
         Objects.requireNonNull(workerClass, "workerClass");

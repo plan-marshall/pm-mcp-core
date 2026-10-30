@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.CanonicalJson;
 import de.planmarshall.core.profile.EndpointProfile;
@@ -107,7 +108,7 @@ public final class JudgmentEndpoint {
         }
         var options = SystemOneRequest.options(questions);
         var ascending = attempt(profile, model, composed.request().ascending(), options);
-        Attempt descending = null;
+        @Nullable Attempt descending = null;
         if (ascending.answered()) {
             descending = attempt(profile, model, composed.request().descending(), options);
         }
@@ -219,7 +220,7 @@ public final class JudgmentEndpoint {
         return measured(ascending, input) + (descending == null ? 0 : measured(descending, input));
     }
 
-    private static long measured(Attempt attempt, boolean input) {
+    private static long measured(@Nullable Attempt attempt, boolean input) {
         if (attempt == null) {
             return 0;
         }
@@ -235,7 +236,7 @@ public final class JudgmentEndpoint {
      * @param answer  the validated answer; {@code null} when the attempt ended without one
      * @since 0.1
      */
-    public record Attempt(EndpointOutcome outcome, SystemOneAnswer.Answer answer) {
+    public record Attempt(EndpointOutcome outcome, SystemOneAnswer.@Nullable Answer answer) {
 
         /** Refuses a missing outcome. */
         public Attempt {
@@ -256,7 +257,8 @@ public final class JudgmentEndpoint {
      * @param descending the attempt in the opposite order; {@code null} when the first ended the attempt
      * @since 0.1
      */
-    public record Answers(SystemOneRequest.Composed request, Attempt ascending, Attempt descending) {
+    public record Answers(SystemOneRequest.@Nullable Composed request, Attempt ascending,
+    @Nullable Attempt descending) {
 
         /** Refuses a missing first attempt. */
         public Answers {

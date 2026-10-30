@@ -17,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.runtime.credentials.dbus.DbusConnection;
 import de.planmarshall.runtime.credentials.dbus.DbusException;
@@ -195,7 +196,7 @@ public final class SecretServiceStore implements SecretStore {
     }
 
     /** @param project the project of the item; {@code null} for a global entry */
-    private CredentialAccount account(String project, String key) {
+    private CredentialAccount account(@Nullable String project, String key) {
         try {
             return project != null ? CredentialAccount.project(project, key) : CredentialAccount.global(key);
         } catch (InvalidCredentialNameException e) {

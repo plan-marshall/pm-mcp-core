@@ -25,6 +25,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A blocking D-Bus client connection over the JDK's Unix domain socket channel: SASL
@@ -84,7 +85,7 @@ public final class DbusConnection implements AutoCloseable {
     }
 
     private static DbusConnection connect(Path socket, Duration timeout) {
-        SocketChannel channel = null;
+        @Nullable SocketChannel channel = null;
         try {
             channel = SocketChannel.open(StandardProtocolFamily.UNIX);
             channel.connect(UnixDomainSocketAddress.of(socket));
@@ -247,7 +248,7 @@ public final class DbusConnection implements AutoCloseable {
         closeQuietly(channel);
     }
 
-    private static void closeQuietly(Closeable closeable) {
+    private static void closeQuietly(@Nullable Closeable closeable) {
         if (closeable == null) {
             return;
         }

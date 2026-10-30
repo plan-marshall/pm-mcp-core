@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.provider.http.HttpClient;
 import de.planmarshall.provider.http.Json;
@@ -104,7 +105,7 @@ public final class GitHubClient {
      */
     public Result<List<ReviewThread>> reviewThreads(String owner, String name, int number) {
         var threads = new ArrayList<ReviewThread>();
-        Object cursor = null;
+        @Nullable Object cursor = null;
         for (int page = 0; page < MAX_THREAD_PAGES; page++) {
             var variables = new LinkedHashMap<String, Object>();
             variables.put("owner", owner);

@@ -43,6 +43,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.CanonicalJson;
 import de.planmarshall.core.service.AuditEvent;
@@ -295,7 +296,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private final InstantSource clock;
     private final Supervision supervision;
     private final AuditSink audit;
-    private final JobTokenStore jobTokens;
+    private final @Nullable JobTokenStore jobTokens;
 
     /**
      * The store of every job this runner started and whose settlement has not recorded its fate yet. A job whose fate
@@ -351,10 +352,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     // set; it is passed to the launcher as a write path, not used to create a file the runtime trusts.
     @SuppressWarnings("java:S5443")
     private SubprocessJobRunner(Path base, LockManager lockManager, VerifyNotResolvePipeline pipeline,
-            PmExecLauncher launcher, TerminationProtocol termination, JobConfinementComposer confinementComposer,
-            Environment environment, ProbeEnvironment probeEnvironment, OutputParser parser, PrimitiveJobs primitives,
-            InstantSource clock, Supervision supervision, AuditSink audit, JobTokenStore jobTokens,
-            Integer settledRecordsKept) {
+            PmExecLauncher launcher, TerminationProtocol termination, @Nullable JobConfinementComposer confinementComposer,
+            @Nullable Environment environment, @Nullable ProbeEnvironment probeEnvironment, OutputParser parser,
+            PrimitiveJobs primitives, @Nullable InstantSource clock, @Nullable Supervision supervision,
+            @Nullable AuditSink audit, @Nullable JobTokenStore jobTokens, @Nullable Integer settledRecordsKept) {
         this.base = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
         this.lockManager = Objects.requireNonNull(lockManager, "lockManager");
         this.pipeline = Objects.requireNonNull(pipeline, "pipeline");
@@ -984,7 +985,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         }
         var supervised = false;
         var observedLength = 0L;
-        JobRecord reported = null;
+        @Nullable JobRecord reported = null;
         try {
             job.launched(launched.process());
             if (tracksDescendants(job.latest.kind())) {
@@ -1059,8 +1060,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      *
      * @param reported the post-spawn record of the launch report; {@code null} for a launcher that wrote no report
      */
-    private void settleUnsupervised(RunningJob job, Launched launched, JobRecord reported, Instant spawnedAt,
-            long observedLength) {
+    private void settleUnsupervised(RunningJob job, Launched launched, @Nullable JobRecord reported,
+            Instant spawnedAt, long observedLength) {
         var interrupted = false;
         try {
             if (reported != null && !job.latest.isSpawnRecorded()) {
@@ -1252,8 +1253,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         try {
             var process = launched.process();
             var deadline = spawnedAt.plus(job.budget.duration());
-            Termination cause = null;
-            TerminationProtocol.Report report = null;
+            @Nullable Termination cause = null;
+            TerminationProtocol.@Nullable Report report = null;
             var awaited = awaitEndOrCause(job, process, deadline);
             interrupted = awaited.interrupted();
             if (awaited.cause().isPresent()) {
@@ -1655,18 +1656,18 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         @SuppressWarnings("java:S3077")
         private volatile JobRecord latest;
         @SuppressWarnings("java:S3077")
-        private volatile Process process;
+        private volatile @Nullable Process process;
 
         /** The process tree of a probe, refreshed while it runs so its descendants are ended with it; null otherwise. */
         // java:S3077 does not apply: the reference is replaced as a whole and never mutated in place (ProcessTreeTracker
         // is used through its own thread-safe state), so volatile publishes it safely.
         @SuppressWarnings("java:S3077")
-        private volatile ProcessTreeTracker tree;
+        private volatile @Nullable ProcessTreeTracker tree;
 
         /** The record a settlement attempt was about to write, for the last-resort retry of a failed write; null before. */
         // java:S3077 does not apply: JobRecord is immutable and the reference is replaced as a whole, never mutated.
         @SuppressWarnings("java:S3077")
-        private volatile JobRecord pendingSettled;
+        private volatile @Nullable JobRecord pendingSettled;
 
         /**
          * Whether the settlement of the job has started; a fallback settlement runs only before it, because a fate

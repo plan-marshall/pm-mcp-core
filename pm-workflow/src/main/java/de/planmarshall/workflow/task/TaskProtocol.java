@@ -42,6 +42,7 @@ import de.planmarshall.core.queue.QueueTaskRecord.Status;
 import de.planmarshall.core.role.RoleSkill;
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.workflow.hypermedia.Answers;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The task protocol (Model Work § Task Protocol): the offers, the acknowledgement, the lease, the fence, the task
@@ -74,7 +75,7 @@ public final class TaskProtocol {
     private final JobState jobState;
     private final SkillDelivery skills;
     private final SecurityAudit audit;
-    private final JournalProvider journal;
+    private final @Nullable JournalProvider journal;
 
     private static final String ARG_QUEUE_TASK_ID = "queueTaskId";
 
@@ -110,12 +111,12 @@ public final class TaskProtocol {
 
         private final QueueStore queue;
         private final LockManager locks;
-        private FencedGenerations fences;
+        private @Nullable FencedGenerations fences;
         private PlanPause pause = PlanPause.NEVER;
         private JobState jobState = JobState.NEVER;
         private SkillDelivery skills = new SkillDelivery();
         private SecurityAudit audit = SecurityAudit.NONE;
-        private JournalProvider journal;
+        private @Nullable JournalProvider journal;
 
         private Builder(QueueStore queue, LockManager locks) {
             this.queue = queue;
@@ -171,7 +172,7 @@ public final class TaskProtocol {
          * @param value where the journal of a task's scope is found, or {@code null} for none
          * @return this builder
          */
-        public Builder journal(JournalProvider value) {
+        public Builder journal(@Nullable JournalProvider value) {
             this.journal = value;
             return this;
         }
@@ -497,7 +498,7 @@ public final class TaskProtocol {
      * @param at         the instant of the delivery
      * @return the task the answer was delivered to, or empty when no open task, or more than one, holds that question
      */
-    public Optional<QueueTaskRecord> answer(QueueTaskRecord.Scope scope, String questionId, Answers answers,
+    public Optional<QueueTaskRecord> answer(QueueTaskRecord.@Nullable Scope scope, String questionId, Answers answers,
             Instant at) {
         Objects.requireNonNull(questionId, "questionId");
         Objects.requireNonNull(answers, "answers");

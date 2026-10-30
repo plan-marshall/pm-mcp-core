@@ -16,6 +16,8 @@ import static de.planmarshall.core.store.StrictJson.string;
 import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -131,10 +133,10 @@ class OwedAuditEvents {
      */
     static AuditEvent read(JsonParser parser) throws IOException {
         requireObject(parser, "owed event");
-        String event = null;
-        String category = null;
-        String outcome = null;
-        Map<String, Object> details = null;
+        @Nullable String event = null;
+        @Nullable String category = null;
+        @Nullable String outcome = null;
+        @Nullable Map<String, Object> details = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

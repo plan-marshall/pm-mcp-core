@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Optional;
 
 import de.planmarshall.workflow.ast.Phase;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The closed list of the compiled invariants every project-owned unit satisfies (PM-IMPL-5, PM-WF-16). Every
@@ -157,9 +158,9 @@ public enum InvariantId {
 
     private final List<String> units;
 
-    private final String namedHook;
+    private final @Nullable String namedHook;
 
-    InvariantId(String wireId, List<String> units, String namedHook) {
+    InvariantId(String wireId, List<String> units, @Nullable String namedHook) {
         this.wireId = wireId;
         this.units = List.copyOf(units);
         this.namedHook = namedHook;

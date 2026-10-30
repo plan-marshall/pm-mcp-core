@@ -20,6 +20,8 @@ import static de.planmarshall.core.store.StrictJson.stringList;
 import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
@@ -145,16 +147,16 @@ public class QualificationRecordCodec {
     private static QualificationRecord readRecord(JsonParser parser) throws IOException {
         requireObject(parser, "qualification record");
         var seen = new HashSet<String>();
-        String role = null;
-        String digest = null;
-        GradedConfiguration configuration = null;
-        String corpusRevision = null;
-        List<String> missedSources = null;
-        Map<RoleForm, FormResult> forms = null;
-        BigDecimal gap = null;
+        @Nullable String role = null;
+        @Nullable String digest = null;
+        @Nullable GradedConfiguration configuration = null;
+        @Nullable String corpusRevision = null;
+        @Nullable List<String> missedSources = null;
+        @Nullable Map<RoleForm, FormResult> forms = null;
+        @Nullable BigDecimal gap = null;
         int ungraded = -1;
-        Instant gradedAt = null;
-        List<ItemResult> items = null;
+        @Nullable Instant gradedAt = null;
+        @Nullable List<ItemResult> items = null;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {
@@ -184,13 +186,13 @@ public class QualificationRecordCodec {
     private static GradedConfiguration readConfiguration(JsonParser parser) throws IOException {
         requireObject(parser, CONFIGURATION);
         var seen = new HashSet<String>();
-        String harness = null;
-        String harnessVersion = null;
-        String model = null;
-        String effort = null;
-        List<String> tools = null;
-        RoleClass roleClass = null;
-        Map<String, String> skillDigests = null;
+        @Nullable String harness = null;
+        @Nullable String harnessVersion = null;
+        @Nullable String model = null;
+        @Nullable String effort = null;
+        @Nullable List<String> tools = null;
+        @Nullable RoleClass roleClass = null;
+        @Nullable Map<String, String> skillDigests = null;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {
@@ -229,11 +231,11 @@ public class QualificationRecordCodec {
     private static FormResult readForm(JsonParser parser) throws IOException {
         requireObject(parser, "form");
         var seen = new HashSet<String>();
-        Map<Topic, TopicResult> topics = null;
+        @Nullable Map<Topic, TopicResult> topics = null;
         int items = -1;
-        TokenTotal totalTokens = null;
-        Long tokensIn = null;
-        Long tokensOut = null;
+        @Nullable TokenTotal totalTokens = null;
+        @Nullable Long tokensIn = null;
+        @Nullable Long tokensOut = null;
         long duration = -1;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -272,8 +274,8 @@ public class QualificationRecordCodec {
     private static TopicResult readTopic(JsonParser parser) throws IOException {
         requireObject(parser, "topic");
         var seen = new HashSet<String>();
-        BigDecimal agreement = null;
-        BigDecimal baseline = null;
+        @Nullable BigDecimal agreement = null;
+        @Nullable BigDecimal baseline = null;
         int items = -1;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -295,15 +297,15 @@ public class QualificationRecordCodec {
     private static ItemResult readItem(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
         var seen = new HashSet<String>();
-        String itemId = null;
-        RoleForm form = null;
-        Checkout checkout = null;
-        JsonNode answer = null;
-        Grade score = null;
-        TokenTotal totalTokens = null;
-        Long tokensIn = null;
-        Long tokensOut = null;
-        Long duration = null;
+        @Nullable String itemId = null;
+        @Nullable RoleForm form = null;
+        @Nullable Checkout checkout = null;
+        @Nullable JsonNode answer = null;
+        @Nullable Grade score = null;
+        @Nullable TokenTotal totalTokens = null;
+        @Nullable Long tokensIn = null;
+        @Nullable Long tokensOut = null;
+        @Nullable Long duration = null;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {

@@ -12,6 +12,7 @@ package de.planmarshall.runtime.worker;
 import java.time.Instant;
 import java.util.Objects;
 import lombok.With;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The state of one role-and-harness pair of the {@link StartFailureGuard} (PM-WORK-3, Start-Failure Guard): the
@@ -33,8 +34,8 @@ import lombok.With;
  * @since 0.1
  */
 @With
-public record StartFailureState(int consecutiveFailures, boolean held, Instant probeDue, boolean probeInFlight,
-String lastFailure) {
+public record StartFailureState(int consecutiveFailures, boolean held, @Nullable Instant probeDue,
+boolean probeInFlight, @Nullable String lastFailure) {
 
     /** The state of a role and harness that counted no failure: open, with nothing due. */
     public static final StartFailureState OPEN = new StartFailureState(0, false, null, false, null);

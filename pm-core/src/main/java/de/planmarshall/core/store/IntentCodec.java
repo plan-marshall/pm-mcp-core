@@ -23,6 +23,8 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -279,7 +281,7 @@ public class IntentCodec {
         generator.writeEndObject();
     }
 
-    private static void writeNullableString(JsonGenerator generator, String field, String value) throws IOException {
+    private static void writeNullableString(JsonGenerator generator, String field, @Nullable String value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -288,7 +290,7 @@ public class IntentCodec {
     }
 
     private static IntentStore readDocument(JsonParser parser) throws IOException {
-        Revision current = null;
+        @Nullable Revision current = null;
         List<Revision> history = List.of();
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
@@ -310,10 +312,10 @@ public class IntentCodec {
 
     private static Revision readRevision(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        Long revision = null;
-        Instant submittedAt = null;
-        String taskId = null;
-        IntentRecord intentRecord = null;
+        @Nullable Long revision = null;
+        @Nullable Instant submittedAt = null;
+        @Nullable String taskId = null;
+        @Nullable IntentRecord intentRecord = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -335,17 +337,17 @@ public class IntentCodec {
 
     private static IntentRecord readRecord(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String why = null;
-        String goal = null;
-        List<Criterion> criteria = null;
-        String currentBehaviour = null;
-        List<NonGoal> nonGoals = null;
-        List<Constraint> constraints = null;
-        List<Decision> decisions = null;
-        List<Assumption> assumptions = null;
-        List<OpenQuestion> openQuestions = null;
-        List<Deferred> deferred = null;
-        List<SourceClaim> sourceClaims = null;
+        @Nullable String why = null;
+        @Nullable String goal = null;
+        @Nullable List<Criterion> criteria = null;
+        @Nullable String currentBehaviour = null;
+        @Nullable List<NonGoal> nonGoals = null;
+        @Nullable List<Constraint> constraints = null;
+        @Nullable List<Decision> decisions = null;
+        @Nullable List<Assumption> assumptions = null;
+        @Nullable List<OpenQuestion> openQuestions = null;
+        @Nullable List<Deferred> deferred = null;
+        @Nullable List<SourceClaim> sourceClaims = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -377,11 +379,11 @@ public class IntentCodec {
 
     private static Criterion readCriterion(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String id = null;
-        String text = null;
-        CriterionKind kind = null;
-        VerifiedBy verifiedBy = null;
-        CapabilityLink capability = null;
+        @Nullable String id = null;
+        @Nullable String text = null;
+        @Nullable CriterionKind kind = null;
+        @Nullable VerifiedBy verifiedBy = null;
+        @Nullable CapabilityLink capability = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -406,10 +408,10 @@ public class IntentCodec {
 
     private static CapabilityLink readCapability(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String capability = null;
-        String requirement = null;
-        CapabilityChange change = null;
-        String base = null;
+        @Nullable String capability = null;
+        @Nullable String requirement = null;
+        @Nullable CapabilityChange change = null;
+        @Nullable String base = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -431,8 +433,8 @@ public class IntentCodec {
 
     private static NonGoal readNonGoal(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String id = null;
-        String text = null;
+        @Nullable String id = null;
+        @Nullable String text = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -452,10 +454,10 @@ public class IntentCodec {
 
     private static Constraint readConstraint(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String id = null;
-        String text = null;
-        ConstraintSource source = null;
-        String evidence = null;
+        @Nullable String id = null;
+        @Nullable String text = null;
+        @Nullable ConstraintSource source = null;
+        @Nullable String evidence = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -477,13 +479,13 @@ public class IntentCodec {
 
     private static Decision readDecision(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String id = null;
-        String text = null;
+        @Nullable String id = null;
+        @Nullable String text = null;
         List<String> options = List.of();
-        Decider decider = null;
-        String questionId = null;
-        String evidence = null;
-        AdrRef adr = null;
+        @Nullable Decider decider = null;
+        @Nullable String questionId = null;
+        @Nullable String evidence = null;
+        @Nullable AdrRef adr = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -509,8 +511,8 @@ public class IntentCodec {
 
     private static AdrRef readAdr(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String adrId = null;
-        AdrRelation relation = null;
+        @Nullable String adrId = null;
+        @Nullable AdrRelation relation = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -530,11 +532,11 @@ public class IntentCodec {
 
     private static Assumption readAssumption(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String id = null;
-        String text = null;
-        AssumptionStatus status = null;
-        Boolean riskiest = null;
-        String test = null;
+        @Nullable String id = null;
+        @Nullable String text = null;
+        @Nullable AssumptionStatus status = null;
+        @Nullable Boolean riskiest = null;
+        @Nullable String test = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -558,8 +560,8 @@ public class IntentCodec {
 
     private static OpenQuestion readOpenQuestion(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String text = null;
-        Resolver resolver = null;
+        @Nullable String text = null;
+        @Nullable Resolver resolver = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -579,9 +581,9 @@ public class IntentCodec {
 
     private static Deferred readDeferred(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String id = null;
-        String text = null;
-        String reason = null;
+        @Nullable String id = null;
+        @Nullable String text = null;
+        @Nullable String reason = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -602,9 +604,9 @@ public class IntentCodec {
 
     private static SourceClaim readSourceClaim(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String claim = null;
-        String landedIn = null;
-        String reason = null;
+        @Nullable String claim = null;
+        @Nullable String landedIn = null;
+        @Nullable String reason = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

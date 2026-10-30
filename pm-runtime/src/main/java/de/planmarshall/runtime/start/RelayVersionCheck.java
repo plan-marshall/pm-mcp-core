@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -172,7 +173,7 @@ public final class RelayVersionCheck {
      *
      * @param relayVersion the value of the {@value #HEADER} header; {@code null} if the request carries none
      */
-    public void observe(String relayVersion) {
+    public void observe(@Nullable String relayVersion) {
         if (relayVersion == null || relayVersion.isBlank()) {
             return;
         }

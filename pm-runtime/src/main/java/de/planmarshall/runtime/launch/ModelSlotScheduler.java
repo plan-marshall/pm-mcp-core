@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.HolderInstance;
 import de.planmarshall.core.store.LeaseOwner;
@@ -117,7 +118,7 @@ public final class ModelSlotScheduler {
      * @since 0.1
      */
     public record Request(LeaseOwner owner, String jobId, String role, WorkerClass workerClass, Form form,
-    String planId) {
+    @Nullable String planId) {
 
         /**
          * @throws NullPointerException     if a required component is {@code null}

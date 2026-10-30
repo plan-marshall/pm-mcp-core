@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.EndpointProfile;
 import de.planmarshall.core.profile.JsonDocument;
@@ -121,7 +122,7 @@ public final class JudgmentVerification {
     }
 
     private ProfileStages.EndpointIdentity identity(EndpointProfile profile, String model,
-            SocketOwner.Lookup lookup) {
+            SocketOwner.@Nullable Lookup lookup) {
         var loopback = !profile.endpoint().remote() && lookup != null;
         var executablePath = loopback ? lookup.executablePath() : null;
         var version = loopback ? probe(profile, executablePath) : Optional.<String>empty();
@@ -238,7 +239,7 @@ public final class JudgmentVerification {
         return JsonNode.object(Map.of(PROBE_QUESTION, JsonNode.string("x".repeat(characters))));
     }
 
-    private Optional<String> probe(EndpointProfile profile, String executablePath) {
+    private Optional<String> probe(EndpointProfile profile, @Nullable String executablePath) {
         var identity = profile.identity();
         if (identity == null || executablePath == null) {
             return Optional.empty();
@@ -273,7 +274,7 @@ public final class JudgmentVerification {
     }
 
     /** The reading of one probe request: whether it validated, its answer, the status and the body of the answer. */
-    private record Probe(boolean valid, SystemOneAnswer.Answer answer, int status, String body) {
+    private record Probe(boolean valid, SystemOneAnswer.@Nullable Answer answer, int status, String body) {
 
         Probe {
             Objects.requireNonNull(body, "body");

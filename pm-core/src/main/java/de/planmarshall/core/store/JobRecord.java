@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -274,7 +276,7 @@ String gateFacts) {
      * @param id   the plan, epic or entry id; {@code null} for the workspace, a project and the machine
      * @since 0.1
      */
-    public record Scope(Type type, String id) {
+    public record Scope(Type type, @Nullable String id) {
 
         /**
          * The type of the scope that owns a job.
@@ -346,7 +348,7 @@ String gateFacts) {
      * @param observations the number of observations a learned budget rests on; {@code null} for every other kind
      * @since 0.1
      */
-    public record BudgetDerivation(Kind kind, Long observations) {
+    public record BudgetDerivation(Kind kind, @Nullable Long observations) {
 
         /**
          * The derivation of a budget.
@@ -405,7 +407,7 @@ String gateFacts) {
      * @param parseResult    the parser's verdict on the job log
      * @since 0.1
      */
-    public record SelfReportContradiction(String reportedStatus, Long exitCode, String parseResult) {
+    public record SelfReportContradiction(String reportedStatus, @Nullable Long exitCode, String parseResult) {
 
         /**
          * @throws NullPointerException     if the reported status or the parse result is {@code null}
@@ -427,7 +429,7 @@ String gateFacts) {
      * @param source     where the configured value came from
      * @since 0.1
      */
-    public record ClampedValue(String key, String configured, BigDecimal used, Source source) {
+    public record ClampedValue(String key, @Nullable String configured, BigDecimal used, Source source) {
 
         /**
          * Where a configured value came from.

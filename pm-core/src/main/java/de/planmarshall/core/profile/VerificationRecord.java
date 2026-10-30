@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.profile;
 
+import org.jspecify.annotations.Nullable;
+
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -253,7 +255,7 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
                             "not a stage status: '%s'".formatted(status));
                 }
                 var results = results(stage.member(NAME_RESULTS).orElse(null), pointer + "/results");
-                Integer trials = null;
+                @Nullable Integer trials = null;
                 var trialNode = stage.member(NAME_TRIALS).orElse(null);
                 if (trialNode != null) {
                     trials = (int) integer(stage, pointer + "/trials", NAME_TRIALS);

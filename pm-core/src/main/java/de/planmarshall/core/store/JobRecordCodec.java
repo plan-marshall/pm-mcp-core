@@ -23,6 +23,8 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -186,7 +188,7 @@ public class JobRecordCodec {
 
     private static JobRecord readDocument(JsonParser parser, byte[] document) throws IOException {
         var job = JobRecord.builder();
-        JobId.Kind kind = null;
+        JobId.@Nullable Kind kind = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -235,8 +237,8 @@ public class JobRecordCodec {
 
     private static Scope readScope(JsonParser parser) throws IOException {
         requireObject(parser, SCOPE);
-        Scope.Type type = null;
-        String id = null;
+        Scope.@Nullable Type type = null;
+        @Nullable String id = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -252,8 +254,8 @@ public class JobRecordCodec {
 
     private static BudgetDerivation readBudgetDerivation(JsonParser parser) throws IOException {
         requireObject(parser, BUDGET_DERIVATION);
-        BudgetDerivation.Kind kind = null;
-        Long observations = null;
+        BudgetDerivation.@Nullable Kind kind = null;
+        @Nullable Long observations = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -269,9 +271,9 @@ public class JobRecordCodec {
 
     private static SelfReportContradiction readContradiction(JsonParser parser) throws IOException {
         requireObject(parser, SELF_REPORT_CONTRADICTION);
-        String reportedStatus = null;
-        Long exitCode = null;
-        String parseResult = null;
+        @Nullable String reportedStatus = null;
+        @Nullable Long exitCode = null;
+        @Nullable String parseResult = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -288,10 +290,10 @@ public class JobRecordCodec {
 
     private static ClampedValue readClampedValue(JsonParser parser, String name, byte[] document) throws IOException {
         requireObject(parser, name);
-        String key = null;
-        String configured = null;
-        BigDecimal used = null;
-        ClampedValue.Source source = null;
+        @Nullable String key = null;
+        @Nullable String configured = null;
+        @Nullable BigDecimal used = null;
+        ClampedValue.@Nullable Source source = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -412,7 +414,7 @@ public class JobRecordCodec {
         }
     }
 
-    private static void writeNullable(JsonGenerator generator, String field, String value) throws IOException {
+    private static void writeNullable(JsonGenerator generator, String field, @Nullable String value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -420,7 +422,7 @@ public class JobRecordCodec {
         }
     }
 
-    private static void writeNullable(JsonGenerator generator, String field, Long value) throws IOException {
+    private static void writeNullable(JsonGenerator generator, String field, @Nullable Long value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {

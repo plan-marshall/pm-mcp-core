@@ -21,6 +21,8 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -260,7 +262,7 @@ public class MetricsCodec {
         generator.writeEndObject();
     }
 
-    private static void writeNullableString(JsonGenerator generator, String field, String value) throws IOException {
+    private static void writeNullableString(JsonGenerator generator, String field, @Nullable String value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -268,7 +270,8 @@ public class MetricsCodec {
         }
     }
 
-    private static void writeNullableInteger(JsonGenerator generator, String field, Integer value) throws IOException {
+    private static void writeNullableInteger(JsonGenerator generator, String field, @Nullable Integer value)
+            throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -276,7 +279,7 @@ public class MetricsCodec {
         }
     }
 
-    private static void writeNullableLong(JsonGenerator generator, String field, Long value) throws IOException {
+    private static void writeNullableLong(JsonGenerator generator, String field, @Nullable Long value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -293,7 +296,7 @@ public class MetricsCodec {
     }
 
     private static Document readDocument(JsonParser parser) throws IOException {
-        List<String> rows = null;
+        @Nullable List<String> rows = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -370,34 +373,34 @@ public class MetricsCodec {
     }
 
     private static MetricsRow readTaskRow(JsonParser parser) throws IOException {
-        String kind = null;
-        String queueTaskId = null;
-        Integer attempt = null;
-        String role = null;
-        String jobId = null;
-        String generationId = null;
-        String harness = null;
-        String harnessVersion = null;
-        String model = null;
-        String effort = null;
-        MetricsRow.Form form = null;
-        MetricsRow.Phase phase = null;
-        String stepId = null;
-        String envelopeId = null;
-        MetricsRow.PredictedCost predictedCost = null;
-        MetricsRow.YieldReason yieldReason = null;
-        MetricsRow.Outcome outcome = null;
-        AttemptEnd attemptEnd = null;
-        MetricsRow.ContinuationMark continuation = null;
-        MetricsRow.CauseClass causeClass = null;
-        MetricsRow.SpendClass spendClass = null;
-        MetricsRow.Population population = null;
+        @Nullable String kind = null;
+        @Nullable String queueTaskId = null;
+        @Nullable Integer attempt = null;
+        @Nullable String role = null;
+        @Nullable String jobId = null;
+        @Nullable String generationId = null;
+        @Nullable String harness = null;
+        @Nullable String harnessVersion = null;
+        @Nullable String model = null;
+        @Nullable String effort = null;
+        MetricsRow.@Nullable Form form = null;
+        MetricsRow.@Nullable Phase phase = null;
+        @Nullable String stepId = null;
+        @Nullable String envelopeId = null;
+        MetricsRow.@Nullable PredictedCost predictedCost = null;
+        MetricsRow.@Nullable YieldReason yieldReason = null;
+        MetricsRow.@Nullable Outcome outcome = null;
+        @Nullable AttemptEnd attemptEnd = null;
+        MetricsRow.@Nullable ContinuationMark continuation = null;
+        MetricsRow.@Nullable CauseClass causeClass = null;
+        MetricsRow.@Nullable SpendClass spendClass = null;
+        MetricsRow.@Nullable Population population = null;
         var usageState = new UsageState();
-        Long durationMs = null;
-        MetricsRow.DurationBasis durationBasis = null;
-        Long queuedMs = null;
-        String consultationOf = null;
-        Instant recordedAt = null;
+        @Nullable Long durationMs = null;
+        MetricsRow.@Nullable DurationBasis durationBasis = null;
+        @Nullable Long queuedMs = null;
+        @Nullable String consultationOf = null;
+        @Nullable Instant recordedAt = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -479,16 +482,16 @@ public class MetricsCodec {
     }
 
     private static WorkerIdleRow readIdleRow(JsonParser parser) throws IOException {
-        String kind = null;
-        String jobId = null;
-        String role = null;
-        String harness = null;
-        String harnessVersion = null;
-        String model = null;
-        String population = null;
+        @Nullable String kind = null;
+        @Nullable String jobId = null;
+        @Nullable String role = null;
+        @Nullable String harness = null;
+        @Nullable String harnessVersion = null;
+        @Nullable String model = null;
+        @Nullable String population = null;
         var usageState = new UsageState();
-        Integer idleWakeups = null;
-        Instant recordedAt = null;
+        @Nullable Integer idleWakeups = null;
+        @Nullable Instant recordedAt = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -659,8 +662,8 @@ public class MetricsCodec {
             return Optional.empty();
         }
         requireObject(parser, field);
-        Long tokens = null;
-        MetricsRow.PredictedCost.Basis basis = null;
+        @Nullable Long tokens = null;
+        MetricsRow.PredictedCost.@Nullable Basis basis = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var name = nextField(parser, seen);

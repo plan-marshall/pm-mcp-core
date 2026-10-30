@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashSet;
@@ -312,7 +314,8 @@ Map<String, String> retained) {
      * @param reason      why a {@code lost} task ended without a result; {@code null} otherwise
      * @since 0.1
      */
-    public record TaskEntry(String queueTaskId, String role, String state, String outcome, String reason) {
+    public record TaskEntry(String queueTaskId, String role, String state, @Nullable String outcome,
+    @Nullable String reason) {
 
         /**
          * @throws NullPointerException     if a required component is {@code null}
@@ -341,7 +344,7 @@ Map<String, String> retained) {
      * @param raisedAt       the instant the condition was raised
      * @since 0.1
      */
-    public record PendingCondition(String kind, long remedyAttempts, Integrity integrity, String facts,
+    public record PendingCondition(String kind, long remedyAttempts, @Nullable Integrity integrity, String facts,
     Instant raisedAt) {
 
         /**
@@ -374,7 +377,7 @@ Map<String, String> retained) {
      * @param currentDigest  the current digest; {@code null} when the file is missing
      * @since 0.1
      */
-    public record Integrity(String kind, String store, String recordedDigest, String currentDigest) {
+    public record Integrity(String kind, String store, String recordedDigest, @Nullable String currentDigest) {
 
         /**
          * @throws NullPointerException     if a required component is {@code null}
@@ -397,7 +400,8 @@ Map<String, String> retained) {
      * @param lastRetry   the last retry and the failure fingerprints it answered; {@code null} before the first
      * @since 0.1
      */
-    public record PolicyCounter(long retryUsed, long fixUsed, Renewal renewedFrom, LastRetry lastRetry) {
+    public record PolicyCounter(long retryUsed, long fixUsed, @Nullable Renewal renewedFrom,
+    @Nullable LastRetry lastRetry) {
 
         /** @throws IllegalArgumentException if a count is negative */
         public PolicyCounter {

@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.role;
 
+import org.jspecify.annotations.Nullable;
+
 import java.io.Serial;
 import java.util.Objects;
 
@@ -77,7 +79,8 @@ public final class RoleRefusal extends RuntimeException {
         return detail;
     }
 
-    private static String message(RoleValidationReason reason, String role, String pointer, String detail) {
+    private static String message(RoleValidationReason reason, String role, @Nullable String pointer,
+            @Nullable String detail) {
         var where = pointer == null || pointer.isEmpty() ? "" : " at '%s'".formatted(pointer);
         return "%s: %s%s: %s".formatted(role, reason.wireName(), where, detail == null ? "" : detail);
     }

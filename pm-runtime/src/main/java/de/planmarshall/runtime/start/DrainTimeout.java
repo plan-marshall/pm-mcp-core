@@ -20,6 +20,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Optional;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
@@ -75,7 +76,7 @@ public class DrainTimeout {
         }
         // The whole document is parsed before the value counts: a truncated file is invalid, not a short timeout
         Optional<String> rejected = Optional.empty();
-        Long seconds = null;
+        @Nullable Long seconds = null;
         try (var parser = JSON.createParser(document)) {
             if (parser.nextToken() != JsonToken.START_OBJECT) {
                 return invalid(file, "not a JSON object");

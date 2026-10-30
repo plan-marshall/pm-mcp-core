@@ -18,6 +18,8 @@ import static de.planmarshall.core.store.StrictJson.string;
 import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
@@ -106,16 +108,16 @@ public class JudgeCheckCodec {
     private static JudgeCheck.Record readRecord(JsonParser parser) throws IOException {
         requireObject(parser, "judge check record");
         var seen = new HashSet<String>();
-        String digest = null;
-        String harness = null;
-        String model = null;
-        String corpusRevision = null;
-        BigDecimal oracle = null;
-        BigDecimal blind = null;
-        BigDecimal baseline = null;
+        @Nullable String digest = null;
+        @Nullable String harness = null;
+        @Nullable String model = null;
+        @Nullable String corpusRevision = null;
+        @Nullable BigDecimal oracle = null;
+        @Nullable BigDecimal blind = null;
+        @Nullable BigDecimal baseline = null;
         int unscored = -1;
-        Instant checkedAt = null;
-        List<ItemScore> items = null;
+        @Nullable Instant checkedAt = null;
+        @Nullable List<ItemScore> items = null;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {
@@ -145,14 +147,14 @@ public class JudgeCheckCodec {
     private static ItemScore readItem(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
         var seen = new HashSet<String>();
-        String itemId = null;
-        Label label = null;
-        Grade oracleScore = null;
-        Grade blindScore = null;
-        TokenTotal totalTokens = null;
-        Long tokensIn = null;
-        Long tokensOut = null;
-        Long duration = null;
+        @Nullable String itemId = null;
+        @Nullable Label label = null;
+        @Nullable Grade oracleScore = null;
+        @Nullable Grade blindScore = null;
+        @Nullable TokenTotal totalTokens = null;
+        @Nullable Long tokensIn = null;
+        @Nullable Long tokensOut = null;
+        @Nullable Long duration = null;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {

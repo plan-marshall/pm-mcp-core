@@ -37,6 +37,7 @@ import de.planmarshall.core.queue.QueueTaskRecord.Outcome;
 import de.planmarshall.core.queue.QueueTaskRecord.Status;
 import de.planmarshall.core.queue.QueueTaskRecord.TaskClass;
 import de.planmarshall.core.role.RoleClass;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The consultation of one role by another (Model Work § Consultation; Timeouts &amp; Budgets § Consultation Bound).
@@ -332,7 +333,7 @@ public final class ConsultationService {
         return count;
     }
 
-    private static boolean listsOpenEntry(QueueTaskRecord asker, String consultationId) {
+    private static boolean listsOpenEntry(@Nullable QueueTaskRecord asker, String consultationId) {
         return asker != null && hasOpenEntry(asker, consultationId);
     }
 
@@ -388,8 +389,8 @@ public final class ConsultationService {
         return new SubmitValidation.Accepted();
     }
 
-    private ConsultationOutcome close(String consultationId, String generationId, ConsultationStatus status,
-            String answer, LostReason reason, Instant at) {
+    private ConsultationOutcome close(String consultationId, @Nullable String generationId, ConsultationStatus status,
+            @Nullable String answer, @Nullable LostReason reason, Instant at) {
         var outcome = new AtomicReference<ConsultationOutcome>();
         queue.updateAll(records -> {
             var consultation = find(records, consultationId);
@@ -427,7 +428,7 @@ public final class ConsultationService {
     }
 
     private static QueueTaskRecord settleAsker(QueueTaskRecord asker, String consultationId,
-            ConsultationStatus status, String answer, Instant at) {
+            ConsultationStatus status, @Nullable String answer, Instant at) {
         var entry = asker.consultations().stream()
                 .filter(consultation -> consultation.consultationId().equals(consultationId))
                 .findFirst()
@@ -453,7 +454,7 @@ public final class ConsultationService {
         return asker.lease() == null ? updated.withStatus(Status.QUEUED) : updated;
     }
 
-    private static QueueTaskRecord closeTask(QueueTaskRecord task, LostReason reason, Instant at) {
+    private static QueueTaskRecord closeTask(QueueTaskRecord task, @Nullable LostReason reason, Instant at) {
         var attempts = task.attempts();
         if (!attempts.isEmpty() && attempts.getLast().end() == null) {
             var last = attempts.getLast();
@@ -582,7 +583,7 @@ public final class ConsultationService {
                 .anyMatch(consultation -> consultation.status() == ConsultationStatus.OPEN);
     }
 
-    private static boolean validText(String text) {
+    private static boolean validText(@Nullable String text) {
         return text != null && !text.isEmpty() && text.codePointCount(0, text.length()) <= MAX_TEXT_LENGTH;
     }
 

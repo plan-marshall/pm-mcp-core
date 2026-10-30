@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
@@ -75,7 +77,7 @@ String harnessVersion, String model, String effort, String effortNarrowedFrom, J
 Workdir workdir, String promptDigest, String jobTokenSha256, Instant connectedAt, State state,
 Instant stateAt, String task, List<String> servedTasks, WorktreeMark worktreeMark, long idleWakeups,
 ContextTokens contextTokens, List<DeliveredSkill> deliveredSkills, EndReason endReason,
-boolean startFailure, String harnessError) {
+boolean startFailure, @Nullable String harnessError) {
 
     /** The longest model name the schema admits. */
     public static final int MAX_MODEL = 128;
@@ -266,7 +268,7 @@ boolean startFailure, String harnessError) {
      * @param planId the plan of a plan worktree; {@code null} otherwise
      * @since 0.1
      */
-    public record Workdir(Kind kind, String planId) {
+    public record Workdir(Kind kind, @Nullable String planId) {
 
         /**
          * The kind of a working directory.
@@ -378,7 +380,7 @@ boolean startFailure, String harnessError) {
      * @param unmeasured whether the size was not measured
      * @since 0.1
      */
-    public record ContextTokens(Long tokens, boolean unmeasured) {
+    public record ContextTokens(@Nullable Long tokens, boolean unmeasured) {
 
         /** The one unmeasured value. */
         public static final ContextTokens NOT_MEASURED = new ContextTokens(null, true);
