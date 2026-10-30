@@ -256,7 +256,7 @@ public final class PlanInstanceComposer {
      * @param unresolved    the ids a kept call names that the request supplies no sub-unit for
      */
     private record Composed(List<ComposedUnit> units, Set<String> positionStates, Set<String> subUnits,
-            List<PrunedElement> pruned, Set<String> unresolved) {
+    List<PrunedElement> pruned, Set<String> unresolved) {
     }
 
     /**

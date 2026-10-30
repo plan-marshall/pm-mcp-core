@@ -974,7 +974,7 @@ class PlanInstanceComposerTest {
                             phase.definition().states().keySet()::toString),
                     () -> assertTrue(instance.composed("land").isPresent(), instance.units()::toString),
                     () -> assertFalse(instance.header().pruned().stream()
-                            .anyMatch(pruned -> "execute.land-entry/land".equals(pruned.id())),
+                                    .anyMatch(pruned -> "execute.land-entry/land".equals(pruned.id())),
                             instance.header().pruned()::toString));
         }
 
@@ -1002,20 +1002,20 @@ class PlanInstanceComposerTest {
                     () -> assertTrue(instance.composed("phase-execute-light").isEmpty(), instance.units()::toString),
                     () -> assertTrue(instance.composed("phase-plan").isPresent(), instance.units()::toString),
                     () -> assertFalse(instance.header().inputs().subUnits().stream()
-                            .anyMatch(reference -> "phase-plan-light".equals(reference.unit())),
+                                    .anyMatch(reference -> "phase-plan-light".equals(reference.unit())),
                             instance.header().inputs().subUnits()::toString));
         }
 
         @Test
         @DisplayName("a prune never removes a state an entry binds to, so a composed file keeps every entry")
         void entryStatesSurviveAPrune() {
-            var rules = ((CompositionRules.Loaded) CompositionRules.parse(("""
+            var rules = ((CompositionRules.Loaded) CompositionRules.parse("""
                     {"format_version": 1, "revision": "t2", "rules": [
                       {"id": "prune-an-entry-state",
                        "when": {"fact": "lane", "equals": "deep"},
                        "then": {"prune": [{"element": "state", "id": "finalize.create-pr",
                                            "reason": "other_lane"}]}}]}
-                    """).getBytes(java.nio.charset.StandardCharsets.UTF_8))).rules();
+                    """.getBytes(StandardCharsets.UTF_8))).rules();
             var instance = composed(PlanFixtures.mergedComposer(rules).compose(PlanFixtures.mergedRequest(
                     CompositionEvent.START, facts().build(), Optional.empty(), AT_INIT, List.of())));
             var phase = instance.composed("phase-6-finalize").orElseThrow();
@@ -1024,10 +1024,10 @@ class PlanInstanceComposerTest {
                     () -> assertTrue(phase.definition().states().containsKey("finalize.create-pr"),
                             phase.definition().states().keySet()::toString),
                     () -> assertTrue(phase.definition().entryBindings().values().stream()
-                            .allMatch(binding -> phase.definition().states().containsKey(binding.stateId())),
+                                    .allMatch(binding -> phase.definition().states().containsKey(binding.stateId())),
                             phase.definition().entryBindings()::toString),
                     () -> assertFalse(instance.header().pruned().stream()
-                            .anyMatch(pruned -> "finalize.create-pr".equals(pruned.id())),
+                                    .anyMatch(pruned -> "finalize.create-pr".equals(pruned.id())),
                             instance.header().pruned()::toString));
         }
 
