@@ -169,7 +169,10 @@ A deliverable may declare several verification command and criterion pairs; the 
         "cause": { "type": ["string", "null"], "enum": ["pending", null], "description": "Set when state == unresolved: pending (worktree not yet materialised). Plans always execute in a worktree; there is no disabled cause." },
         "base_ref": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$" },
         "base_commits_behind": { "type": ["integer", "null"], "minimum": 0 },
-        "captured_at": { "type": ["string", "null"], "format": "date-time" }
+        "captured_at": { "type": ["string", "null"], "format": "date-time" },
+        "files_total": { "type": ["integer", "null"], "minimum": 0, "description": "The size of the plan's change at this capture (store-schemas/13, The Size of a Plan's Change); null unless state == measured." },
+        "insertions_total": { "type": ["integer", "null"], "minimum": 0 },
+        "deletions_total": { "type": ["integer", "null"], "minimum": 0 }
       }
     },
     "captured_changes": {
