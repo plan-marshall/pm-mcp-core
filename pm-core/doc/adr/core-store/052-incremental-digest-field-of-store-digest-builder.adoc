@@ -1,0 +1,68 @@
+= ADR 052: The Incremental Digest Stays a Field of `StoreDigest.Builder`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-30
+
+== Context
+
+The SonarCloud quality gate of `branch=main` is red on one condition alone: `new_reliability_rating` reads 4 against
+the threshold 1, because of one bug, `java:S9428` ("Make this MessageDigest a local variable") at
+`StoreDigest.java:97`. `StoreDigest.Builder` holds `private final MessageDigest digest = StoreSnapshot.newSha256();`
+because the builder *is* the incremental digest: `JournalRecovery` (lines 216, 222, 262) and `ScopeTransaction`
+(line 396) build one digest from chunks fed over several calls and read it once at `build()`, with a bounded buffer
+for files and no chunk kept. The module already suppresses Sonar rules inline with a stated reason beside the
+declaration (`ActivityEntry.java:330`, `ActivityEntryCodec.java:197`, `QueueTaskRecordCodec.java:303`,
+`RoleSets.java:48`); the suppression of `java:S9428` is a hypothesis until a pull-request analysis shows it is
+honoured.
+
+== Decision
+
+`StoreDigest.Builder` keeps the digest as its field and suppresses the rule at the declaration, with the reason
+beside it:
+
+[source,java]
+----
+@SuppressWarnings("java:S9428") // the builder is the incremental digest of one thread; chunks are not kept
+private final MessageDigest digest = StoreSnapshot.newSha256();
+----
+
+The Javadoc of `Builder` states the invariant the suppression rests on: a builder is confined to the thread that
+creates it and is never shared, so it exists for the span of one computation and is discarded with it. No behaviour
+changes; `StoreDigestTest` stays green unchanged.
+
+== Alternatives Considered
+
+* **A redesign: `StoreDigest.compute(consumer)`.** The digest becomes a local variable of one method and the three
+  call sites move into the consumer. Not taken: it grows the surface by `JournalRecovery`, `ScopeTransaction` and
+  their tests, forces the builder to keep its chunks (changing the documented bounded-memory property) and moves the
+  file read from `update` to `build()`. The choice changes the file set, so it is the operator's at refine (R07),
+  not a silent implementation decision.
+* **A file-level or project-level exclusion of `java:S9428`.** Not taken: the rule is suppressed at the one
+  declaration whose design requires the flagged shape, so the reason sits beside the code and no other declaration
+  of the module escapes the rule.
+* **Dismissing the issue in SonarCloud.** The fallback only, and only if the analysis of the pull request does not
+  honour the suppression: the issue is then dismissed with a stated reason, the design is not reshaped silently, and
+  the pull request is never merged on a red `branch=main` gate. The settlement is the suppression in the code.
+
+== Consequences
+
+* The digest stays the incremental field of the builder; the bounded-memory property and the position of the file
+  read in `update` are unchanged.
+* If the analysis honours the suppression, the new-code rating returns to A and the gate of `main` turns green with
+  nothing else changed. If it does not, the rated-4 condition stays and the fallback above applies.
+* A later change that makes a builder shared between threads, or that keeps its chunks, invalidates the Javadoc
+  invariant and this ADR, and must revisit both.
+* The other code smells open on `main` (`java:S1192`, `java:S3776`, `java:S1135`, `java:S112`) do not enter a failing
+  gate condition and are not touched here.
+
+== Source
+
+* Pull request: the pull request that carries this ADR (PLAN-V2-109)
+* Epic plan spec `.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-109-store-digest-main-green.md`
+* link:../../../../doc/specification/store-schemas/13-leases-integrity-testing.adoc#store-digest-verification[Store Schemas § Store Digest Verification]
