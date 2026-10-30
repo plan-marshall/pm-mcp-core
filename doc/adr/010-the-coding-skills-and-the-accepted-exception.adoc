@@ -59,16 +59,18 @@ Their versions come from the parent POM `de.planmarshall:pm-mcp-parent`; a modul
 version the parent does not manage is a finding for the parent, never a literal here.
 
 The rules, in the repository's own words, are recorded in `CLAUDE.md` § Code Standards and § Dependencies and
-Versions: generated test data with the literal-is-the-contract exemption, the generator artifact of each module,
-contract tests through `ShouldHandleObjectContracts`, `LogAsserts` for every `LogRecord`, annotation-based HTTP tests,
-`@NullMarked` on every production package, `Optional` as a return type only, `@Builder` on records of four or more
-components, a message on every assertion, EasyMock for test doubles with no new hand-written fake, `@UtilityClass`
-for static-only classes, and no catch or throw of `Exception`, `RuntimeException` or `Throwable` (a last-resort
-handler a specification names carries a `@SuppressWarnings` with its reason).
+Versions: generated test data with the literal-is-the-contract exemption and no `Random` or `UUID.randomUUID()` as
+test data, the generator artifact of each module, contract tests through `ShouldHandleObjectContracts`, `LogAsserts`
+for every `LogRecord`, annotation-based HTTP tests, `@NullMarked` on every production package, `Optional` as a return
+type only, `@Builder` on records of four or more components, a message on every assertion, EasyMock for test doubles
+with no new hand-written fake, `@UtilityClass` for static-only classes, and no catch or throw of `Exception`,
+`RuntimeException` or `Throwable` (a last-resort handler a specification names carries a `@SuppressWarnings` with its
+reason).
 
 The one accepted exception is: *tests follow behaviour, not one test class per production class, and the 400-line
 budget of `junit-core` is reported by the landing, not enforced.* The build enforces 80 % instruction and branch
-coverage per module instead.
+coverage per module instead. Until a plan of the family has landed, the existing code of its module is not a
+precedent for a new class.
 
 The log message holder rule stays unchanged and binds this family. It is repeated here word for word from
 `CLAUDE.md` § Code Standards:
@@ -126,4 +128,4 @@ The operator's decision of 2026-10-30, quoted above from the epic's decision log
 `skills-audit-2026-10-30.md` §§ 1, 4 and 5; the standing rules of the epic, revision r4, R20; the plan spec
 `+.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-83-skills-conformance-foundation.md+`; the parent POM
 `de.planmarshall:pm-mcp-parent` for the managed versions; ADR
-link:002-cui-http-and-the-mock-web-server-for-http.adoc[002] for the HTTP test style this decision supersedes.
+link:002-cui-http-and-the-mock-web-server-for-http.adoc[002] for the HTTP test style that PLAN-V2-93 supersedes.

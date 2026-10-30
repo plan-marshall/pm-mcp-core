@@ -94,8 +94,9 @@ its own pull request.
   `pm-workflow` and `pm-provider-sonar`, and `org.easymock:easymock` (test). `de.cuioss.test:cui-test-mockwebserver-junit5`
   (test) in `pm-provider-sonar` is the R04 dependency (operator decision 2026-10-09). Their versions come from the
   parent POM; a module POM carries no version literal.
-- Never add a dependency or a plugin without asking the user first. The six above are the operator's answer for the
-  coding-skill conformance family (PLAN-V2-83 to PLAN-V2-108); anything else still needs a decision.
+- Never add a dependency or a plugin without asking the user first. The six above are the operator's answers — the
+  five of 2026-10-30 and the R04 dependency of 2026-10-09 — for the coding-skill conformance family (PLAN-V2-83 to
+  PLAN-V2-108); anything else still needs a decision.
 - Pre-1.0: no deprecation cycles, no backward-compatibility shims.
 
 ## Dependency Rules (enforced by the build)
@@ -145,11 +146,12 @@ them with a fixture project below `src/guard-controls`:
   phase comments.
 - Test data come from `cui-test-generator` (`@EnableGeneratorController`, `Generators.*`, `@GeneratorsSource`). A
   literal stays only where it is the contract — a wire format, an error or reason code, a schema or specification
-  string, a golden file or a fixture path — and the test says so in its display name or a one-line comment. The
-  reusable generators of a module live in that module's generator artifact (a test JAR deployed with the
-  `SNAPSHOT`): `pm-core`'s are usable by `pm-workflow`, `pm-runtime` and the providers; `pm-provider-http`'s by
-  `-github`, `-gitlab` and `-sonar`; those of `pm-workflow` and `pm-runtime` by the assembly only. A test that
-  needs a generator for another module's type takes it from that module's artifact.
+  string, a golden file or a fixture path — and the test says so in its display name or a one-line comment. No
+  `Random`, no `UUID.randomUUID()` as test data. The reusable generators of a module live in that module's
+  generator artifact (a test JAR deployed with the `SNAPSHOT`): `pm-core`'s are usable by `pm-workflow`,
+  `pm-runtime` and the providers; `pm-provider-http`'s by `-github`, `-gitlab` and `-sonar`; those of `pm-workflow`
+  and `pm-runtime` by the assembly only. A test that needs a generator for another module's type takes it from that
+  module's artifact.
 - A class with a hand-written `equals`/`hashCode` (not a record or an enum) has a contract test through
   `ShouldHandleObjectContracts` (`cui-test-value-objects`).
 - Every assertion carries a message of 20 to 60 characters that says what is checked (`junit-core`).
@@ -158,6 +160,8 @@ them with a fixture project below `src/guard-controls`:
 - HTTP tests use `@EnableMockWebServer` with `@MockResponseConfig` or `@ModuleDispatcher` and an injected
   `URIBuilder`; no hand-written `Dispatcher` (R20 replaces ADR `doc/adr/002`, which PLAN-V2-93 supersedes and whose
   migration carries the existing test classes).
+- Until a plan of the conformance family has landed, the existing code of its module is not a precedent for a new
+  class.
 - OS-specific behaviour (Secret Service, Keychain) is tested with `@EnabledOnOs`.
 - `pm-runtime` builds a test JAR with the fixtures the assembly's tests share (`TestBases`, `FakeBus`,
   `FakeSecretService`); it is deployed with the `SNAPSHOT`.
