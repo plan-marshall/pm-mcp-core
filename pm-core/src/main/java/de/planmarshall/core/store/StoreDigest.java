@@ -85,7 +85,8 @@ public record StoreDigest(long size, String sha256) {
     /**
      * Computes the digest of content that arrives in chunks: bytes in memory and files streamed through a bounded
      * buffer, in the order they are added. No chunk is kept; the digest equals {@link #of(byte[])} of the
-     * concatenation.
+     * concatenation. A builder is confined to the thread that creates it and must not be shared: it exists for the
+     * span of one computation and is discarded with it.
      *
      * @since 0.1
      */
@@ -94,6 +95,7 @@ public record StoreDigest(long size, String sha256) {
         /** The size of the buffer a file is streamed through. */
         static final int BUFFER_SIZE = 8192;
 
+        @SuppressWarnings("java:S9428") // the builder is the incremental digest of one thread; chunks are not kept
         private final MessageDigest digest = StoreSnapshot.newSha256();
         private long size;
 
