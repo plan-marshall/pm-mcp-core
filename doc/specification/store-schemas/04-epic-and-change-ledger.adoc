@@ -508,6 +508,23 @@ Each line in `plans/<plan_id>/change-ledger.jsonl` of the per-project machine st
       "enum": ["expected_red", "expected_red_went_green", null],
       "description": "For kind == 'build' with expect == 'red': expected_red when the run failed (the result's expectation: met), expected_red_went_green when it succeeded (expectation: violated); null otherwise."
     },
+    "criterion": {
+      "type": ["string", "null"],
+      "description": "For kind == 'build' with expect == 'red': the pm_build criterion parameter, the fix criterion this run proves red (Phase Workflows, Fix Proof Guard); null otherwise."
+    },
+    "red_tests": {
+      "type": ["array", "null"],
+      "description": "For a build row with a criterion: the test files the worktree changed against base_ref at this run; null otherwise.",
+      "items": {
+        "type": "object",
+        "required": ["path", "blob"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string" },
+          "blob": { "type": "string" }
+        }
+      }
+    },
     "baseline": {
       "type": ["object", "null"],
       "description": "Required (non-null) iff kind == 'baseline_red'; null otherwise. The server's proof that a red gate at this worktree_sha is red only through failures already present on the base (Job Runtime, Baseline Separation).",

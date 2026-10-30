@@ -246,7 +246,7 @@ The plan's intent record (link:../phase-workflows/01-planning-phases-1-2.adoc#in
   "$id": "https://cuioss.de/plan-marshall-mcp/schemas/intent-record-v1.json",
   "title": "IntentRecord",
   "type": "object",
-  "required": ["why", "goal", "criteria", "current_behaviour", "non_goals", "constraints", "decisions", "assumptions", "open_questions", "deferred", "source_claims"],
+  "required": ["why", "goal", "criteria", "current_behaviour", "repairs", "non_goals", "constraints", "decisions", "assumptions", "open_questions", "deferred", "source_claims"],
   "additionalProperties": false,
   "properties": {
     "why": { "type": "string", "minLength": 20, "maxLength": 1000 },
@@ -278,6 +278,7 @@ The plan's intent record (link:../phase-workflows/01-planning-phases-1-2.adoc#in
       }
     },
     "current_behaviour": { "type": ["string", "null"], "minLength": 10, "maxLength": 500 },
+    "repairs": { "type": ["string", "null"], "description": "plan_id of the landed plan whose work this plan repairs; only on a record with a fix criterion (Phase Workflows, The Intent Record)." },
     "non_goals": {
       "type": "array", "minItems": 1, "maxItems": 20,
       "items": {
