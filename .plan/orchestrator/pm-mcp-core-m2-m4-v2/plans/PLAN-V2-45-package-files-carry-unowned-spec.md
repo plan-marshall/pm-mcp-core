@@ -104,3 +104,9 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Carried Open Items
+
+Open items of the previous epic that this plan owns (register: `owner-register.md` of the epic; the full text is in the archived ledger `pm-mcp-core-m2-m4/epic.md`). They are not deliverables and extend no Done-when: read each while outlining, re-check it against `origin/main` (Claim Labels) and either adopt it into a deliverable of the outline or say in the landing why not.
+
+- **The 8 work packages #151 cut have no orchestrator row and no staged spec (found at the PLAN-103** (Op28) — the eight packages cut by #151 (access-grants, build-parsers-and-gate-honesty, client-profile-rendering, decision-quorum-and-calibration, domain-extensions-and-architecture, finalize-pipeline-and-merge, re-planning, remediation-units) have no row; this plan decides which carry unowned specification and which get a row

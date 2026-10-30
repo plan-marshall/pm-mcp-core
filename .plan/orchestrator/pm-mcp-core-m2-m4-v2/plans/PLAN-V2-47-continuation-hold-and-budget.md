@@ -105,3 +105,10 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Carried Open Items
+
+Open items of the previous epic that this plan owns (register: `owner-register.md` of the epic; the full text is in the archived ledger `pm-mcp-core-m2-m4/epic.md`). They are not deliverables and extend no Done-when: read each while outlining, re-check it against `origin/main` (Claim Labels) and either adopt it into a deliverable of the outline or say in the landing why not.
+
+- **#190 deleted the specification sentence that PLAN-73's Deliverable 7 depends on (found by the c** (Op47) — #190 deleted Model Work 03 § Recycling Warm Workers incl. "a worker holding its task for an answer that reaches the budget ends its hold"; D7 depends on that sentence; WorkerRecycling recycles a HOLDING generation at the budget without ending the hold
+- **The question-loop verification of plan-marshall-mcp is done (question-loop-verification in its** (Op49) — the question-loop verification of plan-marshall-mcp is done: this plan has no open cross-repository dependency left; #197 wrote the resumability candidates and max_hold_seconds / max_age_seconds 3600 into Client Profiles 01/02 and Model Work 01/06

@@ -98,3 +98,10 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Carried Open Items
+
+Open items of the previous epic that this plan owns (register: `owner-register.md` of the epic; the full text is in the archived ledger `pm-mcp-core-m2-m4/epic.md`). They are not deliverables and extend no Done-when: read each while outlining, re-check it against `origin/main` (Claim Labels) and either adopt it into a deliverable of the outline or say in the landing why not.
+
+- **UPDATE 2026-10-27 (analysis of PLAN-66, landings/PLAN-66.md)** (Op44) — PLAN-66 shipped the ingress (WorkerActivityPump, ActivityRecorder, OffTrackDetector) but no loop; nothing in src/main calls them; the loop itself is the assembly (external E3), this plan owns the library calls and the pass
+- **No plan owns the supervision loop that drives the worker supervisor (found by the analysis of P** (Op45) — WorkerSupervisor, LossDetection, WorkerEnding, WorkerRecycling, StartFailureGuard and AgentStartedDetector are called from nowhere in src/main; "the pass is the supervision loop's call" (runtime-worker.adoc:268); the loop is the assembly (external E3)

@@ -114,3 +114,10 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Carried Open Items
+
+Open items of the previous epic that this plan owns (register: `owner-register.md` of the epic; the full text is in the archived ledger `pm-mcp-core-m2-m4/epic.md`). They are not deliverables and extend no Done-when: read each while outlining, re-check it against `origin/main` (Claim Labels) and either adopt it into a deliverable of the outline or say in the landing why not.
+
+- **PLAN-97 shipped 9 of 10; three residues (analysis of #214, 2026-10-28)** (Op3) — Sonar: java:S3776 in AnswerSchema.check (complexity 25 against 15) is a refactor of this plan's surface; the six java:S1135 TODO comments come from the OpenRewrite recipe of the parent POM (operator decision D6); the unwired seams EndpointEnrolment, EndpointHarness and EndpointVerification are wired by the assembly (external E3)
+- **HarnessEnrolmentStore.decode reads a missing, null or non-object top-level harnesses member as** (Op43) — HarnessEnrolmentStore.decode reads a missing, null or non-object top-level harnesses member as an empty map although store-schemas/11 requires it; refuse with harness_store_unreadable

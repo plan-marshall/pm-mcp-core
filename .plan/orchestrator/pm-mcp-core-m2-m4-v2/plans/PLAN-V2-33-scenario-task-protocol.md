@@ -108,3 +108,9 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Carried Open Items
+
+Open items of the previous epic that this plan owns (register: `owner-register.md` of the epic; the full text is in the archived ledger `pm-mcp-core-m2-m4/epic.md`). They are not deliverables and extend no Done-when: read each while outlining, re-check it against `origin/main` (Claim Labels) and either adopt it into a deliverable of the outline or say in the landing why not.
+
+- **#169 changed TaskProtocol outside PLAN-32's declaration, and a staged spec declares it (2026-10** (Wa52) — #169 made workflow.task.TaskProtocol refuse a consultation task's generic submit and infeasible with link_not_available (only submit:answer); read the changed protocol and ADR workflow-consult/004 before outlining

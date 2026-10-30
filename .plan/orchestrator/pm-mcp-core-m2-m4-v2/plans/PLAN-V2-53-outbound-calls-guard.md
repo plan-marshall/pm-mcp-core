@@ -123,3 +123,9 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Carried Open Items
+
+Open items of the previous epic that this plan owns (register: `owner-register.md` of the epic; the full text is in the archived ledger `pm-mcp-core-m2-m4/epic.md`). They are not deliverables and extend no Done-when: read each while outlining, re-check it against `origin/main` (Claim Labels) and either adopt it into a deliverable of the outline or say in the landing why not.
+
+- **PLAN-98 residues (analysis of #222, 2026-10-29)** (Op1) — the repository-wide architecture rule and the recording-test-network test of the Closed List of Outbound Calls belong to V2-53; the small residues (the two limits bisections as one helper, a WARN for a pre-send refusal, a negative fixture for a 400 without max_tokens_exceeded, the unused TASK_INVALID.wireName()) go to V2-67
