@@ -13,7 +13,7 @@ lane: runbook
 > See `persona-plan-orchestrator/standards/orchestration-model.md` for the tier and
 > hand-off contract.
 >
-> Origin: the skills conformance audit of 2026-10-30 (`skills-audit-2026-10-30.md` in the epic directory), taken at `origin/main` `6847c748`, and the operator's decisions of the same day (Decisions in `epic.md`). The plan family is PLAN-V2-83 to PLAN-V2-94 (workstream WS-11); it runs first.
+> Origin: the skills conformance audit of 2026-10-30 (`skills-audit-2026-10-30.md` in the epic directory), taken at `origin/main` `6847c748`, and the operator's decisions of the same day (Decisions in `epic.md`). The plan family is PLAN-V2-83 to PLAN-V2-106 (workstream WS-11, with PLAN-V2-95 and PLAN-V2-96 in WS-05); it runs first, except PLAN-V2-96, which follows PLAN-V2-31.
 
 ## First Instruction: Read The Standing Rules
 
@@ -30,7 +30,7 @@ Plan parameters (the values the rules ask for):
 
 ## Objective
 
-None of the 67 production `package-info.java` files carries `@NullMarked`, there is no `@Nullable` anywhere, and 79 methods `return null;`. The skill `java-null-safety` wants `@NullMarked` in every package, absence as `Optional<T>` (never `null`, never a `@Nullable` return), and `@Nullable` for the states that really are null (a field, a parameter, a record component). The operator chose on 2026-10-30: `@NullMarked` everywhere and no rewrite of the existing `Optional` parameters, fields and record components (accepted exception (a) of the ADR of PLAN-V2-83).
+None of the 67 production `package-info.java` files carries `@NullMarked`, there is no `@Nullable` anywhere, and 79 methods `return null;`. The skill `java-null-safety` wants `@NullMarked` in every package, absence as `Optional<T>` (never `null`, never a `@Nullable` return), and `@Nullable` for the states that really are null (a field, a parameter, a record component). The operator chose on 2026-10-30: `@NullMarked` everywhere, and (decision 7) to convert the existing `Optional` parameters, fields and record components too — that conversion is PLAN-V2-97 to PLAN-V2-99, which run after this plan.
 
 ## Deliverables
 
@@ -40,13 +40,13 @@ None of the 67 production `package-info.java` files carries `@NullMarked`, there
 
 **Done when:** `git grep -c '@NullMarked'` over the production `package-info.java` files equals 67 (or the number then present) and the guard test fails on a fixture package without it; `git grep -n 'return null;' -- '*/src/main/java/*.java'` finds only the sites listed with a reason; every changed method has a test of its absent case; the pull request body lists the changed public signatures. **Sonar:** the SonarCloud search of the pull request (`pullRequest=<N>&resolved=false`) lists no open issue other than one dismissed with its reason, and its quality gate is green, before the pull request is reported ready. **Build:** `verify -Ppre-commit` (its rewrites reviewed and committed), then `verify` of every module the plan changes (where a full run does not finish inside the host's bound, the targeted `-Dtest` runs of the changed classes and the per-module run, each reported in the pull request body), `verify -Pcoverage` and, for `pm-core` and `pm-runtime`, `verify -Pintegration-tests -pl <module> -am` are green. **Links:** run the links check (R17) from the main checkout against the documentation checkout at its `origin/main`.
 
-**Trace starting set:** `java-null-safety` (SKILL.md and standards); R20; the audit `skills-audit-2026-10-30.md` § 2.8; ADR of PLAN-V2-83, exception (a).
+**Trace starting set:** `java-null-safety` (SKILL.md and standards); R20; the audit `skills-audit-2026-10-30.md` § 2.8; ADR of PLAN-V2-83.
 
 ## Standing Constraints
 
 Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named in the First Instruction above):
 
-- **`Optional` is not rewritten** where it is already a parameter, a field or a record component (exception (a)); this plan neither adds new ones nor removes old ones.
+- **Existing `Optional` parameters, fields and record components are converted by PLAN-V2-97 to PLAN-V2-99, not here;** this plan adds no new ones.
 - **`@Nullable` never on a return** (the skill): an absent result is `Optional<T>`.
 - **No behaviour change:** a conversion that would change what a caller observes (for example a `null` that is a deliberate marker of a sentinel in a stored record) is left and listed; the stored formats are untouched (R13).
 - **Run alone at the front of the epic:** the plan edits a file in nearly every package; it is paired by directory (see the Expected Surface) and the test-migration plans PLAN-V2-85 to PLAN-V2-92 depend on it.
