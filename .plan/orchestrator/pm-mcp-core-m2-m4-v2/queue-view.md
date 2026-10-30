@@ -4,8 +4,10 @@
 
 ## START HERE
 
-**Resume anchor**: PLAN-V2-83 launched (runbook lane, operator confirmed start); await its PR and landing, then run analyze, then next. Wave 0 order unchanged (operator decision 2026-10-30): PLAN-V2-83 alone, then PLAN-V2-84 alone, then PLAN-V2-85, 86, 87, 88; every other plan depends on PLAN-V2-83.
+**Resume anchor**: PLAN-V2-83 running (runbook lane, operator confirmed); await its PR and landing, then run analyze, then next. Wave 0 order unchanged (operator decision 2026-10-30): PLAN-V2-83 alone, then PLAN-V2-84 alone, then PLAN-V2-85, 86, 87, 88; every other plan depends on PLAN-V2-83.
 **Phase**: orchestrating
+**Running**:
+- PLAN-V2-83 (WS-11)
 **Parked**:
 - PLAN-V2-72 (WS-09)
 - PLAN-V2-73 (WS-06)
@@ -115,13 +117,12 @@
 97. PLAN-V2-81 (WS-04)
 98. PLAN-V2-82 (WS-02)
 99. PLAN-V2-96 (WS-05)
-- PLAN-V2-83 (WS-11) — status: launched
 
 ## Ordered Queue
 
 | # | Plan | Workstream | Status | Surface (expected) | Lane |
 |---|------|------------|--------|--------------------|------|
-| 1 | PLAN-V2-83 | WS-11 | launched | CLAUDE.md; doc/adr/NNN-the-coding-skills-and-the-accepted-exception.adoc; doc/adr/README.adoc; pm-core/pom.xml; pm-providers/pm-provider-git/pom.xml; pm-providers/pm-provider-github/pom.xml; pm-providers/pm-provider-gitlab/pom.xml; pm-providers/pm-provider-http/pom.xml; pm-providers/pm-provider-sonar/pom.xml; pm-runtime/pom.xml; pm-workflow/pom.xml; pom.xml | runbook |
+| 1 | PLAN-V2-83 | WS-11 | running | CLAUDE.md; doc/adr/NNN-the-coding-skills-and-the-accepted-exception.adoc; doc/adr/README.adoc; pm-core/pom.xml; pm-providers/pm-provider-git/pom.xml; pm-providers/pm-provider-github/pom.xml; pm-providers/pm-provider-gitlab/pom.xml; pm-providers/pm-provider-http/pom.xml; pm-providers/pm-provider-sonar/pom.xml; pm-runtime/pom.xml; pm-workflow/pom.xml; pom.xml | runbook |
 | 2 | PLAN-V2-84 | WS-11 | staged | pm-core/src/main/java/; pm-core/src/main/java/de/planmarshall/core/; pm-core/src/test/java/de/planmarshall/core/guard/; pm-providers/*/src/main/java/; pm-runtime/src/main/java/; pm-runtime/src/main/java/de/planmarshall/runtime/; pm-workflow/src/main/java/; pm-workflow/src/main/java/de/planmarshall/workflow/ | runbook |
 | 3 | PLAN-V2-107 | WS-11 | staged | CLAUDE.md; doc/adr/NNN-generator-artifacts.adoc; doc/adr/README.adoc; pm-core/pom.xml; pm-core/src/test/java/de/planmarshall/core/BuildGuardsIT.java; pm-core/src/test/java/de/planmarshall/core/testing/generators/; pm-providers/pm-provider-github/pom.xml; pm-providers/pm-provider-gitlab/pom.xml; pm-providers/pm-provider-http/pom.xml; pm-providers/pm-provider-http/src/test/java/de/planmarshall/provider/http/testing/generators/; pm-providers/pm-provider-sonar/pom.xml; pm-runtime/pom.xml; pm-runtime/src/test/java/de/planmarshall/runtime/testing/generators/; pm-workflow/pom.xml; pm-workflow/src/test/java/de/planmarshall/workflow/testing/generators/ | runbook |
 | 4 | PLAN-V2-85 | WS-11 | staged | pm-core/src/test/java/de/planmarshall/core/store/ | runbook |

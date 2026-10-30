@@ -1,1 +1,1 @@
-PLAN-V2-83 launched (runbook lane, operator confirmed start); await its PR and landing, then run analyze, then next. Wave 0 order unchanged (operator decision 2026-10-30): PLAN-V2-83 alone, then PLAN-V2-84 alone, then PLAN-V2-85, 86, 87, 88; every other plan depends on PLAN-V2-83.
+PLAN-V2-83 running (runbook lane, operator confirmed); await its PR and landing, then run analyze, then next. Wave 0 order unchanged (operator decision 2026-10-30): PLAN-V2-83 alone, then PLAN-V2-84 alone, then PLAN-V2-85, 86, 87, 88; every other plan depends on PLAN-V2-83.
