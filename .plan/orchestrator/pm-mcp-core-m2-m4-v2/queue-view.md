@@ -4,10 +4,11 @@
 
 ## START HERE
 
-**Resume anchor**: PLAN-V2-83 running and PLAN-V2-109 launched (red-main fix, operator started it), both runbook lane. Await their PRs and landings. After PLAN-V2-109 lands: check the gate of branch=main is OK and the Maven Build of the next push is green, then drop D1 from PLAN-V2-67. After PLAN-V2-83 lands: analyze, then next (PLAN-V2-84). Wave 0 order otherwise unchanged.
+**Resume anchor**: PLAN-V2-83 and PLAN-V2-109 (red-main fix) both running, runbook lane. Await their PRs and landings. After PLAN-V2-109 lands: check the gate of branch=main is OK and the Maven Build of the next push is green, then drop D1 from PLAN-V2-67. After PLAN-V2-83 lands: analyze, then next (PLAN-V2-84). Wave 0 order otherwise unchanged.
 **Phase**: orchestrating
 **Running**:
 - PLAN-V2-83 (WS-11)
+- PLAN-V2-109 (WS-10)
 **Parked**:
 - PLAN-V2-72 (WS-09)
 - PLAN-V2-73 (WS-06)
@@ -117,7 +118,6 @@
 97. PLAN-V2-81 (WS-04)
 98. PLAN-V2-82 (WS-02)
 99. PLAN-V2-96 (WS-05)
-- PLAN-V2-109 (WS-10) — status: launched
 
 ## Ordered Queue
 
@@ -231,4 +231,4 @@
 | 106 | PLAN-V2-81 | WS-04 | staged | doc/LogMessages.adoc; doc/Traceability.adoc; doc/core-config/; doc/plans/; doc/runtime-config/; doc/runtime-credentials/; doc/specification/credentials-and-enrolment/01-provider-credentials.adoc; doc/specification/model-work/01-roles-and-configuration.adoc; doc/specification/store-schemas/12-machine-stores.adoc; pm-runtime/README.adoc; pm-runtime/doc/adr/runtime-config/001-the-provider-defaults-are-written-in-the-runtime.adoc | runbook |
 | 107 | PLAN-V2-82 | WS-02 | staged | doc/Traceability.adoc; doc/implementation-watch/store-schemas.adoc; doc/plans/; doc/plans/README.adoc; doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc; doc/specification/workflow-dsl/09-plan-instance.adoc; pm-core; pm-workflow/doc/adr/workflow-plan/; pm-workflow/doc/developer/workflow-plan.adoc; pm-workflow/src/main/java/de/planmarshall/workflow/plan/InstancePosition.java; pm-workflow/src/main/java/de/planmarshall/workflow/plan/InstancePruner.java; pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java; pm-workflow/src/main/java/de/planmarshall/workflow/plan/PolicyCall.java; pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java | runbook |
 | 108 | PLAN-V2-96 | WS-05 | staged | pm-core/doc/adr/core-role/NNN-*.adoc; pm-core/src/main/java/de/planmarshall/core/role/qualification/QualificationCheck.java; pm-runtime/src/main/java/de/planmarshall/runtime/worker/; pm-workflow/src/main/java/de/planmarshall/workflow/model/RoleGrader.java | runbook |
-| 109 | PLAN-V2-109 | WS-10 | launched | pm-core/src/main/java/de/planmarshall/core/store/StoreDigest.java | runbook |
+| 109 | PLAN-V2-109 | WS-10 | running | pm-core/src/main/java/de/planmarshall/core/store/StoreDigest.java | runbook |
