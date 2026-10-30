@@ -35,4 +35,7 @@
  * <li>{@code doc/specification/store-schemas/03-findings-and-review-records.adoc} (Findings Ledger Record)</li>
  * </ul>
  */
+@NullMarked
 package de.planmarshall.core.findings;
+
+import org.jspecify.annotations.NullMarked;

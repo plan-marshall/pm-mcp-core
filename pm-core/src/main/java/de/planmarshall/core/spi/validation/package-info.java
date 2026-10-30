@@ -29,4 +29,7 @@
  * files require; these checks need the task model and the build extensions of a project and belong to
  * {@code pm-workflow}.
  */
+@NullMarked
 package de.planmarshall.core.spi.validation;
+
+import org.jspecify.annotations.NullMarked;

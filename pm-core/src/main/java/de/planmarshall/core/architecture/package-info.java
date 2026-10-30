@@ -12,4 +12,7 @@
  * <p>
  * Specification: {@code doc/specification/domain-extensions/02-merge-algorithms.adoc}.
  */
+@NullMarked
 package de.planmarshall.core.architecture;
+
+import org.jspecify.annotations.NullMarked;

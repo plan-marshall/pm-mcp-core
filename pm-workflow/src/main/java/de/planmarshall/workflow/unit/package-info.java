@@ -28,4 +28,7 @@
  * Specification: {@code doc/specification/workflow-dsl/02-units-jobs-decisions.adoc} (Workflow Definition Units) and
  * {@code doc/specification/workflow-dsl/04-ast-node-model.adoc} (Project-owned units).
  */
+@NullMarked
 package de.planmarshall.workflow.unit;
+
+import org.jspecify.annotations.NullMarked;

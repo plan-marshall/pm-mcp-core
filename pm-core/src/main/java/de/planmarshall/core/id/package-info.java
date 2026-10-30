@@ -12,4 +12,7 @@
  * <p>
  * Specification: {@code doc/specification/identifiers.adoc}.
  */
+@NullMarked
 package de.planmarshall.core.id;
+
+import org.jspecify.annotations.NullMarked;

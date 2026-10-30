@@ -12,4 +12,7 @@
  * <p>
  * Specification: {@code doc/specification/model-work/07-untrusted-text-screening.adoc}.
  */
+@NullMarked
 package de.planmarshall.workflow.screening;
+
+import org.jspecify.annotations.NullMarked;

@@ -37,4 +37,7 @@
  * Lifecycle Gate &amp; Release)</li>
  * </ul>
  */
+@NullMarked
 package de.planmarshall.core.service;
+
+import org.jspecify.annotations.NullMarked;

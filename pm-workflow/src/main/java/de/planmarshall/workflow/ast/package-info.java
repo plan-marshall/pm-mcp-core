@@ -58,4 +58,7 @@
  * link action, the parameter types, the call values and decision declarations held by the {@code declare} and
  * {@code decide} maps of a definition, and the instance header.
  */
+@NullMarked
 package de.planmarshall.workflow.ast;
+
+import org.jspecify.annotations.NullMarked;

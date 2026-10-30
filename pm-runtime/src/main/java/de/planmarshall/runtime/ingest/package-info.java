@@ -11,4 +11,7 @@
  * The level-1 ingestion validator for external text (Markdown AST on {@code commonmark}, link destinations
  * through the {@code cui-http} URL validation pipelines).
  */
+@NullMarked
 package de.planmarshall.runtime.ingest;
+
+import org.jspecify.annotations.NullMarked;

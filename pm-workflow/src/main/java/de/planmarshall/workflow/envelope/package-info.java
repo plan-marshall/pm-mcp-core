@@ -12,4 +12,7 @@
  * <p>
  * Specification: {@code doc/specification/model-work/06-envelopes-questions-deadlines.adoc}.
  */
+@NullMarked
 package de.planmarshall.workflow.envelope;
+
+import org.jspecify.annotations.NullMarked;

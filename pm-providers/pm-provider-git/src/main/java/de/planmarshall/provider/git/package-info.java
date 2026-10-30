@@ -26,4 +26,7 @@
  * {@link de.planmarshall.provider.git.JGitSourceRepository} implements the git part of the fetch of {@code pm-core}
  * over these operations.
  */
+@NullMarked
 package de.planmarshall.provider.git;
+
+import org.jspecify.annotations.NullMarked;

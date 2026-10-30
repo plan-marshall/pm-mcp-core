@@ -23,4 +23,7 @@
  *
  * @since 0.1
  */
+@NullMarked
 package de.planmarshall.core.queue;
+
+import org.jspecify.annotations.NullMarked;

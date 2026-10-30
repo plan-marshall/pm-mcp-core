@@ -26,4 +26,7 @@
  * Choice, § Provider Verification</li>
  * </ul>
  */
+@NullMarked
 package de.planmarshall.runtime.config;
+
+import org.jspecify.annotations.NullMarked;

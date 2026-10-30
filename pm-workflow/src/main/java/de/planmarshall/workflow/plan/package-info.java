@@ -30,4 +30,7 @@
  * The facts, the configuration and the waivers a composition reads arrive as values: nothing in this package reads a
  * store of the plan to compose an instance.
  */
+@NullMarked
 package de.planmarshall.workflow.plan;
+
+import org.jspecify.annotations.NullMarked;

@@ -14,4 +14,7 @@
  * Specification: {@code doc/specification/phase-workflows/03-q-gate-and-execute.adoc} (Single-Writer {@code
  * change_type} Contract).
  */
+@NullMarked
 package de.planmarshall.workflow.classification;
+
+import org.jspecify.annotations.NullMarked;

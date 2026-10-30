@@ -12,4 +12,7 @@
  * <p>
  * Specification: {@code doc/specification/domain-extensions/01-four-axis-architecture.adoc}.
  */
+@NullMarked
 package de.planmarshall.core.domain;
+
+import org.jspecify.annotations.NullMarked;

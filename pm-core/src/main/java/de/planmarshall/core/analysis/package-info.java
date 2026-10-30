@@ -40,4 +40,7 @@
  * {@code pm-runtime} ({@code pm-runtime/doc/developer/runtime-job.adoc}, Outcome Derivation)</li>
  * </ul>
  */
+@NullMarked
 package de.planmarshall.core.analysis;
+
+import org.jspecify.annotations.NullMarked;

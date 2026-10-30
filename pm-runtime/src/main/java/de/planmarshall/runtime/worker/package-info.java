@@ -33,4 +33,7 @@
  * </ul>
  * Developer guide: {@code pm-runtime/doc/developer/runtime-worker.adoc}.
  */
+@NullMarked
 package de.planmarshall.runtime.worker;
+
+import org.jspecify.annotations.NullMarked;

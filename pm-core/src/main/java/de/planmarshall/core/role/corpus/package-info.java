@@ -21,4 +21,7 @@
  * <p>
  * Specification: {@code doc/specification/model-work/01-roles-and-configuration.adoc} § Role Qualification.
  */
+@NullMarked
 package de.planmarshall.core.role.corpus;
+
+import org.jspecify.annotations.NullMarked;

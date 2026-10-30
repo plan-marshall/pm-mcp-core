@@ -23,4 +23,7 @@
  * <li>{@code doc/specification/client-profiles/02-placeholders.adoc}</li>
  * </ul>
  */
+@NullMarked
 package de.planmarshall.core.profile;
+
+import org.jspecify.annotations.NullMarked;

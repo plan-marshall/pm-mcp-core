@@ -14,4 +14,7 @@
  * CDI, Vert.x or MCP type; the assembly {@code pm-mcp-server} produces its services through CDI.
  * The log messages of the daemon are registered in {@code RuntimeLogMessages} of the package {@code log}.
  */
+@NullMarked
 package de.planmarshall.runtime;
+
+import org.jspecify.annotations.NullMarked;

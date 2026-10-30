@@ -23,4 +23,7 @@
  * ({@link de.planmarshall.provider.http.TokenSource}) and the JSON tree of a provider body
  * ({@link de.planmarshall.provider.http.Json}). A provider adapter builds its contract on it.
  */
+@NullMarked
 package de.planmarshall.provider.http;
+
+import org.jspecify.annotations.NullMarked;

@@ -12,4 +12,7 @@
  * <p>
  * Specification: {@code doc/specification/domain-extensions/05-recipes-and-extension-points.adoc}.
  */
+@NullMarked
 package de.planmarshall.core.recipe;
+
+import org.jspecify.annotations.NullMarked;

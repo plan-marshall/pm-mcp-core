@@ -52,4 +52,7 @@
  * refusal with a closed reason; a refusal is a value, never an exception. The resolver is no member of
  * {@link de.planmarshall.workflow.engine.WorkflowEngine.Ports}.
  */
+@NullMarked
 package de.planmarshall.workflow.engine;
+
+import org.jspecify.annotations.NullMarked;

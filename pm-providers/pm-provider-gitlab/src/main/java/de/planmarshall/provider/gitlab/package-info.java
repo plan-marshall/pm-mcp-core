@@ -13,4 +13,7 @@
  * variant ({@link de.planmarshall.provider.gitlab.GlabCommands}), which pass every body through
  * standard input, never as an argument or a file.
  */
+@NullMarked
 package de.planmarshall.provider.gitlab;
+
+import org.jspecify.annotations.NullMarked;
