@@ -39,10 +39,10 @@ public final class StoreSnapshot {
     private static final String STORE = "store";
 
     private final Path file;
-    private final @Nullable byte[] content;
+    private final byte @Nullable [] content;
     private final StoreIntegrity integrity;
 
-    private StoreSnapshot(Path file, @Nullable byte[] content, StoreIntegrity integrity) {
+    private StoreSnapshot(Path file, byte @Nullable [] content, StoreIntegrity integrity) {
         this.file = file;
         this.content = content;
         this.integrity = integrity;

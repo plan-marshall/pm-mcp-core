@@ -282,18 +282,21 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
         var denied = new ArrayList<Path>();
         denied.add(base);
         sessionBusSocket.ifPresent(denied::add);
-        var noContainer = enrolment == null || enrolment.containerEngine() == null;
-        if (noContainer) {
-            for (var socket : CONTAINER_SOCKETS) {
-                denied.add(Path.of(socket));
-            }
-            sessionBusSocket.map(Path::getParent)
-                    .ifPresent(parent -> denied.add(parent.resolve("docker.sock")));
-            if (enrolment != null) {
-                unixDockerHost(enrolment.buildEnvironment()).ifPresent(denied::add);
-            }
+        if (enrolment == null) {
+            denyContainerSockets(denied);
+        } else if (enrolment.containerEngine() == null) {
+            denyContainerSockets(denied);
+            unixDockerHost(enrolment.buildEnvironment()).ifPresent(denied::add);
         }
         return denied;
+    }
+
+    private void denyContainerSockets(List<Path> denied) {
+        for (var socket : CONTAINER_SOCKETS) {
+            denied.add(Path.of(socket));
+        }
+        sessionBusSocket.map(Path::getParent)
+                .ifPresent(parent -> denied.add(parent.resolve("docker.sock")));
     }
 
     private static Optional<Path> unixDockerHost(SortedMap<String, String> environment) {

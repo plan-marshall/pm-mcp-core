@@ -52,7 +52,7 @@ public final class JsonDocument {
      * @return the tree of the document
      * @throws ProfileRefusal if the document is too large, is not JSON, or breaks a bound of the reader
      */
-    public static JsonNode parse(@Nullable byte[] document, String name) {
+    public static JsonNode parse(byte @Nullable [] document, String name) {
         if (document == null) {
             throw ProfileRefusal.unreadable(name, "the document is absent");
         }

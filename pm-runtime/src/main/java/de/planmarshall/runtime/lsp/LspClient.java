@@ -50,7 +50,6 @@ import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.launch.LSPLauncher;
 import org.eclipse.lsp4j.services.LanguageServer;
-import org.jspecify.annotations.Nullable;
 
 /**
  * One language-server instance: a child process spoken to over {@code stdio} with LSP4J.

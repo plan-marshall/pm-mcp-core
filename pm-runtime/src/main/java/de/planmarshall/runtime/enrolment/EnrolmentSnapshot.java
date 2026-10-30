@@ -24,10 +24,10 @@ final class EnrolmentSnapshot {
 
     private static final EnrolmentSnapshot ABSENT = new EnrolmentSnapshot(null, null);
 
-    private final @Nullable byte[] content;
+    private final byte @Nullable [] content;
     private final @Nullable String violation;
 
-    private EnrolmentSnapshot(@Nullable byte[] content, @Nullable String violation) {
+    private EnrolmentSnapshot(byte @Nullable [] content, @Nullable String violation) {
         this.content = content;
         this.violation = violation;
     }
