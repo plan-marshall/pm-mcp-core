@@ -13,7 +13,7 @@ lane: runbook
 > See `persona-plan-orchestrator/standards/orchestration-model.md` for the tier and
 > hand-off contract.
 >
-> Origin: the skills conformance audit of 2026-10-30 (`skills-audit-2026-10-30.md` in the epic directory), taken at `origin/main` `6847c748`, and the operator's decisions of the same day (Decisions in `epic.md`). The plan family is PLAN-V2-83 to PLAN-V2-106 (workstream WS-11, with PLAN-V2-95 and PLAN-V2-96 in WS-05); it runs first, except PLAN-V2-96, which follows PLAN-V2-31.
+> Origin: the skills conformance audit of 2026-10-30 (`skills-audit-2026-10-30.md` in the epic directory), taken at `origin/main` `6847c748`, and the operator's decisions of the same day (Decisions in `epic.md`). The plan family is PLAN-V2-83 to PLAN-V2-108 (workstream WS-11, with PLAN-V2-95 and PLAN-V2-96 in WS-05); it runs first, except PLAN-V2-96, which follows PLAN-V2-31.
 
 ## First Instruction: Read The Standing Rules
 
@@ -37,7 +37,7 @@ Plan parameters (the values the rules ask for):
 1. **Inventory and the rule.** List every class under `src/test/java` (and the shared test JAR of `pm-runtime`) whose name starts with `Fake`, `Stub`, `Recording` or `Failing` or that is a fixture holding such a class: `git grep -l -E '(class|record|interface) (Fake|Stub|Recording|Failing)' -- '*/src/test/java/*.java'`. For each, decide and record in the pull request body: replaced by an EasyMock double (the default), or kept because it is a real in-memory implementation that many tests share and an EasyMock double would only restate it — in that case the entry names the reason, and the operator is told in the landing (the decision was 'replace the fakes').
 2. **Replace in `pm-core`, `pm-workflow` and the providers (test first: the tests are the guard).** Convert the recorders and failing sinks (`RecordingAuditSink`, `RecordingLockManager`, `FailingAuditSink`, `FailingCreateLocks`, the fixtures of `engine`, `model`, `scenario`, `task`) to EasyMock mocks and captures (`Capture`, `expectLastCall`), keeping each test's assertion intact.
 3. **Replace in `pm-runtime`.** The same for `FakePmExec`, `RecordingProcessCall`, `RecordingAuditSink` (runtime `lock`), `SupervisorTestFixture`, `RecoveryStepFixtures` and the fixtures of the endpoint tests.
-4. **The shared test JAR.** `pm-runtime` builds a test JAR (`TestBases`, `FakeBus`, `FakeSecretService`) that the assembly's tests in `plan-marshall-mcp` use. Converting these changes that JAR's API: the pull request body lists every removed or changed class under **Owed outside this repository**, and the plan opens (or lists for the operator) the matching pull request in `plan-marshall-mcp`; pre-1.0, no shim, so the SNAPSHOT consumers break until that pull request merges.
+4. **The shared test JAR.** `pm-runtime` builds a test JAR (`TestBases`, `FakeBus`, `FakeSecretService`) that the assembly's tests in `plan-marshall-mcp` use. Converting these changes that JAR's API: the pull request body lists every removed or changed class under **Owed outside this repository**, and the plan prepares the matching change for `plan-marshall-mcp` (the lane may not edit another repository: the change goes into the pull request body as a patch and into the operator's list); pre-1.0, no shim, so the SNAPSHOT consumers break until that pull request merges.
 
 **Done when:** `git grep -l -E '(class|record|interface) (Fake|Stub|Recording|Failing)' -- '*/src/test/java/*.java'` finds only the entries kept with a reason; EasyMock is the only test-double library; all tests of the touched classes pass with the same method count; the owed list for `plan-marshall-mcp` is in the pull request body. **Sonar:** the SonarCloud search of the pull request (`pullRequest=<N>&resolved=false`) lists no open issue other than one dismissed with its reason, and its quality gate is green, before the pull request is reported ready. **Build:** `verify -Ppre-commit` (its rewrites reviewed and committed), then `verify` of every module the plan changes (where a full run does not finish inside the host's bound, the targeted `-Dtest` runs of the changed classes and the per-module run, each reported in the pull request body), `verify -Pcoverage` and, for `pm-core` and `pm-runtime`, `verify -Pintegration-tests -pl <module> -am` are green. **Links:** run the links check (R17) from the main checkout against the documentation checkout at its `origin/main`.
 
@@ -77,7 +77,7 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, `doc/LogMes
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-V2-83 (EasyMock), PLAN-V2-85 to 93 (the test migrations), PLAN-V2-97 to 99 (they change signatures of the doubled types).
+- Depends on: PLAN-V2-83 (EasyMock), PLAN-V2-107 (the generator artifacts: the shared test JAR is published in that shape), PLAN-V2-85 to 93 (the test migrations), PLAN-V2-97 to 99 (they change signatures of the doubled types).
 - PLAN-V2-101 to 105 (assertion messages) depend on this plan.
 - Overlaps by directory with the test migrations; it runs after them.
 

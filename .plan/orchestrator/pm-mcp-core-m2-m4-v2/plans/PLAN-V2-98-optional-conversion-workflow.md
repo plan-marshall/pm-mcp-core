@@ -13,7 +13,7 @@ lane: runbook
 > See `persona-plan-orchestrator/standards/orchestration-model.md` for the tier and
 > hand-off contract.
 >
-> Origin: the skills conformance audit of 2026-10-30 (`skills-audit-2026-10-30.md` in the epic directory), taken at `origin/main` `6847c748`, and the operator's decisions of the same day (Decisions in `epic.md`). The plan family is PLAN-V2-83 to PLAN-V2-106 (workstream WS-11, with PLAN-V2-95 and PLAN-V2-96 in WS-05); it runs first, except PLAN-V2-96, which follows PLAN-V2-31.
+> Origin: the skills conformance audit of 2026-10-30 (`skills-audit-2026-10-30.md` in the epic directory), taken at `origin/main` `6847c748`, and the operator's decisions of the same day (Decisions in `epic.md`). The plan family is PLAN-V2-83 to PLAN-V2-108 (workstream WS-11, with PLAN-V2-95 and PLAN-V2-96 in WS-05); it runs first, except PLAN-V2-96, which follows PLAN-V2-31.
 
 ## First Instruction: Read The Standing Rules
 
@@ -82,7 +82,7 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, `doc/LogMes
 ## Dependencies and Sequencing
 
 - Depends on: PLAN-V2-83 (the dependencies and rule R20) and PLAN-V2-84 and PLAN-V2-88 (the workflow tests are migrated first).
-- PLAN-V2-100 depends on this plan.
+- PLAN-V2-108 (`@Builder`, the other modules) depends on this plan.
 - Overlaps by directory with every plan that edits production code of `pm-workflow`; it runs in the conformance wave.
 
 ## Hand-Off Command

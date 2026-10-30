@@ -1,11 +1,11 @@
 {
   "id": "PLAN-V2-100",
-  "slug": "builders-for-large-records",
+  "slug": "builders-for-records-core",
   "workstream": "WS-11",
   "status": "staged",
   "lane": "runbook",
   "plan_marshall_plan_id": "",
   "pr": "",
   "landing": "",
-  "seq": -7
+  "seq": -8
 }

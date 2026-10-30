@@ -13,7 +13,7 @@ lane: runbook
 > See `persona-plan-orchestrator/standards/orchestration-model.md` for the tier and
 > hand-off contract.
 >
-> Origin: the skills conformance audit of 2026-10-30 (`skills-audit-2026-10-30.md` in the epic directory), taken at `origin/main` `6847c748`, and the operator's decisions of the same day (Decisions in `epic.md`). The plan family is PLAN-V2-83 to PLAN-V2-106 (workstream WS-11, with PLAN-V2-95 and PLAN-V2-96 in WS-05); it runs first, except PLAN-V2-96, which follows PLAN-V2-31.
+> Origin: the skills conformance audit of 2026-10-30 (`skills-audit-2026-10-30.md` in the epic directory), taken at `origin/main` `6847c748`, and the operator's decisions of the same day (Decisions in `epic.md`). The plan family is PLAN-V2-83 to PLAN-V2-108 (workstream WS-11, with PLAN-V2-95 and PLAN-V2-96 in WS-05); it runs first, except PLAN-V2-96, which follows PLAN-V2-31.
 
 ## First Instruction: Read The Standing Rules
 
@@ -34,7 +34,7 @@ The audit found that effectively every test of pm-core builds its data from lite
 
 ## Deliverables
 
-1. **Generated test data in every test class of the scope (class by class, no test removed).** For each test class in the test classes of `pm-core` outside `core/store/`: `role`, `role/corpus`, `role/qualification`, `queue`, `profile`, `config`, `spi`, `spi/validation`, `analysis`, `findings`, `service`, `toon`, `guard`, `log` and the root classes (`SpecificationDocument`, `ProductCorpus`, `BuildGuardsIT`): enable the generator controller, replace every literal that is not a contract (see the Standing Constraints) by `Generators.*` data (`letterStrings`, `integers`, `longs`, `bytes`, `fixedValues`, `@GeneratorsSource` for the parameterized tests with three or more variants), and keep the assertions equivalent. Test first in the sense that the existing tests are the guard: run the class before and after, same method count. Start with the helper and fixture classes of the scope, because the other classes call them.
+1. **Generated test data in every test class of the scope (class by class, no test removed).** For each test class in the test classes of `pm-core` outside `core/store/`: `role`, `role/corpus`, `role/qualification`, `queue`, `profile`, `config`, `spi`, `spi/validation`, `analysis`, `findings`, `service`, `toon`, `guard`, `log` and the root classes (`SpecificationDocument`, `ProductCorpus`, `BuildGuardsIT`): enable the generator controller, replace every literal that is not a contract (see the Standing Constraints) by `Generators.*` data (`letterStrings`, `integers`, `longs`, `bytes`, `fixedValues`, `@GeneratorsSource` for the parameterized tests with three or more variants), and keep the assertions equivalent. Test first in the sense that the existing tests are the guard: run the class before and after, same method count. Start with the helper and fixture classes of the scope, because the other classes call them. **Reuse before you write:** where a typed generator for a domain type already exists in a generator artifact (PLAN-V2-107: `CoreGenerators` of `pm-core`, `HttpGenerators` of `pm-provider-http`, the module's own), use it; a new generator for a type of this module goes into this module's generator artifact, not into a test class, and a type of another module is taken from that module's artifact.
 2. **Contract tests for the value classes of the scope.** `JsonNode`, `LoadedProfile`, `ProfileSets` (package `profile`), `RoleSets` (package `role`) and `SourceFetch` (package `role.corpus`) have hand-written `equals`/`hashCode`: each gets a contract test through `ShouldHandleObjectContracts` (`<Class>ContractTest`, new).
 3. **Test hygiene of the scope.** The 14 AAA phase comments of `SchemaSubsetTest` (`role/corpus`, lines 142 to 148 and others) are removed (the skill forbids them; the structure stays). The `@Disabled` tests of the scope (`FindingSchemaParityTest` line 142 and others; each carries a reason) are re-read: one whose reason no longer holds is enabled, the others are listed in the pull request body with their reason — no decision is taken here.
 4. **Log assertions of the scope.** The five `CoreLogMessages` records are asserted by constant with `LogAsserts` (the audit found 5 of 5 covered; keep it so while the classes are touched).
@@ -79,7 +79,7 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, `doc/LogMes
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies) and PLAN-V2-84 (`null-safety-nullmarked`: it changes signatures and tests of the same classes).
+- Depends on: PLAN-V2-83 (`skills-conformance-foundation`: the dependencies), PLAN-V2-107 (`generator-artifacts`: the shared domain generators) and PLAN-V2-84 (`null-safety-nullmarked`: it changes signatures and tests of the same classes).
 - Siblings of the family (disjoint packages, run in parallel): PLAN-V2-85 to PLAN-V2-92 each own other test packages.
 - Overlaps: by directory with every plan that edits a test of these packages (R19 replacement): the orchestrator pairs them and runs this plan first.
 
