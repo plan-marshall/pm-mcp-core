@@ -9,14 +9,14 @@
  */
 package de.planmarshall.core.profile;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-
-import org.jspecify.annotations.Nullable;
 
 /**
  * The validated values of an endpoint profile (PM-CLIENT-2, Client Profiles § Endpoint Profile Schema): the profile of
@@ -159,7 +159,7 @@ public record EndpointProfile(String clientId, @Nullable String executable, @Nul
      * @since 0.1
      */
     public record WeightsProbe(String source, @Nullable String pointer, @Nullable List<String> argv,
-            @Nullable String pattern) {
+    @Nullable String pattern) {
 
         /** Copies the argument vector. */
         public WeightsProbe {

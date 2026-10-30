@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.role.qualification;
 
+import org.jspecify.annotations.Nullable;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Collections;
@@ -19,8 +21,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
-
-import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.role.RoleForm;
