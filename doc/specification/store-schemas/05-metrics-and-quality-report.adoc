@@ -258,6 +258,7 @@ The plan's `quality-report.json` is written once per firing of `default:plan-ret
           }
         },
         "coverage": { "$ref": "#/$defs/count" },
+        "second_reading_yield": { "description": "Committed findings of the second code reading that no finding of the first duplicates, over all committed findings of the two readings (Phase Workflows Specification, second-code-reading); withheld where the plan ran one reading." },
         "escape_distance": { "type": "object", "description": "Per detecting stage (build, self_review, automatic_review, human): one $defs/count." }
       }
     },

@@ -551,3 +551,15 @@ deliverable-mandated pins reverted at push); API-Sheriff `2026-09-17-refresh-fai
 `requireNonNull` checks removed by `simplify`, approved, never re-reviewed); plan-marshall's commitment reconcile
 that returned `clear` over zero commitments (findings `b2153c`, `728523`, `418f3d`).
 Source:: Article analysis `fixing-over-engineering` of plan-marshall-documentation.
+
+[#PM-WATCH-EXT-40]
+=== PM-WATCH-EXT-40: Mined review rules neither leak the held-out set nor launder a comment
+
+Anchor:: link:../specification/domain-extensions/05-recipes-and-extension-points.adoc#review-history[Domain Extensions § Review History]
+Hazard:: A comment reaches a later review as the project's own words, carrying an injection the screener missed; a
+held-out pull request reaches the mining task through a linked comment or a search, so a later comparison grades the
+skill on what it was written from; a draft is written without the operator's act.
+Guard:: Scenario over a fixture repository: a comment with an injected instruction ends as a draft marked untrusted and
+shows that mark in the operator's review; the task's facts and tools hold no held-out number; no skill file exists
+before the operator takes a draft. Matched control: a run over a repository without review comments ends `no_change`.
+Source:: Article analysis `review-like-my-team` of plan-marshall-documentation.
