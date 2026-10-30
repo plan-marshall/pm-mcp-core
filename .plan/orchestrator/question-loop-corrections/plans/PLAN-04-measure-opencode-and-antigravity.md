@@ -54,6 +54,9 @@ Done When.
   rule that every figure comes from the stub's event log, the relay's host-side log and the worker's output: as stated in
   PLAN-03's Standing Constraints "Scale revision" and recorded in the package by PLAN-03; this plan applies them and
   changes none of them. A verdict states its run count and the client version, never "passed at the specified scale".
+- Q6's quorum (operator, 2026-10-30): the quorum of the two vote links moved here from PLAN-03, which runs only Q6's
+  consultation part on Claude Code. It votes on Claude Code and OpenCode, so this plan's budget includes its Claude Code
+  voter runs.
 - Re-measure before relying on a PLAN-03 value of the same host: harness versions move nearly daily, so a launch weeks
   after PLAN-03 first checks the client versions in the PLAN-03 rows against the installed ones and says which of those
   rows it re-ran.
@@ -103,10 +106,11 @@ Done When.
 
 ## Hand-Off Command
 
-Run in the `plan-marshall-mcp` checkout (the package is that repository's), only once the launch conditions hold:
+Run in the `plan-marshall-mcp` checkout (the package is that repository's), on `main`, only once the launch conditions
+hold. The epic lives in `pm-mcp-core`, so the pointer names the ledger copy of the spec from the sibling checkout:
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/question-loop-corrections/plans/PLAN-04-measure-opencode-and-antigravity.md"
+/plan-marshall task="implement ../pm-mcp-core/.plan/local/worktrees/_orchestrator/.plan/orchestrator/question-loop-corrections/plans/PLAN-04-measure-opencode-and-antigravity.md"
 ```
 
 ## Write-Boundary
@@ -117,3 +121,5 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+This epic does not resolve in the store of `plan-marshall-mcp`, so this plan files no inbox message: it reports through
+its PR and its final report, and the orchestrator analyzes the landing from those.

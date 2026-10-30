@@ -32,7 +32,7 @@ file is their only source. In outline, restricted to Claude Code where a task me
 2. The experiment's durable parts as maintained code (task 1), the evidence store `question-loop-follow-up` created and
    pushed to before the first measured run, and the decisions of task 2 and the Codex exclusion of task 5 that belong
    to this part.
-3. The run plan for the Claude Code groups (task 6, budget recomputed for those groups and confirmed by the operator),
+3. The parallel limit of Claude Code (see Standing Constraints), then the run plan for the Claude Code groups at that limit (task 6, budget recomputed for those groups and confirmed by the operator),
    and the re-measurement of Q1 to Q7 and R1 to R4 on Claude Code (tasks 7 to 11 restricted to that host), with the
    client version of every run and the evidence in the store.
 4. The results in the evaluation reference and the settled Claude Code values recorded with their evidence in the package
@@ -41,7 +41,7 @@ file is their only source. In outline, restricted to Claude Code where a task me
 
 **Done when**: the package's own Done When is met item by item for Claude Code, read at the revised scale (its
 "specified scale" and "20 runs per fixture and host" read as the Standing Constraint "Scale revision" states, with the
-package amended to say so), every published figure has its source in the evidence store, and every OpenCode and
+package amended to say so), the parallel limit is published with its per-level figures, every published figure has its source in the evidence store, and every OpenCode and
 Antigravity item of the package is recorded as handed to PLAN-04, none silently dropped.
 
 ## Standing Constraints
@@ -50,6 +50,25 @@ Antigravity item of the package is recorded as handed to PLAN-04, none silently 
   (task 6 of the package names about 55 USD and about 240 h as the default, an estimate from the smoke figures; the
   operator has asked for the smaller scale below and for the Claude Code groups alone, and task 6 recomputes the
   budget for them, which the operator then confirms or replaces).
+- Run budget (operator, 2026-10-30): a cap of 60 USD of harness invocations for the Claude Code groups. Estimate from the
+  smoke figures: 33 to 42 USD for the base runs with the parallel-limit runs below, 44 to 55 USD with Q5's further bounds and
+  groups extended to 10. R4 large work runs last and stops at the cap; what it did not reach is recorded as
+  not run. The Sonnet repeats of task 11 are not in the cap and each needs the operator's word.
+- Parallel limit of Claude Code (operator, 2026-10-30): an additional finding of this plan, because how many workers
+  Claude Code sustains at once is unmeasured and also decides the wall time of this measurement. The package amendment
+  adds it as a step before the run plan of task 6.
+  - *Method.* Run one cheap group of 24 runs with the fixed driver, at 1 worker at a time (the reproduction of task 1,
+    no extra runs), then at 3 and 6, and at 12 only if 6 was clean. Stop at the first level that degrades.
+  - *What is read per level.* Rate-limit and quota refusals, runs lost or timed out, the item's verdict and counts against
+    level 1, the time from ask to `pm_wait` or to the end of the turn, cost per run, and the wall time. Figures come from the
+    stub's event log, the relay's log and the worker's output, with the client version and the model.
+  - *Rule, fixed before the first of these runs.* The limit is the highest level at which no refusal occurred, no run was
+    lost, and verdict and counts stay within one run of level 1. The measured runs use that level, and each run records
+    its level. A failure seen only above level 1 is a finding about parallelism and is repeated at level 1 before it
+    counts against an item.
+  - *Limits of the result.* It is a statement about this account, machine, model and version, and about `claude-haiku-4-5`
+    only; it is published in the Evaluation Reference and the developer document with those named, and it is no
+    specified or shipped value. The criteria of the items do not change.
 - Host split (operator, 2026-10-29; reason: the harnesses change nearly daily, so a measured value is a statement about
   the client versions it was measured on; the OpenCode 2.x profile (Roadmap Milestone 14) and the shipped profile
   documents of `pm-mcp-clients` have no work package, so OpenCode and Antigravity values have no consumer yet, and
@@ -65,6 +84,8 @@ Antigravity item of the package is recorded as handed to PLAN-04, none silently 
     recorded as host-specific. Whether one bound spans the hosts is PLAN-04's to close.
   - A `questions` value or `resumability` form of a shipped role or host this plan did not measure stays as shipped
     (`false`, `null`, open) and is named so for `client-profile-measured-values`.
+  - Q6 (operator, 2026-10-30): the quorum of the two vote links votes on two harnesses, and it moves to PLAN-04. This plan
+    runs Q6's consultation part on Claude Code, and the package amendment names the quorum as PLAN-04's part.
 - Antigravity availability (operator, 2026-10-28 18:10 CET: "available in 2 d 13 h", about 2026-10-31 07:10 CET) and
   every OpenCode and Antigravity run condition (the inline settings and their effect check, the data home) now bind
   PLAN-04, not this plan. This plan runs no OpenCode and no Antigravity group.
@@ -150,10 +171,11 @@ Antigravity item of the package is recorded as handed to PLAN-04, none silently 
 
 ## Hand-Off Command
 
-Run in the `plan-marshall-mcp` checkout (the package is that repository's):
+Run in the `plan-marshall-mcp` checkout (the package is that repository's), on `main`. The epic lives in `pm-mcp-core`,
+so the pointer names the ledger copy of the spec from the sibling checkout (operator, 2026-10-30):
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/question-loop-corrections/plans/PLAN-03-run-follow-up-measurement.md"
+/plan-marshall task="implement ../pm-mcp-core/.plan/local/worktrees/_orchestrator/.plan/orchestrator/question-loop-corrections/plans/PLAN-03-run-follow-up-measurement.md"
 ```
 
 ## Write-Boundary
@@ -164,3 +186,5 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+This epic does not resolve in the store of `plan-marshall-mcp`, so this plan files no inbox message: it reports through
+its PR and its final report, and the orchestrator analyzes the landing from those.
