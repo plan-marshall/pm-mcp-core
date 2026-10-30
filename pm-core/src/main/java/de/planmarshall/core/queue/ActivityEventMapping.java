@@ -100,7 +100,7 @@ public record ActivityEventMapping(String kindPointer, Map<ActivityEntry.Kind, K
      * @param value the value of the kind pointer of a line
      * @return the kind that value selects, if any
      */
-    public Optional<ActivityEntry.Kind> kindOf(String value) {
+    public Optional<ActivityEntry.Kind> kindOf(@Nullable String value) {
         if (value == null) {
             return Optional.empty();
         }

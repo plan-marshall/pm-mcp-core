@@ -232,7 +232,8 @@ public record ChangeLedgerRecord(Kind kind, String worktreeSha, int worktreeShaV
      * @param signal    the terminating signal, or {@code null}
      * @since 0.1
      */
-    public record WorktreeShaFailure(List<String> command, FailureKind failure, Integer exitCode, Integer signal) {
+    public record WorktreeShaFailure(List<String> command, FailureKind failure, @Nullable Integer exitCode,
+    @Nullable Integer signal) {
 
         /** How the git invocation failed. */
         public enum FailureKind {

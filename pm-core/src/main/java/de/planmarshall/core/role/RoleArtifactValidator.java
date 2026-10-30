@@ -19,6 +19,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import org.jspecify.annotations.Nullable;
+
 import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.profile.ProfileRefusal;
@@ -215,7 +217,7 @@ public final class RoleArtifactValidator {
             return skills;
         }
 
-        private Optional<RoleArtifact.Recycling> recycling(JsonNode node, RoleForm form) {
+        private Optional<RoleArtifact.Recycling> recycling(@Nullable JsonNode node, RoleForm form) {
             if (form == RoleForm.FRESH) {
                 if (node != null) {
                     throw invalid("/recycling", "a fresh role has no recycling");
@@ -235,7 +237,7 @@ public final class RoleArtifactValidator {
             return Optional.of(new RoleArtifact.Recycling(idleWakeups, tokenBudget, tasksPerGeneration));
         }
 
-        private Optional<Integer> contextBudget(JsonNode node) {
+        private Optional<Integer> contextBudget(@Nullable JsonNode node) {
             if (node == null) {
                 return Optional.empty();
             }
@@ -243,7 +245,7 @@ public final class RoleArtifactValidator {
                     Integer.MAX_VALUE));
         }
 
-        private Optional<RoleArtifact.Questions> questions(JsonNode node, RoleClass roleClass) {
+        private Optional<RoleArtifact.Questions> questions(@Nullable JsonNode node, RoleClass roleClass) {
             if (node == null) {
                 return Optional.empty();
             }

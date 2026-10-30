@@ -519,7 +519,7 @@ public final class ProfileValidator {
             }
         }
 
-        private void endpointPath(JsonNode path, String pointer, String name) {
+        private void endpointPath(@Nullable JsonNode path, String pointer, String name) {
             if (path == null || path.isNull()) {
                 return;
             }
@@ -533,7 +533,7 @@ public final class ProfileValidator {
          * @param node the value of a member the schema types {@code [string, null]}
          * @return the string, or {@code null} for the JSON null
          */
-        private String optionalText(JsonNode node, String pointer, String name, int max) {
+        private String optionalText(@Nullable JsonNode node, String pointer, String name, int max) {
             return node == null || node.isNull() ? null : text(node, pointer, name, max);
         }
 
@@ -1196,7 +1196,7 @@ public final class ProfileValidator {
             }
         }
 
-        private void enforcedClasses(JsonNode headless, JsonNode restricted, String pointer) {
+        private void enforcedClasses(JsonNode headless, @Nullable JsonNode restricted, String pointer) {
             var enforced = enforcedClass(headless);
             if (enforced && (restricted == null || restricted.isNull())) {
                 throw invalid(pointer + PTR_RESTRICTED_MODELS,

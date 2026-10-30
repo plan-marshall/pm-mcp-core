@@ -74,7 +74,7 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
      * @param startContext the start context of the stage {@code usage}; empty for another stage
      * @since 0.1
      */
-    public record Stage(String status, Map<String, String> results, Integer trials,
+    public record Stage(String status, Map<String, String> results, @Nullable Integer trials,
     List<ProfileStages.StartContext> startContext) {
 
         /** The closed statuses of a stage. */

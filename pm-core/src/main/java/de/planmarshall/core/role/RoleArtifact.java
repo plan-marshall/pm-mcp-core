@@ -110,7 +110,7 @@ String harness, String model, EffortValue effort, RoleForm form, int count, List
      * @param tasksPerGeneration  the tasks a generation takes before it is recycled; {@code null} unbounded
      * @since 0.1
      */
-    public record Recycling(Integer idleWakeups, int tokenBudget, Integer tasksPerGeneration) {
+    public record Recycling(@Nullable Integer idleWakeups, int tokenBudget, @Nullable Integer tasksPerGeneration) {
 
         /**
          * @throws IllegalArgumentException if the token budget is below the schema's minimum

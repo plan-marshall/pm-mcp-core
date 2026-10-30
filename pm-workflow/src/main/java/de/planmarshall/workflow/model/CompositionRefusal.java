@@ -113,9 +113,9 @@ public final class CompositionRefusal extends RuntimeException {
         return stateId;
     }
 
-    /** @return the class of the role; {@code null} when the role is undefined */
-    public RoleClass roleClass() {
-        return roleClass;
+    /** @return the class of the role; empty when the role is undefined */
+    public Optional<RoleClass> roleClass() {
+        return Optional.ofNullable(roleClass);
     }
 
     /** @return the classes the use admits; empty when the role is undefined */

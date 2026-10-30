@@ -100,9 +100,9 @@ public record EndpointProfile(String clientId, @Nullable String executable, @Nul
      *                              loopback form
      * @since 0.1
      */
-    public record Endpoint(String protocol, String locality, String baseUrl, String readinessPath, String modelsPath,
-    String modelsPointer, String resultSchema, int contextTokens, int answerReserveTokens,
-    int requestTimeoutSeconds, String credentialKey) {
+    public record Endpoint(String protocol, String locality, String baseUrl, @Nullable String readinessPath,
+    String modelsPath, String modelsPointer, String resultSchema, int contextTokens, int answerReserveTokens,
+    int requestTimeoutSeconds, @Nullable String credentialKey) {
 
         /**
          * @param protocol              {@code openai_chat} or {@code system_one}

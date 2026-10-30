@@ -39,7 +39,8 @@ class NullMarkedPackagesTest {
 
     private static final String PACKAGE_INFO = "package-info.java";
 
-    private static final Pattern NULL_MARKED_DECLARATION = Pattern.compile("(?m)^\\s*@NullMarked\\b");
+    private static final Pattern NULL_MARKED_DECLARATION =
+            Pattern.compile("(?m)^\\s*@(?:org\\.jspecify\\.annotations\\.)?NullMarked\\b");
 
     @Test
     @DisplayName("every production package of the reactor is @NullMarked")
@@ -92,6 +93,13 @@ class NullMarkedPackagesTest {
     }
 
     private static Path repositoryRoot() {
+        var configured = System.getProperty("pm.root");
+        if (configured != null && !configured.isBlank()) {
+            var candidate = Path.of(configured).toAbsolutePath().normalize();
+            if (Files.isDirectory(candidate.resolve("pm-core"))) {
+                return candidate;
+            }
+        }
         var current = Path.of("").toAbsolutePath().normalize();
         for (var candidate = current; candidate != null; candidate = candidate.getParent()) {
             if (Files.isDirectory(candidate.resolve("pm-core"))

@@ -211,7 +211,7 @@ String corpusRevision, List<String> missedSources, Map<RoleForm, FormResult> for
      * @since 0.1
      */
     public record ItemResult(String itemId, RoleForm form, Checkout checkout, JsonNode answer, Grade score,
-    TokenTotal totalTokens, Long durationMs) {
+    TokenTotal totalTokens, @Nullable Long durationMs) {
 
         /**
          * @throws IllegalArgumentException if the item carries no id or a negative duration

@@ -126,7 +126,7 @@ public record QualificationCheck(RoleTopics topics, List<ImportedItem> items, Qu
     /**
      * @param entry the record
      * @param form the form
-     * @return the share of the runs of the {@code suspicious} items answered {@code suspicious}; {@code null} when the
+     * @return the share of the runs of the {@code suspicious} items answered {@code suspicious}; empty when the
      *         role's corpus has no such item or the form was not graded
      */
     public Optional<BigDecimal> catchRate(QualificationRecord entry, RoleForm form) {

@@ -228,9 +228,9 @@ public final class LossDetection {
         return startFailure;
     }
 
-    /** @return the queue task the worker holds; {@code null} while it holds none */
-    public synchronized String leasedTask() {
-        return leasedTask;
+    /** @return the queue task the worker holds; empty while it holds none */
+    public synchronized Optional<String> leasedTask() {
+        return Optional.ofNullable(leasedTask);
     }
 
     /** Stops every deadline; the generation settled by another cause. */
