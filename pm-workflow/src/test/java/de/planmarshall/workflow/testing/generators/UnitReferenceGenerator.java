@@ -18,7 +18,8 @@ import de.planmarshall.workflow.plan.UnitReference;
 
 /**
  * Generates a valid {@link UnitReference} of a project unit: a generated unit id, its file and a 64-digit lower-case
- * hexadecimal digest (the record checks the shape, not that it hashes the unit text).
+ * hexadecimal digest. The record only requires the digest to be present; the generator's test asserts the wire shape,
+ * and nothing hashes the unit text.
  *
  * @since 0.1
  */
