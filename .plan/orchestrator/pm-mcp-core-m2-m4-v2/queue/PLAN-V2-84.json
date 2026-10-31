@@ -2,10 +2,10 @@
   "id": "PLAN-V2-84",
   "slug": "null-safety-nullmarked",
   "workstream": "WS-11",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-84-null-safety-nullmarked",
+  "pr": "255, 256, 257, 258, 261",
+  "landing": "landings/PLAN-V2-84.md",
   "seq": -24
 }
