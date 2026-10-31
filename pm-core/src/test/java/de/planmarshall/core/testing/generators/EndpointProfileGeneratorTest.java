@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.net.URI;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -38,7 +39,14 @@ class EndpointProfileGeneratorTest {
                 () -> assertNotEquals(first, second, "Two calls yield distinct values"),
                 () -> assertEquals("openai_chat", first.endpoint().protocol(), "The protocol is the chat protocol"),
                 () -> assertTrue(first.endpoint().baseUrl().startsWith("http://127.0.0.1:"),
-                        "The base URL is a loopback endpoint"));
+                        "The base URL is a loopback endpoint"),
+                () -> assertTrue(portInRange(first.endpoint().baseUrl()),
+                        "The base URL carries a port in range"));
+    }
+
+    private static boolean portInRange(String baseUrl) {
+        var port = URI.create(baseUrl).getPort();
+        return port >= 1 && port <= 65_535;
     }
 
     @Test
