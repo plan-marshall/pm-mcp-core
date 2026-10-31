@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
@@ -52,8 +54,8 @@ import de.planmarshall.core.store.WorkflowStatus.PendingCondition;
  */
 @With
 @Builder(toBuilder = true)
-public record PendingEntryRecord(EntryId entryId, Kind kind, String requestedId, String hint, String fromEpic,
-Instant createdAt, Instant updatedAt, Bootstrap bootstrap) {
+public record PendingEntryRecord(EntryId entryId, Kind kind, @Nullable String requestedId, @Nullable String hint,
+@Nullable String fromEpic, Instant createdAt, Instant updatedAt, Bootstrap bootstrap) {
 
     /** The format version of a pending entry record that is read and written. */
     public static final int FORMAT_VERSION = 1;

@@ -68,7 +68,7 @@ import lombok.With;
 @Builder(toBuilder = true)
 public record WorkflowStatus(
 JournalScopeType scopeType,
-String scopeId,
+@Nullable String scopeId,
 String phase,
 String state,
 List<CallFrame> callStack,
@@ -77,10 +77,10 @@ long outlineLoopBacks,
 Map<String, PolicyCounter> policyCounters,
 List<WaiverRequest> waiverRequests,
 RetryCounters retryCounters,
-ActiveJob activeJob,
+@Nullable ActiveJob activeJob,
 Map<String, JobEntry> activeJobs,
 Map<String, TaskEntry> activeTasks,
-PendingCondition pendingCondition,
+@Nullable PendingCondition pendingCondition,
 Instant updatedAt,
 Map<String, String> retained) {
 

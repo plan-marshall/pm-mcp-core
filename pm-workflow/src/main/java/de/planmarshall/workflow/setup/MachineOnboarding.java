@@ -108,7 +108,7 @@ Set<String> completedSteps) {
 
     /**
      * @return the missing step a refusal names: the first step that is not done, or the current state of the machine
-     *         scope when the status carries no step list; {@code null} when the first run completed
+     *         scope when the status carries no step list; empty when the first run completed
      */
     public Optional<String> missingStep() {
         return pendingSteps.isEmpty() ? Optional.empty() : Optional.of(pendingSteps.getFirst());

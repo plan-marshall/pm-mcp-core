@@ -19,8 +19,8 @@ Operator], item 6).
 `MachineOnboarding`:: The onboarding as the gate reads it from the machine scope's `WorkflowStatus`. It is complete when
 the status rests in `onboard.completed`, or when the `onboard_run` member says `reconfigure`: a later run of one aspect
 is entered from the machine's settings and is only possible after the first run. Its `pendingSteps` are the steps of the
-`onboard_steps` member whose state is neither `done` nor `skipped`, in their order, and `missingStep()` names the first;
-`fromStatus` refuses a status of another scope and an `onboard_steps` member that is not the array of step objects the
+`onboard_steps` member whose state is neither `done` nor `skipped`, in their order, and `missingStep()` names the first
+as an `Optional<String>` (empty once the first run completed);`fromStatus` refuses a status of another scope and an `onboard_steps` member that is not the array of step objects the
 schema admits (link:../../../doc/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State
 Store]).
 

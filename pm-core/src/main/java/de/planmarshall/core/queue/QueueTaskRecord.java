@@ -68,9 +68,10 @@ import lombok.With;
 @With
 @Builder(toBuilder = true)
 public record QueueTaskRecord(String queueTaskId, Kind kind, String role, TaskClass taskClass, Scope scope,
-String entity, String stateId, boolean formDowngraded, Status status, Continuation continuation, Lease lease,
-List<Attempt> attempts, List<Signal> signals, List<Consultation> consultations, String consultationOf,
-Outcome outcome, LostReason reason, String questionId, Instant createdAt, Instant closedAt) {
+String entity, String stateId, boolean formDowngraded, Status status, @Nullable Continuation continuation,
+@Nullable Lease lease, List<Attempt> attempts, List<Signal> signals, List<Consultation> consultations,
+@Nullable String consultationOf, @Nullable Outcome outcome, @Nullable LostReason reason, String questionId,
+Instant createdAt, @Nullable Instant closedAt) {
 
     /** The format version of a queue task record that is read and written. */
     public static final int FORMAT_VERSION = 1;

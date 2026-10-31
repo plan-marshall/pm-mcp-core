@@ -96,6 +96,16 @@ class NullMarkedPackagesTest {
         assertTrue(unmarkedPackages(temp).contains(packageDir), "An import alone must not mark the package");
     }
 
+    @Test
+    @DisplayName("a commented-out @NullMarked is reported")
+    void commentedNullMarkedIsReported(@TempDir Path temp) throws Exception {
+        var packageDir = packageDirectory(temp, "unmarked/commented");
+        writeSource(packageDir, PACKAGE_INFO,
+                "/*\n * @NullMarked\n */\npackage unmarked.commented;");
+
+        assertTrue(unmarkedPackages(temp).contains(packageDir), "A commented annotation must not mark the package");
+    }
+
     private static Path repositoryRoot() {
         var configured = System.getProperty("pm.root");
         if (configured != null && !configured.isBlank()) {
