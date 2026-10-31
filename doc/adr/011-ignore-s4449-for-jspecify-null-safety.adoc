@@ -1,0 +1,67 @@
+= ADR 011: Ignore `java:S4449` for the JSpecify null contract
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-31
+
+== Context
+
+The epic's null-safety migration (PLAN-V2-84, standing rule R20) makes JSpecify the repository's null contract:
+`org.jspecify.annotations.NullMarked` marks every production package, `@Nullable` marks the states that are really
+null, and absence is returned as `Optional`. The annotations are the `java-null-safety` skill's contract.
+
+SonarCloud's `java:S4449` asks that a possibly-null argument be annotated "with `@javax.annotation.Nullable`". It
+recognises only the `javax.annotation` annotation: a parameter annotated with
+`org.jspecify.annotations.Nullable` is still reported. Adding `javax.annotation` to the project would introduce a
+second, competing null-annotation library, contradict R20 and the `java-null-safety` skill, and the `javax.annotation`
+artifact is not among the dependencies the operator allowed.
+
+The rule cannot be suppressed per declaration without repeating a file-wide annotation, and the project carries no
+`NOSONAR` marker. After the migration the analysis reported 22 `java:S4449` issues on one pull request, all on
+parameters whose nullness is already expressed with JSpecify `@Nullable` (or that are non-null by `@NullMarked`), and
+the Sonar REST dismissal surface is not configured for this project (`resolve` reports `not_configured`), so the lane
+cannot transmit per-issue dismissals.
+
+== Decision
+
+The rule is ignored for every Java source in the analysis configuration of the repository. The root `pom.xml` extends
+the existing multicriteria list with a second entry: `sonar.issue.ignore.multicriteria` = `e1,e2`,
+`sonar.issue.ignore.multicriteria.e2.ruleKey` = `java:S4449` and
+`sonar.issue.ignore.multicriteria.e2.resourceKey` = `**/*.java`. The ignore is a property only: it adds no dependency
+and no plugin. Existing `e1` (`java:S4032` for `package-info.java`, ADR 008) is unchanged.
+
+The operator chose this over merging with the 22 issues open and over per-issue dismissal (2026-10-31), after the
+null-safety split run had no Sonar credentials.
+
+== Alternatives Considered
+
+* *Annotate the parameters with `@javax.annotation.Nullable`.* Rejected: it adds a second null-annotation library,
+  contradicts R20 and `java-null-safety`, and the artifact is not an allowed dependency.
+* *Dismiss the 22 issues one by one as false positives.* Rejected as the primary route: the Sonar REST dismissal
+  verb has no credentials in this project, and the class of issue recurs with every `@Nullable` annotation.
+* *Merge the pull request with the 22 issues open.* Rejected: R18 asks that the open issues of a pull request be
+  cleared before it is reported ready; the gate would also be brittle for every later null-safety plan.
+* *Suppress the rule per file or per declaration.* Rejected: it repeats an annotation throughout the code and the
+  project carries no `NOSONAR` marker.
+
+== Consequences
+
+A JSpecify-annotated argument no longer surfaces `java:S4449`, so the null-safety contract and a clean analysis can
+hold together. The ignore is scoped to `**/*.java`, so it changes no other rule and no resource outside Java. A later
+change that needs `java:S4449` again must remove this entry, or use a narrower resource pattern, in a new ADR; a
+reviewer must not read the absence of `java:S4449` as evidence that a nullable parameter is annotated. The remaining
+null-safety rules (`S2583`, `S2589`, `S2637`) stay active, because they detect a real contradiction between the
+`@NullMarked` contract and the code.
+
+== Source
+
+* Operator decision of 2026-10-31 in the runbook lane of PLAN-V2-84 (asked after the split into PR #255-#258).
+* `.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-84-null-safety-nullmarked.md` and `standing-rules.md` r4,
+  R20.
+* The `java-null-safety` skill (`org.jspecify.annotations.Nullable` is the nullable marker).
+* ADR 008 for the multicriteria property pattern.

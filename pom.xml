@@ -64,9 +64,14 @@
         <!-- java:S4032 ("Remove this package") reports on a package-info.java that holds no type. The Module
              Structure Specification requires every package to exist with its package-info.java also where no type
              has arrived yet, so the rule is ignored for those files only (ADR 008). -->
-        <sonar.issue.ignore.multicriteria>e1</sonar.issue.ignore.multicriteria>
+        <!-- java:S4449 ("annotate the parameter with @javax.annotation.Nullable") checks only the javax annotation;
+             this repository's null contract is JSpecify org.jspecify.annotations.Nullable (ADR 011), so the rule is
+             ignored for every Java source. -->
+        <sonar.issue.ignore.multicriteria>e1,e2</sonar.issue.ignore.multicriteria>
         <sonar.issue.ignore.multicriteria.e1.ruleKey>java:S4032</sonar.issue.ignore.multicriteria.e1.ruleKey>
         <sonar.issue.ignore.multicriteria.e1.resourceKey>**/package-info.java</sonar.issue.ignore.multicriteria.e1.resourceKey>
+        <sonar.issue.ignore.multicriteria.e2.ruleKey>java:S4449</sonar.issue.ignore.multicriteria.e2.ruleKey>
+        <sonar.issue.ignore.multicriteria.e2.resourceKey>**/*.java</sonar.issue.ignore.multicriteria.e2.resourceKey>
     </properties>
 
     <dependencyManagement>
