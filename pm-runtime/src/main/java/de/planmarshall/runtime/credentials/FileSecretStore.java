@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The permission-guarded file store (PM-CRED-3), used when the operator recorded it, never as a
@@ -165,7 +166,7 @@ public final class FileSecretStore implements SecretStore {
     }
 
     /** The account of one credential file, {@code project} null for a global entry. */
-    private static CredentialAccount account(Path file, String project) {
+    private static CredentialAccount account(Path file, @Nullable String project) {
         if (Files.isSymbolicLink(file)) {
             throw new SecretStoreException(SecretStoreException.Reason.INSECURE,
                     file + " must not be a symbolic link");
@@ -227,8 +228,8 @@ public final class FileSecretStore implements SecretStore {
     }
 
     private static String parse(Path file, String content) throws IOException {
-        Integer version = null;
-        String value = null;
+        @Nullable Integer version = null;
+        @Nullable String value = null;
         try (JsonParser parser = JSON.createParser(content)) {
             if (parser.nextToken() != JsonToken.START_OBJECT) {
                 throw invalid(file, "not a JSON object");

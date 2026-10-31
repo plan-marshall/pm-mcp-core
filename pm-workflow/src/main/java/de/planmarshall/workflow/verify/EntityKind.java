@@ -12,6 +12,8 @@ package de.planmarshall.workflow.verify;
 import java.util.Objects;
 import java.util.Optional;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * A registered entity kind (PM-IMPL-5, PM-WF-5). Holds the kind's name, its optional entity unit, and the
  * return-evaluation primitive that runs upon task completion.
@@ -47,7 +49,7 @@ String returnEvaluationPrimitiveId) {
      * @param entityUnit the entity unit string, or {@code null} if none
      * @param returnEvaluationPrimitiveId the return-evaluation primitive identifier
      */
-    public EntityKind(String name, String entityUnit, String returnEvaluationPrimitiveId) {
+    public EntityKind(String name, @Nullable String entityUnit, String returnEvaluationPrimitiveId) {
         this(name, Optional.ofNullable(entityUnit), returnEvaluationPrimitiveId);
     }
 

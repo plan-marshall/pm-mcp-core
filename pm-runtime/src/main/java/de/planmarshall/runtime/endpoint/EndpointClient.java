@@ -17,6 +17,7 @@ import java.net.http.HttpResponse.BodyHandlers;
 import java.net.http.HttpTimeoutException;
 import java.util.Locale;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.EndpointProfile;
 
@@ -76,7 +77,7 @@ public final class EndpointClient {
         return URI.create(base + separator + path);
     }
 
-    private Response send(EndpointProfile profile, String path, String body) {
+    private Response send(EndpointProfile profile, String path, @Nullable String body) {
         Objects.requireNonNull(profile, "profile");
         var uri = uri(profile, path);
         if (!loopback(uri)) {

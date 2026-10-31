@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -22,8 +24,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
-
-import org.jspecify.annotations.Nullable;
 import lombok.Builder;
 
 /**
@@ -376,8 +376,8 @@ Instant at) {
      * @since 0.1
      */
     public record Answer(AnswerKind kind, List<String> branchKeys, @Nullable AnswerValue value,
-            @Nullable String ownWords, @Nullable String note, @Nullable Interpretation interpretation,
-            boolean afterChat) {
+    @Nullable String ownWords, @Nullable String note, @Nullable Interpretation interpretation,
+    boolean afterChat) {
 
         private static final Set<AnswerKind> INTERPRETED = EnumSet.of(AnswerKind.INTERPRETED, AnswerKind.OWN_OPTION,
                 AnswerKind.DELEGATED);

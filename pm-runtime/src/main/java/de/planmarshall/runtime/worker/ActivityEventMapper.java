@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.CanonicalJson;
 import de.planmarshall.core.profile.JsonDocument;
@@ -53,14 +54,14 @@ public final class ActivityEventMapper {
     /** The sentinel of a usage component the harness has no such figure for. */
     private static final String NOT_APPLICABLE = "not_applicable";
 
-    private final ActivityEventMapping mapping;
+    private final @Nullable ActivityEventMapping mapping;
     private final Map<String, String> usagePointers;
 
     /**
      * @param mapping       the harness's events mapping; {@code null} for a harness without an event stream
      * @param usagePointers the usage pointers of the profile, by usage column
      */
-    public ActivityEventMapper(ActivityEventMapping mapping, Map<String, String> usagePointers) {
+    public ActivityEventMapper(@Nullable ActivityEventMapping mapping, Map<String, String> usagePointers) {
         this.mapping = mapping;
         this.usagePointers = Map.copyOf(usagePointers);
     }
@@ -74,7 +75,7 @@ public final class ActivityEventMapper {
      * @param line the line of the output stream
      * @return the mapped activity, or empty when the line matches no mapping
      */
-    public Optional<Mapped> map(String line) {
+    public Optional<Mapped> map(@Nullable String line) {
         if (mapping == null || line == null || line.isBlank()) {
             return Optional.empty();
         }
@@ -121,7 +122,7 @@ public final class ActivityEventMapper {
         if (tool == null || tool.isEmpty() || tool.length() > 128) {
             return Optional.empty();
         }
-        String target = null;
+        @Nullable String target = null;
         for (var pointer : declaration.targetPointers()) {
             var found = resolve(root, pointer).flatMap(JsonNode::text).orElse(null);
             if (found != null) {
@@ -191,7 +192,7 @@ public final class ActivityEventMapper {
         return CanonicalJson.write(JsonNode.object(members));
     }
 
-    private static JsonNode usageComponent(String key, JsonNode root, String pointer) {
+    private static JsonNode usageComponent(String key, JsonNode root, @Nullable String pointer) {
         if (pointer == null) {
             return JsonNode.string(UNMEASURED);
         }
@@ -224,7 +225,7 @@ public final class ActivityEventMapper {
      * @param pointer the pointer, or {@code null}
      * @return the value the pointer names, or empty
      */
-    public static Optional<JsonNode> resolve(JsonNode root, String pointer) {
+    public static Optional<JsonNode> resolve(JsonNode root, @Nullable String pointer) {
         if (pointer == null || pointer.isEmpty()) {
             return Optional.of(root);
         }
@@ -271,7 +272,8 @@ public final class ActivityEventMapper {
      * @param usage     the usage object as raw JSON text; {@code turn} only
      * @since 0.1
      */
-    public record Mapped(ActivityEntry.Kind kind, String text, boolean truncated, ActivityEntry.Tool tool,
-    ActivityEntry.Result result, String path, ActivityEntry.StopReason stopReason, String usage) {
+    public record Mapped(ActivityEntry.Kind kind, @Nullable String text, boolean truncated,
+    ActivityEntry.@Nullable Tool tool, ActivityEntry.@Nullable Result result, @Nullable String path,
+    ActivityEntry.@Nullable StopReason stopReason, @Nullable String usage) {
     }
 }

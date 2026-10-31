@@ -18,6 +18,7 @@ import de.planmarshall.core.queue.QueueTaskRecord.ContinuationForm;
 import de.planmarshall.core.queue.QueueTaskRecord.FallbackReason;
 import de.planmarshall.core.role.RoleArtifact;
 import de.planmarshall.workflow.ast.StateBehavior;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The server's decision whether a task continues after its question, and in which form (Model Work § Continuing after a
@@ -83,7 +84,8 @@ public final class QuestionContinuation {
      * @param fallbackReason  why the task does not continue; {@code null} unless the form is {@code fallback}
      * @since 0.1
      */
-    public record Decision(Form form, Instant holdUntil, Instant resumeUntil, FallbackReason fallbackReason) {
+    public record Decision(Form form, @Nullable Instant holdUntil, @Nullable Instant resumeUntil,
+    @Nullable FallbackReason fallbackReason) {
 
         /**
          * @throws NullPointerException     if the form is {@code null}
@@ -141,8 +143,8 @@ public final class QuestionContinuation {
      * @return the decision
      * @throws IllegalArgumentException if the state offers no {@code ask} link at all
      */
-    public static Decision decide(StateBehavior.AskForm askForm, boolean envelopeTask, RoleArtifact.Questions questions,
-            Instant at) {
+    public static Decision decide(StateBehavior.AskForm askForm, boolean envelopeTask,
+            RoleArtifact.@Nullable Questions questions, Instant at) {
         Objects.requireNonNull(askForm, "askForm");
         Objects.requireNonNull(at, "at");
         if (!askForm.declaresAsk()) {
@@ -172,7 +174,7 @@ public final class QuestionContinuation {
      * @return the decision
      */
     public static Decision afterHold(StateBehavior.AskForm askForm, boolean envelopeTask,
-            RoleArtifact.Questions questions, Instant at) {
+            RoleArtifact.@Nullable Questions questions, Instant at) {
         Objects.requireNonNull(at, "at");
         if (continues(askForm, envelopeTask, questions) && questions.resumeWithinSeconds() > 0) {
             return new Decision(Form.RESUME, null, at.plus(Duration.ofSeconds(questions.resumeWithinSeconds())),
@@ -185,7 +187,7 @@ public final class QuestionContinuation {
      * @param questions the role's effective continuation bounds, or {@code null}
      * @return whether any continuation at all is open for the role and the harness
      */
-    public static boolean anyForm(RoleArtifact.Questions questions) {
+    public static boolean anyForm(RoleArtifact.@Nullable Questions questions) {
         return questions != null && (questions.holdSeconds() > 0 || questions.resumeWithinSeconds() > 0);
     }
 
@@ -198,7 +200,7 @@ public final class QuestionContinuation {
     }
 
     private static boolean continues(StateBehavior.AskForm askForm, boolean envelopeTask,
-            RoleArtifact.Questions questions) {
+            RoleArtifact.@Nullable Questions questions) {
         return (envelopeTask || askForm.allowsContinuation()) && anyForm(questions);
     }
 }

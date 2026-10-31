@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Objects;
 
 import de.planmarshall.core.queue.QueueTaskRecord;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The result of a call on a task entity (Model Work § Execute &amp; Submit).
@@ -45,7 +46,8 @@ public sealed interface CallResult permits CallResult.Accepted, CallResult.Refus
      *                      refusal
      * @since 0.1
      */
-    record Refused(TaskRefusal refusal, QueueTaskRecord task, List<String> missingSkills) implements CallResult {
+    record Refused(TaskRefusal refusal, @Nullable QueueTaskRecord task, List<String> missingSkills)
+            implements CallResult {
 
         /** @throws NullPointerException if the refusal or the list of missing skills is {@code null} */
         public Refused {

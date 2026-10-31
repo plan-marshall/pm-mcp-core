@@ -26,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -195,7 +196,7 @@ public final class FileLockManager implements LockManager {
         @Override
         public void close() {
             closed = true;
-            UncheckedIOException failure = null;
+            @Nullable UncheckedIOException failure = null;
             while (!held.isEmpty()) {
                 try {
                     unlock(held.removeLast());
@@ -256,7 +257,7 @@ public final class FileLockManager implements LockManager {
     private static final class OsLock {
 
         private final ReentrantLock guard = new ReentrantLock();
-        private FileChannel channel;
+        private @Nullable FileChannel channel;
         private int holders;
 
         void retain(LockKey key) {

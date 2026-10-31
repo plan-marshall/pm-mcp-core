@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.EndpointProfile;
 import de.planmarshall.core.profile.JsonDocument;
@@ -97,7 +98,7 @@ public final class EndpointVerification {
      * @return the result of the four stages
      */
     public ProfileStages.EndpointVerification verify(EndpointProfile profile, String model, String baseTask,
-            String toolTask, String decoyResult, JsonNode schema) {
+            String toolTask, String decoyResult, @Nullable JsonNode schema) {
         var endpoint = URI.create(profile.endpoint().baseUrl());
         var lookup = owner.ownerOf(endpoint.getHost(), endpoint.getPort());
         if (!ownsTheNamedProgram(profile, lookup)) {
@@ -228,7 +229,7 @@ public final class EndpointVerification {
      * @return the content of one answer, or empty when the endpoint did not answer, did not answer successfully, or
      *         answered with something that is not a JSON document
      */
-    private Optional<String> content(EndpointProfile profile, String model, String task, JsonNode schema) {
+    private Optional<String> content(EndpointProfile profile, String model, String task, @Nullable JsonNode schema) {
         var request = new EndpointRequest(model, "", task, schema,
                 schema == null ? null : profile.endpoint().resultSchema(), profile.endpoint().answerReserveTokens());
         return contentOf(client.post(profile, EndpointClient.CHAT_PATH, request.body()));

@@ -18,6 +18,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.queue.ActivityEntry;
 import de.planmarshall.core.queue.ActivityEventMapping;
@@ -51,7 +52,7 @@ public final class HarnessEventVerification {
      * @param outputLines   the recorded output of the harness
      * @return the stage result, one entry per declared kind
      */
-    public static Result verify(ActivityEventMapping mapping, Map<String, String> usagePointers,
+    public static Result verify(@Nullable ActivityEventMapping mapping, Map<String, String> usagePointers,
             List<String> outputLines) {
         Objects.requireNonNull(usagePointers, "usagePointers");
         Objects.requireNonNull(outputLines, "outputLines");

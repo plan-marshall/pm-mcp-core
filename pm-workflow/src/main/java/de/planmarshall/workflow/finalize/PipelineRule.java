@@ -11,6 +11,8 @@ package de.planmarshall.workflow.finalize;
 
 import java.util.Optional;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * The closed set of rules {@link FinalizePipelineValidator} checks over a roster of {@link FinalizeStepDescriptor}s
  * (PM-IMPL-5). Every {@link PipelineViolation} names exactly one of them; this enum is the only source of the rule
@@ -74,9 +76,9 @@ public enum PipelineRule {
             + " filing step does not declare is a check of the findings store at the time of the write.");
 
     private final int specificationRule;
-    private final String namedHook;
+    private final @Nullable String namedHook;
 
-    PipelineRule(int specificationRule, String namedHook) {
+    PipelineRule(int specificationRule, @Nullable String namedHook) {
         this.specificationRule = specificationRule;
         this.namedHook = namedHook;
     }

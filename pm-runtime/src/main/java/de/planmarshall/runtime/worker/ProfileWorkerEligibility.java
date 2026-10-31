@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.LoadedProfile;
 import de.planmarshall.core.profile.ProfileSetKind;
@@ -209,7 +210,8 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
         };
     }
 
-    private static EligibilityVerdict refuse(EligibilityRefusal.Reason reason, String stage, LoadedProfile profile) {
+    private static EligibilityVerdict refuse(EligibilityRefusal.Reason reason, @Nullable String stage,
+            LoadedProfile profile) {
         return EligibilityVerdict.refused(new EligibilityRefusal(reason, stage, profile.clientId()));
     }
 }

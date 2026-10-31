@@ -125,7 +125,7 @@ class RoleCompositionTest {
                 () -> assertEquals(CompositionRefusal.Reason.CLASS_MISMATCH, refusal.reason()),
                 () -> assertEquals("review-code", refusal.role()),
                 () -> assertEquals(STATE, refusal.stateId()),
-                () -> assertEquals(RoleClass.READ_ONLY, refusal.roleClass()),
+                () -> assertEquals(RoleClass.READ_ONLY, refusal.roleClass().orElseThrow()),
                 () -> assertEquals(Set.of(RoleClass.WRITER), refusal.requiredClasses()));
     }
 

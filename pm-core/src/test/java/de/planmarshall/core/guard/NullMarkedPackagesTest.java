@@ -138,7 +138,7 @@ class NullMarkedPackagesTest {
 
     private static boolean isSkipped(Path directory) {
         var name = directory.getFileName().toString();
-        return name.startsWith(".") || name.equals("target") || name.equals("node_modules");
+        return name.startsWith(".") || "target".equals(name) || "node_modules".equals(name);
     }
 
     private static List<Path> unmarkedPackages(Path productionRoot) {

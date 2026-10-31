@@ -20,6 +20,7 @@ import java.net.http.HttpTimeoutException;
 import java.util.Objects;
 import java.util.Set;
 import javax.net.ssl.SSLContext;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.EndpointProfile;
 import de.planmarshall.runtime.credentials.SecretRegistry;
@@ -47,14 +48,14 @@ public final class JudgmentClient {
 
     private final TokenLaneCredential credentials;
     private final SecretRegistry redaction;
-    private final SSLContext sslContext;
+    private final @Nullable SSLContext sslContext;
 
     /**
      * @param credentials the Token Lane entry of a remote endpoint
      * @param redaction   the registry a secret is registered with before it is sent; {@code null} for a caller that
      *                    sends no secret, which is the loopback form's case
      */
-    public JudgmentClient(TokenLaneCredential credentials, SecretRegistry redaction) {
+    public JudgmentClient(TokenLaneCredential credentials, @Nullable SecretRegistry redaction) {
         this(credentials, redaction, null);
     }
 
@@ -65,7 +66,8 @@ public final class JudgmentClient {
      *                    verification of every Token Lane request. Package-private, a seam of this package's tests: the
      *                    production wiring uses the default context
      */
-    JudgmentClient(TokenLaneCredential credentials, SecretRegistry redaction, SSLContext sslContext) {
+    JudgmentClient(TokenLaneCredential credentials, @Nullable SecretRegistry redaction,
+            @Nullable SSLContext sslContext) {
         this.credentials = Objects.requireNonNull(credentials, "credentials");
         this.redaction = SecretRegistry.orNone(redaction);
         this.sslContext = sslContext;
@@ -103,7 +105,7 @@ public final class JudgmentClient {
         return send(profile, Objects.requireNonNull(path, "path"), Objects.requireNonNull(body, "body"));
     }
 
-    private EndpointClient.Response send(EndpointProfile profile, String path, String body) {
+    private EndpointClient.Response send(EndpointProfile profile, String path, @Nullable String body) {
         Objects.requireNonNull(profile, "profile");
         Objects.requireNonNull(path, "path");
         if (!profile.endpoint().judgment()) {
@@ -111,7 +113,7 @@ public final class JudgmentClient {
         }
         var credential = credential(profile, path);
         if (credential.refusal() != null) {
-            return credential.refusal();
+            return Objects.requireNonNull(credential.refusal(), "refusal");
         }
         return transport(profile, uri(profile, path), body, credential.authorization());
     }
@@ -140,7 +142,8 @@ public final class JudgmentClient {
         return new Credential("Bearer " + entry.secret(), null);
     }
 
-    private EndpointClient.Response transport(EndpointProfile profile, URI uri, String body, String authorization) {
+    private EndpointClient.Response transport(EndpointProfile profile, URI uri, @Nullable String body,
+            @Nullable String authorization) {
         var endpoint = profile.endpoint();
         try (var handler = handler(uri, endpoint)) {
             var request = handler.requestBuilder().uri(uri).header("Content-Type", MEDIA_TYPE);
@@ -175,7 +178,7 @@ public final class JudgmentClient {
     }
 
     /** The authorization header of one request, or the refusal that ends the attempt before it is sent. */
-    private record Credential(String authorization, EndpointClient.Response refusal) {
+    private record Credential(@Nullable String authorization, EndpointClient.@Nullable Response refusal) {
     }
 
     private HttpHandler handler(URI uri, EndpointProfile.Endpoint endpoint) {

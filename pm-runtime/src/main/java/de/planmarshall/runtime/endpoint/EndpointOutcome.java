@@ -14,6 +14,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.JsonNode;
@@ -148,7 +149,7 @@ public record EndpointOutcome(Fate fate, Reason reason, String detail, String co
      * @param resultSchema the role's result schema; {@code null} when the role declares none
      * @return the outcome of the task
      */
-    public static EndpointOutcome accept(EndpointClient.Response response, JsonNode resultSchema) {
+    public static EndpointOutcome accept(EndpointClient.Response response, @Nullable JsonNode resultSchema) {
         Objects.requireNonNull(response, "response");
         if (response.failure() == EndpointClient.Failure.TIMEOUT) {
             return ended(Reason.TIMEOUT, response.detail());
@@ -192,7 +193,7 @@ public record EndpointOutcome(Fate fate, Reason reason, String detail, String co
         return answered(content.get(), usage);
     }
 
-    private static boolean streaming(String body) {
+    private static boolean streaming(@Nullable String body) {
         var trimmed = body == null ? "" : body.stripLeading();
         return trimmed.startsWith("data:") || trimmed.contains("\ndata:");
     }

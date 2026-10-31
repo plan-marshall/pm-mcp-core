@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalLong;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.JsonNode;
@@ -129,7 +130,7 @@ public final class SystemOneAnswer {
      * @param detail  what happened, for a record; never the answer body
      * @since 0.1
      */
-    public record Read(Answer answer, Refusal refusal, String detail) {
+    public record Read(@Nullable Answer answer, @Nullable Refusal refusal, String detail) {
 
         /** Copies the values and refuses a reading that is neither. */
         public Read {
@@ -236,7 +237,7 @@ public final class SystemOneAnswer {
     }
 
     /** The reading of one question's answer, or why it is refused. */
-    private record Checked(QuestionAnswer answer, Refusal refusal, String detail) {
+    private record Checked(@Nullable QuestionAnswer answer, @Nullable Refusal refusal, String detail) {
 
         static Checked valid(QuestionAnswer answer) {
             return new Checked(answer, null, "valid");

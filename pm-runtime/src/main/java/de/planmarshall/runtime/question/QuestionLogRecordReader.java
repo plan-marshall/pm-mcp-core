@@ -17,6 +17,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.spi.QuestionRecordReader;
 import de.planmarshall.core.store.ConfinementOutcome.Confined;
@@ -190,7 +191,7 @@ public final class QuestionLogRecordReader implements QuestionRecordReader {
     }
 
     /** The scope a request resolved to, or the reason it resolved to none. */
-    private record Resolution(JournalScope scope, String refusal) {
+    private record Resolution(@Nullable JournalScope scope, @Nullable String refusal) {
 
         static Resolution of(JournalScope scope) {
             return new Resolution(scope, null);

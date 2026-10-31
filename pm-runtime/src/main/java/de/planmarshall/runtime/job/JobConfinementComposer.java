@@ -20,6 +20,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.SortedMap;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.ProjectEnrolment;
@@ -277,21 +278,25 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
      * The paths excluded from the read set: the base directory, the session bus socket and, without the opt-in, the
      * container engine's sockets.
      */
-    private List<Path> denied(ProjectEnrolment enrolment) {
+    private List<Path> denied(@Nullable ProjectEnrolment enrolment) {
         var denied = new ArrayList<Path>();
         denied.add(base);
         sessionBusSocket.ifPresent(denied::add);
-        if (enrolment == null || enrolment.containerEngine() == null) {
-            for (var socket : CONTAINER_SOCKETS) {
-                denied.add(Path.of(socket));
-            }
-            sessionBusSocket.map(Path::getParent)
-                    .ifPresent(parent -> denied.add(parent.resolve("docker.sock")));
-            if (enrolment != null) {
-                unixDockerHost(enrolment.buildEnvironment()).ifPresent(denied::add);
-            }
+        if (enrolment == null) {
+            denyContainerSockets(denied);
+        } else if (enrolment.containerEngine() == null) {
+            denyContainerSockets(denied);
+            unixDockerHost(enrolment.buildEnvironment()).ifPresent(denied::add);
         }
         return denied;
+    }
+
+    private void denyContainerSockets(List<Path> denied) {
+        for (var socket : CONTAINER_SOCKETS) {
+            denied.add(Path.of(socket));
+        }
+        sessionBusSocket.map(Path::getParent)
+                .ifPresent(parent -> denied.add(parent.resolve("docker.sock")));
     }
 
     private static Optional<Path> unixDockerHost(SortedMap<String, String> environment) {
@@ -318,7 +323,7 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
         return directories;
     }
 
-    private static void addIfAbsolute(List<Path> directories, String value) {
+    private static void addIfAbsolute(List<Path> directories, @Nullable String value) {
         if (value != null && !value.isEmpty()) {
             var path = Path.of(value);
             if (path.isAbsolute()) {

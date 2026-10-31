@@ -11,6 +11,7 @@ package de.planmarshall.runtime.worker;
 
 import java.time.Instant;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One detection of a lost worker (PM-WORK-3, Detection): its reason, the generation, the instant the loss was observed,
@@ -25,7 +26,7 @@ import java.util.Objects;
  * @since 0.1
  */
 public record LossSignal(LossReason reason, String generationId, Instant measuredAt, Instant deadline,
-boolean firstCallMade, String leasedTask) {
+boolean firstCallMade, @Nullable String leasedTask) {
 
     /**
      * @throws NullPointerException     if a required component is {@code null}

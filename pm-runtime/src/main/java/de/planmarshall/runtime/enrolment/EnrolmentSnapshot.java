@@ -11,6 +11,7 @@ package de.planmarshall.runtime.enrolment;
 
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One no-follow snapshot of an enrolment file or sidecar ({@link EnrolmentFileCheck#snapshot}), in one of three
@@ -23,10 +24,10 @@ final class EnrolmentSnapshot {
 
     private static final EnrolmentSnapshot ABSENT = new EnrolmentSnapshot(null, null);
 
-    private final byte[] content;
-    private final String violation;
+    private final byte @Nullable [] content;
+    private final @Nullable String violation;
 
-    private EnrolmentSnapshot(byte[] content, String violation) {
+    private EnrolmentSnapshot(byte @Nullable [] content, @Nullable String violation) {
         this.content = content;
         this.violation = violation;
     }

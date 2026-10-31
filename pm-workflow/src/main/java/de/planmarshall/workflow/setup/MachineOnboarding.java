@@ -14,12 +14,14 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import de.planmarshall.core.store.StrictJson;
 import de.planmarshall.core.store.WorkflowStatus;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The onboarding of the machine as the setup gate reads it from the machine scope's status (PM-WF-26,
@@ -86,7 +88,7 @@ Set<String> completedSteps) {
                     "The onboarding of the machine is read from the machine scope, not from the %s scope"
                             .formatted(status.scopeType().wireName()));
         }
-        var reconfigure = RECONFIGURE.equals(trimmed(status.retained().get(ONBOARD_RUN)));
+        var reconfigure = RECONFIGURE.equals(trimmed(status.retained().get(ONBOARD_RUN)).orElse(null));
         var completed = RESTING_STATE.equals(status.state()) || reconfigure;
         var steps = readSteps(status.retained().get(ONBOARD_STEPS));
         var pending = new ArrayList<String>();
@@ -108,15 +110,15 @@ Set<String> completedSteps) {
      * @return the missing step a refusal names: the first step that is not done, or the current state of the machine
      *         scope when the status carries no step list; {@code null} when the first run completed
      */
-    public String missingStep() {
-        return pendingSteps.isEmpty() ? null : pendingSteps.getFirst();
+    public Optional<String> missingStep() {
+        return pendingSteps.isEmpty() ? Optional.empty() : Optional.of(pendingSteps.getFirst());
     }
 
-    private static String trimmed(String raw) {
-        return raw == null ? null : raw.trim();
+    private static Optional<String> trimmed(@Nullable String raw) {
+        return raw == null ? Optional.empty() : Optional.of(raw.trim());
     }
 
-    private static List<Step> readSteps(String raw) {
+    private static List<Step> readSteps(@Nullable String raw) {
         if (raw == null || "null".equals(raw.trim())) {
             return List.of();
         }
@@ -127,8 +129,8 @@ Set<String> completedSteps) {
             }
             var token = parser.nextToken();
             while (token == JsonToken.START_OBJECT) {
-                String step = null;
-                String state = null;
+                @Nullable String step = null;
+                @Nullable String state = null;
                 while (parser.nextToken() != JsonToken.END_OBJECT) {
                     var name = parser.currentName();
                     parser.nextToken();

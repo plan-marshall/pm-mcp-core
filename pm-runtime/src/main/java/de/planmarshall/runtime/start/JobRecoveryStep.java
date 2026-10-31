@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -176,7 +177,7 @@ public final class JobRecoveryStep implements RecoveryStep {
      * @param terminated whether a live group was terminated
      * @param failure    why the job cannot be settled; empty when it can
      */
-    private record Handling(Rule rule, String signal, boolean terminated, Optional<String> failure) {
+    private record Handling(Rule rule, @Nullable String signal, boolean terminated, Optional<String> failure) {
 
         static Handling failed(Rule rule, String reason) {
             return new Handling(rule, null, false, Optional.of(reason));

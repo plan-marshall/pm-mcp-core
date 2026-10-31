@@ -60,6 +60,7 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.verify.VerificationResult;
 import de.planmarshall.workflow.verify.WorkflowCatalog;
 import de.planmarshall.workflow.verify.WorkflowValidator;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The deterministic interpreter of one workflow unit (PM-IMPL-5; PM-WF-1: only verified units run; PM-WF-16: sub-workflow
@@ -245,7 +246,7 @@ public final class WorkflowEngine {
      * @throws IllegalArgumentException if the unit declares no start state (a unit with entries is called, never
      *                                  started), or the scope does not fit the status store
      */
-    public EngineStep start(JournalScopeType scopeType, String scopeId) {
+    public EngineStep start(JournalScopeType scopeType, @Nullable String scopeId) {
         var startState = stateOf(unit, unit.startState().orElseThrow(() -> new IllegalArgumentException(
                 "the unit '%s' declares no start state; a unit with entries is called, never started"
                         .formatted(unit.id()))));
@@ -733,9 +734,9 @@ public final class WorkflowEngine {
         private int transitions;
 
         /** The plan's history the advance appends to, and the transaction that writes it; {@code null} for none. */
-        private final PlanHistory history;
+        private final @Nullable PlanHistory history;
 
-        private final ScopeTransaction transaction;
+        private final @Nullable ScopeTransaction transaction;
 
         private final int instanceVersion;
 
@@ -743,13 +744,14 @@ public final class WorkflowEngine {
         private final List<Pending> lines = new ArrayList<>();
 
         /** The job a job-starting outcome reported, which the job state the transition enters binds. */
-        private String spawnedJobId;
+        private @Nullable String spawnedJobId;
 
         Run(WorkflowStatus status) {
             this(status, null, null, 1);
         }
 
-        Run(WorkflowStatus status, PlanHistory history, ScopeTransaction transaction, int instanceVersion) {
+        Run(WorkflowStatus status, @Nullable PlanHistory history, @Nullable ScopeTransaction transaction,
+                int instanceVersion) {
             if (instanceVersion < 1) {
                 throw new IllegalArgumentException("the instance version %d is not from 1".formatted(instanceVersion));
             }
@@ -764,7 +766,7 @@ public final class WorkflowEngine {
         }
 
         /** Records a history line of the advance; a run without a history records nothing. */
-        private void record(PlanHistoryLine.Event event, String node, String outcome) {
+        private void record(PlanHistoryLine.Event event, String node, @Nullable String outcome) {
             if (history != null) {
                 lines.add(new Pending(event, node, stack.toStore().stream()
                         .map(WorkflowStatus.CallFrame::subworkflowId).toList(), status.phase(), outcome));
@@ -797,7 +799,7 @@ public final class WorkflowEngine {
 
         /** A line of the advance before it is numbered. */
         private record Pending(PlanHistoryLine.Event event, String node, List<String> callPath, String phase,
-        String outcome) {
+        @Nullable String outcome) {
 
             PlanHistoryLine line(long seq, int instanceVersion, Instant at) {
                 return PlanHistoryLine.of(seq, event, node, callPath, phase, outcome, instanceVersion, at);
@@ -852,7 +854,7 @@ public final class WorkflowEngine {
          * @return the target of the {@code refused} transition when the starter refused the start; empty when the state
          *         is parked
          */
-        private Optional<String> parkJob(StateNode node, StateBehavior.JobStep job, String spawned) {
+        private Optional<String> parkJob(StateNode node, StateBehavior.JobStep job, @Nullable String spawned) {
             if (job.composite()) {
                 status = status.toBuilder().activeJob(new ActiveJob(node.id(), node.id())).build();
                 return Optional.empty();
@@ -1068,7 +1070,7 @@ public final class WorkflowEngine {
         private final String unitId;
 
         /** What the verifier found; not part of the serialized form. */
-        private final transient VerificationResult verification;
+        private final transient @Nullable VerificationResult verification;
 
         /**
          * @param unitId       the refused unit

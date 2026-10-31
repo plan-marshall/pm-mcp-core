@@ -15,6 +15,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.EndpointProfile;
 import de.planmarshall.core.profile.JsonNode;
@@ -61,7 +62,7 @@ public final class EndpointEnrolment {
      * @param listing  the model objects of the listing; {@code null} when it was not read
      * @return the enrolment after the read, and the models whose identity changed
      */
-    public Refreshed refresh(EndpointProfile profile, HarnessEnrolment enrolled, JsonNode listing) {
+    public Refreshed refresh(EndpointProfile profile, HarnessEnrolment enrolled, @Nullable JsonNode listing) {
         Objects.requireNonNull(profile, "profile");
         Objects.requireNonNull(enrolled, "enrolled");
         if (profile.weightsProbe() == null) {

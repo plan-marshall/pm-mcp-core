@@ -22,6 +22,7 @@ import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The state of every node of a plan's process, derived from the plan's append-only history and the instance version in
@@ -117,7 +118,7 @@ public final class PlanProcessStates {
      *         later {@code left} line of that node follows
      */
     private static Optional<String> currentState(List<PlanHistoryLine> history) {
-        String current = null;
+        @Nullable String current = null;
         for (var line : history) {
             if (line.event() == PlanHistoryLine.Event.ENTERED) {
                 current = line.node();

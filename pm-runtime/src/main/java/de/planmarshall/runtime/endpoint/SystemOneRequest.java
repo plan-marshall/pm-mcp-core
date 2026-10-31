@@ -17,6 +17,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.CanonicalJson;
 import de.planmarshall.core.profile.EndpointProfile;
@@ -55,7 +56,7 @@ public final class SystemOneRequest {
      * @param description  what the option says of the state; {@code null} when the question gives none
      * @param consequences what follows from the option; {@code null} when the question gives none
      */
-    public record Criterion(String label, String description, String consequences) {
+    public record Criterion(String label, @Nullable String description, @Nullable String consequences) {
 
         /** Refuses an empty label. */
         public Criterion {
@@ -150,7 +151,7 @@ public final class SystemOneRequest {
      * @param detail  what happened, for a record
      * @since 0.1
      */
-    public record Result(Composed request, Refusal refusal, String detail) {
+    public record Result(@Nullable Composed request, @Nullable Refusal refusal, String detail) {
 
         /** Copies the values and refuses an outcome that is neither. */
         public Result {

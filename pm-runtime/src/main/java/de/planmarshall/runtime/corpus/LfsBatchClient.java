@@ -32,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Flow;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.corpus.JsonValue;
 import de.planmarshall.core.role.corpus.JsonValue.JsonList;
@@ -147,7 +148,8 @@ public final class LfsBatchClient implements LfsObjectSource {
             return SourceFetch.unreachable(String.format(Locale.ROOT, "the batch API %s answered %d", batch, status));
         }
         var step = action(answer.response().body(), pointer);
-        return step.failure() != null ? step.failure() : fetchObject(step.download(), pointer);
+        return step.failure() != null ? Objects.requireNonNull(step.failure(), "failure")
+                : fetchObject(step.download(), pointer);
     }
 
     private static Step action(byte[] body, LfsPointer pointer) {
@@ -231,7 +233,7 @@ public final class LfsBatchClient implements LfsObjectSource {
      * @param reader  reads the response body
      * @return the response, or the outcome of a request that got none
      */
-    private Answer send(URI uri, Map<String, String> headers, String body, BodyHandler<byte[]> reader) {
+    private Answer send(URI uri, Map<String, String> headers, @Nullable String body, BodyHandler<byte[]> reader) {
         try (var handler = HttpHandler.builder().uri(uri).connectionTimeoutSeconds(connectTimeoutSeconds)
                      .readTimeoutSeconds(readTimeoutSeconds).allowInsecureHttp(HTTP.equals(scheme(uri))).build()) {
             var request = handler.requestBuilder().uri(uri);
@@ -354,7 +356,7 @@ public final class LfsBatchClient implements LfsObjectSource {
     }
 
     /** The response of a request, or the outcome of a request that got none. */
-    private record Answer(HttpResponse<byte[]> response, Optional<SourceFetch> failure) {
+    private record Answer(@Nullable HttpResponse<byte[]> response, Optional<SourceFetch> failure) {
 
         static Answer failed(SourceFetch failure) {
             return new Answer(null, Optional.of(failure));
@@ -419,7 +421,7 @@ public final class LfsBatchClient implements LfsObjectSource {
     }
 
     /** The download action of the batch answer, or the outcome that ends the fetch. */
-    private record Step(Download download, SourceFetch failure) {
+    private record Step(@Nullable Download download, @Nullable SourceFetch failure) {
 
         static Step download(Download download) {
             return new Step(download, null);

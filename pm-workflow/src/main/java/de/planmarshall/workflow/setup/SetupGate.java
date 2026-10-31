@@ -110,7 +110,7 @@ public final class SetupGate {
         if (act == Act.ONBOARDING_STEP || act == Act.OPERATOR_VERB || onboarding.firstRunCompleted()) {
             return ADMITTED;
         }
-        return new Refused(MACHINE_NOT_ONBOARDED, CONFLICT, onboarding.missingStep(), CLIENTS);
+        return new Refused(MACHINE_NOT_ONBOARDED, CONFLICT, onboarding.missingStep().orElse(null), CLIENTS);
     }
 
     /**
@@ -127,7 +127,7 @@ public final class SetupGate {
         if (onboarding.firstRunCompleted() || onboarding.completedSteps().contains(neededStep)) {
             return ADMITTED;
         }
-        var missing = onboarding.pendingSteps().contains(neededStep) ? neededStep : onboarding.missingStep();
+        var missing = onboarding.pendingSteps().contains(neededStep) ? neededStep : onboarding.missingStep().orElse(null);
         return new Refused(ONBOARDING_INCOMPLETE, CONFLICT, missing, CLIENTS);
     }
 }

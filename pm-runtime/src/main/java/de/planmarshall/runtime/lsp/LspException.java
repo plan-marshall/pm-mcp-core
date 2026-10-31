@@ -11,6 +11,7 @@ package de.planmarshall.runtime.lsp;
 
 import java.io.Serial;
 import lombok.Getter;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A failure of a language-server interaction.
@@ -43,7 +44,7 @@ public final class LspException extends Exception {
      * @param message the detail
      * @param cause   the cause, or {@code null}
      */
-    public LspException(Kind kind, String message, Throwable cause) {
+    public LspException(Kind kind, String message, @Nullable Throwable cause) {
         super(kind + ": " + message, cause);
         this.kind = kind;
     }

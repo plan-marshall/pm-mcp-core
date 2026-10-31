@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.CanonicalJson;
 import de.planmarshall.core.profile.EndpointProfile;
@@ -38,8 +39,8 @@ import de.planmarshall.core.profile.JsonNode;
  * @param maxAnswerTokens the answer reserve of the profile
  * @since 0.1
  */
-public record EndpointRequest(String model, String system, String user, JsonNode resultSchema, String schemaName,
-int maxAnswerTokens) {
+public record EndpointRequest(String model, String system, String user, @Nullable JsonNode resultSchema,
+@Nullable String schemaName, int maxAnswerTokens) {
 
     /** The compiled estimate of the requested tokens: one token per this many characters. */
     public static final int CHARS_PER_TOKEN = 4;
@@ -62,7 +63,7 @@ int maxAnswerTokens) {
      * @return the request, or why it cannot be composed
      */
     public static Composed compose(EndpointProfile profile, String model, String launchPrompt, String taskInput,
-            JsonNode resultSchema) {
+            @Nullable JsonNode resultSchema) {
         Objects.requireNonNull(profile, "profile");
         var budget = profile.endpoint().contextBudgetTokens();
         if (estimate(launchPrompt) > budget) {
@@ -84,7 +85,7 @@ int maxAnswerTokens) {
      * @param text a text
      * @return its estimated token count, at {@value #CHARS_PER_TOKEN} characters per token, rounded up
      */
-    public static int estimate(String text) {
+    public static int estimate(@Nullable String text) {
         return text == null ? 0 : (text.length() + CHARS_PER_TOKEN - 1) / CHARS_PER_TOKEN;
     }
 
@@ -167,7 +168,7 @@ int maxAnswerTokens) {
      * @param detail  what happened, for a record
      * @since 0.1
      */
-    public record Composed(EndpointRequest request, Refusal refusal, String detail) {
+    public record Composed(@Nullable EndpointRequest request, @Nullable Refusal refusal, String detail) {
 
         static Composed composed(EndpointRequest request) {
             return new Composed(request, null, "composed");

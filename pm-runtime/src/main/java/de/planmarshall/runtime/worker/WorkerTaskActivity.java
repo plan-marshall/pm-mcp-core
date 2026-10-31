@@ -11,6 +11,7 @@ package de.planmarshall.runtime.worker;
 
 import java.util.Optional;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.RoleArtifact;
 
@@ -46,6 +47,6 @@ public interface WorkerTaskActivity {
      * @since 0.1
      */
     record TaskActivity(int attempt, RoleArtifact role, Set<RoleArtifact.OffTrackSignal> alreadyRaised,
-    Double predictedCostTokens, int unplannedChanges) {
+    @Nullable Double predictedCostTokens, int unplannedChanges) {
     }
 }
