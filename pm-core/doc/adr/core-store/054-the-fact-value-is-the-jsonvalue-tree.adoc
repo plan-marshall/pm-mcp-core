@@ -22,7 +22,8 @@ which the codec can read and write without a second parser.
 `DerivedFact.value` is a `de.planmarshall.core.role.corpus.JsonValue` tree or `null` (only for a failed entry), and
 `DerivedFactKinds.validate(kind, value)` runs `SchemaSubset.validate` over the value schema registered for the kind.
 The codec reads the value with `JsonValue.read(JsonParser)` and writes it with a private generator over the tree that
-keeps the member order and writes a number with the digits it was read with.
+keeps the member order; an integer is written as its plain digits, and a fraction in the canonical form the writer
+produces, so a spelling the parser normalizes (an exponent, a negative zero) is written in that form once.
 
 == Alternatives Considered
 

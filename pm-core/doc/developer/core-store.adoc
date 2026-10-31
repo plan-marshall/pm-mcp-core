@@ -1201,7 +1201,8 @@ Tested by `DerivedFactKindTest` (the wire names, the operator-only flag and the 
 run time), `DerivedFactKeyTest` (the wire form, the qualifier grammar and the unknown kind part), `DerivedFactTest`
 (the three state shapes, the digest and reason bounds and the key/entry kind invariant), `DerivedFactsCodecTest` (the
 canonical bytes, the round trip and one refusal per rule) and `DerivedFactsSchemaParityTest` (the members, the
-enumerations, the patterns and the bounds against the schema block).
+enumerations, the patterns and the bounds against the schema block), and `DerivedFactKindsTest` (the registration, the
+duplicate refusal, a value accepted and refused by a fixture schema, the operator-only flag and the empty registry).
 
 [#_the_store_substrate]
 == The Store Substrate
