@@ -46,7 +46,7 @@ The write-ahead job journal, one record per job written at its fixed points (que
     "worker": {
       "type": ["object", "null"],
       "description": "Required (non-null) iff kind == llm: the launch contract, the job-bound connection, and the protocol state of a worker; null for every other kind.",
-      "required": ["role", "configuration_digest", "class", "form", "harness", "harness_version", "model", "effort", "generation_id", "workdir", "prompt_digest", "job_token_sha256", "connected_at", "state", "state_at", "task", "served_tasks", "worktree_mark", "idle_wakeups", "context_tokens", "delivered_skills", "end_reason", "start_failure", "harness_error"],
+      "required": ["role", "configuration_digest", "class", "form", "harness", "harness_version", "profile_source", "profile_digest", "endpoints", "egress", "model", "effort", "generation_id", "workdir", "prompt_digest", "job_token_sha256", "connected_at", "state", "state_at", "task", "served_tasks", "worktree_mark", "idle_wakeups", "context_tokens", "delivered_skills", "end_reason", "start_failure", "harness_error"],
       "additionalProperties": false,
       "properties": {
         "role": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "The role the worker serves (identifiers.adoc, role name)." },
@@ -55,6 +55,10 @@ The write-ahead job journal, one record per job written at its fixed points (que
         "form": { "type": "string", "enum": ["warm", "fresh"], "description": "fresh: one task, then the job ends; warm: tasks until the supervisor recycles or ends it." },
         "harness": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "client_id of the harness of the role's effective configuration (an enrolled harness with a headless template, Harness Enrolment Store, an operator-added one included); its client profile marks it worker-eligible and serves the worker's connection." },
         "harness_version": { "type": "string", "minLength": 1, "description": "Version probed at spawn; within the profile's supported version range of the enrolled harness (Harness Enrolment Store)." },
+        "profile_source": { "type": "string", "enum": ["compiled", "machine", "project"], "description": "The layer of the profile override hierarchy the worker's client profile came from (client-profiles/01, Profile Override Hierarchy)." },
+        "profile_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the canonical bytes of that profile document as loaded at spawn." },
+        "endpoints": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^[a-z0-9.-]+:[0-9]{1,5}$" }, "description": "The host:port destinations the worker's egress proxy admitted, the profile's headless.endpoints at spawn (job-runtime/02, Worker Egress Proxy); every intermediary on the model path the worker was trusted with." },
+        "egress": { "type": "string", "enum": ["enforced", "unenforced"], "description": "Whether the platform made the egress proxy the worker's only route out (job-runtime/02, Worker Egress Proxy); unenforced only under the operator's acceptance for the machine." },
         "model": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Model passed to the harness, the role's effective model (model-work/01, Role Assignment)." },
         "effort": { "type": ["string", "null"], "description": "Effort passed after narrowing to the nearest value the harness and model support; null when none was passed." },
         "effort_narrowed_from": { "type": ["string", "null"], "description": "The role's effective effort when it was narrowed; null otherwise." },
