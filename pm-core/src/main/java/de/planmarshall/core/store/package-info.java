@@ -103,6 +103,13 @@
  * {@link de.planmarshall.core.store.ProjectStoreIdentity}, read and written by
  * {@link de.planmarshall.core.store.ProjectStoreIdentityCodec}), created under the workspace lock and read as present,
  * absent or unreadable; nothing with state lies below the repository.</li>
+ * <li><em>The derived facts store</em> (PM-EXT-6, PM-IMPL-2): {@code derived-facts.json} of a project, the cache of the
+ * values the server can observe ({@link de.planmarshall.core.store.DerivedFacts}, read and written by
+ * {@link de.planmarshall.core.store.DerivedFactsCodec}): the entries by key, each carrying its kind, its value as a
+ * {@link de.planmarshall.core.role.corpus.JsonValue} tree, its derivation, its input digest, its instant, its state
+ * and its failure record; the closed {@link de.planmarshall.core.store.DerivedFactKind} enumeration and the
+ * {@link de.planmarshall.core.store.DerivedFactKinds} registry through which a consumer binds a kind to its value
+ * schema. No concrete kind is registered here, and the store's operations are the second plan.</li>
  * </ul>
  * <p>
  * The package also holds the path confinement to the workspace root and its worktrees (PM-SEC-2): a project path is
@@ -117,6 +124,7 @@
  * <ul>
  * <li>{@code doc/specification/store-schemas/01-format-and-session-log.adoc}</li>
  * <li>{@code doc/specification/store-schemas/02-workflow-state-store.adoc}</li>
+ * <li>{@code doc/specification/store-schemas/09-derived-facts-and-build-timings.adoc}</li>
  * <li>{@code doc/specification/store-schemas/10-job-and-lesson-records.adoc}</li>
  * <li>{@code doc/specification/store-schemas/11-enrolment-store.adoc}</li>
  * <li>{@code doc/specification/store-schemas/12-machine-stores.adoc}</li>

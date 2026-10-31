@@ -1,0 +1,45 @@
+= ADR 053: The Fact Kinds Are an Enumeration Bound to a Value Schema by a Registry
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-31
+
+== Context
+
+Store Schemas § Derived Facts Store enumerates sixteen fact kinds in the `kind` member of an entry and states that a
+new kind is added to the enumeration and to the kind table together with its value schema, its class and its inputs.
+The data side must hold the closed set without owning the value schemas of the facts other plans derive:
+`module_discovery` belongs to module discovery, `ci_provider` and `base_branch_default` to the CI contract, the
+onboarding facts to the onboarding plans and `cost_calibration` to the recalibration.
+
+== Decision
+
+`DerivedFactKind` is a Java enumeration of the specification's closed list, each constant carrying its wire name and
+its `operatorOnly` flag (true for `AGENT_IDENTITY` alone). `DerivedFactKinds` is an instance registry that binds a
+kind to a `DerivedFactKindSpec` at run time; a kind is registered once, and no module fills the registry by default —
+no concrete kind is registered in production code or in a default registry.
+
+== Alternatives Considered
+
+* A free-form string kind: the closed list of the schema would not be enforced, and a document could name a kind no
+  value schema describes.
+* Registering all sixteen kinds here: this plan would own the value schemas of facts other plans derive, and a change
+  to one of those schemas would have to touch this package.
+
+== Consequences
+
+* A new kind is a specification change, an enum constant and a registration.
+* A consumer registers its kind with the value schema of the specification part that defines it; until it does, the
+  kind has no default schema and `DerivedFactKinds.validate` refuses it.
+* The store's operations, which read the registry, are the second plan (`derived-facts-store-operations`).
+
+== Source
+
+* Pull request of this work package, work package link:../../../../doc/plans/derived-facts-store.adoc[`derived-facts-store`]
+* link:../../../../doc/specification/store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas § Derived Facts Store]
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-6[PM-EXT-6]
