@@ -174,16 +174,16 @@ public class WorkerStateCodec {
                 case HARNESS -> state.harness(string(parser, field));
                 case HARNESS_VERSION -> state.harnessVersion(string(parser, field));
                 case MODEL -> state.model(string(parser, field));
-                case EFFORT -> state.effort(nullableString(parser, field));
-                case EFFORT_NARROWED_FROM -> state.effortNarrowedFrom(nullableString(parser, field));
+                case EFFORT -> state.effort(nullableString(parser, field).orElse(null));
+                case EFFORT_NARROWED_FROM -> state.effortNarrowedFrom(nullableString(parser, field).orElse(null));
                 case GENERATION_ID -> state.generationId(generationId(parser, field));
                 case WORKDIR -> state.workdir(readWorkdir(parser));
                 case PROMPT_DIGEST -> state.promptDigest(string(parser, field));
-                case JOB_TOKEN_SHA256 -> state.jobTokenSha256(nullableString(parser, field));
-                case CONNECTED_AT -> state.connectedAt(nullableInstant(parser, field));
+                case JOB_TOKEN_SHA256 -> state.jobTokenSha256(nullableString(parser, field).orElse(null));
+                case CONNECTED_AT -> state.connectedAt(nullableInstant(parser, field).orElse(null));
                 case STATE -> state.state(closed(parser, field, State::fromWireName));
                 case STATE_AT -> state.stateAt(instant(parser, field));
-                case TASK -> state.task(nullableString(parser, field));
+                case TASK -> state.task(nullableString(parser, field).orElse(null));
                 case SERVED_TASKS -> state.servedTasks(stringList(parser, field));
                 case WORKTREE_MARK -> state.worktreeMark(isNull(parser) ? null : readWorktreeMark(parser));
                 case IDLE_WAKEUPS -> state.idleWakeups(integer(parser, field));
@@ -193,7 +193,7 @@ public class WorkerStateCodec {
                 case END_REASON -> state.endReason(isNull(parser) ? null : closed(parser, field,
                         EndReason::fromWireName));
                 case START_FAILURE -> state.startFailure(bool(parser, field));
-                case HARNESS_ERROR -> state.harnessError(nullableString(parser, field));
+                case HARNESS_ERROR -> state.harnessError(nullableString(parser, field).orElse(null));
                 default -> throw undeclared(field);
             }
         }
@@ -223,7 +223,7 @@ public class WorkerStateCodec {
             var field = nextField(parser, seen);
             switch (field) {
                 case KIND -> kind = closed(parser, WORKDIR + "." + KIND, Workdir.Kind::fromWireName);
-                case PLAN_ID -> planId = nullableString(parser, WORKDIR + "." + PLAN_ID);
+                case PLAN_ID -> planId = nullableString(parser, WORKDIR + "." + PLAN_ID).orElse(null);
                 default -> throw undeclared(field);
             }
         }
@@ -364,11 +364,11 @@ public class WorkerStateCodec {
         return JsonNode.object(members);
     }
 
-    private static JsonNode nullable(String value) {
+    private static JsonNode nullable(@Nullable String value) {
         return value == null ? JsonNode.nullValue() : JsonNode.string(value);
     }
 
-    private static JsonNode instantNode(Instant value) {
+    private static JsonNode instantNode(@Nullable Instant value) {
         return value == null ? JsonNode.nullValue() : JsonNode.string(value.toString());
     }
 }

@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -95,7 +97,7 @@ public final class PendingEntryStore {
      * @param random the source of the drawn digits; {@code null} for the secure default
      * @see #allocate(ScopeTransaction)
      */
-    EntryId allocate(ScopeTransaction transaction, RandomGenerator random) {
+    EntryId allocate(ScopeTransaction transaction, @Nullable RandomGenerator random) {
         requireOwnScope(transaction);
         EntryId candidate;
         do {

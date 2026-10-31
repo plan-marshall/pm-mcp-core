@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -185,7 +187,8 @@ public final class IntentAcceptance {
      * @param context    what the checks need beyond the record
      * @return the accepted store, or the refusal with its detail
      */
-    public static Outcome accept(IntentStore before, IntentSubmission submission, Revision next, Context context) {
+    public static Outcome accept(@Nullable IntentStore before, IntentSubmission submission, Revision next,
+            Context context) {
         Objects.requireNonNull(submission, "submission");
         Objects.requireNonNull(next, "next");
         Objects.requireNonNull(context, "context");

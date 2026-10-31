@@ -542,8 +542,8 @@ Instant createdAt, @Nullable Instant spawnedAt, @Nullable Instant endedAt, @Null
         }
     }
 
-    private static void requireForms(String argvDigest, Long pid, Integer landlockAbi, String refusalReason,
-            Long childWallMs) {
+    private static void requireForms(@Nullable String argvDigest, @Nullable Long pid, @Nullable Integer landlockAbi,
+            @Nullable String refusalReason, @Nullable Long childWallMs) {
         if (argvDigest != null && !DIGEST.matcher(argvDigest).matches()) {
             throw new IllegalArgumentException("'argv_digest' is not a SHA-256: " + argvDigest);
         }
@@ -561,8 +561,8 @@ Instant createdAt, @Nullable Instant spawnedAt, @Nullable Instant endedAt, @Null
         }
     }
 
-    private static void requireKindRules(JobId.Kind kind, Execution execution, Scope scope, String worker,
-            SelfReportContradiction contradiction, String gateFacts) {
+    private static void requireKindRules(JobId.Kind kind, Execution execution, Scope scope, @Nullable String worker,
+            @Nullable SelfReportContradiction contradiction, @Nullable String gateFacts) {
         if (kind == JobId.Kind.LLM) {
             if (worker == null || execution != Execution.PROCESS
                     || !Set.of(Scope.Type.PROJECT, Scope.Type.MACHINE).contains(scope.type())) {
@@ -586,7 +586,8 @@ Instant createdAt, @Nullable Instant spawnedAt, @Nullable Instant endedAt, @Null
         }
     }
 
-    private static void requireSettlement(Status status, Fate fate, Integer outcomeRow, String refusalReason) {
+    private static void requireSettlement(Status status, Fate fate, @Nullable Integer outcomeRow,
+            @Nullable String refusalReason) {
         var settled = status.isSettled();
         if (settled != (fate != null) || settled != (outcomeRow != null)) {
             throw new IllegalArgumentException(
@@ -604,8 +605,9 @@ Instant createdAt, @Nullable Instant spawnedAt, @Nullable Instant endedAt, @Null
         }
     }
 
-    private static void requireProcessFields(Execution execution, String argvDigest, Long pid,
-            Instant processStartedAt, Instant spawnedAt, Long exitCode, String signal, Confinement confinement) {
+    private static void requireProcessFields(Execution execution, @Nullable String argvDigest, @Nullable Long pid,
+            @Nullable Instant processStartedAt, @Nullable Instant spawnedAt, @Nullable Long exitCode,
+            @Nullable String signal, Confinement confinement) {
         if (execution != Execution.IN_PROCESS) {
             return;
         }
@@ -618,8 +620,8 @@ Instant createdAt, @Nullable Instant spawnedAt, @Nullable Instant endedAt, @Null
         }
     }
 
-    private static void requireChildWall(Long childWallMs, Execution execution, Status status, Instant spawnedAt,
-            Instant endedAt) {
+    private static void requireChildWall(@Nullable Long childWallMs, Execution execution, Status status,
+            @Nullable Instant spawnedAt, @Nullable Instant endedAt) {
         if (childWallMs == null) {
             return;
         }
@@ -647,7 +649,8 @@ Instant createdAt, @Nullable Instant spawnedAt, @Nullable Instant endedAt, @Null
      * that merely starts and ends like one, such as {@code {"a":1},"fate":"succeeded","x":{}}, would be written into
      * the record and refuse the whole store when it is read.
      */
-    private static void requireSingleJsonValue(String raw, String name, String expected, Set<JsonToken> accepted) {
+    private static void requireSingleJsonValue(@Nullable String raw, String name, String expected,
+            Set<JsonToken> accepted) {
         if (raw == null) {
             return;
         }

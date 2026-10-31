@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -105,7 +107,7 @@ long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
      * @param harnessVersion the harness version probed at the worker's spawn; {@code null} only for a refused row
      * @since 0.1
      */
-    public record ModelHarness(String model, String harness, String harnessVersion)
+    public record ModelHarness(String model, String harness, @Nullable String harnessVersion)
             implements Comparable<ModelHarness> {
 
         @Override
@@ -118,7 +120,7 @@ long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
             return byHarness == 0 ? compareNullsFirst(harnessVersion, other.harnessVersion) : byHarness;
         }
 
-        private static int compareNullsFirst(String left, String right) {
+        private static int compareNullsFirst(@Nullable String left, @Nullable String right) {
             if (left == null) {
                 return right == null ? 0 : -1;
             }

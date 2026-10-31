@@ -77,8 +77,9 @@ import lombok.Builder;
  */
 @Builder(toBuilder = true)
 public record QuestionRecord(QuestionEvent event, String questionId, QuestionClass questionClass, Origin origin,
-String sourceEntity, String askingRole, String phase, String questionSet, String planTaskId, Integer revision,
-Decision decision, @Nullable String envelope, @Nullable String decisionId, @Nullable Answer answer,
+String sourceEntity, @Nullable String askingRole, @Nullable String phase, String questionSet,
+@Nullable String planTaskId, @Nullable Integer revision, @Nullable Decision decision, @Nullable String envelope,
+@Nullable String decisionId, @Nullable Answer answer,
 @Nullable QuestionChannel channel, @Nullable String deviceId, @Nullable String amendmentId, @Nullable String reason,
 Instant at) {
 
@@ -252,7 +253,7 @@ Instant at) {
      * @param label its label, at most 200 characters; {@code null} if it has none
      * @since 0.1
      */
-    public record Evidence(EvidenceKind kind, String ref, String label) {
+    public record Evidence(EvidenceKind kind, String ref, @Nullable String label) {
 
         /**
          * @throws NullPointerException     if the kind or the ref is {@code null}
@@ -467,8 +468,9 @@ Instant at) {
         }
     }
 
-    private static void requireForms(String askingRole, String phase, String planTaskId, String decisionId,
-            String deviceId, String amendmentId, String reason) {
+    private static void requireForms(@Nullable String askingRole, @Nullable String phase, @Nullable String planTaskId,
+            @Nullable String decisionId, @Nullable String deviceId, @Nullable String amendmentId,
+            @Nullable String reason) {
         if (askingRole != null) {
             requireMatch(ROLE, askingRole, "role");
         }
@@ -497,13 +499,13 @@ Instant at) {
         return event.closes();
     }
 
-    private static void onlyOn(QuestionEvent event, Set<QuestionEvent> events, Object member, String name) {
+    private static void onlyOn(QuestionEvent event, Set<QuestionEvent> events, @Nullable Object member, String name) {
         if (member != null && !events.contains(event)) {
             throw new IllegalArgumentException("'%s' does not belong to a %s line".formatted(name, event.wireName()));
         }
     }
 
-    private static void requiredOn(QuestionEvent event, Set<QuestionEvent> events, Object member, String name) {
+    private static void requiredOn(QuestionEvent event, Set<QuestionEvent> events, @Nullable Object member, String name) {
         onlyOn(event, events, member, name);
         if (member == null && events.contains(event)) {
             throw new IllegalArgumentException("A %s line has '%s'".formatted(event.wireName(), name));
@@ -540,7 +542,7 @@ Instant at) {
     }
 
     /** Counts the characters as the schema counts them, Unicode code points, not UTF-16 code units. */
-    private static void requireLength(String value, String name, int min, int max) {
+    private static void requireLength(@Nullable String value, String name, int min, int max) {
         if (value == null) {
             return;
         }

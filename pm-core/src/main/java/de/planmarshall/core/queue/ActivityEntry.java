@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.queue;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
 import java.time.Instant;
@@ -58,9 +60,11 @@ import de.planmarshall.core.store.StrictJson;
  */
 @With
 @Builder(toBuilder = true)
-public record ActivityEntry(int seq, int attempt, Source source, Kind kind, String text, boolean truncated,
-Tool tool, Result result, String path, StopReason stopReason, String usage, Link link, String questionId,
-Signal signal, String end, Integer unmappedLines, Instant at) {
+public record ActivityEntry(int seq, int attempt, Source source, Kind kind, @Nullable String text,
+boolean truncated, @Nullable Tool tool, @Nullable Result result, @Nullable String path,
+@Nullable StopReason stopReason, @Nullable String usage, @Nullable Link link,
+@Nullable String questionId, @Nullable Signal signal, @Nullable String end,
+@Nullable Integer unmappedLines, Instant at) {
 
     /** The format version of an activity entry that is read and written. */
     public static final int FORMAT_VERSION = 1;
@@ -241,7 +245,7 @@ Signal signal, String end, Integer unmappedLines, Instant at) {
      * @param target a path, a command line, or a server link with its id; masked
      * @since 0.1
      */
-    public record Tool(String name, String target) {
+    public record Tool(String name, @Nullable String target) {
 
         /**
          * @throws NullPointerException     if the name is {@code null}
@@ -284,7 +288,7 @@ Signal signal, String end, Integer unmappedLines, Instant at) {
      * @param target the entity or role the link names
      * @since 0.1
      */
-    public record Link(LinkRelation rel, String target) {
+    public record Link(LinkRelation rel, @Nullable String target) {
 
         /**
          * @throws NullPointerException     if the relation is {@code null}
@@ -403,14 +407,14 @@ Signal signal, String end, Integer unmappedLines, Instant at) {
         return source == Source.SERVER;
     }
 
-    private static void onlyOn(Kind kind, Kind owner, Object member, String name) {
+    private static void onlyOn(Kind kind, Kind owner, @Nullable Object member, String name) {
         if (member != null && kind != owner) {
             throw new IllegalArgumentException("'%s' belongs to a %s entry, not a %s entry"
                     .formatted(name, owner.wireName(), kind.wireName()));
         }
     }
 
-    private static void requireJsonObject(String raw) {
+    private static void requireJsonObject(@Nullable String raw) {
         if (raw == null) {
             return;
         }

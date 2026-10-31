@@ -231,9 +231,9 @@ public class ModelSlotCodec {
                 case FIELD_ROLE -> role = string(parser, field);
                 case FIELD_CLASS -> workerClass = workerClass(parser, field);
                 case FIELD_FORM -> form = form(parser, field);
-                case FIELD_PLAN_ID -> planId = nullableString(parser, field);
+                case FIELD_PLAN_ID -> planId = nullableString(parser, field).orElse(null);
                 case FIELD_ACQUIRED_AT -> acquiredAt = instant(parser, field);
-                case FIELD_LEASE_EXPIRES_AT -> leaseExpiresAt = nullableInstant(parser, field);
+                case FIELD_LEASE_EXPIRES_AT -> leaseExpiresAt = nullableInstant(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }
@@ -265,7 +265,7 @@ public class ModelSlotCodec {
                 case FIELD_ROLE -> role = string(parser, field);
                 case FIELD_CLASS -> workerClass = workerClass(parser, field);
                 case FIELD_FORM -> form = form(parser, field);
-                case FIELD_PLAN_ID -> planId = nullableString(parser, field);
+                case FIELD_PLAN_ID -> planId = nullableString(parser, field).orElse(null);
                 case FIELD_ENQUEUED_AT -> enqueuedAt = instant(parser, field);
                 default -> throw undeclared(field);
             }
@@ -281,7 +281,7 @@ public class ModelSlotCodec {
     }
 
     /** A writer serves a plan; a stored writer without one is refused as unreadable rather than as an NPE. */
-    private static void requireWriterPlan(WorkerClass workerClass, String planId) {
+    private static void requireWriterPlan(WorkerClass workerClass, @Nullable String planId) {
         if (workerClass == WorkerClass.WRITER && planId == null) {
             throw unreadable("'plan_id' must be set for a writer worker");
         }

@@ -174,8 +174,8 @@ public class QuestionRecordCodec {
         generator.writeNumberField(FIELD_FORMAT_VERSION, QuestionRecord.FORMAT_VERSION);
         generator.writeStringField(FIELD_EVENT, question.event().wireName());
         generator.writeStringField(FIELD_QUESTION_ID, question.questionId());
-        writeText(generator, required, FIELD_CLASS, wire(question.questionClass()));
-        writeText(generator, required, FIELD_ORIGIN, wire(question.origin()));
+        writeText(generator, required, FIELD_CLASS, wire(question.questionClass()).orElse(null));
+        writeText(generator, required, FIELD_ORIGIN, wire(question.origin()).orElse(null));
         writeText(generator, required, FIELD_SOURCE_ENTITY, question.sourceEntity());
         writeText(generator, required, FIELD_ASKING_ROLE, question.askingRole());
         writeText(generator, required, FIELD_PHASE, question.phase());
@@ -262,7 +262,7 @@ public class QuestionRecordCodec {
     }
 
     /** Writes a text member: always when the event requires it, a {@code null} as {@code null}; else only if held. */
-    private static void writeText(JsonGenerator generator, Set<String> required, String field, String value)
+    private static void writeText(JsonGenerator generator, Set<String> required, String field, @Nullable String value)
             throws IOException {
         if (value != null) {
             generator.writeStringField(field, value);
@@ -279,8 +279,8 @@ public class QuestionRecordCodec {
         }
     }
 
-    private static String wire(WireName value) {
-        return value == null ? null : value.wireName();
+    private static Optional<String> wire(@Nullable WireName value) {
+        return value == null ? Optional.empty() : Optional.of(value.wireName());
     }
 
     private static QuestionRecord readObject(JsonParser parser, byte[] document) throws IOException {
@@ -300,10 +300,10 @@ public class QuestionRecordCodec {
                 case FIELD_CLASS -> question.questionClass(closed(parser, field, QuestionClass.class));
                 case FIELD_ORIGIN -> question.origin(closed(parser, field, Origin.class));
                 case FIELD_SOURCE_ENTITY -> question.sourceEntity(string(parser, field));
-                case FIELD_ASKING_ROLE -> question.askingRole(nullableString(parser, field));
-                case FIELD_PHASE -> question.phase(nullableString(parser, field));
+                case FIELD_ASKING_ROLE -> question.askingRole(nullableString(parser, field).orElse(null));
+                case FIELD_PHASE -> question.phase(nullableString(parser, field).orElse(null));
                 case FIELD_QUESTION_SET -> question.questionSet(string(parser, field));
-                case FIELD_PLAN_TASK_ID -> question.planTaskId(nullableString(parser, field));
+                case FIELD_PLAN_TASK_ID -> question.planTaskId(nullableString(parser, field).orElse(null));
                 case FIELD_REVISION -> question.revision(revision(parser, field));
                 case FIELD_DECISION -> question.decision(readDecision(parser));
                 case FIELD_ENVELOPE -> {
@@ -314,9 +314,9 @@ public class QuestionRecordCodec {
                 case FIELD_ANSWER -> question.answer(readAnswer(parser));
                 case FIELD_CHANNEL -> question.channel(
                         WaiverRecordCodec.enumValue(string(parser, field), QuestionChannel::fromWireName, field));
-                case FIELD_DEVICE_ID -> question.deviceId(nullableString(parser, field));
-                case FIELD_AMENDMENT_ID -> question.amendmentId(nullableString(parser, field));
-                case FIELD_REASON -> question.reason(nullableString(parser, field));
+                case FIELD_DEVICE_ID -> question.deviceId(nullableString(parser, field).orElse(null));
+                case FIELD_AMENDMENT_ID -> question.amendmentId(nullableString(parser, field).orElse(null));
+                case FIELD_REASON -> question.reason(nullableString(parser, field).orElse(null));
                 case FIELD_AT -> question.at(instant(parser, field));
                 default -> throw undeclared(field);
             }
@@ -373,7 +373,7 @@ public class QuestionRecordCodec {
             switch (field) {
                 case FIELD_KIND -> kind = closed(parser, field, EvidenceKind.class);
                 case FIELD_REF -> ref = string(parser, field);
-                case FIELD_LABEL -> label = nullableString(parser, field);
+                case FIELD_LABEL -> label = nullableString(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }
@@ -401,8 +401,8 @@ public class QuestionRecordCodec {
                 case FIELD_KIND -> kind = closed(parser, field, AnswerKind.class);
                 case FIELD_BRANCH_KEYS -> branchKeys = stringList(parser, field);
                 case FIELD_VALUE -> value = readValue(parser).orElse(null);
-                case FIELD_OWN_WORDS -> ownWords = nullableString(parser, field);
-                case FIELD_NOTE -> note = nullableString(parser, field);
+                case FIELD_OWN_WORDS -> ownWords = nullableString(parser, field).orElse(null);
+                case FIELD_NOTE -> note = nullableString(parser, field).orElse(null);
                 case FIELD_INTERPRETATION -> interpretation = parser.currentToken() == JsonToken.VALUE_NULL ? null
                         : readInterpretation(parser);
                 case FIELD_AFTER_CHAT -> afterChat = bool(parser, field);
@@ -438,7 +438,7 @@ public class QuestionRecordCodec {
             var field = nextField(parser, seen);
             switch (field) {
                 case FIELD_RESULT -> result = closed(parser, field, InterpretationResult.class);
-                case FIELD_CONDITION -> condition = nullableString(parser, field);
+                case FIELD_CONDITION -> condition = nullableString(parser, field).orElse(null);
                 case FIELD_PASSAGES -> passages = stringList(parser, field);
                 case FIELD_QUEUE_TASK_ID -> queueTaskId = string(parser, field);
                 default -> throw undeclared(field);

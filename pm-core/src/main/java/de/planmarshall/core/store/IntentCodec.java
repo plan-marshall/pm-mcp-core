@@ -355,7 +355,7 @@ public class IntentCodec {
                 case FIELD_WHY -> why = string(parser, field);
                 case FIELD_GOAL -> goal = string(parser, field);
                 case FIELD_CRITERIA -> criteria = array(parser, field, IntentCodec::readCriterion);
-                case FIELD_CURRENT_BEHAVIOUR -> currentBehaviour = nullableString(parser, field);
+                case FIELD_CURRENT_BEHAVIOUR -> currentBehaviour = nullableString(parser, field).orElse(null);
                 case FIELD_NON_GOALS -> nonGoals = array(parser, field, IntentCodec::readNonGoal);
                 case FIELD_CONSTRAINTS -> constraints = array(parser, field, IntentCodec::readConstraint);
                 case FIELD_DECISIONS -> decisions = array(parser, field, IntentCodec::readDecision);
@@ -419,7 +419,7 @@ public class IntentCodec {
                 case FIELD_CAPABILITY -> capability = string(parser, field);
                 case FIELD_REQUIREMENT -> requirement = string(parser, field);
                 case FIELD_CHANGE -> change = required(CapabilityChange.fromWireName(string(parser, field)), field);
-                case FIELD_BASE -> base = nullableString(parser, field);
+                case FIELD_BASE -> base = nullableString(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }
@@ -465,7 +465,7 @@ public class IntentCodec {
                 case FIELD_ID -> id = string(parser, field);
                 case FIELD_TEXT -> text = string(parser, field);
                 case FIELD_SOURCE -> source = required(ConstraintSource.fromWireName(string(parser, field)), field);
-                case FIELD_EVIDENCE -> evidence = nullableString(parser, field);
+                case FIELD_EVIDENCE -> evidence = nullableString(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }
@@ -494,8 +494,8 @@ public class IntentCodec {
                 case FIELD_TEXT -> text = string(parser, field);
                 case FIELD_OPTIONS_WEIGHED -> options = stringList(parser, field);
                 case FIELD_DECIDER -> decider = required(Decider.fromWireName(string(parser, field)), field);
-                case FIELD_QUESTION_ID -> questionId = nullableString(parser, field);
-                case FIELD_EVIDENCE -> evidence = nullableString(parser, field);
+                case FIELD_QUESTION_ID -> questionId = nullableString(parser, field).orElse(null);
+                case FIELD_EVIDENCE -> evidence = nullableString(parser, field).orElse(null);
                 case FIELD_ADR -> adr = parser.currentToken() == JsonToken.VALUE_NULL ? null : readAdr(parser, field);
                 default -> throw undeclared(field);
             }
@@ -545,7 +545,7 @@ public class IntentCodec {
                 case FIELD_TEXT -> text = string(parser, field);
                 case FIELD_STATUS -> status = required(AssumptionStatus.fromWireName(string(parser, field)), field);
                 case FIELD_RISKIEST -> riskiest = bool(parser, field);
-                case FIELD_TEST -> test = nullableString(parser, field);
+                case FIELD_TEST -> test = nullableString(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }
@@ -613,7 +613,7 @@ public class IntentCodec {
             switch (field) {
                 case FIELD_CLAIM -> claim = string(parser, field);
                 case FIELD_LANDED_IN -> landedIn = string(parser, field);
-                case FIELD_REASON -> reason = nullableString(parser, field);
+                case FIELD_REASON -> reason = nullableString(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }

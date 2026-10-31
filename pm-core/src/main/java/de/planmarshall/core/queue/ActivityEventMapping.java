@@ -87,11 +87,11 @@ public record ActivityEventMapping(String kindPointer, Map<ActivityEntry.Kind, K
             case TOOL_CALL -> new KindMapping(match, null, text(declaration, "tool"),
                     array(declaration, "target"), null, null, null, null);
             case TOOL_RESULT -> new KindMapping(match, null, null, List.of(), text(declaration, "size"),
-                    optionalText(declaration, "is_error"), null, null);
+                    optionalText(declaration, "is_error").orElse(null), null, null);
             case FILE_CHANGED -> new KindMapping(match, null, null, List.of(), null, null,
                     text(declaration, "path"), null);
             case TURN -> new KindMapping(match, null, null, List.of(), null, null, null,
-                    optionalText(declaration, "stop_reason"));
+                    optionalText(declaration, "stop_reason").orElse(null));
             default -> throw new IllegalArgumentException("Not a harness kind: " + kind);
         };
     }
@@ -115,9 +115,12 @@ public record ActivityEventMapping(String kindPointer, Map<ActivityEntry.Kind, K
                 .orElseThrow(() -> new IllegalArgumentException("The events block has no '" + member + "'"));
     }
 
-    private static String optionalText(JsonNode node, String member) {
+    private static Optional<String> optionalText(JsonNode node, String member) {
         var value = node.member(member).orElse(null);
-        return value == null || value.isNull() ? null : value.text().orElse(null);
+        if (value == null || value.isNull()) {
+            return Optional.empty();
+        }
+        return value.text();
     }
 
     private static List<String> array(JsonNode node, String member) {

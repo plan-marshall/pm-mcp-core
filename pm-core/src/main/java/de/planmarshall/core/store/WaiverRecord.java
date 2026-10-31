@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
@@ -42,8 +44,9 @@ import lombok.Builder;
  * @since 0.1
  */
 @Builder(toBuilder = true)
-public record WaiverRecord(Event event, String waiverId, String gate, Mode mode, Long value, String reason,
-ReasonClass reasonClass, String requestId, Operator operator, Instant at) {
+public record WaiverRecord(Event event, String waiverId, @Nullable String gate, @Nullable Mode mode,
+@Nullable Long value, String reason, @Nullable ReasonClass reasonClass, @Nullable String requestId,
+Operator operator, Instant at) {
 
     /** The format version of a waiver record that is read and written. */
     public static final int FORMAT_VERSION = 1;
@@ -235,7 +238,7 @@ ReasonClass reasonClass, String requestId, Operator operator, Instant at) {
         requireValue(mode, value);
     }
 
-    private static void requireValue(Mode mode, Long value) {
+    private static void requireValue(Mode mode, @Nullable Long value) {
         if (mode == Mode.RAISE) {
             if (value == null) {
                 throw new IllegalArgumentException("A raise carries its new ceiling as value");
@@ -252,7 +255,7 @@ ReasonClass reasonClass, String requestId, Operator operator, Instant at) {
      * @param deviceId a device id; {@code null} where there is none
      * @throws IllegalArgumentException if the device id is present and breaks its form
      */
-    static void requireDeviceId(String deviceId) {
+    static void requireDeviceId(@Nullable String deviceId) {
         if (deviceId != null) {
             requireMatch(DEVICE_ID, deviceId, "device id (dev- and 12 hex digits)");
         }

@@ -244,7 +244,7 @@ public record CapabilitySpec(String capability, String purpose, List<Requirement
             var field = nextField(parser, seen);
             switch (field) {
                 case FIELD_NAME -> scenarioName = string(parser, field);
-                case FIELD_GIVEN -> given = StrictJson.nullableString(parser, field);
+                case FIELD_GIVEN -> given = StrictJson.nullableString(parser, field).orElse(null);
                 case FIELD_WHEN -> when = string(parser, field);
                 case FIELD_THEN -> then = string(parser, field);
                 default -> throw undeclared(field);
@@ -335,7 +335,7 @@ public record CapabilitySpec(String capability, String purpose, List<Requirement
      * @param then  the response, 3 to 500 characters
      * @since 0.1
      */
-    public record Scenario(String name, String given, String when, String then) {
+    public record Scenario(String name, @Nullable String given, String when, String then) {
 
         /**
          * @throws IllegalArgumentException if a member is out of its bounds
@@ -364,7 +364,7 @@ public record CapabilitySpec(String capability, String purpose, List<Requirement
      * @param value a value of the canonical JSON: a string, a list or a map with string keys
      * @return the RFC 8785 canonical JSON text
      */
-    static String canonical(Object value) {
+    static String canonical(@Nullable Object value) {
         if (value == null) {
             return "null";
         }
