@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.time.Instant;
 import java.util.Objects;
 import java.util.regex.Pattern;
@@ -37,8 +39,9 @@ import de.planmarshall.core.store.WaiverRecord.Channel;
  * @since 0.1
  */
 @Builder(toBuilder = true)
-public record WaiverRequest(String requestId, String gate, String policy, String rationale, String evidenceUri,
-Instant requestedAt, WaiverRequestOutcome outcome, String waiverId, Answered answered, String prCommentRef) {
+public record WaiverRequest(String requestId, String gate, @Nullable String policy, String rationale,
+@Nullable String evidenceUri, Instant requestedAt, @Nullable WaiverRequestOutcome outcome, @Nullable String waiverId,
+@Nullable Answered answered, @Nullable String prCommentRef) {
 
     /** The longest rationale, and the longest reason of a decline, a request holds. */
     public static final int MAX_TEXT_LENGTH = 2000;
@@ -56,7 +59,7 @@ Instant requestedAt, WaiverRequestOutcome outcome, String waiverId, Answered ans
      * @param at       when the operator acted
      * @since 0.1
      */
-    public record Answered(Channel channel, String deviceId, String reason, Instant at) {
+    public record Answered(Channel channel, @Nullable String deviceId, @Nullable String reason, Instant at) {
 
         /**
          * @throws NullPointerException     if the channel or the instant is {@code null}

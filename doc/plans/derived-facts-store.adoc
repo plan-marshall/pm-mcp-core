@@ -1,0 +1,28 @@
+= The derived facts store
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `derived-facts-store`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 6 (module discovery, which persists its snapshot as the derived fact `module_discovery`) and Milestone 7 (project onboarding, whose `setup.verify-credentials` and project settings read and refresh the derived facts); `PM-EXT-6`, `PM-IMPL-2`, `PM-IMPL-7`
+Where:: pm-core (package `core.store`: the `DerivedFact*` types, the codec, the registry, the store)
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* *Implements* link:../specification/store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas § Derived Facts Store], the two value schemas of link:../specification/store-schemas/09-derived-facts-and-build-timings.adoc#derived-fact-kinds-discovery-calibration[Store Schemas § Derived fact kinds: `module_discovery`, `cost_calibration`], and the validity period of link:../specification/timeouts/03-retention-host-config.adoc#derived-fact-validity[Timeouts & Budgets § Derived Facts] (watch link:../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-43[PM-WATCH-STORE-43]).
+* *The data side*: the entry records and the strict codec of `derived-facts.json`, and the registry through which a consumer registers a fact kind with its value schema, its class and its inputs; no concrete kind is registered here, because each belongs to the package that derives it.
+* *The store* (the second plan, `derived-facts-store-operations`): the input-digest recompute rule for local derivations and the validity period for network derivations; the `stale` and `failed` semantics with the failure record; the gate-evaluation helper that turns a stale, failed or missing fact into `COULD_NOT_EVALUATE`; and the exclusion of the operator-only fact `agent_identity` from every model-facing view.
+* *Left out*: the derivations of the concrete kinds (each belongs to the package that consumes the kind) and the Build Timings Store (built, `adaptive-timeout-learning`); the resources and representations that serve the facts (`plan-marshall-mcp`).
+
+== Trace
+
+Requirements stay in `plan-marshall-documentation`; the specification sections and watch documents are those of this repository. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-6[PM-EXT-6]; link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]; link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]
+* Specification: link:../specification/store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas § Derived Facts Store]; link:../specification/timeouts/03-retention-host-config.adoc#derived-fact-validity[Timeouts & Budgets § Derived Facts]; link:../specification/store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[Store Schemas § Lock-Free Snapshot Reads, Transaction Locks & Leases]
+* Watch: link:../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-43[PM-WATCH-STORE-43]
+
+== Done When
+
+A `derived-facts.json` round-trips and is pinned to the schema; a local fact is recomputed exactly when its `input_digest` changes and a network fact after `86400` seconds or on a refresh; a failed derivation keeps the last value as `stale` (or `failed` when none was ever derived) with its failure and makes every dependent gate `COULD_NOT_EVALUATE`; `agent_identity` is in no model-facing view; two refreshes at once lose no update.

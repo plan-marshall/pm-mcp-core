@@ -1,0 +1,42 @@
+= ADR 055: The Writer Emits `failure: null` for a Current Entry
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-31
+
+== Context
+
+The schema's entry `required` set is `kind`, `value`, `source`, `input_digest`, `derived_at` and `state`; `failure` is
+not required, and its type is `["object", "null"]`. The specification text says a failed derivation records its
+failure and that a `current` entry has none. Two written forms of a current entry are therefore possible: the member
+absent, or the member present as `null`.
+
+== Decision
+
+`DerivedFactsCodec.write` always emits `failure`, as a JSON `null` for a `current` entry and as the failure object for
+a `stale` or `failed` one. The reader accepts the member absent or `null` for a current entry, because the schema does
+not require it.
+
+== Alternatives Considered
+
+* Omitting the member for a current entry: a second canonical form, and `write(read(b))` would not be byte-identical
+  for a document that carries `"failure": null`.
+* Requiring `failure` in the schema: a schema change for a choice of the writer, and the specification keeps the
+  member optional.
+
+== Consequences
+
+* A current entry has one written form, so the canonical bytes of a document are written again unchanged.
+* A document written by another writer with the member absent is still readable and is written back with the member.
+* `DerivedFactTest` states the state shapes; `DerivedFactsCodecTest` pins the written form.
+
+== Source
+
+* Pull request of this work package, work package link:../../../../doc/plans/derived-facts-store.adoc[`derived-facts-store`]
+* link:../../../../doc/specification/store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas § Derived Facts Store]
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-6[PM-EXT-6]

@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import de.cuioss.tools.logging.CuiLogger;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -567,7 +569,7 @@ public final class EnrolmentStore {
      * @param sidecarBytes the bytes of the staged sidecar; {@code null} if it does not exist
      * @return why the staged sidecar does not stand for the content; empty if it reads strictly and matches it
      */
-    private static Optional<String> mismatch(Path stagedSidecar, byte[] sidecarBytes, byte[] content) {
+    private static Optional<String> mismatch(Path stagedSidecar, byte @Nullable [] sidecarBytes, byte[] content) {
         if (sidecarBytes == null) {
             return Optional.of("the staged sidecar is missing");
         }

@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -192,7 +194,7 @@ public final class JobRecordStore {
      * @param random the source of the drawn digits; {@code null} for the secure default
      * @see #allocate(LockTransaction, JobId.Kind, Scope)
      */
-    JobId allocate(LockTransaction transaction, JobId.Kind kind, Scope scope, RandomGenerator random) {
+    JobId allocate(LockTransaction transaction, JobId.Kind kind, Scope scope, @Nullable RandomGenerator random) {
         Objects.requireNonNull(transaction, TRANSACTION_ARGUMENT);
         Objects.requireNonNull(kind, "kind");
         transaction.acquire(lockKey(scope));

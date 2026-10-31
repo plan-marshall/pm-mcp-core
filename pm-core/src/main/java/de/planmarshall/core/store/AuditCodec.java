@@ -37,6 +37,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.TreeMap;
 import lombok.experimental.UtilityClass;
 
@@ -276,8 +277,8 @@ public class AuditCodec {
                 case CATEGORY -> auditRecord.category(Category.fromWireName(string(parser, field))
                         .orElseThrow(() -> undeclaredValue(parser, field)));
                 case EVENT -> auditRecord.event(string(parser, field));
-                case SCOPE_TYPE -> auditRecord.scopeType(scope(parser, field));
-                case SCOPE_ID -> auditRecord.scopeId(nullableString(parser, field));
+                case SCOPE_TYPE -> auditRecord.scopeType(scope(parser, field).orElse(null));
+                case SCOPE_ID -> auditRecord.scopeId(nullableString(parser, field).orElse(null));
                 case ACTOR -> auditRecord.actor(string(parser, field));
                 case OUTCOME -> auditRecord.outcome(Outcome.fromWireName(string(parser, field))
                         .orElseThrow(() -> undeclaredValue(parser, field)));
@@ -289,10 +290,12 @@ public class AuditCodec {
         return auditRecord.build();
     }
 
-    private static Scope scope(JsonParser parser, String field) throws IOException {
+    private static Optional<Scope> scope(JsonParser parser, String field) throws IOException {
         var wireName = nullableString(parser, field);
-        return wireName == null ? null
-                : Scope.fromWireName(wireName).orElseThrow(() -> undeclaredValue(parser, field));
+        if (wireName.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(Scope.fromWireName(wireName.get()).orElseThrow(() -> undeclaredValue(parser, field)));
     }
 
     private static StrictJson.Malformed undeclaredValue(JsonParser parser, String field) {
@@ -346,7 +349,7 @@ public class AuditCodec {
                 case FIELD_FORMAT_VERSION -> parser.skipChildren();
                 case FILE -> file = string(parser, field);
                 case RECORD_COUNT -> recordCount = integer(parser, field);
-                case LAST_EVENT_ID -> lastEventId = nullableString(parser, field);
+                case LAST_EVENT_ID -> lastEventId = nullableString(parser, field).orElse(null);
                 case HEAD_HASH -> headHash = string(parser, field);
                 case INDEX_HEAD_HASH -> indexHeadHash = string(parser, field);
                 case HMAC -> hmac = string(parser, field);

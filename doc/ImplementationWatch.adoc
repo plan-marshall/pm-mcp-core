@@ -26,7 +26,7 @@ Defect archetypes, real-corpus fixtures and verification hints that guard the sp
 
 |link:implementation-watch/phase-workflows.adoc[Phase Workflows]
 |`PHASE`
-|121
+|122
 |link:specification/phase-workflows.adoc[Phase Workflows & Finalize Specification]
 
 |link:implementation-watch/model-work.adoc[Model Work]
@@ -51,7 +51,7 @@ Defect archetypes, real-corpus fixtures and verification hints that guard the sp
 
 |link:implementation-watch/job-runtime.adoc[Job Runtime]
 |`JOB`
-|42
+|43
 |link:specification/job-runtime.adoc[Job Runtime Specification]
 
 |link:implementation-watch/client-profiles.adoc[Client Profiles]

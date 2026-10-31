@@ -370,7 +370,7 @@ public class WorkflowStatusCodec {
         generator.writeEndObject();
     }
 
-    private static void writeActiveJob(JsonGenerator generator, ActiveJob binding) throws IOException {
+    private static void writeActiveJob(JsonGenerator generator, @Nullable ActiveJob binding) throws IOException {
         if (binding == null) {
             generator.writeNullField(ACTIVE_JOB);
             return;
@@ -397,7 +397,7 @@ public class WorkflowStatusCodec {
     }
 
     /** Writes the member {@code pending_condition}; the pending entry record writes its bootstrap's overlay with it. */
-    static void writeCondition(JsonGenerator generator, PendingCondition condition) throws IOException {
+    static void writeCondition(JsonGenerator generator, @Nullable PendingCondition condition) throws IOException {
         if (condition == null) {
             generator.writeNullField(PENDING_CONDITION);
             return;
@@ -440,7 +440,7 @@ public class WorkflowStatusCodec {
             switch (field) {
                 case FIELD_FORMAT_VERSION -> parser.skipChildren();
                 case SCOPE_TYPE -> status.scopeType(scopeType(string(parser, field)));
-                case SCOPE_ID -> status.scopeId(nullableString(parser, field));
+                case SCOPE_ID -> status.scopeId(nullableString(parser, field).orElse(null));
                 case PHASE -> status.phase(string(parser, field));
                 case STATE -> status.state(string(parser, field));
                 case CALL_STACK -> status.callStack(StrictJson.array(parser, field, WorkflowStatusCodec::readFrame));
@@ -610,24 +610,21 @@ public class WorkflowStatusCodec {
             switch (field) {
                 case REQUEST_ID -> request.requestId(string(parser, field));
                 case GATE -> request.gate(string(parser, field));
-                case POLICY -> request.policy(nullableString(parser, field));
+                case POLICY -> request.policy(nullableString(parser, field).orElse(null));
                 case RATIONALE -> request.rationale(string(parser, field));
-                case EVIDENCE_URI -> request.evidenceUri(nullableString(parser, field));
+                case EVIDENCE_URI -> request.evidenceUri(nullableString(parser, field).orElse(null));
                 case REQUESTED_AT -> request.requestedAt(instant(parser, field));
-                case OUTCOME -> request.outcome(waiverRequestOutcome(nullableString(parser, field)));
-                case WAIVER_ID -> request.waiverId(nullableString(parser, field));
+                case OUTCOME -> request.outcome(nullableString(parser, field)
+                        .map(wire -> WaiverRecordCodec.enumValue(wire, WaiverRequestOutcome::fromWireName,
+                                "waiver_requests.outcome")).orElse(null));
+                case WAIVER_ID -> request.waiverId(nullableString(parser, field).orElse(null));
                 case ANSWERED -> request.answered(isNull(parser) ? null : readAnswered(parser));
-                case PR_COMMENT_REF -> request.prCommentRef(nullableString(parser, field));
+                case PR_COMMENT_REF -> request.prCommentRef(nullableString(parser, field).orElse(null));
                 default -> throw undeclared(field);
             }
         }
         requireFields(seen, "waiver request '%s'".formatted(name), REQUEST_ID, GATE, RATIONALE, REQUESTED_AT);
         return request.build();
-    }
-
-    private static WaiverRequestOutcome waiverRequestOutcome(String wireName) {
-        return wireName == null ? null
-                : WaiverRecordCodec.enumValue(wireName, WaiverRequestOutcome::fromWireName, "waiver_requests.outcome");
     }
 
     private static WaiverRequest.Answered readAnswered(JsonParser parser) throws IOException {
@@ -642,8 +639,8 @@ public class WorkflowStatusCodec {
             switch (field) {
                 case CHANNEL -> channel = WaiverRecordCodec.enumValue(string(parser, field), Channel::fromWireName,
                         "answered.channel");
-                case DEVICE_ID -> deviceId = nullableString(parser, field);
-                case REASON -> reason = nullableString(parser, field);
+                case DEVICE_ID -> deviceId = nullableString(parser, field).orElse(null);
+                case REASON -> reason = nullableString(parser, field).orElse(null);
                 case AT -> at = instant(parser, field);
                 default -> throw undeclared(field);
             }
@@ -704,8 +701,8 @@ public class WorkflowStatusCodec {
                 case QUEUE_TASK_ID -> queueTaskId = string(parser, field);
                 case ROLE -> role = string(parser, field);
                 case STATE -> state = string(parser, field);
-                case OUTCOME -> outcome = nullableString(parser, field);
-                case REASON -> reason = nullableString(parser, field);
+                case OUTCOME -> outcome = nullableString(parser, field).orElse(null);
+                case REASON -> reason = nullableString(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }
@@ -753,7 +750,7 @@ public class WorkflowStatusCodec {
                 case KIND -> kind = string(parser, field);
                 case STORE -> store = string(parser, field);
                 case RECORDED_DIGEST -> recordedDigest = string(parser, field);
-                case CURRENT_DIGEST -> currentDigest = nullableString(parser, field);
+                case CURRENT_DIGEST -> currentDigest = nullableString(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }

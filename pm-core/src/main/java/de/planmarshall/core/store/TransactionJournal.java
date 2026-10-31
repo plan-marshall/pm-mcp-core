@@ -288,7 +288,7 @@ public record TransactionJournal(TransactionId transactionId, JournalScopeType s
                 case FIELD_FORMAT_VERSION -> parser.skipChildren();
                 case FIELD_TRANSACTION_ID -> transactionId = transactionId(string(parser, field));
                 case FIELD_SCOPE_TYPE -> scopeType = scopeType(string(parser, field));
-                case FIELD_SCOPE_ID -> scopeId = nullableString(parser, field);
+                case FIELD_SCOPE_ID -> scopeId = nullableString(parser, field).orElse(null);
                 case FIELD_CREATED_AT -> createdAt = instant(parser, field);
                 case FIELD_TARGETS -> targets = readTargets(parser);
                 case FIELD_OWED_EVENTS -> owedEvents = readOwedEvents(parser);

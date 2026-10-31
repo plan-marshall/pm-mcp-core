@@ -330,14 +330,14 @@ public class QueueTaskRecordCodec {
                 case FIELD_SIGNALS -> builder.signals(readArray(parser, field, QueueTaskRecordCodec::readSignal));
                 case FIELD_CONSULTATIONS -> builder.consultations(
                         readArray(parser, field, QueueTaskRecordCodec::readConsultation));
-                case FIELD_CONSULTATION_OF -> builder.consultationOf(nullableString(parser, field));
+                case FIELD_CONSULTATION_OF -> builder.consultationOf(nullableString(parser, field).orElse(null));
                 case FIELD_OUTCOME -> builder.outcome(parser.currentToken() == JsonToken.VALUE_NULL ? null
                         : closed(parser, field, Outcome::fromWireName));
                 case FIELD_REASON -> builder.reason(parser.currentToken() == JsonToken.VALUE_NULL ? null
                         : closed(parser, field, LostReason::fromWireName));
-                case FIELD_QUESTION_ID -> builder.questionId(nullableString(parser, field));
+                case FIELD_QUESTION_ID -> builder.questionId(nullableString(parser, field).orElse(null));
                 case FIELD_CREATED_AT -> builder.createdAt(instant(parser, field));
-                case FIELD_CLOSED_AT -> builder.closedAt(nullableInstant(parser, field));
+                case FIELD_CLOSED_AT -> builder.closedAt(nullableInstant(parser, field).orElse(null));
                 default -> throw undeclared(field);
             }
         }
@@ -368,7 +368,7 @@ public class QueueTaskRecordCodec {
             var field = nextField(parser, seen);
             switch (field) {
                 case FIELD_TYPE -> type = closed(parser, field, ScopeType::fromWireName);
-                case FIELD_ID -> id = nullableString(parser, field);
+                case FIELD_ID -> id = nullableString(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }
@@ -397,12 +397,12 @@ public class QueueTaskRecordCodec {
             switch (field) {
                 case FIELD_QUESTION_ID -> questionId = string(parser, field);
                 case FIELD_FORM -> form = closed(parser, field, ContinuationForm::fromWireName);
-                case FIELD_HOLD_UNTIL -> holdUntil = nullableInstant(parser, field);
-                case FIELD_SESSION_ID -> sessionId = nullableString(parser, field);
-                case FIELD_SUSPENDED_AT -> suspendedAt = nullableInstant(parser, field);
-                case FIELD_RESUME_UNTIL -> resumeUntil = nullableInstant(parser, field);
-                case FIELD_SUSPENDED_DIGEST -> suspendedDigest = nullableString(parser, field);
-                case FIELD_SUSPENDED_HEAD -> suspendedHead = nullableString(parser, field);
+                case FIELD_HOLD_UNTIL -> holdUntil = nullableInstant(parser, field).orElse(null);
+                case FIELD_SESSION_ID -> sessionId = nullableString(parser, field).orElse(null);
+                case FIELD_SUSPENDED_AT -> suspendedAt = nullableInstant(parser, field).orElse(null);
+                case FIELD_RESUME_UNTIL -> resumeUntil = nullableInstant(parser, field).orElse(null);
+                case FIELD_SUSPENDED_DIGEST -> suspendedDigest = nullableString(parser, field).orElse(null);
+                case FIELD_SUSPENDED_HEAD -> suspendedHead = nullableString(parser, field).orElse(null);
                 case FIELD_FALLBACK_REASON -> fallbackReason = parser.currentToken() == JsonToken.VALUE_NULL ? null
                         : closed(parser, field, FallbackReason::fromWireName);
                 default -> throw undeclared(field);
@@ -432,7 +432,7 @@ public class QueueTaskRecordCodec {
                 case FIELD_GENERATION_ID -> generationId = string(parser, field);
                 case FIELD_JOB_ID -> jobId = string(parser, field);
                 case FIELD_LEASED_AT -> leasedAt = instant(parser, field);
-                case FIELD_ACKNOWLEDGED_AT -> acknowledgedAt = nullableInstant(parser, field);
+                case FIELD_ACKNOWLEDGED_AT -> acknowledgedAt = nullableInstant(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }
@@ -464,8 +464,8 @@ public class QueueTaskRecordCodec {
                 case FIELD_JOB_ID -> jobId = string(parser, field);
                 case FIELD_CONFIGURATION_DIGEST -> configurationDigest = string(parser, field);
                 case FIELD_OFFERED_AT -> offeredAt = instant(parser, field);
-                case FIELD_ACKNOWLEDGED_AT -> acknowledgedAt = nullableInstant(parser, field);
-                case FIELD_ENDED_AT -> endedAt = nullableInstant(parser, field);
+                case FIELD_ACKNOWLEDGED_AT -> acknowledgedAt = nullableInstant(parser, field).orElse(null);
+                case FIELD_ENDED_AT -> endedAt = nullableInstant(parser, field).orElse(null);
                 case FIELD_END -> end = parser.currentToken() == JsonToken.VALUE_NULL ? null
                         : closed(parser, field, AttemptEnd::fromWireName);
                 case FIELD_COUNTS -> counts = bool(parser, field);
@@ -532,9 +532,9 @@ public class QueueTaskRecordCodec {
                 case FIELD_ASKED_BY -> askedBy = string(parser, field);
                 case FIELD_ASKED_AT -> askedAt = instant(parser, field);
                 case FIELD_STATUS -> status = closed(parser, field, ConsultationStatus::fromWireName);
-                case FIELD_ANSWER -> answer = nullableString(parser, field);
-                case FIELD_CLOSED_AT -> closedAt = nullableInstant(parser, field);
-                case FIELD_DELIVERED_AT -> deliveredAt = nullableInstant(parser, field);
+                case FIELD_ANSWER -> answer = nullableString(parser, field).orElse(null);
+                case FIELD_CLOSED_AT -> closedAt = nullableInstant(parser, field).orElse(null);
+                case FIELD_DELIVERED_AT -> deliveredAt = nullableInstant(parser, field).orElse(null);
                 case FIELD_DELIVERED_TO -> deliveredTo = parser.currentToken() == JsonToken.VALUE_NULL ? null
                         : closed(parser, field, DeliveredTo::fromWireName);
                 default -> throw undeclared(field);

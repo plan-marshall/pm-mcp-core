@@ -673,3 +673,20 @@ Guard:: Corpus test over recorded comments of every registered review bot: after
 comment, or footer of the compiled per-bot pattern table remains, and each removal is one reported change; matched
 control: an injected instruction in the visible body of a comment survives level 1 and is flagged by the screener.
 Source:: harness-as-worker evaluation (doc/specification/evaluation.adoc).
+
+[#PM-WATCH-JOB-46]
+=== PM-WATCH-JOB-46: The job record names the endpoints the proxy admitted
+
+Anchor:: link:../specification/job-runtime/02-confinement-and-environment.adoc#endpoint-trust[Job Runtime § An Admitted Endpoint Is Trusted],
+link:../specification/job-runtime/02-confinement-and-environment.adoc#worker-egress[Job Runtime § Worker Egress Proxy],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-5[PM-SEC-5]
+Hazard:: The record copies `headless.endpoints` from the profile file read again after the spawn, so a profile installed
+while the worker runs rewrites history, and a project profile's endpoints are recorded as the machine profile's; `egress`
+is taken from the configuration instead of the launch report, so a worker on a platform without the mechanism is recorded
+`enforced`.
+Guard:: A test that starts a worker under a project profile whose endpoints differ from the compiled profile, then installs
+a machine profile: the record keeps `profile_source: project`, the digest of the loaded document, and exactly the hosts the
+proxy admitted, and a tunnel to a compiled-only host is refused; a fixture launcher that reports no namespace records
+`egress: unenforced`. Matched control: a worker under the compiled profile records `compiled` and its digest.
+Source:: Article analysis `your-agent-is-mine` of plan-marshall-documentation; the paper's transparency log records the
+router URL per request.

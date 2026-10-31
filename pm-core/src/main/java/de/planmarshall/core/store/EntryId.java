@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.security.SecureRandom;
 import java.util.HexFormat;
 import java.util.Objects;
@@ -53,7 +55,7 @@ public record EntryId(String value) {
      * @param value a string that may be an entry id
      * @return the id; empty if the string is not one
      */
-    public static Optional<EntryId> parse(String value) {
+    public static Optional<EntryId> parse(@Nullable String value) {
         return value != null && FORM.matcher(value).matches() ? Optional.of(new EntryId(value)) : Optional.empty();
     }
 
