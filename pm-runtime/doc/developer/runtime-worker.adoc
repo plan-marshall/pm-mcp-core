@@ -120,7 +120,8 @@ two seams). The job record's worker block is ADR 003's.
 _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3], link:{req}/13-client-profiles.adoc#PM-CLIENT-2[PM-CLIENT-2],
 link:{req}/16-model-work.adoc#PM-WORK-7[PM-WORK-7]
 
-link:{src}/LossDetection.java[`LossDetection`] owns the three deadlines of one generation and keeps no timing literal:
+link:{src}/LossDetection.java[`LossDetection`] owns the three deadlines of one generation and keeps no timing literal.
+Its `leasedTask()` answers `Optional<String>`: the task is absent while the generation holds no lease.
 
 * *Exit* — the per-worker watcher observed the process exit. An exit after the first call is
   `LossReason.EXIT`; an exit before the first call is a start failure, not a loss, and `exit(Instant)` answers empty so
