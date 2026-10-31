@@ -109,11 +109,11 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
             try {
                 unit.remove();
             } catch (ServiceUnitException e) {
-                throw firstOf(failure.orElse(null), e);
+                throw firstOf(failure, Optional.of(e)).orElseThrow();
             }
             var unloadFailure = callManager("unload", () -> manager.unload(path));
             if (failure.isPresent() || unloadFailure.isPresent()) {
-                throw firstOf(failure.orElse(null), unloadFailure.orElse(null));
+                throw firstOf(failure, unloadFailure).orElseThrow();
             }
         }
         LOGGER.info(INFO.SERVICE_UNIT_UNINSTALLED, path);
@@ -230,14 +230,12 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
     /**
      * @return {@code first} with {@code later} suppressed, or {@code later} when there is no first failure
      */
-    private static ServiceUnitException firstOf(@Nullable ServiceUnitException first,
-            @Nullable ServiceUnitException later) {
-        if (first == null) {
+    private static Optional<ServiceUnitException> firstOf(Optional<ServiceUnitException> first,
+            Optional<ServiceUnitException> later) {
+        if (first.isEmpty()) {
             return later;
         }
-        if (later != null) {
-            first.addSuppressed(later);
-        }
+        later.ifPresent(first.get()::addSuppressed);
         return first;
     }
 }
