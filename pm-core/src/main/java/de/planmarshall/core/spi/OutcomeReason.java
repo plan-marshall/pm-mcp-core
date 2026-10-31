@@ -31,19 +31,22 @@ public interface OutcomeReason {
      * conditions a primitive can originate. The other kinds belong to the engine: {@code guard_indeterminate} arises
      * from its guard evaluation, {@code job_incomplete} from its task attempts, {@code config_drift} from its
      * re-composition, and {@code integrity_breach} names the store it breached, so none of them is a cause a
-     * primitive reports. Widening the set is a one-line change with a test (PM-IMPL-5).
+     * primitive reports. Widening the set is a one-line change with a test (PM-IMPL-5). The closed table is stated in
+     * {@code doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons}.
      */
     Set<String> MAPPABLE_CONDITION_KINDS = Set.of("footprint_violation", "precondition_unmet");
 
     /**
      * @return the name a log, a diagnostic or a diagram prints the reason by; unique within the reason enum of its
-     *         outcome, and a lower-case identifier of the form of an outcome's wire name
+     *         outcome, and a lower-case identifier of the form of an outcome's wire name. The rule is stated in
+     *         {@code doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons}.
      */
     String wireName();
 
     /**
      * @return the condition kind the reason maps to, or empty when it maps to none. A present kind is a member of
-     *         {@link #MAPPABLE_CONDITION_KINDS}.
+     *         {@link #MAPPABLE_CONDITION_KINDS}, as the closed table in
+     *         {@code doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons} states.
      */
     default Optional<String> conditionKind() {
         return Optional.empty();

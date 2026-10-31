@@ -165,9 +165,12 @@ class PrimitiveRegistryTest {
             var registry = new PrimitiveRegistry(List.of(reasoned, skipping, indeterminate));
 
             assertAll(
-                    () -> assertSame(reasoned, registry.find("test.reasoned").orElseThrow()),
-                    () -> assertSame(skipping, registry.find("test.reasoned-skip").orElseThrow()),
-                    () -> assertSame(indeterminate, registry.find("test.reasoned-indeterminate").orElseThrow()));
+                    () -> assertSame(reasoned, registry.find("test.reasoned").orElseThrow(),
+                            "the FAILURE outcome with reasons registers"),
+                    () -> assertSame(skipping, registry.find("test.reasoned-skip").orElseThrow(),
+                            "the SKIP outcome with reasons registers"),
+                    () -> assertSame(indeterminate, registry.find("test.reasoned-indeterminate").orElseThrow(),
+                            "the INDETERMINATE outcome with reasons registers"));
         }
 
         @Test
@@ -211,7 +214,8 @@ class PrimitiveRegistryTest {
         void keepsOldRefusalReasonBeforeReasonChecks() {
             var thrown = refusalOf(List.of(ReasonPrimitives.oldDefectBeforeReasonDefect()));
 
-            assertEquals(Reason.MALFORMED_WIRE_NAME, thrown.getReason());
+            assertEquals(Reason.MALFORMED_WIRE_NAME, thrown.getReason(),
+                    "the old wire-name refusal is the one that decides");
         }
 
         @Test

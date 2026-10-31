@@ -30,7 +30,8 @@ Only an outcome of class `FAILURE`, `INDETERMINATE` or `SKIP` admits a reason. `
 == Consequences
 
 * A reason on a `SUCCESS`, `UNSETTLED` or `STEPPED_OUT` outcome is refused at registration.
-* The registry can check the class before it checks the reason enum.
+* The registry establishes that the declared reason type is a closed enum before it checks the outcome's class, so
+  each refusal names the first malformed declaration in the order of its checks.
 
 == Source
 

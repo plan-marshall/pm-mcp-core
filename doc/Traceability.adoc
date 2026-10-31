@@ -361,8 +361,18 @@ Verified by (the domain validators): link:../pm-core/src/test/java/de/planmarsha
 link:../pm-core/src/test/java/de/planmarshall/core/spi/validation/AsciiDocValidatorTest.java[AsciiDocValidatorTest],
 link:../pm-core/src/test/java/de/planmarshall/core/spi/validation/OutlineValidatorTest.java[OutlineValidatorTest]
 
+Implementation (the reason of an outcome, declared as a closed enum and refused at registration when malformed; the outcome set stays closed because a reason is not an outcome):
+link:../pm-core/src/main/java/de/planmarshall/core/spi/OutcomeReason.java[OutcomeReason],
+link:../pm-core/src/main/java/de/planmarshall/core/spi/PrimitiveRegistry.java[PrimitiveRegistry]
+
+Verified by (the reason of an outcome): link:../pm-core/src/test/java/de/planmarshall/core/spi/ReasonPrimitives.java[ReasonPrimitives],
+link:../pm-core/src/test/java/de/planmarshall/core/spi/PrimitiveRegistryTest.java[PrimitiveRegistryTest],
+link:../pm-core/src/test/java/de/planmarshall/core/spi/OutcomeReasonTest.java[OutcomeReasonTest],
+link:../pm-core/src/test/java/de/planmarshall/core/spi/PrimitiveResultTest.java[PrimitiveResultTest]
+
 Documentation: link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer Guide],
-link:../pm-core/doc/developer/core-spi.adoc#_the_content_validators[Developer Guide § The Content Validators]
+link:../pm-core/doc/developer/core-spi.adoc#_the_content_validators[Developer Guide § The Content Validators],
+link:../pm-core/doc/developer/core-spi.adoc#outcomes-and-reasons[Developer Guide § Outcomes and Reasons]
 
 [#PM-WF-7]
 === PM-WF-7: Remediation Policies, Loop-Back & Iteration Bounds
@@ -1805,6 +1815,7 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/LaneEntryIdsTe
 Implementation (the primitive as a typed contract and the registry that refuses a malformed one; the first statement of this requirement):
 link:../pm-core/src/main/java/de/planmarshall/core/spi/Primitive.java[Primitive],
 link:../pm-core/src/main/java/de/planmarshall/core/spi/PrimitiveOutcome.java[PrimitiveOutcome],
+link:../pm-core/src/main/java/de/planmarshall/core/spi/OutcomeReason.java[OutcomeReason],
 link:../pm-core/src/main/java/de/planmarshall/core/spi/OutcomeClass.java[OutcomeClass],
 link:../pm-core/src/main/java/de/planmarshall/core/spi/PrimitiveResult.java[PrimitiveResult],
 link:../pm-core/src/main/java/de/planmarshall/core/spi/AwaitedEvent.java[AwaitedEvent],
@@ -1815,6 +1826,8 @@ link:../pm-core/src/main/java/de/planmarshall/core/spi/PrimitiveRegistrationExce
 
 Verified by (the primitive contract and the registry): link:../pm-core/src/test/java/de/planmarshall/core/spi/PrimitiveContractTest.java[PrimitiveContractTest],
 link:../pm-core/src/test/java/de/planmarshall/core/spi/PrimitiveRegistryTest.java[PrimitiveRegistryTest],
+link:../pm-core/src/test/java/de/planmarshall/core/spi/OutcomeReasonTest.java[OutcomeReasonTest],
+link:../pm-core/src/test/java/de/planmarshall/core/spi/PrimitiveResultTest.java[PrimitiveResultTest],
 link:../pm-core/src/test/java/de/planmarshall/core/spi/SpiVocabularyTest.java[SpiVocabularyTest]
 
 Implementation (the unit frontmatter, the unit types and the interface of a unit, as far as the library module `pm-workflow` carries them: the frontmatter read by its own parser of the closed line subset, from the head of the source and without the body, refusing a control character, a format character, a line separator or a paragraph separator with its code point and line, bounded at 200 lines and 80 echoed characters, every refusal a value with file, line and column, and printed in the order of its field table so the round trip holds; the six unit types; a unit with entries binds them and declares no start state; the verifier's interface rules and the check of the type against the scope and the interface; `INV-GEN-1` over the type, the entries, the exits and the entry bindings; the refusal of a project unit larger than 1048576 bytes and of one whose author equals `plan-marshall` after NFKC normalisation, removal of its format characters, stripping and case folding. Not implemented yet: the machine unit's type row and its residence, the machine level's author check and `INV-GEN-1`, and the frontmatter written by the designer): link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/UnitFrontmatterReader.java[UnitFrontmatterReader],
@@ -1843,6 +1856,15 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/SubWorkflowExe
 link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java[WorkflowStatusCodecTest]
 
 Documentation: link:../pm-workflow/doc/developer/workflow-dsl.adoc[Developer Guide § Workflow DSL], link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide],
+link:../pm-core/doc/developer/core-spi.adoc#outcomes-and-reasons[Developer Guide § Outcomes and Reasons],
+link:../pm-core/doc/adr/core-spi/005-a-name-is-an-outcome-only-where-the-graph-continues-differently.adoc[ADR core-spi/005],
+link:../pm-core/doc/adr/core-spi/006-the-reason-is-a-closed-enum-behind-a-small-interface.adoc[ADR core-spi/006],
+link:../pm-core/doc/adr/core-spi/007-the-reason-type-belongs-to-the-outcome.adoc[ADR core-spi/007],
+link:../pm-core/doc/adr/core-spi/008-the-result-carries-an-optional-reason-as-its-fourth-component.adoc[ADR core-spi/008],
+link:../pm-core/doc/adr/core-spi/009-only-failure-indeterminate-and-skip-admit-a-reason.adoc[ADR core-spi/009],
+link:../pm-core/doc/adr/core-spi/010-the-reason-to-condition-table-is-total-and-closed.adoc[ADR core-spi/010],
+link:../pm-core/doc/adr/core-spi/011-reasons-are-data-only-and-never-routable.adoc[ADR core-spi/011],
+link:../pm-core/doc/adr/core-spi/012-a-skip-with-an-optional-input-is-skipped-plus-a-reason.adoc[ADR core-spi/012],
 link:../pm-workflow/doc/developer/workflow-dsl.adoc#unit-frontmatter[Workflow DSL Developer Guide § The Unit Frontmatter],
 link:../pm-workflow/doc/developer/workflow-ast.adoc#unit-types[Workflow AST Developer Guide § Unit Types],
 link:../pm-workflow/doc/developer/workflow-verify.adoc#interface-rules[Workflow Verification Developer Guide § Interface Rules and Unit Types],

@@ -19,7 +19,7 @@ differently.
 
 A skip with an optional input is the outcome `skipped` plus a reason, instead of a `skipped_<reason>` constant per
 cause. This is a specification change only: no production primitive exists, and the one fixture constant of that name
-(`pm-core/src/test/.../spi/TestPrimitives.java` line 39, `skipped_no_input`) is untouched. The step record the previous
+(`TestPrimitives.SkipOutcome.SKIPPED_NO_INPUT`, wire name `skipped_no_input`) is untouched. The step record the previous
 line describes is not built; `PLAN-V2-19` states what it does and does not persist.
 
 == Alternatives Considered

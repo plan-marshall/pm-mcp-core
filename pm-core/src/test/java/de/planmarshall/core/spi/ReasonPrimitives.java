@@ -10,7 +10,9 @@
 package de.planmarshall.core.spi;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.spi.PrimitiveRegistrationException.Reason;
 
@@ -18,33 +20,56 @@ import de.planmarshall.core.spi.PrimitiveRegistrationException.Reason;
  * The primitives that pin the registry's reason checks: one malformed declaration per refusal, a primitive whose
  * outcome declares reasons for each admitting class, and one whose old and new defects compete for the refusal.
  */
-final class ReasonPrimitives {
-
-    private ReasonPrimitives() {
-    }
+@UtilityClass
+class ReasonPrimitives {
 
     /**
      * @return a well-formed primitive whose {@code FAILURE} outcome declares a closed reason enum
      */
     static Primitive<?, ?> wellFormed() {
-        return TestPrimitives.fixed("test.reasoned", ReasonParams.class, ReasonedOutcome.class,
-                ReasonedOutcome.FAILED);
+        return new TestPrimitives.Fixed<ReasonParams, ReasonedOutcome>("test.reasoned", ReasonParams.class,
+                ReasonedOutcome.class, ReasonedOutcome.FAILED) {
+
+            @Override
+            public PrimitiveResult<ReasonedOutcome> execute(WorkflowExecutionContext context, ReasonParams parameters) {
+                return reasoned(ReasonedOutcome.FAILED);
+            }
+        };
     }
 
     /**
      * @return a well-formed primitive whose {@code SKIP} outcome declares a closed reason enum
      */
     static Primitive<?, ?> wellFormedSkip() {
-        return TestPrimitives.fixed("test.reasoned-skip", ReasonParams.class, SkippingReasonedOutcome.class,
-                SkippingReasonedOutcome.SKIPPED);
+        return new TestPrimitives.Fixed<ReasonParams, SkippingReasonedOutcome>("test.reasoned-skip",
+                ReasonParams.class, SkippingReasonedOutcome.class, SkippingReasonedOutcome.SKIPPED) {
+
+            @Override
+            public PrimitiveResult<SkippingReasonedOutcome> execute(WorkflowExecutionContext context,
+                    ReasonParams parameters) {
+                return reasoned(SkippingReasonedOutcome.SKIPPED);
+            }
+        };
     }
 
     /**
      * @return a well-formed primitive whose {@code INDETERMINATE} outcome declares a closed reason enum
      */
     static Primitive<?, ?> wellFormedIndeterminate() {
-        return TestPrimitives.fixed("test.reasoned-indeterminate", ReasonParams.class,
-                IndeterminateReasonedOutcome.class, IndeterminateReasonedOutcome.UNOBSERVABLE);
+        return new TestPrimitives.Fixed<ReasonParams, IndeterminateReasonedOutcome>("test.reasoned-indeterminate",
+                ReasonParams.class, IndeterminateReasonedOutcome.class, IndeterminateReasonedOutcome.UNOBSERVABLE) {
+
+            @Override
+            public PrimitiveResult<IndeterminateReasonedOutcome> execute(WorkflowExecutionContext context,
+                    ReasonParams parameters) {
+                return reasoned(IndeterminateReasonedOutcome.UNOBSERVABLE);
+            }
+        };
+    }
+
+    private static <R extends Enum<R> & PrimitiveOutcome> PrimitiveResult<R> reasoned(R outcome) {
+        return new PrimitiveResult<>(outcome, Map.of(), Optional.empty(),
+                Optional.of(WellFormedReason.MESSAGE_REFUSED));
     }
 
     /**
@@ -69,6 +94,14 @@ final class ReasonPrimitives {
                         "a reason on a SUCCESS outcome",
                         fixed("test.reason-on-success", SucceedingReasonedOutcome.class,
                                 SucceedingReasonedOutcome.DONE)),
+                new TestPrimitives.Refusal(Reason.REASON_ON_UNADMITTING_CLASS,
+                        "a reason on an UNSETTLED outcome",
+                        fixed("test.reason-on-unsettled", UnsettledReasonedOutcome.class,
+                                UnsettledReasonedOutcome.FIX_REQUESTED)),
+                new TestPrimitives.Refusal(Reason.REASON_ON_UNADMITTING_CLASS,
+                        "a reason on a STEPPED_OUT outcome",
+                        fixed("test.reason-on-stepped-out", SteppedOutReasonedOutcome.class,
+                                SteppedOutReasonedOutcome.LEFT)),
                 new TestPrimitives.Refusal(Reason.MALFORMED_REASON_WIRE_NAME,
                         "a reason wire name in upper case",
                         fixed("test.reason-upper-case", UpperCaseWireReasonOutcome.class,
@@ -378,6 +411,44 @@ final class ReasonPrimitives {
         @Override
         public OutcomeClass outcomeClass() {
             return OutcomeClass.SUCCESS;
+        }
+
+        @Override
+        public Optional<Class<? extends OutcomeReason>> reasonType() {
+            return Optional.of(WellFormedReason.class);
+        }
+    }
+
+    enum UnsettledReasonedOutcome implements PrimitiveOutcome {
+        FIX_REQUESTED;
+
+        @Override
+        public String wireName() {
+            return "fix_requested";
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return OutcomeClass.UNSETTLED;
+        }
+
+        @Override
+        public Optional<Class<? extends OutcomeReason>> reasonType() {
+            return Optional.of(WellFormedReason.class);
+        }
+    }
+
+    enum SteppedOutReasonedOutcome implements PrimitiveOutcome {
+        LEFT;
+
+        @Override
+        public String wireName() {
+            return "left";
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return OutcomeClass.STEPPED_OUT;
         }
 
         @Override

@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.HashMap;
 import java.util.Map;
@@ -70,15 +71,17 @@ class PrimitiveResultTest {
     @Test
     @DisplayName("the three-component form carries no reason and keeps the facts copy")
     void threeComponentFormCarriesNoReason() {
+        var factName = Generators.nonEmptyStrings().next();
+        var factValue = Generators.nonEmptyStrings().next();
         var facts = new HashMap<String, Object>();
-        facts.put("subject", "request");
+        facts.put(factName, factValue);
         var result = new PrimitiveResult<>(PlainOutcome.DONE, facts, Optional.empty());
 
-        facts.put("subject", "changed");
+        facts.put(factName, Generators.nonEmptyStrings().next());
 
         assertAll(
                 () -> assertEquals(Optional.empty(), result.reason(), "the three-component form carries no reason"),
-                () -> assertEquals(Map.of("subject", "request"), result.updatedFacts(), "the facts are copied"));
+                () -> assertEquals(Map.of(factName, factValue), result.updatedFacts(), "the facts are copied"));
     }
 
     @Test

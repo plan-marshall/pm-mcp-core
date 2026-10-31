@@ -74,9 +74,26 @@ class OutcomeReasonTest {
     }
 
     @Test
-    @DisplayName("a reason maps to no condition unless it says otherwise")
+    @DisplayName("a reason that overrides nothing maps to no condition")
     void conditionKindIsEmptyByDefault() {
-        assertEquals(Optional.empty(), TestReason.COMMIT_FAILED.conditionKind(), "no condition by default");
+        assertEquals(Optional.empty(), DefaultReason.PLAIN.conditionKind(),
+                "the interface default answers no condition");
+    }
+
+    /** A reason enum that overrides nothing, so the interface's default `conditionKind()` answers. */
+    enum DefaultReason implements OutcomeReason {
+        PLAIN("plain");
+
+        private final String wireName;
+
+        DefaultReason(String wireName) {
+            this.wireName = wireName;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
     }
 
     /**

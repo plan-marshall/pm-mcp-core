@@ -76,6 +76,8 @@ The other declarations have a default that says "nothing":
 * `waivableGates()` names the gates the primitive may look a waiver up for; a primitive never writes a waiver;
 * `enqueuesJob()` is `true` for a primitive that starts a job. Such a primitive has at least one outcome whose
   `startsJob()` is `true` and reports the job in `PrimitiveResult.spawnedJobId()`;
+* `reasonType()` names the closed enum of reasons one outcome of the primitive may carry; an outcome that overrides
+  nothing, and every outcome of a primitive that overrides it nowhere, carries none;
 * `cycleMeasure()` names the measure that strictly decreases on every pass of a chained cycle through the state of the
   primitive. A primitive with the measure `ATTEMPT_CAP` also declares `exhaustionOutcome()`: the wire name of the
   outcome it returns once its cap is spent. A primitive with any other measure declares none.

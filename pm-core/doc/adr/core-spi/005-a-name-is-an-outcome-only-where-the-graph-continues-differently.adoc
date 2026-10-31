@@ -22,7 +22,7 @@ that is not an outcome, so such a cause could only become an untyped string in `
 A name is an outcome only where the graph continues differently. Every other failure, skip or indeterminacy is one
 outcome of its class plus a reason carried as data, declared by the outcome and travelling in `PrimitiveResult.reason()`.
 A unit that must route on a cause promotes that cause to a named outcome; that is the rule, not an exception to it. The
-rule binds primer authors and is checked where it can be checked — the declarations — never where it cannot: whether two
+rule binds primitive authors and is checked where it can be checked — the declarations — never where it cannot: whether two
 failures "continue differently" is the author's judgement, reviewed with the catalogue.
 
 == Alternatives Considered
