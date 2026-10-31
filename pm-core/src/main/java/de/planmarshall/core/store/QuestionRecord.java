@@ -22,6 +22,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+
+import org.jspecify.annotations.Nullable;
 import lombok.Builder;
 
 /**
@@ -76,8 +78,9 @@ import lombok.Builder;
 @Builder(toBuilder = true)
 public record QuestionRecord(QuestionEvent event, String questionId, QuestionClass questionClass, Origin origin,
 String sourceEntity, String askingRole, String phase, String questionSet, String planTaskId, Integer revision,
-Decision decision, String envelope, String decisionId, Answer answer, QuestionChannel channel, String deviceId,
-String amendmentId, String reason, Instant at) {
+Decision decision, @Nullable String envelope, @Nullable String decisionId, @Nullable Answer answer,
+@Nullable QuestionChannel channel, @Nullable String deviceId, @Nullable String amendmentId, @Nullable String reason,
+Instant at) {
 
     /** The format version of a question record that is read and written. */
     public static final int FORMAT_VERSION = 1;
@@ -372,8 +375,9 @@ String amendmentId, String reason, Instant at) {
      * @param afterChat      whether the answer followed a chat in the decision
      * @since 0.1
      */
-    public record Answer(AnswerKind kind, List<String> branchKeys, AnswerValue value, String ownWords, String note,
-    Interpretation interpretation, boolean afterChat) {
+    public record Answer(AnswerKind kind, List<String> branchKeys, @Nullable AnswerValue value,
+            @Nullable String ownWords, @Nullable String note, @Nullable Interpretation interpretation,
+            boolean afterChat) {
 
         private static final Set<AnswerKind> INTERPRETED = EnumSet.of(AnswerKind.INTERPRETED, AnswerKind.OWN_OPTION,
                 AnswerKind.DELEGATED);

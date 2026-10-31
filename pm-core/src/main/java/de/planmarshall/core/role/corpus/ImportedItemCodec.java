@@ -11,6 +11,7 @@ package de.planmarshall.core.role.corpus;
 
 import static de.planmarshall.core.role.corpus.CorpusJson.construct;
 import static de.planmarshall.core.role.corpus.CorpusJson.date;
+import static de.planmarshall.core.role.corpus.CorpusJson.nullableDate;
 import static de.planmarshall.core.role.corpus.CorpusJson.number;
 import static de.planmarshall.core.role.corpus.CorpusJson.wireValue;
 import static de.planmarshall.core.role.corpus.CorpusJson.writeStringList;
@@ -18,6 +19,7 @@ import static de.planmarshall.core.store.StrictJson.array;
 import static de.planmarshall.core.store.StrictJson.bool;
 import static de.planmarshall.core.store.StrictJson.integer;
 import static de.planmarshall.core.store.StrictJson.nextField;
+import static de.planmarshall.core.store.StrictJson.nullableString;
 import static de.planmarshall.core.store.StrictJson.requireFields;
 import static de.planmarshall.core.store.StrictJson.requireObject;
 import static de.planmarshall.core.store.StrictJson.string;
@@ -371,7 +373,7 @@ public class ImportedItemCodec {
         return new Target(answer, rationale, alternatives, items, expectedEmpty);
     }
 
-    private static RubricItem readRubricItem(JsonParser parser, String name) throws IOException {
+    static RubricItem readRubricItem(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
         @Nullable String id = null;
         @Nullable String description = null;
@@ -468,6 +470,10 @@ public class ImportedItemCodec {
     }
 
     private static Review readReview(JsonParser parser) throws IOException {
+        return readReview(parser, false);
+    }
+
+    static Review readReview(JsonParser parser, boolean optionalMembers) throws IOException {
         requireObject(parser, FIELD_REVIEW);
         @Nullable ReviewStatus status = null;
         @Nullable String by = null;
@@ -478,13 +484,17 @@ public class ImportedItemCodec {
             var field = nextField(parser, seen);
             switch (field) {
                 case FIELD_STATUS -> status = wireValue(parser, field, ReviewStatus::fromWireName);
-                case FIELD_BY -> by = string(parser, field);
-                case FIELD_DATE -> date = date(parser, field);
-                case FIELD_NOTES -> notes = string(parser, field);
+                case FIELD_BY -> by = optionalMembers ? nullableString(parser, field) : string(parser, field);
+                case FIELD_DATE -> date = optionalMembers ? nullableDate(parser, field) : date(parser, field);
+                case FIELD_NOTES -> notes = optionalMembers ? nullableString(parser, field) : string(parser, field);
                 default -> throw undeclared(field);
             }
         }
-        requireFields(seen, FIELD_REVIEW, FIELD_STATUS);
+        if (optionalMembers) {
+            requireFields(seen, FIELD_REVIEW, FIELD_STATUS, FIELD_BY, FIELD_DATE, FIELD_NOTES);
+        } else {
+            requireFields(seen, FIELD_REVIEW, FIELD_STATUS);
+        }
         return new Review(status, by, date, notes);
     }
 
