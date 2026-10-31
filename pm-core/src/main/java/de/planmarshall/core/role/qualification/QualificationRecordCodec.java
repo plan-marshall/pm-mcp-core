@@ -199,7 +199,7 @@ public class QualificationRecordCodec {
                 case HARNESS -> harness = string(parser, field);
                 case HARNESS_VERSION -> harnessVersion = string(parser, field);
                 case MODEL -> model = string(parser, field);
-                case EFFORT -> effort = nullableString(parser, field);
+                case EFFORT -> effort = nullableString(parser, field).orElse(null);
                 case TOOLS -> tools = stringList(parser, field);
                 case CLASS -> roleClass = closed(parser, field, RoleClass::fromWireName);
                 case SKILL_DIGESTS -> skillDigests = StrictJson.map(parser, field, StrictJson::string);

@@ -18,6 +18,8 @@ import static de.planmarshall.core.store.StrictJson.stringList;
 import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -120,7 +122,7 @@ public class QualificationSettingsCodec {
     private static final class DocumentReader {
 
         private final Path file;
-        private QualificationSettings settings;
+        private QualificationSettings settings = QualificationSettings.defaults();
         private long revision;
         private byte[] rewritten;
 
@@ -128,7 +130,7 @@ public class QualificationSettingsCodec {
             this.file = file;
         }
 
-        void read(byte[] document, QualificationSettings replacement) {
+        void read(byte[] document, @Nullable QualificationSettings replacement) {
             try (var parser = StrictJson.factory().createParser(document)) {
                 if (parser.nextToken() != JsonToken.START_OBJECT) {
                     throw unreadable("the local configuration is not a JSON object");
@@ -156,8 +158,8 @@ public class QualificationSettingsCodec {
         }
 
         /** Copies the top-level members, replacing the revision and the settings; answers whether settings were seen. */
-        private boolean copyTopLevel(JsonParser parser, JsonGenerator generator, QualificationSettings replacement,
-                HashSet<String> seen) throws IOException {
+        private boolean copyTopLevel(JsonParser parser, JsonGenerator generator,
+                @Nullable QualificationSettings replacement, HashSet<String> seen) throws IOException {
             var settingsSeen = false;
             while (parser.nextToken() == JsonToken.FIELD_NAME) {
                 var field = nextField(parser, seen);
@@ -182,7 +184,7 @@ public class QualificationSettingsCodec {
         }
 
         private void copyRevision(JsonParser parser, JsonGenerator generator,
-                QualificationSettings replacement) throws IOException {
+                @Nullable QualificationSettings replacement) throws IOException {
             var documentRevision = integer(parser, FIELD_REVISION);
             if (replacement == null) {
                 this.revision = documentRevision;
@@ -196,8 +198,8 @@ public class QualificationSettingsCodec {
             }
         }
 
-        private void copySettings(JsonParser parser, JsonGenerator generator, QualificationSettings replacement)
-                throws IOException {
+        private void copySettings(JsonParser parser, JsonGenerator generator,
+                @Nullable QualificationSettings replacement) throws IOException {
             generator.writeFieldName(FIELD_SETTINGS);
             readSettings(parser, generator, replacement);
         }
@@ -216,8 +218,8 @@ public class QualificationSettingsCodec {
             }
         }
 
-        private void readSettings(JsonParser parser, JsonGenerator generator, QualificationSettings replacement)
-                throws IOException {
+        private void readSettings(JsonParser parser, JsonGenerator generator,
+                @Nullable QualificationSettings replacement) throws IOException {
             requireObject(parser, FIELD_SETTINGS);
             generator.writeStartObject();
             var seen = new HashSet<String>();

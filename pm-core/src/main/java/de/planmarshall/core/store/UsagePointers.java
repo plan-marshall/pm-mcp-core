@@ -113,7 +113,7 @@ public record UsagePointers(@Nullable String inputTokens, @Nullable String outpu
         return Optional.of(value.text().orElseThrow());
     }
 
-    private static Measurement component(JsonNode turn, String pointer, boolean[] unparsed) {
+    private static Measurement component(JsonNode turn, @Nullable String pointer, boolean[] unparsed) {
         if (pointer == null) {
             return Measurement.unmeasured();
         }

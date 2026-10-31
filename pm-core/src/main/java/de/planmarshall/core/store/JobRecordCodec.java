@@ -202,21 +202,21 @@ public class JobRecordCodec {
                 case BUDGET_KEY -> job.budgetKey(string(parser, field));
                 case BUDGET_SECONDS -> job.budgetSeconds(integer(parser, field));
                 case BUDGET_DERIVATION -> job.budgetDerivation(readBudgetDerivation(parser));
-                case ARGV_DIGEST -> job.argvDigest(nullableString(parser, field));
+                case ARGV_DIGEST -> job.argvDigest(nullableString(parser, field).orElse(null));
                 case STATUS -> job.status(closed(parser, field, Status::fromWireName));
                 case FATE -> job.fate(isNull(parser) ? null : closed(parser, field, Fate::fromWireName));
-                case PID -> job.pid(nullableInteger(parser, field));
-                case PROCESS_STARTED_AT -> job.processStartedAt(nullableInstant(parser, field));
+                case PID -> job.pid(nullableInteger(parser, field).orElse(null));
+                case PROCESS_STARTED_AT -> job.processStartedAt(nullableInstant(parser, field).orElse(null));
                 case CONFINEMENT -> job.confinement(closed(parser, field, Confinement::fromWireName));
                 case CREATED_AT -> job.createdAt(instant(parser, field));
-                case SPAWNED_AT -> job.spawnedAt(nullableInstant(parser, field));
-                case ENDED_AT -> job.endedAt(nullableInstant(parser, field));
-                case CHILD_WALL_MS -> job.childWallMs(nullableInteger(parser, field));
-                case EXIT_CODE -> job.exitCode(nullableInteger(parser, field));
-                case SIGNAL -> job.signal(nullableString(parser, field));
-                case LANDLOCK_ABI -> job.landlockAbi(nullableInt(parser, field));
-                case OUTCOME_ROW -> job.outcomeRow(nullableInt(parser, field));
-                case REFUSAL_REASON -> job.refusalReason(nullableString(parser, field));
+                case SPAWNED_AT -> job.spawnedAt(nullableInstant(parser, field).orElse(null));
+                case ENDED_AT -> job.endedAt(nullableInstant(parser, field).orElse(null));
+                case CHILD_WALL_MS -> job.childWallMs(nullableInteger(parser, field).orElse(null));
+                case EXIT_CODE -> job.exitCode(nullableInteger(parser, field).orElse(null));
+                case SIGNAL -> job.signal(nullableString(parser, field).orElse(null));
+                case LANDLOCK_ABI -> job.landlockAbi(nullableInt(parser, field).orElse(null));
+                case OUTCOME_ROW -> job.outcomeRow(nullableInt(parser, field).orElse(null));
+                case REFUSAL_REASON -> job.refusalReason(nullableString(parser, field).orElse(null));
                 case CANCEL_BEFORE_GROUP -> job.cancelBeforeGroup(bool(parser, field));
                 case SELF_REPORT_CONTRADICTION -> job.selfReportContradiction(
                         isNull(parser) ? null : readContradiction(parser));
@@ -244,7 +244,7 @@ public class JobRecordCodec {
             var field = nextField(parser, seen);
             switch (field) {
                 case TYPE -> type = closed(parser, "scope.type", Scope.Type::fromWireName);
-                case ID -> id = nullableString(parser, "scope.id");
+                case ID -> id = nullableString(parser, "scope.id").orElse(null);
                 default -> throw undeclared(field);
             }
         }
@@ -279,7 +279,7 @@ public class JobRecordCodec {
             var field = nextField(parser, seen);
             switch (field) {
                 case REPORTED_STATUS -> reportedStatus = string(parser, field);
-                case EXIT_CODE -> exitCode = nullableInteger(parser, field);
+                case EXIT_CODE -> exitCode = nullableInteger(parser, field).orElse(null);
                 case PARSE_RESULT -> parseResult = string(parser, field);
                 default -> throw undeclared(field);
             }
@@ -299,7 +299,7 @@ public class JobRecordCodec {
             var field = nextField(parser, seen);
             switch (field) {
                 case KEY -> key = string(parser, field);
-                case CONFIGURED -> configured = configured(parser, document, name + "." + field);
+                case CONFIGURED -> configured = configured(parser, document, name + "." + field).orElse(null);
                 case USED -> used = number(parser, name + "." + field);
                 case SOURCE -> source = closed(parser, name + "." + field, ClampedValue.Source::fromWireName);
                 default -> throw undeclared(field);
@@ -309,10 +309,11 @@ public class JobRecordCodec {
         return new ClampedValue(key, configured, used, source);
     }
 
-    private static String configured(JsonParser parser, byte[] document, String name) throws IOException {
+    private static Optional<String> configured(JsonParser parser, byte[] document, String name) throws IOException {
         return switch (parser.currentToken()) {
-            case VALUE_NULL -> null;
-            case VALUE_STRING, VALUE_NUMBER_INT, VALUE_NUMBER_FLOAT -> WorkflowStatusCodec.raw(parser, document);
+            case VALUE_NULL -> Optional.empty();
+            case VALUE_STRING, VALUE_NUMBER_INT, VALUE_NUMBER_FLOAT ->
+                Optional.of(WorkflowStatusCodec.raw(parser, document));
             case null, default -> throw unreadable("'%s' must be a number, a string or null".formatted(name));
         };
     }
@@ -340,16 +341,16 @@ public class JobRecordCodec {
         return Optional.of(WorkflowStatusCodec.raw(parser, document));
     }
 
-    private static Long nullableInteger(JsonParser parser, String field) throws IOException {
-        return isNull(parser) ? null : integer(parser, field);
+    private static Optional<Long> nullableInteger(JsonParser parser, String field) throws IOException {
+        return isNull(parser) ? Optional.empty() : Optional.of(integer(parser, field));
     }
 
-    private static Integer nullableInt(JsonParser parser, String field) throws IOException {
+    private static Optional<Integer> nullableInt(JsonParser parser, String field) throws IOException {
         var value = nullableInteger(parser, field);
-        if (value != null && (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE)) {
-            throw unreadable("'%s' is out of range: %d".formatted(field, value));
+        if (value.isPresent() && (value.get() < Integer.MIN_VALUE || value.get() > Integer.MAX_VALUE)) {
+            throw unreadable("'%s' is out of range: %d".formatted(field, value.get()));
         }
-        return value == null ? null : value.intValue();
+        return value.map(Long::intValue);
     }
 
     private static boolean isNull(JsonParser parser) {
@@ -373,8 +374,8 @@ public class JobRecordCodec {
         generator.writeEndObject();
     }
 
-    private static void writeContradiction(JsonGenerator generator, SelfReportContradiction contradiction)
-            throws IOException {
+    private static void writeContradiction(JsonGenerator generator,
+            @Nullable SelfReportContradiction contradiction) throws IOException {
         if (contradiction == null) {
             generator.writeNullField(SELF_REPORT_CONTRADICTION);
             return;
@@ -405,7 +406,7 @@ public class JobRecordCodec {
         generator.writeEndArray();
     }
 
-    private static void writeRaw(JsonGenerator generator, String field, String raw) throws IOException {
+    private static void writeRaw(JsonGenerator generator, String field, @Nullable String raw) throws IOException {
         generator.writeFieldName(field);
         if (raw == null) {
             generator.writeNull();

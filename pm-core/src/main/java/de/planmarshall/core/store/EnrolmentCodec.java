@@ -379,8 +379,8 @@ public class EnrolmentCodec {
                 case FIELD_ENROLLED_AT -> root.enrolledAt = instant(parser, field);
                 case FIELD_PILOT -> root.pilot = bool(parser, field);
                 case FIELD_CONTAINER_ENGINE -> root.containerEngine = nullableEnum(parser, field,
-                        ContainerEngine::fromWireName);
-                case FIELD_RELEASED_AT -> root.releasedAt = nullableInstant(parser, field);
+                        ContainerEngine::fromWireName).orElse(null);
+                case FIELD_RELEASED_AT -> root.releasedAt = nullableInstant(parser, field).orElse(null);
                 case FIELD_WRAPPERS -> root.wrappers = array(parser, field, EnrolmentCodec::readWrapper);
                 case FIELD_HOST_TOOLS -> root.hostTools = array(parser, field, EnrolmentCodec::readHostTool);
                 case FIELD_BUILD -> root.build = readBuild(parser);
@@ -426,7 +426,7 @@ public class EnrolmentCodec {
                 case FIELD_RELATIVE_PATH -> relativePath = string(parser, field);
                 case FIELD_SHA256 -> sha256 = string(parser, field);
                 case FIELD_PINNED_FILES -> pinnedFiles = array(parser, field, EnrolmentCodec::readPinnedFile);
-                case FIELD_INTERPRETER -> interpreter = nullableEnum(parser, field, Interpreter::fromWireName);
+                case FIELD_INTERPRETER -> interpreter = nullableEnum(parser, field, Interpreter::fromWireName).orElse(null);
                 default -> throw undeclared(field);
             }
         }
@@ -448,7 +448,7 @@ public class EnrolmentCodec {
             var field = nextField(parser, seen);
             switch (field) {
                 case FIELD_RELATIVE_PATH -> relativePath = string(parser, field);
-                case FIELD_SHA256 -> sha256 = nullableString(parser, field);
+                case FIELD_SHA256 -> sha256 = nullableString(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }
@@ -474,8 +474,8 @@ public class EnrolmentCodec {
                 case FIELD_NAME -> toolName = enumValue(string(parser, field), HostToolName::fromWireName, field);
                 case FIELD_EXECUTABLE_PATH -> executablePath = string(parser, field);
                 case FIELD_SHA256 -> sha256 = string(parser, field);
-                case FIELD_INTERPRETER -> interpreter = nullableEnum(parser, field, Interpreter::fromWireName);
-                case FIELD_VERSION -> version = nullableString(parser, field);
+                case FIELD_INTERPRETER -> interpreter = nullableEnum(parser, field, Interpreter::fromWireName).orElse(null);
+                case FIELD_VERSION -> version = nullableString(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }
@@ -687,10 +687,10 @@ public class EnrolmentCodec {
         }
     }
 
-    private static <E extends Enum<E>> E nullableEnum(JsonParser parser, String field,
+    private static <E extends Enum<E>> Optional<E> nullableEnum(JsonParser parser, String field,
             Function<String, Optional<E>> byWireName) throws IOException {
         var text = nullableString(parser, field);
-        return text == null ? null : enumValue(text, byWireName, field);
+        return text.isEmpty() ? Optional.empty() : Optional.of(enumValue(text.get(), byWireName, field));
     }
 
     private static <E extends Enum<E>> E enumValue(String text, Function<String, Optional<E>> byWireName,

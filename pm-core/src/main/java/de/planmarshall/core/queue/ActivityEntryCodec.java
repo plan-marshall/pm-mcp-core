@@ -209,23 +209,23 @@ public class ActivityEntryCodec {
                 case FIELD_ATTEMPT -> builder.attempt(Math.toIntExact(integer(parser, field)));
                 case FIELD_SOURCE -> builder.source(closed(parser, field, Source::fromWireName));
                 case FIELD_KIND -> builder.kind(closed(parser, field, Kind::fromWireName));
-                case FIELD_TEXT -> builder.text(nullableString(parser, field));
+                case FIELD_TEXT -> builder.text(nullableString(parser, field).orElse(null));
                 case FIELD_TRUNCATED -> builder.truncated(bool(parser, field));
                 case FIELD_TOOL -> builder.tool(parser.currentToken() == JsonToken.VALUE_NULL ? null
                         : readTool(parser));
                 case FIELD_RESULT -> builder.result(parser.currentToken() == JsonToken.VALUE_NULL ? null
                         : readResult(parser));
-                case FIELD_PATH -> builder.path(nullableString(parser, field));
+                case FIELD_PATH -> builder.path(nullableString(parser, field).orElse(null));
                 case FIELD_STOP_REASON -> builder.stopReason(parser.currentToken() == JsonToken.VALUE_NULL ? null
                         : closed(parser, field, StopReason::fromWireName));
                 case FIELD_USAGE -> builder.usage(parser.currentToken() == JsonToken.VALUE_NULL ? null
                         : raw(parser, document));
                 case FIELD_LINK -> builder.link(parser.currentToken() == JsonToken.VALUE_NULL ? null
                         : readLink(parser));
-                case FIELD_QUESTION_ID -> builder.questionId(nullableString(parser, field));
+                case FIELD_QUESTION_ID -> builder.questionId(nullableString(parser, field).orElse(null));
                 case FIELD_SIGNAL -> builder.signal(parser.currentToken() == JsonToken.VALUE_NULL ? null
                         : readSignal(parser));
-                case FIELD_END -> builder.end(nullableString(parser, field));
+                case FIELD_END -> builder.end(nullableString(parser, field).orElse(null));
                 case FIELD_UNMAPPED_LINES -> builder.unmappedLines(parser.currentToken() == JsonToken.VALUE_NULL
                         ? null : Math.toIntExact(integer(parser, field)));
                 case FIELD_AT -> builder.at(instant(parser, field));
@@ -250,7 +250,7 @@ public class ActivityEntryCodec {
             var field = nextField(parser, seen);
             switch (field) {
                 case FIELD_NAME -> name = string(parser, field);
-                case FIELD_TARGET -> target = nullableString(parser, field);
+                case FIELD_TARGET -> target = nullableString(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }
@@ -292,7 +292,7 @@ public class ActivityEntryCodec {
             var field = nextField(parser, seen);
             switch (field) {
                 case FIELD_REL -> rel = closed(parser, field, LinkRelation::fromWireName);
-                case FIELD_TARGET -> target = nullableString(parser, field);
+                case FIELD_TARGET -> target = nullableString(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }

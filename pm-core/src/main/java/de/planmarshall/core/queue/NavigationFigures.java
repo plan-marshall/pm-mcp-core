@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.queue;
 
+import org.jspecify.annotations.Nullable;
+
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -121,7 +123,7 @@ Figure fallbackToReadRate, List<SkillResidency> residency) {
     }
 
     /** @return whether a turn's usage text is a readable object; a malformed or empty one is not */
-    private static boolean readableUsage(String raw) {
+    private static boolean readableUsage(@Nullable String raw) {
         return raw != null && !usage(raw).members().isEmpty();
     }
 
