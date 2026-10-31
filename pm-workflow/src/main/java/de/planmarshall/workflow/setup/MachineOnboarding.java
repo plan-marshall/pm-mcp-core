@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import com.fasterxml.jackson.core.JsonParser;
@@ -87,7 +88,7 @@ Set<String> completedSteps) {
                     "The onboarding of the machine is read from the machine scope, not from the %s scope"
                             .formatted(status.scopeType().wireName()));
         }
-        var reconfigure = RECONFIGURE.equals(trimmed(status.retained().get(ONBOARD_RUN)));
+        var reconfigure = RECONFIGURE.equals(trimmed(status.retained().get(ONBOARD_RUN)).orElse(null));
         var completed = RESTING_STATE.equals(status.state()) || reconfigure;
         var steps = readSteps(status.retained().get(ONBOARD_STEPS));
         var pending = new ArrayList<String>();
@@ -109,12 +110,12 @@ Set<String> completedSteps) {
      * @return the missing step a refusal names: the first step that is not done, or the current state of the machine
      *         scope when the status carries no step list; {@code null} when the first run completed
      */
-    public String missingStep() {
-        return pendingSteps.isEmpty() ? null : pendingSteps.getFirst();
+    public Optional<String> missingStep() {
+        return pendingSteps.isEmpty() ? Optional.empty() : Optional.of(pendingSteps.getFirst());
     }
 
-    private static String trimmed(@Nullable String raw) {
-        return raw == null ? null : raw.trim();
+    private static Optional<String> trimmed(@Nullable String raw) {
+        return raw == null ? Optional.empty() : Optional.of(raw.trim());
     }
 
     private static List<Step> readSteps(@Nullable String raw) {

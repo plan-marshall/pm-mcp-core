@@ -113,7 +113,7 @@ public final class JudgmentClient {
         }
         var credential = credential(profile, path);
         if (credential.refusal() != null) {
-            return credential.refusal();
+            return Objects.requireNonNull(credential.refusal(), "refusal");
         }
         return transport(profile, uri(profile, path), body, credential.authorization());
     }

@@ -148,7 +148,8 @@ public final class LfsBatchClient implements LfsObjectSource {
             return SourceFetch.unreachable(String.format(Locale.ROOT, "the batch API %s answered %d", batch, status));
         }
         var step = action(answer.response().body(), pointer);
-        return step.failure() != null ? step.failure() : fetchObject(step.download(), pointer);
+        return step.failure() != null ? Objects.requireNonNull(step.failure(), "failure")
+                : fetchObject(step.download(), pointer);
     }
 
     private static Step action(byte[] body, LfsPointer pointer) {

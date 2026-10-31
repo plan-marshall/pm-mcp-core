@@ -188,7 +188,7 @@ public final class JGitOperations implements GitOperations {
                 ? existingBranchStart(main, commonDir, input.branch().get(), branchRef.get())
                 : newStart(main, input, branchRef);
         if (resolved.refusal() != null) {
-            return resolved.refusal();
+            return Objects.requireNonNull(resolved.refusal(), "refusal");
         }
         if (branchRef.isPresent() && !input.createBranch() && GitIdentity.isFullCommitId(input.startPoint())
                 && !resolved.id().name().equalsIgnoreCase(input.startPoint())) {

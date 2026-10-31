@@ -51,7 +51,7 @@ class SetupGateTest {
         assertAll(
                 () -> assertFalse(onboarding.firstRunCompleted()),
                 () -> assertEquals(List.of("harnesses", "models"), onboarding.pendingSteps()),
-                () -> assertEquals("harnesses", onboarding.missingStep()));
+                () -> assertEquals("harnesses", onboarding.missingStep().orElseThrow()));
     }
 
     @Test
