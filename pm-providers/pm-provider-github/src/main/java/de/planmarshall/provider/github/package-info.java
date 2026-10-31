@@ -13,4 +13,7 @@
  * threads and the merge queue, and REST calls, all over the shared HTTP base of
  * {@code pm-provider-http}.
  */
+@NullMarked
 package de.planmarshall.provider.github;
+
+import org.jspecify.annotations.NullMarked;

@@ -31,4 +31,7 @@
  * <li>{@code doc/specification/client-profiles/01-profile-schema.adoc} (Profile Schema, Update Evidence)</li>
  * </ul>
  */
+@NullMarked
 package de.planmarshall.runtime.launch;
+
+import org.jspecify.annotations.NullMarked;

@@ -43,4 +43,7 @@
  * <p>
  * Requirements: PM-IMPL-5, PM-ARCH-4.
  */
+@NullMarked
 package de.planmarshall.core.spi;
+
+import org.jspecify.annotations.NullMarked;

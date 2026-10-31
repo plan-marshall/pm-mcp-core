@@ -119,4 +119,7 @@
  * macOS) leaves the kept unit behind, and {@link de.planmarshall.runtime.start.ServiceUnitInstaller#restore()}, the
  * restore step a start runs first, writes it back and loads it; the assembly does not wire that step yet.
  */
+@NullMarked
 package de.planmarshall.runtime.start;
+
+import org.jspecify.annotations.NullMarked;

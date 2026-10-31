@@ -21,4 +21,7 @@
  * <li>{@code doc/specification/workflow-dsl/02-units-jobs-decisions.adoc}, Waiting for the Operator</li>
  * </ul>
  */
+@NullMarked
 package de.planmarshall.workflow.setup;
+
+import org.jspecify.annotations.NullMarked;

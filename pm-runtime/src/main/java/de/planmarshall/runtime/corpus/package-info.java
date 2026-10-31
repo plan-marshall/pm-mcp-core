@@ -23,4 +23,7 @@
  * bounded by a compiled maximum. Delivered bytes are handed over as they are;
  * {@link de.planmarshall.core.role.corpus.CorpusImport} checks them against the pinned SHA-256.
  */
+@NullMarked
 package de.planmarshall.runtime.corpus;
+
+import org.jspecify.annotations.NullMarked;

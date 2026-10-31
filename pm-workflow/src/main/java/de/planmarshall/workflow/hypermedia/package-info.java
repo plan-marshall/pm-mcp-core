@@ -19,4 +19,7 @@
  * <li>{@code doc/specification/hypermedia-format/03-composite-wait-and-encoder.adoc} (Composite Wait)</li>
  * </ul>
  */
+@NullMarked
 package de.planmarshall.workflow.hypermedia;
+
+import org.jspecify.annotations.NullMarked;

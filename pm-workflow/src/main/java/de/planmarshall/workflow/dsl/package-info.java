@@ -35,4 +35,7 @@
  * that parsing the printed source yields the same tree, source locations aside (the round trip).</li>
  * </ul>
  */
+@NullMarked
 package de.planmarshall.workflow.dsl;
+
+import org.jspecify.annotations.NullMarked;

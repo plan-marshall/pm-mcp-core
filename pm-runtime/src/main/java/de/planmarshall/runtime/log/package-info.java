@@ -12,4 +12,7 @@
  * {@code PM_RUNTIME}), numbered once per prefix (PM-IMPL-1). It also holds the messages the assembly
  * {@code pm-mcp-server} logs, until the assembly takes them over.
  */
+@NullMarked
 package de.planmarshall.runtime.log;
+
+import org.jspecify.annotations.NullMarked;

@@ -21,4 +21,7 @@
  * <li>{@code doc/specification/timeouts/01-job-budgets-and-waits.adoc}</li>
  * </ul>
  */
+@NullMarked
 package de.planmarshall.workflow.question;
+
+import org.jspecify.annotations.NullMarked;

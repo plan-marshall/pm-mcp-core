@@ -12,4 +12,7 @@
  * <p>
  * Specification: {@code doc/specification/model-work/09-completion-usage-and-spend.adoc}.
  */
+@NullMarked
 package de.planmarshall.workflow.spend;
+
+import org.jspecify.annotations.NullMarked;

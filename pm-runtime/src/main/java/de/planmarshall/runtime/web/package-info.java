@@ -11,4 +11,7 @@
  * The state of web access and the self-signed TLS certificate of the web listener on a LAN address
  * ({@link de.planmarshall.runtime.web.WebTls}), written as DER without a cryptography library.
  */
+@NullMarked
 package de.planmarshall.runtime.web;
+
+import org.jspecify.annotations.NullMarked;

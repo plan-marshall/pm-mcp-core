@@ -24,4 +24,7 @@
  * <li>{@code plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc} (In-Process Lock Manager)</li>
  * </ul>
  */
+@NullMarked
 package de.planmarshall.runtime.lock;
+
+import org.jspecify.annotations.NullMarked;

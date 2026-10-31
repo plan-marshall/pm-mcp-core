@@ -18,4 +18,7 @@
  * represent (an unpaired surrogate, a duplicate key) is refused with a
  * {@link de.planmarshall.core.toon.ToonEncodingException}.
  */
+@NullMarked
 package de.planmarshall.core.toon;
+
+import org.jspecify.annotations.NullMarked;

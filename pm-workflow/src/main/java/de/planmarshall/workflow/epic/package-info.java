@@ -12,4 +12,7 @@
  * <p>
  * Specification: {@code doc/specification/model-work/08-epic-coordination.adoc}.
  */
+@NullMarked
 package de.planmarshall.workflow.epic;
+
+import org.jspecify.annotations.NullMarked;

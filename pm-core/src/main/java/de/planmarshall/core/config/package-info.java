@@ -27,4 +27,7 @@
  * <li>{@code doc/specification/timeouts.adoc}</li>
  * </ul>
  */
+@NullMarked
 package de.planmarshall.core.config;
+
+import org.jspecify.annotations.NullMarked;

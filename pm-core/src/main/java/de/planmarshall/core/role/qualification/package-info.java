@@ -25,4 +25,7 @@
  * Records, Constant Baseline, Corpus Topics of a Role, Grading, Judge Instrument Check) and
  * {@code doc/specification/store-schemas/16-task-queue.adoc} (Role Qualification Record, Judge Check Record).
  */
+@NullMarked
 package de.planmarshall.core.role.qualification;
+
+import org.jspecify.annotations.NullMarked;
