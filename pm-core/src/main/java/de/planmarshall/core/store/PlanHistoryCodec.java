@@ -21,6 +21,8 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -101,7 +103,7 @@ public class PlanHistoryCodec {
         return StrictJson.read(file, document, PlanHistoryLine.FORMAT_VERSION, PlanHistoryCodec::readLine);
     }
 
-    private static void writeNullableString(JsonGenerator generator, String field, String value) throws IOException {
+    private static void writeNullableString(JsonGenerator generator, String field, @Nullable String value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -110,14 +112,14 @@ public class PlanHistoryCodec {
     }
 
     private static PlanHistoryLine readLine(JsonParser parser) throws IOException {
-        Long seq = null;
-        Event event = null;
-        String node = null;
+        @Nullable Long seq = null;
+        @Nullable Event event = null;
+        @Nullable String node = null;
         List<String> callPath = List.of();
-        String phase = null;
-        String outcome = null;
-        Long instanceVersion = null;
-        Instant at = null;
+        @Nullable String phase = null;
+        @Nullable String outcome = null;
+        @Nullable Long instanceVersion = null;
+        @Nullable Instant at = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

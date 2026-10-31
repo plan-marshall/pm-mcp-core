@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.role;
 
+import org.jspecify.annotations.Nullable;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -77,7 +79,7 @@ public final class RoleSetLoader {
         }
     }
 
-    private static List<String> names(Path directory) {
+    private static List<String> names(@Nullable Path directory) {
         if (directory == null || !Files.isDirectory(directory)) {
             return List.of();
         }

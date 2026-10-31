@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -307,7 +309,7 @@ List<Deliverable> deliverables) {
      * @since 0.1
      */
     public record Deliverable(int number, String title, String intentGloss, ChangeType changeType,
-    ExecutionMode executionMode, String domain, String module, List<Integer> depends, String designNotes,
+    ExecutionMode executionMode, String domain, String module, List<Integer> depends, @Nullable String designNotes,
     List<Profile> profiles, List<AffectedFile> affectedFiles, String changePerFile,
     List<Verification> verification, List<String> satisfies, List<AddedDependency> addedDependencies,
     List<Interface> interfaces, List<KeyLink> keyLinks) {
@@ -390,7 +392,7 @@ List<Deliverable> deliverables) {
      * @param gate   for {@code write-conditional}, the gate whose firing changes the file; {@code null} otherwise
      * @since 0.1
      */
-    public record AffectedFile(String path, FileIntent intent, String gate) {
+    public record AffectedFile(String path, FileIntent intent, @Nullable String gate) {
 
         /**
          * @throws IllegalArgumentException if a member is out of its bounds or the gate does not go with the intent

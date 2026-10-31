@@ -11,7 +11,6 @@ package de.planmarshall.core.role.corpus;
 
 import static de.planmarshall.core.role.corpus.CorpusJson.construct;
 import static de.planmarshall.core.role.corpus.CorpusJson.date;
-import static de.planmarshall.core.role.corpus.CorpusJson.nullableDate;
 import static de.planmarshall.core.role.corpus.CorpusJson.nullableNumber;
 import static de.planmarshall.core.role.corpus.CorpusJson.nullableStringList;
 import static de.planmarshall.core.role.corpus.CorpusJson.wireValue;
@@ -264,7 +263,7 @@ public class SourceOverlayCodec {
                 case FIELD_ANSWER_SCHEMA -> values.answerSchema = nullableValue(parser, field).orElse(null);
                 case FIELD_TARGET -> values.target = readTarget(parser);
                 case FIELD_GRADING -> values.grading = readGrading(parser);
-                case FIELD_REVIEW -> values.review = readReview(parser);
+                case FIELD_REVIEW -> values.review = ImportedItemCodec.readReview(parser, true);
                 case FIELD_CONTAMINATION -> values.contamination = nullableString(parser, field);
                 default -> throw undeclared(field);
             }
@@ -307,7 +306,7 @@ public class SourceOverlayCodec {
                 case FIELD_ANSWER -> answer = nullableString(parser, field);
                 case FIELD_RATIONALE -> rationale = string(parser, field);
                 case FIELD_ALTERNATIVES -> alternatives = stringList(parser, field);
-                case FIELD_ITEMS -> items = array(parser, field, SourceOverlayCodec::readRubricItem);
+                case FIELD_ITEMS -> items = array(parser, field, ImportedItemCodec::readRubricItem);
                 case FIELD_EXPECTED_EMPTY -> expectedEmpty = bool(parser, field);
                 default -> throw undeclared(field);
             }
@@ -321,23 +320,6 @@ public class SourceOverlayCodec {
         var targetEmpty = expectedEmpty;
         return construct(
                 () -> new Target(targetAnswer, targetRationale, targetAlternatives, targetItems, targetEmpty));
-    }
-
-    private static RubricItem readRubricItem(JsonParser parser, String name) throws IOException {
-        requireObject(parser, name);
-        @Nullable String id = null;
-        @Nullable String description = null;
-        var seen = new HashSet<String>();
-        while (parser.nextToken() == JsonToken.FIELD_NAME) {
-            var field = nextField(parser, seen);
-            switch (field) {
-                case FIELD_ID -> id = string(parser, field);
-                case FIELD_DESCRIPTION -> description = string(parser, field);
-                default -> throw undeclared(field);
-            }
-        }
-        requireFields(seen, name, FIELD_ID, FIELD_DESCRIPTION);
-        return new RubricItem(id, description);
     }
 
     private static Grading readGrading(JsonParser parser) throws IOException {
@@ -360,27 +342,6 @@ public class SourceOverlayCodec {
         var gradingJudge = judge;
         var gradingThreshold = passThreshold;
         return construct(() -> new Grading(gradingMethod, gradingJudge, gradingThreshold));
-    }
-
-    private static Review readReview(JsonParser parser) throws IOException {
-        requireObject(parser, FIELD_REVIEW);
-        @Nullable ReviewStatus status = null;
-        @Nullable String by = null;
-        @Nullable LocalDate date = null;
-        @Nullable String notes = null;
-        var seen = new HashSet<String>();
-        while (parser.nextToken() == JsonToken.FIELD_NAME) {
-            var field = nextField(parser, seen);
-            switch (field) {
-                case FIELD_STATUS -> status = wireValue(parser, field, ReviewStatus::fromWireName);
-                case FIELD_BY -> by = nullableString(parser, field);
-                case FIELD_DATE -> date = nullableDate(parser, field);
-                case FIELD_NOTES -> notes = nullableString(parser, field);
-                default -> throw undeclared(field);
-            }
-        }
-        requireFields(seen, FIELD_REVIEW, FIELD_STATUS, FIELD_BY, FIELD_DATE, FIELD_NOTES);
-        return new Review(status, by, date, notes);
     }
 
     /** The values of a row read so far. */

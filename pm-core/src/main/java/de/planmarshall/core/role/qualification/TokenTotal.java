@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.role.qualification;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.OptionalLong;
 
 /**
@@ -24,7 +26,7 @@ import java.util.OptionalLong;
  * @param tokensOut the output split; {@code null} when unmeasured
  * @since 0.1
  */
-public record TokenTotal(Long tokens, Long tokensIn, Long tokensOut) {
+public record TokenTotal(@Nullable Long tokens, @Nullable Long tokensIn, @Nullable Long tokensOut) {
 
     /** The one word a record writes for an unmeasured count. */
     public static final String UNMEASURED_MARK = "unmeasured";

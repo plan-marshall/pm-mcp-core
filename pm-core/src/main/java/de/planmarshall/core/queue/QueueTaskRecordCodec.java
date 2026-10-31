@@ -23,6 +23,8 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -292,7 +294,7 @@ public class QueueTaskRecordCodec {
         generator.writeEndArray();
     }
 
-    private static void writeNullable(JsonGenerator generator, String field, String value) throws IOException {
+    private static void writeNullable(JsonGenerator generator, String field, @Nullable String value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -359,8 +361,8 @@ public class QueueTaskRecordCodec {
 
     private static Scope readScope(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_SCOPE);
-        ScopeType type = null;
-        String id = null;
+        @Nullable ScopeType type = null;
+        @Nullable String id = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -380,15 +382,15 @@ public class QueueTaskRecordCodec {
 
     private static Continuation readContinuation(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_CONTINUATION);
-        String questionId = null;
-        ContinuationForm form = null;
-        Instant holdUntil = null;
-        String sessionId = null;
-        Instant suspendedAt = null;
-        Instant resumeUntil = null;
-        String suspendedDigest = null;
-        String suspendedHead = null;
-        FallbackReason fallbackReason = null;
+        @Nullable String questionId = null;
+        @Nullable ContinuationForm form = null;
+        @Nullable Instant holdUntil = null;
+        @Nullable String sessionId = null;
+        @Nullable Instant suspendedAt = null;
+        @Nullable Instant resumeUntil = null;
+        @Nullable String suspendedDigest = null;
+        @Nullable String suspendedHead = null;
+        @Nullable FallbackReason fallbackReason = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -419,10 +421,10 @@ public class QueueTaskRecordCodec {
 
     private static Lease readLease(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_LEASE);
-        String generationId = null;
-        String jobId = null;
-        Instant leasedAt = null;
-        Instant acknowledgedAt = null;
+        @Nullable String generationId = null;
+        @Nullable String jobId = null;
+        @Nullable Instant leasedAt = null;
+        @Nullable Instant acknowledgedAt = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -445,13 +447,13 @@ public class QueueTaskRecordCodec {
     private static Attempt readAttempt(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
         var attempt = 0;
-        String generationId = null;
-        String jobId = null;
-        String configurationDigest = null;
-        Instant offeredAt = null;
-        Instant acknowledgedAt = null;
-        Instant endedAt = null;
-        AttemptEnd end = null;
+        @Nullable String generationId = null;
+        @Nullable String jobId = null;
+        @Nullable String configurationDigest = null;
+        @Nullable Instant offeredAt = null;
+        @Nullable Instant acknowledgedAt = null;
+        @Nullable Instant endedAt = null;
+        @Nullable AttemptEnd end = null;
         var counts = false;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
@@ -482,12 +484,12 @@ public class QueueTaskRecordCodec {
 
     private static Signal readSignal(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        SignalName signal = null;
+        @Nullable SignalName signal = null;
         var attempt = 0;
-        SignalAction action = null;
+        @Nullable SignalAction action = null;
         double measurement = 0;
         double threshold = 0;
-        Instant at = null;
+        @Nullable Instant at = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -512,15 +514,15 @@ public class QueueTaskRecordCodec {
 
     private static Consultation readConsultation(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String consultationId = null;
-        String role = null;
-        String askedBy = null;
-        Instant askedAt = null;
-        ConsultationStatus status = null;
-        String answer = null;
-        Instant closedAt = null;
-        Instant deliveredAt = null;
-        DeliveredTo deliveredTo = null;
+        @Nullable String consultationId = null;
+        @Nullable String role = null;
+        @Nullable String askedBy = null;
+        @Nullable Instant askedAt = null;
+        @Nullable ConsultationStatus status = null;
+        @Nullable String answer = null;
+        @Nullable Instant closedAt = null;
+        @Nullable Instant deliveredAt = null;
+        @Nullable DeliveredTo deliveredTo = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

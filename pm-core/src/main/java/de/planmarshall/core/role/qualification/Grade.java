@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.role.qualification;
 
+import org.jspecify.annotations.Nullable;
+
 import java.math.BigDecimal;
 import java.util.Objects;
 
@@ -19,7 +21,7 @@ import java.util.Objects;
  * @param score the score; {@code null} when ungraded
  * @since 0.1
  */
-public record Grade(BigDecimal score) {
+public record Grade(@Nullable BigDecimal score) {
 
     /** The score at which a judge counts an answer as judged right (Model Work § Judge Instrument Check). */
     public static final BigDecimal RIGHT_FROM = new BigDecimal("0.5");

@@ -21,6 +21,8 @@ import static de.planmarshall.core.store.StrictJson.string;
 import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -202,9 +204,9 @@ public class ModelCatalogueCodec {
     private static CatalogueModel model(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
         var seen = new HashSet<String>();
-        String model = null;
-        ModelSource source = null;
-        Instant recordedAt = null;
+        @Nullable String model = null;
+        @Nullable ModelSource source = null;
+        @Nullable Instant recordedAt = null;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {

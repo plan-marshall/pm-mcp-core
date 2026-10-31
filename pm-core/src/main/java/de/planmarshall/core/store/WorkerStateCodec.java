@@ -22,6 +22,8 @@ import static de.planmarshall.core.store.StrictJson.stringList;
 import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
@@ -214,8 +216,8 @@ public class WorkerStateCodec {
 
     private static Workdir readWorkdir(JsonParser parser) throws IOException {
         requireObject(parser, WORKDIR);
-        Workdir.Kind kind = null;
-        String planId = null;
+        Workdir.@Nullable Kind kind = null;
+        @Nullable String planId = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -235,9 +237,9 @@ public class WorkerStateCodec {
 
     private static WorktreeMark readWorktreeMark(JsonParser parser) throws IOException {
         requireObject(parser, WORKTREE_MARK);
-        String head = null;
-        List<String> changedPaths = null;
-        Instant markedAt = null;
+        @Nullable String head = null;
+        @Nullable List<String> changedPaths = null;
+        @Nullable Instant markedAt = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -258,9 +260,9 @@ public class WorkerStateCodec {
 
     private static DeliveredSkill readDeliveredSkill(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String uri = null;
-        String digest = null;
-        Instant deliveredAt = null;
+        @Nullable String uri = null;
+        @Nullable String digest = null;
+        @Nullable Instant deliveredAt = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

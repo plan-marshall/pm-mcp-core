@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.findings;
 
+import org.jspecify.annotations.Nullable;
+
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -81,41 +83,41 @@ public record Finding(
 int formatVersion,
 String findingId,
 FindingSourceKind source,
-String provider,
-CiFailure ciFailure,
-FindingPhase phase,
-String queueTaskId,
-String batchId,
-Screen screen,
-List<String> requirementRefs,
+@Nullable String provider,
+@Nullable CiFailure ciFailure,
+@Nullable FindingPhase phase,
+@Nullable String queueTaskId,
+@Nullable String batchId,
+@Nullable Screen screen,
+@Nullable List<String> requirementRefs,
 Severity severity,
 boolean blocking,
 FindingStatus status,
-Disposition disposition,
-SuppressReason suppressReason,
-IntroducedBy introducedBy,
+@Nullable Disposition disposition,
+@Nullable SuppressReason suppressReason,
+@Nullable IntroducedBy introducedBy,
 Resolution resolution,
-ScopeClass scopeClass,
-CarriedTo carriedTo,
-String filePath,
-Integer line,
+@Nullable ScopeClass scopeClass,
+@Nullable CarriedTo carriedTo,
+@Nullable String filePath,
+@Nullable Integer line,
 String summary,
-String body,
-String author,
-String botKind,
-String raisedAtHead,
-String reviewedCommitSha,
-Instant editMarker,
-Evidence evidence,
-ProviderRef providerRef,
-String dispositionRationale,
+@Nullable String body,
+@Nullable String author,
+@Nullable String botKind,
+@Nullable String raisedAtHead,
+@Nullable String reviewedCommitSha,
+@Nullable Instant editMarker,
+@Nullable Evidence evidence,
+@Nullable ProviderRef providerRef,
+@Nullable String dispositionRationale,
 TransmitOutcome transmitOutcome,
-TransmitReason transmitReason,
-String transmitDisposition,
-Instant respondedAt,
+@Nullable TransmitReason transmitReason,
+@Nullable String transmitDisposition,
+@Nullable Instant respondedAt,
 ResolveState resolveState,
 Instant createdAt,
-Instant updatedAt) {
+@Nullable Instant updatedAt) {
 
     /** The only version of the record format. */
     public static final int FORMAT_VERSION = 1;
@@ -456,7 +458,7 @@ Instant updatedAt) {
      * @param ref           the file and line, job id or URL the resolution rests on; nullable
      * @param claimRefuted  whether the evidence refutes the finding's claim
      */
-    public record Evidence(EvidenceClass evidenceClass, String ref, boolean claimRefuted) {
+    public record Evidence(EvidenceClass evidenceClass, @Nullable String ref, boolean claimRefuted) {
 
         /**
          * @throws NullPointerException if the class is {@code null}
@@ -508,8 +510,8 @@ Instant updatedAt) {
      * @param issueKey    the analysis provider's own key of the issue, at most 256 characters, set only for an
      *                    analysis finding; nullable
      */
-    public record ProviderRef(Integer prNumber, String threadId, String commentId, CommentKind commentKind,
-    String issueKey) {
+    public record ProviderRef(@Nullable Integer prNumber, @Nullable String threadId, @Nullable String commentId,
+    @Nullable CommentKind commentKind, @Nullable String issueKey) {
 
         private static final int ISSUE_KEY_MAX_LENGTH = 256;
 

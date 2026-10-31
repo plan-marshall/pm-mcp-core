@@ -19,6 +19,8 @@ import static de.planmarshall.core.store.StrictJson.string;
 import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
@@ -165,10 +167,10 @@ public record DefaultAssignment(Map<String, DefaultRole> roles) {
     private static DefaultRole role(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
         var seen = new HashSet<String>();
-        String tier = null;
+        @Nullable String tier = null;
         Optional<EffortValue> effort = Optional.empty();
-        String preferredHarness = null;
-        String advisory = null;
+        @Nullable String preferredHarness = null;
+        @Nullable String advisory = null;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {

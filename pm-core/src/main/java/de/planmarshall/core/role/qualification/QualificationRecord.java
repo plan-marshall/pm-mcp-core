@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.role.qualification;
 
+import org.jspecify.annotations.Nullable;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Collections;
@@ -47,8 +49,8 @@ import de.planmarshall.core.role.RoleForm;
  * @since 0.1
  */
 public record QualificationRecord(String role, String qualificationDigest, GradedConfiguration configuration,
-String corpusRevision, List<String> missedSources, Map<RoleForm, FormResult> forms, BigDecimal warmFreshGap,
-int ungraded, Instant gradedAt, List<ItemResult> items) {
+String corpusRevision, List<String> missedSources, Map<RoleForm, FormResult> forms,
+@Nullable BigDecimal warmFreshGap, int ungraded, Instant gradedAt, List<ItemResult> items) {
 
     /** The format version of a qualification record. */
     public static final int FORMAT_VERSION = 1;
@@ -209,7 +211,7 @@ int ungraded, Instant gradedAt, List<ItemResult> items) {
      * @since 0.1
      */
     public record ItemResult(String itemId, RoleForm form, Checkout checkout, JsonNode answer, Grade score,
-    TokenTotal totalTokens, Long durationMs) {
+    TokenTotal totalTokens, @Nullable Long durationMs) {
 
         /**
          * @throws IllegalArgumentException if the item carries no id or a negative duration

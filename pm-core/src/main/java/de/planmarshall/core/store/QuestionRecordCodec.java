@@ -23,6 +23,8 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -35,6 +37,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import lombok.experimental.UtilityClass;
 
@@ -193,7 +196,7 @@ public class QuestionRecordCodec {
             writeAnswer(generator, question.answer());
         }
         writeText(generator, required, FIELD_CHANNEL,
-                question.channel() == null ? null : question.channel().wireName());
+                Optional.ofNullable(question.channel()).map(channel -> channel.wireName()).orElse(null));
         writeText(generator, required, FIELD_DEVICE_ID, question.deviceId());
         writeText(generator, required, FIELD_AMENDMENT_ID, question.amendmentId());
         writeText(generator, required, FIELD_REASON, question.reason());
@@ -238,19 +241,20 @@ public class QuestionRecordCodec {
         }
         writeNullable(generator, FIELD_OWN_WORDS, answer.ownWords());
         writeNullable(generator, FIELD_NOTE, answer.note());
-        var interpretation = answer.interpretation();
-        if (interpretation == null) {
+        var interpretation = Optional.ofNullable(answer.interpretation());
+        if (interpretation.isEmpty()) {
             generator.writeNullField(FIELD_INTERPRETATION);
         } else {
+            var value = interpretation.get();
             generator.writeObjectFieldStart(FIELD_INTERPRETATION);
-            generator.writeStringField(FIELD_RESULT, interpretation.result().wireName());
-            writeNullable(generator, FIELD_CONDITION, interpretation.condition());
+            generator.writeStringField(FIELD_RESULT, value.result().wireName());
+            writeNullable(generator, FIELD_CONDITION, value.condition());
             generator.writeArrayFieldStart(FIELD_PASSAGES);
-            for (var passage : interpretation.passages()) {
+            for (var passage : value.passages()) {
                 generator.writeString(passage);
             }
             generator.writeEndArray();
-            generator.writeStringField(FIELD_QUEUE_TASK_ID, interpretation.queueTaskId());
+            generator.writeStringField(FIELD_QUEUE_TASK_ID, value.queueTaskId());
             generator.writeEndObject();
         }
         generator.writeBooleanField(FIELD_AFTER_CHAT, answer.afterChat());
@@ -267,7 +271,7 @@ public class QuestionRecordCodec {
         }
     }
 
-    private static void writeNullable(JsonGenerator generator, String field, String value) throws IOException {
+    private static void writeNullable(JsonGenerator generator, String field, @Nullable String value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -283,7 +287,7 @@ public class QuestionRecordCodec {
         requireObject(parser, RECORD);
         var question = QuestionRecord.builder();
         var seen = new HashSet<String>();
-        QuestionEvent event = null;
+        @Nullable QuestionEvent event = null;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {
@@ -330,12 +334,12 @@ public class QuestionRecordCodec {
 
     private static Decision readDecision(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_DECISION);
-        String title = null;
-        String header = null;
-        String description = null;
-        List<Evidence> evidence = null;
-        Blocks blocks = null;
-        Reversibility reversibility = null;
+        @Nullable String title = null;
+        @Nullable String header = null;
+        @Nullable String description = null;
+        @Nullable List<Evidence> evidence = null;
+        @Nullable Blocks blocks = null;
+        @Nullable Reversibility reversibility = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -360,9 +364,9 @@ public class QuestionRecordCodec {
 
     private static Evidence readEvidence(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        EvidenceKind kind = null;
-        String ref = null;
-        String label = null;
+        @Nullable EvidenceKind kind = null;
+        @Nullable String ref = null;
+        @Nullable String label = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -383,12 +387,12 @@ public class QuestionRecordCodec {
 
     private static Answer readAnswer(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_ANSWER);
-        AnswerKind kind = null;
-        List<String> branchKeys = null;
-        AnswerValue value = null;
-        String ownWords = null;
-        String note = null;
-        Interpretation interpretation = null;
+        @Nullable AnswerKind kind = null;
+        @Nullable List<String> branchKeys = null;
+        @Nullable AnswerValue value = null;
+        @Nullable String ownWords = null;
+        @Nullable String note = null;
+        @Nullable Interpretation interpretation = null;
         var afterChat = false;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
@@ -396,7 +400,7 @@ public class QuestionRecordCodec {
             switch (field) {
                 case FIELD_KIND -> kind = closed(parser, field, AnswerKind.class);
                 case FIELD_BRANCH_KEYS -> branchKeys = stringList(parser, field);
-                case FIELD_VALUE -> value = readValue(parser);
+                case FIELD_VALUE -> value = readValue(parser).orElse(null);
                 case FIELD_OWN_WORDS -> ownWords = nullableString(parser, field);
                 case FIELD_NOTE -> note = nullableString(parser, field);
                 case FIELD_INTERPRETATION -> interpretation = parser.currentToken() == JsonToken.VALUE_NULL ? null
@@ -414,21 +418,21 @@ public class QuestionRecordCodec {
         }
     }
 
-    private static AnswerValue readValue(JsonParser parser) throws IOException {
+    private static Optional<AnswerValue> readValue(JsonParser parser) throws IOException {
         return switch (parser.currentToken()) {
-            case VALUE_NULL -> null;
-            case VALUE_STRING -> new AnswerValue.Text(parser.getText());
-            case VALUE_NUMBER_INT, VALUE_NUMBER_FLOAT -> new AnswerValue.Numeric(parser.getDecimalValue());
+            case VALUE_NULL -> Optional.empty();
+            case VALUE_STRING -> Optional.of(new AnswerValue.Text(parser.getText()));
+            case VALUE_NUMBER_INT, VALUE_NUMBER_FLOAT -> Optional.of(new AnswerValue.Numeric(parser.getDecimalValue()));
             case null, default -> throw unreadable("'%s' must be a string, a number or null".formatted(FIELD_VALUE));
         };
     }
 
     private static Interpretation readInterpretation(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_INTERPRETATION);
-        InterpretationResult result = null;
-        String condition = null;
-        List<String> passages = null;
-        String queueTaskId = null;
+        @Nullable InterpretationResult result = null;
+        @Nullable String condition = null;
+        @Nullable List<String> passages = null;
+        @Nullable String queueTaskId = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

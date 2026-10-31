@@ -19,6 +19,8 @@ import static de.planmarshall.core.store.StrictJson.stringList;
 import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -182,9 +184,9 @@ public record CapabilitySpec(String capability, String purpose, List<Requirement
     }
 
     private static CapabilitySpec readDocument(JsonParser parser) throws IOException {
-        String capability = null;
-        String purpose = null;
-        List<Requirement> requirements = null;
+        @Nullable String capability = null;
+        @Nullable String purpose = null;
+        @Nullable List<Requirement> requirements = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -206,10 +208,10 @@ public record CapabilitySpec(String capability, String purpose, List<Requirement
 
     private static Requirement readRequirement(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String requirementName = null;
-        String text = null;
-        List<Scenario> scenarios = null;
-        String planId = null;
+        @Nullable String requirementName = null;
+        @Nullable String text = null;
+        @Nullable List<Scenario> scenarios = null;
+        @Nullable String planId = null;
         List<String> verifiedBy = List.of();
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
@@ -233,10 +235,10 @@ public record CapabilitySpec(String capability, String purpose, List<Requirement
 
     private static Scenario readScenario(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String scenarioName = null;
-        String given = null;
-        String when = null;
-        String then = null;
+        @Nullable String scenarioName = null;
+        @Nullable String given = null;
+        @Nullable String when = null;
+        @Nullable String then = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

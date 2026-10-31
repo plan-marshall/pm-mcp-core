@@ -76,7 +76,9 @@ writes (`SecretRedactor`) and the figures derived from a task's activity beside 
 (link:../adr/core-queue/007-the-events-mapping-is-projected.adoc[ADR 007]) and the journal redacts at its write boundary
 (link:../adr/core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR 008]). Each figure carries its population
 or the `indeterminate`/`unmeasured` sentinel
-(link:../adr/core-queue/009-a-navigation-figure-carries-its-population.adoc[ADR 009]).
+(link:../adr/core-queue/009-a-navigation-figure-carries-its-population.adoc[ADR 009]). `ActivityEventMapping.of`
+answers `Optional<ActivityEventMapping>`: a profile whose `headless.events` is `null` is `Optional.empty()`, never a
+`null` value, because every production package is `@NullMarked`.
 
 == How to use and extend it
 

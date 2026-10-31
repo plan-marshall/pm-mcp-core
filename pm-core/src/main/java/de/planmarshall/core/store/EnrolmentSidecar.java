@@ -17,6 +17,8 @@ import static de.planmarshall.core.store.StrictJson.string;
 import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -107,8 +109,8 @@ public record EnrolmentSidecar(StoreDigest digest, String hmac) {
 
     private static EnrolmentSidecar readDocument(JsonParser parser) throws IOException {
         long size = 0;
-        String sha256 = null;
-        String hmac = null;
+        @Nullable String sha256 = null;
+        @Nullable String hmac = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

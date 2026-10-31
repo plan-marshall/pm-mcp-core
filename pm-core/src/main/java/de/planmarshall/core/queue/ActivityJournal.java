@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.queue;
 
+import org.jspecify.annotations.Nullable;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -107,8 +109,8 @@ public final class ActivityJournal {
         };
     }
 
-    private static ActivityJournal project(Path base, String projectId, String home, String id,
-            LockManager lockManager) {
+    private static ActivityJournal project(Path base, @Nullable String projectId, @Nullable String home,
+            @Nullable String id, LockManager lockManager) {
         if (projectId == null || !SCOPE_ID.matcher(projectId).matches()) {
             throw new IllegalArgumentException("A task of the scope needs a valid project id: " + projectId);
         }

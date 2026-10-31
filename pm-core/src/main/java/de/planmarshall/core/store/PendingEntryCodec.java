@@ -20,6 +20,8 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -199,7 +201,7 @@ public class PendingEntryCodec {
         return parser.currentToken() == JsonToken.VALUE_NULL;
     }
 
-    private static void writeNullable(JsonGenerator generator, String field, String value) throws IOException {
+    private static void writeNullable(JsonGenerator generator, String field, @Nullable String value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {

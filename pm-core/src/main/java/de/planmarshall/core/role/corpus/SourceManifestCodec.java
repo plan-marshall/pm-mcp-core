@@ -18,6 +18,8 @@ import static de.planmarshall.core.store.StrictJson.requireObject;
 import static de.planmarshall.core.store.StrictJson.string;
 import static de.planmarshall.core.store.StrictJson.undeclared;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -110,12 +112,12 @@ public class SourceManifestCodec {
 
     private static SourceManifest readDocument(JsonParser parser) throws IOException {
         requireObject(parser, MANIFEST);
-        String name = null;
-        String repository = null;
-        String commit = null;
-        String licence = null;
-        FetchKind fetch = null;
-        List<SourceFile> files = null;
+        @Nullable String name = null;
+        @Nullable String repository = null;
+        @Nullable String commit = null;
+        @Nullable String licence = null;
+        @Nullable FetchKind fetch = null;
+        @Nullable List<SourceFile> files = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -144,8 +146,8 @@ public class SourceManifestCodec {
 
     private static SourceFile readFile(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String path = null;
-        String sha256 = null;
+        @Nullable String path = null;
+        @Nullable String sha256 = null;
         var lfs = false;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {

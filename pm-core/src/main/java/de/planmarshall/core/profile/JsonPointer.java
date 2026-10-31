@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.profile;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * A JSON Pointer of RFC 6901, resolved against a {@link JsonNode} (PM-CLIENT-5): the spelling a profile uses for a
  * pointer into a line of the harness output and for the failing value in a refusal.
@@ -32,7 +34,7 @@ public final class JsonPointer {
      * @return the value the pointer selects
      * @throws ProfileRefusal if the pointer has no such value
      */
-    public static JsonNode resolve(JsonNode root, String pointer, String document) {
+    public static JsonNode resolve(JsonNode root, @Nullable String pointer, String document) {
         if (pointer == null) {
             throw ProfileRefusal.invalid(document, "", "a JSON Pointer is not null");
         }

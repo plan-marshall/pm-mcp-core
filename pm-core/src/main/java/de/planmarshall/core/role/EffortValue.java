@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.role;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * The effort a level of the effective configuration names (PM-WORK-1, Role Assignment): a value the harness takes, or
  * {@code null} because the level names the absence of an effort flag. The two are different: a level that does not name
@@ -18,5 +20,5 @@ package de.planmarshall.core.role;
  * @param value the effort value, or {@code null} for no effort flag
  * @since 0.1
  */
-public record EffortValue(String value) {
+public record EffortValue(@Nullable String value) {
 }

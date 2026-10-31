@@ -14,6 +14,8 @@ import static de.planmarshall.core.role.corpus.SourceManifest.RELATIVE_PATH;
 import static de.planmarshall.core.role.corpus.SourceManifest.require;
 import static de.planmarshall.core.role.corpus.SourceManifest.requireRepository;
 
+import org.jspecify.annotations.Nullable;
+
 import java.math.BigDecimal;
 import java.net.URI;
 import java.time.LocalDate;
@@ -119,8 +121,8 @@ String canary) {
      * @param expectedEmpty {@code true} for a control: the correct answer reports nothing
      * @since 0.1
      */
-    public record Target(String answer, String rationale, List<String> alternatives, List<RubricItem> items,
-    boolean expectedEmpty) {
+    public record Target(@Nullable String answer, String rationale, List<String> alternatives,
+    List<RubricItem> items, boolean expectedEmpty) {
 
         /**
          * Copies the lists.

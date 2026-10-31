@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
@@ -53,8 +55,8 @@ import java.util.Optional;
  * @param lockKey          the key that guards every store of the scope
  * @since 0.1
  */
-public record JournalScope(JournalScopeType type, String scopeId, Path pathBase, Path journalFile, Path sidecarFile,
-List<Path> ownedDirectories, LockKey lockKey) {
+public record JournalScope(JournalScopeType type, @Nullable String scopeId, Path pathBase, Path journalFile,
+Path sidecarFile, List<Path> ownedDirectories, LockKey lockKey) {
 
     private static final String MCP = "mcp";
     private static final String JOURNAL = "transaction-journal.json";

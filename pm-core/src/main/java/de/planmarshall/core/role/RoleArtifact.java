@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.role;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -47,8 +49,8 @@ import java.util.Optional;
  */
 public record RoleArtifact(int formatVersion, String name, String description, RoleClass roleClass, List<String> tools,
 String harness, String model, EffortValue effort, RoleForm form, int count, List<String> skills,
-Recycling recycling, int budgetFloorSeconds, Integer contextBudgetTokens, Questions questions,
-Map<OffTrackSignal, OffTrackSetting> offTrack) {
+@Nullable Recycling recycling, int budgetFloorSeconds, @Nullable Integer contextBudgetTokens,
+@Nullable Questions questions, Map<OffTrackSignal, OffTrackSetting> offTrack) {
 
     /** Copies the lists and the map. */
     public RoleArtifact {
@@ -108,7 +110,7 @@ Map<OffTrackSignal, OffTrackSetting> offTrack) {
      * @param tasksPerGeneration  the tasks a generation takes before it is recycled; {@code null} unbounded
      * @since 0.1
      */
-    public record Recycling(Integer idleWakeups, int tokenBudget, Integer tasksPerGeneration) {
+    public record Recycling(@Nullable Integer idleWakeups, int tokenBudget, @Nullable Integer tasksPerGeneration) {
 
         /**
          * @throws IllegalArgumentException if the token budget is below the schema's minimum
@@ -224,7 +226,7 @@ Map<OffTrackSignal, OffTrackSetting> offTrack) {
      * @param action    the action the server takes when the signal holds
      * @since 0.1
      */
-    public record OffTrackSetting(Double threshold, OffTrackAction action) {
+    public record OffTrackSetting(@Nullable Double threshold, OffTrackAction action) {
 
         /** @throws NullPointerException if the action is {@code null} */
         public OffTrackSetting {

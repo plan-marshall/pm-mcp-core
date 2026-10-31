@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.findings;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
@@ -30,7 +32,7 @@ import java.util.regex.Pattern;
  *                  {@code null} for a commit
  * @since 0.1
  */
-public record FindingScope(Kind kind, String commitSha, Integer prNumber) {
+public record FindingScope(Kind kind, String commitSha, @Nullable Integer prNumber) {
 
     private static final Pattern COMMIT_SHA = Pattern.compile("^(?:[0-9a-f]{40}|[0-9a-f]{64})$");
 
