@@ -56,6 +56,7 @@ Optional<OutcomeReason> reason) {
      * @throws IllegalArgumentException if the reason does not pair with the outcome: present when the outcome
      *         declares no reason type, absent when it declares one, or not a constant of the declared type
      */
+    @SuppressWarnings({"java:S2583", "java:S2789"})
     public PrimitiveResult {
         Objects.requireNonNull(outcome, "outcome");
         Objects.requireNonNull(updatedFacts, "updatedFacts");
@@ -67,6 +68,7 @@ Optional<OutcomeReason> reason) {
                 Objects.requireNonNull(value, "value of a fact")));
         updatedFacts = Collections.unmodifiableMap(copy);
         var declared = outcome.reasonType();
+        // A primitive compiled against a raw PrimitiveOutcome can answer a null Optional; it declares none.
         if (declared == null) {
             declared = Optional.empty();
         }

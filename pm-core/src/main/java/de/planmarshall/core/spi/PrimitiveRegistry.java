@@ -200,30 +200,50 @@ public final class PrimitiveRegistry {
      * primitive refused for a reason of the older contract keeps that refusal.
      */
     private static void checkReason(String id, PrimitiveOutcome outcome) {
+        var declared = declaredReasonType(id, outcome);
+        if (declared.isEmpty()) {
+            return;
+        }
+        var type = declared.get();
+        checkReasonType(id, outcome, type);
+        checkReasonClass(id, outcome);
+        var reasons = Stream.of(type.getEnumConstants()).map(OutcomeReason.class::cast).toList();
+        checkReasonWireNames(id, reasons);
+        checkReasonConditions(id, reasons);
+    }
+
+    @SuppressWarnings({"java:S2583", "java:S2789"})
+    private static Optional<Class<? extends OutcomeReason>> declaredReasonType(String id, PrimitiveOutcome outcome) {
+        // A primitive compiled against a raw PrimitiveOutcome can answer a null Optional, which is refused here.
         var declared = outcome.reasonType();
         if (declared == null) {
             throw new PrimitiveRegistrationException(id, Reason.MALFORMED_REASON_TYPE,
                     "has the outcome %s with a null reason type".formatted(outcome));
         }
-        if (declared.isEmpty()) {
-            return;
-        }
-        var type = declared.get();
+        return declared;
+    }
+
+    private static void checkReasonType(String id, PrimitiveOutcome outcome, Class<? extends OutcomeReason> type) {
         if (!type.isEnum() || !OutcomeReason.class.isAssignableFrom(type) || type.getEnumConstants().length == 0) {
             throw new PrimitiveRegistrationException(id, Reason.MALFORMED_REASON_TYPE,
                     "has the outcome %s with the reason type %s, which is not an enum of reasons with a constant"
                             .formatted(outcome, nameOf(type)));
         }
+    }
+
+    private static void checkReasonClass(String id, PrimitiveOutcome outcome) {
         if (!ADMITTING_REASON_CLASSES.contains(outcome.outcomeClass())) {
             throw new PrimitiveRegistrationException(id, Reason.REASON_ON_UNADMITTING_CLASS,
                     "has the outcome %s of class %s, which admits no reason"
                             .formatted(outcome, outcome.outcomeClass()));
         }
-        var reasons = Stream.of(type.getEnumConstants()).map(OutcomeReason.class::cast).toList();
+    }
+
+    private static void checkReasonWireNames(String id, List<OutcomeReason> reasons) {
         var seen = new LinkedHashMap<String, OutcomeReason>();
         for (OutcomeReason reason : reasons) {
             var wireName = reason.wireName();
-            if (wireName == null || !WIRE_NAME.matcher(wireName).matches()) {
+            if (!isReasonWireName(wireName)) {
                 throw new PrimitiveRegistrationException(id, Reason.MALFORMED_REASON_WIRE_NAME,
                         "has the reason %s with the wire name '%s', which is not a lower-case identifier"
                                 .formatted(reason, wireName));
@@ -235,18 +255,34 @@ public final class PrimitiveRegistry {
                                 .formatted(first, reason, wireName));
             }
         }
+    }
+
+    @SuppressWarnings("java:S2589")
+    private static boolean isReasonWireName(String wireName) {
+        // A primitive compiled against a raw PrimitiveOutcome can answer a null wire name, which is refused here.
+        return wireName != null && WIRE_NAME.matcher(wireName).matches();
+    }
+
+    private static void checkReasonConditions(String id, List<OutcomeReason> reasons) {
         for (OutcomeReason reason : reasons) {
-            var conditionKind = reason.conditionKind();
-            if (conditionKind == null) {
-                throw new PrimitiveRegistrationException(id, Reason.UNMAPPABLE_REASON_CONDITION,
-                        "has the reason %s with a null condition kind".formatted(reason));
-            }
+            var conditionKind = conditionKindOf(id, reason);
             if (conditionKind.isPresent() && !OutcomeReason.MAPPABLE_CONDITION_KINDS.contains(conditionKind.get())) {
                 throw new PrimitiveRegistrationException(id, Reason.UNMAPPABLE_REASON_CONDITION,
                         "has the reason %s with the condition kind '%s', which no primitive can originate"
                                 .formatted(reason, conditionKind.get()));
             }
         }
+    }
+
+    @SuppressWarnings({"java:S2583", "java:S2789"})
+    private static Optional<String> conditionKindOf(String id, OutcomeReason reason) {
+        // A primitive compiled against a raw PrimitiveOutcome can answer a null Optional, which is refused here.
+        var conditionKind = reason.conditionKind();
+        if (conditionKind == null) {
+            throw new PrimitiveRegistrationException(id, Reason.UNMAPPABLE_REASON_CONDITION,
+                    "has the reason %s with a null condition kind".formatted(reason));
+        }
+        return conditionKind;
     }
 
     private static void checkJobSideEffect(String id, Primitive<?, ?> primitive, List<PrimitiveOutcome> outcomes) {

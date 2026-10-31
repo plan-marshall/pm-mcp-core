@@ -51,9 +51,9 @@ class PrimitiveResultTest {
     @Test
     @DisplayName("a reason of another enum is refused")
     void refusesForeignReason() {
+        var foreignReason = Optional.<OutcomeReason>of(OtherReason.OTHER);
         var thrown = assertThrows(IllegalArgumentException.class,
-                () -> new PrimitiveResult<>(ReasonedOutcome.FAILED, Map.of(), Optional.empty(),
-                        Optional.of(OtherReason.OTHER)));
+                () -> new PrimitiveResult<>(ReasonedOutcome.FAILED, Map.of(), Optional.empty(), foreignReason));
 
         assertTrue(thrown.getMessage().contains("reason"), "the refusal names the foreign reason");
     }
@@ -61,9 +61,9 @@ class PrimitiveResultTest {
     @Test
     @DisplayName("an outcome that declares no reason refuses one")
     void refusesReasonOnUnadmittedOutcome() {
+        var unadmittedReason = Optional.<OutcomeReason>of(TestReason.FOOTPRINT);
         var thrown = assertThrows(IllegalArgumentException.class,
-                () -> new PrimitiveResult<>(PlainOutcome.DONE, Map.of(), Optional.empty(),
-                        Optional.of(TestReason.FOOTPRINT)));
+                () -> new PrimitiveResult<>(PlainOutcome.DONE, Map.of(), Optional.empty(), unadmittedReason));
 
         assertTrue(thrown.getMessage().contains("reason"), "the refusal names the unadmitted reason");
     }
