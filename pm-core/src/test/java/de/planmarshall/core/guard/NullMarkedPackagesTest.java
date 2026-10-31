@@ -101,7 +101,7 @@ class NullMarkedPackagesTest {
     void commentedNullMarkedIsReported(@TempDir Path temp) throws Exception {
         var packageDir = packageDirectory(temp, "unmarked/commented");
         writeSource(packageDir, PACKAGE_INFO,
-                "/*\n * @NullMarked\n */\npackage unmarked.commented;");
+                "/*\n@NullMarked\n*/\npackage unmarked.commented;");
 
         assertTrue(unmarkedPackages(temp).contains(packageDir), "A commented annotation must not mark the package");
     }

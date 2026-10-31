@@ -90,7 +90,7 @@ import lombok.With;
 @With
 @Builder(toBuilder = true)
 public record JobRecord(JobId jobId, Execution execution, Scope scope, @Nullable String worker,
-@Nullable String budgetKey, long budgetSeconds, BudgetDerivation budgetDerivation, @Nullable String argvDigest,
+String budgetKey, long budgetSeconds, BudgetDerivation budgetDerivation, @Nullable String argvDigest,
 Status status, @Nullable Fate fate, @Nullable Long pid, @Nullable Instant processStartedAt, Confinement confinement,
 Instant createdAt, @Nullable Instant spawnedAt, @Nullable Instant endedAt, @Nullable Long childWallMs,
 @Nullable Long exitCode, @Nullable String signal, @Nullable Integer landlockAbi, @Nullable Integer outcomeRow,

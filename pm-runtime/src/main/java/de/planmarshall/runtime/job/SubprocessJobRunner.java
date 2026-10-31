@@ -118,7 +118,7 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * Two wall times are recorded at the settlement: the job's own from {@code spawned_at} to {@code ended_at}, and the
  * child's {@code child_wall_ms} from {@code process_started_at} to the exit the runner observed. The child's start is
  * reported by the launcher on the clock of the operating system and is coarser than the runner's clock; the child's
- * wall time is therefore bounded by the job's, and it is empty for a job whose launcher reported no start.
+ * wall time is therefore bounded by the job's, and it is {@code null} for a job whose launcher reported no start.
  * <p>
  * While the runtime drains ({@link #stopAdmitting()}), no job is admitted: a job whose start is asked for then is
  * verified and recorded {@code queued}, never spawned, and settled {@code killed} without a signal at exit
