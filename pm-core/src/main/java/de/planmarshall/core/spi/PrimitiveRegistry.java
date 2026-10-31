@@ -79,10 +79,8 @@ public final class PrimitiveRegistry {
             var outcomes = checkedOutcomes(id, primitive);
             checkJobSideEffect(id, primitive, outcomes);
             checkCycle(id, primitive, outcomes);
-            if (present(primitive.awaitedEvent()).isEmpty()) {
-                throw new PrimitiveRegistrationException(id, Reason.MISSING_AWAITED_EVENT,
-                        "declares no awaited event");
-            }
+            requirePresent(id, primitive.awaitedEvent(), Reason.MISSING_AWAITED_EVENT,
+                    "declares no awaited event");
         }
         primitivesById = Collections.unmodifiableMap(accepted);
     }
@@ -180,10 +178,8 @@ public final class PrimitiveRegistry {
                 throw new PrimitiveRegistrationException(id, Reason.DUPLICATE_WIRE_NAME,
                         "has the outcomes %s and %s with the same wire name '%s'".formatted(first, outcome, wireName));
             }
-            if (present(outcome.outcomeClass()).isEmpty()) {
-                throw new PrimitiveRegistrationException(id, Reason.MISSING_OUTCOME_CLASS,
-                        "has the outcome %s without an outcome class".formatted(outcome));
-            }
+            requirePresent(id, outcome.outcomeClass(), Reason.MISSING_OUTCOME_CLASS,
+                    "has the outcome %s without an outcome class".formatted(outcome));
         }
         return outcomes;
     }
@@ -203,9 +199,7 @@ public final class PrimitiveRegistry {
 
     private static void checkCycle(String id, Primitive<?, ?> primitive, List<PrimitiveOutcome> outcomes) {
         var measure = primitive.cycleMeasure();
-        if (present(measure).isEmpty()) {
-            throw new PrimitiveRegistrationException(id, Reason.MISSING_CYCLE_MEASURE, "declares no cycle measure");
-        }
+        requirePresent(id, measure, Reason.MISSING_CYCLE_MEASURE, "declares no cycle measure");
         var exhaustions = declaredExhaustions(primitive);
         if (measure != CycleMeasure.ATTEMPT_CAP) {
             if (!exhaustions.isEmpty()) {
@@ -238,5 +232,11 @@ public final class PrimitiveRegistry {
 
     private static <T> Optional<T> present(@Nullable T value) {
         return Optional.ofNullable(value);
+    }
+
+    private static void requirePresent(String id, @Nullable Object value, Reason reason, String detail) {
+        if (value == null) {
+            throw new PrimitiveRegistrationException(id, reason, detail);
+        }
     }
 }
