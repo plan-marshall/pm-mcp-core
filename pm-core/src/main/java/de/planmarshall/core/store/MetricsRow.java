@@ -469,7 +469,8 @@ SpendClass spendClass, Population population, HarnessUsage usage,
                 .recordedAt(recordedAt).build();
     }
 
-    private static void requireAttempt(Integer attempt, AttemptEnd attemptEnd, CauseClass causeClass) {
+    private static void requireAttempt(@Nullable Integer attempt, @Nullable AttemptEnd attemptEnd,
+            CauseClass causeClass) {
         var refused = causeClass == CauseClass.REFUSED;
         if (refused != (attempt == null) || refused != (attemptEnd == null)) {
             throw new IllegalArgumentException(
@@ -480,8 +481,9 @@ SpendClass spendClass, Population population, HarnessUsage usage,
         }
     }
 
-    private static void requireRefusedColumns(CauseClass causeClass, String jobId, String generationId,
-            String harness, String harnessVersion, String model, Form form, DurationBasis durationBasis) {
+    private static void requireRefusedColumns(CauseClass causeClass, @Nullable String jobId,
+            @Nullable String generationId, @Nullable String harness, @Nullable String harnessVersion,
+            @Nullable String model, @Nullable Form form, @Nullable DurationBasis durationBasis) {
         if (causeClass != CauseClass.REFUSED) {
             if (jobId == null || generationId == null || harness == null || harnessVersion == null || model == null
                     || form == null || durationBasis == null) {
@@ -504,7 +506,7 @@ SpendClass spendClass, Population population, HarnessUsage usage,
         }
     }
 
-    private static void requireOptionalPattern(String value, Pattern pattern, String name) {
+    private static void requireOptionalPattern(@Nullable String value, @Nullable Pattern pattern, String name) {
         if (value == null) {
             return;
         }
@@ -519,13 +521,13 @@ SpendClass spendClass, Population population, HarnessUsage usage,
         }
     }
 
-    private static void requireLength(String value, int max, String name) {
+    private static void requireLength(@Nullable String value, int max, String name) {
         if (value != null && value.length() > max) {
             throw new IllegalArgumentException("'%s' is longer than %d characters".formatted(name, max));
         }
     }
 
-    private static void requireNonNegative(Long value, String name) {
+    private static void requireNonNegative(@Nullable Long value, String name) {
         if (value != null && value < 0) {
             throw new IllegalArgumentException("'%s' must not be negative: %d".formatted(name, value));
         }

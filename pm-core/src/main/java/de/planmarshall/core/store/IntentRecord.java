@@ -161,7 +161,7 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
         return ids;
     }
 
-    private static void fixTriple(List<Criterion> criteria, String currentBehaviour) {
+    private static void fixTriple(List<Criterion> criteria, @Nullable String currentBehaviour) {
         var carriesFix = criteria.stream().anyMatch(item -> item.kind() == CriterionKind.FIX);
         if (!carriesFix) {
             if (currentBehaviour != null) {
@@ -226,7 +226,7 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
         return value;
     }
 
-    private static Optional<String> optionalBounded(String value, String member, int min, int max) {
+    private static Optional<String> optionalBounded(@Nullable String value, String member, int min, int max) {
         if (value == null) {
             return Optional.empty();
         }

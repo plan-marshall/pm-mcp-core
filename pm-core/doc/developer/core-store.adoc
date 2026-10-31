@@ -87,6 +87,10 @@ WorkflowStatus ──write──► WorkflowStatusCodec ──bytes──► Sco
 * *Closed schema*: a member the schema does not declare, or a member twice, is refused.
 * *Journal-only writes*: the status is written only as a target of a `ScopeTransaction` of its scope, so a state change
   and the writes of the other stores of the same transaction are one journaled write.
+* *Absent members are `Optional` at the reader*: `StrictJson.nullableString` and `StrictJson.nullableInstant` answer
+  `Optional` for a JSON `null`, and a codec assigns the `orElse(null)` of that answer to a member its record declares
+  `@Nullable`. A method that answers absence returns `Optional`; a field, a parameter and a record component that may be
+  absent are `@Nullable`.
 
 === Failure Modes
 

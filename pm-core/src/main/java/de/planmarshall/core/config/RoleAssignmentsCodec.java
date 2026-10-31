@@ -193,7 +193,7 @@ public class RoleAssignmentsCodec {
                 case FIELD_HARNESS -> harness = string(parser, field);
                 case FIELD_MODEL -> model = string(parser, field);
                 case FIELD_EFFORT -> {
-                    var value = nullableString(parser, field);
+                    var value = nullableString(parser, field).orElse(null);
                     if (value == null) {
                         effort = EffortSetting.DEFAULT;
                     } else {
@@ -228,7 +228,7 @@ public class RoleAssignmentsCodec {
                 case FIELD_HARNESS -> harness = string(parser, field);
                 case FIELD_MODEL -> model = string(parser, field);
                 case FIELD_EFFORT -> {
-                    var value = nullableString(parser, field);
+                    var value = nullableString(parser, field).orElse(null);
                     effort = value == null ? Optional.empty() : Optional.of(new EffortValue(value));
                 }
                 default -> throw undeclared(field);

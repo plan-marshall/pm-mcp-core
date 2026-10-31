@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -290,7 +292,7 @@ public final class ModelSlotStore {
         return ModelSlotCodec.read(storeFile.store(), document);
     }
 
-    private static void requireIdentifier(String value, Pattern pattern, String name) {
+    private static void requireIdentifier(String value, @Nullable Pattern pattern, String name) {
         if (pattern == null) {
             LockKey.identifier(value, name);
             return;

@@ -213,7 +213,7 @@ public class ConsentCodec {
                 case FIELD_SCRIPTS -> scripts = array(parser, field, ConsentCodec::script);
                 case FIELD_GRANTED_AT -> grantedAt = instant(parser, field);
                 case FIELD_CHANNEL -> channel = channel(parser);
-                case FIELD_DEVICE_ID -> deviceId = Optional.ofNullable(nullableString(parser, field));
+                case FIELD_DEVICE_ID -> deviceId = nullableString(parser, field);
                 default -> throw undeclared(field);
             }
         }

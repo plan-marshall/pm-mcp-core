@@ -9,7 +9,10 @@
  */
 package de.planmarshall.core.queue;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -70,11 +73,15 @@ public final class SecretRedactor {
 
     /**
      * @param value a text or a target about to be written
-     * @return the value with every secret-shaped part replaced by {@link #REDACTED}; {@code null} stays {@code null}
+     * @return the value with every secret-shaped part replaced by {@link #REDACTED}; empty when {@code value} is
+     *         {@code null}
      */
-    public static String redactText(String value) {
-        if (value == null || value.isEmpty()) {
-            return value;
+    public static Optional<String> redactText(@Nullable String value) {
+        if (value == null) {
+            return Optional.empty();
+        }
+        if (value.isEmpty()) {
+            return Optional.of(value);
         }
         var masked = AUTH_HEADER.matcher(value).replaceAll("$1$2$3" + Matcher.quoteReplacement(REDACTED));
         masked = BEARER.matcher(masked).replaceAll("$1" + Matcher.quoteReplacement(REDACTED));
@@ -84,7 +91,7 @@ public final class SecretRedactor {
         for (var pattern : REPLACEMENTS) {
             masked = pattern.matcher(masked).replaceAll(Matcher.quoteReplacement(REDACTED));
         }
-        return masked;
+        return Optional.of(masked);
     }
 
     /**
@@ -94,16 +101,16 @@ public final class SecretRedactor {
     public static ActivityEntry redact(ActivityEntry entry) {
         var masked = entry;
         if (entry.text() != null) {
-            var redacted = cut(redactText(entry.text()), ActivityEntry.TEXT_BOUND);
+            var redacted = cut(redactText(entry.text()).orElseThrow(), ActivityEntry.TEXT_BOUND);
             masked = masked.withText(redacted.value()).withTruncated(entry.truncated() || redacted.cut());
         }
         if (entry.tool() != null && entry.tool().target() != null) {
             masked = masked.withTool(new ActivityEntry.Tool(entry.tool().name(),
-                    cutUtf16(redactText(entry.tool().target()), 1000).value()));
+                    cutUtf16(redactText(entry.tool().target()).orElseThrow(), 1000).value()));
         }
         if (entry.link() != null && entry.link().target() != null) {
             masked = masked.withLink(new ActivityEntry.Link(entry.link().rel(),
-                    cutUtf16(redactText(entry.link().target()), 128).value()));
+                    cutUtf16(redactText(entry.link().target()).orElseThrow(), 128).value()));
         }
         return masked;
     }

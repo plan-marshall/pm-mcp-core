@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import lombok.experimental.UtilityClass;
 
@@ -277,11 +278,11 @@ public class StrictJson {
     /**
      * @param parser the parser, positioned on the value of the field
      * @param field  the name of the field
-     * @return the string value; {@code null} for a JSON {@code null}
+     * @return the string value; empty for a JSON {@code null}
      * @throws IOException if the document does not parse as JSON
      */
-    public static String nullableString(JsonParser parser, String field) throws IOException {
-        return parser.currentToken() == JsonToken.VALUE_NULL ? null : string(parser, field);
+    public static Optional<String> nullableString(JsonParser parser, String field) throws IOException {
+        return parser.currentToken() == JsonToken.VALUE_NULL ? Optional.empty() : Optional.of(string(parser, field));
     }
 
     /**
@@ -385,11 +386,11 @@ public class StrictJson {
     /**
      * @param parser the parser, positioned on the value of the field
      * @param field  the name of the field
-     * @return the instant; {@code null} for a JSON {@code null}
+     * @return the instant; empty for a JSON {@code null}
      * @throws IOException if the document does not parse as JSON
      */
-    public static Instant nullableInstant(JsonParser parser, String field) throws IOException {
-        return parser.currentToken() == JsonToken.VALUE_NULL ? null : instant(parser, field);
+    public static Optional<Instant> nullableInstant(JsonParser parser, String field) throws IOException {
+        return parser.currentToken() == JsonToken.VALUE_NULL ? Optional.empty() : Optional.of(instant(parser, field));
     }
 
     /**

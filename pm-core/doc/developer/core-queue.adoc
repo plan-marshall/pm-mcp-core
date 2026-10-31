@@ -102,6 +102,10 @@ The runtime writes the `agent_started` detection through `workflow.task`'s proto
   any other action.
 * A fenced generation's call is refused before the lease and every link check, after the job's own end; the fence
   outlives the runtime that wrote it.
+* *The null contract is the type*: every optional member of `ActivityEntry` — text, tool, result, path, stop reason,
+  usage, link, question id, signal, end and unmapped lines — and the target of a tool call and of a link is declared
+  `@Nullable`; a test for one of them is therefore live, not dead. `SecretRedactor.redactText` answers
+  `Optional<String>`: an absent value is `Optional.empty()`, never `null`.
 * A queue that does not exist is empty, never an error; a record that exists and does not parse is a `StoreRefusal`
   naming the file, never an empty record.
 * A torn last line of a journal is cut by the next append; `seq` is never reused.

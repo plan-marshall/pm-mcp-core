@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.queue;
 
+import org.jspecify.annotations.Nullable;
+
 import java.security.SecureRandom;
 import java.util.HexFormat;
 import java.util.Objects;
@@ -51,7 +53,7 @@ public record QueueTaskId(String value) {
      * @param value a string that may be a queue task id
      * @return the id; empty if the string is not one
      */
-    public static Optional<QueueTaskId> parse(String value) {
+    public static Optional<QueueTaskId> parse(@Nullable String value) {
         return value != null && FORM.matcher(value).matches() ? Optional.of(new QueueTaskId(value))
                 : Optional.empty();
     }

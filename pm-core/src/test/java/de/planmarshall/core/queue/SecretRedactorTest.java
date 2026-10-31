@@ -11,7 +11,7 @@ package de.planmarshall.core.queue;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
@@ -24,17 +24,21 @@ import org.junit.jupiter.api.Test;
 @DisplayName("Secret redactor")
 class SecretRedactorTest {
 
+    private static String redactValue(String value) {
+        return SecretRedactor.redactText(value).orElseThrow();
+    }
+
     @Test
     @DisplayName("an authorization header keeps its label and loses its value")
     void authorizationHeader() {
         assertEquals("Authorization: Bearer " + SecretRedactor.REDACTED,
-                SecretRedactor.redactText("Authorization: Bearer eyJhbGciOiJIUzI1NiJ9"));
+                redactValue("Authorization: Bearer eyJhbGciOiJIUzI1NiJ9"));
     }
 
     @Test
     @DisplayName("a bearer value is redacted whatever the header")
     void bearer() {
-        assertEquals("sent Bearer " + SecretRedactor.REDACTED, SecretRedactor.redactText("sent Bearer abcdefghijkl"));
+        assertEquals("sent Bearer " + SecretRedactor.REDACTED, redactValue("sent Bearer abcdefghijkl"));
     }
 
     @Test
@@ -42,11 +46,11 @@ class SecretRedactorTest {
     void assignments() {
         assertAll(
                 () -> assertEquals("api_key=" + SecretRedactor.REDACTED,
-                        SecretRedactor.redactText("api_key=abcd1234")),
+                        redactValue("api_key=abcd1234")),
                 () -> assertEquals("password: " + SecretRedactor.REDACTED,
-                        SecretRedactor.redactText("password: hunter22")),
+                        redactValue("password: hunter22")),
                 () -> assertEquals("token=\"" + SecretRedactor.REDACTED + "\"",
-                        SecretRedactor.redactText("token=\"abcdefgh\"")));
+                        redactValue("token=\"abcdefgh\"")));
     }
 
     @Test
@@ -54,13 +58,13 @@ class SecretRedactorTest {
     void environmentVariables() {
         assertAll(
                 () -> assertEquals("DB_PASSWORD=" + SecretRedactor.REDACTED,
-                        SecretRedactor.redactText("DB_PASSWORD=hunter22")),
+                        redactValue("DB_PASSWORD=hunter22")),
                 () -> assertEquals("export GITHUB_TOKEN=" + SecretRedactor.REDACTED,
-                        SecretRedactor.redactText("export GITHUB_TOKEN=abc12345")),
+                        redactValue("export GITHUB_TOKEN=abc12345")),
                 () -> assertEquals("MY_API_KEY=" + SecretRedactor.REDACTED,
-                        SecretRedactor.redactText("MY_API_KEY=abcd1234")),
+                        redactValue("MY_API_KEY=abcd1234")),
                 () -> assertEquals("AWS_SECRET_ACCESS_KEY=" + SecretRedactor.REDACTED,
-                        SecretRedactor.redactText("AWS_SECRET_ACCESS_KEY=abcd1234")));
+                        redactValue("AWS_SECRET_ACCESS_KEY=abcd1234")));
     }
 
     @Test
@@ -68,27 +72,27 @@ class SecretRedactorTest {
     void quotedAndCamelCase() {
         assertAll(
                 () -> assertEquals("{\"password\": \"" + SecretRedactor.REDACTED + "\"}",
-                        SecretRedactor.redactText("{\"password\": \"hunter22\"}")),
+                        redactValue("{\"password\": \"hunter22\"}")),
                 () -> assertEquals("authToken=" + SecretRedactor.REDACTED,
-                        SecretRedactor.redactText("authToken=abcd1234")),
+                        redactValue("authToken=abcd1234")),
                 () -> assertEquals("clientSecret: " + SecretRedactor.REDACTED,
-                        SecretRedactor.redactText("clientSecret: abcd1234")));
+                        redactValue("clientSecret: abcd1234")));
     }
 
     @Test
     @DisplayName("ordinary build text that starts with pass is not a credential")
     void passIsNarrow() {
         assertAll(
-                () -> assertEquals("passed: 7780", SecretRedactor.redactText("passed: 7780")),
-                () -> assertEquals("passthrough=true", SecretRedactor.redactText("passthrough=true")),
-                () -> assertEquals("passes=1000", SecretRedactor.redactText("passes=1000")));
+                () -> assertEquals("passed: 7780", redactValue("passed: 7780")),
+                () -> assertEquals("passthrough=true", redactValue("passthrough=true")),
+                () -> assertEquals("passes=1000", redactValue("passes=1000")));
     }
 
     @Test
     @DisplayName("a provider token shape is redacted")
     void tokenShape() {
         assertEquals("the key is " + SecretRedactor.REDACTED,
-                SecretRedactor.redactText("the key is sk-proj-abcdefghijklmnop"));
+                redactValue("the key is sk-proj-abcdefghijklmnop"));
     }
 
     @Test
@@ -96,20 +100,20 @@ class SecretRedactorTest {
     void keepsOrdinaryText() {
         assertAll(
                 () -> assertEquals("the token budget is 30000",
-                        SecretRedactor.redactText("the token budget is 30000")),
-                () -> assertEquals("src/main/java/A.java", SecretRedactor.redactText("src/main/java/A.java")),
+                        redactValue("the token budget is 30000")),
+                () -> assertEquals("src/main/java/A.java", redactValue("src/main/java/A.java")),
                 () -> assertEquals("f4a1bd07f480bbf04c18545192e0690fbca03563",
-                        SecretRedactor.redactText("f4a1bd07f480bbf04c18545192e0690fbca03563")),
-                () -> assertEquals("", SecretRedactor.redactText("")),
-                () -> assertNull(SecretRedactor.redactText((String) null)));
+                        redactValue("f4a1bd07f480bbf04c18545192e0690fbca03563")),
+                () -> assertEquals("", redactValue("")),
+                () -> assertTrue(SecretRedactor.redactText(null).isEmpty(), "Null input yields an empty result"));
     }
 
     @Test
     @DisplayName("redacting is idempotent")
     void idempotent() {
-        var once = SecretRedactor.redactText("password=hunter22");
+        var once = redactValue("password=hunter22");
 
-        assertEquals(once, SecretRedactor.redactText(once));
+        assertEquals(once, SecretRedactor.redactText(once).orElseThrow());
     }
 
     @Test

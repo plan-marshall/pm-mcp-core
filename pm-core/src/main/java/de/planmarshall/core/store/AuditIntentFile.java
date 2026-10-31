@@ -149,7 +149,7 @@ record AuditIntentFile(Path file, LockKey lockKey) {
             }
         }
         StrictJson.requireFields(seen, "audit intent", FIELD_OWED_EVENTS);
-        return owed;
+        return Objects.requireNonNull(owed, FIELD_OWED_EVENTS);
     }
 
     private static List<AuditEvent> readOwedEvents(JsonParser parser) throws IOException {

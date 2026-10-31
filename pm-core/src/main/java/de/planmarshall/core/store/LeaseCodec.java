@@ -185,7 +185,7 @@ public class LeaseCodec {
                 case FIELD_KEY -> key = string(parser, field);
                 case FIELD_OWNER -> owner = readOwner(parser);
                 case FIELD_ACQUIRED_AT -> acquiredAt = instant(parser, field);
-                case FIELD_LEASE_EXPIRES_AT -> leaseExpiresAt = nullableInstant(parser, field);
+                case FIELD_LEASE_EXPIRES_AT -> leaseExpiresAt = nullableInstant(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }
@@ -214,9 +214,9 @@ public class LeaseCodec {
             switch (field) {
                 case FIELD_PROJECT_ID -> projectId = string(parser, field);
                 case FIELD_SCOPE_TYPE -> scopeType = scopeType(string(parser, field));
-                case FIELD_SCOPE_ID -> scopeId = nullableString(parser, field);
+                case FIELD_SCOPE_ID -> scopeId = nullableString(parser, field).orElse(null);
                 case FIELD_HOLDER_INSTANCE -> holder = readHolder(parser);
-                case FIELD_ORPHANED_AT -> orphanedAt = nullableInstant(parser, field);
+                case FIELD_ORPHANED_AT -> orphanedAt = nullableInstant(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }

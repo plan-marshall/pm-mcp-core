@@ -36,7 +36,7 @@ import java.util.regex.Pattern;
  * @param deliverables one to 50 deliverables
  * @since 0.1
  */
-public record OutlineRecord(String summary, String overview, ScopeEstimate scopeEstimate,
+public record OutlineRecord(String summary, @Nullable String overview, ScopeEstimate scopeEstimate,
 List<Deliverable> deliverables) {
 
     /** The pattern of an entry in a deliverable's {@code satisfies}. */

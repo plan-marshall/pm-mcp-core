@@ -135,8 +135,8 @@ public class PlanHistoryCodec {
                 });
                 case FIELD_NODE -> node = string(parser, field);
                 case FIELD_CALL_PATH -> callPath = stringList(parser, field);
-                case FIELD_PHASE -> phase = nullableString(parser, field);
-                case FIELD_OUTCOME -> outcome = nullableString(parser, field);
+                case FIELD_PHASE -> phase = nullableString(parser, field).orElse(null);
+                case FIELD_OUTCOME -> outcome = nullableString(parser, field).orElse(null);
                 case FIELD_INSTANCE_VERSION -> instanceVersion = integer(parser, field);
                 case FIELD_AT -> at = instant(parser, field);
                 default -> throw undeclared(field);

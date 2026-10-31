@@ -151,9 +151,9 @@ public class PendingEntryCodec {
                 case FIELD_FORMAT_VERSION -> parser.skipChildren();
                 case ENTRY_ID -> entry.entryId(new EntryId(string(parser, field)));
                 case KIND -> entry.kind(kind(string(parser, field)));
-                case REQUESTED_ID -> entry.requestedId(nullableString(parser, field));
-                case HINT -> entry.hint(nullableString(parser, field));
-                case FROM_EPIC -> entry.fromEpic(nullableString(parser, field));
+                case REQUESTED_ID -> entry.requestedId(nullableString(parser, field).orElse(null));
+                case HINT -> entry.hint(nullableString(parser, field).orElse(null));
+                case FROM_EPIC -> entry.fromEpic(nullableString(parser, field).orElse(null));
                 case CREATED_AT -> entry.createdAt(instant(parser, field));
                 case UPDATED_AT -> entry.updatedAt(instant(parser, field));
                 case BOOTSTRAP -> entry.bootstrap(readBootstrap(parser, document));
@@ -179,7 +179,7 @@ public class PendingEntryCodec {
                 case OPTIONS -> bootstrap.options(rawObject(parser, document, field));
                 case PENDING_CONDITION -> bootstrap.pendingCondition(
                         isNull(parser) ? null : WorkflowStatusCodec.readCondition(parser, document));
-                case LAST_REFUSAL -> bootstrap.lastRefusal(nullableString(parser, field));
+                case LAST_REFUSAL -> bootstrap.lastRefusal(nullableString(parser, field).orElse(null));
                 default -> throw undeclared(field);
             }
         }

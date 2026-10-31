@@ -488,13 +488,13 @@ boolean startFailure, @Nullable String harnessError) {
         }
     }
 
-    private static void requireNarrowing(String effort, String effortNarrowedFrom) {
+    private static void requireNarrowing(@Nullable String effort, @Nullable String effortNarrowedFrom) {
         if (effortNarrowedFrom != null && effort == null) {
             throw new IllegalArgumentException("'worker.effort_narrowed_from' requires the narrowed 'worker.effort'");
         }
     }
 
-    private static void requireLeasedTask(State state, String task) {
+    private static void requireLeasedTask(State state, @Nullable String task) {
         if (task == null) {
             return;
         }
@@ -519,7 +519,7 @@ boolean startFailure, @Nullable String harnessError) {
         }
     }
 
-    private static void requireHarnessError(boolean startFailure, String harnessError) {
+    private static void requireHarnessError(boolean startFailure, @Nullable String harnessError) {
         if (harnessError == null) {
             return;
         }

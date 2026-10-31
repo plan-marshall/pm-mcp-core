@@ -117,8 +117,8 @@ public record PendingEntryRecord(EntryId entryId, Kind kind, @Nullable String re
      */
     @With
     @Builder(toBuilder = true)
-    public record Bootstrap(String state, List<CallFrame> callStack, String facts, String source, String options,
-    PendingCondition pendingCondition, String lastRefusal) {
+    public record Bootstrap(String state, List<CallFrame> callStack, String facts, @Nullable String source,
+    String options, @Nullable PendingCondition pendingCondition, @Nullable String lastRefusal) {
 
         /**
          * @throws NullPointerException     if the state, the call stack, the facts or the options are {@code null}
