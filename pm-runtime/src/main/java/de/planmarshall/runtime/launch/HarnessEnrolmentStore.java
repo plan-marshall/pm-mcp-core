@@ -33,6 +33,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Supplier;
 import javax.crypto.SecretKey;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.CanonicalJson;
 import de.planmarshall.core.profile.JsonDocument;
@@ -302,7 +303,8 @@ public final class HarnessEnrolmentStore {
                 startContext(report.member("start_context").orElse(null)));
     }
 
-    private static List<HarnessEnrolment.UsageReport.StartContext> startContext(JsonNode startContext) {
+    private static List<HarnessEnrolment.UsageReport.StartContext> startContext(
+            @Nullable JsonNode startContext) {
         if (startContext == null) {
             return List.of();
         }

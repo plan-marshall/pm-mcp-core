@@ -20,6 +20,7 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import de.planmarshall.core.store.StrictJson;
 import de.planmarshall.core.store.WorkflowStatus;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The onboarding of the machine as the setup gate reads it from the machine scope's status (PM-WF-26,
@@ -112,11 +113,11 @@ Set<String> completedSteps) {
         return pendingSteps.isEmpty() ? null : pendingSteps.getFirst();
     }
 
-    private static String trimmed(String raw) {
+    private static String trimmed(@Nullable String raw) {
         return raw == null ? null : raw.trim();
     }
 
-    private static List<Step> readSteps(String raw) {
+    private static List<Step> readSteps(@Nullable String raw) {
         if (raw == null || "null".equals(raw.trim())) {
             return List.of();
         }
@@ -127,8 +128,8 @@ Set<String> completedSteps) {
             }
             var token = parser.nextToken();
             while (token == JsonToken.START_OBJECT) {
-                String step = null;
-                String state = null;
+                @Nullable String step = null;
+                @Nullable String state = null;
                 while (parser.nextToken() != JsonToken.END_OBJECT) {
                     var name = parser.currentName();
                     parser.nextToken();

@@ -15,6 +15,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.WorkerParameters;
 import de.planmarshall.core.role.RoleClass;
@@ -44,15 +45,15 @@ public final class LossDetection {
     private final InstantSource clock;
     private final WorkerTimers timers;
     private final Consumer<LossSignal> onLost;
-    private Instant lastCall;
+    private @Nullable Instant lastCall;
     private Instant ackFrom;
     private boolean ackArmed;
     private boolean waitOpen;
     private boolean firstCallMade;
     private boolean startFailure;
     private boolean done;
-    private String leasedTask;
-    private WorkerTimers.Cancellable timer;
+    private @Nullable String leasedTask;
+    private WorkerTimers.@Nullable Cancellable timer;
 
     /**
      * @param generationId the worker's generation
@@ -227,9 +228,9 @@ public final class LossDetection {
         return startFailure;
     }
 
-    /** @return the queue task the worker holds; {@code null} while it holds none */
-    public synchronized String leasedTask() {
-        return leasedTask;
+    /** @return the queue task the worker holds; empty while it holds none */
+    public synchronized Optional<String> leasedTask() {
+        return Optional.ofNullable(leasedTask);
     }
 
     /** Stops every deadline; the generation settled by another cause. */

@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import javax.crypto.SecretKey;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.AuditCodec;
 import de.planmarshall.core.store.AuditHeadRecord;
@@ -171,7 +172,7 @@ public final class AuditVerification implements AuditChainVerification {
 
     /** Reads head, index and log, and again head and index, until no rotation or append came between the reads. */
     private State stableState() {
-        State state = null;
+        @Nullable State state = null;
         for (var attempt = 0; attempt < READ_ATTEMPTS; attempt++) {
             var head = headBytes();
             var indexSnapshot = index.snapshot();
@@ -422,7 +423,7 @@ public final class AuditVerification implements AuditChainVerification {
          * @param lastHash   the SHA-256 of the last line; the predecessor when the file holds no line
          * @param lastRecord the last record; {@code null} when the file holds no line
          */
-        record Intact(String lastHash, AuditRecord lastRecord) implements Walk {
+        record Intact(String lastHash, @Nullable AuditRecord lastRecord) implements Walk {
         }
 
         /** @param broken the break */
@@ -436,7 +437,7 @@ public final class AuditVerification implements AuditChainVerification {
      */
     private Walk walk(String name, List<JsonlStoreFile.Line> lines, String predecessor) {
         var expected = predecessor;
-        AuditRecord last = null;
+        @Nullable AuditRecord last = null;
         for (var line : lines) {
             var bytes = line.content();
             AuditRecord auditRecord;

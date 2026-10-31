@@ -232,7 +232,8 @@ class WorkerLossDetectionTest {
         assertAll(
                 () -> assertTrue(signals.isEmpty()),
                 () -> assertTrue(detection.due(SPAWN.plusSeconds(600)).isEmpty()),
-                () -> assertEquals(TASK, detection.leasedTask(), "the cancellation keeps the observed task"));
+                () -> assertEquals(TASK, detection.leasedTask().orElseThrow(),
+                        "the cancellation keeps the observed task"));
     }
 
     @Test

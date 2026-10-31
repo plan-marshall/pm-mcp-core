@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.core.store.StrictJson;
@@ -207,13 +208,13 @@ Operation operation, TransactionId transactionId) {
 
     private static CredentialStoreMoveRecord readDocument(JsonParser parser) throws IOException {
         StrictJson.requireObject(parser, FILE_NAME);
-        Store from = null;
-        Store to = null;
-        Instant startedAt = null;
-        Phase phase = null;
+        @Nullable Store from = null;
+        @Nullable Store to = null;
+        @Nullable Instant startedAt = null;
+        @Nullable Phase phase = null;
         var targetHeldKey = false;
-        Operation operation = null;
-        TransactionId transactionId = null;
+        @Nullable Operation operation = null;
+        @Nullable TransactionId transactionId = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = StrictJson.nextField(parser, seen);

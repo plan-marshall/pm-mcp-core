@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Optional;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.ObjectId;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.provider.git.GitOperations.Worktree;
 
@@ -132,7 +133,7 @@ final class LinkedWorktrees {
             }
 
             @Override
-            public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+            public FileVisitResult postVisitDirectory(Path dir, @Nullable IOException exc) throws IOException {
                 if (exc != null) {
                     throw exc;
                 }

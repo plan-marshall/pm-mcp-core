@@ -11,6 +11,7 @@ package de.planmarshall.runtime.launch;
 
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.CanonicalJson;
 import de.planmarshall.core.profile.JsonNode;
@@ -29,8 +30,8 @@ import de.planmarshall.core.profile.JsonNode;
  * @param resultSchema the worker's result schema
  * @since 0.1
  */
-public record ContractEnvelope(String scopeKind, String scopeId, String entity, String firstCall, List<LinkSchema> links,
-JsonNode resultSchema) {
+public record ContractEnvelope(String scopeKind, @Nullable String scopeId, String entity, String firstCall,
+List<LinkSchema> links, JsonNode resultSchema) {
 
     /** The first call of every fresh worker. */
     public static final String PM_STATE = "pm_state";
@@ -52,7 +53,7 @@ JsonNode resultSchema) {
      * @param resultSchema the worker's result schema
      * @return the contract envelope of a fresh worker
      */
-    public static ContractEnvelope of(String scopeKind, String scopeId, String entity, List<LinkSchema> links,
+    public static ContractEnvelope of(String scopeKind, @Nullable String scopeId, String entity, List<LinkSchema> links,
             JsonNode resultSchema) {
         return new ContractEnvelope(scopeKind, scopeId, entity, PM_STATE, links, resultSchema);
     }

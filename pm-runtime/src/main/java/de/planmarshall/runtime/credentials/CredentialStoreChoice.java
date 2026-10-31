@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.crypto.SecretKey;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.api.MachinePaths;
 import de.planmarshall.core.service.LockManager;
@@ -542,7 +543,7 @@ public final class CredentialStoreChoice {
     }
 
     /** What one of the two stores holds of the integrity key, and why it could not be read, if it could not. */
-    private record OtherKey(Optional<SecretKey> key, SecretStoreException failure) {
+    private record OtherKey(Optional<SecretKey> key, @Nullable SecretStoreException failure) {
 
         static OtherKey of(Optional<SecretKey> key) {
             return new OtherKey(key, null);

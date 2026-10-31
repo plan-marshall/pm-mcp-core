@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.RoleSkill;
 
@@ -147,7 +148,7 @@ public final class PromptComposer {
      */
     public record PromptRequest(String shimParagraph, boolean zeroTool, String zeroToolPrompt, SkillSource skills,
     List<RoleSkill> roleSkills, boolean fresh, boolean writesFreeText, List<String> stateSkills,
-    List<String> domainSkills, ContractEnvelope envelope, int inBandBoundChars) {
+    List<String> domainSkills, @Nullable ContractEnvelope envelope, int inBandBoundChars) {
 
         /** Copies the lists and refuses a missing source. */
         public PromptRequest {

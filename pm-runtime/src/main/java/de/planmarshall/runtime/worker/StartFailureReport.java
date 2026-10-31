@@ -11,6 +11,7 @@ package de.planmarshall.runtime.worker;
 
 import java.util.Objects;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.WorkerState;
 
@@ -83,7 +84,7 @@ public record StartFailureReport(String role, String harness, String detail) {
      * @throws NullPointerException     if the role or the harness is {@code null}
      * @throws IllegalArgumentException if the role or the harness is empty
      */
-    public static StartFailureReport of(String role, String harness, String logTail) {
+    public static StartFailureReport of(String role, String harness, @Nullable String logTail) {
         return new StartFailureReport(role, harness, tail(logTail == null ? "" : redact(logTail)));
     }
 

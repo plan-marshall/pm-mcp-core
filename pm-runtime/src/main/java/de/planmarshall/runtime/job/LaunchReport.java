@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.JobRecord.Confinement;
 import de.planmarshall.core.store.StrictJson;
@@ -38,7 +39,8 @@ import de.planmarshall.core.store.StrictJson;
  * @param landlockAbi      the Landlock ABI version of the applied ruleset; {@code null} when none was applied
  * @since 0.1
  */
-public record LaunchReport(long pid, Instant processStartedAt, Confinement confinement, Integer landlockAbi) {
+public record LaunchReport(long pid, Instant processStartedAt, Confinement confinement,
+@Nullable Integer landlockAbi) {
 
     /** The exit codes of the launcher itself: usage, confinement not applied, {@code execve} failed. */
     public static final Set<Integer> LAUNCHER_FAILURE_EXITS = Set.of(64, 126, 127);
@@ -139,10 +141,10 @@ public record LaunchReport(long pid, Instant processStartedAt, Confinement confi
     }
 
     private static LaunchReport parse(String line) throws IOException {
-        Long pid = null;
-        Instant startedAt = null;
-        Confinement confinement = null;
-        Integer landlockAbi = null;
+        @Nullable Long pid = null;
+        @Nullable Instant startedAt = null;
+        @Nullable Confinement confinement = null;
+        @Nullable Integer landlockAbi = null;
         var seen = new HashSet<String>();
         try (var parser = StrictJson.factory().createParser(line)) {
             parser.nextToken();

@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.CanonicalJson;
 import de.planmarshall.core.role.EffectiveRole;
@@ -423,6 +424,6 @@ public final class WorkerSupervisor {
      * @param planId the plan of a plan worktree; {@code null} otherwise
      * @param path   the working directory
      */
-    private record WorkingDirectory(LaunchRequest.WorkdirKind kind, String planId, Path path) {
+    private record WorkingDirectory(LaunchRequest.WorkdirKind kind, @Nullable String planId, Path path) {
     }
 }

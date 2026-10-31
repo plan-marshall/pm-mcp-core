@@ -13,6 +13,7 @@ import java.io.File;
 import java.nio.file.Path;
 import java.util.Optional;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Lets the native binary load the Netty transport library from its own directory.
@@ -49,7 +50,7 @@ public final class NativeLibraryPath {
      * @param current the current library path, may be {@code null} or empty
      * @return the new library path
      */
-    static String prepend(Path dir, String current) {
+    static String prepend(Path dir, @Nullable String current) {
         return current == null || current.isEmpty() ? dir.toString() : dir + File.pathSeparator + current;
     }
 }

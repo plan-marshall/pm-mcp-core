@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * One item of {@code facts.answers} (Hypermedia Format § Answers to Earlier Questions): a part of a closed decision a
  * task continues from, rendered as {@code answers[N]{question_id,plan_task_id,question_text,branch_key,label,text,kind}}.
@@ -35,8 +37,8 @@ import java.util.regex.Pattern;
  * @param kind         how the answer was taken
  * @since 0.1
  */
-public record AnswerFact(String questionId, String planTaskId, String questionText, String branchKey, String label,
-String text, Kind kind) {
+public record AnswerFact(String questionId, @Nullable String planTaskId, String questionText, String branchKey,
+String label, @Nullable String text, Kind kind) {
 
     /** The columns of the {@code answers} fact table, in the specification's order. */
     public static final List<String> COLUMNS = List.of("question_id", "plan_task_id",

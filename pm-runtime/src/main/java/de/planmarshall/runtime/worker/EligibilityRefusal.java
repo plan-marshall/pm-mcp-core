@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.worker;
 
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Why the verification-record gate refused a profile's claim (PM-CLIENT-5, Runtime check on load), and what decided it:
@@ -25,7 +26,7 @@ import java.util.Objects;
  * @param clientId the client id of the profile the record belongs to
  * @since 0.1
  */
-public record EligibilityRefusal(Reason reason, String stage, String clientId) {
+public record EligibilityRefusal(Reason reason, @Nullable String stage, String clientId) {
 
     /** The closed reasons a claim is refused. */
     public enum Reason {

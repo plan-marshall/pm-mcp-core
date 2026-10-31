@@ -18,6 +18,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.WorkerParameters;
 import de.planmarshall.core.role.RoleArtifact;
@@ -160,7 +161,8 @@ public final class WorkerRecycling {
      * @return why the closed task recycled the generation; empty when it did not
      * @throws NullPointerException if the generation is {@code null}
      */
-    public synchronized Optional<RecycleCause> afterTaskClosed(WorkerGeneration generation, String roleDigest) {
+    public synchronized Optional<RecycleCause> afterTaskClosed(WorkerGeneration generation,
+            @Nullable String roleDigest) {
         Objects.requireNonNull(generation, GENERATION_ARGUMENT);
         if (generation.terminal() || generation.form() != RoleForm.WARM) {
             return Optional.empty();

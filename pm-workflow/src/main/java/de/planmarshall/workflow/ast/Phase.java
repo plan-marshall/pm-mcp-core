@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * The six phases of a plan, each carried by the phase sub-workflow the plan unit calls (PM-WF-16, PM-IMPL-5).
  * <p>
@@ -92,7 +94,7 @@ public enum Phase {
      * @param stateId the identifier of a state
      * @return the phase the plan unit's call state {@code phases.<name>} enters; empty for another state
      */
-    public static Optional<Phase> ofCallState(String stateId) {
+    public static Optional<Phase> ofCallState(@Nullable String stateId) {
         if (stateId == null || !stateId.startsWith(CALL_STATE_PREFIX)) {
             return Optional.empty();
         }

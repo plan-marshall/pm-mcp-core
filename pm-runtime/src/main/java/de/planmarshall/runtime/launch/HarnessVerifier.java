@@ -30,6 +30,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -211,7 +212,7 @@ public final class HarnessVerifier {
      * @param pattern the profile's version pattern; {@code null} when the profile declares no probe
      * @return the first captured group, or the whole match when the pattern captures nothing
      */
-    public static Optional<String> matchVersion(String output, String pattern) {
+    public static Optional<String> matchVersion(String output, @Nullable String pattern) {
         if (pattern == null) {
             return Optional.empty();
         }

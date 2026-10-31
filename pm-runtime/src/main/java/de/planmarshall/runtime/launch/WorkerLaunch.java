@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.role.RoleClass;
@@ -50,7 +51,8 @@ import de.planmarshall.core.role.RoleForm;
 public record WorkerLaunch(String generationId, String role, RoleClass roleClass, RoleForm form, List<String> argv,
 Map<String, String> env, Path workingDirectory, Path jobPrivateDirectory, Path promptFile, LaunchPrompt prompt,
 Optional<Path> mcpConfigFile, Optional<String> mcpConfig, String jobToken, String jobTokenSha256, String harness,
-String harnessVersion, String model, String effort, String effortNarrowedFrom, JsonNode workerBlock) {
+String harnessVersion, String model, @Nullable String effort, @Nullable String effortNarrowedFrom,
+JsonNode workerBlock) {
 
     /** Copies the collections. */
     public WorkerLaunch {

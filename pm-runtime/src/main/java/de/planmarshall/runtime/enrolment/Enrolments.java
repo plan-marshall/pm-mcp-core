@@ -19,6 +19,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.crypto.SecretKey;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -364,7 +365,7 @@ public final class Enrolments {
      */
     private int replay(boolean unenrolledOnly) {
         var handedOver = 0;
-        RuntimeException firstFailure = null;
+        @Nullable RuntimeException firstFailure = null;
         for (var projectId : store.auditOwingProjectIds()) {
             try (var transaction = lockManager.openTransaction()) {
                 transaction.acquire(store.lockKey(projectId));
@@ -413,7 +414,7 @@ public final class Enrolments {
     /**
      * Remembers the first failure of a replay; a later one is added to it as a suppressed exception.
      */
-    private static RuntimeException withLater(RuntimeException first, RuntimeException failure) {
+    private static RuntimeException withLater(@Nullable RuntimeException first, RuntimeException failure) {
         if (first == null) {
             return failure;
         }
@@ -516,7 +517,7 @@ public final class Enrolments {
         private final String projectId;
 
         /** The live work; a live work item is not serializable, so it is not kept across serialization. */
-        private final transient List<LiveWork.Item> items;
+        private final transient @Nullable List<LiveWork.Item> items;
 
         /**
          * @param projectId the project whose {@code unenrol} was refused

@@ -14,6 +14,7 @@ import java.time.InstantSource;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.EffectiveRole;
 
@@ -47,10 +48,10 @@ import de.planmarshall.core.role.EffectiveRole;
  * @since 0.1
  */
 public record LaunchRequest(EffectiveRole role, HeadlessBlock block, HarnessEnrolment enrolment, String generationId,
-Path runtimeHome, Path jobPrivateDirectory, WorkdirKind workdirKind, String planId, Path workdir,
-Path relaySocket, String shimParagraph, SkillSource skills, boolean fresh, boolean writesFreeText,
-List<String> stateSkills, List<String> domainSkills, ContractEnvelope envelope, int inBandBoundChars,
-String zeroToolPrompt, Optional<String> resumeSessionId, InstantSource clock) {
+Path runtimeHome, Path jobPrivateDirectory, WorkdirKind workdirKind, @Nullable String planId,
+@Nullable Path workdir, Path relaySocket, String shimParagraph, SkillSource skills, boolean fresh,
+boolean writesFreeText, List<String> stateSkills, List<String> domainSkills, @Nullable ContractEnvelope envelope,
+int inBandBoundChars, String zeroToolPrompt, Optional<String> resumeSessionId, InstantSource clock) {
 
     /** Copies the lists and validates the working-directory pair. */
     public LaunchRequest {

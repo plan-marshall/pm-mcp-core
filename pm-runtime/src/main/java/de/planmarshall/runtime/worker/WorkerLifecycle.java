@@ -11,6 +11,7 @@ package de.planmarshall.runtime.worker;
 
 import java.util.Map;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.WorkerState;
 
@@ -91,7 +92,7 @@ public enum WorkerLifecycle {
      * @param next the state the supervisor wants to enter
      * @return whether the protocol has this transition
      */
-    public boolean canTransitionTo(WorkerLifecycle next) {
+    public boolean canTransitionTo(@Nullable WorkerLifecycle next) {
         return next != null && TRANSITIONS.getOrDefault(this, Set.of()).contains(next);
     }
 

@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.JsonNode;
@@ -53,7 +54,7 @@ public final class OffTrackDetector {
      * @return the signals that hold and were not raised yet, in the order of the closed signal list
      */
     public List<ActivitySignal> detect(int attempt, List<ActivityEntry> entries, RoleArtifact role,
-            Set<RoleArtifact.OffTrackSignal> alreadyRaised, Double predictedCostTokens, int unplannedChanges) {
+            Set<RoleArtifact.OffTrackSignal> alreadyRaised, @Nullable Double predictedCostTokens, int unplannedChanges) {
         var ofAttempt = entries.stream().filter(entry -> entry.attempt() == attempt).toList();
         var found = new ArrayList<ActivitySignal>();
         evaluate(RoleArtifact.OffTrackSignal.REPEATING, ofAttempt, role, alreadyRaised, found);
@@ -107,8 +108,8 @@ public final class OffTrackDetector {
     static double repeats(List<ActivityEntry> entries) {
         var longest = 0;
         var current = 0;
-        String lastTool = null;
-        String lastTarget = null;
+        @Nullable String lastTool = null;
+        @Nullable String lastTarget = null;
         for (var entry : entries) {
             if (entry.kind() == ActivityEntry.Kind.TOOL_CALL) {
                 var tool = entry.tool().name();
