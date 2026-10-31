@@ -19,20 +19,22 @@ import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.role.RoleSkill;
+import de.planmarshall.core.testing.generators.CoreGenerators;
 
 /**
  * The skills delivered to a generation (Model Work § Skill Delivery Record &amp; Re-Delivery): a new generation starts
  * with an empty record, an unchanged digest is not delivered again, and a changed digest is.
  */
+@EnableGeneratorController
 @SuppressWarnings("java:S5778")
 // one delivery case per scenario, by design
 @DisplayName("Skill delivery")
 class SkillDeliveryTest {
 
-    private static final String DIGEST = "a".repeat(64);
-    private static final String OTHER = "b".repeat(64);
-    private static final RoleSkill SKILL = new RoleSkill("skill://pm/documents/doc-review/SKILL.md", DIGEST);
+    private static final RoleSkill SKILL = CoreGenerators.roleSkills().next();
+    private static final String OTHER = CoreGenerators.roleSkills().next().digest();
 
     @Test
     @DisplayName("a new generation receives every skill in-band")

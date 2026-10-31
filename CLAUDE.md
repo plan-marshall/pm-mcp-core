@@ -82,6 +82,22 @@ its own pull request.
 - `.mvn/maven.config` passes `.mvn/settings.xml` (the organisation's package registry, no token) as global
   settings; the token is the server `plan-marshall` of `~/.m2/settings.xml`.
 
+### Generator Artifacts
+
+Four modules publish their test scope as a `tests`-classified test JAR, built by `verify` and deployed with the
+`SNAPSHOT` like every other artifact of the repository:
+
+- `pm-core:tests` — consumable by `pm-workflow`, `pm-runtime` and every provider module.
+- `pm-provider-http:tests` — consumable by `pm-provider-github`, `pm-provider-gitlab` and `pm-provider-sonar`.
+- `pm-workflow:tests` and `pm-runtime:tests` — consumable by the assembly `plan-marshall-mcp` only, because the
+  dependency rules forbid `pm-runtime` and the providers to depend on the engine.
+
+A consumer declares the artifact as a test-scope dependency of type `test-jar`; its version comes from the root
+POM's `dependencyManagement`, never from a literal. The generators live in
+`de.planmarshall.<module>.testing.generators`, one `TypedGenerator<T>` per type, registered by the module's factory
+(`CoreGenerators`, `WorkflowGenerators`, `RuntimeGenerators`, `HttpGenerators`). The convention is recorded in
+`doc/adr/012-generator-artifacts.adoc`.
+
 ## Dependencies and Versions
 
 - Parent `de.planmarshall:pm-mcp-parent`, resolved from the organisation's registry. It supplies the Java release,

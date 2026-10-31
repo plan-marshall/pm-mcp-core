@@ -46,6 +46,15 @@ Run from the root of the repository:
 
 The commands for the whole repository are in `CLAUDE.md`.
 
+== Test artifact
+
+The test scope is published as the `pm-workflow:tests` test JAR (the `tests` classifier, built by `verify` and
+deployed with the `SNAPSHOT`). It holds the package `de.planmarshall.workflow.testing.generators` with one
+`TypedGenerator<T>` per workflow type that the assembly's tests reuse (`SourceLocation`, `QuestionClass`,
+`UnitReference`) and the `WorkflowGenerators` factory that registers them. The dependency rules keep `pm-runtime` and
+the providers from depending on the engine, so the assembly `plan-marshall-mcp` is the only consumer of this
+artifact.
+
 == Developer Documentation
 
 * link:doc/developer/workflow-ast.adoc[Workflow AST (`workflow.ast`)]

@@ -21,6 +21,15 @@ Run from the root of the repository:
 
 The commands for the whole repository are in `CLAUDE.md`.
 
+== Test artifact
+
+The test scope is published as the `pm-provider-http:tests` test JAR (the `tests` classifier, built by `verify` and
+deployed with the `SNAPSHOT`). It holds the package
+`de.planmarshall.provider.http.testing.generators` with one `TypedGenerator<T>` per shared-HTTP type the provider
+modules build by hand (`Endpoint`, `Response`, `PagedResult`) and the `HttpGenerators` factory that registers them.
+`pm-provider-github`, `pm-provider-gitlab` and `pm-provider-sonar` may consume it as a test-scope dependency of type
+`test-jar`; the version comes from the root POM's `dependencyManagement`.
+
 == Developer Documentation and ADRs
 
 The developer guide is link:doc/developer/provider-http.adoc[`provider-http.adoc`]; the decisions of the
