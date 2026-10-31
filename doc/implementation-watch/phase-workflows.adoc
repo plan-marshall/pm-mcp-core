@@ -1840,3 +1840,16 @@ finding of the other; two different findings on one line are both filed; a findi
 leaves `second_reading_yield` unchanged; a lost reading records `not_run`, never `clean_full`. Matched controls: the
 default value runs one task, a delta round and terminus mode run one task with the value `2`, and findings carry `reading: null`.
 Source:: Article analysis `review-like-my-team` of plan-marshall-documentation.
+
+[#PM-WATCH-PHASE-126]
+=== PM-WATCH-PHASE-126: The size of the fixes is read from git and decides nothing
+
+Anchor:: link:../specification/store-schemas/03-findings-and-review-records.adoc#_findings_ledger_record_findings_jsonl[Store Schemas § Findings Ledger Record] (Fix Size)
+Hazard:: A rebase replaces the fix commits, so a recorded commit id no longer resolves and the figure silently becomes `0`;
+the size before the fix is taken from the merge base to `HEAD` after the rebase and counts the base's own changes; a figure
+in the facts of a decision grows into a threshold that stops a plan for the size of a correct fix.
+Guard:: Scenario with two fix rounds and a replaying rebase: the rows name the current commits and the sizes count only
+the plan's own lines; an unreadable commit gives `unknown`; a binary file is named and counts no lines. Matched controls:
+a plan with no fix has equal sizes and an empty `fix_balance`; the same plan with fixes ten times as large takes the same
+transitions.
+Source:: Article analysis `review-never-stops` of plan-marshall-documentation.
