@@ -89,8 +89,7 @@ public class QualificationSettingsCodec {
         } catch (StrictJson.Malformed e) {
             throw StoreRefusal.unreadable(file, 1, String.valueOf(e.getMessage()), e);
         }
-        return new Snapshot(reader.settings == null ? QualificationSettings.defaults() : reader.settings,
-                reader.revision);
+        return new Snapshot(reader.settings, reader.revision);
     }
 
     /**
