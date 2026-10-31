@@ -249,6 +249,18 @@ The server verifies that every third-party dependency the plan adds was approved
 4. *Never Clean without Evidence*: The check records `indeterminate`, never clean, when the realized footprint is not `measured`, when a changed build file has no build-file dependency parser, or when a parser fails on either side (the parse diagnostic and file are named). An `indeterminate` check blocks like a finding: the server files one blocking finding (`source: dependency_delta`, finding type `dependency_delta_indeterminate`, `file_path` the unparsed build file or null, `summary` naming the cause), so the Pre-Merge Review Barrier (Predicate 1) refuses the merge; the same triage restriction as for `undeclared_dependency` applies.
 5. *Result*: The check publishes `dependency_delta: {state: clean | findings | indeterminate, build_files_checked, added[], removed[], undeclared[], cause}` in the finalize facts and in the merge record; `clean` requires at least one parsed changed build file or an empty set of changed build files, stated as `build_files_checked: 0`.
 
+[#dependency-delta-pre-build]
+=== Before Every Build of the Plan
+_Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-127[PM-WATCH-PHASE-127]_
+
+The pre-merge check comes after the builds: a dependency a build file names is resolved, and its install and build hooks run, by the first `build` job that reads the file, with the open network of a build job. A substituted package name (`reqeusts` for `requests`) written into a build file by a worker therefore runs before any review sees it. Once `outline.gate` has fixed the approved dependency set, the server checks it before every `build` and `project_script` job it starts in the plan's worktree, whether a worker asked for it through `pm_build` or the plan's own verification starts it:
+
+* *What is compared*: the build files the parser claims (step 1 above) in the worktree as they are on disk, against `base_ref`, by the rules of step 2; an uncommitted change counts, because the build reads the disk.
+* *Refusal*: an added coordinate that the approved set does not name refuses the job before it is spawned, `refused` with reason `undeclared_dependency` and the coordinate and build file (link:../job-runtime/01-pipeline-and-subprocesses.adoc#_verify_not_resolve_execution_pipeline[Job Runtime Specification, Verify-Not-Resolve Execution Pipeline]); a worker gets it as the error of its `pm_build` call and removes the dependency. A dependency the plan needs and the outline does not name is added by a revision of the outline (link:08-dynamic-re-planning.adoc[Dynamic Re-Planning]), never past the build.
+* *Indeterminate*: a changed build file the parser cannot read, or one without a parser, does not refuse the build; the pre-merge check above files it as `dependency_delta_indeterminate`, so it still blocks the merge.
+* *Before the gate*: a job before `outline.gate` passed, and a job outside a plan, is not checked, because no approved set exists yet; the pre-merge check covers what such a job read.
+* *Record*: each refusal is a job record with its `refusal_reason` and an activity entry of the worker that asked for it; the pre-merge check still runs in full and files its findings independently.
+
 [#capability-test-guard]
 == Capability Test Guard (Pre-Merge)
 _Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-119[PM-WATCH-PHASE-119]_
