@@ -43,10 +43,15 @@ The commands for the whole repository are in `CLAUDE.md`.
 
 The HTTP tests run against the mock web server of `cui-test-mockwebserver-junit5`, a test dependency of the module.
 
-== Test JAR
+== Test artifact
 
-The module builds a test JAR with the fixtures the tests of the assembly share: `TestBases`, `FakeBus`,
-`FakeSecretService` and `FakePmExec`, the test launcher of the job runtime. It is deployed with the `SNAPSHOT`.
+The test scope is published as the `pm-runtime:tests` test JAR (the `tests` classifier, built by `verify` and
+deployed with the `SNAPSHOT`). It holds the fixtures the tests of the assembly share (`TestBases`, `FakeBus`,
+`FakeSecretService` and `FakePmExec`, the test launcher of the job runtime) and, beside them, the package
+`de.planmarshall.runtime.testing.generators` with one `TypedGenerator<T>` per runtime type the assembly builds by
+hand (`ResolvedSkill`) and the `RuntimeGenerators` factory that registers it. Unlike the other three artifacts, this
+one keeps the whole test scope, because the assembly already consumes `TestBases` and the fakes there. The assembly
+`plan-marshall-mcp` is the only consumer of this artifact.
 
 == Developer Documentation
 

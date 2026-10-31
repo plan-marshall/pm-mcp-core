@@ -16,51 +16,66 @@ import java.util.List;
 import java.util.Map;
 
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.role.RoleSkill;
+import de.planmarshall.core.testing.generators.CoreGenerators;
 
 /**
  * The skills delivered to a generation (Model Work § Skill Delivery Record &amp; Re-Delivery): a new generation starts
  * with an empty record, an unchanged digest is not delivered again, and a changed digest is.
  */
+@EnableGeneratorController
 @SuppressWarnings("java:S5778")
 // one delivery case per scenario, by design
 @DisplayName("Skill delivery")
 class SkillDeliveryTest {
 
-    private static final String DIGEST = "a".repeat(64);
-    private static final String OTHER = "b".repeat(64);
-    private static final RoleSkill SKILL = new RoleSkill("skill://pm/documents/doc-review/SKILL.md", DIGEST);
+    private RoleSkill skill;
+    private String otherDigest;
+
+    @BeforeEach
+    void createSkill() {
+        skill = CoreGenerators.roleSkills().next();
+        var digest = skill.digest();
+        otherDigest = (digest.startsWith("0") ? "1" : "0") + digest.substring(1);
+    }
 
     @Test
     @DisplayName("a new generation receives every skill in-band")
     void newGeneration() {
         var delivery = new SkillDelivery();
 
-        assertEquals(List.of(SKILL), delivery.deliver(TaskFixtures.GENERATION, List.of(SKILL)));
+        assertEquals(List.of(skill), delivery.deliver(TaskFixtures.GENERATION, List.of(skill)),
+                "A new generation receives the skill");
     }
 
     @Test
     @DisplayName("an unchanged skill is not delivered again")
     void unchanged() {
         var delivery = new SkillDelivery();
-        delivery.deliver(TaskFixtures.GENERATION, List.of(SKILL));
+        delivery.deliver(TaskFixtures.GENERATION, List.of(skill));
 
-        assertTrue(delivery.deliver(TaskFixtures.GENERATION, List.of(SKILL)).isEmpty());
+        assertTrue(delivery.deliver(TaskFixtures.GENERATION, List.of(skill)).isEmpty(),
+                "An unchanged skill is not delivered");
     }
 
     @Test
     @DisplayName("a changed digest is delivered again, and a new generation starts empty")
     void changedDigestAndNewGeneration() {
         var delivery = new SkillDelivery();
-        delivery.deliver(TaskFixtures.GENERATION, List.of(SKILL));
-        var changed = new RoleSkill(SKILL.uri(), OTHER);
+        delivery.deliver(TaskFixtures.GENERATION, List.of(skill));
+        var changed = new RoleSkill(skill.uri(), otherDigest);
 
-        assertEquals(List.of(changed), delivery.deliver(TaskFixtures.GENERATION, List.of(changed)));
-        assertEquals(List.of(changed), delivery.deliver(TaskFixtures.SUCCESSOR, List.of(changed)));
-        assertEquals(Map.of(SKILL.uri(), OTHER),
-                delivery.recordOf(TaskFixtures.SUCCESSOR));
+        assertEquals(List.of(changed), delivery.deliver(TaskFixtures.GENERATION, List.of(changed)),
+                "A changed digest is delivered again");
+        assertEquals(List.of(changed), delivery.deliver(TaskFixtures.SUCCESSOR, List.of(changed)),
+                "The successor generation receives the skill");
+        assertEquals(Map.of(skill.uri(), otherDigest),
+                delivery.recordOf(TaskFixtures.SUCCESSOR),
+                "The record names the delivered digest");
     }
 }

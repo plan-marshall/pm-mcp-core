@@ -40,6 +40,17 @@ Run from the root of the repository:
 The integration tests include `BuildGuardsIT`, which proves the dependency rules of the build with the fixture
 projects below `src/guard-controls`. The commands for the whole repository are in `CLAUDE.md`.
 
+== Test artifact
+
+The test scope is published as the `pm-core:tests` test JAR (the `tests` classifier, built by `verify` and deployed
+with the `SNAPSHOT`). It holds the package `de.planmarshall.core.testing.generators` with one
+`TypedGenerator<T>` per foundation type that another module builds by hand (`ProjectEnrolment`, `EndpointProfile`,
+`LeaseRecord`, `RoleSkill`) and the `CoreGenerators` factory that registers them. The `test-jar` goal includes only
+this package, so the tests and fixtures of `pm-core` itself are not published. `pm-workflow`, `pm-runtime` and
+every provider module may consume it as a test-scope dependency of type `test-jar`; its version comes from the root
+POM's `dependencyManagement`. A generator for a foundation type belongs here, never in a test class of another
+module.
+
 The schema tests read the specification of this repository (`doc/specification`), whose root the Maven property
 `pm.specification.root` names (default: the root of the build); a missing schema fails them. `ProductCorpusValidationTest`,
 which validates the corpus of plan-marshall-mcp, reads a sibling checkout named by `pm.product.root` (default
