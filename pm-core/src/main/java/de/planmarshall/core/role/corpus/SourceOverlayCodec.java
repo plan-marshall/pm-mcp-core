@@ -49,7 +49,6 @@ import lombok.experimental.UtilityClass;
 import de.planmarshall.core.role.corpus.ImportedItem.Grading;
 import de.planmarshall.core.role.corpus.ImportedItem.GradingMethod;
 import de.planmarshall.core.role.corpus.ImportedItem.Review;
-import de.planmarshall.core.role.corpus.ImportedItem.ReviewStatus;
 import de.planmarshall.core.role.corpus.ImportedItem.RubricItem;
 import de.planmarshall.core.role.corpus.ImportedItem.Target;
 import de.planmarshall.core.role.corpus.SourceOverlay.Row;
