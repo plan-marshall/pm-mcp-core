@@ -49,8 +49,9 @@ The test scope is published as the `pm-runtime:tests` test JAR (the `tests` clas
 deployed with the `SNAPSHOT`). It holds the fixtures the tests of the assembly share (`TestBases`, `FakeBus`,
 `FakeSecretService` and `FakePmExec`, the test launcher of the job runtime) and, beside them, the package
 `de.planmarshall.runtime.testing.generators` with one `TypedGenerator<T>` per runtime type the assembly builds by
-hand (`ResolvedSkill`) and the `RuntimeGenerators` factory that registers it. The assembly `plan-marshall-mcp` is the
-only consumer of this artifact.
+hand (`ResolvedSkill`) and the `RuntimeGenerators` factory that registers it. Unlike the other three artifacts, this
+one keeps the whole test scope, because the assembly already consumes `TestBases` and the fakes there. The assembly
+`plan-marshall-mcp` is the only consumer of this artifact.
 
 == Developer Documentation
 

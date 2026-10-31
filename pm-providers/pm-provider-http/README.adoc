@@ -27,8 +27,10 @@ The test scope is published as the `pm-provider-http:tests` test JAR (the `tests
 deployed with the `SNAPSHOT`). It holds the package
 `de.planmarshall.provider.http.testing.generators` with one `TypedGenerator<T>` per shared-HTTP type the provider
 modules build by hand (`Endpoint`, `Response`, `PagedResult`) and the `HttpGenerators` factory that registers them.
-`pm-provider-github`, `pm-provider-gitlab` and `pm-provider-sonar` may consume it as a test-scope dependency of type
-`test-jar`; the version comes from the root POM's `dependencyManagement`.
+The `test-jar` goal includes only this package, so the module's own tests are not published.
+`pm-provider-github` and `pm-provider-gitlab` consume it as a test-scope dependency of type `test-jar`; the version
+comes from the root POM's `dependencyManagement`. `pm-provider-sonar` may consume it but builds no shared-HTTP type by
+hand in its own tests, so it declares no dependency.
 
 == Developer Documentation and ADRs
 

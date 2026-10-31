@@ -89,8 +89,8 @@ Four modules publish their test scope as a `tests`-classified test JAR, built by
 
 - `pm-core:tests` — consumable by `pm-workflow`, `pm-runtime` and every provider module.
 - `pm-provider-http:tests` — consumable by `pm-provider-github`, `pm-provider-gitlab` and `pm-provider-sonar`.
-- `pm-workflow:tests` and `pm-runtime:tests` — consumable by the assembly `plan-marshall-mcp` only, because the
-  dependency rules forbid `pm-runtime` and the providers to depend on the engine.
+- `pm-workflow:tests` and `pm-runtime:tests` — consumable by the assembly `plan-marshall-mcp` only, because neither
+  may depend on the other and the rules forbid `pm-runtime` and the providers to depend on the engine.
 
 A consumer declares the artifact as a test-scope dependency of type `test-jar`; its version comes from the root
 POM's `dependencyManagement`, never from a literal. The generators live in

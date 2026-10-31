@@ -27,7 +27,9 @@ Each module that provides generators useful to another module publishes its test
 JAR, built by `verify` and deployed like every other artifact of the repository. The artifact holds the package
 `de.planmarshall.<module>.testing.generators` with one `TypedGenerator<T>` per domain type, named `<Type>Generator`,
 and one factory class per artifact (`CoreGenerators`, `WorkflowGenerators`, `RuntimeGenerators`, `HttpGenerators`) that
-registers the generators in one place.
+registers the generators in one place. The framework's `@GeneratorsSource` selects only the built-in `GeneratorType`
+enum, so the factory is consumed through `@TypeGeneratorFactorySource(factoryClass = …, factoryMethod = …)`; the
+factory is still the one registration point of the artifact.
 
 The consumption matrix:
 
@@ -57,9 +59,14 @@ artifact; a new generator for a type of this module goes into this module's arti
 
 * A module that adds a generator publishes it with its own artifact; the artifact must be built by `verify` and
   deployed with the `SNAPSHOT`, so a consumer needs no local build of the producer.
-* The generator artifacts carry only generators and the fixtures built on them; they hold no test of their own beyond
-  the test of each generator, and no fake. The fakes of the test tree stay where they are until PLAN-V2-106 replaces
-  them with EasyMock doubles.
+* The three new artifacts package only their generator package: the `test-jar` goal's `includes` narrows the artifact
+  to it, so a module's own test classes, fixtures and fakes are not published. `pm-runtime:tests` keeps its whole test
+  scope, because the assembly already consumes `TestBases` and the fakes there; the generator package joins it, and
+  PLAN-V2-106 replaces the fakes with EasyMock doubles.
+* In this plan `pm-workflow` and `pm-runtime` declare `pm-core:tests` and consume it, and `pm-provider-github` and
+  `pm-provider-gitlab` declare `pm-provider-http:tests` and consume it for the endpoint of their mock server.
+  `pm-provider-sonar` may consume the shared-HTTP artifact but builds no shared-HTTP type by hand in its own tests, so
+  it declares no dependency rather than an unused one.
 * `BuildGuardsIT` proves with fixture projects that a test-scope dependency on `pm-core:tests` is admitted for
   `pm-workflow`, `pm-runtime` and a provider, and that a dependency of `pm-runtime` on the tests of `pm-workflow` (or
   the reverse) is still refused.
