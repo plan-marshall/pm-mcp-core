@@ -67,7 +67,26 @@ public final class PrimitiveRegistrationException extends IllegalArgumentExcepti
          */
         EXHAUSTION_OUTCOME_WITHOUT_ATTEMPT_CAP,
         /** The primitive declares no awaited event. */
-        MISSING_AWAITED_EVENT
+        MISSING_AWAITED_EVENT,
+        /**
+         * The reason type an outcome declares is missing (a {@code null} {@link java.util.Optional} included), is not
+         * an enum that implements {@link OutcomeReason}, or has no constant.
+         */
+        MALFORMED_REASON_TYPE,
+        /**
+         * An outcome of a class that admits no reason declares one: only {@link OutcomeClass#FAILURE},
+         * {@link OutcomeClass#INDETERMINATE} and {@link OutcomeClass#SKIP} explain "why not".
+         */
+        REASON_ON_UNADMITTING_CLASS,
+        /** The wire name of a reason is missing or is not a lower-case identifier. */
+        MALFORMED_REASON_WIRE_NAME,
+        /** Two reasons of one enum have the same wire name. */
+        DUPLICATE_REASON_WIRE_NAME,
+        /**
+         * The condition kind of a reason is {@code null}, or is not one of
+         * {@link OutcomeReason#MAPPABLE_CONDITION_KINDS}.
+         */
+        UNMAPPABLE_REASON_CONDITION
     }
 
     /** The id of the refused primitive as it declared it; the text {@code null} when it declared none. */
