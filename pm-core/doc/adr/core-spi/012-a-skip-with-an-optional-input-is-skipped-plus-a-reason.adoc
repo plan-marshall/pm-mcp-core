@@ -1,0 +1,40 @@
+= ADR 012: A Skip with an Optional Input Is Skipped Plus a Reason
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-31
+
+== Context
+
+The specification told a primitive with an optional input to declare a `skipped_<reason>` outcome for the absent-input
+case. That mints one outcome per cause, each of which the graph must route, for a distinction no caller routes
+differently.
+
+== Decision
+
+A skip with an optional input is the outcome `skipped` plus a reason, instead of a `skipped_<reason>` constant per
+cause. This is a specification change only: no production primitive exists, and the one fixture constant of that name
+(`pm-core/src/test/.../spi/TestPrimitives.java` line 39, `skipped_no_input`) is untouched. The step record the previous
+line describes is not built; `PLAN-V2-19` states what it does and does not persist.
+
+== Alternatives Considered
+
+1. **Keep a `skipped_<reason>` constant per cause**: *Rejected*: it multiplies outcomes that no caller routes
+   differently, which is the cost the design rule removes.
+
+== Consequences
+
+* A primitive with an optional input declares one `skipped` outcome and states the causes as reasons of it.
+* The existing `skipped_no_input` fixture stays as it is, because it is not an outcome of a production primitive.
+* The step record for a skip is `PLAN-V2-19`'s decision, not this plan's.
+
+== Source
+
+* Pull request of `PLAN-V2-01` (`primitive-failure-reasons`)
+* link:../../../../doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons]
+* PM-IMPL-5

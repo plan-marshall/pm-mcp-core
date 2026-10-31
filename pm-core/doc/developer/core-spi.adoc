@@ -39,8 +39,13 @@ closed. An outcome has a wire name, by which a workflow routes it, and an outcom
 |link:{src}/OutcomeClass.java[`OutcomeClass`]
 |The classes an outcome can have. The class of an outcome, never its wire name, decides how the outcome is recorded.
 
+|link:{src}/OutcomeReason.java[`OutcomeReason`]
+|The closed reason of an outcome that explains a failure, a skip or an indeterminacy: a wire name and the engine
+condition it maps to, if any. It is carried as data, and nothing routes on it.
+
 |link:{src}/PrimitiveResult.java[`PrimitiveResult`]
-|What one execution returns: the outcome, the facts it changed, and the identifier of the job it started, if any.
+|What one execution returns: the outcome, the facts it changed, the identifier of the job it started, if any, and the
+reason of the outcome when the outcome declares reasons.
 
 |link:{src}/WorkflowExecutionContext.java[`WorkflowExecutionContext`]
 |What a primitive is handed for one execution: the scope the call addresses.
@@ -79,6 +84,13 @@ The other declarations have a default that says "nothing":
 
 `PrimitiveResult` refuses a `null` component, a fact without a name and a fact without a value with a
 `NullPointerException`. It keeps an unmodifiable copy of the facts in the order they were passed.
+
+The `reason` component pairs with the outcome: it is present exactly when the outcome declares a reason type through
+`PrimitiveOutcome.reasonType()`, and a present reason is a constant of that enum. A mismatch is an
+`IllegalArgumentException` at construction, like the `NullPointerException` of a missing component: a primitive that
+breaks the pairing is a programming error, not a value the caller receives. The three-component constructor is the form
+for an outcome that declares no reason; it sets the reason to empty. The pairing is stated in
+link:{spec}/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons].
 
 `WorkflowExecutionContext.scopeId()` returns the identifier of the plan or epic the call addresses. For the workspace
 scope of a project, which has no identifier of its own, it returns an empty `Optional`. The reserved value a caller
@@ -123,12 +135,20 @@ job-starting outcome, or one with a job-starting outcome that does not declare t
 is empty, names none of its outcomes, or names an outcome that is not of class `FAILURE`.
 |`EXHAUSTION_OUTCOME_WITHOUT_ATTEMPT_CAP` |A primitive with any other measure that names an exhaustion outcome.
 |`MISSING_AWAITED_EVENT` |A primitive whose `awaitedEvent()` is `null`.
+|`MALFORMED_REASON_TYPE` |An outcome that declares a reason type that is missing (a `null` `Optional` included), is not an
+enum implementing `OutcomeReason`, or has no constant.
+|`REASON_ON_UNADMITTING_CLASS` |An outcome of a class that admits no reason declares one. Only `FAILURE`,
+`INDETERMINATE` and `SKIP` admit a reason.
+|`MALFORMED_REASON_WIRE_NAME` |A reason whose wire name is missing or is not an identifier of the form above.
+|`DUPLICATE_REASON_WIRE_NAME` |Two reasons of one enum with the same wire name.
+|`UNMAPPABLE_REASON_CONDITION` |A reason whose `conditionKind()` is `null`, or is not one of the constants of
+`OutcomeReason.MAPPABLE_CONDITION_KINDS`.
 |===
 
 The table follows the enum, where each reason is documented at its constant.
 link:{test}/PrimitiveRegistryTest.java[`PrimitiveRegistryTest`] fails when a reason has no malformed primitive in
-link:{test}/TestPrimitives.java[`TestPrimitives`]; nothing compares this table with the enum, so a change of the enum is
-carried into it by hand.
+link:{test}/TestPrimitives.java[`TestPrimitives`] or link:{test}/ReasonPrimitives.java[`ReasonPrimitives`]; nothing
+compares this table with the enum, so a change of the enum is carried into it by hand.
 
 The exhaustion outcome is read tolerantly on one side only: a primitive without an attempt cap that returns `null`
 instead of an empty `Optional` declares none, and is accepted. With an attempt cap, `null` is refused like every other
@@ -137,6 +157,77 @@ missing exhaustion outcome. A `null` collection or element is a `NullPointerExce
 The constructor does not check what needs more than the primitive itself: whether a declared gate is on the list of
 waivable gates, whether a produced artifact is required by anyone, whether a name collides with a keyword of the
 workflow language, and whether an execution that returns a job-starting outcome carries a job identifier.
+
+== Outcomes and Reasons
+
+A name is an outcome only where the graph continues differently. Every other failure, skip or indeterminacy is one
+outcome of its class plus a reason carried as data: an outcome declares the reasons through
+`PrimitiveOutcome.reasonType()` — a closed enum implementing `OutcomeReason` — and the reason travels in
+`PrimitiveResult.reason()`. A cause a unit must route on is promoted to a named outcome; that is the rule, not an
+exception to it. The full rule, the classes that admit a reason and the closed table to conditions are stated in
+link:{spec}/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons].
+
+=== A New Outcome or a Reason
+
+Ask what a caller does with the cause. If two callers continue differently — a retry, a different state, a different
+terminal — the cause is a named outcome of its class, because the graph has to route it. If every caller takes the same
+transition and only a log, a diagnostic or a diagram needs the distinction, the cause is a reason of that outcome. Do
+not mint an outcome for a cause no caller routes differently, and do not put a reason in `updatedFacts`.
+
+Only an outcome of class `FAILURE`, `INDETERMINATE` or `SKIP` admits a reason. `SUCCESS` has nothing to explain, and
+`UNSETTLED` and `STEPPED_OUT` are engine control; the registry refuses a reason type on any other class
+(`REASON_ON_UNADMITTING_CLASS`, proven by
+link:{test}/ReasonPrimitives.java[`ReasonPrimitives`] through link:{test}/PrimitiveRegistryTest.java[`PrimitiveRegistryTest`]).
+
+=== Adding a Reason Enum
+
+Declare an enum implementing `OutcomeReason` with one constant per cause, a wire name per constant and
+`conditionKind()` only where the cause maps to an engine condition:
+
+[source,java]
+----
+enum StageAndCommitReason implements OutcomeReason {
+    FOOTPRINT("footprint_violation", "footprint_violation"),
+    MESSAGE_REFUSED("message_refused", null),
+    COMMIT_FAILED("commit_failed", null);
+
+    private final String wireName;
+    private final String conditionKind;
+
+    StageAndCommitReason(String wireName, String conditionKind) {
+        this.wireName = wireName;
+        this.conditionKind = conditionKind;
+    }
+
+    @Override public String wireName() { return wireName; }
+    @Override public Optional<String> conditionKind() { return Optional.ofNullable(conditionKind); }
+}
+----
+
+Then return it from `PrimitiveOutcome.reasonType()` on the outcome that carries it, and pass the constant through
+`PrimitiveResult`. The registry checks the enum when the primitive is registered: the type is a closed enum of
+`OutcomeReason` with at least one constant, its wire names are lower-case identifiers and unique within the enum, and
+every condition kind is mappable (`MALFORMED_REASON_TYPE`, `MALFORMED_REASON_WIRE_NAME`,
+`DUPLICATE_REASON_WIRE_NAME`, `UNMAPPABLE_REASON_CONDITION`). `PrimitiveRegistryTest` with `ReasonPrimitives` proves
+each of the five refusals, and `PrimitiveResultTest` proves the pairing of a result with its reason.
+
+=== The Closed Condition Table
+
+A reason maps to at most one engine condition, and the table is total and closed: every constant answers
+`conditionKind()` (empty is an answer), and a present answer is one of these two.
+
+[cols="2,3",options="header"]
+|===
+|Condition kind |Where it arises
+
+|`footprint_violation` |A primitive found a change outside the boundary it was called to make.
+|`precondition_unmet` |A primitive found a condition its call requires unfulfilled.
+|===
+
+The engine's own kinds — `guard_indeterminate`, `job_incomplete`, `config_drift` and `integrity_breach` — are not
+mappable: they arise from the engine's guard evaluation, its task attempts, its re-composition and its integrity check,
+not from a primitive's own failure. `OutcomeReason.MAPPABLE_CONDITION_KINDS` states the set, and `OutcomeReasonTest`
+pins it to the kinds the status store persists.
 
 == The Engine Ports
 
@@ -227,6 +318,9 @@ A new primitive:
 
 . Write the parameter record and the outcome enum. The enum implements `PrimitiveOutcome`; give every constant its wire
   name and its class.
+. Declare the reasons of an outcome that explains a failure, a skip or an indeterminacy: a closed enum implementing
+  `OutcomeReason`, returned by that outcome's `reasonType()` and passed through the result. Only `FAILURE`,
+  `INDETERMINATE` and `SKIP` admit one.
 . Implement `Primitive<P, R>` in the module the operation belongs to, and override a declaration only where the default
   "nothing" is not true.
 . Pass the instance to the constructor of the `PrimitiveRegistry` of the assembly.
@@ -244,8 +338,13 @@ A new validator, or a new rule of an existing one:
 [horizontal]
 link:{test}/PrimitiveContractTest.java[`PrimitiveContractTest`]:: the well-formed primitives of `TestPrimitives` through
 the contract.
-link:{test}/PrimitiveRegistryTest.java[`PrimitiveRegistryTest`]:: every malformed primitive refused with its reason, and
-the enumeration of the reasons covered by a fixture.
+link:{test}/PrimitiveRegistryTest.java[`PrimitiveRegistryTest`]:: every malformed primitive refused with its reason, the
+enumeration of the reasons covered by the fixtures of `TestPrimitives` and `ReasonPrimitives`, and the reason
+declarations a primitive may and may not carry.
+link:{test}/OutcomeReasonTest.java[`OutcomeReasonTest`]:: the closed condition table and its parity with the kinds the
+status store persists.
+link:{test}/PrimitiveResultTest.java[`PrimitiveResultTest`]:: the pairing of a result with the reason its outcome
+declares.
 link:{test}/SpiVocabularyTest.java[`SpiVocabularyTest`]:: the constants of the closed enums.
 link:{test}/validation/ConventionalCommitValidatorTest.java[`ConventionalCommitValidatorTest`],
 link:{test}/validation/AsciiDocValidatorTest.java[`AsciiDocValidatorTest`],
@@ -266,6 +365,11 @@ that breaks exactly that rule, with the key and the line.
   Java source. Link the type; a copied list is wrong after the next change.
 * *A rule without a rejected case is not tested.* Every rule key of a validator has a test case with a text that breaks
   exactly that rule and asserts the key and the line.
+* *Do not mint an outcome for a cause no caller routes differently.* Every outcome becomes an edge in the graph and a
+  constant the catalogue lists. A cause every caller handles the same way is a reason of one outcome, not an outcome.
+* *Do not put a reason in `updatedFacts`.* A string fact is untyped and unchecked; the reason has its typed home in
+  `PrimitiveResult.reason()` and the registry checks its declaration. A reason in the facts is invisible to the SPI and
+  to the documentation.
 
 == Model Submission Validators
 
@@ -294,5 +398,13 @@ previous section. They return the accepted value or a refusal that names the ite
   refused at registration, link:../adr/core-spi/002-content-validators-report-violations-as-values.adoc[ADR 002]
   content validators report violations as values, link:../adr/core-spi/003-ears-keywords-are-uppercase-structural-tokens.adoc[ADR 003]
   the EARS keywords are uppercase structural tokens, link:../adr/core-spi/004-the-self-review-judges-constraints-beside-criteria.adoc[ADR 004]
-  the self-review judges constraints, non-goals and decisions beside the criteria
+  the self-review judges constraints, non-goals and decisions beside the criteria, link:../adr/core-spi/005-a-name-is-an-outcome-only-where-the-graph-continues-differently.adoc[ADR 005]
+  a name is an outcome only where the graph continues differently, link:../adr/core-spi/006-the-reason-is-a-closed-enum-behind-a-small-interface.adoc[ADR 006]
+  the reason is a closed enum behind a small interface, link:../adr/core-spi/007-the-reason-type-belongs-to-the-outcome.adoc[ADR 007]
+  the reason type belongs to the outcome, link:../adr/core-spi/008-the-result-carries-an-optional-reason-as-its-fourth-component.adoc[ADR 008]
+  the result carries an optional reason as its fourth component, link:../adr/core-spi/009-only-failure-indeterminate-and-skip-admit-a-reason.adoc[ADR 009]
+  only failure, indeterminate and skip admit a reason, link:../adr/core-spi/010-the-reason-to-condition-table-is-total-and-closed.adoc[ADR 010]
+  the reason-to-condition table is total and closed, link:../adr/core-spi/011-reasons-are-data-only-and-never-routable.adoc[ADR 011]
+  reasons are data only and never routable, link:../adr/core-spi/012-a-skip-with-an-optional-input-is-skipped-plus-a-reason.adoc[ADR 012]
+  a skip with an optional input is skipped plus a reason
 * The store that binds the ports: link:core-store.adoc[`core.store`]

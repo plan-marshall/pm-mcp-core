@@ -1,0 +1,45 @@
+= ADR 010: The Reason-to-Condition Table Is Total and Closed
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-31
+
+== Context
+
+A reason may map to one of the engine's conditions, so a later engine can raise that condition from the reason. The
+conditions a primitive can originate are a subset of the conditions the status store persists: `guard_indeterminate`,
+`job_incomplete` and `config_drift` arise from the engine's own guard evaluation, task attempts and re-composition, and
+`integrity_breach` names the store it breached (`EngineStep.ConditionRaised.raise` refuses it for the same reason).
+
+== Decision
+
+The table is total and closed: every constant of a reason enum answers `conditionKind()`, empty is an answer, and a
+present answer is a member of `OutcomeReason.MAPPABLE_CONDITION_KINDS` — `footprint_violation` and `precondition_unmet`.
+The registry refuses a `null` answer and an answer outside the set (`UNMAPPABLE_REASON_CONDITION`). Widening the set is a
+one-line change with a test.
+
+== Alternatives Considered
+
+1. **Let `conditionKind()` name any persisted kind**: *Rejected*: a primitive would claim a cause it cannot originate,
+   and the engine would raise a condition on a source that did not produce it.
+2. **No mapping at all**: *Rejected*: the engine needs to raise the condition a primitive's reason names; that mapping
+   is the reason the field exists.
+3. **A free-form condition string**: *Rejected*: it would drift from the persisted kinds; a test pins the constant set
+   to `WorkflowStatus.PendingCondition`.
+
+== Consequences
+
+* A reason enum either maps to one of the two primitive conditions or to none.
+* The set is pinned by `OutcomeReasonTest` against the constructor that validates a persisted condition.
+* `PLAN-V2-19` does the engine's mapping against this closed set.
+
+== Source
+
+* Pull request of `PLAN-V2-01` (`primitive-failure-reasons`)
+* link:../../../../doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons]
+* PM-IMPL-5

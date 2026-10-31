@@ -1,0 +1,43 @@
+= ADR 005: A Name Is an Outcome Only Where the Graph Continues Differently
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-31
+
+== Context
+
+Today a primitive can say how it failed only by being a different outcome. Every failure is therefore a named constant
+that every calling state must route and that the state catalogue must list: the catalogue has about 711 outcome edges.
+The workflow specification already applies the opposite rule one level up, where a sub-workflow's exits are "small and
+control-only … domain outcomes … only where callers genuinely continue differently"; the SPI had no place for a cause
+that is not an outcome, so such a cause could only become an untyped string in `updatedFacts` that nothing checks.
+
+== Decision
+
+A name is an outcome only where the graph continues differently. Every other failure, skip or indeterminacy is one
+outcome of its class plus a reason carried as data, declared by the outcome and travelling in `PrimitiveResult.reason()`.
+A unit that must route on a cause promotes that cause to a named outcome; that is the rule, not an exception to it. The
+rule binds primer authors and is checked where it can be checked — the declarations — never where it cannot: whether two
+failures "continue differently" is the author's judgement, reviewed with the catalogue.
+
+== Alternatives Considered
+
+1. **Keep every failure as a named outcome**: *Rejected*: it grows the catalogue with edges no caller routes
+differently, which is the cost the rule removes.
+
+== Consequences
+
+* A primitive author decides between a new outcome and a reason by asking what a caller does with the cause.
+* The registry can check the declaration (a closed enum, its wire names, its condition kinds) but not the judgement.
+* The graph and the catalogue stay free of causes that no transition distinguishes.
+
+== Source
+
+* Pull request of `PLAN-V2-01` (`primitive-failure-reasons`)
+* link:../../../../doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons]
+* PM-IMPL-5
