@@ -84,11 +84,13 @@ public final class SupportedVersions {
         Version low = new Version(0, 0, 0, null);
         Version high = new Version(Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, null);
         for (var bound : bounds) {
-            low = bound.raise(low);
-            high = bound.lower(high);
-            if (low == null || high == null) {
+            var raised = bound.raise(low);
+            var lowered = bound.lower(high);
+            if (raised.isEmpty() || lowered.isEmpty()) {
                 return false;
             }
+            low = raised.get();
+            high = lowered.get();
         }
         return low.compareTo(high) <= 0;
     }
@@ -121,25 +123,19 @@ public final class SupportedVersions {
             };
         }
 
-        private Version raise(Version low) {
+        private Optional<Version> raise(Version low) {
             return switch (operator) {
-                case ">=", "=" -> version.compareTo(low) > 0 ? version : low;
-                case ">" -> {
-                    var next = version.next();
-                    yield next.map(candidate -> max(candidate, low)).orElse(null);
-                }
-                default -> low;
+                case ">=", "=" -> Optional.of(version.compareTo(low) > 0 ? version : low);
+                case ">" -> version.next().map(candidate -> max(candidate, low));
+                default -> Optional.of(low);
             };
         }
 
-        private Version lower(Version high) {
+        private Optional<Version> lower(Version high) {
             return switch (operator) {
-                case "<=", "=" -> version.compareTo(high) < 0 ? version : high;
-                case "<" -> {
-                    var previous = version.previous();
-                    yield previous.map(candidate -> min(candidate, high)).orElse(null);
-                }
-                default -> high;
+                case "<=", "=" -> Optional.of(version.compareTo(high) < 0 ? version : high);
+                case "<" -> version.previous().map(candidate -> min(candidate, high));
+                default -> Optional.of(high);
             };
         }
 
