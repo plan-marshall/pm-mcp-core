@@ -37,7 +37,7 @@ import de.planmarshall.core.spi.PrimitiveRegistrationException.Reason;
 class PrimitiveRegistryTest {
 
     static List<TestPrimitives.Refusal> refused() {
-        return TestPrimitives.refused();
+        return Stream.concat(TestPrimitives.refused().stream(), ReasonPrimitives.refused().stream()).toList();
     }
 
     private static List<Primitive<?, ?>> wellFormedWithJobStarting() {
@@ -156,6 +156,21 @@ class PrimitiveRegistryTest {
         }
 
         @Test
+        @DisplayName("a primitive whose FAILURE, SKIP or INDETERMINATE outcome declares reasons registers")
+        void acceptsOutcomesThatDeclareReasons() {
+            var reasoned = ReasonPrimitives.wellFormed();
+            var skipping = ReasonPrimitives.wellFormedSkip();
+            var indeterminate = ReasonPrimitives.wellFormedIndeterminate();
+
+            var registry = new PrimitiveRegistry(List.of(reasoned, skipping, indeterminate));
+
+            assertAll(
+                    () -> assertSame(reasoned, registry.find("test.reasoned").orElseThrow()),
+                    () -> assertSame(skipping, registry.find("test.reasoned-skip").orElseThrow()),
+                    () -> assertSame(indeterminate, registry.find("test.reasoned-indeterminate").orElseThrow()));
+        }
+
+        @Test
         @DisplayName("a missing collection and a missing primitive are refused")
         void refusesNull() {
             var withNull = Arrays.<Primitive<?, ?>>asList(TestPrimitives.capped(), null);
@@ -189,6 +204,14 @@ class PrimitiveRegistryTest {
                     () -> assertEquals(refusal.refusedId(), thrown.getPrimitiveId()),
                     () -> assertTrue(thrown.getMessage().startsWith(refusal.reason() + ": primitive '"
                             + refusal.refusedId() + "' "), thrown.getMessage()));
+        }
+
+        @Test
+        @DisplayName("a malformed wire name decides the refusal before a reason declaration is looked at")
+        void keepsOldRefusalReasonBeforeReasonChecks() {
+            var thrown = refusalOf(List.of(ReasonPrimitives.oldDefectBeforeReasonDefect()));
+
+            assertEquals(Reason.MALFORMED_WIRE_NAME, thrown.getReason());
         }
 
         @Test
