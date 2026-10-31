@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
@@ -21,7 +22,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
-import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.store.WorkflowStatus;
 
 /**
@@ -38,8 +38,8 @@ class OutcomeReasonTest {
     @Test
     @DisplayName("the mappable condition kinds are exactly the two a primitive can originate")
     void mappableConditionKindsAreTheTwoPrimitiveConditions() {
-        assertEquals(Set.of("footprint_violation", "precondition_unmet"),
-                OutcomeReason.MAPPABLE_CONDITION_KINDS, "only the two primitive conditions are mappable");
+        assertEquals(
+                OutcomeReason.MAPPABLE_CONDITION_KINDS, Set.of("footprint_violation", "precondition_unmet"), "only the two primitive conditions are mappable");
     }
 
     /**

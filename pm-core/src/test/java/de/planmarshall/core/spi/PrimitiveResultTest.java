@@ -14,13 +14,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import de.cuioss.test.generator.junit.EnableGeneratorController;
 
 /**
  * A result pairs its reason with the outcome that declares one: present exactly when the outcome declares a reason

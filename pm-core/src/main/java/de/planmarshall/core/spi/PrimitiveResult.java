@@ -34,10 +34,10 @@ import lombok.Builder;
  */
 @Builder
 public record PrimitiveResult<R extends Enum<R> & PrimitiveOutcome>(
-        R outcome,
-        Map<String, Object> updatedFacts,
-        Optional<String> spawnedJobId,
-        Optional<OutcomeReason> reason) {
+R outcome,
+Map<String, Object> updatedFacts,
+Optional<String> spawnedJobId,
+Optional<OutcomeReason> reason) {
 
     /**
      * The form every existing call site uses: a result whose outcome declares no reason.
@@ -72,7 +72,7 @@ public record PrimitiveResult<R extends Enum<R> & PrimitiveOutcome>(
             throw new IllegalArgumentException(reason.isPresent()
                     ? "the outcome %s declares no reason type, so it cannot carry a reason".formatted(outcome)
                     : "the outcome %s declares the reason type %s, so it must carry a reason"
-                            .formatted(outcome, declared.orElseThrow().getName()));
+                    .formatted(outcome, declared.orElseThrow().getName()));
         }
         if (reason.isPresent() && !declared.orElseThrow().isInstance(reason.get())) {
             throw new IllegalArgumentException("the reason %s is not a constant of the declared reason type %s"
