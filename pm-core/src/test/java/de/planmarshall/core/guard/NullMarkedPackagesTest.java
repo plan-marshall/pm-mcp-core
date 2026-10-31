@@ -15,9 +15,13 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.DisplayName;
@@ -112,32 +116,29 @@ class NullMarkedPackagesTest {
 
     private static List<Path> productionRoots(Path root) {
         var roots = new ArrayList<Path>();
-        try (var children = Files.list(root)) {
-            children.filter(Files::isDirectory)
-                    .filter(child -> !child.getFileName().toString().startsWith("."))
-                    .sorted()
-                    .forEach(child -> {
-                        addIfProduction(child, roots);
-                        try (var nested = Files.list(child)) {
-                            nested.filter(Files::isDirectory)
-                                    .filter(grandchild -> !grandchild.getFileName().toString().startsWith("."))
-                                    .sorted()
-                                    .forEach(grandchild -> addIfProduction(grandchild, roots));
-                        } catch (IOException exception) {
-                            throw new UncheckedIOException(exception);
-                        }
-                    });
+        try {
+            Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) {
+                    if (!directory.equals(root) && isSkipped(directory)) {
+                        return FileVisitResult.SKIP_SUBTREE;
+                    }
+                    if (directory.endsWith(PRODUCTION_SOURCE)) {
+                        roots.add(directory);
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+            });
         } catch (IOException exception) {
             throw new UncheckedIOException(exception);
         }
+        roots.sort(Comparator.naturalOrder());
         return roots;
     }
 
-    private static void addIfProduction(Path module, List<Path> roots) {
-        var productionRoot = module.resolve(PRODUCTION_SOURCE);
-        if (Files.isDirectory(productionRoot)) {
-            roots.add(productionRoot);
-        }
+    private static boolean isSkipped(Path directory) {
+        var name = directory.getFileName().toString();
+        return name.startsWith(".") || name.equals("target") || name.equals("node_modules");
     }
 
     private static List<Path> unmarkedPackages(Path productionRoot) {
@@ -163,7 +164,10 @@ class NullMarkedPackagesTest {
             return false;
         }
         try {
-            return NULL_MARKED_DECLARATION.matcher(Files.readString(packageInfo)).find();
+            var source = Files.readString(packageInfo)
+                    .replaceAll("(?s)/\\*.*?\\*/", "")
+                    .replaceAll("//[^\\n]*", "");
+            return NULL_MARKED_DECLARATION.matcher(source).find();
         } catch (IOException exception) {
             throw new UncheckedIOException(exception);
         }
