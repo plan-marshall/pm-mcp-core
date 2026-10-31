@@ -27,8 +27,8 @@ public final class PagedResultGenerator implements TypedGenerator<PagedResult> {
 
     @Override
     public PagedResult next() {
-        var suffix = Generators.integers(1, 999).next();
-        return new PagedResult(List.of("{\"page\":" + suffix + "}"), true, responses.next());
+        var suffix = Generators.longs(1, Long.MAX_VALUE).next();
+        return new PagedResult(List.of("{\"page\":\"" + suffix + "\"}"), true, responses.next());
     }
 
     @Override

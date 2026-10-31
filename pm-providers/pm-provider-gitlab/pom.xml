@@ -24,6 +24,13 @@
             <groupId>de.planmarshall</groupId>
             <artifactId>pm-provider-http</artifactId>
         </dependency>
+        <!-- The typed generators of the shared HTTP base that this module's tests reuse (test scope, tests classifier). -->
+        <dependency>
+            <groupId>de.planmarshall</groupId>
+            <artifactId>pm-provider-http</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>de.planmarshall</groupId>
             <artifactId>pm-core</artifactId>

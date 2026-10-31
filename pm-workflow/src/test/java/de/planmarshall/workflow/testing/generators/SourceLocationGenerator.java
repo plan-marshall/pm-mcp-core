@@ -22,7 +22,7 @@ public final class SourceLocationGenerator implements TypedGenerator<SourceLocat
 
     @Override
     public SourceLocation next() {
-        return new SourceLocation("unit-" + Generators.integers(1, 999).next() + ".md",
+        return new SourceLocation("unit-" + Generators.longs(1, Long.MAX_VALUE).next() + ".md",
                 Generators.integers(1, 500).next(), Generators.integers(1, 80).next());
     }
 

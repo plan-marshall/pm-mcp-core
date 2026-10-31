@@ -15,8 +15,9 @@ import de.cuioss.test.generator.TypedGenerator;
 import de.planmarshall.core.role.RoleSkill;
 
 /**
- * Generates valid {@link RoleSkill} values: a skill URI in the {@code skill://pm/} namespace and a SHA-256 digest in
- * lower-case hexadecimal, the two components the record validates.
+ * Generates valid {@link RoleSkill} values: a skill URI in the {@code skill://pm/} namespace and a 64-digit
+ * lower-case hexadecimal digest, the two components the record validates. The record checks the shape of the digest,
+ * not that it hashes a particular text.
  *
  * @since 0.1
  */
@@ -26,7 +27,7 @@ public final class RoleSkillGenerator implements TypedGenerator<RoleSkill> {
 
     @Override
     public RoleSkill next() {
-        return new RoleSkill(URI_PREFIX + Generators.letterStrings(3, 8).next() + "/SKILL.md", digest());
+        return new RoleSkill(URI_PREFIX + "%016x".formatted(Generators.longs().next()) + "/SKILL.md", digest());
     }
 
     @Override

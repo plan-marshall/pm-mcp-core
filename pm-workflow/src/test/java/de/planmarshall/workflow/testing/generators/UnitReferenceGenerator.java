@@ -26,7 +26,7 @@ public final class UnitReferenceGenerator implements TypedGenerator<UnitReferenc
 
     @Override
     public UnitReference next() {
-        var suffix = Generators.integers(1, 999).next();
+        var suffix = Generators.longs(1, Long.MAX_VALUE).next();
         var unit = "unit-" + suffix;
         return new UnitReference(unit, Optional.of("units/" + unit + ".md"), "%064x".formatted(Generators.longs().next()),
                 UnitOrigin.PROJECT);

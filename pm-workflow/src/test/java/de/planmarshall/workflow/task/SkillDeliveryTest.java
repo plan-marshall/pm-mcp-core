@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -33,36 +34,43 @@ import de.planmarshall.core.testing.generators.CoreGenerators;
 @DisplayName("Skill delivery")
 class SkillDeliveryTest {
 
-    private static final RoleSkill SKILL = CoreGenerators.roleSkills().next();
-    private static final String OTHER = CoreGenerators.roleSkills().next().digest();
+    private RoleSkill skill;
+    private String otherDigest;
+
+    @BeforeEach
+    void createSkill() {
+        skill = CoreGenerators.roleSkills().next();
+        var digest = skill.digest();
+        otherDigest = (digest.startsWith("0") ? "1" : "0") + digest.substring(1);
+    }
 
     @Test
     @DisplayName("a new generation receives every skill in-band")
     void newGeneration() {
         var delivery = new SkillDelivery();
 
-        assertEquals(List.of(SKILL), delivery.deliver(TaskFixtures.GENERATION, List.of(SKILL)));
+        assertEquals(List.of(skill), delivery.deliver(TaskFixtures.GENERATION, List.of(skill)));
     }
 
     @Test
     @DisplayName("an unchanged skill is not delivered again")
     void unchanged() {
         var delivery = new SkillDelivery();
-        delivery.deliver(TaskFixtures.GENERATION, List.of(SKILL));
+        delivery.deliver(TaskFixtures.GENERATION, List.of(skill));
 
-        assertTrue(delivery.deliver(TaskFixtures.GENERATION, List.of(SKILL)).isEmpty());
+        assertTrue(delivery.deliver(TaskFixtures.GENERATION, List.of(skill)).isEmpty());
     }
 
     @Test
     @DisplayName("a changed digest is delivered again, and a new generation starts empty")
     void changedDigestAndNewGeneration() {
         var delivery = new SkillDelivery();
-        delivery.deliver(TaskFixtures.GENERATION, List.of(SKILL));
-        var changed = new RoleSkill(SKILL.uri(), OTHER);
+        delivery.deliver(TaskFixtures.GENERATION, List.of(skill));
+        var changed = new RoleSkill(skill.uri(), otherDigest);
 
         assertEquals(List.of(changed), delivery.deliver(TaskFixtures.GENERATION, List.of(changed)));
         assertEquals(List.of(changed), delivery.deliver(TaskFixtures.SUCCESSOR, List.of(changed)));
-        assertEquals(Map.of(SKILL.uri(), OTHER),
+        assertEquals(Map.of(skill.uri(), otherDigest),
                 delivery.recordOf(TaskFixtures.SUCCESSOR));
     }
 }

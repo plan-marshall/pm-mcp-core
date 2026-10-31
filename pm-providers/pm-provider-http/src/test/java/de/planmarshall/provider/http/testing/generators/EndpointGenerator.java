@@ -17,15 +17,34 @@ import java.util.Set;
 import de.planmarshall.provider.http.Endpoint;
 
 /**
- * Generates a valid {@link Endpoint}: an {@code https} API base ending with {@code /} and one generated redirect host.
+ * Generates a valid {@link Endpoint}. With no argument it yields a generated {@code https} API base ending with
+ * {@code /} and one generated redirect host; with a base URI it yields that base without redirect hosts, which is what
+ * a test needs for a mock server it has just started.
  *
  * @since 0.1
  */
 public final class EndpointGenerator implements TypedGenerator<Endpoint> {
 
+    private final URI fixedBaseUri;
+
+    /** Creates the generator of a generated base URI. */
+    public EndpointGenerator() {
+        this.fixedBaseUri = null;
+    }
+
+    /**
+     * @param baseUri the base URI of the endpoint, for example the address of a mock server
+     */
+    public EndpointGenerator(URI baseUri) {
+        this.fixedBaseUri = baseUri;
+    }
+
     @Override
     public Endpoint next() {
-        var suffix = Generators.integers(1, 999).next();
+        if (fixedBaseUri != null) {
+            return Endpoint.of(fixedBaseUri);
+        }
+        var suffix = Generators.longs(1, Long.MAX_VALUE).next();
         return new Endpoint(URI.create("https://api-" + suffix + ".example.test/"),
                 Set.of("cdn-" + suffix + ".example.test"));
     }

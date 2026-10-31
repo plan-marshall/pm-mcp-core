@@ -25,7 +25,7 @@ public final class QuestionClassGenerator implements TypedGenerator<QuestionClas
 
     @Override
     public QuestionClass next() {
-        var suffix = Generators.integers(1, 999).next();
+        var suffix = Generators.longs(1, Long.MAX_VALUE).next();
         return new QuestionClass("question-class-" + suffix,
                 Set.of("answered-" + suffix, "declined-" + suffix));
     }

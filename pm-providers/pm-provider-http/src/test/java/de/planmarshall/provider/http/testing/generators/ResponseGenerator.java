@@ -25,8 +25,8 @@ public final class ResponseGenerator implements TypedGenerator<Response> {
 
     @Override
     public Response next() {
-        var suffix = Generators.integers(1, 999).next();
-        return new Response(Response.Outcome.OK, 200, "{\"value\":" + suffix + "}",
+        var suffix = Generators.longs(1, Long.MAX_VALUE).next();
+        return new Response(Response.Outcome.OK, 200, "{\"value\":\"" + suffix + "\"}",
                 Optional.of("etag-" + suffix), Optional.empty(), Optional.empty(), "");
     }
 

@@ -20,8 +20,9 @@ import de.planmarshall.core.store.ProjectEnrolment;
 
 /**
  * Generates a minimal but valid {@link ProjectEnrolment}: the empty wrappers, host tools, provider overrides, scripts,
- * language servers, budgets, write paths and build environment, and the compiled build defaults. The project id and
- * the project root are the only values that vary, because every other component is optional in the enrolment schema.
+ * language servers, budgets, write paths and build environment, and the compiled build defaults. The project id, the
+ * project root, the enrolment instant and the pilot flag vary; every other component is empty, because the enrolment
+ * schema admits an empty value there.
  *
  * @since 0.1
  */
@@ -29,7 +30,7 @@ public final class ProjectEnrolmentGenerator implements TypedGenerator<ProjectEn
 
     @Override
     public ProjectEnrolment next() {
-        var suffix = Generators.integers(100, 999_999).next();
+        var suffix = Generators.longs(100, Long.MAX_VALUE).next();
         return new ProjectEnrolment("project-" + suffix, "/tmp/generated-project-" + suffix, instant(),
                 Generators.booleans().next(), null, null, List.of(), List.of(), ProjectEnrolment.Build.defaults(),
                 Map.of(), new TreeMap<>(), new TreeMap<>(), new TreeMap<>(), List.of(), new TreeMap<>());

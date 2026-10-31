@@ -26,13 +26,17 @@ public final class EndpointProfileGenerator implements TypedGenerator<EndpointPr
 
     @Override
     public EndpointProfile next() {
-        var suffix = Generators.integers(1, 65_535).next();
+        var suffix = Generators.longs(1, Long.MAX_VALUE).next();
         var tiers = new LinkedHashMap<String, String>();
         tiers.put("fast", "model-fast-" + suffix);
         return new EndpointProfile("generated-client-" + suffix, null, null, null,
-                new EndpointProfile.Endpoint("openai_chat", "loopback", "http://127.0.0.1:" + suffix, "/ready",
+                new EndpointProfile.Endpoint("openai_chat", "loopback", "http://127.0.0.1:" + port(), "/ready",
                         "/v1/models", "/data", "none", 8192, 1024, 30),
                 tiers, null);
+    }
+
+    private static int port() {
+        return Generators.integers(1, 65_535).next();
     }
 
     @Override

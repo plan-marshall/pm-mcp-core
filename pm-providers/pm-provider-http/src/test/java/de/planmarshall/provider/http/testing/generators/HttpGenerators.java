@@ -10,6 +10,7 @@
 package de.planmarshall.provider.http.testing.generators;
 
 import de.cuioss.test.generator.TypedGenerator;
+import java.net.URI;
 import lombok.experimental.UtilityClass;
 
 import de.planmarshall.provider.http.Endpoint;
@@ -29,6 +30,14 @@ public class HttpGenerators {
     /** @return a generator of valid endpoints */
     public static TypedGenerator<Endpoint> endpoints() {
         return new EndpointGenerator();
+    }
+
+    /**
+     * @param baseUri the base URI of the endpoint, for example the address of a mock server
+     * @return a generator of that endpoint
+     */
+    public static TypedGenerator<Endpoint> endpointAt(URI baseUri) {
+        return new EndpointGenerator(baseUri);
     }
 
     /** @return a generator of valid successful responses */

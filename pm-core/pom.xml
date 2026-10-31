@@ -127,6 +127,14 @@
                         <goals>
                             <goal>test-jar</goal>
                         </goals>
+                        <configuration>
+                            <!-- The artifact holds the generator package only (PLAN-V2-107): the tests of this
+                                 module are not published, and a fixture joins this package when a generator needs
+                                 it. -->
+                            <includes>
+                                <include>de/planmarshall/core/testing/generators/**</include>
+                            </includes>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

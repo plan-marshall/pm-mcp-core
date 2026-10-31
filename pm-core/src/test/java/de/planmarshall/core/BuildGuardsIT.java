@@ -27,8 +27,9 @@ import org.junit.jupiter.params.provider.CsvSource;
 /**
  * Controls of the build guards of this repository (PM-IMPL-1): each fixture project below
  * {@code src/guard-controls} breaks one rule of the root POM, and its build must fail in the enforcer
- * execution of that rule. One fixture is a positive control: a provider adapter that depends on the
- * shared HTTP base passes the rule that admits it.
+ * execution of that rule. Four fixtures are positive controls: a provider adapter that depends on the
+ * shared HTTP base, and the test-scope test JARs of the foundation consumed by the engine, the runtime
+ * and a provider, each admitted by the rule that governs it.
  * <p>
  * Hazards the guards answer: a framework dependency in the engine ties the plain-Java modules to the
  * assembly; a dependency of the foundation on a module of the product other than {@code pm-api}, or on JGit

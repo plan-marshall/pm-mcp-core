@@ -28,10 +28,10 @@ public final class LeaseRecordGenerator implements TypedGenerator<LeaseRecord> {
 
     @Override
     public LeaseRecord next() {
-        var suffix = Generators.integers(100, 999_999).next();
+        var suffix = Generators.longs(100, Long.MAX_VALUE).next();
         var acquiredAt = Instant.ofEpochMilli(Generators.integers(0, Integer.MAX_VALUE).next().longValue());
         var owner = new LeaseOwner("project-" + suffix, ScopeType.PLAN, "plan-" + suffix,
-                new HolderInstance(suffix.longValue(), acquiredAt), null);
+                new HolderInstance(suffix, acquiredAt), null);
         return new LeaseRecord("lease-" + suffix, owner, acquiredAt, acquiredAt.plusSeconds(3_600));
     }
 

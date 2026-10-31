@@ -24,7 +24,7 @@ public final class ResolvedSkillGenerator implements TypedGenerator<ResolvedSkil
 
     @Override
     public ResolvedSkill next() {
-        var suffix = Generators.integers(1, 999).next();
+        var suffix = Generators.longs(1, Long.MAX_VALUE).next();
         return ResolvedSkill.of("skill://pm/generated/skill-" + suffix + "/SKILL.md",
                 "Generated skill text " + suffix + " " + Generators.letterStrings(8, 16).next());
     }
