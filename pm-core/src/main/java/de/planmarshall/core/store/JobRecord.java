@@ -89,12 +89,14 @@ import lombok.With;
  */
 @With
 @Builder(toBuilder = true)
-public record JobRecord(JobId jobId, Execution execution, Scope scope, String worker, String budgetKey,
-long budgetSeconds, BudgetDerivation budgetDerivation, String argvDigest, Status status, Fate fate, Long pid,
-Instant processStartedAt, Confinement confinement, Instant createdAt, Instant spawnedAt, Instant endedAt,
-Long childWallMs, Long exitCode, String signal, Integer landlockAbi, Integer outcomeRow, String refusalReason,
-boolean cancelBeforeGroup, SelfReportContradiction selfReportContradiction, List<ClampedValue> clampedValues,
-String gateFacts) {
+public record JobRecord(JobId jobId, Execution execution, Scope scope, @Nullable String worker,
+@Nullable String budgetKey, long budgetSeconds, BudgetDerivation budgetDerivation, @Nullable String argvDigest,
+Status status, @Nullable Fate fate, @Nullable Long pid, @Nullable Instant processStartedAt, Confinement confinement,
+Instant createdAt, @Nullable Instant spawnedAt, @Nullable Instant endedAt, @Nullable Long childWallMs,
+@Nullable Long exitCode, @Nullable String signal, @Nullable Integer landlockAbi, @Nullable Integer outcomeRow,
+@Nullable String refusalReason, boolean cancelBeforeGroup,
+@Nullable SelfReportContradiction selfReportContradiction, List<ClampedValue> clampedValues,
+@Nullable String gateFacts) {
 
     /** The format version of a job record that is read and written. */
     public static final int FORMAT_VERSION = 1;

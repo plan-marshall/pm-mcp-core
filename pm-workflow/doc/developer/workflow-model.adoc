@@ -50,7 +50,8 @@ future session-resume feature belongs to the supervisor and the launch, never to
 
 `RoleComposition.check(List<RoleUse>)` resolves every role a composed unit names and refuses the composition at the first
 one it cannot use. The refusal is `CompositionRefusal`, a value with its reason, the role, the state, the role's class and
-the required classes:
+the required classes. Its `roleClass()` answers `Optional<RoleClass>`: the role is undefined in one refusal reason, so
+the class is absent there.
 
 * `role_undefined` — the role is absent, or its artifact or effective values failed validation (the validation reason
   travels with the refusal);
