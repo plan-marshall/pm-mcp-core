@@ -197,7 +197,8 @@ existing record at once.
 ====
 
 `QualificationCheck` refuses (or downgrades) a record for these reasons. Its `catchRate` answers
-`Optional<BigDecimal>`: a form the record did not grade, or a corpus without suspicious items, is `Optional.empty()`.
+`Optional<BigDecimal>`. It is `Optional.empty()` when the record did not grade the form, when the corpus has no
+suspicious items, or when the form has no graded run of a suspicious item.
 
 [cols="2,4"]
 |===
