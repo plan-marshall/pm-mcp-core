@@ -20,7 +20,7 @@ already uses.
 A reason is a constant of a closed enum implementing `OutcomeReason` in `de.planmarshall.core.spi`. The interface has
 `String wireName()` and `default Optional<String> conditionKind()`, empty by default, and the public constant
 `MAPPABLE_CONDITION_KINDS`. The set of reasons is closed by the enum, and the wire name lets a later log, a diagnostic
-and a diagram print the reason. The interface is named `OutcomeReason` because `Reason` is already the name of eight
+and a diagram print the reason. The interface is named `OutcomeReason` because `Reason` is already the name of several
 nested enums of the repository, among them `PrimitiveRegistrationException.Reason` and `InternalFaultException.Reason`.
 
 == Alternatives Considered
@@ -29,7 +29,7 @@ nested enums of the repository, among them `PrimitiveRegistrationException.Reaso
    documentation.
 2. **A sealed type**: *Rejected*: the SPI already closes sets with enums (`PrimitiveOutcome`, `OutcomeClass`), and a
    second idiom would split the contract for no gain.
-3. **Name the interface `Reason`**: *Rejected*: the name is taken by eight nested enums, so every use would need a
+3. **Name the interface `Reason`**: *Rejected*: the name is taken by several nested enums, so every use would need a
    qualified name.
 
 == Consequences

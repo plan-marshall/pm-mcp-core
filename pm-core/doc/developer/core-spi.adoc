@@ -160,6 +160,7 @@ The constructor does not check what needs more than the primitive itself: whethe
 waivable gates, whether a produced artifact is required by anyone, whether a name collides with a keyword of the
 workflow language, and whether an execution that returns a job-starting outcome carries a job identifier.
 
+[#outcomes-and-reasons]
 == Outcomes and Reasons
 
 A name is an outcome only where the graph continues differently. Every other failure, skip or indeterminacy is one

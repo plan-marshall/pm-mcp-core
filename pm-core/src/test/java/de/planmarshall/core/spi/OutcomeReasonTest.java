@@ -95,30 +95,4 @@ class OutcomeReasonTest {
             return wireName;
         }
     }
-
-    /**
-     * The wire names and condition kinds are the contract, so the fixture states them literally.
-     */
-    enum TestReason implements OutcomeReason {
-        FOOTPRINT("footprint_violation", "footprint_violation"),
-        COMMIT_FAILED("commit_failed", null);
-
-        private final String wireName;
-        private final String conditionKind;
-
-        TestReason(String wireName, String conditionKind) {
-            this.wireName = wireName;
-            this.conditionKind = conditionKind;
-        }
-
-        @Override
-        public String wireName() {
-            return wireName;
-        }
-
-        @Override
-        public Optional<String> conditionKind() {
-            return Optional.ofNullable(conditionKind);
-        }
-    }
 }

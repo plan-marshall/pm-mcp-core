@@ -66,8 +66,10 @@ Optional<OutcomeReason> reason) {
                 Objects.requireNonNull(name, "name of a fact"),
                 Objects.requireNonNull(value, "value of a fact")));
         updatedFacts = Collections.unmodifiableMap(copy);
-        var declared = outcome.reasonType() == null ? Optional.<Class<? extends OutcomeReason>>empty()
-                : outcome.reasonType();
+        var declared = outcome.reasonType();
+        if (declared == null) {
+            declared = Optional.empty();
+        }
         if (reason.isPresent() != declared.isPresent()) {
             throw new IllegalArgumentException(reason.isPresent()
                     ? "the outcome %s declares no reason type, so it cannot carry a reason".formatted(outcome)
