@@ -40,7 +40,7 @@ public record TokenTotal(@Nullable Long tokens, @Nullable Long tokensIn, @Nullab
         validate(tokens, tokensIn, tokensOut);
     }
 
-    private static void validate(Long tokens, Long tokensIn, Long tokensOut) {
+    private static void validate(@Nullable Long tokens, @Nullable Long tokensIn, @Nullable Long tokensOut) {
         if (tokens == null) {
             if (tokensIn != null || tokensOut != null) {
                 throw new IllegalArgumentException("An unmeasured 'total_tokens' carries no split");

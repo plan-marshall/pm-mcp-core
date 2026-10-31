@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.spi;
 
+import org.jspecify.annotations.Nullable;
+
 import java.lang.reflect.RecordComponent;
 import java.util.Collection;
 import java.util.Collections;
@@ -77,7 +79,7 @@ public final class PrimitiveRegistry {
             var outcomes = checkedOutcomes(id, primitive);
             checkJobSideEffect(id, primitive, outcomes);
             checkCycle(id, primitive, outcomes);
-            if (primitive.awaitedEvent() == null) {
+            if (Optional.ofNullable(primitive.awaitedEvent()).isEmpty()) {
                 throw new PrimitiveRegistrationException(id, Reason.MISSING_AWAITED_EVENT,
                         "declares no awaited event");
             }
@@ -102,7 +104,7 @@ public final class PrimitiveRegistry {
 
     private static String checkedId(Primitive<?, ?> primitive) {
         var id = primitive.id();
-        if (id == null || !PRIMITIVE_ID.matcher(id).matches()) {
+        if (Optional.ofNullable(id).filter(value -> PRIMITIVE_ID.matcher(value).matches()).isEmpty()) {
             throw new PrimitiveRegistrationException(id, Reason.MALFORMED_ID,
                     "has an id that is not two lower-case identifiers joined by a dot");
         }
@@ -111,7 +113,7 @@ public final class PrimitiveRegistry {
 
     private static void checkParameterType(String id, Primitive<?, ?> primitive) {
         Class<?> type = primitive.parameterType();
-        if (type == null || !type.isRecord()) {
+        if (Optional.ofNullable(type).filter(Class::isRecord).isEmpty()) {
             throw new PrimitiveRegistrationException(id, Reason.PARAMETER_TYPE_NOT_A_RECORD,
                     "declares the parameter type %s, which is not a record class".formatted(nameOf(type)));
         }
@@ -150,7 +152,8 @@ public final class PrimitiveRegistry {
 
     private static List<PrimitiveOutcome> checkedOutcomes(String id, Primitive<?, ?> primitive) {
         Class<?> type = primitive.outcomeType();
-        if (type == null || !type.isEnum() || !PrimitiveOutcome.class.isAssignableFrom(type)) {
+        if (Optional.ofNullable(type)
+                .filter(value -> value.isEnum() && PrimitiveOutcome.class.isAssignableFrom(value)).isEmpty()) {
             throw new PrimitiveRegistrationException(id, Reason.OPEN_OUTCOME_SET,
                     "declares the outcome type %s, which is not an enum of outcomes".formatted(nameOf(type)));
         }
@@ -162,7 +165,7 @@ public final class PrimitiveRegistry {
         var seen = new LinkedHashMap<String, PrimitiveOutcome>();
         for (PrimitiveOutcome outcome : outcomes) {
             var wireName = outcome.wireName();
-            if (wireName == null || !WIRE_NAME.matcher(wireName).matches()) {
+            if (Optional.ofNullable(wireName).filter(value -> WIRE_NAME.matcher(value).matches()).isEmpty()) {
                 throw new PrimitiveRegistrationException(id, Reason.MALFORMED_WIRE_NAME,
                         "has the outcome %s with the wire name '%s', which is not a lower-case identifier"
                                 .formatted(outcome, wireName));
@@ -177,7 +180,7 @@ public final class PrimitiveRegistry {
                 throw new PrimitiveRegistrationException(id, Reason.DUPLICATE_WIRE_NAME,
                         "has the outcomes %s and %s with the same wire name '%s'".formatted(first, outcome, wireName));
             }
-            if (outcome.outcomeClass() == null) {
+            if (Optional.ofNullable(outcome.outcomeClass()).isEmpty()) {
                 throw new PrimitiveRegistrationException(id, Reason.MISSING_OUTCOME_CLASS,
                         "has the outcome %s without an outcome class".formatted(outcome));
             }
@@ -200,7 +203,7 @@ public final class PrimitiveRegistry {
 
     private static void checkCycle(String id, Primitive<?, ?> primitive, List<PrimitiveOutcome> outcomes) {
         var measure = primitive.cycleMeasure();
-        if (measure == null) {
+        if (Optional.ofNullable(measure).isEmpty()) {
             throw new PrimitiveRegistrationException(id, Reason.MISSING_CYCLE_MEASURE, "declares no cycle measure");
         }
         var exhaustions = declaredExhaustions(primitive);
@@ -229,7 +232,7 @@ public final class PrimitiveRegistry {
         return Stream.ofNullable(primitive.exhaustionOutcome()).flatMap(Optional::stream).toList();
     }
 
-    private static String nameOf(Class<?> type) {
-        return type == null ? "null" : type.getName();
+    private static String nameOf(@Nullable Class<?> type) {
+        return Optional.ofNullable(type).map(Class::getName).orElse("null");
     }
 }

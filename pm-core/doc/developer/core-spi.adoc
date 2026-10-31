@@ -86,6 +86,10 @@ addresses the workspace scope with is never returned, so a primitive cannot take
 context reads and writes no store.
 
 == The Registry
+
+The registry keeps its refusal for an implementation that violates the `@NullMarked` contract: it tests a returned
+id, parameter type, outcome type, wire name, outcome class and cycle measure through `Optional.ofNullable`, so the
+refusal is live for a broken primitive while the type of a correct one stays non-null.
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]_
 
 link:{src}/PrimitiveRegistry.java[`PrimitiveRegistry`] holds the primitives of one assembly by id. It is filled through

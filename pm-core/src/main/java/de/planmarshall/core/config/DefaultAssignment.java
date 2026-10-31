@@ -176,8 +176,7 @@ public record DefaultAssignment(Map<String, DefaultRole> roles) {
             switch (field) {
                 case FIELD_TIER -> tier = string(parser, field);
                 case FIELD_EFFORT -> {
-                    var value = nullableString(parser, field).orElse(null);
-                    effort = value == null ? Optional.empty() : Optional.of(new EffortValue(value));
+                    effort = nullableString(parser, field).map(EffortValue::new);
                 }
                 case FIELD_PREFERRED_HARNESS -> preferredHarness = string(parser, field);
                 case FIELD_ADVISORY -> advisory = string(parser, field);

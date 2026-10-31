@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.role.qualification;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +39,7 @@ import de.planmarshall.core.role.RoleSkill;
  * @param skillDigests   the digests of the resolved skills by skill URI
  * @since 0.1
  */
-public record GradedConfiguration(String harness, String harnessVersion, String model, String effort,
+public record GradedConfiguration(String harness, String harnessVersion, String model, @Nullable String effort,
 List<String> tools, RoleClass roleClass, Map<String, String> skillDigests) {
 
     private static final Pattern HARNESS_NAME = Pattern.compile("[a-z][a-z0-9-]{0,31}");

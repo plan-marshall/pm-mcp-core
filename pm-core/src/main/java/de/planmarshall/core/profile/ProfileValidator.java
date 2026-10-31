@@ -378,7 +378,8 @@ public final class ProfileValidator {
                 throw invalid(PTR_MIN_DAEMON_VERSION, "not a version: '%s'".formatted(minDaemonVersion));
             }
             icon(required(profile, "", NAME_ICON), "/icon");
-            var executable = optionalText(required(profile, "", NAME_EXECUTABLE), PTR_EXECUTABLE, NAME_EXECUTABLE, 64);
+            @Nullable String executable = optionalText(required(profile, "", NAME_EXECUTABLE), PTR_EXECUTABLE,
+                    NAME_EXECUTABLE, 64).orElse(null);
             if (executable != null && !EXECUTABLE.matcher(executable).matches()) {
                 throw invalid(PTR_EXECUTABLE, "not a bare executable name: '%s'".formatted(executable));
             }
@@ -416,12 +417,13 @@ public final class ProfileValidator {
             if (!LOOPBACK_URL.matcher(baseUrl).matches() && !HTTPS_URL.matcher(baseUrl).matches()) {
                 throw invalid(PTR_BASE_URL, "not an endpoint URL: '%s'".formatted(baseUrl));
             }
-            var credential = optionalText(optional(endpoint, NAME_CREDENTIAL_KEY), pointer + "/credential_key",
-                    NAME_CREDENTIAL_KEY, 32);
+            @Nullable String credential = optionalText(optional(endpoint, NAME_CREDENTIAL_KEY).orElse(null),
+                    pointer + "/credential_key", NAME_CREDENTIAL_KEY, 32).orElse(null);
             if (credential != null && !CREDENTIAL_KEY.matcher(credential).matches()) {
                 throw invalid(pointer + "/credential_key", "not a credential key: '%s'".formatted(credential));
             }
-            endpointPath(optional(endpoint, NAME_READINESS_PATH), pointer + "/readiness_path", NAME_READINESS_PATH);
+            endpointPath(optional(endpoint, NAME_READINESS_PATH).orElse(null), pointer + "/readiness_path",
+                    NAME_READINESS_PATH);
             endpointPath(required(endpoint, pointer, NAME_MODELS_PATH), pointer + "/models_path", NAME_MODELS_PATH);
             var modelsPointer = text(required(endpoint, pointer, NAME_MODELS_POINTER), pointer + "/models_pointer",
                     NAME_MODELS_POINTER, 256);
@@ -533,12 +535,14 @@ public final class ProfileValidator {
          * @param node the value of a member the schema types {@code [string, null]}
          * @return the string, or {@code null} for the JSON null
          */
-        private String optionalText(@Nullable JsonNode node, String pointer, String name, int max) {
-            return node == null || node.isNull() ? null : text(node, pointer, name, max);
+        private Optional<String> optionalText(@Nullable JsonNode node, String pointer, String name, int max) {
+            return node == null || node.isNull() ? Optional.empty()
+                    : Optional.of(text(node, pointer, name, max));
         }
 
         /** The values of the {@code endpoint} block the locality rules read. */
-        private record EndpointBlock(String protocol, String locality, String baseUrl, String credentialKey) {
+        private record EndpointBlock(String protocol, String locality, String baseUrl,
+        @Nullable String credentialKey) {
         }
 
         private void icon(JsonNode icon, String pointer) {
@@ -547,8 +551,8 @@ public final class ProfileValidator {
             }
             object(icon, pointer, NAME_ICON, Set.of("form", NAME_SOURCE, NAME_BUNDLED), Set.of("form", NAME_SOURCE, NAME_BUNDLED));
             var form = enumValue(required(icon, pointer, "form"), pointer + "/form", "form", Set.of(NAME_SOURCE, NAME_BUNDLED));
-            var source = optional(icon, NAME_SOURCE);
-            var bundled = optional(icon, NAME_BUNDLED);
+            @Nullable JsonNode source = optional(icon, NAME_SOURCE).orElse(null);
+            @Nullable JsonNode bundled = optional(icon, NAME_BUNDLED).orElse(null);
             if (NAME_SOURCE.equals(form)) {
                 var url = string(source, pointer + PTR_SOURCE, NAME_SOURCE, 256);
                 if (!ICON_SOURCE.matcher(url).matches()) {
@@ -577,7 +581,7 @@ public final class ProfileValidator {
                 var value = text(required(tools, pointer, name), pointer + "/" + name, name, 256);
                 toolName(value, pointer + "/" + name);
             }
-            var idioms = optional(tools, NAME_IDIOMS);
+            @Nullable JsonNode idioms = optional(tools, NAME_IDIOMS).orElse(null);
             if (idioms == null) {
                 return;
             }
@@ -588,7 +592,7 @@ public final class ProfileValidator {
                         Set.of(NAME_DISPOSITION, NAME_REPLACEMENT));
                 enumValue(required(member.getValue(), idiomPointer, NAME_DISPOSITION), idiomPointer + "/disposition",
                         NAME_DISPOSITION, Set.of("rewrite", "preserve", "omit"));
-                var replacement = optional(member.getValue(), NAME_REPLACEMENT);
+                @Nullable JsonNode replacement = optional(member.getValue(), NAME_REPLACEMENT).orElse(null);
                 if (replacement != null) {
                     var text = text(replacement, idiomPointer + "/replacement", NAME_REPLACEMENT, 256);
                     stringRule(text, idiomPointer + "/replacement", true);
@@ -642,7 +646,7 @@ public final class ProfileValidator {
             classes(required(headless, pointer, NAME_CLASSES), pointer + "/classes", exclusive, headless, pointer);
             environment(required(headless, pointer, "env"), pointer + "/env");
             capabilities(required(headless, pointer, NAME_CAPABILITIES), pointer + "/capabilities");
-            var efforts = optional(headless, NAME_MODEL_EFFORTS);
+            @Nullable JsonNode efforts = optional(headless, NAME_MODEL_EFFORTS).orElse(null);
             if (efforts != null) {
                 modelEfforts(efforts, pointer + "/model_efforts");
             }
@@ -652,7 +656,7 @@ public final class ProfileValidator {
             endpoints(required(headless, pointer, NAME_ENDPOINTS), pointer + "/endpoints");
             writablePaths(required(headless, pointer, NAME_WRITABLE_PATHS), pointer + "/writable_paths");
             dataHome(required(headless, pointer, NAME_DATA_HOME), pointer + "/data_home");
-            var limit = optional(headless, NAME_TOOL_RESULT_LIMIT_CHARS);
+            @Nullable JsonNode limit = optional(headless, NAME_TOOL_RESULT_LIMIT_CHARS).orElse(null);
             if (limit != null && !limit.isNull()) {
                 integer(limit, pointer + "/tool_result_limit_chars", NAME_TOOL_RESULT_LIMIT_CHARS, 4000,
                         Integer.MAX_VALUE);
@@ -670,7 +674,7 @@ public final class ProfileValidator {
             resumability(required(headless, pointer, NAME_RESUMABILITY), pointer + "/resumability",
                     enumValue(required(headless, pointer, NAME_SESSION_RESIDUE), pointer + "/session_residue",
                             NAME_SESSION_RESIDUE, Set.of(NAME_EPHEMERAL, "persisted")));
-            var budget = optional(headless, NAME_CONTEXT_BUDGET_TOKENS);
+            @Nullable JsonNode budget = optional(headless, NAME_CONTEXT_BUDGET_TOKENS).orElse(null);
             if (budget != null) {
                 integer(budget, pointer + "/context_budget_tokens", NAME_CONTEXT_BUDGET_TOKENS, 10000, Integer.MAX_VALUE);
             }
@@ -717,7 +721,7 @@ public final class ProfileValidator {
             launchArguments(required(probe, pointer, "argv"), pointer + PTR_ARGV, "argv", SLOTS);
             var format = enumValue(required(probe, pointer, NAME_FORMAT), pointer + "/format", NAME_FORMAT,
                     Set.of("lines", "json"));
-            var modelPointer = optional(probe, NAME_POINTER);
+            @Nullable JsonNode modelPointer = optional(probe, NAME_POINTER).orElse(null);
             if ("json".equals(format)) {
                 if (modelPointer == null || modelPointer.isNull()) {
                     throw invalid(pointer + PTR_POINTER, "a JSON models probe names its pointer");
@@ -740,9 +744,9 @@ public final class ProfileValidator {
             object(probe, pointer, NAME_WEIGHTS_PROBE, members, members);
             var source = enumValue(required(probe, pointer, NAME_SOURCE), pointer + PTR_SOURCE, NAME_SOURCE,
                     Set.of("models_listing", "argv"));
-            var identityPointer = optional(probe, NAME_POINTER);
-            var argv = optional(probe, "argv");
-            var pattern = optional(probe, NAME_PATTERN);
+            @Nullable JsonNode identityPointer = optional(probe, NAME_POINTER).orElse(null);
+            @Nullable JsonNode argv = optional(probe, "argv").orElse(null);
+            @Nullable JsonNode pattern = optional(probe, NAME_PATTERN).orElse(null);
             if ("models_listing".equals(source)) {
                 modelsListingProbe(identityPointer, argv, pattern, pointer);
             } else {
@@ -800,7 +804,7 @@ public final class ProfileValidator {
             object(evidence, pointer, NAME_UPDATE_EVIDENCE, members, members);
             var method = enumValue(required(evidence, pointer, NAME_METHOD), pointer + "/method", NAME_METHOD,
                     Set.of("code_signature", "package_provenance", "none"));
-            var signer = optional(evidence, NAME_SIGNER);
+            @Nullable JsonNode signer = optional(evidence, NAME_SIGNER).orElse(null);
             if ("none".equals(method)) {
                 if (signer != null && !signer.isNull()) {
                     throw invalid(pointer + PTR_SIGNER, "the method none has a null signer");
@@ -822,7 +826,7 @@ public final class ProfileValidator {
             object(config, pointer, NAME_MCP_CONFIG, members, members);
             var delivery = enumValue(required(config, pointer, NAME_DELIVERY), pointer + "/delivery", NAME_DELIVERY,
                     Set.of("slot", "file"));
-            var path = optional(config, "path");
+            @Nullable JsonNode path = optional(config, "path").orElse(null);
             if ("file".equals(delivery)) {
                 if (path == null || path.isNull()) {
                     throw invalid(pointer + PTR_PATH, "the delivery file names its path");
@@ -1075,7 +1079,7 @@ public final class ProfileValidator {
             object(resumability, pointer, NAME_RESUMABILITY, Set.of("hold", NAME_RESUME),
                     Set.of("hold", NAME_RESUME, NAME_MAX_HOLD_SECONDS));
             var hold = bool(required(resumability, pointer, "hold"), pointer + "/hold", "hold");
-            var maxHold = optional(resumability, NAME_MAX_HOLD_SECONDS);
+            @Nullable JsonNode maxHold = optional(resumability, NAME_MAX_HOLD_SECONDS).orElse(null);
             if (maxHold != null) {
                 if (maxHold.isNull()) {
                     if (hold) {
@@ -1085,7 +1089,7 @@ public final class ProfileValidator {
                     integer(maxHold, pointer + "/max_hold_seconds", NAME_MAX_HOLD_SECONDS, 60, 3600);
                 }
             }
-            var resume = optional(resumability, NAME_RESUME);
+            @Nullable JsonNode resume = optional(resumability, NAME_RESUME).orElse(null);
             if (resume == null || resume.isNull()) {
                 return;
             }
@@ -1143,17 +1147,17 @@ public final class ProfileValidator {
             if (eligible && headless.isNull()) {
                 throw invalid(pointer + "/eligible", "an eligible worker host has a headless block");
             }
-            var restricted = optional(worker, NAME_RESTRICTED_MODELS);
+            @Nullable JsonNode restricted = optional(worker, NAME_RESTRICTED_MODELS).orElse(null);
             if (restricted != null && !restricted.isNull()) {
                 stringArray(restricted, pointer + PTR_RESTRICTED_MODELS, NAME_RESTRICTED_MODELS, 0, 64, true);
             }
-            var ackDeadline = optional(worker, NAME_ACK_DEADLINE_SECONDS);
+            @Nullable JsonNode ackDeadline = optional(worker, NAME_ACK_DEADLINE_SECONDS).orElse(null);
             if (ackDeadline != null && !ackDeadline.isNull()) {
                 integer(ackDeadline, pointer + PTR_ACK_DEADLINE_SECONDS, NAME_ACK_DEADLINE_SECONDS, 1, 600);
             }
             var informationalValue = informational(worker, pointer);
             var graceValue = grace(worker, pointer);
-            var wakeups = optional(worker, NAME_IDLE_WAKEUPS);
+            @Nullable JsonNode wakeups = optional(worker, NAME_IDLE_WAKEUPS).orElse(null);
             if (wakeups != null && !wakeups.isNull()) {
                 integer(wakeups, pointer + "/idle_wakeups", NAME_IDLE_WAKEUPS, 1, 100);
             }
@@ -1166,13 +1170,13 @@ public final class ProfileValidator {
         }
 
         private boolean informational(JsonNode worker, String pointer) {
-            var informational = optional(worker, NAME_ACK_INFORMATIONAL);
+            @Nullable JsonNode informational = optional(worker, NAME_ACK_INFORMATIONAL).orElse(null);
             return informational != null && !informational.isNull()
                     && bool(informational, pointer + "/ack_informational", NAME_ACK_INFORMATIONAL);
         }
 
         private Optional<Long> grace(JsonNode worker, String pointer) {
-            var grace = optional(worker, NAME_SILENCE_GRACE_SECONDS);
+            @Nullable JsonNode grace = optional(worker, NAME_SILENCE_GRACE_SECONDS).orElse(null);
             if (grace == null || grace.isNull()) {
                 return Optional.empty();
             }
@@ -1478,8 +1482,8 @@ public final class ProfileValidator {
                     "the member '%s' is missing".formatted(member)));
         }
 
-        private JsonNode optional(JsonNode node, String member) {
-            return node.member(member).orElse(null);
+        private Optional<JsonNode> optional(JsonNode node, String member) {
+            return node.member(member);
         }
 
         private String text(JsonNode node, String pointer, String name, int max) {

@@ -74,7 +74,7 @@ public record FindingSourceKey(FindingSourceKind kind, @Nullable String provider
      * @param value the value to check; may be {@code null}
      * @return whether the value is a valid provider id
      */
-    public static boolean isProviderId(String value) {
+    public static boolean isProviderId(@Nullable String value) {
         return value != null && PROVIDER_ID.matcher(value).matches();
     }
 }

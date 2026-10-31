@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.spi.validation;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -101,7 +103,7 @@ public record SelfReviewSubmission(List<ItemResult> results) {
      * @param evidence for {@code respected} and {@code followed}, the evidence; may be {@code null} otherwise
      * @since 0.1
      */
-    public record ItemResult(String itemId, Verdict verdict, String evidence) {
+    public record ItemResult(String itemId, Verdict verdict, @Nullable String evidence) {
 
         /**
          * @throws NullPointerException if a value is {@code null}
@@ -224,7 +226,7 @@ public record SelfReviewSubmission(List<ItemResult> results) {
      * @param id an item identifier
      * @return the kind of the item; empty when the identifier is none of the record's
      */
-    public static Optional<ItemKind> kindOf(String id) {
+    public static Optional<ItemKind> kindOf(@Nullable String id) {
         if (id == null) {
             return Optional.empty();
         }

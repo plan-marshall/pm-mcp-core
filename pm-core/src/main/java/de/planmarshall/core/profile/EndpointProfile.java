@@ -191,7 +191,7 @@ public record EndpointProfile(String clientId, @Nullable String executable, @Nul
         }
         var block = profile.member("endpoint").orElseThrow();
         return new EndpointProfile(ProfileValidator.clientId(profile),
-                member(profile, "executable"),
+                member(profile, "executable").orElse(null),
                 identity(profile).orElse(null),
                 updateEvidence(profile).orElse(null),
                 endpoint(block),
@@ -228,21 +228,21 @@ public record EndpointProfile(String clientId, @Nullable String executable, @Nul
             return Optional.empty();
         }
         return Optional.of(new UpdateEvidence(declared.member("method").flatMap(JsonNode::text).orElse("none"),
-                member(declared, "signer")));
+                member(declared, "signer").orElse(null)));
     }
 
     private static Endpoint endpoint(JsonNode block) {
         return new Endpoint(block.member("protocol").flatMap(JsonNode::text).orElseThrow(),
                 block.member("locality").flatMap(JsonNode::text).orElseThrow(),
                 block.member("base_url").flatMap(JsonNode::text).orElseThrow(),
-                member(block, "readiness_path"),
+                member(block, "readiness_path").orElse(null),
                 block.member("models_path").flatMap(JsonNode::text).orElseThrow(),
                 block.member("models_pointer").flatMap(JsonNode::text).orElseThrow(),
                 block.member("result_schema").flatMap(JsonNode::text).orElseThrow(),
                 integer(block, "context_tokens"),
                 integer(block, "answer_reserve_tokens"),
                 integer(block, "request_timeout_seconds"),
-                member(block, "credential_key"));
+                member(block, "credential_key").orElse(null));
     }
 
     private static Map<String, String> tiers(JsonNode profile) {
@@ -252,20 +252,20 @@ public record EndpointProfile(String clientId, @Nullable String executable, @Nul
         return tiers;
     }
 
-    private static Optional<WeightsProbe> weightsProbe(JsonNode declared) {
+    private static Optional<WeightsProbe> weightsProbe(@Nullable JsonNode declared) {
         if (declared == null || declared.isNull()) {
             return Optional.empty();
         }
         var argv = declared.member("argv").orElse(null);
         return Optional.of(new WeightsProbe(declared.member("source").flatMap(JsonNode::text).orElseThrow(),
-                member(declared, "pointer"),
+                member(declared, "pointer").orElse(null),
                 argv == null || argv.isNull() ? null
                         : argv.elements().stream().map(value -> value.text().orElse("")).toList(),
-                member(declared, "pattern")));
+                member(declared, "pattern").orElse(null)));
     }
 
-    private static String member(JsonNode node, String name) {
-        return node.member(name).filter(value -> !value.isNull()).flatMap(JsonNode::text).orElse(null);
+    private static Optional<String> member(JsonNode node, String name) {
+        return node.member(name).filter(value -> !value.isNull()).flatMap(JsonNode::text);
     }
 
     private static int integer(JsonNode node, String name) {
