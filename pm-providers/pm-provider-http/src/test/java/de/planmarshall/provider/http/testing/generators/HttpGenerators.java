@@ -19,7 +19,8 @@ import de.planmarshall.provider.http.Response;
 
 /**
  * Registers the generator artifact of {@code pm-provider-http} in one place: one factory method per
- * {@link TypedGenerator}, for {@code @TypeGeneratorFactorySource(factoryClass = HttpGenerators.class,
+ * {@link TypedGenerator}, plus {@link #endpointAt(URI)} for a test that has just started its own mock server. The
+ * factory is named for {@code @TypeGeneratorFactorySource(factoryClass = HttpGenerators.class,
  * factoryMethod = "endpoints")}.
  *
  * @since 0.1

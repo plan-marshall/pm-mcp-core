@@ -13,6 +13,7 @@ import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.TypedGenerator;
 import java.net.URI;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.provider.http.Endpoint;
 
@@ -25,7 +26,7 @@ import de.planmarshall.provider.http.Endpoint;
  */
 public final class EndpointGenerator implements TypedGenerator<Endpoint> {
 
-    private final URI fixedBaseUri;
+    private final @Nullable URI fixedBaseUri;
 
     /** Creates the generator of a generated base URI. */
     public EndpointGenerator() {

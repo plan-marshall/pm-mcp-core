@@ -85,7 +85,9 @@ its own pull request.
 ### Generator Artifacts
 
 Four modules publish their test scope as a `tests`-classified test JAR, built by `verify` and deployed with the
-`SNAPSHOT` like every other artifact of the repository:
+`SNAPSHOT` like every other artifact of the repository. The three new generator artifacts carry only their generator
+package; `pm-runtime:tests` carries its whole test scope, because the assembly already consumes `TestBases` and the
+fakes there:
 
 - `pm-core:tests` — consumable by `pm-workflow`, `pm-runtime` and every provider module.
 - `pm-provider-http:tests` — consumable by `pm-provider-github`, `pm-provider-gitlab` and `pm-provider-sonar`.

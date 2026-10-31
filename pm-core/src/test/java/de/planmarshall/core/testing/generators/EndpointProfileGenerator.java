@@ -17,8 +17,8 @@ import de.planmarshall.core.profile.EndpointProfile;
 
 /**
  * Generates a valid {@link EndpointProfile} in the loopback form of the {@code openai_chat} protocol: the serving
- * program, the identity probe, the update evidence and the weights probe are absent, and the client id, the endpoint
- * block and the model tiers carry generated values.
+ * program, the identity probe, the update evidence and the weights probe are absent; the client id, the base URL
+ * (with its generated port) and the model tier carry generated values.
  *
  * @since 0.1
  */

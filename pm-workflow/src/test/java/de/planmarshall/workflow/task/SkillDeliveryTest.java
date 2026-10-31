@@ -49,7 +49,8 @@ class SkillDeliveryTest {
     void newGeneration() {
         var delivery = new SkillDelivery();
 
-        assertEquals(List.of(skill), delivery.deliver(TaskFixtures.GENERATION, List.of(skill)));
+        assertEquals(List.of(skill), delivery.deliver(TaskFixtures.GENERATION, List.of(skill)),
+                "A new generation receives the skill");
     }
 
     @Test
@@ -58,7 +59,8 @@ class SkillDeliveryTest {
         var delivery = new SkillDelivery();
         delivery.deliver(TaskFixtures.GENERATION, List.of(skill));
 
-        assertTrue(delivery.deliver(TaskFixtures.GENERATION, List.of(skill)).isEmpty());
+        assertTrue(delivery.deliver(TaskFixtures.GENERATION, List.of(skill)).isEmpty(),
+                "An unchanged skill is not delivered");
     }
 
     @Test
@@ -68,9 +70,12 @@ class SkillDeliveryTest {
         delivery.deliver(TaskFixtures.GENERATION, List.of(skill));
         var changed = new RoleSkill(skill.uri(), otherDigest);
 
-        assertEquals(List.of(changed), delivery.deliver(TaskFixtures.GENERATION, List.of(changed)));
-        assertEquals(List.of(changed), delivery.deliver(TaskFixtures.SUCCESSOR, List.of(changed)));
+        assertEquals(List.of(changed), delivery.deliver(TaskFixtures.GENERATION, List.of(changed)),
+                "A changed digest is delivered again");
+        assertEquals(List.of(changed), delivery.deliver(TaskFixtures.SUCCESSOR, List.of(changed)),
+                "The successor generation receives the skill");
         assertEquals(Map.of(skill.uri(), otherDigest),
-                delivery.recordOf(TaskFixtures.SUCCESSOR));
+                delivery.recordOf(TaskFixtures.SUCCESSOR),
+                "The record names the delivered digest");
     }
 }

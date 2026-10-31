@@ -17,8 +17,8 @@ import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.plan.UnitReference;
 
 /**
- * Generates a valid {@link UnitReference} of a project unit: a generated unit id, its file and a generated SHA-256
- * digest.
+ * Generates a valid {@link UnitReference} of a project unit: a generated unit id, its file and a 64-digit lower-case
+ * hexadecimal digest (the record checks the shape, not that it hashes the unit text).
  *
  * @since 0.1
  */
