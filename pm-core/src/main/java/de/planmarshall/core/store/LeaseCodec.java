@@ -197,7 +197,11 @@ public class LeaseCodec {
         }
     }
 
-    private static LeaseOwner readOwner(JsonParser parser) throws IOException {
+    static LeaseOwner readOwner(JsonParser parser) throws IOException {
+        return readOwner(parser, false);
+    }
+
+    static LeaseOwner readOwner(JsonParser parser, boolean requireOrphanedAt) throws IOException {
         requireObject(parser, FIELD_OWNER);
         @Nullable String projectId = null;
         @Nullable ScopeType scopeType = null;
@@ -216,7 +220,13 @@ public class LeaseCodec {
                 default -> throw undeclared(field);
             }
         }
-        requireFields(seen, FIELD_OWNER, FIELD_PROJECT_ID, FIELD_SCOPE_TYPE, FIELD_SCOPE_ID, FIELD_HOLDER_INSTANCE);
+        if (requireOrphanedAt) {
+            requireFields(seen, FIELD_OWNER, FIELD_PROJECT_ID, FIELD_SCOPE_TYPE, FIELD_SCOPE_ID, FIELD_HOLDER_INSTANCE,
+                    FIELD_ORPHANED_AT);
+        } else {
+            requireFields(seen, FIELD_OWNER, FIELD_PROJECT_ID, FIELD_SCOPE_TYPE, FIELD_SCOPE_ID,
+                    FIELD_HOLDER_INSTANCE);
+        }
         if (scopeType.hasScopeId() && scopeId == null) {
             throw unreadable("'scope_id' must be set for the scope type '%s'".formatted(scopeType.wireName()));
         }
@@ -227,7 +237,7 @@ public class LeaseCodec {
         }
     }
 
-    private static HolderInstance readHolder(JsonParser parser) throws IOException {
+    static HolderInstance readHolder(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_HOLDER_INSTANCE);
         long runtimePid = 0;
         @Nullable Instant runtimeStartedAt = null;

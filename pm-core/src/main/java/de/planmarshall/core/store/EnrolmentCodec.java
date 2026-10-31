@@ -230,7 +230,7 @@ public class EnrolmentCodec {
             generator.writeEndObject();
         }
         generator.writeEndArray();
-        writeNullableString(generator, FIELD_INTERPRETER, interpreter(wrapper.interpreter()));
+        writeNullableString(generator, FIELD_INTERPRETER, interpreter(wrapper.interpreter()).orElse(null));
         generator.writeEndObject();
     }
 
@@ -239,7 +239,7 @@ public class EnrolmentCodec {
         generator.writeStringField(FIELD_NAME, tool.name().wireName());
         generator.writeStringField(FIELD_EXECUTABLE_PATH, tool.executablePath());
         generator.writeStringField(FIELD_SHA256, tool.sha256());
-        writeNullableString(generator, FIELD_INTERPRETER, interpreter(tool.interpreter()));
+        writeNullableString(generator, FIELD_INTERPRETER, interpreter(tool.interpreter()).orElse(null));
         writeNullableString(generator, FIELD_VERSION, tool.version());
         generator.writeEndObject();
     }
@@ -363,8 +363,8 @@ public class EnrolmentCodec {
         }
     }
 
-    private static String interpreter(@Nullable Interpreter interpreter) {
-        return interpreter == null ? null : interpreter.wireName();
+    private static Optional<String> interpreter(@Nullable Interpreter interpreter) {
+        return interpreter == null ? Optional.empty() : Optional.of(interpreter.wireName());
     }
 
     private static ProjectEnrolment readDocument(JsonParser parser) throws IOException {

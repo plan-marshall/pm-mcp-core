@@ -227,7 +227,7 @@ public class ModelSlotCodec {
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {
-                case FIELD_OWNER -> owner = readOwner(parser);
+                case FIELD_OWNER -> owner = LeaseCodec.readOwner(parser, true);
                 case FIELD_JOB_ID -> jobId = string(parser, field);
                 case FIELD_ROLE -> role = string(parser, field);
                 case FIELD_CLASS -> workerClass = workerClass(parser, field);
@@ -261,7 +261,7 @@ public class ModelSlotCodec {
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {
-                case FIELD_OWNER -> owner = readOwner(parser);
+                case FIELD_OWNER -> owner = LeaseCodec.readOwner(parser, true);
                 case FIELD_JOB_ID -> jobId = string(parser, field);
                 case FIELD_ROLE -> role = string(parser, field);
                 case FIELD_CLASS -> workerClass = workerClass(parser, field);
@@ -285,58 +285,6 @@ public class ModelSlotCodec {
     private static void requireWriterPlan(WorkerClass workerClass, String planId) {
         if (workerClass == WorkerClass.WRITER && planId == null) {
             throw unreadable("'plan_id' must be set for a writer worker");
-        }
-    }
-
-    private static LeaseOwner readOwner(JsonParser parser) throws IOException {
-        requireObject(parser, FIELD_OWNER);
-        @Nullable String projectId = null;
-        @Nullable ScopeType scopeType = null;
-        @Nullable String scopeId = null;
-        @Nullable HolderInstance holder = null;
-        @Nullable Instant orphanedAt = null;
-        var seen = new HashSet<String>();
-        while (parser.nextToken() == JsonToken.FIELD_NAME) {
-            var field = nextField(parser, seen);
-            switch (field) {
-                case FIELD_PROJECT_ID -> projectId = string(parser, field);
-                case FIELD_SCOPE_TYPE -> scopeType = scopeType(string(parser, field));
-                case FIELD_SCOPE_ID -> scopeId = nullableString(parser, field);
-                case FIELD_HOLDER_INSTANCE -> holder = readHolder(parser);
-                case FIELD_ORPHANED_AT -> orphanedAt = nullableInstant(parser, field);
-                default -> throw undeclared(field);
-            }
-        }
-        requireFields(seen, FIELD_OWNER, FIELD_PROJECT_ID, FIELD_SCOPE_TYPE, FIELD_SCOPE_ID, FIELD_HOLDER_INSTANCE,
-                FIELD_ORPHANED_AT);
-        if (scopeType.hasScopeId() && scopeId == null) {
-            throw unreadable("'scope_id' must be set for the scope type '%s'".formatted(scopeType.wireName()));
-        }
-        try {
-            return new LeaseOwner(projectId, scopeType, scopeId, holder, orphanedAt);
-        } catch (IllegalArgumentException e) {
-            throw unreadable(e.getMessage(), e);
-        }
-    }
-
-    private static HolderInstance readHolder(JsonParser parser) throws IOException {
-        requireObject(parser, FIELD_HOLDER_INSTANCE);
-        long runtimePid = 0;
-        @Nullable Instant runtimeStartedAt = null;
-        var seen = new HashSet<String>();
-        while (parser.nextToken() == JsonToken.FIELD_NAME) {
-            var field = nextField(parser, seen);
-            switch (field) {
-                case FIELD_RUNTIME_PID -> runtimePid = integer(parser, field);
-                case FIELD_RUNTIME_STARTED_AT -> runtimeStartedAt = instant(parser, field);
-                default -> throw undeclared(field);
-            }
-        }
-        requireFields(seen, FIELD_HOLDER_INSTANCE, FIELD_RUNTIME_PID, FIELD_RUNTIME_STARTED_AT);
-        try {
-            return new HolderInstance(runtimePid, runtimeStartedAt);
-        } catch (IllegalArgumentException e) {
-            throw unreadable(e.getMessage(), e);
         }
     }
 

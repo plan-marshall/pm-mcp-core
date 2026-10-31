@@ -37,6 +37,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import lombok.experimental.UtilityClass;
 
@@ -195,7 +196,7 @@ public class QuestionRecordCodec {
             writeAnswer(generator, question.answer());
         }
         writeText(generator, required, FIELD_CHANNEL,
-                question.channel() == null ? null : question.channel().wireName());
+                Optional.ofNullable(question.channel()).map(channel -> channel.wireName()).orElse(null));
         writeText(generator, required, FIELD_DEVICE_ID, question.deviceId());
         writeText(generator, required, FIELD_AMENDMENT_ID, question.amendmentId());
         writeText(generator, required, FIELD_REASON, question.reason());
@@ -240,19 +241,20 @@ public class QuestionRecordCodec {
         }
         writeNullable(generator, FIELD_OWN_WORDS, answer.ownWords());
         writeNullable(generator, FIELD_NOTE, answer.note());
-        var interpretation = answer.interpretation();
-        if (interpretation == null) {
+        var interpretation = Optional.ofNullable(answer.interpretation());
+        if (interpretation.isEmpty()) {
             generator.writeNullField(FIELD_INTERPRETATION);
         } else {
+            var value = interpretation.get();
             generator.writeObjectFieldStart(FIELD_INTERPRETATION);
-            generator.writeStringField(FIELD_RESULT, interpretation.result().wireName());
-            writeNullable(generator, FIELD_CONDITION, interpretation.condition());
+            generator.writeStringField(FIELD_RESULT, value.result().wireName());
+            writeNullable(generator, FIELD_CONDITION, value.condition());
             generator.writeArrayFieldStart(FIELD_PASSAGES);
-            for (var passage : interpretation.passages()) {
+            for (var passage : value.passages()) {
                 generator.writeString(passage);
             }
             generator.writeEndArray();
-            generator.writeStringField(FIELD_QUEUE_TASK_ID, interpretation.queueTaskId());
+            generator.writeStringField(FIELD_QUEUE_TASK_ID, value.queueTaskId());
             generator.writeEndObject();
         }
         generator.writeBooleanField(FIELD_AFTER_CHAT, answer.afterChat());
@@ -398,7 +400,7 @@ public class QuestionRecordCodec {
             switch (field) {
                 case FIELD_KIND -> kind = closed(parser, field, AnswerKind.class);
                 case FIELD_BRANCH_KEYS -> branchKeys = stringList(parser, field);
-                case FIELD_VALUE -> value = readValue(parser);
+                case FIELD_VALUE -> value = readValue(parser).orElse(null);
                 case FIELD_OWN_WORDS -> ownWords = nullableString(parser, field);
                 case FIELD_NOTE -> note = nullableString(parser, field);
                 case FIELD_INTERPRETATION -> interpretation = parser.currentToken() == JsonToken.VALUE_NULL ? null
@@ -416,11 +418,11 @@ public class QuestionRecordCodec {
         }
     }
 
-    private static AnswerValue readValue(JsonParser parser) throws IOException {
+    private static Optional<AnswerValue> readValue(JsonParser parser) throws IOException {
         return switch (parser.currentToken()) {
-            case VALUE_NULL -> null;
-            case VALUE_STRING -> new AnswerValue.Text(parser.getText());
-            case VALUE_NUMBER_INT, VALUE_NUMBER_FLOAT -> new AnswerValue.Numeric(parser.getDecimalValue());
+            case VALUE_NULL -> Optional.empty();
+            case VALUE_STRING -> Optional.of(new AnswerValue.Text(parser.getText()));
+            case VALUE_NUMBER_INT, VALUE_NUMBER_FLOAT -> Optional.of(new AnswerValue.Numeric(parser.getDecimalValue()));
             case null, default -> throw unreadable("'%s' must be a string, a number or null".formatted(FIELD_VALUE));
         };
     }
