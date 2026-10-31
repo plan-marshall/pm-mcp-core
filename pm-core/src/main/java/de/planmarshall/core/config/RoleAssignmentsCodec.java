@@ -223,9 +223,7 @@ public class RoleAssignmentsCodec {
             switch (field) {
                 case FIELD_HARNESS -> harness = string(parser, field);
                 case FIELD_MODEL -> model = string(parser, field);
-                case FIELD_EFFORT -> {
-                    effort = nullableString(parser, field).map(EffortValue::new);
-                }
+                case FIELD_EFFORT -> effort = nullableString(parser, field).map(EffortValue::new);
                 default -> throw undeclared(field);
             }
         }

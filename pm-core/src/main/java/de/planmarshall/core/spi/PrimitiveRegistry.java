@@ -79,7 +79,7 @@ public final class PrimitiveRegistry {
             var outcomes = checkedOutcomes(id, primitive);
             checkJobSideEffect(id, primitive, outcomes);
             checkCycle(id, primitive, outcomes);
-            if (Optional.ofNullable(primitive.awaitedEvent()).isEmpty()) {
+            if (present(primitive.awaitedEvent()).isEmpty()) {
                 throw new PrimitiveRegistrationException(id, Reason.MISSING_AWAITED_EVENT,
                         "declares no awaited event");
             }
@@ -180,7 +180,7 @@ public final class PrimitiveRegistry {
                 throw new PrimitiveRegistrationException(id, Reason.DUPLICATE_WIRE_NAME,
                         "has the outcomes %s and %s with the same wire name '%s'".formatted(first, outcome, wireName));
             }
-            if (Optional.ofNullable(outcome.outcomeClass()).isEmpty()) {
+            if (present(outcome.outcomeClass()).isEmpty()) {
                 throw new PrimitiveRegistrationException(id, Reason.MISSING_OUTCOME_CLASS,
                         "has the outcome %s without an outcome class".formatted(outcome));
             }
@@ -203,7 +203,7 @@ public final class PrimitiveRegistry {
 
     private static void checkCycle(String id, Primitive<?, ?> primitive, List<PrimitiveOutcome> outcomes) {
         var measure = primitive.cycleMeasure();
-        if (Optional.ofNullable(measure).isEmpty()) {
+        if (present(measure).isEmpty()) {
             throw new PrimitiveRegistrationException(id, Reason.MISSING_CYCLE_MEASURE, "declares no cycle measure");
         }
         var exhaustions = declaredExhaustions(primitive);
@@ -233,6 +233,10 @@ public final class PrimitiveRegistry {
     }
 
     private static String nameOf(@Nullable Class<?> type) {
-        return Optional.ofNullable(type).map(Class::getName).orElse("null");
+        return present(type).map(Class::getName).orElse("null");
+    }
+
+    private static <T> Optional<T> present(@Nullable T value) {
+        return Optional.ofNullable(value);
     }
 }

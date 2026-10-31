@@ -175,9 +175,7 @@ public record DefaultAssignment(Map<String, DefaultRole> roles) {
             var field = nextField(parser, seen);
             switch (field) {
                 case FIELD_TIER -> tier = string(parser, field);
-                case FIELD_EFFORT -> {
-                    effort = nullableString(parser, field).map(EffortValue::new);
-                }
+                case FIELD_EFFORT -> effort = nullableString(parser, field).map(EffortValue::new);
                 case FIELD_PREFERRED_HARNESS -> preferredHarness = string(parser, field);
                 case FIELD_ADVISORY -> advisory = string(parser, field);
                 default -> throw undeclared(field);

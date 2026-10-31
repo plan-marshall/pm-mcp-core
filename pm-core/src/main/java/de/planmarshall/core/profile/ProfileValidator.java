@@ -462,7 +462,7 @@ public final class ProfileValidator {
             }
         }
 
-        private void remoteRules(EndpointBlock block, String executable, boolean hasIdentity,
+        private void remoteRules(EndpointBlock block, @Nullable String executable, boolean hasIdentity,
                 boolean hasUpdateEvidence, boolean hasArgvWeightsProbe) {
             if (hasArgvWeightsProbe) {
                 throw invalid("/weights_probe/source",
@@ -499,7 +499,7 @@ public final class ProfileValidator {
             }
         }
 
-        private void loopbackRules(EndpointBlock block, String executable, boolean hasIdentity) {
+        private void loopbackRules(EndpointBlock block, @Nullable String executable, boolean hasIdentity) {
             var loopback = LOOPBACK_URL.matcher(block.baseUrl());
             if (!loopback.matches()) {
                 throw invalid(PTR_BASE_URL,
