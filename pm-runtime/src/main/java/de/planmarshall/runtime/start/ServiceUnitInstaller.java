@@ -12,6 +12,8 @@ package de.planmarshall.runtime.start;
 import de.cuioss.tools.logging.CuiLogger;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
@@ -107,11 +109,11 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
             try {
                 unit.remove();
             } catch (ServiceUnitException e) {
-                throw firstOf(failure, e);
+                throw firstOf(failure, Optional.of(e)).orElseThrow();
             }
             var unloadFailure = callManager("unload", () -> manager.unload(path));
-            if (failure != null || unloadFailure != null) {
-                throw firstOf(failure, unloadFailure);
+            if (failure.isPresent() || unloadFailure.isPresent()) {
+                throw firstOf(failure, unloadFailure).orElseThrow();
             }
         }
         LOGGER.info(INFO.SERVICE_UNIT_UNINSTALLED, path);
@@ -213,28 +215,27 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
     /**
      * Runs one step of the service manager and logs its failure.
      *
-     * @return the failure, or {@code null} if the step succeeded
+     * @return the failure, or empty if the step succeeded
      */
-    private static ServiceUnitException callManager(String operation, Runnable step) {
+    private static Optional<ServiceUnitException> callManager(String operation, Runnable step) {
         try {
             step.run();
-            return null;
+            return Optional.empty();
         } catch (ServiceUnitException e) {
             LOGGER.error(e, ERROR.SERVICE_MANAGER_FAILED, operation, e.getMessage());
-            return e;
+            return Optional.of(e);
         }
     }
 
     /**
      * @return {@code first} with {@code later} suppressed, or {@code later} when there is no first failure
      */
-    private static ServiceUnitException firstOf(ServiceUnitException first, ServiceUnitException later) {
-        if (first == null) {
+    private static Optional<ServiceUnitException> firstOf(Optional<ServiceUnitException> first,
+            Optional<ServiceUnitException> later) {
+        if (first.isEmpty()) {
             return later;
         }
-        if (later != null) {
-            first.addSuppressed(later);
-        }
+        later.ifPresent(first.get()::addSuppressed);
         return first;
     }
 }

@@ -66,7 +66,8 @@ class JsonTest {
     void rejects() {
         assertThrows(Json.JsonFormatException.class, () -> Json.parse(""));
         assertThrows(Json.JsonFormatException.class, () -> Json.parse("{\"a\":"));
-        assertNull(Json.parseOrNull("<html>"));
+        assertTrue(Json.parseOrNull("<html>").isEmpty(), "Text that is not JSON yields no tree");
+        assertTrue(Json.parseOrNull("null").isEmpty(), "The JSON null literal yields no tree");
     }
 
     @Test

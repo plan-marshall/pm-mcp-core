@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
@@ -42,14 +43,16 @@ class ActivityEventMappingTest {
             """;
 
     private static ActivityEventMapping mapping() {
-        return ActivityEventMapping.of(JsonDocument.parse(EVENTS.getBytes(StandardCharsets.UTF_8), "events"));
+        return ActivityEventMapping.of(JsonDocument.parse(EVENTS.getBytes(StandardCharsets.UTF_8), "events"))
+                .orElseThrow();
     }
 
     @Test
     @DisplayName("a null events value is a harness without an event stream")
     void nullMapping() {
-        assertNull(ActivityEventMapping.of(
-                JsonDocument.parse("null".getBytes(StandardCharsets.UTF_8), "events")));
+        assertTrue(ActivityEventMapping.of(
+                        JsonDocument.parse("null".getBytes(StandardCharsets.UTF_8), "events")).isEmpty(),
+                "A null events value yields no mapping");
     }
 
     @Test
@@ -86,7 +89,7 @@ class ActivityEventMappingTest {
                     "turn": { "match": [], "stop_reason": null }
                   }
                 }
-                """.getBytes(StandardCharsets.UTF_8), "events"));
+                """.getBytes(StandardCharsets.UTF_8), "events")).orElseThrow();
 
         assertNull(mapping.kinds().get(ActivityEntry.Kind.TURN).stopReasonPointer());
         assertNull(mapping.kinds().get(ActivityEntry.Kind.TOOL_RESULT).isErrorPointer());

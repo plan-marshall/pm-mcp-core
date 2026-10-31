@@ -52,6 +52,7 @@ import de.planmarshall.workflow.ast.UnitFrontmatter;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
 import de.planmarshall.workflow.setup.MachineOnboarding;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The static verifier of one workflow unit (PM-IMPL-5, PM-TEST-3): it runs every check of {@link VerificationRule}
@@ -1266,7 +1267,7 @@ public final class WorkflowValidator {
                         : "not the phase's fallback state 'plan.return' or 'finalize.hand-back'";
                 case EPIC, WORKSPACE, MACHINE, ENTITY -> isRestingState(target) ? null
                         : "not a resting state of the unit";
-                case SUBWORKFLOW -> subWorkflowSteppedOutDetail(definition, target, targetClass);
+                case SUBWORKFLOW -> subWorkflowSteppedOutDetail(definition, target, targetClass).orElse(null);
             };
         }
         if (detail != null) {
@@ -1276,23 +1277,24 @@ public final class WorkflowValidator {
     }
 
     /**
-     * @return {@code null} when a sub-workflow may route {@code stepped_out} to the target, otherwise what the target
+     * @return an empty value when a sub-workflow may route {@code stepped_out} to the target, otherwise what the target
      *         is not
      */
-    private static String subWorkflowSteppedOutDetail(WorkflowDefinition definition, StateNode target,
+    private static Optional<String> subWorkflowSteppedOutDetail(WorkflowDefinition definition, StateNode target,
             Optional<OutcomeClass> targetClass) {
         var continuesStepOut = target.behavior() instanceof StateBehavior.InteractiveLinks
                 || targetClass.filter(outcomeClass -> outcomeClass == OutcomeClass.STEPPED_OUT
                 || outcomeClass == OutcomeClass.FAILURE).isPresent();
         if (continuesStepOut) {
-            return null;
+            return Optional.empty();
         }
         if (!definition.id().startsWith(REMEDIATION_UNIT_PREFIX)) {
-            return "neither a terminal of class STEPPED_OUT or FAILURE nor a link state that continues the step-out";
+            return Optional.of(
+                    "neither a terminal of class STEPPED_OUT or FAILURE nor a link state that continues the step-out");
         }
-        return isBudgetCheck(target) ? null
-                : "neither a terminal of class STEPPED_OUT or FAILURE, nor a link state that continues the step-out, nor the budget re-check 'remediation-<class>%s' running '%s'"
-                .formatted(BUDGET_CHECK_SUFFIX, CHECK_BUDGETS);
+        return isBudgetCheck(target) ? Optional.empty()
+                : Optional.of("neither a terminal of class STEPPED_OUT or FAILURE, nor a link state that continues the step-out, nor the budget re-check 'remediation-<class>%s' running '%s'"
+                .formatted(BUDGET_CHECK_SUFFIX, CHECK_BUDGETS));
     }
 
     /**
@@ -1834,7 +1836,7 @@ public final class WorkflowValidator {
      * A position of a pass of a dispatch hub: the state reached, the distinct steps settled on the way (at most two)
      * and the first of them completed a second time on the way ({@code null} while none is).
      */
-    private record PassPosition(String stateId, Set<String> settled, String repeated) {
+    private record PassPosition(String stateId, Set<String> settled, @Nullable String repeated) {
     }
 
     /**

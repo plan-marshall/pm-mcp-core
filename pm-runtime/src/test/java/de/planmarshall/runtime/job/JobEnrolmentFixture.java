@@ -212,6 +212,20 @@ final class JobEnrolmentFixture implements AutoCloseable {
                 enrolment.commandBudgets(), enrolment.writePaths(), enrolment.buildEnvironment());
     }
 
+    /** @return the enrolment whose host tool of that name names another executable path */
+    static ProjectEnrolment withHostToolPath(ProjectEnrolment enrolment, HostToolName name, String path) {
+        var tools = enrolment.hostTools().stream()
+                .map(tool -> tool.name() == name
+                        ? new HostTool(tool.name(), path, tool.sha256(), tool.interpreter(), tool.version())
+                        : tool)
+                .toList();
+        return new ProjectEnrolment(enrolment.projectId(), enrolment.projectRoot(), enrolment.enrolledAt(),
+                enrolment.pilot(), enrolment.containerEngine(), enrolment.releasedAt(), enrolment.wrappers(),
+                tools, enrolment.build(), enrolment.providers(), enrolment.projectScripts(),
+                enrolment.languageServers(), enrolment.commandBudgets(), enrolment.writePaths(),
+                enrolment.buildEnvironment());
+    }
+
     /** Enrols the project over the files of the tree as they are now. */
     ProjectEnrolment enrol() {
         return enrol(enrolment());

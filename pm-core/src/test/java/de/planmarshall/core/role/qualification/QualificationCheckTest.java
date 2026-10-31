@@ -317,9 +317,22 @@ class QualificationCheckTest {
 
         assertAll(
                 () -> assertEquals(new BigDecimal("50"), check.catchRate(measured,
-                        RoleForm.FRESH)),
+                        RoleForm.FRESH).orElseThrow()),
                 () -> assertFalse(verdict.qualified()),
                 () -> assertTrue(codes(verdict).contains(Code.CATCH_RATE_BELOW_LEVEL)));
+    }
+
+    @Test
+    @DisplayName("a form without a graded result has no catch rate")
+    void catchRateOfUngradedForm() {
+        var qualification = QualificationFixtures.qualification(Map.of(Topic.OWN, NINETY));
+        var measured = new QualificationRecord(qualification.role(), qualification.qualificationDigest(),
+                qualification.configuration(), qualification.corpusRevision(), List.of(), qualification.forms(), null,
+                0, qualification.gradedAt(), List.of());
+        var check = new QualificationCheck(new RoleTopics(EnumSet.of(Topic.OWN)), List.of(),
+                QualificationFixtures.settings(80));
+
+        assertTrue(check.catchRate(measured, RoleForm.WARM).isEmpty(), "An ungraded form has no catch rate");
     }
 
     private static QualificationRecord.ItemResult result(String itemId, String answer) {

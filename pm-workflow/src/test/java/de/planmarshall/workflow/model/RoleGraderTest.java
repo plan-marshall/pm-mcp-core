@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
@@ -140,6 +141,8 @@ class RoleGraderTest {
                     fixtures.grader.grade(plan, GradingConsent.GRANTED));
 
             assertFalse(graded.entry().form(RoleForm.WARM).isPresent());
+            assertNull(graded.entry().warmFreshGap(),
+                    "a fresh-only grading has no warm-fresh gap");
             assertEquals(GradingProfile.SCREENER_RUNS, graded.entry().items().size());
         }
     }

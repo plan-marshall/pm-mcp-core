@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.role.corpus;
 
+import org.jspecify.annotations.Nullable;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -131,14 +133,14 @@ public final class CorpusValidator {
 
         private final List<CorpusViolation> violations = new ArrayList<>();
         private final Set<String> seen = new HashSet<>();
-        private JsonValue itemSchema;
+        private @Nullable JsonValue itemSchema;
 
         private List<CorpusViolation> corpus() {
             if (!Files.isDirectory(corpusRoot)) {
                 add(CORPUS, Rule.UNREADABLE, "the corpus root %s is no directory".formatted(corpusRoot));
                 return List.copyOf(violations);
             }
-            itemSchema = itemSchema();
+            itemSchema = itemSchema().orElse(null);
             var files = files(corpusRoot, CORPUS);
             for (var file : files) {
                 var relative = relative(corpusRoot, file);
@@ -173,20 +175,20 @@ public final class CorpusValidator {
             return List.copyOf(violations);
         }
 
-        private JsonValue itemSchema() {
+        private Optional<JsonValue> itemSchema() {
             var file = corpusRoot.resolve(ITEM_SCHEMA);
             if (!Files.isRegularFile(file)) {
                 add(ITEM_SCHEMA, Rule.ITEM_SCHEMA, "the item schema is missing");
-                return null;
+                return Optional.empty();
             }
             try {
-                return JsonValue.parse(Files.readAllBytes(file));
+                return Optional.of(JsonValue.parse(Files.readAllBytes(file)));
             } catch (IOException e) {
                 add(ITEM_SCHEMA, Rule.UNREADABLE, describe(e));
             } catch (MalformedJson e) {
                 add(ITEM_SCHEMA, Rule.ITEM_SCHEMA, NOT_JSON + e.getMessage());
             }
-            return null;
+            return Optional.empty();
         }
 
         private void item(Path file, String id, boolean generated) {

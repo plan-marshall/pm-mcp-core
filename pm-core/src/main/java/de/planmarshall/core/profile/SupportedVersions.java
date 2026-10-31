@@ -9,9 +9,12 @@
  */
 package de.planmarshall.core.profile;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
@@ -81,11 +84,13 @@ public final class SupportedVersions {
         Version low = new Version(0, 0, 0, null);
         Version high = new Version(Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, null);
         for (var bound : bounds) {
-            low = bound.raise(low);
-            high = bound.lower(high);
-            if (low == null || high == null) {
+            var raised = bound.raise(low);
+            var lowered = bound.lower(high);
+            if (raised.isEmpty() || lowered.isEmpty()) {
                 return false;
             }
+            low = raised.get();
+            high = lowered.get();
         }
         return low.compareTo(high) <= 0;
     }
@@ -118,25 +123,19 @@ public final class SupportedVersions {
             };
         }
 
-        private Version raise(Version low) {
+        private Optional<Version> raise(Version low) {
             return switch (operator) {
-                case ">=", "=" -> version.compareTo(low) > 0 ? version : low;
-                case ">" -> {
-                    var next = version.next();
-                    yield next == null ? null : max(next, low);
-                }
-                default -> low;
+                case ">=", "=" -> Optional.of(version.compareTo(low) > 0 ? version : low);
+                case ">" -> version.next().map(candidate -> max(candidate, low));
+                default -> Optional.of(low);
             };
         }
 
-        private Version lower(Version high) {
+        private Optional<Version> lower(Version high) {
             return switch (operator) {
-                case "<=", "=" -> version.compareTo(high) < 0 ? version : high;
-                case "<" -> {
-                    var previous = version.previous();
-                    yield previous == null ? null : min(previous, high);
-                }
-                default -> high;
+                case "<=", "=" -> Optional.of(version.compareTo(high) < 0 ? version : high);
+                case "<" -> version.previous().map(candidate -> min(candidate, high));
+                default -> Optional.of(high);
             };
         }
 
@@ -149,35 +148,37 @@ public final class SupportedVersions {
         }
     }
 
-    private record Version(int major, int minor, int patch, String suffix) implements Comparable<Version> {
+    private record Version(int major, int minor, int patch, @Nullable String suffix) implements Comparable<Version> {
 
-        private Version next() {
+        private Optional<Version> next() {
             if (suffix != null) {
-                return new Version(major, minor, patch, null);
+                return Optional.of(new Version(major, minor, patch, null));
             }
             if (patch < Integer.MAX_VALUE) {
-                return new Version(major, minor, patch + 1, null);
+                return Optional.of(new Version(major, minor, patch + 1, null));
             }
             if (minor < Integer.MAX_VALUE) {
-                return new Version(major, minor + 1, 0, null);
+                return Optional.of(new Version(major, minor + 1, 0, null));
             }
-            return major < Integer.MAX_VALUE ? new Version(major + 1, 0, 0, null) : null;
+            return major < Integer.MAX_VALUE
+                    ? Optional.of(new Version(major + 1, 0, 0, null))
+                    : Optional.empty();
         }
 
-        private Version previous() {
+        private Optional<Version> previous() {
             if (suffix != null) {
-                return new Version(major, minor, patch, null);
+                return Optional.of(new Version(major, minor, patch, null));
             }
             if (patch > 0) {
-                return new Version(major, minor, patch - 1, null);
+                return Optional.of(new Version(major, minor, patch - 1, null));
             }
             if (minor > 0) {
-                return new Version(major, minor - 1, Integer.MAX_VALUE, null);
+                return Optional.of(new Version(major, minor - 1, Integer.MAX_VALUE, null));
             }
             if (major > 0) {
-                return new Version(major - 1, Integer.MAX_VALUE, Integer.MAX_VALUE, null);
+                return Optional.of(new Version(major - 1, Integer.MAX_VALUE, Integer.MAX_VALUE, null));
             }
-            return null;
+            return Optional.empty();
         }
 
         @Override

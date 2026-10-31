@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.profile.LoadedProfile;
@@ -64,10 +65,10 @@ import de.planmarshall.core.role.RoleClass;
 public record HeadlessBlock(String executable, List<String> argv, Map<RoleClass, List<String>> classArgs,
 AgentMode agentMode, McpConfig mcpConfig, Map<String, String> env, OutputFormat outputFormat,
 Map<String, String> modelTiers, Map<String, List<String>> modelEfforts, List<String> resourceTools,
-DataHome dataHome, SessionResidue sessionResidue, List<String> resumeArgv, Set<String> capabilities,
+@Nullable DataHome dataHome, SessionResidue sessionResidue, List<String> resumeArgv, Set<String> capabilities,
 UpdateEvidence updateEvidence, SupportedVersions supportedVersions, List<String> versionProbeArgv,
-String versionPattern, List<String> writablePaths, Map<String, String> usagePointers,
-ActivityEventMapping events) {
+@Nullable String versionPattern, List<String> writablePaths, Map<String, String> usagePointers,
+@Nullable ActivityEventMapping events) {
 
     /** Copies the collections. */
     public HeadlessBlock {
@@ -118,7 +119,7 @@ ActivityEventMapping events) {
                 tiers(headless.member("model_tiers").orElse(JsonNode.nullValue())),
                 efforts(headless.member("model_efforts").orElse(JsonNode.nullValue())),
                 strings(headless.member("resource_tools").orElse(JsonNode.nullValue())),
-                dataHome(headless.member("data_home").orElse(JsonNode.nullValue())),
+                dataHome(headless.member("data_home").orElse(JsonNode.nullValue())).orElse(null),
                 residue(text(headless, "session_residue").orElse("persisted")),
                 resumeArgv(headless.member("resumability").orElse(JsonNode.nullValue())),
                 capabilities(headless.member("capabilities").orElse(JsonNode.nullValue())),
@@ -130,7 +131,7 @@ ActivityEventMapping events) {
                         .orElse(null),
                 strings(headless.member("writable_paths").orElse(JsonNode.nullValue())),
                 usagePointers(headless.member("usage").orElse(JsonNode.nullValue())),
-                ActivityEventMapping.of(headless.member("events").orElse(JsonNode.nullValue())));
+                ActivityEventMapping.of(headless.member("events").orElse(JsonNode.nullValue())).orElse(null));
     }
 
     /**
@@ -265,11 +266,13 @@ ActivityEventMapping events) {
         return values;
     }
 
-    private static DataHome dataHome(JsonNode dataHome) {
+    /** @return the data home, or empty when the harness shares one store */
+    private static Optional<DataHome> dataHome(JsonNode dataHome) {
         if (dataHome.isNull()) {
-            return null;
+            return Optional.empty();
         }
-        return new DataHome(text(dataHome, "variable").orElseThrow(), text(dataHome, "login_file").orElseThrow());
+        return Optional.of(new DataHome(text(dataHome, "variable").orElseThrow(),
+                text(dataHome, "login_file").orElseThrow()));
     }
 
     private static SessionResidue residue(String name) {
@@ -434,7 +437,7 @@ ActivityEventMapping events) {
      * @param exclusive whether the harness connects only the servers of the per-call configuration
      * @since 0.1
      */
-    public record McpConfig(McpDelivery delivery, String path, boolean exclusive) {
+    public record McpConfig(McpDelivery delivery, @Nullable String path, boolean exclusive) {
     }
 
     /**
@@ -454,6 +457,6 @@ ActivityEventMapping events) {
      * @param signer the expected signer; {@code null} for the method {@code none}
      * @since 0.1
      */
-    public record UpdateEvidence(EvidenceMethod method, String signer) {
+    public record UpdateEvidence(EvidenceMethod method, @Nullable String signer) {
     }
 }

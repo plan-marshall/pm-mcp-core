@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -172,7 +173,7 @@ public final class RelayVersionCheck {
      *
      * @param relayVersion the value of the {@value #HEADER} header; {@code null} if the request carries none
      */
-    public void observe(String relayVersion) {
+    public void observe(@Nullable String relayVersion) {
         if (relayVersion == null || relayVersion.isBlank()) {
             return;
         }
@@ -186,7 +187,9 @@ public final class RelayVersionCheck {
             case Handover.Recorded recorded -> recorded;
             case Handover.Refused refused when clock.instant().isBefore(refused.at().plus(RETRY_INTERVAL)) -> refused;
             case Handover.Refused _ -> recordMismatch(key);
-            case null -> slots.incrementAndGet() <= MAX_RECORDED_VERSIONS ? recordMismatch(key) : untracked(key);
+            case null -> slots.incrementAndGet() <= MAX_RECORDED_VERSIONS
+                    ? recordMismatch(key)
+                    : untracked(key).orElse(null);
         });
     }
 
@@ -213,11 +216,11 @@ public final class RelayVersionCheck {
         }
     }
 
-    /** A version beyond the bound: it keeps no entry and is not recorded. */
-    private Handover untracked(String version) {
+    /** A version beyond the bound: it keeps no entry and is not recorded, so its hand-over is empty. */
+    private Optional<Handover> untracked(String version) {
         slots.decrementAndGet();
         LOGGER.debug("Relay version '%s' not recorded: %s distinct relay versions recorded already", version,
                 MAX_RECORDED_VERSIONS);
-        return null;
+        return Optional.empty();
     }
 }

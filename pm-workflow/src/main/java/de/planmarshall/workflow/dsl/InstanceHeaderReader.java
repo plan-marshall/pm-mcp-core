@@ -24,6 +24,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
 import de.planmarshall.workflow.ast.InstanceHeader;
 import de.planmarshall.workflow.ast.InstanceInputs;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Reads the one-line JSON of the {@code instance} line of a plan instance version into an {@link InstanceHeader}
@@ -89,18 +90,20 @@ final class InstanceHeaderReader {
             if (parser.nextToken() != JsonToken.START_OBJECT) {
                 throw new HeaderRefusal("the instance header is not a JSON object", tokenColumn(parser));
             }
-            String planId = null;
+            @Nullable String planId = null;
             var version = 0;
-            String event = null;
-            InstanceInputs inputs = null;
+            @Nullable String event = null;
+            @Nullable InstanceInputs inputs = null;
             var seen = new HashSet<String>();
-            for (var field = nextMember(parser, ROOT, seen); field != null; field = nextMember(parser, ROOT, seen)) {
-                switch (field) {
-                    case FIELD_PLAN_ID -> planId = string(parser, field);
-                    case FIELD_VERSION -> version = integer(parser, field);
-                    case FIELD_EVENT -> event = string(parser, field);
-                    case FIELD_INPUTS -> inputs = inputs(parser, field);
-                    default -> skipValue(parser, field);
+            for (var field = nextMember(parser, ROOT, seen); field.isPresent();
+                 field = nextMember(parser, ROOT, seen)) {
+                var member = field.get();
+                switch (member) {
+                    case FIELD_PLAN_ID -> planId = string(parser, member);
+                    case FIELD_VERSION -> version = integer(parser, member);
+                    case FIELD_EVENT -> event = string(parser, member);
+                    case FIELD_INPUTS -> inputs = inputs(parser, member);
+                    default -> skipValue(parser, member);
                 }
             }
             if (parser.nextToken() != null) {
@@ -115,18 +118,19 @@ final class InstanceHeaderReader {
 
     private static InstanceInputs inputs(JsonParser parser, String path) throws IOException {
         requireToken(parser, JsonToken.START_OBJECT, path, KIND_OBJECT);
-        String configHash = null;
+        @Nullable String configHash = null;
         List<InstanceInputs.UnitRef> templates = List.of();
         List<InstanceInputs.UnitRef> subUnits = List.of();
-        InstanceInputs.CompositionRules compositionRules = null;
-        String planFactsDigest = null;
+        InstanceInputs.@Nullable CompositionRules compositionRules = null;
+        @Nullable String planFactsDigest = null;
         Optional<String> realizedFootprintDigest = Optional.empty();
         Optional<String> changeType = Optional.empty();
         Optional<String> providersDigest = Optional.empty();
         var seen = new HashSet<String>();
-        for (var field = nextMember(parser, path, seen); field != null; field = nextMember(parser, path, seen)) {
-            var member = qualify(path, field);
-            switch (field) {
+        for (var field = nextMember(parser, path, seen); field.isPresent();
+             field = nextMember(parser, path, seen)) {
+            var member = qualify(path, field.get());
+            switch (field.get()) {
                 case FIELD_CONFIG_HASH -> configHash = string(parser, member);
                 case FIELD_TEMPLATES -> templates = unitRefs(parser, member);
                 case FIELD_SUB_UNITS -> subUnits = unitRefs(parser, member);
@@ -155,14 +159,15 @@ final class InstanceHeaderReader {
 
     private static InstanceInputs.UnitRef unitRef(JsonParser parser, String path) throws IOException {
         requireToken(parser, JsonToken.START_OBJECT, path, KIND_OBJECT);
-        String unit = null;
+        @Nullable String unit = null;
         Optional<String> file = Optional.empty();
-        String digest = null;
-        String origin = null;
+        @Nullable String digest = null;
+        @Nullable String origin = null;
         var seen = new HashSet<String>();
-        for (var field = nextMember(parser, path, seen); field != null; field = nextMember(parser, path, seen)) {
-            var member = qualify(path, field);
-            switch (field) {
+        for (var field = nextMember(parser, path, seen); field.isPresent();
+             field = nextMember(parser, path, seen)) {
+            var member = qualify(path, field.get());
+            switch (field.get()) {
                 case FIELD_UNIT -> unit = string(parser, member);
                 case FIELD_FILE -> file = optionalString(parser, member);
                 case FIELD_DIGEST -> digest = string(parser, member);
@@ -177,12 +182,13 @@ final class InstanceHeaderReader {
     private static InstanceInputs.CompositionRules compositionRules(JsonParser parser, String path)
             throws IOException {
         requireToken(parser, JsonToken.START_OBJECT, path, KIND_OBJECT);
-        String revision = null;
-        String digest = null;
+        @Nullable String revision = null;
+        @Nullable String digest = null;
         var seen = new HashSet<String>();
-        for (var field = nextMember(parser, path, seen); field != null; field = nextMember(parser, path, seen)) {
-            var member = qualify(path, field);
-            switch (field) {
+        for (var field = nextMember(parser, path, seen); field.isPresent();
+             field = nextMember(parser, path, seen)) {
+            var member = qualify(path, field.get());
+            switch (field.get()) {
                 case FIELD_REVISION -> revision = string(parser, member);
                 case FIELD_DIGEST -> digest = string(parser, member);
                 default -> skipValue(parser, member);
@@ -199,8 +205,9 @@ final class InstanceHeaderReader {
     private static void skipValue(JsonParser parser, String path) throws IOException {
         if (parser.currentToken() == JsonToken.START_OBJECT) {
             var seen = new HashSet<String>();
-            for (var field = nextMember(parser, path, seen); field != null; field = nextMember(parser, path, seen)) {
-                skipValue(parser, qualify(path, field));
+            for (var field = nextMember(parser, path, seen); field.isPresent();
+                 field = nextMember(parser, path, seen)) {
+                skipValue(parser, qualify(path, field.get()));
             }
         } else if (parser.currentToken() == JsonToken.START_ARRAY) {
             var index = 0;
@@ -211,12 +218,12 @@ final class InstanceHeaderReader {
     }
 
     /**
-     * Moves to the value of the next member of the current object and returns its name, or returns {@code null} at the
-     * end of the object.
+     * Moves to the value of the next member of the current object and returns its name, or an empty value at the end
+     * of the object.
      */
-    private static String nextMember(JsonParser parser, String path, Set<String> seen) throws IOException {
+    private static Optional<String> nextMember(JsonParser parser, String path, Set<String> seen) throws IOException {
         if (parser.nextToken() != JsonToken.FIELD_NAME) {
-            return null;
+            return Optional.empty();
         }
         var field = parser.currentName();
         if (!seen.add(field)) {
@@ -224,7 +231,7 @@ final class InstanceHeaderReader {
                     tokenColumn(parser));
         }
         parser.nextToken();
-        return field;
+        return Optional.of(field);
     }
 
     private static void requireMembers(String path, Set<String> seen, String... fields) {

@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.provider.http.HttpClient;
 import de.planmarshall.provider.http.Json;
@@ -104,7 +105,7 @@ public final class GitHubClient {
      */
     public Result<List<ReviewThread>> reviewThreads(String owner, String name, int number) {
         var threads = new ArrayList<ReviewThread>();
-        Object cursor = null;
+        @Nullable Object cursor = null;
         for (int page = 0; page < MAX_THREAD_PAGES; page++) {
             var variables = new LinkedHashMap<String, Object>();
             variables.put("owner", owner);
@@ -185,7 +186,7 @@ public final class GitHubClient {
         if (!response.isOk()) {
             return Result.failed(response);
         }
-        return Json.string(Json.parseOrNull(response.body()), "id").map(Result::ok)
+        return Json.string(Json.parseOrNull(response.body()).orElse(null), "id").map(Result::ok)
                 .orElseGet(() -> Result.of(Result.Outcome.FAILED, "comment response without id"));
     }
 
@@ -197,7 +198,7 @@ public final class GitHubClient {
         if (!response.isOk()) {
             return Result.failed(response);
         }
-        Object json = Json.parseOrNull(response.body());
+        Object json = Json.parseOrNull(response.body()).orElse(null);
         List<Object> errors = Json.list(json, "errors");
         if (!errors.isEmpty()) {
             Object first = errors.getFirst();

@@ -58,7 +58,7 @@ class ActivityEventMapperTest {
 
     private static ActivityEventMapper mapper() {
         var mapping = ActivityEventMapping.of(
-                JsonDocument.parse(EVENTS.getBytes(StandardCharsets.UTF_8), "events"));
+                JsonDocument.parse(EVENTS.getBytes(StandardCharsets.UTF_8), "events")).orElseThrow();
         return new ActivityEventMapper(mapping, USAGE);
     }
 

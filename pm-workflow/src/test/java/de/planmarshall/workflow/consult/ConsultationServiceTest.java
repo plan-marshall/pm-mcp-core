@@ -480,7 +480,8 @@ class ConsultationServiceTest {
     private ConsultationOutcome.Opened opened(String role) {
         var request = ConsultationFixtures.request(ConsultationFixtures.ASKER,
                 ConsultationFixtures.ASKING_GENERATION, role);
-        return assertInstanceOf(ConsultationOutcome.Opened.class, service.open(request));
+        return assertInstanceOf(ConsultationOutcome.Opened.class, service.open(request),
+                "a refusal-free task opens a consultation");
     }
 
     private void serve(String consultationId, String generation, String role) {

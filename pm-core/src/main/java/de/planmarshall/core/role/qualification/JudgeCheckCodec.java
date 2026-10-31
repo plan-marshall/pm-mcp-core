@@ -18,6 +18,8 @@ import static de.planmarshall.core.store.StrictJson.string;
 import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
@@ -106,16 +108,16 @@ public class JudgeCheckCodec {
     private static JudgeCheck.Record readRecord(JsonParser parser) throws IOException {
         requireObject(parser, "judge check record");
         var seen = new HashSet<String>();
-        String digest = null;
-        String harness = null;
-        String model = null;
-        String corpusRevision = null;
-        BigDecimal oracle = null;
-        BigDecimal blind = null;
-        BigDecimal baseline = null;
+        @Nullable String digest = null;
+        @Nullable String harness = null;
+        @Nullable String model = null;
+        @Nullable String corpusRevision = null;
+        @Nullable BigDecimal oracle = null;
+        @Nullable BigDecimal blind = null;
+        @Nullable BigDecimal baseline = null;
         int unscored = -1;
-        Instant checkedAt = null;
-        List<ItemScore> items = null;
+        @Nullable Instant checkedAt = null;
+        @Nullable List<ItemScore> items = null;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {
@@ -145,14 +147,14 @@ public class JudgeCheckCodec {
     private static ItemScore readItem(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
         var seen = new HashSet<String>();
-        String itemId = null;
-        Label label = null;
-        Grade oracleScore = null;
-        Grade blindScore = null;
-        TokenTotal totalTokens = null;
-        Long tokensIn = null;
-        Long tokensOut = null;
-        Long duration = null;
+        @Nullable String itemId = null;
+        @Nullable Label label = null;
+        @Nullable Grade oracleScore = null;
+        @Nullable Grade blindScore = null;
+        @Nullable TokenTotal totalTokens = null;
+        @Nullable Long tokensIn = null;
+        @Nullable Long tokensOut = null;
+        @Nullable Long duration = null;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {
@@ -161,8 +163,8 @@ public class JudgeCheckCodec {
                 case ORACLE_SCORE -> oracleScore = grade(parser, field);
                 case BLIND_SCORE -> blindScore = grade(parser, field);
                 case TOTAL_TOKENS -> totalTokens = tokens(parser, field);
-                case TOKENS_IN -> tokensIn = split(parser, field);
-                case TOKENS_OUT -> tokensOut = split(parser, field);
+                case TOKENS_IN -> tokensIn = split(parser, field).orElse(null);
+                case TOKENS_OUT -> tokensOut = split(parser, field).orElse(null);
                 case DURATION_MS -> duration = parser.currentToken() == JsonToken.VALUE_NULL ? null
                         : integer(parser, field);
                 default -> throw undeclared(field);
@@ -189,11 +191,11 @@ public class JudgeCheckCodec {
         return Grade.scored(decimal(parser, field));
     }
 
-    private static Long split(JsonParser parser, String field) throws IOException {
+    private static Optional<Long> split(JsonParser parser, String field) throws IOException {
         if (parser.currentToken() == JsonToken.VALUE_STRING) {
             var text = string(parser, field);
             if (TokenTotal.UNMEASURED_MARK.equals(text)) {
-                return null;
+                return Optional.empty();
             }
             throw unreadable("'%s' is a count or '%s': %s".formatted(field, TokenTotal.UNMEASURED_MARK, text));
         }
@@ -201,7 +203,7 @@ public class JudgeCheckCodec {
         if (value < 0) {
             throw unreadable("'%s' must not be negative: %d".formatted(field, value));
         }
-        return value;
+        return Optional.of(value);
     }
 
     private static TokenTotal tokens(JsonParser parser, String field) throws IOException {

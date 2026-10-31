@@ -29,6 +29,8 @@ import static de.planmarshall.core.store.StrictJson.stringList;
 import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -42,6 +44,7 @@ import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.role.corpus.ImportedItem.Grading;
@@ -213,11 +216,11 @@ public class SourceOverlayCodec {
 
     private static SourceOverlay readDocument(JsonParser parser) throws IOException {
         requireObject(parser, OVERLAY);
-        String source = null;
-        String file = null;
-        String keyField = null;
-        LocalDate created = null;
-        List<Row> rows = null;
+        @Nullable String source = null;
+        @Nullable String file = null;
+        @Nullable String keyField = null;
+        @Nullable LocalDate created = null;
+        @Nullable List<Row> rows = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -258,7 +261,7 @@ public class SourceOverlayCodec {
                 case FIELD_QUESTION -> values.question = string(parser, field);
                 case FIELD_FACTS -> values.facts = string(parser, field);
                 case FIELD_CHOICES -> values.choices = nullableStringList(parser, field);
-                case FIELD_ANSWER_SCHEMA -> values.answerSchema = nullableValue(parser, field);
+                case FIELD_ANSWER_SCHEMA -> values.answerSchema = nullableValue(parser, field).orElse(null);
                 case FIELD_TARGET -> values.target = readTarget(parser);
                 case FIELD_GRADING -> values.grading = readGrading(parser);
                 case FIELD_REVIEW -> values.review = readReview(parser);
@@ -274,9 +277,9 @@ public class SourceOverlayCodec {
                 values.grading, values.review, values.contamination));
     }
 
-    private static JsonValue nullableValue(JsonParser parser, String field) throws IOException {
+    private static Optional<JsonValue> nullableValue(JsonParser parser, String field) throws IOException {
         if (parser.currentToken() == JsonToken.VALUE_NULL) {
-            return null;
+            return Optional.empty();
         }
         JsonValue value;
         try {
@@ -287,15 +290,15 @@ public class SourceOverlayCodec {
         if (!(value instanceof JsonValue.JsonObject)) {
             throw unreadable("'%s' must be an object or null".formatted(field));
         }
-        return value;
+        return Optional.of(value);
     }
 
     private static Target readTarget(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_TARGET);
-        String answer = null;
-        String rationale = null;
-        List<String> alternatives = null;
-        List<RubricItem> items = null;
+        @Nullable String answer = null;
+        @Nullable String rationale = null;
+        @Nullable List<String> alternatives = null;
+        @Nullable List<RubricItem> items = null;
         var expectedEmpty = false;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
@@ -322,8 +325,8 @@ public class SourceOverlayCodec {
 
     private static RubricItem readRubricItem(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String id = null;
-        String description = null;
+        @Nullable String id = null;
+        @Nullable String description = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -339,9 +342,9 @@ public class SourceOverlayCodec {
 
     private static Grading readGrading(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_GRADING);
-        GradingMethod method = null;
-        String judge = null;
-        BigDecimal passThreshold = null;
+        @Nullable GradingMethod method = null;
+        @Nullable String judge = null;
+        @Nullable BigDecimal passThreshold = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -361,10 +364,10 @@ public class SourceOverlayCodec {
 
     private static Review readReview(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_REVIEW);
-        ReviewStatus status = null;
-        String by = null;
-        LocalDate date = null;
-        String notes = null;
+        @Nullable ReviewStatus status = null;
+        @Nullable String by = null;
+        @Nullable LocalDate date = null;
+        @Nullable String notes = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

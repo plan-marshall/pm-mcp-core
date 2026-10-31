@@ -17,6 +17,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -36,6 +37,7 @@ import de.planmarshall.core.queue.QueueTaskRecord.Outcome;
 import de.planmarshall.core.queue.QueueTaskRecord.Status;
 import de.planmarshall.core.queue.QueueTaskRecord.TaskClass;
 import de.planmarshall.core.role.RoleClass;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The consultation of one role by another (Model Work § Consultation; Timeouts &amp; Budgets § Consultation Bound).
@@ -148,8 +150,8 @@ public final class ConsultationService {
             return refused(ConsultationRefusal.JOB_SCOPE_MISMATCH, noTask(request.askingTaskId()));
         }
         var early = openRefusal(known.get(), request);
-        if (early != null) {
-            return early;
+        if (early.isPresent()) {
+            return early.get();
         }
         var consultationId = freeId();
         var recorded = new AtomicReference<QueueTaskRecord>();
@@ -161,8 +163,8 @@ public final class ConsultationService {
                 return records;
             }
             var refusal = openRefusal(asker, request);
-            if (refusal != null) {
-                outcome.set(refusal);
+            if (refusal.isPresent()) {
+                outcome.set(refusal.get());
                 return records;
             }
             var consultations = new ArrayList<>(asker.consultations());
@@ -331,7 +333,7 @@ public final class ConsultationService {
         return count;
     }
 
-    private static boolean listsOpenEntry(QueueTaskRecord asker, String consultationId) {
+    private static boolean listsOpenEntry(@Nullable QueueTaskRecord asker, String consultationId) {
         return asker != null && hasOpenEntry(asker, consultationId);
     }
 
@@ -387,8 +389,8 @@ public final class ConsultationService {
         return new SubmitValidation.Accepted();
     }
 
-    private ConsultationOutcome close(String consultationId, String generationId, ConsultationStatus status,
-            String answer, LostReason reason, Instant at) {
+    private ConsultationOutcome close(String consultationId, @Nullable String generationId, ConsultationStatus status,
+            @Nullable String answer, @Nullable LostReason reason, Instant at) {
         var outcome = new AtomicReference<ConsultationOutcome>();
         queue.updateAll(records -> {
             var consultation = find(records, consultationId);
@@ -426,7 +428,7 @@ public final class ConsultationService {
     }
 
     private static QueueTaskRecord settleAsker(QueueTaskRecord asker, String consultationId,
-            ConsultationStatus status, String answer, Instant at) {
+            ConsultationStatus status, @Nullable String answer, Instant at) {
         var entry = asker.consultations().stream()
                 .filter(consultation -> consultation.consultationId().equals(consultationId))
                 .findFirst()
@@ -452,7 +454,7 @@ public final class ConsultationService {
         return asker.lease() == null ? updated.withStatus(Status.QUEUED) : updated;
     }
 
-    private static QueueTaskRecord closeTask(QueueTaskRecord task, LostReason reason, Instant at) {
+    private static QueueTaskRecord closeTask(QueueTaskRecord task, @Nullable LostReason reason, Instant at) {
         var attempts = task.attempts();
         if (!attempts.isEmpty() && attempts.getLast().end() == null) {
             var last = attempts.getLast();
@@ -466,30 +468,30 @@ public final class ConsultationService {
                 .withOutcome(reason == null ? Outcome.SUBMITTED : Outcome.LOST).withReason(reason).withClosedAt(at);
     }
 
-    private ConsultationOutcome openRefusal(QueueTaskRecord asker, ConsultationRequest request) {
+    private Optional<ConsultationOutcome> openRefusal(QueueTaskRecord asker, ConsultationRequest request) {
         if (asker.kind() != Kind.WORK) {
-            return refused(ConsultationRefusal.CONSULTATION_DEPTH,
-                    "the consultation task '%s' offers no consultation".formatted(asker.queueTaskId()));
+            return Optional.of(refused(ConsultationRefusal.CONSULTATION_DEPTH,
+                    "the consultation task '%s' offers no consultation".formatted(asker.queueTaskId())));
         }
         if (hasOpenConsultation(asker)) {
-            return refused(ConsultationRefusal.CONSULTATION_OPEN,
-                    "the task '%s' has an open consultation".formatted(asker.queueTaskId()));
+            return Optional.of(refused(ConsultationRefusal.CONSULTATION_OPEN,
+                    "the task '%s' has an open consultation".formatted(asker.queueTaskId())));
         }
         if (asker.status() != Status.EXECUTING || asker.lease() == null
                 || !asker.lease().generationId().equals(request.generationId())) {
-            return refused(ConsultationRefusal.LINK_NOT_AVAILABLE,
-                    "the task '%s' is not executing for '%s'".formatted(asker.queueTaskId(), request.generationId()));
+            return Optional.of(refused(ConsultationRefusal.LINK_NOT_AVAILABLE,
+                    "the task '%s' is not executing for '%s'".formatted(asker.queueTaskId(), request.generationId())));
         }
         if (asker.consultations().size() >= MAX_CONSULT_LINKS) {
-            return refused(ConsultationRefusal.CONSULTATION_BOUND_SPENT,
+            return Optional.of(refused(ConsultationRefusal.CONSULTATION_BOUND_SPENT,
                     "the task '%s' followed %d consultation links".formatted(asker.queueTaskId(),
-                            MAX_CONSULT_LINKS));
+                            MAX_CONSULT_LINKS)));
         }
         if (deliveredRoles(asker).contains(request.role())) {
-            return refused(ConsultationRefusal.LINK_NOT_AVAILABLE,
-                    "the answer of '%s' was already delivered to the successor".formatted(request.role()));
+            return Optional.of(refused(ConsultationRefusal.LINK_NOT_AVAILABLE,
+                    "the answer of '%s' was already delivered to the successor".formatted(request.role())));
         }
-        return null;
+        return Optional.empty();
     }
 
     private QueueTaskRecord consultationTask(QueueTaskRecord asker, ConsultationRequest request,
@@ -581,7 +583,7 @@ public final class ConsultationService {
                 .anyMatch(consultation -> consultation.status() == ConsultationStatus.OPEN);
     }
 
-    private static boolean validText(String text) {
+    private static boolean validText(@Nullable String text) {
         return text != null && !text.isEmpty() && text.codePointCount(0, text.length()) <= MAX_TEXT_LENGTH;
     }
 

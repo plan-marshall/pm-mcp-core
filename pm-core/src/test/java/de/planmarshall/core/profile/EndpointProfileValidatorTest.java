@@ -216,8 +216,8 @@ class EndpointProfileValidatorTest {
                 ProfileRules.none());
 
         assertAll(
-                () -> assertEquals("models_listing", EndpointProfile.weightsProbeOf(endpoint).source()),
-                () -> assertNull(EndpointProfile.weightsProbeOf(client)),
-                () -> assertEquals("/digest", EndpointProfile.weightsProbeOf(clientWithProbe).pointer()));
+                () -> assertEquals("models_listing", EndpointProfile.weightsProbeOf(endpoint).orElseThrow().source()),
+                () -> assertTrue(EndpointProfile.weightsProbeOf(client).isEmpty(), "A client without probe is empty"),
+                () -> assertEquals("/digest", EndpointProfile.weightsProbeOf(clientWithProbe).orElseThrow().pointer()));
     }
 }

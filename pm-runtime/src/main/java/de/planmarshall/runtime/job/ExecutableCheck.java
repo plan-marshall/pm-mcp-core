@@ -14,6 +14,7 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.store.ProjectEnrolment;
@@ -111,25 +112,25 @@ class ExecutableCheck {
         }
         var tool = enrolled.get();
         var path = absolutePath(tool);
-        if (path == null) {
+        if (path.isEmpty()) {
             return notEnrolled("the enrolled path of the host tool %s is not absolute".formatted(name.wireName()));
         }
-        if (!FileDigest.of(path).matches(tool.sha256())) {
+        if (!FileDigest.of(path.get()).matches(tool.sha256())) {
             return mismatch("the host tool %s differs from its enrolled digest".formatted(name.wireName()));
         }
         if (tool.interpreter() == null) {
-            return VerifyNotResolvePipeline.Stage.passed(List.of(path.toString()));
+            return VerifyNotResolvePipeline.Stage.passed(List.of(path.get().toString()));
         }
-        return prepend(interpreter(enrolment, tool.interpreter()), path.toString());
+        return prepend(interpreter(enrolment, tool.interpreter()), path.get().toString());
     }
 
-    /** @return the enrolled path of the tool if it is a normalized absolute path, else {@code null} */
-    private static Path absolutePath(HostTool tool) {
+    /** @return the enrolled path of the tool if it is a normalized absolute path, else empty */
+    private static Optional<Path> absolutePath(HostTool tool) {
         try {
             var path = Path.of(tool.executablePath());
-            return path.isAbsolute() && path.normalize().equals(path) ? path : null;
+            return path.isAbsolute() && path.normalize().equals(path) ? Optional.of(path) : Optional.empty();
         } catch (InvalidPathException _) {
-            return null;
+            return Optional.empty();
         }
     }
 

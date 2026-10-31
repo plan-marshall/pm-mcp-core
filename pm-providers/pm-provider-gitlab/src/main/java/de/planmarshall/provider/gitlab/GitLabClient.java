@@ -107,7 +107,7 @@ public final class GitLabClient {
         if (!response.isOk()) {
             return Result.failed(response);
         }
-        return Json.string(Json.parseOrNull(response.body()), "merge_commit_sha").map(Result::ok)
+        return Json.string(Json.parseOrNull(response.body()).orElse(null), "merge_commit_sha").map(Result::ok)
                 .orElseGet(() -> Result.of(Result.Outcome.FAILED, "merge response without merge_commit_sha"));
     }
 
@@ -137,7 +137,7 @@ public final class GitLabClient {
         }
         var discussions = new ArrayList<Discussion>();
         for (String page : pages.pages()) {
-            for (Object discussion : Json.list(Json.parseOrNull(page))) {
+            for (Object discussion : Json.list(Json.parseOrNull(page).orElse(null))) {
                 discussions.add(discussion(discussion));
             }
         }
@@ -158,7 +158,7 @@ public final class GitLabClient {
         if (!response.isOk()) {
             return Result.failed(response);
         }
-        return Json.string(Json.parseOrNull(response.body()), "id").map(Result::ok)
+        return Json.string(Json.parseOrNull(response.body()).orElse(null), "id").map(Result::ok)
                 .orElseGet(() -> Result.of(Result.Outcome.FAILED, "note response without id"));
     }
 
@@ -175,7 +175,7 @@ public final class GitLabClient {
         if (!response.isOk()) {
             return Result.failed(response);
         }
-        return Result.ok(discussion(Json.parseOrNull(response.body())).resolved());
+        return Result.ok(discussion(Json.parseOrNull(response.body()).orElse(null)).resolved());
     }
 
     /**
@@ -204,7 +204,7 @@ public final class GitLabClient {
         if (!response.isOk()) {
             return Result.failed(response);
         }
-        Object json = Json.parseOrNull(response.body());
+        Object json = Json.parseOrNull(response.body()).orElse(null);
         var scopes = Json.list(json, "scopes").stream().map(String::valueOf).toList();
         return Result.ok(new TokenIdentity(Json.string(json, "id").orElse(""), Json.string(json, "name").orElse(""),
                 Json.string(json, "user_id").orElse(""), scopes, Json.bool(json, "active"),
@@ -217,7 +217,7 @@ public final class GitLabClient {
         if (!response.isOk()) {
             return Result.failed(response);
         }
-        Object json = Json.parseOrNull(response.body());
+        Object json = Json.parseOrNull(response.body()).orElse(null);
         return Json.string(json, "id")
                 .map(userId -> Result.ok(new TokenIdentity("", "", userId, List.of(),
                         "active".equals(Json.string(json, "state").orElse("")), Optional.empty())))

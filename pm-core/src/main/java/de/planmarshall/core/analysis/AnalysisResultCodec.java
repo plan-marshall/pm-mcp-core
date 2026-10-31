@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.analysis;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -172,7 +174,7 @@ public class AnalysisResultCodec {
         generator.writeEndObject();
     }
 
-    private static void writeNullableString(JsonGenerator generator, String field, String value) throws IOException {
+    private static void writeNullableString(JsonGenerator generator, String field, @Nullable String value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -183,16 +185,16 @@ public class AnalysisResultCodec {
     private static AnalysisResult readResult(JsonParser parser) throws IOException {
         requireObject(parser, "analysis result");
         long formatVersion = 0;
-        String provider = null;
-        FindingScope target = null;
-        AnalysisStatus status = null;
-        Gate gate = null;
-        CountStatus countStatus = null;
-        Long newCodeIssueCount = null;
+        @Nullable String provider = null;
+        @Nullable FindingScope target = null;
+        @Nullable AnalysisStatus status = null;
+        @Nullable Gate gate = null;
+        @Nullable CountStatus countStatus = null;
+        @Nullable Long newCodeIssueCount = null;
         long issuesFetched = 0;
         var workPerformed = false;
-        String analysisRef = null;
-        Instant observedAt = null;
+        @Nullable String analysisRef = null;
+        @Nullable Instant observedAt = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -201,7 +203,7 @@ public class AnalysisResultCodec {
                 case FIELD_PROVIDER -> provider = string(parser, field);
                 case FIELD_TARGET -> target = readTarget(parser);
                 case FIELD_STATUS -> status = wireValue(parser, field, AnalysisResultCodec::analysisStatus);
-                case FIELD_GATE -> gate = readGate(parser);
+                case FIELD_GATE -> gate = readGate(parser).orElse(null);
                 case FIELD_COUNT_STATUS -> countStatus = wireValue(parser, field, CountStatus::fromWireName);
                 case FIELD_NEW_CODE_ISSUE_COUNT -> newCodeIssueCount = nullableInteger(parser, field);
                 case FIELD_ISSUES_FETCHED -> issuesFetched = integer(parser, field);
@@ -228,9 +230,9 @@ public class AnalysisResultCodec {
 
     private static FindingScope readTarget(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_TARGET);
-        FindingScope.Kind kind = null;
-        String commitSha = null;
-        Long prNumber = null;
+        FindingScope.@Nullable Kind kind = null;
+        @Nullable String commitSha = null;
+        @Nullable Long prNumber = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -252,13 +254,13 @@ public class AnalysisResultCodec {
         }
     }
 
-    private static Gate readGate(JsonParser parser) throws IOException {
+    private static Optional<Gate> readGate(JsonParser parser) throws IOException {
         if (parser.currentToken() == JsonToken.VALUE_NULL) {
-            return null;
+            return Optional.empty();
         }
         requireObject(parser, FIELD_GATE);
-        GateResult result = null;
-        List<Condition> conditions = null;
+        @Nullable GateResult result = null;
+        @Nullable List<Condition> conditions = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -270,7 +272,7 @@ public class AnalysisResultCodec {
         }
         requireFields(seen, FIELD_GATE, FIELD_RESULT, FIELD_CONDITIONS);
         try {
-            return new Gate(result, conditions);
+            return Optional.of(new Gate(result, conditions));
         } catch (IllegalArgumentException e) {
             throw refused("the gate breaks a rule: " + e.getMessage(), e);
         }
@@ -289,11 +291,11 @@ public class AnalysisResultCodec {
 
     private static Condition readCondition(JsonParser parser) throws IOException {
         requireObject(parser, "condition");
-        String metric = null;
-        Comparator comparator = null;
-        String threshold = null;
-        String actual = null;
-        GateResult result = null;
+        @Nullable String metric = null;
+        @Nullable Comparator comparator = null;
+        @Nullable String threshold = null;
+        @Nullable String actual = null;
+        @Nullable GateResult result = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
