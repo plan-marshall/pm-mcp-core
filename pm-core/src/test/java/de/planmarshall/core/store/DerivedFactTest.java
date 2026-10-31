@@ -12,6 +12,7 @@ package de.planmarshall.core.store;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -71,6 +72,12 @@ class DerivedFactTest {
                 .inputDigest(digest()).derivedAt(instant()).state(state).failure(failure).build();
     }
 
+    private static DerivedFact factWithDigest(String digest) {
+        return DerivedFact.builder().kind(DerivedFactKind.MODULE_DISCOVERY).value(value())
+                .source(new DerivedFact.Source(derivation(), DerivedFact.DerivationClass.LOCAL))
+                .inputDigest(digest).derivedAt(instant()).state(DerivedFact.State.CURRENT).build();
+    }
+
     @Test
     @DisplayName("a current fact carries a value and no failure")
     void currentFactCarriesValueAndNoFailure() {
@@ -88,12 +95,15 @@ class DerivedFactTest {
     @Test
     @DisplayName("a current fact without a value or with a failure is refused")
     void currentFactOutsideItsShapeIsRefused() {
+        var someValue = value();
+        var someFailure = failure();
+
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> fact(DerivedFact.State.CURRENT, null, null),
                         "A current fact without a value is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> fact(DerivedFact.State.CURRENT, value(), failure()),
+                        () -> fact(DerivedFact.State.CURRENT, someValue, someFailure),
                         "A current fact with a failure is refused"));
     }
 
@@ -103,19 +113,22 @@ class DerivedFactTest {
         var fact = fact(DerivedFact.State.STALE, value(), failure());
 
         assertAll(
-                () -> assertTrue(fact.value() != null, "The stale fact keeps its last value"),
-                () -> assertTrue(fact.failure() != null, "The stale fact carries its failure"));
+                () -> assertNotNull(fact.value(), "The stale fact keeps its last value"),
+                () -> assertNotNull(fact.failure(), "The stale fact carries its failure"));
     }
 
     @Test
     @DisplayName("a stale fact without a value or without a failure is refused")
     void staleFactOutsideItsShapeIsRefused() {
+        var someValue = value();
+        var someFailure = failure();
+
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> fact(DerivedFact.State.STALE, null, failure()),
+                        () -> fact(DerivedFact.State.STALE, null, someFailure),
                         "A stale fact without a value is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> fact(DerivedFact.State.STALE, value(), null),
+                        () -> fact(DerivedFact.State.STALE, someValue, null),
                         "A stale fact without a failure is refused"));
     }
 
@@ -127,15 +140,18 @@ class DerivedFactTest {
         assertAll(
                 () -> assertEquals(Optional.empty(), Optional.ofNullable(fact.value()),
                         "The failed fact carries no value"),
-                () -> assertTrue(fact.failure() != null, "The failed fact carries its failure"));
+                () -> assertNotNull(fact.failure(), "The failed fact carries its failure"));
     }
 
     @Test
     @DisplayName("a failed fact with a value or without a failure is refused")
     void failedFactOutsideItsShapeIsRefused() {
+        var someValue = value();
+        var someFailure = failure();
+
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> fact(DerivedFact.State.FAILED, value(), failure()),
+                        () -> fact(DerivedFact.State.FAILED, someValue, someFailure),
                         "A failed fact with a value is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> fact(DerivedFact.State.FAILED, null, null),
@@ -145,23 +161,16 @@ class DerivedFactTest {
     @Test
     @DisplayName("an input digest outside the grammar is refused")
     void digestOutsideGrammarIsRefused() {
-        var source = new DerivedFact.Source(derivation(), DerivedFact.DerivationClass.LOCAL);
+        var letters = Generators.letterStrings(64, 64).next();
+        var shortDigest = digest().substring(1);
+        var upperCase = digest().toUpperCase(Locale.ROOT);
 
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> DerivedFact.builder().kind(DerivedFactKind.MODULE_DISCOVERY).value(value())
-                                .source(source).inputDigest(Generators.letterStrings(64, 64).next())
-                                .derivedAt(instant()).state(DerivedFact.State.CURRENT).build(),
+                () -> assertThrows(IllegalArgumentException.class, () -> factWithDigest(letters),
                         "A digest of letters is refused"),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> DerivedFact.builder().kind(DerivedFactKind.MODULE_DISCOVERY).value(value())
-                                .source(source).inputDigest(digest().substring(1)).derivedAt(instant())
-                                .state(DerivedFact.State.CURRENT).build(),
+                () -> assertThrows(IllegalArgumentException.class, () -> factWithDigest(shortDigest),
                         "A digest of 63 digits is refused"),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> DerivedFact.builder().kind(DerivedFactKind.MODULE_DISCOVERY).value(value())
-                                .source(source).inputDigest(digest().toUpperCase(Locale.ROOT))
-                                .derivedAt(instant()).state(DerivedFact.State.CURRENT).build(),
+                () -> assertThrows(IllegalArgumentException.class, () -> factWithDigest(upperCase),
                         "An upper-case digest is refused"));
     }
 
@@ -198,8 +207,9 @@ class DerivedFactTest {
     void documentRefusesAKeyOfAnotherKind() {
         var key = new DerivedFactKey(DerivedFactKind.COST_CALIBRATION, null);
         var entry = fact(DerivedFact.State.CURRENT, value(), null);
+        var entries = Map.of(key, entry);
 
-        assertThrows(IllegalArgumentException.class, () -> new DerivedFacts(Map.of(key, entry)),
+        assertThrows(IllegalArgumentException.class, () -> new DerivedFacts(entries),
                 "A key of another kind than its entry is refused");
     }
 

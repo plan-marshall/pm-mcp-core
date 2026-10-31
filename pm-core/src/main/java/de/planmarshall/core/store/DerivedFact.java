@@ -74,21 +74,18 @@ State state,
             throw new IllegalArgumentException("Not an input digest (" + INPUT_DIGEST_TEXT + "): " + inputDigest);
         }
         switch (state) {
-            case CURRENT -> {
-                if (value == null || failure != null) {
-                    throw new IllegalArgumentException("A current fact carries a value and no failure");
-                }
-            }
-            case STALE -> {
-                if (value == null || failure == null) {
-                    throw new IllegalArgumentException("A stale fact carries its last value and a failure");
-                }
-            }
-            case FAILED -> {
-                if (value != null || failure == null) {
-                    throw new IllegalArgumentException("A failed fact carries no value and a failure");
-                }
-            }
+            case CURRENT -> require(value != null && failure == null,
+                    "A current fact carries a value and no failure");
+            case STALE -> require(value != null && failure != null,
+                    "A stale fact carries its last value and a failure");
+            case FAILED -> require(value == null && failure != null,
+                    "A failed fact carries no value and a failure");
+        }
+    }
+
+    private static void require(boolean holds, String violation) {
+        if (!holds) {
+            throw new IllegalArgumentException(violation);
         }
     }
 
@@ -161,7 +158,7 @@ State state,
         public static final String DERIVATION_TEXT = "^[a-z][a-z0-9_.-]{0,63}$";
 
         /** The compiled {@link #DERIVATION_TEXT}. */
-        public static final Pattern DERIVATION = Pattern.compile(DERIVATION_TEXT);
+        public static final Pattern DERIVATION_PATTERN = Pattern.compile(DERIVATION_TEXT);
 
         /**
          * @throws NullPointerException     if a component is {@code null}
@@ -170,7 +167,7 @@ State state,
         public Source {
             Objects.requireNonNull(derivation, "derivation");
             Objects.requireNonNull(derivationClass, "derivationClass");
-            if (!DERIVATION.matcher(derivation).matches()) {
+            if (!DERIVATION_PATTERN.matcher(derivation).matches()) {
                 throw new IllegalArgumentException(
                         "Not a derivation identifier (" + DERIVATION_TEXT + "): " + derivation);
             }

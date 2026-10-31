@@ -55,6 +55,20 @@ class DerivedFactKindsTest {
         return JsonValue.parse(json.getBytes(UTF_8));
     }
 
+    private static DerivedFactKindSpec specWithSchema(JsonValue schema) {
+        return DerivedFactKindSpec.builder().schema(schema)
+                .classes(Set.of(DerivedFact.DerivationClass.LOCAL)).inputs("inputs").build();
+    }
+
+    private static DerivedFactKindSpec specWithClasses(Set<DerivedFact.DerivationClass> classes) {
+        return DerivedFactKindSpec.builder().schema(value(FIXTURE_SCHEMA)).classes(classes).inputs("inputs").build();
+    }
+
+    private static DerivedFactKindSpec specWithInputs(String inputs) {
+        return DerivedFactKindSpec.builder().schema(value(FIXTURE_SCHEMA))
+                .classes(Set.of(DerivedFact.DerivationClass.LOCAL)).inputs(inputs).build();
+    }
+
     @Test
     @DisplayName("a registered kind answers its specification and its properties")
     void registeredKindAnswersItsSpecification() {
@@ -77,28 +91,25 @@ class DerivedFactKindsTest {
     @DisplayName("a second registration of the same kind is refused")
     void secondRegistrationIsRefused() {
         var registry = new DerivedFactKinds();
-        registry.register(DerivedFactKind.MODULE_DISCOVERY, fixtureSpec());
+        var spec = fixtureSpec();
+        registry.register(DerivedFactKind.MODULE_DISCOVERY, spec);
 
         assertThrows(IllegalStateException.class,
-                () -> registry.register(DerivedFactKind.MODULE_DISCOVERY, fixtureSpec()),
+                () -> registry.register(DerivedFactKind.MODULE_DISCOVERY, spec),
                 "A second registration is refused");
     }
 
     @Test
     @DisplayName("a schema that is not a JSON object and an empty class set are refused")
     void specOutsideItsShapeIsRefused() {
+        var notAnObject = value("[]");
+
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> DerivedFactKindSpec.builder().schema(value("[]"))
-                                .classes(Set.of(DerivedFact.DerivationClass.LOCAL)).inputs("inputs").build(),
+                () -> assertThrows(IllegalArgumentException.class, () -> specWithSchema(notAnObject),
                         "A schema that is not an object is refused"),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> DerivedFactKindSpec.builder().schema(value(FIXTURE_SCHEMA)).classes(Set.of())
-                                .inputs("inputs").build(),
+                () -> assertThrows(IllegalArgumentException.class, () -> specWithClasses(Set.of()),
                         "An empty class set is refused"),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> DerivedFactKindSpec.builder().schema(value(FIXTURE_SCHEMA))
-                                .classes(Set.of(DerivedFact.DerivationClass.LOCAL)).inputs(" ").build(),
+                () -> assertThrows(IllegalArgumentException.class, () -> specWithInputs(" "),
                         "Blank inputs are refused"));
     }
 
@@ -151,6 +162,7 @@ class DerivedFactKindsTest {
     @DisplayName("a fresh registry registers nothing and validates no value")
     void freshRegistryRegistersNothing() {
         var registry = new DerivedFactKinds();
+        var empty = value("{}");
 
         assertAll(
                 () -> assertTrue(Arrays.stream(DerivedFactKind.values())
@@ -158,6 +170,6 @@ class DerivedFactKindsTest {
                         "A fresh registry registers no kind"),
                 () -> assertAll(Arrays.stream(DerivedFactKind.values())
                         .map(kind -> (Executable) () -> assertThrows(IllegalStateException.class,
-                                () -> registry.validate(kind, value("{}"))))));
+                                () -> registry.validate(kind, empty)))));
     }
 }

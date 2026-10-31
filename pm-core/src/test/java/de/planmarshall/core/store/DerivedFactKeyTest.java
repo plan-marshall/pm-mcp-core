@@ -93,6 +93,7 @@ class DerivedFactKeyTest {
     @DisplayName("a qualifier outside its grammar is refused by the constructor")
     void qualifierOutsideGrammarIsRefused() {
         var kind = DerivedFactKind.ACTIVE_PROFILES;
+        var longQualifier = Generators.letterStrings(129, 140).next();
 
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class, () -> new DerivedFactKey(kind, ""),
@@ -100,7 +101,7 @@ class DerivedFactKeyTest {
                 () -> assertThrows(IllegalArgumentException.class, () -> new DerivedFactKey(kind, "a b"),
                         "A qualifier with a space is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new DerivedFactKey(kind, Generators.letterStrings(129, 140).next()),
+                        () -> new DerivedFactKey(kind, longQualifier),
                         "A qualifier longer than 128 characters is refused"),
                 () -> assertThrows(IllegalArgumentException.class, () -> new DerivedFactKey(kind, "a/b"),
                         "A qualifier with a slash is refused"));

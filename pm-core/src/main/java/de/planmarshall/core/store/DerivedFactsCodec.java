@@ -116,7 +116,7 @@ public class DerivedFactsCodec {
      * @return the document, UTF-8 encoded
      */
     public static byte[] write(DerivedFacts facts) {
-        Objects.requireNonNull(facts, "facts");
+        Objects.requireNonNull(facts, FIELD_FACTS);
         var out = new ByteArrayOutputStream();
         try (var generator = StrictJson.factory().createGenerator(out, JsonEncoding.UTF8)) {
             generator.writeStartObject();

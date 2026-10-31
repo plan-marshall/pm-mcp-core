@@ -38,7 +38,7 @@ public record DerivedFactKey(DerivedFactKind kind, @Nullable String qualifier) {
     public static final Pattern FORM = Pattern.compile(FORM_TEXT);
 
     /** The grammar of the qualifier alone. */
-    private static final Pattern QUALIFIER = Pattern.compile("[A-Za-z0-9_.-]{1,128}");
+    private static final Pattern QUALIFIER_PATTERN = Pattern.compile("[A-Za-z0-9_.-]{1,128}");
 
     /**
      * @throws NullPointerException     if the kind is {@code null}
@@ -47,7 +47,7 @@ public record DerivedFactKey(DerivedFactKind kind, @Nullable String qualifier) {
      */
     public DerivedFactKey {
         Objects.requireNonNull(kind, "kind");
-        if (qualifier != null && !QUALIFIER.matcher(qualifier).matches()) {
+        if (qualifier != null && !QUALIFIER_PATTERN.matcher(qualifier).matches()) {
             throw new IllegalArgumentException(
                     "Not a fact-key qualifier ([A-Za-z0-9_.-]{1,128}): " + qualifier);
         }
