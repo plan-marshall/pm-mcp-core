@@ -116,6 +116,20 @@
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
+            <!-- The test scope of this module, published as the `tests` classifier so the modules that depend on
+                 pm-core can reuse its typed generators. The jar plugin and its archive configuration are managed by
+                 the parent POM; only the `test-jar` goal is added here, as in pm-runtime. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
     <profiles>

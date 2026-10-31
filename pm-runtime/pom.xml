@@ -30,6 +30,13 @@
             <groupId>de.planmarshall</groupId>
             <artifactId>pm-core</artifactId>
         </dependency>
+        <!-- The typed generators of pm-core that this module's tests reuse (test scope, `tests` classifier). -->
+        <dependency>
+            <groupId>de.planmarshall</groupId>
+            <artifactId>pm-core</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
         <!-- The machine paths of the client contract (MachinePaths) -->
         <dependency>
             <groupId>de.planmarshall</groupId>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <!-- Control of a build guard of the root POM: this project is no module of the build and must pass.
+         BuildGuardsIT of pm-core builds it and expects the build to succeed: the engine may consume the typed
+         generators of the foundation through the `tests` classifier, and the rule admits that test-scope dependency. -->
+    <parent>
+        <groupId>de.planmarshall</groupId>
+        <artifactId>pm-mcp-core</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../../../pom.xml</relativePath>
+    </parent>
+    <artifactId>guard-control-workflow-core-tests</artifactId>
+    <packaging>pom</packaging>
+    <name>guard-control-workflow-core-tests</name>
+    <properties>
+        <pm.guard.workflow.skip>false</pm.guard.workflow.skip>
+    </properties>
+    <dependencies>
+        <!-- The engine reuses the foundation's generators: the rule admits the test-scope test-jar -->
+        <dependency>
+            <groupId>de.planmarshall</groupId>
+            <artifactId>pm-core</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

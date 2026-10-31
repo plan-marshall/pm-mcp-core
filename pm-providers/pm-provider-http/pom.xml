@@ -74,6 +74,20 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+            <!-- The test scope of this module, published as the `tests` classifier so the provider modules that
+                 depend on the shared HTTP base can reuse its typed generators; the jar plugin and its archive
+                 configuration are managed by the parent POM. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 </project>

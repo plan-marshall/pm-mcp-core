@@ -57,6 +57,8 @@ class BuildGuardsIT {
             "provider-sibling-module, validate, provider",
             "provider-contract-module, validate, provider-contract",
             "model-facing-content, prepare-package, no-model-facing-content",
+            "runtime-workflow-tests, validate, runtime",
+            "workflow-runtime-tests, validate, workflow",
             "central-before-registry, validate, product-coordinates-from-the-organisation-registry"})
     @DisplayName("a fixture that breaks a rule fails the build")
     void fixtureFails(String fixture, String phase, String execution, @TempDir Path temp) throws Exception {
@@ -99,7 +101,10 @@ class BuildGuardsIT {
     }
 
     @ParameterizedTest(name = "{0} passes in {2}")
-    @CsvSource({"provider-http-allowed, validate, provider"})
+    @CsvSource({"provider-http-allowed, validate, provider",
+            "workflow-core-tests, validate, workflow",
+            "runtime-core-tests, validate, runtime",
+            "provider-core-tests, validate, provider"})
     @DisplayName("a fixture the rule admits passes the build")
     void fixturePasses(String fixture, String phase, String execution, @TempDir Path temp) throws Exception {
         var root = Path.of(System.getProperty("pm.root"));
