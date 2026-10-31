@@ -71,4 +71,7 @@
  *
  * @since 0.1
  */
+@NullMarked
 package de.planmarshall.runtime.job;
+
+import org.jspecify.annotations.NullMarked;

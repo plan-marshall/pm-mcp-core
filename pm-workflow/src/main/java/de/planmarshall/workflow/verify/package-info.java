@@ -54,4 +54,7 @@
  * it.</li>
  * </ul>
  */
+@NullMarked
 package de.planmarshall.workflow.verify;
+
+import org.jspecify.annotations.NullMarked;

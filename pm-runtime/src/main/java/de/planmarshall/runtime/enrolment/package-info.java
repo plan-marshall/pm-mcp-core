@@ -68,4 +68,7 @@
  *
  * @since 0.1
  */
+@NullMarked
 package de.planmarshall.runtime.enrolment;
+
+import org.jspecify.annotations.NullMarked;

@@ -13,4 +13,7 @@
  * <p>
  * Specification: {@code doc/specification/model-work/02-task-protocol.adoc}.
  */
+@NullMarked
 package de.planmarshall.workflow.task;
+
+import org.jspecify.annotations.NullMarked;

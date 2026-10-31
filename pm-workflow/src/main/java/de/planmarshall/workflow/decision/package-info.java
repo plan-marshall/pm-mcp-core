@@ -16,4 +16,7 @@
  * <li>{@code doc/specification/model-work/11-decision-records.adoc}</li>
  * </ul>
  */
+@NullMarked
 package de.planmarshall.workflow.decision;
+
+import org.jspecify.annotations.NullMarked;

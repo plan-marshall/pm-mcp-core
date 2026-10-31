@@ -19,4 +19,7 @@
  * <li>{@code doc/specification/filesystem-layout.adoc}</li>
  * </ul>
  */
+@NullMarked
 package de.planmarshall.runtime.workspace;
+
+import org.jspecify.annotations.NullMarked;

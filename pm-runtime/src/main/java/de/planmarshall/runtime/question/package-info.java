@@ -25,4 +25,7 @@
  * <li>{@code doc/specification/model-work/06-envelopes-questions-deadlines.adoc} § Question Records</li>
  * </ul>
  */
+@NullMarked
 package de.planmarshall.runtime.question;
+
+import org.jspecify.annotations.NullMarked;

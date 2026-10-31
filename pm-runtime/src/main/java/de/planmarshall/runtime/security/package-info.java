@@ -14,4 +14,7 @@
  * {@link de.planmarshall.runtime.security.DeviceRegistry}), and the constant-time comparison and digest of
  * secrets ({@link de.planmarshall.runtime.security.Secrets}).
  */
+@NullMarked
 package de.planmarshall.runtime.security;
+
+import org.jspecify.annotations.NullMarked;

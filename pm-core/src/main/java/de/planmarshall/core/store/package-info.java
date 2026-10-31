@@ -125,4 +125,7 @@
  * <li>{@code doc/specification/filesystem-layout.adoc}</li>
  * </ul>
  */
+@NullMarked
 package de.planmarshall.core.store;
+
+import org.jspecify.annotations.NullMarked;

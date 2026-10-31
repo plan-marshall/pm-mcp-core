@@ -25,4 +25,7 @@
  * <li>{@code doc/specification/phase-workflows/06-finalize-re-entry-and-merge.adoc}</li>
  * </ul>
  */
+@NullMarked
 package de.planmarshall.workflow.finalize;
+
+import org.jspecify.annotations.NullMarked;

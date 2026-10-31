@@ -18,4 +18,7 @@
  * Specification: {@code doc/specification/model-work/05-consultation.adoc};
  * {@code doc/specification/timeouts/01-job-budgets-and-waits.adoc#consultation-bound}.
  */
+@NullMarked
 package de.planmarshall.workflow.consult;
+
+import org.jspecify.annotations.NullMarked;

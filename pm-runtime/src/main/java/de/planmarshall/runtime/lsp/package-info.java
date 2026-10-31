@@ -12,4 +12,7 @@
  * process, spoken to with Eclipse LSP4J (JSON-RPC 2.0 over {@code stdio}), with every request bounded
  * by a timeout and a clean {@code shutdown} / {@code exit} / termination sequence.
  */
+@NullMarked
 package de.planmarshall.runtime.lsp;
+
+import org.jspecify.annotations.NullMarked;

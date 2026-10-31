@@ -20,4 +20,7 @@
  * <li>{@code doc/specification/job-runtime/03-parsers-and-gates.adoc}</li>
  * </ul>
  */
+@NullMarked
 package de.planmarshall.provider.sonar;
+
+import org.jspecify.annotations.NullMarked;

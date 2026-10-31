@@ -12,4 +12,7 @@
  * <p>
  * Specification: {@code doc/specification/job-runtime/03-parsers-and-gates.adoc}.
  */
+@NullMarked
 package de.planmarshall.core.build;
+
+import org.jspecify.annotations.NullMarked;

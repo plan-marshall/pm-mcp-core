@@ -11,4 +11,7 @@
  * The log messages of {@code pm-workflow} ({@link de.planmarshall.workflow.log.WorkflowLogMessages}, prefix
  * {@code PM_WORKFLOW}), numbered once per prefix (PM-IMPL-1).
  */
+@NullMarked
 package de.planmarshall.workflow.log;
+
+import org.jspecify.annotations.NullMarked;

@@ -15,4 +15,7 @@
  * <p>
  * Specification: {@code plan-marshall-documentation/doc/specification/module-structure.adoc} (Modules, {@code pm-core}).
  */
+@NullMarked
 package de.planmarshall.core.log;
+
+import org.jspecify.annotations.NullMarked;

@@ -12,4 +12,7 @@
  * <p>
  * Specification: {@code doc/specification/workflow-dsl/05-primitives.adoc}.
  */
+@NullMarked
 package de.planmarshall.workflow.primitive;
+
+import org.jspecify.annotations.NullMarked;

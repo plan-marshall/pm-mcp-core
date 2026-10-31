@@ -12,4 +12,7 @@
  * <p>
  * Specification: {@code doc/specification/domain-extensions/03-module-discovery.adoc}.
  */
+@NullMarked
 package de.planmarshall.core.discovery;
+
+import org.jspecify.annotations.NullMarked;

@@ -32,4 +32,7 @@
  * reported as a break. Its full verification, which {@code pm-operator audit verify} requests, covers every rotated
  * file the index lists as well. Nothing in this package ever repairs the chain.
  */
+@NullMarked
 package de.planmarshall.runtime.audit;
+
+import org.jspecify.annotations.NullMarked;

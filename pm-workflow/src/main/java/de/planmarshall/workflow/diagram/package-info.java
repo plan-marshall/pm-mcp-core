@@ -37,4 +37,7 @@
  * nothing of the environment, and ends every line with a line feed; the same unit always renders to the same bytes,
  * which is what lets committed documentation be compared with the units it was rendered from.
  */
+@NullMarked
 package de.planmarshall.workflow.diagram;
+
+import org.jspecify.annotations.NullMarked;
