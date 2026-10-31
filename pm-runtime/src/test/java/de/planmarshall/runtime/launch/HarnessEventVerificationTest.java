@@ -53,7 +53,7 @@ class HarnessEventVerificationTest {
 
     private static ActivityEventMapping mapping() {
         return ActivityEventMapping.of(
-                JsonDocument.parse(EVENTS.getBytes(StandardCharsets.UTF_8), "events"));
+                JsonDocument.parse(EVENTS.getBytes(StandardCharsets.UTF_8), "events")).orElseThrow();
     }
 
     @Test

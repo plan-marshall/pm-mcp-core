@@ -9,11 +9,14 @@
  */
 package de.planmarshall.core.profile;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * The validated values of an endpoint profile (PM-CLIENT-2, Client Profiles § Endpoint Profile Schema): the profile of
@@ -34,8 +37,9 @@ import java.util.Objects;
  * @param weightsProbe   how the identity of the model's weights is read; {@code null} when the harness reports none
  * @since 0.1
  */
-public record EndpointProfile(String clientId, String executable, Identity identity, UpdateEvidence updateEvidence,
-Endpoint endpoint, Map<String, String> modelTiers, WeightsProbe weightsProbe) {
+public record EndpointProfile(String clientId, @Nullable String executable, @Nullable Identity identity,
+@Nullable UpdateEvidence updateEvidence, Endpoint endpoint, Map<String, String> modelTiers,
+@Nullable WeightsProbe weightsProbe) {
 
     /** The member of the document that carries the weights probe, on either kind of profile. */
     private static final String WEIGHTS_PROBE = "weights_probe";
@@ -70,7 +74,7 @@ Endpoint endpoint, Map<String, String> modelTiers, WeightsProbe weightsProbe) {
      * @param signer the signer the method names; {@code null} for {@code none}
      * @since 0.1
      */
-    public record UpdateEvidence(String method, String signer) {
+    public record UpdateEvidence(String method, @Nullable String signer) {
 
         /** @return whether a changed program can pass this evidence at all */
         public boolean verifiable() {
@@ -96,9 +100,9 @@ Endpoint endpoint, Map<String, String> modelTiers, WeightsProbe weightsProbe) {
      *                              loopback form
      * @since 0.1
      */
-    public record Endpoint(String protocol, String locality, String baseUrl, String readinessPath, String modelsPath,
-    String modelsPointer, String resultSchema, int contextTokens, int answerReserveTokens,
-    int requestTimeoutSeconds, String credentialKey) {
+    public record Endpoint(String protocol, String locality, String baseUrl, @Nullable String readinessPath,
+    String modelsPath, String modelsPointer, String resultSchema, int contextTokens, int answerReserveTokens,
+    int requestTimeoutSeconds, @Nullable String credentialKey) {
 
         /**
          * @param protocol              {@code openai_chat} or {@code system_one}
@@ -154,7 +158,8 @@ Endpoint endpoint, Map<String, String> modelTiers, WeightsProbe weightsProbe) {
      * @param pattern the pattern whose first group is the identity; {@code null} for {@code models_listing}
      * @since 0.1
      */
-    public record WeightsProbe(String source, String pointer, List<String> argv, String pattern) {
+    public record WeightsProbe(String source, @Nullable String pointer, @Nullable List<String> argv,
+    @Nullable String pattern) {
 
         /** Copies the argument vector. */
         public WeightsProbe {
@@ -187,19 +192,19 @@ Endpoint endpoint, Map<String, String> modelTiers, WeightsProbe weightsProbe) {
         var block = profile.member("endpoint").orElseThrow();
         return new EndpointProfile(ProfileValidator.clientId(profile),
                 member(profile, "executable"),
-                identity(profile),
-                updateEvidence(profile),
+                identity(profile).orElse(null),
+                updateEvidence(profile).orElse(null),
                 endpoint(block),
                 tiers(profile),
-                weightsProbe(profile.member(WEIGHTS_PROBE).orElse(null)));
+                weightsProbe(profile.member(WEIGHTS_PROBE).orElse(null)).orElse(null));
     }
 
     /**
      * @param document a validated profile document
-     * @return the weights probe of the profile, {@code null} when it declares none: the endpoint profile's own
+     * @return the weights probe of the profile, empty when it declares none: the endpoint profile's own
      *         {@code weights_probe}, or {@code headless.weights_probe} of a client profile
      */
-    public static WeightsProbe weightsProbeOf(JsonNode document) {
+    public static Optional<WeightsProbe> weightsProbeOf(JsonNode document) {
         var declared = ProfileValidator.isEndpoint(document)
                 ? document.member(WEIGHTS_PROBE).orElse(null)
                 : document.member("headless").filter(headless -> !headless.isNull())
@@ -207,23 +212,23 @@ Endpoint endpoint, Map<String, String> modelTiers, WeightsProbe weightsProbe) {
         return weightsProbe(declared);
     }
 
-    private static Identity identity(JsonNode profile) {
+    private static Optional<Identity> identity(JsonNode profile) {
         var declared = profile.member("identity").orElse(null);
         if (declared == null || declared.isNull()) {
-            return null;
+            return Optional.empty();
         }
         var probe = declared.member("version_probe").orElseThrow();
-        return new Identity(probe.elements().stream().map(value -> value.text().orElse("")).toList(),
-                declared.member("version_pattern").flatMap(JsonNode::text).orElse(""));
+        return Optional.of(new Identity(probe.elements().stream().map(value -> value.text().orElse("")).toList(),
+                declared.member("version_pattern").flatMap(JsonNode::text).orElse("")));
     }
 
-    private static UpdateEvidence updateEvidence(JsonNode profile) {
+    private static Optional<UpdateEvidence> updateEvidence(JsonNode profile) {
         var declared = profile.member("update_evidence").orElse(null);
         if (declared == null || declared.isNull()) {
-            return null;
+            return Optional.empty();
         }
-        return new UpdateEvidence(declared.member("method").flatMap(JsonNode::text).orElse("none"),
-                member(declared, "signer"));
+        return Optional.of(new UpdateEvidence(declared.member("method").flatMap(JsonNode::text).orElse("none"),
+                member(declared, "signer")));
     }
 
     private static Endpoint endpoint(JsonNode block) {
@@ -247,16 +252,16 @@ Endpoint endpoint, Map<String, String> modelTiers, WeightsProbe weightsProbe) {
         return tiers;
     }
 
-    private static WeightsProbe weightsProbe(JsonNode declared) {
+    private static Optional<WeightsProbe> weightsProbe(JsonNode declared) {
         if (declared == null || declared.isNull()) {
-            return null;
+            return Optional.empty();
         }
         var argv = declared.member("argv").orElse(null);
-        return new WeightsProbe(declared.member("source").flatMap(JsonNode::text).orElseThrow(),
+        return Optional.of(new WeightsProbe(declared.member("source").flatMap(JsonNode::text).orElseThrow(),
                 member(declared, "pointer"),
                 argv == null || argv.isNull() ? null
                         : argv.elements().stream().map(value -> value.text().orElse("")).toList(),
-                member(declared, "pattern"));
+                member(declared, "pattern")));
     }
 
     private static String member(JsonNode node, String name) {

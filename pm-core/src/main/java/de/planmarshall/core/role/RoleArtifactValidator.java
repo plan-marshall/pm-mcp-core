@@ -9,12 +9,15 @@
  */
 package de.planmarshall.core.role;
 
+import org.jspecify.annotations.Nullable;
+
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -138,11 +141,11 @@ public final class RoleArtifactValidator {
             var form = form(required(artifact, "form"));
             var count = (int) integer(required(artifact, "count"), "/count", "count", 1, 16);
             var skills = skills(required(artifact, "skills"));
-            var recycling = recycling(optional(artifact, "recycling"), form);
+            var recycling = recycling(optional(artifact, "recycling"), form).orElse(null);
             var budgetFloor = (int) integer(required(artifact, "budget_floor_seconds"), "/budget_floor_seconds",
                     "budget_floor_seconds", 60, 86_400);
-            var contextBudget = contextBudget(optional(artifact, "context_budget_tokens"));
-            var questions = questions(optional(artifact, "questions"), roleClass);
+            var contextBudget = contextBudget(optional(artifact, "context_budget_tokens")).orElse(null);
+            var questions = questions(optional(artifact, "questions"), roleClass).orElse(null);
             var offTrack = offTrack(optional(artifact, "off_track"), roleClass);
             return new RoleArtifact(formatVersion, name, description, roleClass, tools, harness, model, effort, form,
                     count, skills, recycling, budgetFloor, contextBudget, questions, offTrack);
@@ -214,36 +217,37 @@ public final class RoleArtifactValidator {
             return skills;
         }
 
-        private RoleArtifact.Recycling recycling(JsonNode node, RoleForm form) {
+        private Optional<RoleArtifact.Recycling> recycling(@Nullable JsonNode node, RoleForm form) {
             if (form == RoleForm.FRESH) {
                 if (node != null) {
                     throw invalid("/recycling", "a fresh role has no recycling");
                 }
-                return null;
+                return Optional.empty();
             }
             if (node == null) {
                 throw invalid("/recycling", "a warm role names its recycling");
             }
             object(node, "/recycling", "recycling", RECYCLING, RECYCLING);
             var idleWakeups = nullableInteger(optional(node, "idle_wakeups"), "/recycling/idle_wakeups",
-                    "idle_wakeups", 1, 100);
+                    "idle_wakeups", 1, 100).orElse(null);
             var tokenBudget = (int) integer(required(node, "/recycling", "token_budget"), "/recycling/token_budget",
                     "token_budget", 10_000, Integer.MAX_VALUE);
             var tasksPerGeneration = nullableInteger(optional(node, "tasks_per_generation"),
-                    "/recycling/tasks_per_generation", "tasks_per_generation", 1, Integer.MAX_VALUE);
-            return new RoleArtifact.Recycling(idleWakeups, tokenBudget, tasksPerGeneration);
+                    "/recycling/tasks_per_generation", "tasks_per_generation", 1, Integer.MAX_VALUE).orElse(null);
+            return Optional.of(new RoleArtifact.Recycling(idleWakeups, tokenBudget, tasksPerGeneration));
         }
 
-        private Integer contextBudget(JsonNode node) {
+        private Optional<Integer> contextBudget(@Nullable JsonNode node) {
             if (node == null) {
-                return null;
+                return Optional.empty();
             }
-            return (int) integer(node, "/context_budget_tokens", "context_budget_tokens", 10_000, Integer.MAX_VALUE);
+            return Optional.of((int) integer(node, "/context_budget_tokens", "context_budget_tokens", 10_000,
+                    Integer.MAX_VALUE));
         }
 
-        private RoleArtifact.Questions questions(JsonNode node, RoleClass roleClass) {
+        private Optional<RoleArtifact.Questions> questions(@Nullable JsonNode node, RoleClass roleClass) {
             if (node == null) {
-                return null;
+                return Optional.empty();
             }
             if (roleClass == RoleClass.ZERO_TOOL) {
                 throw invalid("/questions", "a zero_tool role never asks, so it names no questions");
@@ -253,7 +257,7 @@ public final class RoleArtifactValidator {
                     "hold_seconds", 0, 3_600);
             var resume = (int) integer(required(node, "/questions", "resume_within_seconds"),
                     "/questions/resume_within_seconds", "resume_within_seconds", 0, 604_800);
-            return new RoleArtifact.Questions(hold, resume);
+            return Optional.of(new RoleArtifact.Questions(hold, resume));
         }
 
         private Map<RoleArtifact.OffTrackSignal, RoleArtifact.OffTrackSetting> offTrack(JsonNode node,
@@ -271,7 +275,8 @@ public final class RoleArtifactValidator {
                 var pointer = "/off_track/" + member.getKey();
                 object(member.getValue(), pointer, member.getKey(), Set.of("action"), OFF_TRACK_MEMBERS);
                 var action = action(required(member.getValue(), pointer, "action"), pointer + "/action");
-                var threshold = threshold(optional(member.getValue(), "threshold"), pointer + "/threshold", signal);
+                var threshold = threshold(optional(member.getValue(), "threshold"), pointer + "/threshold", signal)
+                        .orElse(null);
                 settings.put(signal, new RoleArtifact.OffTrackSetting(threshold, action));
             }
             return settings;
@@ -287,9 +292,9 @@ public final class RoleArtifactValidator {
             throw invalid(pointer, "not an off-track action: '%s'".formatted(value));
         }
 
-        private Double threshold(JsonNode node, String pointer, RoleArtifact.OffTrackSignal signal) {
+        private Optional<Double> threshold(JsonNode node, String pointer, RoleArtifact.OffTrackSignal signal) {
             if (node == null) {
-                return null;
+                return Optional.empty();
             }
             var value = number(node, pointer, "threshold");
             if (value <= 0) {
@@ -303,7 +308,7 @@ public final class RoleArtifactValidator {
                 throw invalid(pointer, "the threshold %s is below the floor %s of '%s'"
                         .formatted(value, signal.floor(), signal.wireName()));
             }
-            return value;
+            return Optional.of(value);
         }
 
         // ---- shape helpers -----------------------------------------------------------------------------------
@@ -368,11 +373,11 @@ public final class RoleArtifactValidator {
             return value;
         }
 
-        private Integer nullableInteger(JsonNode node, String pointer, String name, long min, long max) {
+        private Optional<Integer> nullableInteger(JsonNode node, String pointer, String name, long min, long max) {
             if (node == null || node.isNull()) {
-                return null;
+                return Optional.empty();
             }
-            return (int) integer(node, pointer, name, min, max);
+            return Optional.of((int) integer(node, pointer, name, min, max));
         }
 
         private double number(JsonNode node, String pointer, String name) {

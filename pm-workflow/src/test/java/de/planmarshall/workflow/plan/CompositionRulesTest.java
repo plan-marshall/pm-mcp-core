@@ -68,7 +68,8 @@ class CompositionRulesTest {
     }
 
     private static CompositionRules loaded(CompositionRules.Loading loading) {
-        return assertInstanceOf(CompositionRules.Loaded.class, loading, loading::toString).rules();
+        return assertInstanceOf(CompositionRules.Loaded.class, loading, "a well-formed rule file loads as a value")
+                .rules();
     }
 
     @Nested

@@ -142,7 +142,7 @@ public final class InstallationTokens implements AutoCloseable {
         if (!response.isOk()) {
             return Result.failed(response);
         }
-        Object json = Json.parseOrNull(response.body());
+        Object json = Json.parseOrNull(response.body()).orElse(null);
         Optional<String> token = Json.string(json, "token");
         Optional<String> expiresAt = Json.string(json, "expires_at");
         if (token.isEmpty() || expiresAt.isEmpty()) {

@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.profile;
 
+import org.jspecify.annotations.Nullable;
+
 import java.text.Normalizer;
 import java.util.Collections;
 import java.util.HashSet;
@@ -16,6 +18,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -516,7 +519,7 @@ public final class ProfileValidator {
             }
         }
 
-        private void endpointPath(JsonNode path, String pointer, String name) {
+        private void endpointPath(@Nullable JsonNode path, String pointer, String name) {
             if (path == null || path.isNull()) {
                 return;
             }
@@ -530,7 +533,7 @@ public final class ProfileValidator {
          * @param node the value of a member the schema types {@code [string, null]}
          * @return the string, or {@code null} for the JSON null
          */
-        private String optionalText(JsonNode node, String pointer, String name, int max) {
+        private String optionalText(@Nullable JsonNode node, String pointer, String name, int max) {
             return node == null || node.isNull() ? null : text(node, pointer, name, max);
         }
 
@@ -846,7 +849,7 @@ public final class ProfileValidator {
                         "zero_tool.args", SLOTS, 0);
                 zeroToolRunnable = true;
             }
-            if (!exclusive && (writer != null || readOnly != null || zeroToolRunnable)) {
+            if (!exclusive && (writer.isPresent() || readOnly.isPresent() || zeroToolRunnable)) {
                 throw invalid(pointer,
                         "a profile whose MCP configuration is not exclusive declares writer, read_only and zero_tool "
                                 + "all null");
@@ -856,21 +859,21 @@ public final class ProfileValidator {
                 throw invalid(pointer + PTR_ZERO_TOOL,
                         "a runnable zero_tool class requires the capability project_settings_control");
             }
-            if ((writer != null || readOnly != null) && !hasCapability(capabilities, "extension_isolation")) {
+            if ((writer.isPresent() || readOnly.isPresent()) && !hasCapability(capabilities, "extension_isolation")) {
                 throw invalid(pointer,
                         "a runnable writer or read_only class requires the capability extension_isolation");
             }
         }
 
-        /** @return the tool_set of a runnable class, or {@code null} for a class the harness cannot run */
-        private String toolClass(JsonNode declaration, String pointer, String name) {
+        /** @return the tool_set of a runnable class, or empty for a class the harness cannot run */
+        private Optional<String> toolClass(JsonNode declaration, String pointer, String name) {
             if (declaration.isNull()) {
-                return null;
+                return Optional.empty();
             }
             object(declaration, pointer, name, Set.of("args", NAME_TOOL_SET), Set.of("args", NAME_TOOL_SET));
             launchArguments(required(declaration, pointer, "args"), pointer + "/args", name + ".args", SLOTS, 0);
-            return enumValue(required(declaration, pointer, NAME_TOOL_SET), pointer + "/tool_set", NAME_TOOL_SET,
-                    Set.of(ENFORCED, "advisory"));
+            return Optional.of(enumValue(required(declaration, pointer, NAME_TOOL_SET), pointer + "/tool_set",
+                    NAME_TOOL_SET, Set.of(ENFORCED, "advisory")));
         }
 
         private boolean hasCapability(JsonNode capabilities, String capability) {
@@ -1155,7 +1158,7 @@ public final class ProfileValidator {
                 integer(wakeups, pointer + "/idle_wakeups", NAME_IDLE_WAKEUPS, 1, 100);
             }
             if (informationalValue) {
-                requireDeadlineAndGrace(ackDeadline, graceValue, profile, pointer);
+                requireDeadlineAndGrace(ackDeadline, graceValue.orElse(null), profile, pointer);
             }
             if (!headless.isNull()) {
                 enforcedClasses(headless, restricted, pointer);
@@ -1168,15 +1171,16 @@ public final class ProfileValidator {
                     && bool(informational, pointer + "/ack_informational", NAME_ACK_INFORMATIONAL);
         }
 
-        private Long grace(JsonNode worker, String pointer) {
+        private Optional<Long> grace(JsonNode worker, String pointer) {
             var grace = optional(worker, NAME_SILENCE_GRACE_SECONDS);
             if (grace == null || grace.isNull()) {
-                return null;
+                return Optional.empty();
             }
-            return integer(grace, pointer + "/silence_grace_seconds", NAME_SILENCE_GRACE_SECONDS, 5, 600);
+            return Optional.of(integer(grace, pointer + "/silence_grace_seconds", NAME_SILENCE_GRACE_SECONDS, 5, 600));
         }
 
-        private void requireDeadlineAndGrace(JsonNode ackDeadline, Long graceValue, JsonNode profile, String pointer) {
+        private void requireDeadlineAndGrace(@Nullable JsonNode ackDeadline, @Nullable Long graceValue,
+                JsonNode profile, String pointer) {
             if (ackDeadline == null || ackDeadline.isNull() || graceValue == null) {
                 throw invalid(pointer + PTR_ACK_DEADLINE_SECONDS,
                         "an informational acknowledgement names its deadline and silence grace");
@@ -1192,7 +1196,7 @@ public final class ProfileValidator {
             }
         }
 
-        private void enforcedClasses(JsonNode headless, JsonNode restricted, String pointer) {
+        private void enforcedClasses(JsonNode headless, @Nullable JsonNode restricted, String pointer) {
             var enforced = enforcedClass(headless);
             if (enforced && (restricted == null || restricted.isNull())) {
                 throw invalid(pointer + PTR_RESTRICTED_MODELS,

@@ -22,6 +22,8 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -174,7 +176,7 @@ public class ChangeLedgerCodec {
         generator.writeEndObject();
     }
 
-    private static void writeNullableString(JsonGenerator generator, String field, String value) throws IOException {
+    private static void writeNullableString(JsonGenerator generator, String field, @Nullable String value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -182,7 +184,7 @@ public class ChangeLedgerCodec {
         }
     }
 
-    private static void writeNullableLong(JsonGenerator generator, String field, Long value) throws IOException {
+    private static void writeNullableLong(JsonGenerator generator, String field, @Nullable Long value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -190,7 +192,7 @@ public class ChangeLedgerCodec {
         }
     }
 
-    private static void writeNullableInteger(JsonGenerator generator, String field, Integer value) throws IOException {
+    private static void writeNullableInteger(JsonGenerator generator, String field, @Nullable Integer value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -199,23 +201,23 @@ public class ChangeLedgerCodec {
     }
 
     private static ChangeLedgerRecord readRecord(JsonParser parser) throws IOException {
-        Kind kind = null;
-        String worktreeSha = null;
-        Integer worktreeShaVersion = null;
-        WorktreeShaFailure failure = null;
-        String gateKind = null;
-        Outcome outcome = null;
-        Long durationMs = null;
-        String jobId = null;
-        String commitSha = null;
+        @Nullable Kind kind = null;
+        @Nullable String worktreeSha = null;
+        @Nullable Integer worktreeShaVersion = null;
+        @Nullable WorktreeShaFailure failure = null;
+        @Nullable String gateKind = null;
+        @Nullable Outcome outcome = null;
+        @Nullable Long durationMs = null;
+        @Nullable String jobId = null;
+        @Nullable String commitSha = null;
         List<String> changedPaths = List.of();
-        ChangeOrigin changeOrigin = null;
-        Expect expect = null;
-        ExpectResult expectResult = null;
-        Baseline baseline = null;
-        String deliverableId = null;
-        String taskId = null;
-        Instant recordedAt = null;
+        @Nullable ChangeOrigin changeOrigin = null;
+        @Nullable Expect expect = null;
+        @Nullable ExpectResult expectResult = null;
+        @Nullable Baseline baseline = null;
+        @Nullable String deliverableId = null;
+        @Nullable String taskId = null;
+        @Nullable Instant recordedAt = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -224,7 +226,7 @@ public class ChangeLedgerCodec {
                 case FIELD_KIND -> kind = enumValue(parser, field, Kind::fromWireName);
                 case FIELD_WORKTREE_SHA -> worktreeSha = string(parser, field);
                 case FIELD_WORKTREE_SHA_VERSION -> worktreeShaVersion = intValue(parser, field);
-                case FIELD_WORKTREE_SHA_FAILURE -> failure = nullableWorktreeShaFailure(parser, field);
+                case FIELD_WORKTREE_SHA_FAILURE -> failure = nullableWorktreeShaFailure(parser, field).orElse(null);
                 case FIELD_GATE_KIND -> gateKind = nullableString(parser, field);
                 case FIELD_OUTCOME -> outcome = nullableEnum(parser, field, Outcome::fromWireName);
                 case FIELD_DURATION_MS -> durationMs = nullableLong(parser, field);
@@ -234,7 +236,7 @@ public class ChangeLedgerCodec {
                 case FIELD_CHANGE_ORIGIN -> changeOrigin = nullableEnum(parser, field, ChangeOrigin::fromWireName);
                 case FIELD_EXPECT -> expect = nullableEnum(parser, field, Expect::fromWireName);
                 case FIELD_EXPECT_RESULT -> expectResult = nullableEnum(parser, field, ExpectResult::fromWireName);
-                case FIELD_BASELINE -> baseline = nullableBaseline(parser, field);
+                case FIELD_BASELINE -> baseline = nullableBaseline(parser, field).orElse(null);
                 case FIELD_DELIVERABLE_ID -> deliverableId = nullableString(parser, field);
                 case FIELD_TASK_ID -> taskId = nullableString(parser, field);
                 case FIELD_RECORDED_AT -> recordedAt = instant(parser, field);
@@ -254,15 +256,16 @@ public class ChangeLedgerCodec {
         }
     }
 
-    private static WorktreeShaFailure nullableWorktreeShaFailure(JsonParser parser, String field) throws IOException {
+    private static Optional<WorktreeShaFailure> nullableWorktreeShaFailure(JsonParser parser, String field)
+            throws IOException {
         if (parser.currentToken() == JsonToken.VALUE_NULL) {
-            return null;
+            return Optional.empty();
         }
         requireObject(parser, field);
-        List<String> command = null;
-        WorktreeShaFailure.FailureKind failure = null;
-        Integer exitCode = null;
-        Integer signal = null;
+        @Nullable List<String> command = null;
+        WorktreeShaFailure.@Nullable FailureKind failure = null;
+        @Nullable Integer exitCode = null;
+        @Nullable Integer signal = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var name = nextField(parser, seen);
@@ -276,20 +279,20 @@ public class ChangeLedgerCodec {
             }
         }
         requireFields(seen, field, FIELD_COMMAND, FIELD_FAILURE);
-        return new WorktreeShaFailure(command, failure, exitCode, signal);
+        return Optional.of(new WorktreeShaFailure(command, failure, exitCode, signal));
     }
 
-    private static Baseline nullableBaseline(JsonParser parser, String field) throws IOException {
+    private static Optional<Baseline> nullableBaseline(JsonParser parser, String field) throws IOException {
         if (parser.currentToken() == JsonToken.VALUE_NULL) {
-            return null;
+            return Optional.empty();
         }
         requireObject(parser, field);
-        String gateKind = null;
-        String mergeBase = null;
-        String baseCommit = null;
-        Baseline.ProofSource proofSource = null;
-        String diagnosticsDigest = null;
-        List<String> fingerprints = null;
+        @Nullable String gateKind = null;
+        @Nullable String mergeBase = null;
+        @Nullable String baseCommit = null;
+        Baseline.@Nullable ProofSource proofSource = null;
+        @Nullable String diagnosticsDigest = null;
+        @Nullable List<String> fingerprints = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var name = nextField(parser, seen);
@@ -305,7 +308,7 @@ public class ChangeLedgerCodec {
         }
         requireFields(seen, field, FIELD_GATE_KIND, FIELD_MERGE_BASE, FIELD_BASE_COMMIT, FIELD_PROOF_SOURCE,
                 FIELD_DIAGNOSTICS_DIGEST, FIELD_FINGERPRINTS);
-        return new Baseline(gateKind, mergeBase, baseCommit, proofSource, diagnosticsDigest, fingerprints);
+        return Optional.of(new Baseline(gateKind, mergeBase, baseCommit, proofSource, diagnosticsDigest, fingerprints));
     }
 
     private static Integer nullableInteger(JsonParser parser, String field) throws IOException {

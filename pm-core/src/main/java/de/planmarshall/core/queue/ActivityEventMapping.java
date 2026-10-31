@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.queue;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -53,13 +55,13 @@ public record ActivityEventMapping(String kindPointer, Map<ActivityEntry.Kind, K
 
     /**
      * @param events the {@code headless.events} value of a profile
-     * @return the mapping, or {@code null} when the value is {@code null}
+     * @return the mapping, or empty when the value is {@code null}
      * @throws IllegalArgumentException if the value is not the object {@code ProfileValidator} admitted
      */
-    public static ActivityEventMapping of(JsonNode events) {
+    public static Optional<ActivityEventMapping> of(JsonNode events) {
         Objects.requireNonNull(events, "events");
         if (events.isNull()) {
-            return null;
+            return Optional.empty();
         }
         var kindPointer = text(events, "kind_pointer");
         var kinds = events.member("kinds").orElseThrow(
@@ -71,7 +73,7 @@ public record ActivityEventMapping(String kindPointer, Map<ActivityEntry.Kind, K
                 mapped.put(kind, kindMapping(kind, declaration));
             }
         }
-        return new ActivityEventMapping(kindPointer, mapped);
+        return Optional.of(new ActivityEventMapping(kindPointer, mapped));
     }
 
     private static KindMapping kindMapping(ActivityEntry.Kind kind, JsonNode declaration) {
@@ -98,7 +100,7 @@ public record ActivityEventMapping(String kindPointer, Map<ActivityEntry.Kind, K
      * @param value the value of the kind pointer of a line
      * @return the kind that value selects, if any
      */
-    public Optional<ActivityEntry.Kind> kindOf(String value) {
+    public Optional<ActivityEntry.Kind> kindOf(@Nullable String value) {
         if (value == null) {
             return Optional.empty();
         }
@@ -140,9 +142,9 @@ public record ActivityEventMapping(String kindPointer, Map<ActivityEntry.Kind, K
      * @param stopReasonPointer the pointer to the turn's stop reason; {@code turn} only, may be {@code null}
      * @since 0.1
      */
-    public record KindMapping(List<String> match, String textPointer, String toolPointer,
-    List<String> targetPointers, String sizePointer, String isErrorPointer, String pathPointer,
-    String stopReasonPointer) {
+    public record KindMapping(List<String> match, @Nullable String textPointer, @Nullable String toolPointer,
+    List<String> targetPointers, @Nullable String sizePointer, @Nullable String isErrorPointer,
+    @Nullable String pathPointer, @Nullable String stopReasonPointer) {
 
         /** Copies the lists. */
         public KindMapping {

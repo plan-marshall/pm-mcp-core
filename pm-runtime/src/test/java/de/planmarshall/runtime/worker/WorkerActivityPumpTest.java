@@ -61,7 +61,7 @@ class WorkerActivityPumpTest {
 
     private static WorkerActivityPump pump(ActivityJournal journal) {
         var mapping = ActivityEventMapping.of(
-                JsonDocument.parse(EVENTS.getBytes(StandardCharsets.UTF_8), "events"));
+                JsonDocument.parse(EVENTS.getBytes(StandardCharsets.UTF_8), "events")).orElseThrow();
         var mapper = new ActivityEventMapper(mapping, Map.of());
         var role = OffTrackDetectorTest.role(Map.of());
         WorkerTaskActivity tasks = queueTaskId -> Optional.of(

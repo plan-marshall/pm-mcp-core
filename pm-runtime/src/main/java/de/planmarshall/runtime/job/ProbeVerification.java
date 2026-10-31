@@ -16,6 +16,7 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import lombok.experimental.UtilityClass;
 
 import de.planmarshall.runtime.job.JobRefusal.Reason;
@@ -121,33 +122,33 @@ public class ProbeVerification {
             case JobPrivate _ -> jobPrivateDirectory;
         };
         var canonical = canonical(workingDirectory);
-        if (canonical == null || !canonical.equals(canonical(expected))
-                || !canonical.equals(workingDirectory.toAbsolutePath().normalize())) {
+        if (canonical.isEmpty() || !canonical.equals(canonical(expected))
+                || !canonical.get().equals(workingDirectory.toAbsolutePath().normalize())) {
             return refused(Reason.PATH_TRAVERSAL_REJECTED,
                     "the working directory is not the canonical working directory of the probe");
         }
         if (candidate.workingDirectory() instanceof CheckoutRoot
-                && !Files.exists(canonical.resolve(GIT), LinkOption.NOFOLLOW_LINKS)) {
+                && !Files.exists(canonical.get().resolve(GIT), LinkOption.NOFOLLOW_LINKS)) {
             return refused(Reason.PATH_TRAVERSAL_REJECTED, "the checkout root is no git top-level");
         }
 
         if (!candidate.arguments().equals(arguments)) {
             return refused(Reason.ARGUMENT_REJECTED, "the arguments are not the declared arguments of the probe");
         }
-        return new Verified(canonical, candidate.declaredArgv());
+        return new Verified(canonical.get(), candidate.declaredArgv());
     }
 
     private static boolean matches(DigestedFile file) {
         return FileDigest.of(file.path()).matches(file.sha256());
     }
 
-    /** @return the canonical path of a directory; {@code null} if it does not exist or is no directory */
-    private static Path canonical(Path directory) {
+    /** @return the canonical path of a directory; empty if it does not exist or is no directory */
+    private static Optional<Path> canonical(Path directory) {
         try {
             var real = directory.toRealPath();
-            return Files.isDirectory(real) ? real : null;
+            return Files.isDirectory(real) ? Optional.of(real) : Optional.empty();
         } catch (IOException _) {
-            return null;
+            return Optional.empty();
         }
     }
 

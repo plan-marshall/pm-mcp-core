@@ -94,7 +94,7 @@ public record QualificationCheck(RoleTopics topics, List<ImportedItem> items, Qu
         if (entry.ungraded() > 0) {
             common.add(Reason.of(Code.UNGRADED_ITEMS, "the record has %d ungraded item(s)".formatted(entry.ungraded())));
         }
-        var catchRate = catchRate(entry, RoleForm.FRESH);
+        var catchRate = catchRate(entry, RoleForm.FRESH).orElse(null);
         if (catchRate != null && catchRate.compareTo(BigDecimal.valueOf(settings.agreementLevel())) < 0) {
             common.add(Reason.of(Code.CATCH_RATE_BELOW_LEVEL, "the screener's catch rate %s is below the level %d"
                     .formatted(catchRate, settings.agreementLevel())));
@@ -126,13 +126,13 @@ public record QualificationCheck(RoleTopics topics, List<ImportedItem> items, Qu
     /**
      * @param entry the record
      * @param form the form
-     * @return the share of the runs of the {@code suspicious} items answered {@code suspicious}; {@code null} when the
+     * @return the share of the runs of the {@code suspicious} items answered {@code suspicious}; empty when the
      *         role's corpus has no such item or the form was not graded
      */
-    public BigDecimal catchRate(QualificationRecord entry, RoleForm form) {
+    public Optional<BigDecimal> catchRate(QualificationRecord entry, RoleForm form) {
         var result = entry.form(form).orElse(null);
         if (result == null) {
-            return null;
+            return Optional.empty();
         }
         var suspicious = new HashMap<String, Boolean>();
         for (var item : items) {
@@ -141,7 +141,7 @@ public record QualificationCheck(RoleTopics topics, List<ImportedItem> items, Qu
             }
         }
         if (suspicious.isEmpty()) {
-            return null;
+            return Optional.empty();
         }
         var runs = 0;
         var caught = 0;
@@ -154,7 +154,7 @@ public record QualificationCheck(RoleTopics topics, List<ImportedItem> items, Qu
                 caught++;
             }
         }
-        return runs == 0 ? null : ConstantBaseline.percent(caught, runs);
+        return runs == 0 ? Optional.empty() : Optional.of(ConstantBaseline.percent(caught, runs));
     }
 
     /**

@@ -145,7 +145,7 @@ class OffTrackScenarioTest {
                 new WorkerTaskActivity.TaskActivity(1, role, Set.of(), predictedCost, unplannedChange));
         var recorder = new ActivityRecorder(journal, tasks, protocol, new OffTrackDetector(), InstantSource.fixed(AT));
         var mapper = new ActivityEventMapper(ActivityEventMapping.of(
-                JsonDocument.parse(EVENTS.getBytes(StandardCharsets.UTF_8), "events")), USAGE);
+                JsonDocument.parse(EVENTS.getBytes(StandardCharsets.UTF_8), "events")).orElseThrow(), USAGE);
         var pump = new WorkerActivityPump(mapper, recorder);
         var log = directory.resolve("worker.log");
         var counts = new ArrayList<Integer>();
