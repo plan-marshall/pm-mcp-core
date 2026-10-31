@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.analysis;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 
@@ -32,7 +34,8 @@ import de.planmarshall.core.findings.Finding;
  *                     {@link Finding} for {@code analysis.issues}
  * @since 0.1
  */
-public record AnalysisCallResult<V>(AnalysisOutcome outcome, V value, Completeness completeness) {
+public record AnalysisCallResult<V>(AnalysisOutcome outcome, @Nullable V value,
+@Nullable Completeness completeness) {
 
     /**
      * @throws NullPointerException     if the outcome is {@code null}
@@ -63,7 +66,7 @@ public record AnalysisCallResult<V>(AnalysisOutcome outcome, V value, Completene
      * @return the result of the call
      * @throws IllegalArgumentException if the value does not match the outcome
      */
-    public static AnalysisCallResult<AnalysisResult> status(AnalysisOutcome outcome, AnalysisResult value) {
+    public static AnalysisCallResult<AnalysisResult> status(AnalysisOutcome outcome, @Nullable AnalysisResult value) {
         return new AnalysisCallResult<>(outcome, value, null);
     }
 
@@ -78,8 +81,8 @@ public record AnalysisCallResult<V>(AnalysisOutcome outcome, V value, Completene
      * @return the result of the call; the issues are copied
      * @throws IllegalArgumentException if the value or the completeness does not match the outcome
      */
-    public static AnalysisCallResult<List<Finding>> issues(AnalysisOutcome outcome, List<Finding> value,
-            Completeness completeness) {
+    public static AnalysisCallResult<List<Finding>> issues(AnalysisOutcome outcome, @Nullable List<Finding> value,
+            @Nullable Completeness completeness) {
         return new AnalysisCallResult<>(outcome, value == null ? null : List.copyOf(value), completeness);
     }
 

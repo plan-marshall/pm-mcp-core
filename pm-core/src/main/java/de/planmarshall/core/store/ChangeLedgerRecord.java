@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
@@ -50,9 +52,10 @@ import lombok.Builder;
  */
 @Builder(toBuilder = true)
 public record ChangeLedgerRecord(Kind kind, String worktreeSha, int worktreeShaVersion,
-WorktreeShaFailure worktreeShaFailure, String gateKind, Outcome outcome, Long durationMs, String jobId,
-String commitSha, List<String> changedPaths, ChangeOrigin changeOrigin, Expect expect,
-ExpectResult expectResult, Baseline baseline, String deliverableId, String taskId, Instant recordedAt) {
+@Nullable WorktreeShaFailure worktreeShaFailure, @Nullable String gateKind, @Nullable Outcome outcome,
+@Nullable Long durationMs, @Nullable String jobId, @Nullable String commitSha, List<String> changedPaths,
+@Nullable ChangeOrigin changeOrigin, @Nullable Expect expect, @Nullable ExpectResult expectResult,
+@Nullable Baseline baseline, @Nullable String deliverableId, @Nullable String taskId, Instant recordedAt) {
 
     /** The format version of a change-ledger record that is read and written. */
     public static final int FORMAT_VERSION = 1;
@@ -229,7 +232,8 @@ ExpectResult expectResult, Baseline baseline, String deliverableId, String taskI
      * @param signal    the terminating signal, or {@code null}
      * @since 0.1
      */
-    public record WorktreeShaFailure(List<String> command, FailureKind failure, Integer exitCode, Integer signal) {
+    public record WorktreeShaFailure(List<String> command, FailureKind failure, @Nullable Integer exitCode,
+    @Nullable Integer signal) {
 
         /** How the git invocation failed. */
         public enum FailureKind {

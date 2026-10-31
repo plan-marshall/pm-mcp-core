@@ -23,6 +23,8 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -162,7 +164,7 @@ public class ModelSlotCodec {
         generator.writeEndObject();
     }
 
-    private static void writeNullableString(JsonGenerator generator, String field, String value) throws IOException {
+    private static void writeNullableString(JsonGenerator generator, String field, @Nullable String value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -171,8 +173,8 @@ public class ModelSlotCodec {
     }
 
     private static Document readDocument(JsonParser parser) throws IOException {
-        List<Lease> slots = null;
-        List<Waiting> waiting = null;
+        @Nullable List<Lease> slots = null;
+        @Nullable List<Waiting> waiting = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -213,14 +215,14 @@ public class ModelSlotCodec {
 
     private static Lease readSlot(JsonParser parser) throws IOException {
         requireObject(parser, "slot");
-        LeaseOwner owner = null;
-        String jobId = null;
-        String role = null;
-        WorkerClass workerClass = null;
-        Form form = null;
-        String planId = null;
-        Instant acquiredAt = null;
-        Instant leaseExpiresAt = null;
+        @Nullable LeaseOwner owner = null;
+        @Nullable String jobId = null;
+        @Nullable String role = null;
+        @Nullable WorkerClass workerClass = null;
+        @Nullable Form form = null;
+        @Nullable String planId = null;
+        @Nullable Instant acquiredAt = null;
+        @Nullable Instant leaseExpiresAt = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -248,13 +250,13 @@ public class ModelSlotCodec {
 
     private static Waiting readWaitingEntry(JsonParser parser) throws IOException {
         requireObject(parser, "waiting worker");
-        LeaseOwner owner = null;
-        String jobId = null;
-        String role = null;
-        WorkerClass workerClass = null;
-        Form form = null;
-        String planId = null;
-        Instant enqueuedAt = null;
+        @Nullable LeaseOwner owner = null;
+        @Nullable String jobId = null;
+        @Nullable String role = null;
+        @Nullable WorkerClass workerClass = null;
+        @Nullable Form form = null;
+        @Nullable String planId = null;
+        @Nullable Instant enqueuedAt = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -288,11 +290,11 @@ public class ModelSlotCodec {
 
     private static LeaseOwner readOwner(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_OWNER);
-        String projectId = null;
-        ScopeType scopeType = null;
-        String scopeId = null;
-        HolderInstance holder = null;
-        Instant orphanedAt = null;
+        @Nullable String projectId = null;
+        @Nullable ScopeType scopeType = null;
+        @Nullable String scopeId = null;
+        @Nullable HolderInstance holder = null;
+        @Nullable Instant orphanedAt = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -320,7 +322,7 @@ public class ModelSlotCodec {
     private static HolderInstance readHolder(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_HOLDER_INSTANCE);
         long runtimePid = 0;
-        Instant runtimeStartedAt = null;
+        @Nullable Instant runtimeStartedAt = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

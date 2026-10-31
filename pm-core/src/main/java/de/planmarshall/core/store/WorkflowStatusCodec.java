@@ -21,6 +21,8 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -420,7 +422,7 @@ public class WorkflowStatusCodec {
         generator.writeEndObject();
     }
 
-    private static void writeNullableString(JsonGenerator generator, String field, String value) throws IOException {
+    private static void writeNullableString(JsonGenerator generator, String field, @Nullable String value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -470,12 +472,12 @@ public class WorkflowStatusCodec {
     /** Reads one call frame; the frames of a pending entry record's bootstrap have the same shape. */
     static CallFrame readFrame(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String callerWorkflowId = null;
-        String callerStateId = null;
-        String subworkflowId = null;
-        String entry = null;
-        Map<String, BoundArg> boundArgs = null;
-        Instant pushedAt = null;
+        @Nullable String callerWorkflowId = null;
+        @Nullable String callerStateId = null;
+        @Nullable String subworkflowId = null;
+        @Nullable String entry = null;
+        @Nullable Map<String, BoundArg> boundArgs = null;
+        @Nullable Instant pushedAt = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -527,7 +529,7 @@ public class WorkflowStatusCodec {
 
     private static RetryCounters.Entry readRetryEntry(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String stateId = null;
+        @Nullable String stateId = null;
         long attempts = 0;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
@@ -546,8 +548,8 @@ public class WorkflowStatusCodec {
         requireObject(parser, name);
         long retryUsed = 0;
         long fixUsed = 0;
-        Renewal renewedFrom = null;
-        LastRetry lastRetry = null;
+        @Nullable Renewal renewedFrom = null;
+        @Nullable LastRetry lastRetry = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -567,7 +569,7 @@ public class WorkflowStatusCodec {
         requireObject(parser, RENEWED_FROM);
         long retryUsed = 0;
         long fixUsed = 0;
-        String replanId = null;
+        @Nullable String replanId = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -584,8 +586,8 @@ public class WorkflowStatusCodec {
 
     private static LastRetry readLastRetry(JsonParser parser) throws IOException {
         requireObject(parser, LAST_RETRY);
-        String reason = null;
-        List<String> fingerprints = null;
+        @Nullable String reason = null;
+        @Nullable List<String> fingerprints = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -630,10 +632,10 @@ public class WorkflowStatusCodec {
 
     private static WaiverRequest.Answered readAnswered(JsonParser parser) throws IOException {
         requireObject(parser, ANSWERED);
-        Channel channel = null;
-        String deviceId = null;
-        String reason = null;
-        Instant at = null;
+        @Nullable Channel channel = null;
+        @Nullable String deviceId = null;
+        @Nullable String reason = null;
+        @Nullable Instant at = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -652,10 +654,10 @@ public class WorkflowStatusCodec {
 
     private static JobEntry readJob(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String jobId = null;
-        String kind = null;
-        String status = null;
-        Instant startedAt = null;
+        @Nullable String jobId = null;
+        @Nullable String kind = null;
+        @Nullable String status = null;
+        @Nullable Instant startedAt = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -673,8 +675,8 @@ public class WorkflowStatusCodec {
 
     private static ActiveJob readActiveJob(JsonParser parser) throws IOException {
         requireObject(parser, ACTIVE_JOB);
-        String stateId = null;
-        String jobId = null;
+        @Nullable String stateId = null;
+        @Nullable String jobId = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -690,11 +692,11 @@ public class WorkflowStatusCodec {
 
     private static TaskEntry readTask(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String queueTaskId = null;
-        String role = null;
-        String state = null;
-        String outcome = null;
-        String reason = null;
+        @Nullable String queueTaskId = null;
+        @Nullable String role = null;
+        @Nullable String state = null;
+        @Nullable String outcome = null;
+        @Nullable String reason = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -714,11 +716,11 @@ public class WorkflowStatusCodec {
     /** Reads a condition overlay; a pending entry record's bootstrap carries one of the same shape. */
     static PendingCondition readCondition(JsonParser parser, byte[] document) throws IOException {
         requireObject(parser, PENDING_CONDITION);
-        String kind = null;
+        @Nullable String kind = null;
         long remedyAttempts = 0;
-        Integrity integrity = null;
-        String facts = null;
-        Instant raisedAt = null;
+        @Nullable Integrity integrity = null;
+        @Nullable String facts = null;
+        @Nullable Instant raisedAt = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -740,10 +742,10 @@ public class WorkflowStatusCodec {
 
     private static Integrity readIntegrity(JsonParser parser) throws IOException {
         requireObject(parser, INTEGRITY);
-        String kind = null;
-        String store = null;
-        String recordedDigest = null;
-        String currentDigest = null;
+        @Nullable String kind = null;
+        @Nullable String store = null;
+        @Nullable String recordedDigest = null;
+        @Nullable String currentDigest = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

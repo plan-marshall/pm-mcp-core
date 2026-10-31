@@ -12,6 +12,8 @@ package de.planmarshall.core.role.corpus;
 import static de.planmarshall.core.store.StrictJson.string;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -146,7 +148,7 @@ class CorpusJson {
      * @param value     the value; {@code null} writes a JSON {@code null}
      * @throws IOException if the generator cannot write
      */
-    static void writeNullableString(JsonGenerator generator, String field, String value) throws IOException {
+    static void writeNullableString(JsonGenerator generator, String field, @Nullable String value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {

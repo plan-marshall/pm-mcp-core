@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.analysis;
 
+import org.jspecify.annotations.Nullable;
+
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -52,8 +54,8 @@ import de.planmarshall.core.findings.FindingSourceKey;
  */
 @Builder(toBuilder = true)
 public record AnalysisResult(int formatVersion, String provider, FindingScope target, AnalysisStatus status,
-Gate gate, CountStatus countStatus, Long newCodeIssueCount, long issuesFetched, boolean workPerformed,
-String analysisRef, Instant observedAt) {
+@Nullable Gate gate, CountStatus countStatus, @Nullable Long newCodeIssueCount, long issuesFetched,
+boolean workPerformed, @Nullable String analysisRef, Instant observedAt) {
 
     /** The only version of the record format. */
     public static final int FORMAT_VERSION = 1;
@@ -145,7 +147,7 @@ String analysisRef, Instant observedAt) {
      * @param actual     the measured value, at most 64 characters; {@code null} when the provider reports none
      * @param result     whether the condition passed or failed
      */
-    public record Condition(String metric, Comparator comparator, String threshold, String actual,
+    public record Condition(String metric, Comparator comparator, String threshold, @Nullable String actual,
     GateResult result) {
 
         /**

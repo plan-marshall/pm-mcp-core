@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.role;
 
+import org.jspecify.annotations.Nullable;
+
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
@@ -29,7 +31,8 @@ import java.util.Objects;
  * @param projectDirectory the project role set, {@code <PM_MCP_BASE>/projects/<project_id>/roles/}; may be {@code null}
  * @since 0.1
  */
-public record RoleSets(Map<String, ShippedRole> shipped, Path machineDirectory, Path projectDirectory) {
+public record RoleSets(Map<String, ShippedRole> shipped, @Nullable Path machineDirectory,
+@Nullable Path projectDirectory) {
 
     /** Copies the shipped documents. */
     public RoleSets {

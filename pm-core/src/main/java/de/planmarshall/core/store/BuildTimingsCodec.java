@@ -19,6 +19,8 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -127,7 +129,7 @@ public class BuildTimingsCodec {
     }
 
     private static BuildTimings readDocument(JsonParser parser) throws IOException {
-        Map<String, KeyTimings> keys = null;
+        @Nullable Map<String, KeyTimings> keys = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -161,11 +163,11 @@ public class BuildTimingsCodec {
 
     private static KeyTimings readKeyTimings(JsonParser parser, String key) throws IOException {
         requireObject(parser, key);
-        Baseline clean = null;
-        Baseline poisoned = null;
-        Baseline cold = null;
-        Long escalationSeconds = null;
-        Instant lastObservedAt = null;
+        @Nullable Baseline clean = null;
+        @Nullable Baseline poisoned = null;
+        @Nullable Baseline cold = null;
+        @Nullable Long escalationSeconds = null;
+        @Nullable Instant lastObservedAt = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -190,8 +192,8 @@ public class BuildTimingsCodec {
 
     private static Baseline readBaseline(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        Long learnedSeconds = null;
-        Long observations = null;
+        @Nullable Long learnedSeconds = null;
+        @Nullable Long observations = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.findings;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 import java.util.regex.Pattern;
 
@@ -23,7 +25,7 @@ import java.util.regex.Pattern;
  *                 {@code null} for every other kind
  * @since 0.1
  */
-public record FindingSourceKey(FindingSourceKind kind, String provider) {
+public record FindingSourceKey(FindingSourceKind kind, @Nullable String provider) {
 
     private static final Pattern PROVIDER_ID = Pattern.compile("^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$");
 

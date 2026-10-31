@@ -21,6 +21,8 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -101,12 +103,12 @@ public class WaiverConsumptionCodec {
 
     private static WaiverConsumptionRecord readObject(JsonParser parser) throws IOException {
         requireObject(parser, RECORD);
-        String waiverId = null;
-        String gate = null;
-        Instant at = null;
-        String stateId = null;
-        String headSha = null;
-        List<String> covered = null;
+        @Nullable String waiverId = null;
+        @Nullable String gate = null;
+        @Nullable Instant at = null;
+        @Nullable String stateId = null;
+        @Nullable String headSha = null;
+        @Nullable List<String> covered = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

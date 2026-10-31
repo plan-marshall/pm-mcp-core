@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.queue;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 
 /**
@@ -26,7 +28,7 @@ import java.util.Objects;
  * @param sentinel   {@code indeterminate}, {@code unmeasured} or {@code null} for a measured figure
  * @since 0.1
  */
-public record Figure(String name, Double value, long population, String sentinel) {
+public record Figure(String name, @Nullable Double value, long population, @Nullable String sentinel) {
 
     /** The population of the figure cannot be read. */
     public static final String SENTINEL_INDETERMINATE = "indeterminate";

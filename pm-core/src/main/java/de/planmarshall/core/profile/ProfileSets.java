@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.profile;
 
+import org.jspecify.annotations.Nullable;
+
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
@@ -30,7 +32,8 @@ import java.util.Map;
  *                         {@code null}
  * @since 0.1
  */
-public record ProfileSets(Map<String, ShippedProfile> shipped, Path machineDirectory, Path projectDirectory) {
+public record ProfileSets(Map<String, ShippedProfile> shipped, @Nullable Path machineDirectory,
+@Nullable Path projectDirectory) {
 
     /** Copies the shipped profiles. */
     public ProfileSets {

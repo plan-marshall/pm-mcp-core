@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.profile;
 
+import org.jspecify.annotations.Nullable;
+
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -55,15 +57,15 @@ public final class JsonNode {
     private static final JsonNode NULL = new JsonNode(Kind.NULL, null, null, null, null, null, null);
 
     private final Kind kind;
-    private final Map<String, JsonNode> members;
-    private final List<JsonNode> elements;
-    private final String text;
-    private final Long integer;
-    private final BigDecimal decimal;
-    private final Boolean bool;
+    private final @Nullable Map<String, JsonNode> members;
+    private final @Nullable List<JsonNode> elements;
+    private final @Nullable String text;
+    private final @Nullable Long integer;
+    private final @Nullable BigDecimal decimal;
+    private final @Nullable Boolean bool;
 
-    private JsonNode(Kind kind, Map<String, JsonNode> members, List<JsonNode> elements, String text, Long integer,
-            BigDecimal decimal, Boolean bool) {
+    private JsonNode(Kind kind, @Nullable Map<String, JsonNode> members, @Nullable List<JsonNode> elements,
+            @Nullable String text, @Nullable Long integer, @Nullable BigDecimal decimal, @Nullable Boolean bool) {
         this.kind = kind;
         this.members = members;
         this.elements = elements;

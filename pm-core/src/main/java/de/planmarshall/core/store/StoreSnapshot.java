@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -37,10 +39,10 @@ public final class StoreSnapshot {
     private static final String STORE = "store";
 
     private final Path file;
-    private final byte[] content;
+    private final byte @Nullable [] content;
     private final StoreIntegrity integrity;
 
-    private StoreSnapshot(Path file, byte[] content, StoreIntegrity integrity) {
+    private StoreSnapshot(Path file, byte @Nullable [] content, StoreIntegrity integrity) {
         this.file = file;
         this.content = content;
         this.integrity = integrity;

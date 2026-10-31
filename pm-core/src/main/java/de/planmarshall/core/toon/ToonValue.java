@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.toon;
 
+import org.jspecify.annotations.Nullable;
+
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -184,7 +186,7 @@ public sealed interface ToonValue
              * @param value the value; omitted when {@code null}
              * @return this builder
              */
-            public Builder add(String key, ToonValue value) {
+            public Builder add(String key, @Nullable ToonValue value) {
                 if (value != null) {
                     fields.add(new Field(key, value));
                 }
@@ -196,7 +198,7 @@ public sealed interface ToonValue
              * @param value the string; omitted when {@code null}
              * @return this builder
              */
-            public Builder add(String key, String value) {
+            public Builder add(String key, @Nullable String value) {
                 return add(key, value == null ? null : new ToonString(value));
             }
 

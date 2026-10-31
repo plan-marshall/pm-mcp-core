@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -136,7 +138,7 @@ record AuditIntentFile(Path file, LockKey lockKey) {
     }
 
     private static List<AuditEvent> readDocument(JsonParser parser) throws IOException {
-        List<AuditEvent> owed = null;
+        @Nullable List<AuditEvent> owed = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = StrictJson.nextField(parser, seen);

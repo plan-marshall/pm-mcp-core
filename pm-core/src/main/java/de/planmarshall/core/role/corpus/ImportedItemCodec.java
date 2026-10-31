@@ -25,6 +25,8 @@ import static de.planmarshall.core.store.StrictJson.stringList;
 import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -255,7 +257,7 @@ public class ImportedItemCodec {
 
     /** Finds the schema version before anything else is read: exactly one integer {@code schema_version} of 1. */
     private static void requireSchemaVersion(byte[] document) throws IOException {
-        Long found = null;
+        @Nullable Long found = null;
         try (var parser = StrictJson.factory().createParser(document)) {
             if (parser.nextToken() != JsonToken.START_OBJECT) {
                 throw unreadable("not a JSON object");
@@ -313,10 +315,10 @@ public class ImportedItemCodec {
 
     private static Input readInput(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_INPUT);
-        String question = null;
-        String facts = null;
-        List<String> choices = null;
-        JsonValue answerSchema = null;
+        @Nullable String question = null;
+        @Nullable String facts = null;
+        @Nullable List<String> choices = null;
+        @Nullable JsonValue answerSchema = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -338,8 +340,8 @@ public class ImportedItemCodec {
 
     private static Target readTarget(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_TARGET);
-        String answer = null;
-        String rationale = null;
+        @Nullable String answer = null;
+        @Nullable String rationale = null;
         List<String> alternatives = List.of();
         List<RubricItem> items = List.of();
         var expectedEmpty = false;
@@ -371,8 +373,8 @@ public class ImportedItemCodec {
 
     private static RubricItem readRubricItem(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String id = null;
-        String description = null;
+        @Nullable String id = null;
+        @Nullable String description = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -388,9 +390,9 @@ public class ImportedItemCodec {
 
     private static Grading readGrading(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_GRADING);
-        GradingMethod method = null;
-        String judge = null;
-        BigDecimal passThreshold = null;
+        @Nullable GradingMethod method = null;
+        @Nullable String judge = null;
+        @Nullable BigDecimal passThreshold = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -410,9 +412,9 @@ public class ImportedItemCodec {
 
     private static Provenance readProvenance(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_PROVENANCE);
-        LocalDate created = null;
-        Origin origin = null;
-        List<String> history = null;
+        @Nullable LocalDate created = null;
+        @Nullable Origin origin = null;
+        @Nullable List<String> history = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -438,9 +440,9 @@ public class ImportedItemCodec {
 
     private static Origin readOrigin(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_ORIGIN);
-        String repository = null;
-        String commit = null;
-        String path = null;
+        @Nullable String repository = null;
+        @Nullable String commit = null;
+        @Nullable String path = null;
         long line = 0;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
@@ -467,10 +469,10 @@ public class ImportedItemCodec {
 
     private static Review readReview(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_REVIEW);
-        ReviewStatus status = null;
-        String by = null;
-        LocalDate date = null;
-        String notes = null;
+        @Nullable ReviewStatus status = null;
+        @Nullable String by = null;
+        @Nullable LocalDate date = null;
+        @Nullable String notes = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

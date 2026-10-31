@@ -21,6 +21,8 @@ import static de.planmarshall.core.store.StrictJson.string;
 import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -197,11 +199,11 @@ public class ConsentCodec {
     private static Consent consent(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
         var seen = new HashSet<String>();
-        ConsentKind kind = null;
+        @Nullable ConsentKind kind = null;
         Optional<String> projectId = Optional.empty();
         var scripts = List.<ConsentScript>of();
-        Instant grantedAt = null;
-        Consent.Channel channel = null;
+        @Nullable Instant grantedAt = null;
+        Consent.@Nullable Channel channel = null;
         Optional<String> deviceId = Optional.empty();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -255,8 +257,8 @@ public class ConsentCodec {
     private static ConsentScript script(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
         var seen = new HashSet<String>();
-        String path = null;
-        String sha256 = null;
+        @Nullable String path = null;
+        @Nullable String sha256 = null;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {

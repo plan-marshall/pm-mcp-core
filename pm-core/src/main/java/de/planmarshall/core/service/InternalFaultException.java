@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.service;
 
+import org.jspecify.annotations.Nullable;
+
 import java.io.Serial;
 import java.util.List;
 import java.util.Map;
@@ -67,7 +69,7 @@ public class InternalFaultException extends RuntimeException {
     private final Reason reason;
 
     /** The details of the fault; not part of the serialized form. */
-    private final transient Map<String, Object> details;
+    private final transient @Nullable Map<String, Object> details;
 
     /**
      * @param reason  the reason

@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.time.Instant;
 import java.util.Objects;
 
@@ -30,9 +32,9 @@ import java.util.Objects;
 public record LeaseOwner(
 String projectId,
 ScopeType scopeType,
-String scopeId,
+@Nullable String scopeId,
 HolderInstance holderInstance,
-Instant orphanedAt) {
+@Nullable Instant orphanedAt) {
 
     /**
      * @throws NullPointerException     if the project id, the scope type or the holder is {@code null}, or the scope

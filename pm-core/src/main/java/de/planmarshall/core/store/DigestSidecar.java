@@ -18,6 +18,8 @@ import static de.planmarshall.core.store.StrictJson.string;
 import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -171,7 +173,7 @@ public record DigestSidecar(SortedMap<String, StoreDigest> stores) {
     }
 
     private static DigestSidecar readDocument(JsonParser parser) throws IOException {
-        SortedMap<String, StoreDigest> stores = null;
+        @Nullable SortedMap<String, StoreDigest> stores = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -203,7 +205,7 @@ public record DigestSidecar(SortedMap<String, StoreDigest> stores) {
     private static StoreDigest readDigest(JsonParser parser, String path) throws IOException {
         requireObject(parser, path);
         long size = 0;
-        String sha256 = null;
+        @Nullable String sha256 = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

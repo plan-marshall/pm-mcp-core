@@ -21,6 +21,8 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -205,7 +207,7 @@ public final class FencedGenerations {
     private static List<Fence> decode(Path file, byte[] document) {
         return StrictJson.read(file, document, QueueTaskRecord.FORMAT_VERSION, parser -> {
             requireObject(parser, DOCUMENT);
-            List<Fence> fences = null;
+            @Nullable List<Fence> fences = null;
             var seen = new HashSet<String>();
             while (parser.nextToken() == JsonToken.FIELD_NAME) {
                 var field = nextField(parser, seen);
@@ -222,8 +224,8 @@ public final class FencedGenerations {
 
     private static Fence readFence(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String generationId = null;
-        Instant fencedAt = null;
+        @Nullable String generationId = null;
+        @Nullable Instant fencedAt = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

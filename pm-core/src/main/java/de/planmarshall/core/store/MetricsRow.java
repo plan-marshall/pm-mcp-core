@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
@@ -67,12 +69,15 @@ import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
  */
 @With
 @Builder(toBuilder = true)
-public record MetricsRow(String queueTaskId, Integer attempt, String role, String jobId, String generationId,
-String harness, String harnessVersion, String model, String effort, Form form, Phase phase, String stepId,
-String envelopeId, PredictedCost predictedCost, YieldReason yieldReason, Outcome outcome, AttemptEnd attemptEnd,
-ContinuationMark continuation, CauseClass causeClass, SpendClass spendClass, Population population,
-HarnessUsage usage, Long durationMs, DurationBasis durationBasis, Long queuedMs, String consultationOf,
-Instant recordedAt) {
+public record MetricsRow(@Nullable String queueTaskId, @Nullable Integer attempt, @Nullable String role,
+@Nullable String jobId, @Nullable String generationId, @Nullable String harness,
+@Nullable String harnessVersion, @Nullable String model, @Nullable String effort, @Nullable Form form,
+@Nullable Phase phase, @Nullable String stepId, @Nullable String envelopeId,
+@Nullable PredictedCost predictedCost, @Nullable YieldReason yieldReason, Outcome outcome,
+@Nullable AttemptEnd attemptEnd, @Nullable ContinuationMark continuation, CauseClass causeClass,
+SpendClass spendClass, Population population, HarnessUsage usage,
+@Nullable Long durationMs, @Nullable DurationBasis durationBasis, @Nullable Long queuedMs,
+@Nullable String consultationOf, Instant recordedAt) {
 
     /** The kind of every row this record writes. */
     public static final String KIND = "task";

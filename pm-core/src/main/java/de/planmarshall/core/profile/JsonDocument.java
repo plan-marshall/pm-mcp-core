@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.profile;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -50,7 +52,7 @@ public final class JsonDocument {
      * @return the tree of the document
      * @throws ProfileRefusal if the document is too large, is not JSON, or breaks a bound of the reader
      */
-    public static JsonNode parse(byte[] document, String name) {
+    public static JsonNode parse(byte @Nullable [] document, String name) {
         if (document == null) {
             throw ProfileRefusal.unreadable(name, "the document is absent");
         }

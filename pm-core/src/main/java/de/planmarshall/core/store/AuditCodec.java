@@ -21,6 +21,8 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -331,12 +333,12 @@ public class AuditCodec {
     }
 
     private static AuditHeadRecord readHeadObject(JsonParser parser) throws IOException {
-        String file = null;
+        @Nullable String file = null;
         long recordCount = 0;
-        String lastEventId = null;
-        String headHash = null;
-        String indexHeadHash = null;
-        String hmac = null;
+        @Nullable String lastEventId = null;
+        @Nullable String headHash = null;
+        @Nullable String indexHeadHash = null;
+        @Nullable String hmac = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -356,12 +358,12 @@ public class AuditCodec {
     }
 
     private static AuditIndexEntry readIndexObject(JsonParser parser) throws IOException {
-        String prevHash = null;
-        String file = null;
-        String firstEventId = null;
-        String lastEventId = null;
+        @Nullable String prevHash = null;
+        @Nullable String file = null;
+        @Nullable String firstEventId = null;
+        @Nullable String lastEventId = null;
         long recordCount = 0;
-        String checkpointHash = null;
+        @Nullable String checkpointHash = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -380,7 +382,7 @@ public class AuditCodec {
         return new AuditIndexEntry(prevHash, file, firstEventId, lastEventId, recordCount, checkpointHash);
     }
 
-    private static void writeNullable(JsonGenerator generator, String field, String value) throws IOException {
+    private static void writeNullable(JsonGenerator generator, String field, @Nullable String value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {

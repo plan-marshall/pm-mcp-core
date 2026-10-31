@@ -27,6 +27,8 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -353,7 +355,7 @@ public class EnrolmentCodec {
         generator.writeEndArray();
     }
 
-    private static void writeNullableString(JsonGenerator generator, String field, String value) throws IOException {
+    private static void writeNullableString(JsonGenerator generator, String field, @Nullable String value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -361,7 +363,7 @@ public class EnrolmentCodec {
         }
     }
 
-    private static String interpreter(Interpreter interpreter) {
+    private static String interpreter(@Nullable Interpreter interpreter) {
         return interpreter == null ? null : interpreter.wireName();
     }
 
@@ -411,11 +413,11 @@ public class EnrolmentCodec {
 
     private static Wrapper readWrapper(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        WrapperName wrapperName = null;
-        String relativePath = null;
-        String sha256 = null;
-        List<PinnedFile> pinnedFiles = null;
-        Interpreter interpreter = null;
+        @Nullable WrapperName wrapperName = null;
+        @Nullable String relativePath = null;
+        @Nullable String sha256 = null;
+        @Nullable List<PinnedFile> pinnedFiles = null;
+        @Nullable Interpreter interpreter = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -439,8 +441,8 @@ public class EnrolmentCodec {
 
     private static PinnedFile readPinnedFile(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String relativePath = null;
-        String sha256 = null;
+        @Nullable String relativePath = null;
+        @Nullable String sha256 = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -460,11 +462,11 @@ public class EnrolmentCodec {
 
     private static HostTool readHostTool(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        HostToolName toolName = null;
-        String executablePath = null;
-        String sha256 = null;
-        Interpreter interpreter = null;
-        String version = null;
+        @Nullable HostToolName toolName = null;
+        @Nullable String executablePath = null;
+        @Nullable String sha256 = null;
+        @Nullable Interpreter interpreter = null;
+        @Nullable String version = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -487,8 +489,8 @@ public class EnrolmentCodec {
 
     private static Build readBuild(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_BUILD);
-        Map<BuildSystem, SortedMap<String, Argv>> canonical = null;
-        Map<BuildSystem, SortedMap<String, Argv>> discovery = null;
+        @Nullable Map<BuildSystem, SortedMap<String, Argv>> canonical = null;
+        @Nullable Map<BuildSystem, SortedMap<String, Argv>> discovery = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -518,7 +520,7 @@ public class EnrolmentCodec {
 
     private static ProviderVerification readProvider(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        Argv verifyArgv = null;
+        @Nullable Argv verifyArgv = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -550,11 +552,11 @@ public class EnrolmentCodec {
 
     private static ProjectScript readProjectScript(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String scriptPath = null;
-        String sha256 = null;
-        Interpreter interpreter = null;
-        Binding binding = null;
-        ArgumentSchema argumentSchema = null;
+        @Nullable String scriptPath = null;
+        @Nullable String sha256 = null;
+        @Nullable Interpreter interpreter = null;
+        @Nullable Binding binding = null;
+        @Nullable ArgumentSchema argumentSchema = null;
         long maxTimeoutSeconds = 0;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
@@ -581,8 +583,8 @@ public class EnrolmentCodec {
 
     private static Binding readBinding(JsonParser parser) throws IOException {
         requireObject(parser, FIELD_BINDING);
-        WorkerKind workerKind = null;
-        String target = null;
+        @Nullable WorkerKind workerKind = null;
+        @Nullable String target = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -603,15 +605,15 @@ public class EnrolmentCodec {
 
     private static ArgumentSchema readSchema(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        SchemaType type = null;
-        SortedMap<String, ArgumentSchema> properties = null;
-        List<String> required = null;
+        @Nullable SchemaType type = null;
+        @Nullable SortedMap<String, ArgumentSchema> properties = null;
+        @Nullable List<String> required = null;
         var closed = false;
-        List<EnumValue> enumValues = null;
-        String pattern = null;
-        BigDecimal minimum = null;
-        BigDecimal maximum = null;
-        Long maxLength = null;
+        @Nullable List<EnumValue> enumValues = null;
+        @Nullable String pattern = null;
+        @Nullable BigDecimal minimum = null;
+        @Nullable BigDecimal maximum = null;
+        @Nullable Long maxLength = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -664,9 +666,9 @@ public class EnrolmentCodec {
 
     private static LanguageServer readLanguageServer(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
-        String executablePath = null;
-        String sha256 = null;
-        List<String> args = null;
+        @Nullable String executablePath = null;
+        @Nullable String sha256 = null;
+        @Nullable List<String> args = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);

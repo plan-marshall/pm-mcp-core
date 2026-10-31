@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 import java.util.regex.Pattern;
 import lombok.With;
@@ -32,7 +34,7 @@ import lombok.With;
  * @since 0.1
  */
 @With
-public record AuditHeadRecord(String file, long recordCount, String lastEventId, String headHash,
+public record AuditHeadRecord(String file, long recordCount, @Nullable String lastEventId, String headHash,
 String indexHeadHash, String hmac) {
 
     /** The format version of a head that is read and written. */
