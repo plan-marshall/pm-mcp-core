@@ -74,9 +74,9 @@ State state,
             throw new IllegalArgumentException("Not an input digest (" + INPUT_DIGEST_TEXT + "): " + inputDigest);
         }
         switch (state) {
-            case CURRENT -> require(value != null && failure == null,
+            case CURRENT -> require(value != null && !(value instanceof JsonValue.JsonNull) && failure == null,
                     "A current fact carries a value and no failure");
-            case STALE -> require(value != null && failure != null,
+            case STALE -> require(value != null && !(value instanceof JsonValue.JsonNull) && failure != null,
                     "A stale fact carries its last value and a failure");
             case FAILED -> require(value == null && failure != null,
                     "A failed fact carries no value and a failure");

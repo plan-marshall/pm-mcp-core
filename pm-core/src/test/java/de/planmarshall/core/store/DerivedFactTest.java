@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.store;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -156,6 +157,21 @@ class DerivedFactTest {
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> fact(DerivedFact.State.FAILED, null, null),
                         "A failed fact without a failure is refused"));
+    }
+
+    @Test
+    @DisplayName("a current or stale fact whose value is JSON null is refused")
+    void jsonNullValueIsRefused() {
+        var jsonNull = JsonValue.parse("null".getBytes(UTF_8));
+        var someFailure = failure();
+
+        assertAll(
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> fact(DerivedFact.State.CURRENT, jsonNull, null),
+                        "A current fact with a JSON null value is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> fact(DerivedFact.State.STALE, jsonNull, someFailure),
+                        "A stale fact with a JSON null value is refused"));
     }
 
     @Test

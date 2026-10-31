@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -163,7 +164,7 @@ class DerivedFactsSchemaParityTest {
     }
 
     private static int number(Object value) {
-        return ((Number) value).intValue();
+        return new BigDecimal(String.valueOf(value)).intValueExact();
     }
 
     private static List<String> names(Collection<?> values) {

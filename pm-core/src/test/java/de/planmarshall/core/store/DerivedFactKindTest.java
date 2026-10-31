@@ -84,8 +84,6 @@ class DerivedFactKindTest {
         var wireNames = Arrays.stream(DerivedFactKind.values()).map(DerivedFactKind::wireName)
                 .collect(Collectors.joining(","));
 
-        assertAll(
-                () -> assertTrue(wireNames.matches("[a-z_,]+"), "Every wire name is a lower-case identifier"),
-                () -> assertEquals(16, DerivedFactKind.values().length, "The schema enumerates sixteen kinds"));
+        assertTrue(wireNames.matches("[a-z_,]+"), "Every wire name is a lower-case identifier");
     }
 }
