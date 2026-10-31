@@ -13,9 +13,9 @@ Accepted
 
 A fact's value is kind-specific: the schema leaves `value` open and describes it as "validated against the value schema
 registered for the kind". The two fact-kind schemas of the specification (`module_discovery`, `cost_calibration`) are
-JSON objects whose keywords are exactly the subset `SchemaSubset` evaluates. `core.role.corpus` already holds an
-immutable JSON tree, `JsonValue`, which `SchemaSubset` walks and which the codec can read and write without a second
-parser.
+JSON objects whose value keywords are the subset `SchemaSubset` evaluates (`format` is carried by the specification but
+is not evaluated). `core.role.corpus` already holds an immutable JSON tree, `JsonValue`, which `SchemaSubset` walks and
+which the codec can read and write without a second parser.
 
 == Decision
 
@@ -35,7 +35,9 @@ keeps the member order and writes a number with the digits it was read with.
 * `core.store` depends on `core.role.corpus`; no architecture test forbids it.
 * A value that does not match its kind's schema is a violation list, not a refusal at construction: the store decides
   what to do with it, and the codec keeps the value as read.
-* A number keeps the digits it was read with, so the canonical bytes of a document are written again unchanged.
+* A number that the parser spells differently from the writer's canonical form (an exponent, a negative zero) is
+  written in that form once, and `DerivedFactsCodecTest` states it; a document written by the writer is written again
+  byte for byte.
 
 == Source
 

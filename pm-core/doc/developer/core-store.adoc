@@ -1122,8 +1122,10 @@ current format version, only the declared members, each at most once, every requ
 `kind`, `source.class` and `state`, the key grammar, the digest grammar, an instant in the one shape
 `Instant.toString` writes, and the value and failure shapes of `DerivedFact`. Anything else is a `StoreRefusal`
 naming the file, never an empty store. The value is read with `JsonValue.read` and written by a private generator over
-the tree, which keeps the member order and writes a number with the digits it was read with. A current entry is
-written with `"failure": null`, and the reader accepts the member absent or `null` there.
+the tree, which keeps the member order; an integer is written as its plain digits, and a fraction in the canonical form
+the writer produces, so an exponent-spelled number or a negative zero is written in that form once and
+`DerivedFactsCodecTest` states it. A current entry is written with `"failure": null`, and the reader accepts the member
+absent or `null` there.
 `DerivedFactKindSpec`:: What a consumer registers for a kind: the value schema as a JSON object, the `source.class`
 values the kind admits (at least one), whether a key of the kind may carry a qualifier, and the description of the
 derivation inputs. A schema that is not a JSON object and an empty class set are refused.

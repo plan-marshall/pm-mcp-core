@@ -58,7 +58,9 @@ import de.planmarshall.core.role.corpus.JsonValue.JsonString;
  * of {@link DerivedFact}. Anything else is a {@link StoreRefusal} naming the file, never an empty store.
  * <p>
  * The value is the existing {@link JsonValue} tree: it is read with {@link JsonValue#read(JsonParser)} and written by
- * the private generator below, which keeps the member order and writes a number with the digits it was read with.
+ * the private generator below, which keeps the member order. An integer is written as its plain digits; a fraction is
+ * written in the canonical form the writer produces, so a spelling the parser normalizes (an exponent, a negative
+ * zero) is written in that form once, and {@code DerivedFactsCodecTest} states it.
  * {@code failure} is written as a JSON {@code null} for a current entry; the reader accepts the member absent or
  * {@code null} there, because the schema does not require it (ADR {@code core-store/055}).
  * <p>

@@ -121,6 +121,24 @@ class DerivedFactsCodecTest {
     }
 
     @Test
+    @DisplayName("a number spelled with an exponent or a negative zero is written canonically once")
+    void numberSpellingIsNormalizedOnce() {
+        var exponentSpelled = MINIMAL.replace("\"value\":{}", "\"value\":{\"ratio\":1e2,\"zero\":-0}");
+        var canonical = "{\"format_version\":1,\"facts\":{\"module_discovery\":{\"kind\":\"module_discovery\","
+                + "\"value\":{\"ratio\":1e+2,\"zero\":0},"
+                + "\"source\":{\"derivation\":\"derive1\",\"class\":\"local\"},"
+                + "\"input_digest\":\"" + DIGEST_A + "\",\"derived_at\":\"2026-10-31T10:00:00Z\","
+                + "\"state\":\"current\",\"failure\":null}}}";
+
+        var written = new String(DerivedFactsCodec.write(read(exponentSpelled)), UTF_8);
+
+        assertAll(
+                () -> assertEquals(canonical, written, "The writer states the canonical spelling"),
+                () -> assertEquals(canonical, new String(DerivedFactsCodec.write(read(canonical)), UTF_8),
+                        "The canonical spelling is written again unchanged"));
+    }
+
+    @Test
     @DisplayName("an empty store round-trips and a failure member may be absent")
     void emptyStoreAndAbsentFailureRoundTrip() {
         var withoutFailure = MINIMAL.replace(",\"failure\":null", "");
