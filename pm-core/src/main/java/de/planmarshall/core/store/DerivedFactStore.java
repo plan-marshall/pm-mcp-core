@@ -226,11 +226,11 @@ public final class DerivedFactStore {
 
     private DerivedFact entryOf(DerivedFactKey key, String inputDigest, DerivationOutcome outcome,
             @Nullable DerivedFact stored, Instant now) {
-        if (outcome instanceof Derived derived) {
+        if (outcome instanceof Derived(var value, var derivation, var sourceClass)) {
             return DerivedFact.builder()
                     .kind(key.kind())
-                    .value(derived.value())
-                    .source(new DerivedFact.Source(derived.derivation(), derived.sourceClass()))
+                    .value(value)
+                    .source(new DerivedFact.Source(derivation, sourceClass))
                     .inputDigest(inputDigest)
                     .derivedAt(now)
                     .state(State.CURRENT)
@@ -269,7 +269,7 @@ public final class DerivedFactStore {
         }
         try {
             new DerivedFact.Source(derived.derivation(), derived.sourceClass());
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException _) {
             return new Failed("The derivation identifier is outside its grammar: " + derived.derivation());
         }
         var violations = kinds.validate(key.kind(), derived.value());

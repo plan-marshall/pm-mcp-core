@@ -236,9 +236,10 @@ class DerivedFactStoreTest {
         @DisplayName("a store file of another lock level is refused at construction")
         void foreignLockLevelIsRefused() {
             var timings = new AtomicStoreFile(file, LockKey.buildTimings(base, PROJECT));
+            var manager = new RecordingLockManager();
 
             assertThrows(IllegalArgumentException.class,
-                    () -> new DerivedFactStore(timings, new RecordingLockManager(), kinds),
+                    () -> new DerivedFactStore(timings, manager, kinds),
                     "A build-timings lock is not a derived-facts lock");
         }
     }
