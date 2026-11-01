@@ -52,7 +52,7 @@ import de.planmarshall.provider.http.TokenSource;
 public final class GitHubCiProvider implements CiProvider {
 
     /** The provider id, equal to the derived fact {@code ci_provider} and the credential key. */
-    public static final String ID = "github";
+    public static final String PROVIDER_ID = "github";
 
     private static final String TOKEN_HEADER_PREFIX_FINE_GRAINED = "github_pat_";
     private static final String TOKEN_HEADER_PREFIX_CLASSIC = "ghp_";
@@ -113,7 +113,7 @@ public final class GitHubCiProvider implements CiProvider {
 
     @Override
     public String id() {
-        return ID;
+        return PROVIDER_ID;
     }
 
     @Override
@@ -170,7 +170,7 @@ public final class GitHubCiProvider implements CiProvider {
         if (repository == null) {
             return null;
         }
-        if (!ID.equals(repository.forge())) {
+        if (!PROVIDER_ID.equals(repository.forge())) {
             return "the repository is on the forge " + repository.forge();
         }
         if (!origin.equals(repository.origin())) {
@@ -277,7 +277,7 @@ public final class GitHubCiProvider implements CiProvider {
     private static Optional<Instant> instantOf(String value) {
         try {
             return Optional.of(ZonedDateTime.parse(value, GITHUB_EXPIRY_FORMAT).toInstant());
-        } catch (DateTimeParseException first) {
+        } catch (DateTimeParseException _) {
             return instantOrEmpty(value);
         }
     }

@@ -69,17 +69,18 @@ class CiProvidersTest {
     @Test
     @DisplayName("refuses a duplicate id and an id outside the pattern")
     void refusesInvalidRegistrations() {
+        var github = provider("github");
+        List<CiProvider> duplicate = List.of(github, provider("github"));
+        List<CiProvider> invalid = List.of(provider("Not-An-Id"));
+        var withNull = Collections.<CiProvider>singletonList(null);
         assertAll("the refused registrations",
-                                () -> assertThrows(IllegalArgumentException.class,
-                                                        () -> new CiProviders(List.of(provider("github"), provider("github"))),
-                                                        "a duplicate id is refused"),
-                                () -> assertThrows(IllegalArgumentException.class,
-                                                        () -> new CiProviders(List.of(provider("Not-An-Id"))),
-                                                        "an id outside the pattern is refused"),
-                                () -> assertThrows(NullPointerException.class,
-                                                        () -> new CiProviders(Collections.singletonList(null)),
-                                                        "a null provider is refused"),
-                                 () -> assertThrows(NullPointerException.class, () -> new CiProviders(null),
-                                                         "a null collection is refused"));
+                () -> assertThrows(IllegalArgumentException.class, () -> new CiProviders(duplicate),
+                        "a duplicate id is refused"),
+                () -> assertThrows(IllegalArgumentException.class, () -> new CiProviders(invalid),
+                        "an id outside the pattern is refused"),
+                () -> assertThrows(NullPointerException.class, () -> new CiProviders(withNull),
+                        "a null provider is refused"),
+                () -> assertThrows(NullPointerException.class, () -> new CiProviders(null),
+                        "a null collection is refused"));
     }
 }

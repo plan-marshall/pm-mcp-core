@@ -265,7 +265,7 @@ class GitLabCiProviderTest {
     @MockResponseConfig(path = "/projects/cuioss%2Fpm/issues/7", method = HttpMethodMapper.GET, status = 200,
             stringContent = "{\"title\":\"An issue\",\"description\":\"\",\"state\":\"opened\","
                     + "\"web_url\":\"https://gitlab.com/cuioss/pm/-/issues/7\"}")
-    void readsIssueByTheIssueEndpoint(MockWebServer server) throws Exception {
+    void readsIssueByTheIssueEndpoint(MockWebServer server) {
         var result = provider(server).issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 7));
 
         assertAll("the issue endpoint",

@@ -144,11 +144,10 @@ class ForgeUrlTest {
     @DisplayName("refuses a value whose repository names another forge")
     void refusesForgeMismatch() {
         var repository = new RepositoryRef("github", "https://github.com", "cuioss", "pm-mcp-core");
+        var builder = ForgeUrl.builder().forge("gitlab").repository(repository).number(1)
+                .kind(ForgeUrl.Kind.ISSUE);
 
-        assertThrows(IllegalArgumentException.class,
-                                () -> ForgeUrl.builder().forge("gitlab").repository(repository).number(1)
-                                                        .kind(ForgeUrl.Kind.ISSUE).build(),
-                                "a mismatched forge is refused");
+        assertThrows(IllegalArgumentException.class, builder::build, "a mismatched forge is refused");
     }
 
     @Test
@@ -211,23 +210,22 @@ class ForgeUrlTest {
     @Test
     @DisplayName("refuses a forge outside the provider id pattern")
     void refusesInvalidForge() {
-        assertThrows(IllegalArgumentException.class,
-                () -> ForgeUrl.builder().forge("Bad").repository(REPOSITORY)
-                        .number(1).kind(ForgeUrl.Kind.ISSUE).build(),
-                "a forge outside the pattern is refused");
+        var builder = ForgeUrl.builder().forge("Bad").repository(REPOSITORY).number(1).kind(ForgeUrl.Kind.ISSUE);
+
+        assertThrows(IllegalArgumentException.class, builder::build, "a forge outside the pattern is refused");
     }
 
     @Test
     @DisplayName("refuses a resolution without a URL and a number below one")
     void refusesMalformedValues() {
+        var zeroNumber = ForgeUrl.builder().forge("github")
+                .repository(new RepositoryRef("github", "https://github.com", "o", "r"))
+                .number(0).kind(ForgeUrl.Kind.ISSUE);
         assertAll("the value invariants",
-                                () -> assertThrows(IllegalArgumentException.class,
-                                                        () -> new ForgeUrl.Resolution(ForgeUrl.Outcome.RESOLVED, null, ""),
-                                                        "a resolved outcome carries a URL"),
-                                () -> assertThrows(IllegalArgumentException.class,
-                                                        () -> ForgeUrl.builder().forge("github")
-                                                                                .repository(new RepositoryRef("github", "https://github.com", "o", "r"))
-                                                                                .number(0).kind(ForgeUrl.Kind.ISSUE).build(),
-                                                        "a number below one is refused"));
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new ForgeUrl.Resolution(ForgeUrl.Outcome.RESOLVED, null, ""),
+                        "a resolved outcome carries a URL"),
+                () -> assertThrows(IllegalArgumentException.class, zeroNumber::build,
+                        "a number below one is refused"));
     }
 }

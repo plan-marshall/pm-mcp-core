@@ -46,9 +46,11 @@ import de.planmarshall.provider.http.Result;
 public final class GitLabCiProvider implements CiProvider {
 
     /** The provider id, equal to the derived fact {@code ci_provider} and the credential key. */
-    public static final String ID = "gitlab";
+    public static final String PROVIDER_ID = "gitlab";
 
     private static final String PROJECT_PATH = "projects/";
+    /** The web path of the issue of a project, for the comment URL a consumer shows. */
+    private static final String WEB_ISSUE_PATH = "/-/issues/";
 
     private final String origin;
     private final HttpClient http;
@@ -65,7 +67,7 @@ public final class GitLabCiProvider implements CiProvider {
 
     @Override
     public String id() {
-        return ID;
+        return PROVIDER_ID;
     }
 
     @Override
@@ -126,7 +128,7 @@ public final class GitLabCiProvider implements CiProvider {
         }
         String noteId = id.value().orElseThrow();
         return Result.ok(new IssueComment(noteId, repository.origin() + "/" + repository.ownerOrPath() + "/"
-                + repository.name() + "/-/issues/" + issue.number() + "#note_" + noteId));
+                + repository.name() + WEB_ISSUE_PATH + issue.number() + "#note_" + noteId));
     }
 
     @Nullable
@@ -139,7 +141,7 @@ public final class GitLabCiProvider implements CiProvider {
         if (repository == null) {
             return null;
         }
-        if (!ID.equals(repository.forge())) {
+        if (!PROVIDER_ID.equals(repository.forge())) {
             return "the repository is on the forge " + repository.forge();
         }
         if (!origin.equals(repository.origin())) {
@@ -189,12 +191,16 @@ public final class GitLabCiProvider implements CiProvider {
     private static Optional<Instant> instantOf(String value) {
         try {
             return Optional.of(Instant.parse(value));
-        } catch (DateTimeParseException first) {
-            try {
-                return Optional.of(LocalDate.parse(value).atStartOfDay(ZoneOffset.UTC).toInstant());
-            } catch (DateTimeParseException _) {
-                return Optional.empty();
-            }
+        } catch (DateTimeParseException _) {
+            return instantFromDate(value);
+        }
+    }
+
+    private static Optional<Instant> instantFromDate(String value) {
+        try {
+            return Optional.of(LocalDate.parse(value).atStartOfDay(ZoneOffset.UTC).toInstant());
+        } catch (DateTimeParseException _) {
+            return Optional.empty();
         }
     }
 }

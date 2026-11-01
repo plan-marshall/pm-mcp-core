@@ -111,19 +111,20 @@ class ValueTypesTest {
     @Test
     @DisplayName("Identity refuses a blank login and a missing token kind")
     void identityRefusesInvalidValues() {
+        var userId = text();
+        Map<String, String> permissions = Map.of();
+        List<String> scopes = List.of();
+        var blankLogin = Identity.builder().login(" ").userId(userId).tokenKind(TokenKind.GITHUB_CLASSIC_PAT)
+                .permissions(permissions).scopes(scopes);
+        var missingKind = Identity.builder().login(userId).userId(userId).permissions(permissions).scopes(scopes);
+        var blankOperator = Identity.builder().login(userId).userId(userId).tokenKind(TokenKind.GITHUB_APP)
+                .operatorLogin(" ").permissions(permissions).scopes(scopes);
         assertAll("the refused identities",
-                                () -> assertThrows(IllegalArgumentException.class,
-                                                        () -> Identity.builder().login(" ").userId(text()).tokenKind(TokenKind.GITHUB_CLASSIC_PAT)
-                                                                                .permissions(Map.of()).scopes(List.of()).build(),
-                                                        "a blank login is refused"),
-                                () -> assertThrows(NullPointerException.class,
-                                                        () -> Identity.builder().login(text()).userId(text()).permissions(Map.of()).scopes(List.of())
-                                                                                .build(),
-                                                        "a missing token kind is refused"),
-                                () -> assertThrows(IllegalArgumentException.class,
-                                                        () -> Identity.builder().login(text()).userId(text()).tokenKind(TokenKind.GITHUB_APP)
-                                                                                .operatorLogin(" ").permissions(Map.of()).scopes(List.of()).build(),
-                                                        "a blank operator login is refused"));
+                () -> assertThrows(IllegalArgumentException.class, blankLogin::build, "a blank login is refused"),
+                () -> assertThrows(NullPointerException.class, missingKind::build,
+                        "a missing token kind is refused"),
+                () -> assertThrows(IllegalArgumentException.class, blankOperator::build,
+                        "a blank operator login is refused"));
     }
 
     @Test
@@ -146,15 +147,16 @@ class ValueTypesTest {
     @Test
     @DisplayName("Issue refuses a blank milestone and a null body")
     void issueRefusesInvalidValues() {
+        var empty = List.<String>of();
+        var title = text();
+        var url = "https://github.com/o/r/issues/1";
+        var blankMilestone = Issue.builder().title(title).body("").labels(empty).milestone(" ")
+                .assignees(empty).state("open").url(url);
+        var missingBody = Issue.builder().title(title).labels(empty).assignees(empty).state("open").url(url);
         assertAll("the refused issues",
-                                () -> assertThrows(IllegalArgumentException.class,
-                                                        () -> Issue.builder().title(text()).body("").labels(List.of()).milestone(" ")
-                                                                                .assignees(List.of()).state("open").url("https://github.com/o/r/issues/1").build(),
-                                                        "a blank milestone is refused"),
-                                () -> assertThrows(NullPointerException.class,
-                                                        () -> Issue.builder().title(text()).labels(List.of()).assignees(List.of()).state("open")
-                                                                                .url("https://github.com/o/r/issues/1").build(),
-                                                        "a missing body is refused"));
+                () -> assertThrows(IllegalArgumentException.class, blankMilestone::build,
+                        "a blank milestone is refused"),
+                () -> assertThrows(NullPointerException.class, missingBody::build, "a missing body is refused"));
     }
 
     @Test
@@ -162,6 +164,7 @@ class ValueTypesTest {
     void repositoryRefCoversRemainingBranches() {
         var portOrigin = new RepositoryRef("github", "https://github.com:8443", "o", "r");
         var plainOrigin = new RepositoryRef("github", "https://github.com", "o", "r");
+        var longName = "a".repeat(256);
 
         assertAll("the remaining references",
                 () -> assertEquals("https://github.com:8443", portOrigin.origin(), "an explicit port is kept"),
@@ -188,21 +191,23 @@ class ValueTypesTest {
                         () -> new RepositoryRef("github", "https://github.com", "o", "."),
                         "a current-directory name is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new RepositoryRef("github", "https://github.com", "o", "a".repeat(256)),
+                        () -> new RepositoryRef("github", "https://github.com", "o", longName),
                         "an over-long name is refused"));
     }
 
     @Test
     @DisplayName("Identity and Issue refuse a null collection")
     void refusesNullCollections() {
+        var value = text();
+        var empty = List.<String>of();
+        var url = "https://github.com/o/r/issues/1";
+        var missingPermissions = Identity.builder().login(value).userId(value).tokenKind(TokenKind.GITHUB_APP)
+                .scopes(empty);
+        var missingLabels = Issue.builder().title(value).body("").assignees(empty).state("open").url(url);
         assertAll("the null collections",
-                () -> assertThrows(NullPointerException.class,
-                        () -> Identity.builder().login(text()).userId(text()).tokenKind(TokenKind.GITHUB_APP)
-                                .scopes(List.of()).build(),
+                () -> assertThrows(NullPointerException.class, missingPermissions::build,
                         "missing permissions are refused"),
-                () -> assertThrows(NullPointerException.class,
-                        () -> Issue.builder().title(text()).body("").assignees(List.of()).state("open")
-                                .url("https://github.com/o/r/issues/1").build(),
+                () -> assertThrows(NullPointerException.class, missingLabels::build,
                         "missing labels are refused"));
     }
 

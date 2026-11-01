@@ -190,45 +190,46 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
         if (path == null || !path.startsWith("/") || path.contains("\\") || path.length() > MAX_PATH_LENGTH) {
             return Resolution.invalid("the path is not a plain URL path");
         }
-        List<String> segments = segments(path.substring(1));
-        if (segments == null) {
+        Optional<List<String>> parsed = segments(path.substring(1));
+        if (parsed.isEmpty()) {
             return Resolution.invalid("the path has an empty, dotted or over-long segment");
         }
+        List<String> segments = parsed.get();
         String host = uri.getHost().toLowerCase(Locale.ROOT);
-        String forge = forgeOf(hostToForge, host);
-        if (forge == null) {
+        Optional<String> forge = forgeOf(hostToForge, host);
+        if (forge.isEmpty()) {
             return Resolution.unknownForge(host);
         }
         String origin = uri.getPort() == -1 ? "https://" + host : "https://" + host + ":" + uri.getPort();
-        return GITLAB.equals(forge) ? resolveGitLab(forge, origin, segments)
-                                : resolveGitHub(forge, origin, segments);
+        return GITLAB.equals(forge.get()) ? resolveGitLab(forge.get(), origin, segments)
+                : resolveGitHub(forge.get(), origin, segments);
     }
 
-    private static String forgeOf(Map<String, String> hostToForge, String host) {
+    private static Optional<String> forgeOf(Map<String, String> hostToForge, String host) {
         for (Map.Entry<String, String> entry : hostToForge.entrySet()) {
             if (entry.getKey().toLowerCase(Locale.ROOT).equals(host)) {
-                return entry.getValue();
+                return Optional.of(entry.getValue());
             }
         }
-        return null;
+        return Optional.empty();
     }
 
-    /** @return the segments without a trailing empty one, or {@code null} when one is unusable */
-    private static List<String> segments(String path) {
+    /** @return the segments without a trailing empty one; empty when one is unusable */
+    private static Optional<List<String>> segments(String path) {
         List<String> segments = new ArrayList<>(List.of(path.split("/", -1)));
         if (!segments.isEmpty() && segments.getLast().isEmpty()) {
             segments.removeLast();
         }
         if (segments.isEmpty() || segments.size() > MAX_SEGMENTS) {
-            return null;
+            return Optional.empty();
         }
         for (String segment : segments) {
             if (segment.isEmpty() || ".".equals(segment) || "..".equals(segment)
                     || segment.length() > MAX_SEGMENT_LENGTH) {
-                return null;
+                return Optional.empty();
             }
         }
-        return segments;
+        return Optional.of(segments);
     }
 
     private static Resolution resolveGitHub(String forge, String origin, List<String> segments) {
