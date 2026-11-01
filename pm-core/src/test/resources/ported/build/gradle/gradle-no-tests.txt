@@ -1,0 +1,10 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-gradle/test_gradle_cmd_parse.py::test_parse_log_no_tests
+# A build that ran no test task: no count line, and no positive "no tests" marker either, so no verdict is claimed.
+log > Task :compileJava
+log BUILD SUCCESSFUL in 5s
+log 3 actionable tasks: 3 executed
+status SUCCESS
+success-marker true
+tests none
+no-tests-ran false
+diagnostic-count 0
