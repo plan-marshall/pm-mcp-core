@@ -48,8 +48,8 @@ case TestNotObservedVerdict::test_dryrun_advisory_yields_not_observed -> rewrite
 case TestDomainInactiveVerdict::test_domain_inactive_verdict -> rewrite-domain-inactive
 case TestDomainInactiveVerdict::test_domain_inactive_is_never_clean -> rewrite-domain-inactive
 case TestDomainInactiveVerdict::test_domain_inactive_does_not_dispatch_the_parser -> deliberate-rewrite-domain-inactive-skips-parse
-case TestSingleFormatSourceOfTruth::test_observed_fixture_carries_every_corpus_finding_line excluded: a cross-check between the two suites' corpora; the observed fixture is the corpus, and the corpus fixture carries it
-case TestSingleFormatSourceOfTruth::test_observed_fixture_finding_count_matches_corpus excluded: same reason, the observed fixture is the corpus
+case TestSingleFormatSourceOfTruth::test_observed_fixture_carries_every_corpus_finding_line excluded: the observed log and the corpus log are two fixtures of this directory and both assert the same five findings, so the identity is carried by rewrite-observed and rewrite-corpus
+case TestSingleFormatSourceOfTruth::test_observed_fixture_finding_count_matches_corpus excluded: same reason, rewrite-observed and rewrite-corpus assert the same findings
 case TestResolveDomainVerb::test_resolves_notation_when_a_domain_declares_the_verb excluded: the marshal.json lookup is not ported; the domain state is an input of the parse
 case TestResolveDomainVerb::test_returns_none_when_no_domain_declares_the_verb excluded: same reason, the domain state is an input of the parse
 case TestResolveDomainVerb::test_returns_none_when_marshal_absent excluded: same reason, the domain state is an input of the parse

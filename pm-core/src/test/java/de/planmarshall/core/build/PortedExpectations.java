@@ -211,8 +211,7 @@ final class PortedExpectations {
                     .toList());
         }
         for (int position = 0; position < expected.size(); position++) {
-            assertDiagnostic(expected.get(position), build.diagnostics().get(position),
-                    "diagnostic " + position + " [" + build.diagnostics().get(position).message() + "]");
+            assertDiagnostic(expected.get(position), build.diagnostics().get(position), "diagnostic " + position);
         }
     }
 
@@ -244,7 +243,7 @@ final class PortedExpectations {
         assertEquals(expected.size(), result.findings().size(), "the fixture names every finding of its log");
         for (int position = 0; position < expected.size(); position++) {
             List<String> parts = expected.get(position).split(6);
-            assertEquals(6, parts.size(), "a finding names classification, path, line, column, recipe and message");
+            assertEquals(6, parts.size(), "a finding names six fields");
             RewriteFinding actual = result.findings().get(position);
             assertEquals(RewriteClassification.valueOf(parts.get(0).toUpperCase(Locale.ROOT)), actual.classification(),
                     "finding " + position + ": the classification matches");

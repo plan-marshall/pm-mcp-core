@@ -57,7 +57,6 @@ public sealed interface TestCounts {
          * Validates the counts and copies the per-runner map.
          *
          * @throws IllegalArgumentException if a count is negative or {@code total} is not the sum of the three parts
-         * @throws NullPointerException     if the per-runner map holds a null key or value
          */
         public Measured {
             if (passed < 0 || failed < 0 || skipped < 0) {

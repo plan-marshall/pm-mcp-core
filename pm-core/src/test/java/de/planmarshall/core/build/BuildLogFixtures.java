@@ -255,8 +255,11 @@ final class BuildLogFixtures {
         if (directives.isEmpty()) {
             throw refusal(name, 0, "has no directive");
         }
-        return new Case(name, original, pytestPath, Set.copyOf(cases), log(name, directives, root),
-                expectations(directives));
+        List<Expectation> expectations = expectations(directives);
+        if (expectations.isEmpty()) {
+            throw refusal(name, 0, "has no expectation, so it would assert nothing");
+        }
+        return new Case(name, original, pytestPath, Set.copyOf(cases), log(name, directives, root), expectations);
     }
 
     /**

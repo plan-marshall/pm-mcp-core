@@ -59,12 +59,27 @@ public class OpenRewriteLogParser {
     /**
      * Parses the OpenRewrite findings of a build log.
      *
-     * @param logText      the build-log text
+     * @param logText      the build-log text as the caller holds it; ANSI escape sequences are stripped here
      * @param domainActive whether the java-cui domain is active for this build
      * @return the fail-closed result
      */
     public static RewriteLogResult parse(String logText, boolean domainActive) {
         Objects.requireNonNull(logText, "logText");
+        return parseStripped(BuildLogText.stripAnsi(logText), domainActive);
+    }
+
+    /**
+     * Reads and parses the OpenRewrite findings of a build-log file.
+     *
+     * @param logFile      the file to read
+     * @param domainActive whether the java-cui domain is active for this build
+     * @return the fail-closed result
+     */
+    public static RewriteLogResult parse(Path logFile, boolean domainActive) {
+        return parseStripped(BuildLogText.read(logFile), domainActive);
+    }
+
+    private static RewriteLogResult parseStripped(String logText, boolean domainActive) {
         if (!REWRITE_RUN.matcher(logText).find()) {
             return new RewriteLogResult(RewriteVerdict.NOT_OBSERVED, List.of(), NOT_OBSERVED_REASON);
         }
@@ -89,17 +104,6 @@ public class OpenRewriteLogParser {
             }
         }
         return new RewriteLogResult(RewriteVerdict.OBSERVED, findings, null);
-    }
-
-    /**
-     * Reads and parses the OpenRewrite findings of a build-log file.
-     *
-     * @param logFile      the file to read
-     * @param domainActive whether the java-cui domain is active for this build
-     * @return the fail-closed result
-     */
-    public static RewriteLogResult parse(Path logFile, boolean domainActive) {
-        return parse(BuildLogText.read(logFile), domainActive);
     }
 
     private static String stripCarriageReturn(String line) {

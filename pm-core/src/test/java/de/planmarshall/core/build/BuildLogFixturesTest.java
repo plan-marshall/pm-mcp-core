@@ -49,7 +49,7 @@ class BuildLogFixturesTest {
     }
 
     @Test
-    @DisplayName("refuses a fixture without a header or without a directive")
+    @DisplayName("refuses a fixture without a header, without a directive or without an expectation")
     void refusesIncompleteFixtures(@TempDir Path directory) {
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
@@ -57,7 +57,11 @@ class BuildLogFixturesTest {
                         "A fixture needs a header"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> BuildLogFixtures.parse("broken", ORIGINAL_HEADER + " a.py::test_x\n", directory),
-                        "A fixture needs a directive"));
+                        "A fixture needs a directive"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> BuildLogFixtures.parse("broken",
+                                ORIGINAL_HEADER + " a.py::test_x\nlog only a log line\n", directory),
+                        "A fixture that only assembles a log would assert nothing"));
     }
 
     @Test

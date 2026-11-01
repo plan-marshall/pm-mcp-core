@@ -12,14 +12,11 @@ package de.planmarshall.core.build;
 /**
  * The category of a parsed build diagnostic.
  * <p>
- * The names follow the category names of the ported {@code plan-marshall} parsers in lower case. Two values do not exist
- * in the originals:
- * <ul>
- * <li>{@link #UNRECOGNIZED} — the deliberate change of this port: an {@code [ERROR]} line no pattern recognised is
- * reported as unrecognised, never as a real category (see ADR {@code core-build/002}).</li>
- * <li>{@link #OTHER} — the originals' {@code other}: a line whose severity the tool printed but whose text matched no
- * pattern. The Maven port keeps it for warnings; for errors it reports {@link #UNRECOGNIZED}.</li>
- * </ul>
+ * The names follow the category names of the ported {@code plan-marshall} parsers in lower case. {@link #UNRECOGNIZED}
+ * does not exist in the originals: it is the deliberate change of this port, so that an {@code [ERROR]} line no pattern
+ * recognised is reported as unrecognised rather than as a real category (see ADR {@code core-build/002}).
+ * {@link #OTHER} is the originals' {@code other}: a line whose severity the tool printed but whose text matched no
+ * pattern. The Maven port keeps it for warnings; for errors it reports {@link #UNRECOGNIZED}.
  *
  * @since 0.1
  */

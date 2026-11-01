@@ -32,18 +32,14 @@ import lombok.experimental.UtilityClass;
  * <p>
  * Two behaviours are deliberate changes against the original, each with its own fixture (ADR {@code core-build/002}):
  * <ul>
- * <li>Maven's failure-trailer advice is dropped whole against a compiled table matched with a <em>full</em> match, so a
- * reworded trailer line is filed again instead of a genuine diagnostic being dropped silently. The lines are the
- * original's; the table is compiled, not rebuilt per line.</li>
  * <li>An {@code [ERROR]} line no pattern recognises is {@link Category#UNRECOGNIZED}, never a real category. A warning
  * line without a match keeps the original's {@link Category#OTHER}.</li>
+ * <li>A test population the parser cannot aggregate is {@link TestCounts.Unmeasured} and carries no number; the original
+ * keeps the summed counts of an unmeasured population.</li>
  * </ul>
- * The count rules are the ones the specification states: every summary block contributes, and a run whose summaries
- * cannot be aggregated reports {@link TestCounts.Unmeasured} rather than a zero. The original keeps the summed counts of
- * an unmeasured population; this port does not.
- * <p>
- * A passing {@code Tests run:} line — zero failures and zero errors — is not a diagnostic, and neither is a line of the
- * failure trailer.
+ * The failure trailer is <em>not</em> a change: the original drops the same lines with the same full match, and the port
+ * holds that behaviour with fixtures of its own. A passing {@code Tests run:} line — zero failures and zero errors — is
+ * not a diagnostic there either.
  *
  * @since 0.1
  */
@@ -101,11 +97,26 @@ public class MavenOutputParser {
     /**
      * Parses a Maven build log.
      *
-     * @param logText the log text, ANSI escapes already stripped
+     * @param logText the log text as the caller holds it; ANSI escape sequences are stripped here, so a colour-coded log
+     *                matches the same plain-text patterns as an uncoloured one
      * @return the parsed build
      */
     public static ParsedBuild parse(String logText) {
         Objects.requireNonNull(logText, "logText");
+        return parseStripped(BuildLogText.stripAnsi(logText));
+    }
+
+    /**
+     * Reads and parses a Maven build log.
+     *
+     * @param logFile the file to read
+     * @return the parsed build
+     */
+    public static ParsedBuild parse(Path logFile) {
+        return parseStripped(BuildLogText.read(logFile));
+    }
+
+    private static ParsedBuild parseStripped(String logText) {
         List<String> lines = List.of(logText.split("\n", -1));
         List<Diagnostic> diagnostics = StackTraceCollector.attach(lines, extractDiagnostics(lines));
         TestCounts testCounts = extractTestCounts(logText, lines);
@@ -116,16 +127,6 @@ public class MavenOutputParser {
                 && testCounts == null
                 && logText.contains(NO_TESTS_MARKER);
         return new ParsedBuild(diagnostics, status, successMarker, testCounts, noTestsRan);
-    }
-
-    /**
-     * Reads and parses a Maven build log.
-     *
-     * @param logFile the file to read
-     * @return the parsed build
-     */
-    public static ParsedBuild parse(Path logFile) {
-        return parse(BuildLogText.read(logFile));
     }
 
     private static List<Diagnostic> extractDiagnostics(List<String> lines) {

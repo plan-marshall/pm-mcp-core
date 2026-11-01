@@ -61,11 +61,25 @@ public class GradleOutputParser {
     /**
      * Parses a Gradle build log.
      *
-     * @param logText the log text, ANSI escapes already stripped
+     * @param logText the log text as the caller holds it; ANSI escape sequences are stripped here
      * @return the parsed build
      */
     public static ParsedBuild parse(String logText) {
         Objects.requireNonNull(logText, "logText");
+        return parseStripped(BuildLogText.stripAnsi(logText));
+    }
+
+    /**
+     * Reads and parses a Gradle build log.
+     *
+     * @param logFile the file to read
+     * @return the parsed build
+     */
+    public static ParsedBuild parse(Path logFile) {
+        return parseStripped(BuildLogText.read(logFile));
+    }
+
+    private static ParsedBuild parseStripped(String logText) {
         List<String> lines = List.of(logText.split("\n", -1));
         List<Diagnostic> diagnostics = StackTraceCollector.attach(lines, extractDiagnostics(lines));
         TestCounts testCounts = extractTestCounts(lines);
@@ -76,16 +90,6 @@ public class GradleOutputParser {
                 && testCounts == null
                 && logText.contains(NO_TESTS_MARKER);
         return new ParsedBuild(diagnostics, status, successMarker, testCounts, noTestsRan);
-    }
-
-    /**
-     * Reads and parses a Gradle build log.
-     *
-     * @param logFile the file to read
-     * @return the parsed build
-     */
-    public static ParsedBuild parse(Path logFile) {
-        return parse(BuildLogText.read(logFile));
     }
 
     private static List<Diagnostic> extractDiagnostics(List<String> lines) {

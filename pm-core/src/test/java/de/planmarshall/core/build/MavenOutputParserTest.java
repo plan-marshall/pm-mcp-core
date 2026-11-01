@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.build;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashSet;
@@ -56,6 +57,18 @@ class MavenOutputParserTest {
         assertTrue(fixtures.size() >= FIXTURE_FLOOR, "the directory keeps its fixture population");
         assertTrue(fixtures.stream().anyMatch(BuildLogFixtures.Case::original), "an original-derived fixture exists");
         assertTrue(fixtures.stream().anyMatch(fixture -> !fixture.original()), "a deliberate fixture exists");
+    }
+
+    @Test
+    @DisplayName("strips the colour codes of a log before matching its patterns")
+    void stripsAnsiEscapes() {
+        String logText = "\u001B[1;31m[ERROR]\u001B[0m /p/Foo.java:[7,3] cannot find symbol\n";
+
+        ParsedBuild build = MavenOutputParser.parse(logText);
+
+        assertEquals(1, build.diagnostics().size(), "The coloured error line is filed once");
+        assertEquals(Category.COMPILATION_ERROR, build.diagnostics().getFirst().category(),
+                "The stripped line keeps its category");
     }
 
     @Test
