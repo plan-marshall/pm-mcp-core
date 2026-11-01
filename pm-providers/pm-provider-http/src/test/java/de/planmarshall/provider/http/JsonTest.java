@@ -46,7 +46,7 @@ class JsonTest {
         tree.put("o", Duration.ofSeconds(1));
 
         String json = Json.write(tree);
-        Object parsed = Json.parse(json);
+        Object parsed = Json.parse(json).orElseThrow();
 
         assertEquals("{\"s\":\"line1\\nline2 \\\"q\\\"\",\"n\":3,\"i\":4,\"d\":1.5,\"b\":true,\"z\":null,"
                 + "\"l\":[\"a\",null,{\"k\":false}],\"o\":\"PT1S\"}", json);

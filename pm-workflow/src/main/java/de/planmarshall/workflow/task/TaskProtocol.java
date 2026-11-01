@@ -216,12 +216,12 @@ public final class TaskProtocol {
                 return answerHeld(records, held.get(), request, at, answer);
             }
             var selected = select(records, request);
-            if (selected == null) {
+            if (selected.isEmpty()) {
                 answer.set(new WaitAnswer.WaitAgain("no_task"));
                 return records;
             }
-            var offered = lease(selected, request, at);
-            var delivered = answers.get(selected.queueTaskId());
+            var offered = lease(selected.get(), request, at);
+            var delivered = answers.get(selected.get().queueTaskId());
             answer.set(delivered != null
                     ? new WaitAnswer.Answered(offered, delivered.answers())
                     : new WaitAnswer.Offered(offered));
@@ -277,14 +277,13 @@ public final class TaskProtocol {
                 .findFirst();
     }
 
-    private QueueTaskRecord select(List<QueueTaskRecord> records, WaitRequest request) {
+    private Optional<QueueTaskRecord> select(List<QueueTaskRecord> records, WaitRequest request) {
         return records.stream()
                 .filter(task -> task.status() == Status.QUEUED || resumable(task))
                 .filter(request::matchesRole)
                 .filter(task -> !isPaused(task))
                 .filter(task -> writerAllowed(records, task))
-                .min(OFFER_ORDER)
-                .orElse(null);
+                .min(OFFER_ORDER);
     }
 
     /**
@@ -854,11 +853,11 @@ public final class TaskProtocol {
         var result = new AtomicReference<CallResult>();
         queue.updateAll(records -> {
             if (jobState.hasEnded(call.generationId())) {
-                result.set(new CallResult.Refused(TaskRefusal.JOB_ENDED, taskOf(records, call)));
+                result.set(new CallResult.Refused(TaskRefusal.JOB_ENDED, taskOf(records, call).orElse(null)));
                 return records;
             }
             if (fenced().contains(call.generationId())) {
-                result.set(new CallResult.Refused(TaskRefusal.GENERATION_FENCED, taskOf(records, call)));
+                result.set(new CallResult.Refused(TaskRefusal.GENERATION_FENCED, taskOf(records, call).orElse(null)));
                 return records;
             }
             var target = records.stream().filter(task -> task.queueTaskId().equals(call.queueTaskId())).findFirst();
@@ -885,8 +884,8 @@ public final class TaskProtocol {
         return result.get();
     }
 
-    private static QueueTaskRecord taskOf(List<QueueTaskRecord> records, TaskCall call) {
-        return records.stream().filter(task -> task.queueTaskId().equals(call.queueTaskId())).findFirst().orElse(null);
+    private static Optional<QueueTaskRecord> taskOf(List<QueueTaskRecord> records, TaskCall call) {
+        return records.stream().filter(task -> task.queueTaskId().equals(call.queueTaskId())).findFirst();
     }
 
     private static void requireBudget(int budget) {
@@ -955,9 +954,6 @@ public final class TaskProtocol {
             return;
         }
         var target = journal.journalFor(task.scope());
-        if (target == null) {
-            return;
-        }
         var attempt = task.currentAttempt().map(Attempt::attempt).orElse(1);
         var present = target.entries(task.queueTaskId()).stream().anyMatch(entry ->
                 entry.kind() == ActivityEntry.Kind.SIGNAL

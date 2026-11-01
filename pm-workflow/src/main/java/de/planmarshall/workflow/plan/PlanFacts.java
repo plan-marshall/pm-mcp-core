@@ -33,6 +33,7 @@ import de.planmarshall.workflow.plan.HeaderJson.NullNode;
 import de.planmarshall.workflow.plan.HeaderJson.ObjectNode;
 import de.planmarshall.workflow.plan.HeaderJson.StringNode;
 import de.planmarshall.workflow.verify.DeclarationBounds;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The facts a composition reads (PM-IMPL-5, PM-EXT-7, PM-WF-25), passed in as a value: the composition reads no store.
@@ -351,7 +352,7 @@ Optional<String> overrides, Map<String, Map<String, CallValue>> declarations) {
      */
     public static final class Builder {
 
-        private PlanInstanceHeader.Lane lane;
+        private PlanInstanceHeader.@Nullable Lane lane;
         private PlanInstanceHeader.Posture posture;
         private String changeType;
         private String postRun;
