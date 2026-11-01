@@ -1,0 +1,199 @@
+= The Build Output Parsers (`core.build`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+:src: ../../src/main/java/de/planmarshall/core/build
+:test: ../../src/test/java/de/planmarshall/core/build
+:data: ../../src/test/resources/ported/build
+
+== Purpose
+
+_Requirements:_ link:{docs}/Requirements.adoc#PM-IMPL-6[PM-IMPL-6], link:{docs}/Requirements.adoc#PM-TEST-2[PM-TEST-2]
+
+Package `de.planmarshall.core.build` of `pm-core` holds the native parsers of build output: a parser reads the text one
+build tool wrote and returns the diagnostics the tool reported, the status it printed, the test counts it aggregated and
+the verdict on whether it ran a test at all. No external script is called and no Python runs (PM-IMPL-6).
+
+Three parsers are implemented: Maven, Gradle and the OpenRewrite finding log of a Maven build. Each is ported from the
+`plan-marshall` parser module of the same tool, and its tests are ported from that module's pytest suite. The npm,
+TypeScript, ESLint, Jest, TAP and Python (pyproject) parsers are not implemented yet.
+
+A parser is a pure function of the log text. It reads no file except through `BuildLogText.read`, holds no state, opens no
+process and consults no configuration.
+
+== Main Types
+
+[cols="1,3",options="header"]
+|===
+|Type |What it does
+
+|link:{src}/ParsedBuild.java[`ParsedBuild`]
+|The result of one parse: the `diagnostics` in log order, the `status`, the positive `successMarker`, the
+`testCounts` and the `noTestsRan` verdict.
+
+|link:{src}/Diagnostic.java[`Diagnostic`]
+|One located finding: file, line, column, message, category, severity and the stack trace the parser collected for it.
+The location is absent component-wise (`@Nullable`), and its compact constructor refuses a blank message, a negative
+location and a line without a file.
+
+|link:{src}/TestCounts.java[`TestCounts`]
+|A sealed interface of `Measured` (passed, failed, skipped, total and the executed count per runner) and `Unmeasured`.
+The unmeasured state has no count accessor, so it cannot be read as a zero.
+
+|link:{src}/JvmCategoryPatterns.java[`JvmCategoryPatterns`]
+|The compiled category table of the JVM parsers, `maven()` and `gradle()`. A pattern carrying a regular-expression
+metacharacter is a case-insensitive regular expression, every other pattern a case-insensitive literal substring, and the
+first matching category in definition order wins.
+
+|link:{src}/JvmFileLocation.java[`JvmFileLocation`]
+|The file, line and column of a JVM build line: `file.java:[line,column]`, `file.(java|kt|groovy|scala):line[:column]`,
+`file.java:line:` and `TestName.method:line`.
+
+|link:{src}/BuildLogText.java[`BuildLogText`]
+|Reads a log and strips its ANSI escape sequences in one step, so no parser can match a colour-coded line against a
+plain-text pattern.
+
+|link:{src}/MavenOutputParser.java[`MavenOutputParser`]
+|The Maven scanner: `[ERROR]`/`[WARNING]` lines, the failure trailer, deduplication, the Surefire and Failsafe summaries
+and Maven's status markers.
+
+|link:{src}/GradleOutputParser.java[`GradleOutputParser`]
+|The Gradle scanner: compiler error locations, the failing tasks, the `N tests completed` summaries and Gradle's status
+markers.
+
+|link:{src}/OpenRewriteLogParser.java[`OpenRewriteLogParser`]
+|The OpenRewrite finding lines of a Maven log, with the fail-closed verdicts `observed`, `not_observed`,
+`domain_inactive` and `parse_error`.
+|===
+
+`Severity`, `Category`, `BuildStatus`, `TestsPopulation`, `RewriteVerdict` and `RewriteClassification` are the closed
+enumerations of those records.
+
+== The Result Model
+
+_Requirements:_ link:{spec}/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime Specification § Native Build Output Parsers]
+
+The model separates facts a consumer must not conflate (link:../adr/core-build/001-the-parsed-build-is-three-facts.adoc[ADR 001]):
+
+* `status` is what the tool printed. A `testFailureIgnore` run that printed `BUILD SUCCESS` over two errored tests is
+  `SUCCESS` with `failed = 2`; the parser does not resolve the contradiction, the gate does.
+* `successMarker` records that the positive banner was seen, so the contradiction stays readable after the status is
+  consumed.
+* `testCounts` distinguishes three states: absent (`null`, the log carried no count line), `Unmeasured` (counts the parser
+  could not aggregate) and `Measured`. Nothing reports a zero in place of an absence (PM-WATCH-JOB-10).
+* `noTestsRan` holds only on a successful build with its success marker, its own positive "no tests" marker and no count
+  line (PM-WATCH-JOB-11). A measured count of zero never produces it.
+
+`TestCounts.Measured` refuses a total that is not `passed + failed + skipped`, and `ParsedBuild` refuses a `noTestsRan`
+verdict its other facts do not support; both are enforced in the compact constructor, so a builder cannot produce an
+inconsistent result.
+
+== The Three Parsers
+
+=== Maven
+
+`MavenOutputParser.parse(String)` scans the `[ERROR]` and `[WARNING]` lines, strips the level prefix and files what is
+left as a diagnostic:
+
+* a line of Maven's failure epilogue — the `-e`/`-X` advice, the `[Help N]` URLs, the report and dump-file pointers, the
+  reactor rows Maven 4 prints at error level, and the `BUILD FAILURE` banner — is dropped whole, each line matched
+  against a compiled pattern with a full match;
+* a `Tests run:` line with zero failures and zero errors is not a diagnostic;
+* a line starting with `->` is a continuation and is skipped;
+* the location is taken from the line, the category from the compiled table, and the diagnostic is deduplicated by
+  category, file, line and the first 100 characters of the message, so the reactor summary and the per-module output of
+  one error produce one diagnostic;
+* the last contiguous stack-trace block of the log is attached to the last filed diagnostic, as in the original.
+
+The test counts sum every Surefire and Failsafe summary block. A `Tests run:` line carrying `Time elapsed` repeats a
+block's counts and is excluded; a line inside a test-plugin execution, after the `[INFO] Results:` marker, is a summary
+block and is summed across modules and plugins; any other line is ambiguous, and one ambiguous line makes the population
+`Unmeasured`. Each summary block is attributed to the nearest preceding `surefire`/`failsafe` execution header, and
+`byRunner` carries the executed count (total minus skipped) per runner. A log with the `MultiThreadedBuilder` banner keeps
+the summed total and omits `byRunner`, because an interleaved module's header no longer names a summary's runner.
+
+=== Gradle
+
+`GradleOutputParser.parse(String)` skips the stack frames, the continuation lines (`->`, `>`) and every line whose text
+matches no category, derives the severity from the category (compilation, test and dependency are errors, everything else
+is a warning) and takes the location from `<path>.<ext>:<line>[:<col>]`. The counts sum every
+`N tests completed, M failed[, K skipped]` line. Because a successful Gradle build prints no count line at all, the
+absence of a count is never a verdict: `noTestsRan` needs Gradle's own statement that its filter matched no test.
+
+=== The OpenRewrite Log
+
+`OpenRewriteLogParser.parse(String, boolean domainActive)` reads the structured `WARN` lines `cui-open-rewrite` `#118`
+emits, one recipe finding per line, and classifies each by its identifier (`CUI_REWRITE-100` newly detected,
+`CUI_REWRITE-101` pre-existing), never by the human verb of the message. The domain state is an argument, so the parse
+stays a pure function of its inputs.
+
+The verdicts are fail-closed and checked in this order: `not_observed` when the log carries no `rewrite:run` goal
+execution; `domain_inactive` when the domain is not active; `parse_error` when a line carries a finding identifier but no
+longer matches the pinned template; `observed` otherwise, carrying the findings. Only `observed` carries findings.
+
+== Adding a Parser
+
+1. Add the parser class: a `@UtilityClass` with `parse(String)` and `parse(Path)`, returning `ParsedBuild` (or a typed
+   result for a parser whose verdict is not a build status). Read the log through `BuildLogText.read`, take the location
+   through `JvmFileLocation.parse` where the tool prints one, and put every category in a `JvmCategoryPatterns`
+   table rather than in the parser.
+2. Write the pytest-case roster and the fixtures: `{data}/<tool>/original-cases.txt` lists every case of the original
+   suite, mapped to its fixtures or excluded with a reason; one `*.txt` fixture per case and one `deliberate:` fixture per
+   deliberate change; the original's own log files copied beside them when a case uses one. See
+   link:{data}/PROVENANCE.adoc[`ported/build/PROVENANCE.adoc`].
+3. Add the test class: a `@ParameterizedTest` over the fixtures of the directory, the roster closure check and a fixture
+   floor, and a record-invariant test for each new record.
+4. Record a deliberate change in link:../adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR 002]
+   and in the specification paragraph, or do not make one.
+
+== Deliberate Changes
+
+The port reproduces the originals' parsing and changes seven behaviours on purpose; each has a `deliberate:` fixture that
+asserts the corrected behaviour (link:../adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR 002]).
+The two a reader meets first are that an `[ERROR]` line no pattern recognises is `unrecognized` rather than a real
+category, and that an unmeasured population carries no number at all.
+
+== Ported Tests and Fixture Provenance
+
+_Requirements:_ link:{spec}/store-schemas/13-leases-integrity-testing.adoc#ported-tests[Store Schemas Specification § Ported-Primitive Tests]
+
+The tests follow the ported-primitive convention: the original and its pytest suite are read by hand at a pinned commit,
+the test data are plain files derived from them and committed below `src/test/resources/ported/build/`, each fixture is
+headed either `original: plan-marshall@<pin> <pytest path>::<case>` or `deliberate: <name>`, and nothing runs Python,
+starts a `plan-marshall` script, reads the sibling checkout or compares a Java result with a Python result at test time.
+
+[source,text]
+----
+src/test/resources/ported/build/
+  PROVENANCE.adoc          the pinned commit and where each directory's originals live
+  <tool>/original-cases.txt  roster: every pytest case -> its fixtures, or excluded with a reason
+  <tool>/*.txt               one scenario per fixture (headers, log, expectations)
+  <tool>/*.log               the original's own log fixtures, copied byte for byte
+----
+
+The fixtures are enumerated from their directory, never listed by hand; `BuildLogFixtures` refuses a malformed fixture
+(unknown header, another pin, an undeclared directive, a wrong arity, an unreadable `log-file`) naming the file and the
+line, so a broken scenario fails the suite instead of being skipped. A test that leaves a directive of its fixture
+unevaluated fails through `BuildLogFixtures.assertConsumed`. The roster is closed in both directions by
+`BuildLogFixtures.assertRoster`.
+
+The pinned commit is `BuildLogFixtures.PIN`; it is advanced by re-reading the original at the new commit and moving every
+`original:` header and every `suite:` line with it, because the loader refuses any other commit.
+
+== Invariants and Failure Modes
+
+* *A parser never guesses a count.* No summary block, an unaggregatable block or a quiet log never yields a zero.
+* *A parser never invents a diagnostic.* A trailer line, a passing test count, a stack frame and a continuation line are
+  not diagnostics; an unrecognised error is `unrecognized`, which says what it is.
+* *A verdict is not a default.* `noTestsRan` is false unless the tool said so; `null` counts are not "zero tests".
+* *The model is immutable.* The diagnostics list and the per-runner map are frozen in the compact constructor.
+* *No state crosses a parse.* Two calls with the same text return equal results; nothing is cached.
+
+== Specification Tracing
+
+* Specification: link:{spec}/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime Specification § Native Build Output Parsers]; link:{spec}/store-schemas/13-leases-integrity-testing.adoc#ported-tests[Store Schemas Specification § Ported-Primitive Tests]
+* Watch: link:../../../doc/implementation-watch/job-runtime.adoc[Job Runtime]; the items this package closed (PM-WATCH-JOB-10, -11, -18) are carried by the parsed-build and parser tests named above
+* Decisions: link:../adr/core-build/001-the-parsed-build-is-three-facts.adoc[ADR 001 the parsed build is three facts], link:../adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR 002 the deliberate changes]

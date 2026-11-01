@@ -1,0 +1,93 @@
+= ADR 002: The Deliberate Changes against the Ported plan-marshall Parsers
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-01
+
+== Context
+
+Each parser of `core.build` is a port of one `plan-marshall` module. The ported tests take their test data and their
+expected values from the original and its pytest suite, so a port that simply copies every behaviour would also copy the
+behaviours that produced the defects of the implementation watch.
+
+Three defects are recorded there (PM-WATCH-JOB-10, -11, -18): a green multi-module build reported `tests_run: 0`; a test
+filter matching nothing was not reported as having run nothing; the failure-trailer advice of the build tool was filed as
+located findings, and an unrecognised `[ERROR]` line was given a real category. The ported originals fix part of this —
+the Maven parser drops the trailer with a `fullmatch` table and skips a passing `Tests run:` line — and leave the rest.
+
+== Decision
+
+The port reproduces the originals' parsing exactly, and records every behaviour it changes as a deliberate change with a
+fixture of its own (`deliberate:` header) that asserts the corrected behaviour, never a value of the original:
+
+[cols="2,3",options="header"]
+|===
+|Change |Asserted by
+
+|An `[ERROR]` line no pattern of the compiled table recognises is `Category.UNRECOGNIZED`, never a real category. A
+`[WARNING]` line without a match keeps the original's `Category.OTHER`, so the change is scoped to the level the
+specification names.
+|`ported/build/maven/deliberate-unrecognized-error.txt`
+
+|An unmeasured test population carries no number: `TestCounts.Unmeasured` has no count accessor. The original keeps the
+summed counts of an unmeasured population.
+|`ported/build/maven/deliberate-unmeasured-on-success.txt`
+
+|`no_tests_ran` needs the tool's own positive marker (`No tests to run.` for Maven, `No tests found for given includes`
+for Gradle) over a successful build with no count line; a measured count of zero never produces it.
+|`ported/build/maven/deliberate-zero-count-is-no-no-tests-ran.txt`,
+`ported/build/maven/deliberate-no-tests-ran-positive-marker.txt`,
+`ported/build/gradle/deliberate-gradle-no-tests-marker.txt`
+
+|The Maven failure trailer is dropped whole against a compiled table matched with a full match, so a reworded trailer line
+is filed again. This is the original's behaviour, held by the port and pinned by its own fixture.
+|`ported/build/maven/deliberate-trailer-dropped.txt`,
+`ported/build/maven/deliberate-trailer-reworded.txt`
+
+|The Gradle counts follow the Maven rule: every `N tests completed` block contributes. The original keeps the last
+match.
+|`ported/build/gradle/deliberate-gradle-two-test-tasks.txt`
+
+|An OpenRewrite log line that carries a finding identifier but no longer matches the pinned template is
+`RewriteVerdict.PARSE_ERROR`. The original silently ignores it, so a format drift would read as zero findings.
+|`ported/build/openrewrite/deliberate-rewrite-parse-error.txt`
+
+|The domain state is decided before the log is read: an inactive domain answers `DOMAIN_INACTIVE` even over a log that
+would be a parse error.
+|`ported/build/openrewrite/deliberate-rewrite-domain-inactive-skips-parse.txt`
+|===
+
+Every other behaviour is ported as it stands, including the behaviours that look surprising: the stack-trace collector
+attaches the last contiguous trace block to the last filed diagnostic, because that is what the original does
+(`StackTraceCollector`).
+
+== Alternatives Considered
+
+1. *Port every behaviour unchanged.* Not taken: it would leave PM-WATCH-JOB-10, -11 and -18 open in the port, and the
+   specification names the corrected behaviour as the requirement.
+2. *Clean up each surprise and record nothing.* Not taken: a change the ported tests do not state reads as an accident
+   of the port. Each change has a fixture of its own, so a later reader can tell the port's intent from the original's
+   behaviour.
+3. *Fix the stack-trace attachment.* Not taken in this plan: it is not a defect the specification names, and changing it
+   would make the port's expected values disagree with the original's for no recorded benefit. It is named here so a later
+   change can take it deliberately.
+
+== Consequences
+
+A consumer that compares a `plan-marshall` result with this one sees the three differences in the deliberate fixtures, and
+no others. A change of any ported behaviour must now either keep its fixture green or change the fixture and this record
+with it.
+
+The `unrecognized` category and the `no_tests_ran` rule are visible in the specification's paragraph and in the developer
+guide, so a sibling port (the npm and Python parsers) can adopt them rather than rediscovering them.
+
+== Source
+
+Work package `doc/plans/build-parsers-and-gate-honesty.adoc`; plan `PLAN-V2-08-native-build-parsers-jvm`; specification
+`doc/specification/job-runtime/03-parsers-and-gates.adoc` § Native Build Output Parsers; watch items PM-WATCH-JOB-10,
+PM-WATCH-JOB-11 and PM-WATCH-JOB-18; requirement `PM-TEST-2`.

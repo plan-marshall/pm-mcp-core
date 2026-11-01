@@ -9,23 +9,13 @@
 link:../../Specification.adoc[Specification] » link:../job-runtime.adoc[Job Runtime Specification] » Build Output Parsers, Timeouts, Gate Honesty & Ingestion Validator
 
 == Native Build Output Parsers
-_Implementation watch: link:../../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-10[PM-WATCH-JOB-10], link:../../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-12[PM-WATCH-JOB-12], link:../../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-18[PM-WATCH-JOB-18], link:../../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-11[PM-WATCH-JOB-11]_
+_Implementation watch: link:../../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-11[PM-WATCH-JOB-11], link:../../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-12[PM-WATCH-JOB-12]_
 
 When a build completes with a non-zero exit code or compiler warnings, the runtime extracts structured diagnostics without calling external Python scripts (`PM-IMPL-6`). Each compiled parser ports one `plan-marshall` parser module (`marketplace/bundles/plan-marshall/skills/build-*/scripts/`, plus the domain-owned OpenRewrite parser) and is verified by Java tests whose test data and expected values are derived from that module and its pytest suite (`PM-TEST-2`):
 
 [cols="2,2,3,3"]
 |===
 |Parser |`plan-marshall` Module |Parser Strategy |Diagnostic Extractions
-
-|*Maven*
-|`build-maven/_maven_cmd_parse.py`
-|Line scanner over `[ERROR]` / `[WARNING]` lines with the shared JVM category patterns (compiler, test, dependency, OpenRewrite info), stack-trace collection, deduplication across reactor summary and per-module output, and Surefire/Failsafe test summary.
-|File path, line, column, message, category, severity; test counts; build status.
-
-|*Gradle*
-|`build-gradle/_gradle_cmd_parse.py`
-|Scanner over JVM compiler error locations of the form `<path>.<java\|kt\|groovy\|scala>:<line>[:<col>]`, failing tasks, and `N tests completed, M failed` summaries with the shared JVM category patterns.
-|File path, line, column, message, category, failing task; test counts; build status.
 
 |*npm errors*
 |`build-npm/_npm_parse_errors.py`
@@ -56,14 +46,9 @@ When a build completes with a non-zero exit code or compiler warnings, the runti
 |`build-pyproject/_pyproject_cmd_parse.py`
 |Tool-detecting scanner for pytest (`FAILED` and collection/setup `ERROR` short-summary lines, with the deepest traceback frame for the location), ruff (`path:line:col: CODE message`), and mypy (`path:line: error: message`).
 |File path, line, rule code or test node ID, message; test counts.
-
-|*OpenRewrite*
-|`pm-dev-java-cui:parse-rewrite-log` (domain verb `rewrite-log-parse`, consumed by `build-maven/_maven_cmd_rewrite_log.py`)
-|Scanner over the structured OpenRewrite `WARN` finding lines in the Maven log, run only when the build reached the `rewrite:run` goal and the java-cui domain is active; fail-closed verdicts `observed`, `not_observed`, `domain_inactive`, `parse_error`.
-|Recipe finding per line (newly detected vs pre-existing), verdict.
 |===
 
-Test counts are aggregated over every summary block of a multi-module run. When a successful build's summaries cannot be aggregated, the result reports `tests_population: unmeasured`, never `tests_run: 0`; a `no_tests_ran` verdict requires a positive marker, not a zero count. In the Maven parser, failure-trailer advice lines (`Re-run Maven using the -X switch…`, `[Help 1] http…`, `After correcting the problems, you can resume the build…`, `mvn <args> -rf :<module>`) are dropped, each matched whole against a compiled pattern table, so a reworded line is filed again rather than a genuine diagnostic being dropped silently; the `plan-marshall` Maven parser drops the same trailer (`_MAVEN_EPILOGUE_PATTERNS`, matched with `fullmatch`) and skips a passing `Tests run:` line, so the trailer drop is shared with it rather than a deliberate change. An unrecognised `[ERROR]` line is categorised `unrecognized`, never assigned a real category; the `unrecognized` category and the positive-marker rule for `no_tests_ran` do not exist in the `plan-marshall` parsers, and they are *deliberate changes* verified by their own fixtures, never adopted as expected values from the original (link:../store-schemas/13-leases-integrity-testing.adoc#ported-tests[Store Schemas Specification, Ported-Primitive Tests]).
+Implemented by `pm-core` package `core.build` (link:../../../pm-core/doc/developer/core-build.adoc[`core.build` Developer Guide]) for the JVM tools: the parsers `MavenOutputParser`, `GradleOutputParser` and `OpenRewriteLogParser` over the result model `ParsedBuild` with its `Diagnostic` and `TestCounts`, each verified by ported Java tests whose data and expected values are derived from the original module and its pytest suite (`PM-TEST-2`; link:../store-schemas/13-leases-integrity-testing.adoc#ported-tests[Store Schemas Specification, Ported-Primitive Tests]). The rules they carry bind every parser of this section: test counts are aggregated over every summary block of a multi-module run; a successful build whose summaries cannot be aggregated reports `tests_population: unmeasured` and no test count, never `tests_run: 0`; a `no_tests_ran` verdict requires the tool's positive marker, never a zero count; failure-trailer advice lines (`Re-run Maven using the -X switch…`, `[Help 1] http…`, `After correcting the problems, you can resume the build…`, `mvn <args> -rf :<module>`) are dropped, each matched whole against a compiled pattern table, so a reworded line is filed again rather than a genuine diagnostic being dropped silently; and an unrecognised `[ERROR]` line is categorised `unrecognized`, never assigned a real category. The last two rules of that list are *deliberate changes* against the `plan-marshall` parsers, each verified by its own fixture, never adopted as an expected value from the original. Remaining: the npm, TypeScript, ESLint, Jest, TAP and pyproject parsers (PLAN-V2-28), and the wiring of the parsers to the job output seam (PLAN-V2-36).
 
 Coverage reports are parsed separately (<<Native Coverage Report Parsers>>).
 

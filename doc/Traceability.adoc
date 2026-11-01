@@ -1360,16 +1360,25 @@ link:../pm-providers/pm-provider-git/doc/adr/provider-git-ported/003-worktree-sh
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-2[PM-TEST-2]
 
-Implementation (the ported tests of the primitive `git.worktree-sha`: the convention of adapting one `Ported` script at a time from the original and its pytest suite at the pinned commit, plain-file test data with the legacy mapping in test code only, no Python and no `plan-marshall` checkout at test time, equality behaviour instead of byte equivalence, and a fixture of its own for every deliberate change and known defect; the other `Ported` scripts, the canonical JSON/JSONL store state of the store primitives, the primitives with external side effects, and invocation logs of real runs are not implemented yet): link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/WorktreeShaDigest.java[WorktreeShaDigest],
-link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/JGitOperations.java[JGitOperations]
+Implementation (the ported tests of the primitive `git.worktree-sha`: the convention of adapting one `Ported` script at a time from the original and its pytest suite at the pinned commit, plain-file test data with the legacy mapping in test code only, no Python and no `plan-marshall` checkout at test time, equality behaviour instead of byte equivalence, and a fixture of its own for every deliberate change and known defect; and the ported tests of the build output parsers of package `core.build`, one fixture corpus per tool below `src/test/resources/ported/build/` with its roster of the original's pytest cases, expected values read by hand from the original's own log fixtures, and a `deliberate:` fixture of its own for every behaviour the port corrects; the other `Ported` scripts, the canonical JSON/JSONL store state of the store primitives, the primitives with external side effects, and invocation logs of real runs are not implemented yet): link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/WorktreeShaDigest.java[WorktreeShaDigest],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/JGitOperations.java[JGitOperations],
+link:../pm-core/src/main/java/de/planmarshall/core/build/MavenOutputParser.java[MavenOutputParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/GradleOutputParser.java[GradleOutputParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/OpenRewriteLogParser.java[OpenRewriteLogParser]
 
 Verified by: link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/ported/WorktreeShaPortedTest.java[WorktreeShaPortedTest],
-link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/WorktreeShaDigestTest.java[WorktreeShaDigestTest]
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/WorktreeShaDigestTest.java[WorktreeShaDigestTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/MavenOutputParserTest.java[MavenOutputParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/GradleOutputParserTest.java[GradleOutputParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/OpenRewriteLogParserTest.java[OpenRewriteLogParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/JvmCategoryPatternsTest.java[JvmCategoryPatternsTest]
 
 Documentation: link:../pm-providers/pm-provider-git/doc/developer/provider-git-ported.adoc[Ported-Primitive Tests Developer Guide],
 link:../pm-providers/pm-provider-git/doc/adr/provider-git-ported/001-ported-tests-derived-from-the-original-one-script-at-a-time.adoc[ADR provider-git-ported/001],
 link:../pm-providers/pm-provider-git/doc/adr/provider-git-ported/002-test-utilities-stay-in-the-test-tree-until-a-second-module-needs-them.adoc[ADR provider-git-ported/002],
-link:../pm-providers/pm-provider-git/doc/adr/provider-git-ported/003-worktree-sha-tested-by-equality-behaviour-over-plain-file-scenarios.adoc[ADR provider-git-ported/003]
+link:../pm-providers/pm-provider-git/doc/adr/provider-git-ported/003-worktree-sha-tested-by-equality-behaviour-over-plain-file-scenarios.adoc[ADR provider-git-ported/003],
+link:../pm-core/src/test/resources/ported/build/PROVENANCE.adoc[Fixture provenance of the build output parsers],
+link:../pm-core/doc/developer/core-build.adoc#_ported_tests_and_fixture_provenance[Build Output Parsers Developer Guide § Ported Tests and Fixture Provenance]
 
 [#PM-TEST-3]
 === PM-TEST-3: State-Machine Invariant, Property & McpAssured Protocol Verification
@@ -1875,6 +1884,34 @@ link:../pm-workflow/doc/developer/workflow-diagram.adoc#instance-forms[Workflow 
 link:../pm-core/doc/developer/core-spi.adoc#_the_contract_of_a_primitive[Developer Guide § The Contract of a Primitive], link:../pm-core/doc/developer/core-spi.adoc#_the_registry[Developer Guide § The Registry]
 
 [#PM-IMPL-7]
+=== PM-IMPL-6: Native Build Output Parsers & Fallback Diagnostics
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-6[PM-IMPL-6]
+
+Implementation (in part: the result model of a parsed build — the located diagnostic, the measured or explicitly
+unmeasured test counts, the status with the positive success marker and the `no_tests_ran` verdict — the compiled category
+table of the JVM tools, and the parsers for Maven, Gradle and the OpenRewrite finding log, each a pure function of the
+log text with no Python and no external script; the npm errors, TypeScript, ESLint, Jest, TAP and pyproject parsers and
+the `failed_unparsed` fallback with its bounded redacted log tail are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/build/ParsedBuild.java[ParsedBuild],
+link:../pm-core/src/main/java/de/planmarshall/core/build/Diagnostic.java[Diagnostic],
+link:../pm-core/src/main/java/de/planmarshall/core/build/TestCounts.java[TestCounts],
+link:../pm-core/src/main/java/de/planmarshall/core/build/JvmCategoryPatterns.java[JvmCategoryPatterns],
+link:../pm-core/src/main/java/de/planmarshall/core/build/MavenOutputParser.java[MavenOutputParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/GradleOutputParser.java[GradleOutputParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/OpenRewriteLogParser.java[OpenRewriteLogParser]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/build/MavenOutputParserTest.java[MavenOutputParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/GradleOutputParserTest.java[GradleOutputParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/OpenRewriteLogParserTest.java[OpenRewriteLogParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/JvmCategoryPatternsTest.java[JvmCategoryPatternsTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/ParsedBuildTest.java[ParsedBuildTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/TestCountsTest.java[TestCountsTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/DiagnosticTest.java[DiagnosticTest]
+
+Documentation: link:../pm-core/doc/developer/core-build.adoc[Build Output Parsers Developer Guide],
+link:../pm-core/doc/adr/core-build/001-the-parsed-build-is-three-facts.adoc[ADR core-build/001],
+link:../pm-core/doc/adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR core-build/002]
+
 === PM-IMPL-7: Data Store Invariants, Footprint Reconciliation & Lock Ordering
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]
