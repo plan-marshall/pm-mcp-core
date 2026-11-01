@@ -78,7 +78,7 @@ class JvmCategoryPatternsTest {
     void unmatchedIsOther() {
         assertEquals(Category.OTHER, JvmCategoryPatterns.gradle().categorize("an ordinary log line"),
                 "an ordinary line carries no category");
-        assertSame(JvmCategoryPatterns.maven().categorize("cannot find symbol"), Category.COMPILATION_ERROR,
+        assertSame(Category.COMPILATION_ERROR, JvmCategoryPatterns.maven().categorize("cannot find symbol"),
                 "a known compiler message keeps its category");
     }
 
