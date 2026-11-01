@@ -13,6 +13,7 @@ import de.planmarshall.core.findings.FindingSourceKey;
 import java.net.URI;
 import java.util.Locale;
 import java.util.Objects;
+import lombok.Builder;
 
 /**
  * The repository a CI operation addresses: its forge, its web origin and its owner (or, on GitLab, its group
@@ -28,6 +29,7 @@ import java.util.Objects;
  * @param name       the repository or project name
  * @since 0.1
  */
+@Builder
 public record RepositoryRef(String forge, String origin, String ownerOrPath, String name) {
 
     /** The longest path a group path may have. */
@@ -93,9 +95,10 @@ public record RepositoryRef(String forge, String origin, String ownerOrPath, Str
 
     private static boolean isSegment(String segment) {
         if (segment.isEmpty() || segment.length() > MAX_SEGMENT_LENGTH || ".".equals(segment)
-                                || "..".equals(segment)) {
+                || "..".equals(segment)) {
             return false;
         }
-        return segment.chars().noneMatch(Character::isWhitespace);
+        return segment.chars().allMatch(character -> Character.isLetterOrDigit(character)
+                || character == '.' || character == '-' || character == '_');
     }
 }

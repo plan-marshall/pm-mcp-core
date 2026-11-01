@@ -15,7 +15,8 @@ Package `de.planmarshall.provider.ci` is the CI contract of the engine: the oper
 CI provider of a project, the value types of their answers, the URL grammar that resolves a source's URL to its forge,
 repository and number, and the explicit registry of the runtime's providers. The contract names no transport and no
 forge: the request belongs to the adapter (`pm-provider-github`, `pm-provider-gitlab`, and later
-`pm-provider-forgejo`), and the module depends on the shared HTTP base for its closed `Result` alone.
+`pm-provider-forgejo`), and the module depends on the shared HTTP base for its closed `Result` and on `pm-core` for the
+provider id pattern.
 
 The operator decided on 2026-10-29 that the contract is this module and not a port in `pm-core`
 (link:../../../../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[repository ADR 014]).
@@ -57,7 +58,9 @@ repository permissions, the scopes and the expiry.
 |===
 
 `RepositoryRef` and `ForgeUrl` are the origin-pinning seam: a provider is bound to one web origin, and an `IssueRef`
-on another origin is `REJECTED` before anything is sent.
+on another origin is `REJECTED` before anything is sent. `whoami` takes a `@Nullable RepositoryRef` rather than an
+`Optional`: the standing rule for the repository's null contract (R20) forbids `Optional` in a parameter, so the spec's
+`Optional<RepositoryRef>` is realised as the nullable parameter.
 
 == How the Adapters Implement the Contract
 

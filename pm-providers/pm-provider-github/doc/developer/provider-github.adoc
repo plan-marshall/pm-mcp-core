@@ -91,8 +91,8 @@ kind comes from the token prefix (`github_pat_` fine-grained, `ghp_` classic), t
 expiry from `github-authentication-token-expiration`, both response headers the shared base keeps for
 `HttpClient.getWithHeaders`. For a GitHub App the adapter reads the App's slug from `GET /app` with the App JWT, the bot
 user id from `GET /users/{slug}[bot]` and the operator's login from `GET /user` with the user access token.
-`issueView` reads `GET /repos/{owner}/{repo}/issues/{n}` with a token narrowed by `GitHubOperation.ISSUE_READ`, flags the
-`pull_request` member and refuses a pull request. `issueComment` posts through `GitHubClient.postComment` and derives the
+`issueView` reads `GET /repos/{owner}/{repo}/issues/{n}` with the token the caller minted for
+`GitHubOperation.ISSUE_READ`, flags the `pull_request` member and refuses a pull request. `issueComment` posts through `GitHubClient.postComment` and derives the
 comment URL. An issue on another origin or of another forge is refused before a request is sent.
 
 == Extending the Client

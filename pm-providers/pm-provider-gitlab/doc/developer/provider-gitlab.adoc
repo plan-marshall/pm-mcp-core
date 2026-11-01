@@ -65,7 +65,7 @@ fallback for a token that is no personal access token) to the contract's `Identi
 `GET /user`, the kind from the bot user (`project_<id>_bot_…` a project token, `group_<id>_bot_…` a group token, a token
 without a record an OAuth token, everything else a personal token), the scopes and expiry from the token record, and the
 permissions from the `permissions` object of `GET /projects/{path}`. `issueView` reads
-`GET /projects/{id}/issues/{iid}` and `issueComment` posts to `GET /projects/{id}/issues/{iid}/notes`, each with the
+`GET /projects/{id}/issues/{iid}` and `issueComment` posts to `POST /projects/{id}/issues/{iid}/notes`, each with the
 project path URL-encoded as the client does. An issue on another origin or of another forge is refused before a request
 is sent.
 

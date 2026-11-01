@@ -34,7 +34,7 @@ class ForgeUrlTest {
         assertEquals(ForgeUrl.Outcome.RESOLVED, resolution.outcome(), "the URL is resolved");
         var url = resolution.url().orElseThrow();
         assertAll("the resolved source",
-                                () -> assertEquals("github", url.forge(), "the forge is github"),
+                                () -> assertEquals("github", url.forge(), "the resolved forge is github"),
                                 () -> assertEquals("cuioss", url.repository().ownerOrPath(), "the owner is resolved"),
                                 () -> assertEquals("pm-mcp-core", url.repository().name(), "the repository is resolved"),
                                 () -> assertEquals("https://github.com", url.repository().origin(), "the origin is resolved"),
@@ -56,7 +56,7 @@ class ForgeUrlTest {
     void resolvesForgejo() {
         var url = ForgeUrl.resolve("https://codeberg.org/forgejo/forgejo/issues/3").url().orElseThrow();
 
-        assertEquals("forgejo", url.forge(), "the forge is forgejo");
+        assertEquals("forgejo", url.forge(), "the resolved forge is forgejo");
         assertEquals("forgejo", url.repository().name(), "the repository is resolved");
     }
 
@@ -102,7 +102,7 @@ class ForgeUrlTest {
         var resolution = ForgeUrl.resolve("https://unknown.example/owner/repo/issues/4");
 
         assertAll("the unknown-forge outcome",
-                                () -> assertEquals(ForgeUrl.Outcome.UNKNOWN_FORGE, resolution.outcome(), "the host is unknown"),
+                                () -> assertEquals(ForgeUrl.Outcome.UNKNOWN_FORGE, resolution.outcome(), "the host is not in the table"),
                                 () -> assertTrue(resolution.url().isEmpty(), "an unknown host carries no URL"),
                                 () -> assertTrue(resolution.detail().contains("unknown_forge"), "the detail names the outcome"));
     }
@@ -182,7 +182,13 @@ class ForgeUrlTest {
                         "a URL without a host is refused"),
                 () -> assertEquals(1,
                         ForgeUrl.resolve("  https://github.com/o/r/issues/1  ").url().orElseThrow().number(),
-                        "surrounding whitespace is stripped"));
+                        "surrounding whitespace is stripped"),
+                () -> assertEquals(ForgeUrl.Kind.PULL_REQUEST,
+                        ForgeUrl.resolve("https://codeberg.org/o/r/pulls/7").url().orElseThrow().kind(),
+                        "a Forgejo pull-request path is a pull request"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://github.com/o/r%3F/issues/1").outcome(),
+                        "a reserved character in a repository name is refused"));
     }
 
     @Test

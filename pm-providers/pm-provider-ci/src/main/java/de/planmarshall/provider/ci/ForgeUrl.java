@@ -19,7 +19,6 @@ import java.util.Objects;
 import java.util.Optional;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
-
 /**
  * The issue or pull-request URL of a source, resolved to its forge, repository and number.
  * <p>
@@ -235,7 +234,7 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
         }
         Kind kind = switch (segments.get(2)) {
             case "issues" -> Kind.ISSUE;
-            case "pull" -> Kind.PULL_REQUEST;
+            case "pull", "pulls" -> Kind.PULL_REQUEST;
             default -> null;
         };
         if (kind == null) {
@@ -245,8 +244,12 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
         if (number.isEmpty()) {
             return Resolution.invalid("the number is not a positive integer");
         }
-        return Resolution.resolved(new ForgeUrl(forge,
-                                new RepositoryRef(forge, origin, segments.get(0), segments.get(1)), number.get(), kind));
+        try {
+            return Resolution.resolved(new ForgeUrl(forge,
+                    new RepositoryRef(forge, origin, segments.get(0), segments.get(1)), number.get(), kind));
+        } catch (IllegalArgumentException e) {
+            return Resolution.invalid(e.getMessage());
+        }
     }
 
     private static Resolution resolveGitLab(String forge, String origin, List<String> segments) {
@@ -266,13 +269,14 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
             return Resolution.invalid("the number is not a positive integer");
         }
         List<String> repository = segments.subList(0, segments.size() - 3);
-        if (repository.size() < 2) {
-            return Resolution.invalid("a GitLab project path needs a group and a project");
-        }
         String name = repository.getLast();
         String ownerOrPath = String.join("/", repository.subList(0, repository.size() - 1));
-        return Resolution.resolved(new ForgeUrl(forge, new RepositoryRef(forge, origin, ownerOrPath, name),
-                                number.get(), kind));
+        try {
+            return Resolution.resolved(new ForgeUrl(forge, new RepositoryRef(forge, origin, ownerOrPath, name),
+                    number.get(), kind));
+        } catch (IllegalArgumentException e) {
+            return Resolution.invalid(e.getMessage());
+        }
     }
 
     private static Optional<Integer> number(String segment) {

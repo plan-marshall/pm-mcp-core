@@ -43,6 +43,10 @@ The repository:
 * link:../../pm-core/doc/adr/core-spi/[`pm-core/doc/adr/core-spi/`]: the primitive SPI and the content validators.
 * link:../../pm-core/doc/adr/core-store/[`pm-core/doc/adr/core-store/`]: the state stores and the engine ports.
 
+`pm-provider-ci`:
+
+* link:../../pm-providers/pm-provider-ci/doc/adr/provider-ci/[`pm-providers/pm-provider-ci/doc/adr/provider-ci/`]: the closed result of the shared HTTP base, the cut of the contract, the App identity with both identities, the pull-request refusal and the decision against a shared contract test JAR.
+
 `pm-provider-git`:
 
 * link:../../pm-providers/pm-provider-git/doc/adr/provider-git/[`pm-providers/pm-provider-git/doc/adr/provider-git/`]: the cache repository operations on the shared git contract.

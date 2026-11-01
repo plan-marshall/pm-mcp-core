@@ -14,10 +14,11 @@ Accepted.
 Two adapters implement `CiProvider`, and a shared abstract test class published in a test JAR would let both prove the
 same contract in one place: the registry, the value invariants and the origin check, each asserted once.
 
-The repository has exactly one test JAR today, `pm-runtime:tests`, because the assembly's tests consume its fixtures
-(CLAUDE.md § Generator Artifacts). A test JAR of `pm-provider-ci` would be the second, and it would publish test classes
-as a consumed artifact. The standing constraint of the plan says a test JAR of this module is a dependency change that
-needs the operator's word, and the operator did not give it for this plan.
+The repository publishes four `tests`-classified test JARs today — `pm-core`, `pm-provider-http`, `pm-workflow` and
+`pm-runtime` — because a consumer's tests reuse their generators or fixtures (CLAUDE.md § Generator Artifacts). A test
+JAR of `pm-provider-ci` would be a fifth, and a new one, because no consumer's tests reuse anything of this module. The
+standing constraint of the plan says a test JAR of this module is a dependency change that needs the operator's word, and
+the operator did not give it for this plan.
 
 The adapters also differ where the shared test would be weakest: the GitHub token kinds, the App identity, the pull-request
 flag, the GitLab bot user — each is adapter-specific and can only be tested against that adapter's mock server.

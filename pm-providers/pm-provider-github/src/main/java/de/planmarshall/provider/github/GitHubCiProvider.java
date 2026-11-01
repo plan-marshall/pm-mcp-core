@@ -116,6 +116,10 @@ public final class GitHubCiProvider implements CiProvider {
 
     @Override
     public Result<Identity> whoami(@Nullable RepositoryRef repository) {
+        String refusal = refusalFor(repository);
+        if (refusal != null) {
+            return Result.of(Result.Outcome.REJECTED, refusal);
+        }
         return appClient == null ? tokenIdentity(repository) : appIdentity(repository);
     }
 
@@ -156,7 +160,14 @@ public final class GitHubCiProvider implements CiProvider {
 
     @Nullable
     private String refusalFor(IssueRef issue) {
-        RepositoryRef repository = issue.repository();
+        return refusalFor(issue.repository());
+    }
+
+    @Nullable
+    private String refusalFor(@Nullable RepositoryRef repository) {
+        if (repository == null) {
+            return null;
+        }
         if (!ID.equals(repository.forge())) {
             return "the issue is on the forge " + repository.forge();
         }

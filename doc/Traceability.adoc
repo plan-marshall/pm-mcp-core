@@ -1090,7 +1090,7 @@ link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/Is
 link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProvider.java[CiProvider]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/queue/SecretRedactorTest.java[SecretRedactorTest] (a credential-shaped assignment, a bearer value and a provider token masked; prose, a path and a commit id kept),
-link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/ValueTypesTest.java[ValueTypesTest] (the title and body are carried verbatim)
+link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/ValueTypesTest.java[ValueTypesTest] (the title and a non-empty body are carried unchanged)
 
 Documentation: link:../pm-core/doc/developer/core-queue.adoc[Task Queue Developer Guide] (§ Invariants and failure modes),
 link:../pm-core/doc/adr/core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR core-queue/008],

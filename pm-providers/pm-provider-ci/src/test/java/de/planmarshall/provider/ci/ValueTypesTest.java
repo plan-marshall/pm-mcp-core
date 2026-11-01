@@ -85,7 +85,7 @@ class ValueTypesTest {
         var repository = new RepositoryRef("github", "https://github.com", "o", "r");
 
         assertAll("the issue reference",
-                                () -> assertEquals(3, new IssueRef(repository, 3).number(), "the number is kept"),
+                                () -> assertEquals(3, new IssueRef(repository, 3).number(), "the issue number is kept"),
                                 () -> assertThrows(IllegalArgumentException.class, () -> new IssueRef(repository, 0),
                                                         "a number below one is refused"));
     }
@@ -130,14 +130,17 @@ class ValueTypesTest {
     @DisplayName("Issue copies its labels and keeps a null milestone")
     void issueCopiesLabels() {
         var labels = new ArrayList<>(List.of("bug"));
-        var issue = Issue.builder().title(text()).body("").labels(labels).assignees(List.of()).state("open")
+        var title = text();
+        var body = text();
+        var issue = Issue.builder().title(title).body(body).labels(labels).assignees(List.of()).state("open")
                                 .url("https://github.com/o/r/issues/1").build();
         labels.add("docs");
 
         assertAll("the issue",
                                 () -> assertEquals(1, issue.labels().size(), "the labels are copied"),
                                 () -> assertNull(issue.milestone(), "a missing milestone stays null"),
-                                () -> assertEquals("", issue.body(), "an empty body is kept"));
+                                () -> assertEquals(title, issue.title(), "the title text is carried unchanged"),
+                                () -> assertEquals(body, issue.body(), "the body text is carried unchanged"));
     }
 
     @Test
@@ -211,6 +214,6 @@ class ValueTypesTest {
                                                         "a blank comment id is refused"),
                                 () -> assertThrows(IllegalArgumentException.class, () -> new IssueComment("1", " "),
                                                         "a blank comment URL is refused"),
-                                () -> assertEquals("1", new IssueComment("1", "https://x/1").id(), "the id is kept"));
+                                () -> assertEquals("1", new IssueComment("1", "https://x/1").id(), "the comment id is kept"));
     }
 }

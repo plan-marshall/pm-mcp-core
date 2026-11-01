@@ -29,6 +29,7 @@ import de.planmarshall.provider.ci.RepositoryRef;
 import de.planmarshall.provider.ci.TokenKind;
 import de.planmarshall.provider.http.HttpClient;
 import de.planmarshall.provider.http.Result;
+import de.planmarshall.provider.http.TokenSource;
 import de.planmarshall.provider.http.testing.generators.HttpGenerators;
 import de.cuioss.test.mockwebserver.EnableMockWebServer;
 import de.cuioss.test.mockwebserver.dispatcher.HttpMethodMapper;
@@ -86,9 +87,9 @@ class GitLabCiProviderTest {
                 () -> assertEquals("alice", identity.login(), "the username is read"),
                 () -> assertEquals("7", identity.userId(), "the user id is read"),
                 () -> assertEquals(TokenKind.GITLAB_PERSONAL_TOKEN, identity.tokenKind(), "the kind is personal"),
-                () -> assertEquals(List.of("api", "read_user"), identity.scopes(), "the scopes are read"),
+                () -> assertEquals(List.of("api", "read_user"), identity.scopes(), "the scopes are read from the record"),
                 () -> assertEquals(Instant.parse("2026-12-01T00:00:00Z"), identity.expiresAt(),
-                        "the expiry is read"),
+                        "the expiry instant is read"),
                 () -> assertEquals(Map.of("project_access", "40", "group_access", "50"), identity.permissions(),
                         "the repository permissions are read"));
     }
@@ -118,7 +119,7 @@ class GitLabCiProviderTest {
     void namesGroupToken(MockWebServer server) {
         var identity = provider(server).whoami(null).value().orElseThrow();
 
-        assertEquals(TokenKind.GITLAB_GROUP_TOKEN, identity.tokenKind(), "the kind is group");
+        assertEquals(TokenKind.GITLAB_GROUP_TOKEN, identity.tokenKind(), "the token kind is a group token");
     }
 
     @Test
@@ -130,7 +131,7 @@ class GitLabCiProviderTest {
     void namesOAuthToken(MockWebServer server) {
         var identity = provider(server).whoami(null).value().orElseThrow();
 
-        assertEquals(TokenKind.GITLAB_OAUTH_TOKEN, identity.tokenKind(), "the kind is OAuth");
+        assertEquals(TokenKind.GITLAB_OAUTH_TOKEN, identity.tokenKind(), "the token kind is an OAuth token");
     }
 
     @Test
@@ -147,14 +148,14 @@ class GitLabCiProviderTest {
 
         Issue read = result.value().orElseThrow();
         assertAll("the issue fields",
-                () -> assertEquals("A title", read.title(), "the title is read"),
-                () -> assertEquals("A body", read.body(), "the body is read"),
+                () -> assertEquals("A title", read.title(), "the issue title is read"),
+                () -> assertEquals("A body", read.body(), "the issue body is read"),
                 () -> assertEquals(List.of("bug", "docs"), read.labels(), "the labels are read"),
                 () -> assertEquals("M1", read.milestone(), "the milestone is read"),
                 () -> assertEquals(List.of("alice"), read.assignees(), "the assignees are read"),
-                () -> assertEquals("opened", read.state(), "the state is read"),
+                () -> assertEquals("opened", read.state(), "the issue state is read"),
                 () -> assertEquals("https://gitlab.com/group/sub/project/-/issues/9", read.url(),
-                        "the URL is read"));
+                        "the issue web URL is read"));
     }
 
     @Test
@@ -241,6 +242,44 @@ class GitLabCiProviderTest {
                 () -> assertEquals(Result.Outcome.REJECTED,
                         provider.issueComment(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 5), " ").outcome(),
                         "a blank body is refused"));
+    }
+
+    @Test
+    @DisplayName("answers an anonymous read of a private issue with not found")
+    @MockResponseConfig(path = "/projects/cuioss%2Fpm/issues/9", method = HttpMethodMapper.GET, status = 404,
+            stringContent = "{\"message\":\"404 Not found\"}")
+    void refusesAnonymousPrivateIssue(MockWebServer server) {
+        URI baseUri = URI.create("http://" + server.getHostName() + ":" + server.getPort() + "/");
+        HttpClient anonymous = new HttpClient(HttpGenerators.endpointAt(baseUri).next(), TokenSource.NONE, Map.of());
+        clients.add(anonymous);
+
+        var result = new GitLabCiProvider(WEB_ORIGIN, anonymous)
+                .issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 9));
+
+        assertEquals(Result.Outcome.NOT_FOUND, result.outcome(),
+                "a private issue is not found without a credential");
+    }
+
+    @Test
+    @DisplayName("reads an issue by the issue endpoint, never a merge request")
+    @MockResponseConfig(path = "/projects/cuioss%2Fpm/issues/7", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"title\":\"An issue\",\"description\":\"\",\"state\":\"opened\","
+                    + "\"web_url\":\"https://gitlab.com/cuioss/pm/-/issues/7\"}")
+    void readsIssueByTheIssueEndpoint(MockWebServer server) throws Exception {
+        provider(server).issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 7));
+
+        assertEquals("/projects/cuioss%2Fpm/issues/7", server.takeRequest().getTarget(),
+                "the issue endpoint is read, not the merge-request one");
+    }
+
+    @Test
+    @DisplayName("refuses a whoami of another origin before sending")
+    void refusesWhoamiOfAnotherOrigin(MockWebServer server) {
+        var other = new RepositoryRef("gitlab", "https://gitlab.example.com", "cuioss", "pm");
+
+        var result = provider(server).whoami(other);
+
+        assertEquals(Result.Outcome.REJECTED, result.outcome(), "another origin is refused before sending");
     }
 
     @Test

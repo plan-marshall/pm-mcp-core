@@ -95,14 +95,14 @@ class GitHubCiProviderTest {
 
         Identity identity = result.value().orElseThrow();
         assertAll("the token identity",
-                () -> assertEquals("octocat", identity.login(), "the login is read"),
+                () -> assertEquals("octocat", identity.login(), "the login is read from the user"),
                 () -> assertEquals("583231", identity.userId(), "the user id is read"),
-                () -> assertEquals(TokenKind.GITHUB_CLASSIC_PAT, identity.tokenKind(), "the kind is classic"),
+                () -> assertEquals(TokenKind.GITHUB_CLASSIC_PAT, identity.tokenKind(), "the token kind is a classic PAT"),
                 () -> assertEquals(Map.of("push", "true", "pull", "true"), identity.permissions(),
                         "the repository permissions are read"),
-                () -> assertEquals(List.of("repo", "read:org"), identity.scopes(), "the scopes are read"),
+                () -> assertEquals(List.of("repo", "read:org"), identity.scopes(), "the scopes are read from the header"),
                 () -> assertEquals(Instant.parse("2026-11-01T12:00:00Z"), identity.expiresAt(),
-                        "the expiry is read"));
+                        "the expiry instant is read"));
     }
 
     @Test
@@ -115,7 +115,7 @@ class GitHubCiProviderTest {
         var identity = provider.whoami(null).value().orElseThrow();
 
         assertAll("the fine-grained identity",
-                () -> assertEquals(TokenKind.GITHUB_FINE_GRAINED_PAT, identity.tokenKind(), "the kind is fine"),
+                () -> assertEquals(TokenKind.GITHUB_FINE_GRAINED_PAT, identity.tokenKind(), "the token kind is fine-grained"),
                 () -> assertTrue(identity.permissions().isEmpty(), "no repository means no permissions"));
     }
 
@@ -182,13 +182,13 @@ class GitHubCiProviderTest {
 
         Issue read = result.value().orElseThrow();
         assertAll("the issue fields",
-                () -> assertEquals("A title", read.title(), "the title is read"),
-                () -> assertEquals("A body", read.body(), "the body is read"),
+                () -> assertEquals("A title", read.title(), "the issue title is read"),
+                () -> assertEquals("A body", read.body(), "the issue body is read"),
                 () -> assertEquals(List.of("bug", "docs"), read.labels(), "the labels are read"),
                 () -> assertEquals("M1", read.milestone(), "the milestone is read"),
                 () -> assertEquals(List.of("octocat"), read.assignees(), "the assignees are read"),
-                () -> assertEquals("open", read.state(), "the state is read"),
-                () -> assertEquals("https://github.com/cuioss/pm/issues/5", read.url(), "the URL is read"));
+                () -> assertEquals("open", read.state(), "the issue state is read"),
+                () -> assertEquals("https://github.com/cuioss/pm/issues/5", read.url(), "the issue web URL is read"));
     }
 
     @Test
@@ -436,6 +436,16 @@ class GitHubCiProviderTest {
     void refusesOperatorWithoutLogin(MockWebServer server) {
         assertEquals(Result.Outcome.FAILED, appProvider(server).whoami(null).outcome(),
                 "an operator body without a login is a failure");
+    }
+
+    @Test
+    @DisplayName("refuses a whoami of another origin before sending")
+    void refusesWhoamiOfAnotherOrigin(MockWebServer server) {
+        var other = new RepositoryRef("github", "https://github.example.com", "cuioss", "pm");
+
+        var result = tokenProvider(server, "ghp_classic").whoami(other);
+
+        assertEquals(Result.Outcome.REJECTED, result.outcome(), "another origin is refused before sending");
     }
 
     @Test
