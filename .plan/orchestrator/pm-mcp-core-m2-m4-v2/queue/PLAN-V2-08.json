@@ -2,7 +2,7 @@
   "id": "PLAN-V2-08",
   "slug": "native-build-parsers-jvm",
   "workstream": "WS-07",
-  "status": "staged",
+  "status": "running",
   "lane": "runbook",
   "plan_marshall_plan_id": "",
   "pr": "",
