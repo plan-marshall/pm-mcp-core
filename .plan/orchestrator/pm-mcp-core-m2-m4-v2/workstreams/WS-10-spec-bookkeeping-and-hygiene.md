@@ -23,7 +23,7 @@ Documentation-only and hygiene plans: package files that carry specification wit
 | PLAN-V2-34-r05-reduction-waits-launch-protocol | staged | Apply R05 to the shipped waits, worker launch, task protocol and consultation |
 | PLAN-V2-45-package-files-carry-unowned-spec | staged | Package files carry the specification content that no package names |
 | PLAN-V2-50-r05-reduction-role-sets | staged | Apply R05 to the shipped role sets, model caller and role qualification |
-| PLAN-V2-67-main-hygiene-leftovers | staged | Settle the two SonarCloud issues of main that no plan owns |
+| PLAN-V2-67-main-hygiene-leftovers | staged | Settle the two SonarCloud issues of main that no plan owns (and, later, the five null-rule suppressions of `core.spi`) |
 
 ## Sequencing and Surface Notes
 
