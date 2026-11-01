@@ -77,7 +77,7 @@ class PrimitiveResultTest {
         facts.put(factName, factValue);
         var result = new PrimitiveResult<>(PlainOutcome.DONE, facts, Optional.empty());
 
-        facts.put(factName, Generators.nonEmptyStrings().next());
+        facts.remove(factName);
 
         assertAll(
                 () -> assertEquals(Optional.empty(), result.reason(), "the three-component form carries no reason"),
@@ -105,12 +105,36 @@ class PrimitiveResultTest {
     }
 
     @Test
+    @DisplayName("the builder carries the facts and the job id it is given")
+    void builderCarriesFactsAndJobId() {
+        var factName = Generators.nonEmptyStrings().next();
+        var factValue = Generators.nonEmptyStrings().next();
+        var jobId = Generators.nonEmptyStrings().next();
+        var result = PrimitiveResult.<PlainOutcome>builder().outcome(PlainOutcome.DONE)
+                .updatedFacts(Map.of(factName, factValue)).spawnedJobId(Optional.of(jobId)).build();
+
+        assertAll(
+                () -> assertEquals(Map.of(factName, factValue), result.updatedFacts(), "the builder keeps the facts"),
+                () -> assertEquals(Optional.of(jobId), result.spawnedJobId(), "the builder keeps the job id"));
+    }
+
+    @Test
     @DisplayName("the builder carries a reason the outcome declares")
     void builderCarriesDeclaredReason() {
         var result = PrimitiveResult.<ReasonedOutcome>builder().outcome(ReasonedOutcome.FAILED)
                 .reason(Optional.of(TestReason.FOOTPRINT)).build();
 
         assertEquals(Optional.of(TestReason.FOOTPRINT), result.reason(), "the builder carries the reason");
+    }
+
+    @Test
+    @DisplayName("a reason type that is no class is refused instead of a ClassCastException")
+    void refusesNonClassReasonType() {
+        var thrown = assertThrows(IllegalArgumentException.class,
+                () -> new PrimitiveResult<>(NonClassReasonOutcome.FAILED, Map.of(), Optional.empty(),
+                        Optional.empty()));
+
+        assertTrue(thrown.getMessage().contains("reason type"), "the refusal names the malformed reason type");
     }
 
     @Test
@@ -173,6 +197,30 @@ class PrimitiveResultTest {
         public Optional<Class<? extends OutcomeReason>> reasonType() {
             return Optional.of(TestReason.class);
         }
+    }
+
+    enum NonClassReasonOutcome implements PrimitiveOutcome {
+        FAILED;
+
+        @Override
+        public String wireName() {
+            return "failed";
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return OutcomeClass.FAILURE;
+        }
+
+        @Override
+        public Optional<Class<? extends OutcomeReason>> reasonType() {
+            return nonClassReasonType();
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static Optional<Class<? extends OutcomeReason>> nonClassReasonType() {
+        return (Optional) Optional.of("not-a-class");
     }
 
     enum PlainOutcome implements PrimitiveOutcome {

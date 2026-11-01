@@ -54,7 +54,7 @@ Optional<OutcomeReason> reason) {
      * @throws IllegalArgumentException if the reason does not pair with the outcome: present when the outcome
      *         declares no reason type, absent when it declares one, or not a constant of the declared type
      */
-    @SuppressWarnings({"java:S2583", "java:S2789"})
+    @SuppressWarnings({"java:S2583", "java:S2789", "java:S1905"})
     public PrimitiveResult {
         Objects.requireNonNull(outcome, "outcome");
         Objects.requireNonNull(updatedFacts, "updatedFacts");
@@ -65,21 +65,32 @@ Optional<OutcomeReason> reason) {
                 Objects.requireNonNull(name, "name of a fact"),
                 Objects.requireNonNull(value, "value of a fact")));
         updatedFacts = Collections.unmodifiableMap(copy);
-        var declared = outcome.reasonType();
-        // A primitive compiled against a raw PrimitiveOutcome can answer a null Optional; it declares none.
+        // A primitive compiled against a raw PrimitiveOutcome can answer a null Optional or a payload that is no
+        // Class; both are refused as a pairing error instead of escaping as a ClassCastException. The cast to the
+        // wildcard Optional is deliberate: it erases the implicit cast to Class, so the payload is inspected first.
+        var declared = (Optional<?>) outcome.reasonType();
         if (declared == null) {
             declared = Optional.empty();
         }
-        if (reason.isPresent() != declared.isPresent()) {
+        var declaredType = declared.map(payload -> reasonTypeOf(outcome, payload)).orElse(null);
+        if (reason.isPresent() != (declaredType != null)) {
             throw new IllegalArgumentException(reason.isPresent()
                     ? "the outcome %s declares no reason type, so it cannot carry a reason".formatted(outcome)
                     : "the outcome %s declares the reason type %s, so it must carry a reason"
-                    .formatted(outcome, declared.orElseThrow().getName()));
+                    .formatted(outcome, declaredType.getName()));
         }
-        if (reason.isPresent() && !declared.orElseThrow().isInstance(reason.get())) {
+        if (reason.isPresent() && !declaredType.isInstance(reason.get())) {
             throw new IllegalArgumentException("the reason %s is not a constant of the declared reason type %s"
-                    .formatted(reason.get(), declared.orElseThrow().getName()));
+                    .formatted(reason.get(), declaredType.getName()));
         }
+    }
+
+    private static Class<?> reasonTypeOf(PrimitiveOutcome outcome, Object payload) {
+        if (!(payload instanceof Class<?> type)) {
+            throw new IllegalArgumentException(
+                    "the outcome %s declares a reason type that is no class".formatted(outcome));
+        }
+        return type;
     }
 
     /**
