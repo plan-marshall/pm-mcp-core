@@ -703,6 +703,81 @@ and `JobRecordSchemaParityTest`, which compares the codec with the schema of the
 the required members, the values of every enumeration, the confinement and `job_id` patterns, the format version and the
 range of `outcome_row`.
 
+[#_lesson_record_and_file_format]
+== Lesson Record and File Format
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
+
+The work package `lesson-store` adds the record of a project lesson and the format of its file. The project lesson store
+holds one Markdown file `<lesson_id>.md` per lesson; its front matter is structured and its body is the narrative
+(`PM-IMPL-2`: the narrative stays Markdown, only the front matter is structured). This work package builds the record and
+the file; the store itself — id allocation, resolver, revision, retirement and claim — is the second work package of the
+same name (`lesson-store-operations`).
+
+`LessonId` is the identifier of a lesson: the UTC date and hour of creation plus a per-hour sequence, at least three
+digits (`{spec}/store-schemas/10-job-and-lesson-records.adoc#lesson-record`). The store holds `<lesson_id>.md` per
+lesson, `fileName()` and `fromFileName(...)` convert between the two, and a file name that does not parse is no lesson.
+`hourPrefix()` is the UTC hour a new identifier is allocated against. **A lesson that is listed must be addressable by
+the id it is listed under** — a headerless legacy lesson still parses as an identifier and is never `absent`.
+
+`LessonFrontMatter` is the record of the front matter, its members in the order of the schema, with the closed
+enumerations of the record as nested types and the typed objects `Source`, `Remedy`, `Promotion`, `Revision`,
+`MergedFrom`, `Claim` and `Retired`. Its compact constructor states the rules the specification states beside the schema
+and refuses a violation with an `IllegalArgumentException`: a `wire_check` remedy carries its `check` and no other kind
+does (`remedy_check_mismatch`); `retired` is set exactly when the status is `retired`; a `rule` is set exactly for the
+category `arch-constraint`, and `recurrence_count` and `last_seen` only for it; `sources` and `revisions` are never
+empty; and `revision` is the `n` of the last `revisions` entry. `derived_from_untrusted` is a primitive the record only
+carries — the server sets it and it never turns back to `false` — and `Lesson` is the front matter with its Markdown
+body.
+
+`LessonCodec` reads and writes one file: the line `---`, the front matter, the line `---`, the body verbatim. The front
+matter is written as one JSON object in the order of the schema — a JSON object is a YAML 1.2 flow mapping — and read
+through a YAML library with the YAML 1.2 core schema (ADR core-store/061). The reader refuses an anchor, an alias, a
+tag, a second document, a duplicate or unknown member, a missing member and a mistyped member; it refuses a
+`format_version` other than 1, and an instant only in the shape `Instant.toString` writes, so what is read is written
+again byte for byte. The member lists are package-private constants in the order of the schema, and
+`LessonFrontMatterSchemaParityTest` compares them with the schema block of the specification.
+
+A file that does not decode is not an exception: `decode` returns a sealed `Reading`, either `Readable(Lesson)` or
+`Unreadable(reason, detail)` with the reason `no_opening_fence`, `no_closing_fence`, `not_an_object`, `strict_reader` or
+`rule_violation`. Planned resolver behavior: a file without parseable front matter is listed as `present_unreadable`, never as
+`absent`. A write with missing or invalid front matter is rejected: `Lesson` cannot be built without a front matter, and
+every rule of the record is refused by its constructor before the codec sees it.
+
+=== Invariants
+
+* The front matter of the record is the schema of the specification, member by member and in order; the schema block is
+  test input and stays byte-stable unless the codec changes with it (R10).
+* The canonical bytes are the writer's: `encode(decode(b))` is `b` for canonical bytes, and a block-style file is
+  normalized once when it is written again.
+* A lesson id is the file name and the file name is the id; a name that does not parse is no lesson.
+* The current revision is the last entry of `revisions`, and the body's history is never empty.
+* A retirement lives in the front matter of the same file, and a `derived_from_untrusted` mark never turns back.
+
+=== Failure Modes
+
+|===
+|Symptom |Cause |What to do
+|`Unreadable` with `no_opening_fence` |the file does not start with the line `---` |the file is no lesson file; the
+planned resolver lists it `present_unreadable` with its path
+|`Unreadable` with `no_closing_fence` |no second line `---` closes the front matter |the file is no lesson file; the
+planned resolver lists it `present_unreadable` with its path
+|`Unreadable` with `not_an_object` |the front matter is a sequence or a scalar, not a mapping |read the detail; the
+front matter is an object, never a list
+|`Unreadable` with `strict_reader` |an anchor, an alias, a tag, a second document, a duplicate or unknown member, a
+missing or mistyped member, another `format_version`, or a file that is not UTF-8 |read the detail; fix the front matter, never the reader
+|`Unreadable` with `rule_violation` |a rule of the record or of its schema, for example a `wire_check` without its
+check or a value outside a pattern or a bound |read the detail, which names the rule
+|A block-style file is normalized on the next write |the writer emits the canonical JSON object |intended: the reader
+accepts the hand-edited file, the writer one shape
+|===
+
+Tested by `LessonIdTest` (the grammar, the length bound, the file name, the hour prefix, the watch fixtures),
+`LessonFrontMatterTest` (every rule with a refusing case and a passing control, the bounds of the members),
+`LessonCodecTest` (the canonical bytes, the round trip both ways, a body with fence lines, a block-style file, a CRLF
+file, one refusing case per reason, a file that is not UTF-8, an anchor, an alias and a tag) and `LessonFrontMatterSchemaParityTest` (the title,
+the members and their order, the required sets, the enumerations, the `lesson_id` pattern at its three places, the
+format version, the bounds and the absence of a dependent-required pair).
+
 [#_operator_and_question_stores]
 == Operator and Question Stores, the Project Store and the Project Resolution
 _Requirements: link:{docs}/Requirements.adoc#PM-SEC-3[PM-SEC-3], link:{docs}/Requirements.adoc#PM-WF-12[PM-WF-12], link:{docs}/Requirements.adoc#PM-ARCH-1[PM-ARCH-1], link:{docs}/Requirements.adoc#PM-SEC-2[PM-SEC-2], link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2], link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]_
@@ -1438,7 +1513,7 @@ Lock Order].
 |Type |What it does
 
 |`StoreRefusal`, `StrictJson`
-|The refusal of a store document or record, and the strict reading every store codec shares (<<_format_versions>>).
+|The refusal of a store document or record, and the strict reading every JSON store codec shares (<<_format_versions>>).
 
 |`JsonlStoreFile`
 |The one append path of a JSONL store, with the repair of a torn tail (<<_jsonl_stores>>).
@@ -1478,7 +1553,9 @@ refuses. The factories are `absent(file, current)`, `unreadable(file, current, d
 Every versioned artifact stays at `format_version` 1: nothing is released yet, so a format change replaces version 1 in
 place (epic standing rule R13). No reader carries a migration, and no constant is raised for a change.
 
-`StrictJson` is the reading every store codec of `pm-core` shares, built on the streaming API of `jackson-core`.
+`StrictJson` is the reading every JSON store codec of `pm-core` shares, built on the streaming API of `jackson-core`;
+the lesson codec is the one store codec of the package that reads YAML instead, with its own strict reader (see
+<<_lesson_record_and_file_format>>).
 `StrictJson.read(file, document, current, reader)` checks the version first (a JSON object with exactly one integer
 `format_version`, equal to the current one), then lets the codec's reader read the object, and refuses anything that
 follows it. Whatever the codec throws through the helpers, or the parser throws, becomes a `StoreRefusal` naming the
