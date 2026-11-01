@@ -23,6 +23,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -130,9 +131,26 @@ public final class HttpClient implements AutoCloseable {
      * @return the response
      */
     public Response send(String method, String pathOrUri, Optional<String> jsonBody, Optional<String> etag) {
+        return exchange(method, pathOrUri, jsonBody, etag).response();
+    }
+
+    /**
+     * A GET whose headers are kept, for an answer that states a fact outside its body (for example the scopes and
+     * the expiry of a GitHub personal access token).
+     *
+     * @param pathOrUri a path relative to the base, or an absolute URI on the origin
+     * @return the response and the headers it carried
+     */
+    public ResponseWithHeaders getWithHeaders(String pathOrUri) {
+        return exchange("GET", pathOrUri, Optional.empty(), Optional.empty());
+    }
+
+    private ResponseWithHeaders exchange(String method, String pathOrUri, Optional<String> jsonBody,
+            Optional<String> etag) {
         URI uri = endpoint.resolve(pathOrUri);
         if (!endpoint.sameOrigin(uri)) {
-            return Response.failure(Outcome.REFUSED, "outside the origin of " + endpoint.baseUri());
+            return new ResponseWithHeaders(Response.failure(Outcome.REFUSED,
+                    "outside the origin of " + endpoint.baseUri()), Map.of());
         }
         HttpRequest.Builder builder = handler.requestBuilder().uri(uri)
                 .method(method, jsonBody.map(BodyPublishers::ofString).orElse(BodyPublishers.noBody()));
@@ -141,15 +159,24 @@ public final class HttpClient implements AutoCloseable {
         etag.ifPresent(e -> builder.header("If-None-Match", e));
         tokens.token().ifPresent(t -> builder.header(AUTHORIZATION, "Bearer " + t));
         try {
-            return toResponse(handler.send(builder.build(), BodyHandlers.ofString()));
+            HttpResponse<String> answer = handler.send(builder.build(), BodyHandlers.ofString());
+            return new ResponseWithHeaders(toResponse(answer), headersOf(answer.headers()));
         } catch (RedirectNotAllowedException e) {
-            return Response.failure(Outcome.REFUSED, "redirect refused: " + e.getReason());
+            return new ResponseWithHeaders(Response.failure(Outcome.REFUSED, "redirect refused: " + e.getReason()),
+                    Map.of());
         } catch (IOException e) {
-            return Response.failure(Outcome.TRANSPORT_FAILED, e.getClass().getSimpleName());
+            return new ResponseWithHeaders(Response.failure(Outcome.TRANSPORT_FAILED, e.getClass().getSimpleName()),
+                    Map.of());
         } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
-            return Response.failure(Outcome.TRANSPORT_FAILED, "interrupted");
+            return new ResponseWithHeaders(Response.failure(Outcome.TRANSPORT_FAILED, "interrupted"), Map.of());
         }
+    }
+
+    private static Map<String, String> headersOf(HttpHeaders headers) {
+        var observed = new LinkedHashMap<String, String>();
+        headers.map().forEach((name, values) -> observed.put(name, String.join(", ", values)));
+        return observed;
     }
 
     /**

@@ -182,6 +182,59 @@ class GitHubClientTest {
     }
 
     @Nested
+    @DisplayName("CI reads")
+    class CiReads {
+
+        @Test
+        @DisplayName("reads the App's own identity")
+        void readsApp() {
+            on("GET", "/app", json(200, "{\"slug\":\"plan-marshall\",\"id\":123}"));
+
+            var result = client.app();
+
+            assertEquals(Optional.of(new GitHubClient.AppIdentity("plan-marshall", "123")), result.value(),
+                    "the App slug and id are read");
+            assertEquals("Bearer ghs_installation", requests.getFirst().getHeaders().get("Authorization"),
+                    "the App JWT is the bearer token");
+        }
+
+        @Test
+        @DisplayName("reads one issue and flags a pull request")
+        void readsIssue() {
+            on("GET", "/repos/cuioss/pm/issues/5", json(200, "{\"title\":\"A title\",\"body\":\"A body\","
+                    + "\"state\":\"open\",\"html_url\":\"https://github.com/cuioss/pm/issues/5\","
+                    + "\"labels\":[{\"name\":\"bug\"}],\"milestone\":{\"title\":\"M1\"},"
+                    + "\"assignees\":[{\"login\":\"octocat\"}]}"));
+            on("GET", "/repos/cuioss/pm/issues/6", json(200, "{\"title\":\"A pull request\",\"state\":\"open\","
+                    + "\"html_url\":\"https://github.com/cuioss/pm/pull/6\",\"pull_request\":{}}"));
+
+            var payload = client.issue("cuioss", "pm", 5).value().orElseThrow();
+
+            assertEquals("A title", payload.issue().title(), "the title is mapped");
+            assertEquals(List.of("bug"), payload.issue().labels(), "the labels are mapped");
+            assertEquals("M1", payload.issue().milestone(), "the milestone is mapped");
+            assertEquals(List.of("octocat"), payload.issue().assignees(), "the assignees are mapped");
+            assertFalse(payload.pullRequest(), "an issue is no pull request");
+            assertTrue(client.issue("cuioss", "pm", 6).value().orElseThrow().pullRequest(),
+                    "a pull request is flagged");
+        }
+
+        @Test
+        @DisplayName("maps a malformed issue body and a refused app read")
+        void mapsRefusals() {
+            on("GET", "/repos/cuioss/pm/issues/7", json(200, "not json"));
+            on("GET", "/repos/cuioss/pm/issues/8", json(200, "{\"title\":\"A title\"}"));
+            on("GET", "/app", json(401, "{\"message\":\"Bad credentials\"}"));
+
+            assertEquals(Result.Outcome.FAILED, client.issue("cuioss", "pm", 7).outcome(),
+                    "a malformed body is a failure");
+            assertEquals(Result.Outcome.FAILED, client.issue("cuioss", "pm", 8).outcome(),
+                    "an incomplete body is a failure");
+            assertEquals(Result.Outcome.AUTH_FAILED, client.app().outcome(), "a refused JWT is auth failure");
+        }
+    }
+
+    @Nested
     @DisplayName("merge queue and comments")
     class MergeQueueAndComments {
 
