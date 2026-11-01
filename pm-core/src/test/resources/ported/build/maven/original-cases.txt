@@ -1,0 +1,41 @@
+# Roster of the pytest cases of test/plan-marshall/build-maven/test_maven_cmd_parse.py, the suite of
+# _maven_cmd_parse.py. Every case is mapped to the fixtures derived from it, or excluded with the reason it has no
+# fixture. The pin is the commit the fixtures were derived from (see ../PROVENANCE.adoc).
+
+suite: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_cmd_parse.py
+
+case test_parse_log_success_returns_tuple -> maven-success
+case test_parse_log_success_build_status -> maven-success
+case test_parse_log_success_test_summary -> maven-success
+case test_parse_log_success_issues_are_issue_objects -> maven-success
+case test_parse_log_success_no_errors -> maven-success
+case test_parse_log_failure_build_status -> maven-failure
+case test_parse_log_failure_has_errors -> maven-failure
+case test_parse_log_failure_error_fields -> maven-failure
+case test_parse_log_failure_has_warnings -> maven-failure
+case test_parse_log_failure_warning_category -> maven-failure
+case test_parse_log_failure_test_summary -> maven-failure
+case test_issue_to_dict -> maven-failure
+case test_test_summary_to_dict -> maven-success
+case test_parse_log_testfailureignore_raw_build_status_and_failures -> maven-testfailureignore
+case test_parse_cli_testfailureignore_reports_error_status excluded: the CLI status derivation of cmd_parse_common is not part of the parser; the parsed build reports the marker-derived status and the failing count as separate facts
+case test_parse_log_sums_every_summary_block -> maven-reactor-three-modules maven-surefire-failsafe maven-failsafe-zero
+case test_parse_log_failsafe_block_of_zero_still_names_its_runner -> maven-failsafe-zero
+case test_parse_log_quiet_log_without_results_marker_is_unmeasured -> maven-quiet-unmeasured
+case test_parse_log_parallel_build_keeps_the_sum_and_omits_by_runner -> maven-parallel
+case test_control_parallel_log_without_the_banner_reports_by_runner -> maven-parallel-without-banner
+case test_parse_log_execution_header_forms_attribute_to_their_runner -> maven-header-maven38-surefire maven-header-maven39-surefire maven-header-maven38-failsafe maven-header-maven39-failsafe
+case test_surefire_goal_failure_is_not_a_deprecation_warning excluded: the shared category table is exercised by the fixtures of ported/build/jvm-patterns
+case test_genuine_javac_tag_lines_keep_their_category excluded: the shared category table is exercised by the fixtures of ported/build/jvm-patterns
+case test_control_unescaped_bracket_detector_flags_a_bare_tag excluded: the control of a source-level lint of the Python pattern strings; the compiled table's bracket patterns are guarded by the single-letter case of ported/build/jvm-patterns
+case test_no_maven_pattern_carries_an_unescaped_bracket excluded: a lint of the Python pattern strings; the Java table is compiled from code and its bracket patterns are escaped literals
+case test_failure_epilogue_is_not_filed_and_real_diagnostics_are -> maven-epilogue-maven3 maven-epilogue-maven4
+case test_older_surefire_report_pointer_is_not_filed -> maven-failure
+case test_older_surefire_dump_file_pointer_is_not_filed -> maven-dump-pointer
+case test_passing_test_count_line_is_not_a_test_failure -> maven-passing-count
+case test_control_failing_test_count_line_is_still_filed -> maven-failing-count
+case test_parse_log_file_not_found excluded: the Java parse takes the log text; the file read is BuildLogText, whose refusal has its own test
+case test_parse_log_no_tests -> maven-no-tests
+case test_maven_published_count_excludes_skipped_tests excluded: the shared emit path that publishes tests_run is not part of the parser
+case test_maven_routed_arm_publishes_the_routed_jobs_count excluded: same reason, the routed-arm propagation of the emit path is not part of the parser
+case test_control_maven_in_process_arm_still_parses_its_own_log excluded: same reason, the in-process arm of the emit path is not part of the parser

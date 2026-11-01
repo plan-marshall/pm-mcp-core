@@ -1,0 +1,21 @@
+deliberate: deliberate-trailer-dropped
+# The six trailer advice lines of a failing Maven build are dropped whole against the compiled table; the one real
+# diagnostic of the same log stays. The original drops the same lines with `fullmatch`, so a genuine diagnostic is never
+# dropped by a prefix match.
+log [INFO] BUILD FAILURE
+log [ERROR] /home/dev/probe/Foo.java:[7,3] cannot find symbol
+log [ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+log [ERROR] Re-run Maven using the -X switch to enable full debug logging.
+log [ERROR] For more information about the errors and possible solutions, please read the following articles:
+log [ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
+log [ERROR] After correcting the problems, you can resume the build with the command
+log [ERROR]   mvn <args> -rf :mod
+status FAILURE
+success-marker false
+tests none
+no-tests-ran false
+diagnostic ERROR COMPILATION_ERROR /home/dev/probe/Foo.java 7 3 /home/dev/probe/Foo.java:[7,3] cannot find symbol
+no-diagnostic Re-run Maven using the -X switch to enable full debug logging.
+no-diagnostic [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
+no-diagnostic After correcting the problems, you can resume the build with the command
+no-diagnostic mvn <args> -rf :mod

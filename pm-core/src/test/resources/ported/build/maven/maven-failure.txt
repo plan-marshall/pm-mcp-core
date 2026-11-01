@@ -1,0 +1,26 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_parse_log_failure_build_status test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_parse_log_failure_has_errors test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_parse_log_failure_error_fields test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_parse_log_failure_has_warnings test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_parse_log_failure_warning_category test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_parse_log_failure_test_summary test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_issue_to_dict test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_older_surefire_report_pointer_is_not_filed
+# A real failing build: two compiler errors, one deprecation warning, a Surefire failure block and the older
+# "Please refer to ..." report pointer, which is dropped. The expected messages are the ones the original files, with its
+# categories where the original asserts them; an [ERROR] line no pattern knows is `unrecognized` here (deliberate change).
+log-file maven-failure-real.log
+status FAILURE
+success-marker false
+tests measured 49 2 0 51
+by-runner surefire 51
+no-tests-ran false
+diagnostic ERROR UNRECOGNIZED - - - COMPILATION ERROR :
+diagnostic ERROR COMPILATION_ERROR /home/dev/git/cui-http/src/main/java/de/cuioss/http/security/core/HttpSecurityValidator.java 45 20 /home/dev/git/cui-http/src/main/java/de/cuioss/http/security/core/HttpSecurityValidator.java:[45,20] cannot find symbol
+diagnostic ERROR UNRECOGNIZED - - - symbol:   class MissingImport
+diagnostic ERROR UNRECOGNIZED - - - location: class de.cuioss.http.security.core.HttpSecurityValidator
+diagnostic ERROR COMPILATION_ERROR /home/dev/git/cui-http/src/main/java/de/cuioss/http/client/handler/HttpHandler.java 78 15 /home/dev/git/cui-http/src/main/java/de/cuioss/http/client/handler/HttpHandler.java:[78,15] incompatible types: String cannot be converted to Integer
+diagnostic WARNING DEPRECATION_WARNING /home/dev/git/cui-http/src/main/java/de/cuioss/http/client/adapter/HttpAdapter.java 12 5 /home/dev/git/cui-http/src/main/java/de/cuioss/http/client/adapter/HttpAdapter.java:[12,5] [deprecation] deprecated method oldValidate() in Validator has been deprecated
+diagnostic ERROR UNRECOGNIZED - - - Found 2 errors and 1 warning.
+diagnostic ERROR TEST_FAILURE - - - Tests run: 19, Failures: 2, Errors: 0, Skipped: 0, Time elapsed: 0.009 s <<< FAILURE! - in de.cuioss.http.security.core.HttpSecurityValidatorTest
+diagnostic ERROR TEST_FAILURE HttpSecurityValidatorTest.java 34 - de.cuioss.http.security.core.HttpSecurityValidatorTest.testValidation:34 expected: <true> but was: <false>
+diagnostic ERROR UNRECOGNIZED HttpSecurityValidatorTest.java 56 - de.cuioss.http.security.core.HttpSecurityValidatorTest.testProcessing:56 NullPointerException
+diagnostic ERROR UNRECOGNIZED - - - Failures:
+diagnostic ERROR TEST_FAILURE HttpSecurityValidatorTest.java 34 - HttpSecurityValidatorTest.testValidation:34 expected: <true> but was: <false>
+diagnostic ERROR UNRECOGNIZED HttpSecurityValidatorTest.java 56 - HttpSecurityValidatorTest.testProcessing:56 NullPointerException
+diagnostic ERROR TEST_FAILURE - - - Tests run: 51, Failures: 2, Errors: 0, Skipped: 0
+diagnostic ERROR TEST_FAILURE - - - Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin:3.5.4:test (default-test) on project cui-http: There are test failures.
+no-diagnostic Please refer to /home/dev/git/cui-http/target/surefire-reports for the individual test results.

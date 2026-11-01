@@ -1,0 +1,10 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_older_surefire_dump_file_pointer_is_not_filed
+# The older Surefire dump-file pointer is epilogue advice, not a diagnostic, and is dropped whole.
+log [INFO] BUILD FAILURE
+log [ERROR] Please refer to dump files (if any exist) [date].dump, [date]-jvmRun[N].dump and [date].dumpstream.
+status FAILURE
+success-marker false
+tests none
+no-tests-ran false
+no-diagnostic Please refer to dump files (if any exist) [date].dump, [date]-jvmRun[N].dump and [date].dumpstream.
+diagnostic-count 0

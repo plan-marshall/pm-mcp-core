@@ -1,0 +1,11 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_parse_log_sums_every_summary_block test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_parse_log_failsafe_block_of_zero_still_names_its_runner
+# A Failsafe execution that ran no test is reported as failsafe: 0, not as an absent runner: absent and zero are
+# different facts. The Surefire block of 318 tests with one skipped is summed in beside it.
+log-file maven-verify-failsafe-zero.log
+status SUCCESS
+success-marker true
+tests measured 317 0 1 318
+by-runner surefire 317
+by-runner failsafe 0
+no-tests-ran false
+diagnostic-count 0

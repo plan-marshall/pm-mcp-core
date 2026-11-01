@@ -1,0 +1,13 @@
+deliberate: deliberate-trailer-reworded
+# A reworded trailer line is filed again instead of being dropped: the table is matched with a full match, so only the
+# exact advice line disappears. The original behaves the same (`_MAVEN_EPILOGUE_PATTERNS` with `fullmatch`); a prefix
+# match would swallow the reworded line and, with it, any genuine diagnostic that starts the same way.
+log [INFO] BUILD FAILURE
+log [ERROR] Re-run Maven using the -Y switch to enable full debug logging.
+log [ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+status FAILURE
+success-marker false
+tests none
+no-tests-ran false
+diagnostic ERROR UNRECOGNIZED - - - Re-run Maven using the -Y switch to enable full debug logging.
+no-diagnostic To see the full stack trace of the errors, re-run Maven with the -e switch.

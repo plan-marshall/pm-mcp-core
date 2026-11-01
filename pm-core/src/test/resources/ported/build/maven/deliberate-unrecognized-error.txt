@@ -1,0 +1,13 @@
+deliberate: deliberate-unrecognized-error
+# Deliberate change: an [ERROR] line no pattern recognises is categorised `unrecognized`, never given a real category —
+# the original reports `other`. A warning line without a match keeps the original's `other`, so the change is scoped to
+# the level the specification names.
+log [INFO] BUILD FAILURE
+log [ERROR] The reactor could not be started for an unrelated reason.
+log [WARNING] Something the table does not know.
+status FAILURE
+success-marker false
+tests none
+no-tests-ran false
+diagnostic ERROR UNRECOGNIZED - - - The reactor could not be started for an unrelated reason.
+diagnostic WARNING OTHER - - - Something the table does not know.
