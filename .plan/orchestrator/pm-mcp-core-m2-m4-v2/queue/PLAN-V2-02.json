@@ -2,10 +2,10 @@
   "id": "PLAN-V2-02",
   "slug": "derived-facts-records-and-kinds",
   "workstream": "WS-05",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-02-derived-facts-records-and-kinds",
+  "pr": "266",
+  "landing": "landings/PLAN-V2-02.md",
   "seq": 2
 }
