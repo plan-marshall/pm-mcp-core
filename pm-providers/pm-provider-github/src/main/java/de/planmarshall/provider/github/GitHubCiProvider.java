@@ -73,7 +73,7 @@ public final class GitHubCiProvider implements CiProvider {
 
     private GitHubCiProvider(String origin, HttpClient http, GitHubClient client, @Nullable TokenSource tokens,
             @Nullable GitHubClient appClient, @Nullable HttpClient userHttp) {
-        this.origin = Objects.requireNonNull(origin, "origin");
+        this.origin = RepositoryRef.normaliseOrigin(Objects.requireNonNull(origin, "origin"));
         this.http = Objects.requireNonNull(http, "http");
         this.client = Objects.requireNonNull(client, "client");
         this.tokens = tokens;
@@ -169,10 +169,10 @@ public final class GitHubCiProvider implements CiProvider {
             return null;
         }
         if (!ID.equals(repository.forge())) {
-            return "the issue is on the forge " + repository.forge();
+            return "the repository is on the forge " + repository.forge();
         }
         if (!origin.equals(repository.origin())) {
-            return "the issue is on another origin";
+            return "the repository is on another origin";
         }
         return null;
     }

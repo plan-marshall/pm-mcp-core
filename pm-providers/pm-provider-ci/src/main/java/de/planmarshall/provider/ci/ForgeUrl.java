@@ -19,14 +19,16 @@ import java.util.Objects;
 import java.util.Optional;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
+
 /**
  * The issue or pull-request URL of a source, resolved to its forge, repository and number.
  * <p>
  * Each forge has its own URL grammar: GitHub and Forgejo {@code /<owner>/<name>/issues/<n>} (a pull request
- * {@code /<owner>/<name>/pull/<n>}), GitLab {@code /<group>/…/<project>/-/issues/<n>} (a merge request
- * {@code /-/merge_requests/<n>}). A host-to-forge table, passed by the caller or the {@link #BUILT_IN_HOSTS built-in
- * one}, selects the forge and so the grammar. A URL on a host the table does not name is the outcome
- * {@link Outcome#UNKNOWN_FORGE} as a value; a malformed or hostile URL is {@link Outcome#INVALID}. Neither is thrown.
+ * {@code /<owner>/<name>/pull/<n>} on GitHub, {@code /<owner>/<name>/pulls/<n>} on Forgejo), GitLab
+ * {@code /<group>/…/<project>/-/issues/<n>} (a merge request {@code /-/merge_requests/<n>}). A host-to-forge table,
+ * passed by the caller or the {@link #BUILT_IN_HOSTS built-in one}, selects the forge and so the grammar. A URL on a host
+ * the table does not name is the outcome {@link Outcome#UNKNOWN_FORGE} as a value; a malformed or hostile URL is
+ * {@link Outcome#INVALID}. Neither is thrown.
  *
  * @param forge      the provider id of the forge
  * @param repository the repository the URL names
@@ -234,7 +236,8 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
         }
         Kind kind = switch (segments.get(2)) {
             case "issues" -> Kind.ISSUE;
-            case "pull", "pulls" -> Kind.PULL_REQUEST;
+            case "pull" -> Kind.PULL_REQUEST;
+            case "pulls" -> "github".equals(forge) ? null : Kind.PULL_REQUEST;
             default -> null;
         };
         if (kind == null) {

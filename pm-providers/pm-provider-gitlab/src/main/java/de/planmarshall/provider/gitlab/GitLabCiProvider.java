@@ -58,7 +58,7 @@ public final class GitLabCiProvider implements CiProvider {
      * @param http   the HTTP base on the {@code /api/v4/} origin, authenticated with the credential
      */
     public GitLabCiProvider(String origin, HttpClient http) {
-        this.origin = Objects.requireNonNull(origin, "origin");
+        this.origin = RepositoryRef.normaliseOrigin(Objects.requireNonNull(origin, "origin"));
         this.http = Objects.requireNonNull(http, "http");
     }
 
@@ -139,10 +139,10 @@ public final class GitLabCiProvider implements CiProvider {
             return null;
         }
         if (!ID.equals(repository.forge())) {
-            return "the issue is on the forge " + repository.forge();
+            return "the repository is on the forge " + repository.forge();
         }
         if (!origin.equals(repository.origin())) {
-            return "the issue is on another origin";
+            return "the repository is on another origin";
         }
         return null;
     }

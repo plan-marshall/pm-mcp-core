@@ -188,7 +188,13 @@ class ForgeUrlTest {
                         "a Forgejo pull-request path is a pull request"),
                 () -> assertEquals(ForgeUrl.Outcome.INVALID,
                         ForgeUrl.resolve("https://github.com/o/r%3F/issues/1").outcome(),
-                        "a reserved character in a repository name is refused"));
+                        "a reserved character in a repository name is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://gitlab.com/g%3F/p/-/issues/1").outcome(),
+                        "a reserved character in a GitLab path is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://github.com/o/r/pulls/7").outcome(),
+                        "GitHub has no plural pulls path"));
     }
 
     @Test

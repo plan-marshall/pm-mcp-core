@@ -65,6 +65,15 @@ public record RepositoryRef(String forge, String origin, String ownerOrPath, Str
         }
     }
 
+    /**
+     * @param origin a forge web origin
+     * @return the origin normalised: its host in lower case, its default port dropped, no path
+     * @throws IllegalArgumentException if the value is not an https origin without a path
+     */
+    public static String normaliseOrigin(String origin) {
+        return originOf(origin);
+    }
+
     private static String originOf(String origin) {
         URI uri;
         try {

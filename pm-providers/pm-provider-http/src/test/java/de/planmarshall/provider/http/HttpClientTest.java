@@ -9,8 +9,8 @@
  */
 package de.planmarshall.provider.http;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -161,7 +161,7 @@ class HttpClientTest {
             ResponseWithHeaders observed = client.getWithHeaders("/user");
 
             assertAll("the observed headers",
-                    () -> assertTrue(observed.isOk(), "the response is ok"),
+                    () -> assertTrue(observed.isOk(), "the observed response is ok"),
                     () -> assertEquals(Optional.of("repo, read:org"), observed.header("X-OAuth-Scopes"),
                             "a header is read case-insensitively"),
                     () -> assertTrue(observed.header("missing").isEmpty(), "a missing header is empty"));

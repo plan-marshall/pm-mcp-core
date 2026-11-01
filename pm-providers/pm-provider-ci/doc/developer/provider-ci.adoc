@@ -107,7 +107,8 @@ A consumer maps the closed outcomes to the failure causes of `source-issue.fetch
 == Invariants and Failure Modes
 
 * *One origin per provider.* An `IssueRef` whose repository names another origin (or another forge) is `REJECTED` and no
-  request is sent.
+  request is sent, and a `RepositoryRef` given to `whoami` is checked the same way. The provider normalises the origin it
+  is constructed with.
 * *Absence is a value, never an exception.* A URL on an unknown host is `UNKNOWN_FORGE`; a malformed or hostile URL is
   `INVALID`; a malformed provider body is `FAILED`. The URL grammar refuses user information, a `..` segment, a
   cleartext URL and an over-long path.

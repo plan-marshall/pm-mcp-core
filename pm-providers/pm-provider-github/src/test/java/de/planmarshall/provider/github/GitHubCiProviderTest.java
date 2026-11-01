@@ -96,7 +96,7 @@ class GitHubCiProviderTest {
         Identity identity = result.value().orElseThrow();
         assertAll("the token identity",
                 () -> assertEquals("octocat", identity.login(), "the login is read from the user"),
-                () -> assertEquals("583231", identity.userId(), "the user id is read"),
+                () -> assertEquals("583231", identity.userId(), "the provider user id is read"),
                 () -> assertEquals(TokenKind.GITHUB_CLASSIC_PAT, identity.tokenKind(), "the token kind is a classic PAT"),
                 () -> assertEquals(Map.of("push", "true", "pull", "true"), identity.permissions(),
                         "the repository permissions are read"),
@@ -162,7 +162,7 @@ class GitHubCiProviderTest {
         assertAll("the App identity",
                 () -> assertEquals("plan-marshall[bot]", identity.login(), "the bot login is derived"),
                 () -> assertEquals("456", identity.userId(), "the bot user id is read"),
-                () -> assertEquals(TokenKind.GITHUB_APP, identity.tokenKind(), "the kind is the App"),
+                () -> assertEquals(TokenKind.GITHUB_APP, identity.tokenKind(), "the token kind is the App"),
                 () -> assertEquals("operator", identity.operatorLogin(), "the operator login is read"),
                 () -> assertEquals(Map.of("admin", "false", "push", "true"), identity.permissions(),
                         "the repository permissions are read"));
@@ -184,7 +184,7 @@ class GitHubCiProviderTest {
         assertAll("the issue fields",
                 () -> assertEquals("A title", read.title(), "the issue title is read"),
                 () -> assertEquals("A body", read.body(), "the issue body is read"),
-                () -> assertEquals(List.of("bug", "docs"), read.labels(), "the labels are read"),
+                () -> assertEquals(List.of("bug", "docs"), read.labels(), "the issue labels are read"),
                 () -> assertEquals("M1", read.milestone(), "the milestone is read"),
                 () -> assertEquals(List.of("octocat"), read.assignees(), "the assignees are read"),
                 () -> assertEquals("open", read.state(), "the issue state is read"),
@@ -439,6 +439,21 @@ class GitHubCiProviderTest {
     }
 
     @Test
+    @DisplayName("normalises the origin it is bound to")
+    @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"login\":\"octocat\",\"id\":1}")
+    @MockResponseConfig(path = "/repos/cuioss/pm", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{}")
+    void normalisesOrigin(MockWebServer server) {
+        HttpClient http = http(server, () -> Optional.of("ghp_classic"));
+        var provider = GitHubCiProvider.forToken("https://GitHub.com/", http, () -> Optional.of("ghp_classic"));
+
+        var result = provider.whoami(REPOSITORY);
+
+        assertEquals(Result.Outcome.OK, result.outcome(), "a normalised origin matches the reference");
+    }
+
+    @Test
     @DisplayName("refuses a whoami of another origin before sending")
     void refusesWhoamiOfAnotherOrigin(MockWebServer server) {
         var other = new RepositoryRef("github", "https://github.example.com", "cuioss", "pm");
@@ -446,6 +461,7 @@ class GitHubCiProviderTest {
         var result = tokenProvider(server, "ghp_classic").whoami(other);
 
         assertEquals(Result.Outcome.REJECTED, result.outcome(), "another origin is refused before sending");
+        assertEquals(0, server.getRequestCount(), "no request is sent for another origin");
     }
 
     @Test

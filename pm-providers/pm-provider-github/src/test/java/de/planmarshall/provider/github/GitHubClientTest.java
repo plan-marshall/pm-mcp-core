@@ -210,7 +210,7 @@ class GitHubClientTest {
 
             var payload = client.issue("cuioss", "pm", 5).value().orElseThrow();
 
-            assertEquals("A title", payload.issue().title(), "the title is mapped");
+            assertEquals("A title", payload.issue().title(), "the issue title is mapped");
             assertEquals(List.of("bug"), payload.issue().labels(), "the labels are mapped");
             assertEquals("M1", payload.issue().milestone(), "the milestone is mapped");
             assertEquals(List.of("octocat"), payload.issue().assignees(), "the assignees are mapped");

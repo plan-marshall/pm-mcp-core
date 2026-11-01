@@ -85,7 +85,7 @@ class GitLabCiProviderTest {
 
         assertAll("the token identity",
                 () -> assertEquals("alice", identity.login(), "the username is read"),
-                () -> assertEquals("7", identity.userId(), "the user id is read"),
+                () -> assertEquals("7", identity.userId(), "the provider user id is read"),
                 () -> assertEquals(TokenKind.GITLAB_PERSONAL_TOKEN, identity.tokenKind(), "the kind is personal"),
                 () -> assertEquals(List.of("api", "read_user"), identity.scopes(), "the scopes are read from the record"),
                 () -> assertEquals(Instant.parse("2026-12-01T00:00:00Z"), identity.expiresAt(),
@@ -150,7 +150,7 @@ class GitLabCiProviderTest {
         assertAll("the issue fields",
                 () -> assertEquals("A title", read.title(), "the issue title is read"),
                 () -> assertEquals("A body", read.body(), "the issue body is read"),
-                () -> assertEquals(List.of("bug", "docs"), read.labels(), "the labels are read"),
+                () -> assertEquals(List.of("bug", "docs"), read.labels(), "the issue labels are read"),
                 () -> assertEquals("M1", read.milestone(), "the milestone is read"),
                 () -> assertEquals(List.of("alice"), read.assignees(), "the assignees are read"),
                 () -> assertEquals("opened", read.state(), "the issue state is read"),
@@ -223,7 +223,7 @@ class GitLabCiProviderTest {
 
         IssueComment comment = result.value().orElseThrow();
         assertAll("the posted comment",
-                () -> assertEquals("9001", comment.id(), "the note id is read"),
+                () -> assertEquals("9001", comment.id(), "the comment note id is read"),
                 () -> assertEquals("https://gitlab.com/cuioss/pm/-/issues/5#note_9001", comment.url(),
                         "the comment URL is derived"));
     }
@@ -266,10 +266,12 @@ class GitLabCiProviderTest {
             stringContent = "{\"title\":\"An issue\",\"description\":\"\",\"state\":\"opened\","
                     + "\"web_url\":\"https://gitlab.com/cuioss/pm/-/issues/7\"}")
     void readsIssueByTheIssueEndpoint(MockWebServer server) throws Exception {
-        provider(server).issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 7));
+        var result = provider(server).issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 7));
 
-        assertEquals("/projects/cuioss%2Fpm/issues/7", server.takeRequest().getTarget(),
-                "the issue endpoint is read, not the merge-request one");
+        assertAll("the issue endpoint",
+                () -> assertTrue(result.isOk(), "the issue is read"),
+                () -> assertEquals("/projects/cuioss%2Fpm/issues/7", server.takeRequest().getTarget(),
+                        "the issue endpoint is read, not the merge-request one"));
     }
 
     @Test
@@ -280,6 +282,7 @@ class GitLabCiProviderTest {
         var result = provider(server).whoami(other);
 
         assertEquals(Result.Outcome.REJECTED, result.outcome(), "another origin is refused before sending");
+        assertEquals(0, server.getRequestCount(), "no request is sent for another origin");
     }
 
     @Test
