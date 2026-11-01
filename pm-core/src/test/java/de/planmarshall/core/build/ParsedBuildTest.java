@@ -40,11 +40,10 @@ class ParsedBuildTest {
 
         var build = new ParsedBuild(diagnostics, BuildStatus.SUCCESS, true, null, false);
         diagnostics.clear();
+        var frozen = build.diagnostics();
 
-        assertEquals(1, build.diagnostics().size(), "The frozen list keeps its diagnostic");
-        assertThrows(UnsupportedOperationException.class,
-                () -> build.diagnostics().clear(),
-                "The frozen list cannot be modified");
+        assertEquals(1, frozen.size(), "The frozen list keeps its diagnostic");
+        assertThrows(UnsupportedOperationException.class, frozen::clear, "The frozen list cannot be modified");
     }
 
     @Test
