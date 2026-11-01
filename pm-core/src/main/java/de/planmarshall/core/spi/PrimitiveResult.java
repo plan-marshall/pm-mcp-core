@@ -103,6 +103,11 @@ Optional<OutcomeReason> reason) {
         private Optional<String> spawnedJobId = Optional.empty();
         private Optional<OutcomeReason> reason = Optional.empty();
 
+        /**
+         * The builder collects the required outcome through its {@code outcome} setter before {@link #build()} hands
+         * it to the canonical constructor, so the field is unset until then by design.
+         */
+        @SuppressWarnings("java:S2637")
         private Builder() {
         }
 
