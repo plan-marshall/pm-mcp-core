@@ -123,7 +123,7 @@ public class QualificationSettingsCodec {
         private final Path file;
         private QualificationSettings settings = QualificationSettings.defaults();
         private long revision;
-        private byte[] rewritten;
+        private byte[] rewritten = new byte[0];
 
         DocumentReader(Path file) {
             this.file = file;

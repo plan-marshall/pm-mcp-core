@@ -47,8 +47,8 @@ the `Optional` return (c).
 
 The decision is carried by `org.jspecify.annotations.Nullable` in the production and test sources of `pm-core`,
 `pm-workflow`, `pm-runtime` and the providers, by `Optional` returns in `StrictJson` and the codec readers, and by
-`doc/developer/*.adoc` § Invariants: a member the schema may leave absent reads as `Optional` and is kept as a
-`@Nullable` member.
+`{module}/doc/developer/*.adoc` § Invariants: a member the schema may leave absent reads as `Optional` and is kept
+as a `@Nullable` member.
 
 == Alternatives Considered
 
@@ -74,8 +74,8 @@ The decision is carried by `org.jspecify.annotations.Nullable` in the production
 
 == Source
 
-* Pull requests #264 (D1, `core.store` and `core.queue`), #268 (D2, the other `pm-core` packages) and this plan's
-  third pull request (D3, `pm-workflow`, `pm-runtime` and the providers) of PLAN-V2-110.
+* Pull requests #264 (D1, `core.store` and `core.queue`), #268 (D2, the other `pm-core` packages) and #274 (D3,
+  `pm-workflow`, `pm-runtime` and the providers) of PLAN-V2-110.
 * Work package: link:../../doc/plans/README.adoc[`doc/plans/`] — PLAN-V2-110, `null-contract-main-green`.
 * Specification sections: `Client Profiles` § Endpoint Profile Schema and § Remote Form; `Store Schemas` § Queue
   Task Record, § Activity Journal and § Workflow State Store; `Job Runtime` § Pipeline and Subprocesses.
