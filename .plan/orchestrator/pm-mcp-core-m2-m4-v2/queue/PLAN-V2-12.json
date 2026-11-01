@@ -2,7 +2,7 @@
   "id": "PLAN-V2-12",
   "slug": "ci-contract-module",
   "workstream": "WS-09",
-  "status": "staged",
+  "status": "running",
   "lane": "runbook",
   "plan_marshall_plan_id": "",
   "pr": "",
