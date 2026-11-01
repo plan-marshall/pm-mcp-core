@@ -26,10 +26,11 @@ The write re-reads the entry and, when the stored entry carries the same `input_
 the attempt, keeps the stored entry and returns its reading. Two refreshers of the same fact therefore do not overwrite
 a newer result with an older one.
 
-Two refreshes of different digests are last-writer-wins. A digest names an input snapshot, and the store has no rule
-that orders two different snapshots: the later writer's value is the one the store holds, and the reading a caller
-receives is the entry as it stands after its own attempt. Ordering by `derived_at` alone would be wrong, because a
-caller that started from an older snapshot may still write at a later instant.
+Two successful derivations of different digests are last-writer-wins. A digest names an input snapshot, and the store
+has no rule that orders two different snapshots: the later successful derivation's value is the one the store holds, and
+the reading a caller receives is the entry as it stands after its own attempt. Ordering by `derived_at` alone would be
+wrong, because a caller that started from an older snapshot may still write at a later instant. A failed derivation is
+not part of this rule: it keeps the value and digest of the last good derivation (ADR `core-store/057`).
 
 == Alternatives Considered
 

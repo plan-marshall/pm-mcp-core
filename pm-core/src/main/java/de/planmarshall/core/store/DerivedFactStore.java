@@ -45,8 +45,9 @@ import de.planmarshall.core.store.DerivedFactDerivation.DerivationOutcome.Failed
  * it through {@link AtomicStoreFile}. A refresh made inside a scope transaction therefore takes the derived-facts lock
  * after the scope lock, which is the total order of {@link LockLevel}. A result another refresher stored meanwhile for
  * the same digest with a later {@code derived_at} is kept and returned, so a result never overwrites a newer result of
- * the same digest. Two refreshes of different digests are last-writer-wins: the digest names an input snapshot, and the
- * store keeps the value of the snapshot whose refresh wrote last (ADR {@code core-store/056}).
+ * the same digest. Two successful derivations of different digests are last-writer-wins: the digest names an input
+ * snapshot, and the store keeps the value of the snapshot whose derivation wrote last. A failed refresh is not part of
+ * that rule: it keeps the last good value and digest, as the failure rule below states (ADR {@code core-store/056}).
  * <p>
  * <em>Failure.</em> A failed derivation keeps the last value with {@code state: stale} and records the failure, or
  * writes {@code failed} when no value was ever derived. The last good {@code input_digest} is kept on {@code stale}, so
