@@ -21,6 +21,7 @@ import org.jspecify.annotations.Nullable;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -217,6 +218,15 @@ class DerivedFactStoreTest {
                     () -> assertEquals(file, refusal.file(), "The refusal names the store file"),
                     () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, refusal.outcome(),
                             "The outcome is unreadable"));
+        }
+
+        @Test
+        @DisplayName("a store path that exists and cannot be read is a failure of the read")
+        void unreadableStorePathIsFailure() throws Exception {
+            Files.createDirectory(file);
+
+            assertThrows(UncheckedIOException.class, store::snapshot,
+                    "The store path exists and cannot be read");
         }
 
         @Test

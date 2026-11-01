@@ -27,9 +27,9 @@ attempted, because there is no last good digest to keep.
 
 == Alternatives Considered
 
-* Recording the attempted digest on `stale`: the next call with the same inputs would find a matching digest and a
-  `current`-looking entry, and the stale value would be served without a retry. The retry would then depend on the
-  caller changing its inputs rather than on the fact being stale.
+* Recording the attempted digest on `stale`: the kept value would carry a digest it was not derived from, which the
+  spec requires to be the last good digest. The next call would still derive again, because the state rule applies to
+  `stale` regardless of the digest.
 
 == Consequences
 

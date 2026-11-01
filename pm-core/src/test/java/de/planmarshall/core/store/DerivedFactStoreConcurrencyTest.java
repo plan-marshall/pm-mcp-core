@@ -163,6 +163,22 @@ class DerivedFactStoreConcurrencyTest {
     }
 
     @Test
+    @DisplayName("a write keeps a newer stored result of the same digest")
+    void updateKeepsANewerStoredResult() throws Exception {
+        var reading = store.refresh(FIRST, DIGEST, () -> {
+            store.refresh(FIRST, DIGEST, valueOf("newer"), NOW.plusSeconds(10));
+            return new Derived(payload("older"), "fixture", DerivedFact.DerivationClass.LOCAL);
+        }, NOW);
+
+        var stored = store.fact(FIRST).orElseThrow();
+        assertAll(
+                () -> assertEquals(payload("newer"), stored.value(), "The newer stored value is kept"),
+                () -> assertEquals(NOW.plusSeconds(10), stored.derivedAt(), "The newer instant is kept"),
+                () -> assertEquals(new DerivedFactReading.Value(stored), reading,
+                        "The kept entry is the reading returned"));
+    }
+
+    @Test
     @DisplayName("the derived-facts lock is taken after a held plan and workspace key")
     void lockOrderAfterTheScopeLocks() {
         var workspace = LockKey.workspace(base, PROJECT);

@@ -26,6 +26,11 @@ The write re-reads the entry and, when the stored entry carries the same `input_
 the attempt, keeps the stored entry and returns its reading. Two refreshers of the same fact therefore do not overwrite
 a newer result with an older one.
 
+Two refreshes of different digests are last-writer-wins. A digest names an input snapshot, and the store has no rule
+that orders two different snapshots: the later writer's value is the one the store holds, and the reading a caller
+receives is the entry as it stands after its own attempt. Ordering by `derived_at` alone would be wrong, because a
+caller that started from an older snapshot may still write at a later instant.
+
 == Alternatives Considered
 
 * Holding the lock across the derivation: a provider call under the derived-facts lock would make every writer of the
