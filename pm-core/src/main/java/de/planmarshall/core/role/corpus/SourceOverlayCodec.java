@@ -258,7 +258,7 @@ public class SourceOverlayCodec {
                 case FIELD_GROUP -> values.group = nullableString(parser, field).orElse(null);
                 case FIELD_QUESTION -> values.question = string(parser, field);
                 case FIELD_FACTS -> values.facts = string(parser, field);
-                case FIELD_CHOICES -> values.choices = nullableStringList(parser, field);
+                case FIELD_CHOICES -> values.choices = nullableStringList(parser, field).orElse(null);
                 case FIELD_ANSWER_SCHEMA -> values.answerSchema = nullableValue(parser, field).orElse(null);
                 case FIELD_TARGET -> values.target = readTarget(parser);
                 case FIELD_GRADING -> values.grading = readGrading(parser);
@@ -332,7 +332,7 @@ public class SourceOverlayCodec {
             switch (field) {
                 case FIELD_METHOD -> method = wireValue(parser, field, GradingMethod::fromWireName);
                 case FIELD_JUDGE -> judge = nullableString(parser, field).orElse(null);
-                case FIELD_PASS_THRESHOLD -> passThreshold = nullableNumber(parser, field);
+                case FIELD_PASS_THRESHOLD -> passThreshold = nullableNumber(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }

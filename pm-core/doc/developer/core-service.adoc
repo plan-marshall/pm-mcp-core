@@ -98,6 +98,9 @@ observed of the job itself.
 
 === Invariants
 
+* *A nullable scope or project id is a parameter of an audit event*: `transactionRolledForward` accepts a `@Nullable
+  scopeId` and `consent` a `@Nullable projectId`; the detail is written only when it is present.
+
 * *No implementation in the foundation*: no class of `pm-core` implements `JobRunner`; an ArchUnit guard of
   `JobRunnerTest` fails otherwise.
 * *Closed causes*: a cause outside the five does not exist, so no cancel can settle a job by a row outside 2 to 4.
