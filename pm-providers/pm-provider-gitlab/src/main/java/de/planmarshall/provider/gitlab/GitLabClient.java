@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import de.planmarshall.provider.ci.Issue;
 import de.planmarshall.provider.http.HttpClient;
 import de.planmarshall.provider.http.Json;
 import de.planmarshall.provider.http.PagedResult;
@@ -24,10 +25,10 @@ import de.planmarshall.provider.http.Response;
 import de.planmarshall.provider.http.Result;
 
 /**
- * A thin GitLab REST client ({@code /api/v4}) for the merge path and the review operations of the
- * native variant: merge and merge-train add bound to the expected head {@code sha}, merge-request
- * discussions (list, reply, resolve), job traces, and the token identity read behind
- * {@code ci.whoami}.
+ * A thin GitLab REST client ({@code /api/v4}) for the merge path, the review operations of the native variant and
+ * the CI operations: merge and merge-train add bound to the expected head {@code sha}, merge-request discussions
+ * (list, reply, resolve), job traces, the token identity read behind
+ * {@link de.planmarshall.provider.ci.CiProvider#whoami}, and the issue read and issue comment of the CI contract.
  *
  * @since 0.1
  */
@@ -222,6 +223,52 @@ public final class GitLabClient {
                 .map(userId -> Result.ok(new TokenIdentity("", "", userId, List.of(),
                         "active".equals(Json.string(json, "state").orElse("")), Optional.empty())))
                 .orElseGet(() -> Result.of(Result.Outcome.FAILED, "user response without id"));
+    }
+
+    /**
+     * Reads one issue by its iid.
+     *
+     * @param iid the issue iid; a merge-request iid is no issue iid, because GitLab numbers the two apart
+     * @return the issue's fields
+     */
+    public Result<Issue> issue(long iid) {
+        Response response = http.get(project + "/issues/" + iid);
+        if (!response.isOk()) {
+            return Result.failed(response);
+        }
+        Object json = Json.parseOrNull(response.body()).orElse(null);
+        if (json == null) {
+            return Result.of(Result.Outcome.FAILED, "the issue response is not JSON");
+        }
+        Optional<String> title = Json.string(json, "title").filter(value -> !value.isBlank());
+        Optional<String> state = Json.string(json, "state").filter(value -> !value.isBlank());
+        Optional<String> url = Json.string(json, "web_url").filter(value -> !value.isBlank());
+        if (title.isEmpty() || state.isEmpty() || url.isEmpty()) {
+            return Result.of(Result.Outcome.FAILED, "the issue response carries no title, state or URL");
+        }
+        var labels = Json.list(json, "labels").stream().map(String::valueOf).toList();
+        var assignees = Json.list(json, "assignees").stream().map(assignee -> Json.string(assignee, "username"))
+                .flatMap(Optional::stream).toList();
+        return Result.ok(Issue.builder().title(title.get()).body(Json.string(json, "description").orElse(""))
+                .labels(labels).milestone(Json.string(json, "milestone", "title").orElse(null))
+                .assignees(assignees).state(state.get()).url(url.get()).build());
+    }
+
+    /**
+     * Posts a comment on an issue.
+     *
+     * @param iid  the issue iid
+     * @param body the comment body
+     * @return the note id
+     */
+    public Result<String> issueComment(long iid, String body) {
+        Response response = http.send("POST", project + "/issues/" + iid + "/notes",
+                Optional.of(Json.write(Map.of("body", body))), Optional.empty());
+        if (!response.isOk()) {
+            return Result.failed(response);
+        }
+        return Json.string(Json.parseOrNull(response.body()).orElse(null), "id").map(Result::ok)
+                .orElseGet(() -> Result.of(Result.Outcome.FAILED, "note response without id"));
     }
 
     private String discussionPath(long iid, String discussionId) {
