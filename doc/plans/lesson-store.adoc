@@ -1,0 +1,28 @@
+= The project's lesson store
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `lesson-store`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 5 (roadmap item _Port the lesson store's storage invariants_) and the lesson source of the plan bootstrap of Milestone 7 (`PM-WF-10`)
+Where:: pm-core (package `core.store`: the lesson record, its file format, and the store under the lesson store lock)
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* *Implements* link:../specification/store-schemas/10-job-and-lesson-records.adoc#lesson-record[Store Schemas § Lesson Record]: the project's lesson store `<PM_MCP_BASE>/projects/<project_id>/lessons/`, one Markdown file `<lesson_id>.md` per lesson with its front matter. It is the store of the PM-MCP engine; the lesson store of `plan-marshall` (`manage-lessons`) is external and never read (`PM-MIG-2`).
+* *The record and the file*: `LessonId`, the enumerations, `LessonFrontMatter` and `Lesson`, the codec of the lesson file (front matter as a JSON object between two `---` lines, strict, format version 1), and the parity test against the schema block of the specification.
+* *The store*: lesson id allocation (UTC hour plus a per-hour sequence) and every write as one journaled transaction under the lesson store lock, with the digest sidecar `.digests.json`; the one resolver with its four states and the three integrity states (`store_tampered`, `deleted_out_of_band`, `untracked`); the revision of a body; the retirement with its closed verdicts; the claim of a lesson by a plan, its release, and its retirement `applied` when the plan lands.
+* *Left out* (cut as `lesson-lifecycle` when this package closes): the `submit` transition that writes a lesson (Phase Workflows § Lesson Creation & Body), the audience predicate and the upstream release, the `arch-constraint` recurrence, the lesson maintenance (merge, supersede, retire submits), the retention sweeps, the operator acts on a lesson (`accept-edit`, retiring a `present_unreadable` lesson, releasing a stale claim; link:../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-56[PM-WATCH-STORE-56]), the `stalled_lessons` population, and the calls of `start.create-scope`, the plan end and the recovery, which are `start-source-intake`'s and `plan-and-epic-control`'s.
+
+== Trace
+
+Requirements stay in `plan-marshall-documentation`; the specification sections and watch documents are those of this repository. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]; link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]; link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-2[PM-TEST-2]
+* Specification: link:../specification/store-schemas/10-job-and-lesson-records.adoc#lesson-record[Store Schemas § Lesson Record]; link:../specification/store-schemas/10-job-and-lesson-records.adoc#lesson-claim[§ A Claimed Lesson Ends with the Landing]; link:../specification/store-schemas/13-leases-integrity-testing.adoc[Leases, Integrity & Testing] (the lesson store's digest sidecar and lock)
+* Watch: link:../implementation-watch/store-schemas.adoc[Store Schemas] (PM-WATCH-STORE-14, -17, -20, -58 and the open -56)
+
+== Done When
+
+A lesson is created, listed, read, revised, retired, claimed and released through the store; every lesson in the store resolves by the id it is listed under to exactly one of `found`, `absent`, `present_unreadable`, `empty_shell`, and a digest mismatch, a vanished file and an untracked file are reported as `store_tampered`, `deleted_out_of_band` and `untracked`, never as `absent`; two concurrent writers never allocate the same id and never claim the same lesson; a write stopped at any step of the transaction leaves the old or the new lesson, never a torn one; the front matter of the codec is the schema of the specification, pinned by a parity test.
