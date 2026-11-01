@@ -84,7 +84,7 @@ public final class PlanProcessStates {
         }
     }
 
-    private static NodeState nodeState(StateNode state, PlanHistoryLine line, boolean ended,
+    private static NodeState nodeState(StateNode state, @Nullable PlanHistoryLine line, boolean ended,
             Optional<String> current) {
         if (line == null) {
             return new NodeState(state.id(), ended ? State.NOT_TAKEN : State.PLANNED, Optional.empty(),

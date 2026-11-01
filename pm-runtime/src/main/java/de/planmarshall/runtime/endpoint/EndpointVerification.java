@@ -162,7 +162,7 @@ public final class EndpointVerification {
     }
 
     private ProfileStages.EndpointClasses classes(EndpointProfile profile, String model, String toolTask,
-            String decoyResult) {
+            @Nullable String decoyResult) {
         var request = new EndpointRequest(model, "", toolTask, null, null,
                 profile.endpoint().answerReserveTokens());
         var response = client.post(profile, EndpointClient.CHAT_PATH, request.bodyWithTools(PROBE_TOOL));

@@ -29,6 +29,7 @@ The repository:
 ** link:010-the-coding-skills-and-the-accepted-exception.adoc[010 The Coding Skills and the Accepted Exception]: the marketplace coding skills bind every plan that touches Java, the six dependencies they need are allowed, and tests follow behaviour (the one accepted exception).
 ** link:011-ignore-s4449-for-jspecify-null-safety.adoc[011 Ignore java:S4449 for the JSpecify Null Contract]: the Sonar rule that asks for `javax.annotation.Nullable` is ignored for Java sources, because the repository's nullable marker is JSpecify's.
 ** link:012-generator-artifacts.adoc[012 Generator Artifacts per Module]: each module that provides reusable generators publishes them as a `tests`-classified test JAR, with the consumption matrix and the rule that a generator for another module's type comes from that module's artifact.
+** link:013-the-null-contract-of-the-null-marked-packages.adoc[013 The Null Contract of the `@NullMarked` Packages]: the three classes a null-contract site belongs to, the evidence each needs, the rule that absence a method returns is `Optional`, and the rejection of the ignore and of waiting for the conformance family.
 ** link:014-the-ci-contract-is-the-module-pm-provider-ci.adoc[014 The CI Contract Is the Module `pm-provider-ci`]: the operator's choice of the module over a `pm-core` port, the three dependency rules (the `provider` include, `provider-contract`, and the new `provider-analysis` for Sonar), and what they mean for a consumer in `pm-runtime` or `pm-workflow`.
 
 `pm-core`:

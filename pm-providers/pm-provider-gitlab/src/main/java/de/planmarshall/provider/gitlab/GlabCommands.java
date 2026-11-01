@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.provider.http.Json;
 
@@ -174,7 +175,7 @@ public final class GlabCommands {
         return id;
     }
 
-    private static String requireMatch(Pattern pattern, String value, String name) {
+    private static String requireMatch(Pattern pattern, @Nullable String value, String name) {
         if (value == null || !pattern.matcher(value).matches()) {
             throw new IllegalArgumentException("invalid " + name);
         }
