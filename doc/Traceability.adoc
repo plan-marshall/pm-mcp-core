@@ -1909,7 +1909,7 @@ link:../pm-core/src/test/java/de/planmarshall/core/build/TestCountsTest.java[Tes
 link:../pm-core/src/test/java/de/planmarshall/core/build/DiagnosticTest.java[DiagnosticTest]
 
 Documentation: link:../pm-core/doc/developer/core-build.adoc[Build Output Parsers Developer Guide],
-link:../pm-core/doc/adr/core-build/001-the-parsed-build-is-three-facts.adoc[ADR core-build/001],
+link:../pm-core/doc/adr/core-build/001-the-parsed-build-keeps-five-facts-apart.adoc[ADR core-build/001],
 link:../pm-core/doc/adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR core-build/002]
 
 [#PM-IMPL-7]

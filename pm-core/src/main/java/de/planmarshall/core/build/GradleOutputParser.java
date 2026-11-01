@@ -63,6 +63,7 @@ public class GradleOutputParser {
      *
      * @param logText the log text as the caller holds it; ANSI escape sequences are stripped here
      * @return the parsed build
+     * @throws NullPointerException if the log text is null
      */
     public static ParsedBuild parse(String logText) {
         Objects.requireNonNull(logText, "logText");

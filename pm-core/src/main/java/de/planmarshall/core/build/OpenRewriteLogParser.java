@@ -62,6 +62,7 @@ public class OpenRewriteLogParser {
      * @param logText      the build-log text as the caller holds it; ANSI escape sequences are stripped here
      * @param domainActive whether the java-cui domain is active for this build
      * @return the fail-closed result
+     * @throws NullPointerException if the log text is null
      */
     public static RewriteLogResult parse(String logText, boolean domainActive) {
         Objects.requireNonNull(logText, "logText");

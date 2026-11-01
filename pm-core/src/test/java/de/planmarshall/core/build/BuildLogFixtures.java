@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import lombok.experimental.UtilityClass;
 
 /**
  * Loads the plain-file fixtures of the ported build parsers from the test class path (PM-TEST-2).
@@ -52,6 +53,7 @@ import java.util.stream.Stream;
  *
  * @since 0.1
  */
+@UtilityClass
 final class BuildLogFixtures {
 
     /**
@@ -76,9 +78,6 @@ final class BuildLogFixtures {
     private static final String HEADER_DELIBERATE = "deliberate: ";
 
     private static final Pattern CASE_REFERENCE = Pattern.compile("([^\\s:]+\\.py)::([\\w:]+)");
-
-    private BuildLogFixtures() {
-    }
 
     /**
      * The shape of one directive of the grammar.

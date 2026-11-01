@@ -1,8 +1,0 @@
-deliberate: deliberate-rewrite-domain-inactive-skips-parse
-# The domain state is decided before the log is read: the log below carries a finding line with a drifted template, which
-# would be a parse error in an active domain. An inactive domain answers first, proving no parse ran.
-log [INFO] --- rewrite:run (default-cli) @ my-app ---
-log CUI_REWRITE-100: Finding located near src/main/java/de/cuioss/example/PaymentService.java:3:9 by TestRecipe: TODO
-domain inactive
-verdict DOMAIN_INACTIVE
-finding-count 0

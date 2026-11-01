@@ -1,5 +1,7 @@
 original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/pm-dev-java-cui/parse-rewrite-log/test_parse_rewrite_log.py::TestParseFileErrors::test_empty_log_returns_zero_findings
-# An empty log: no goal execution, so the run is not observed. Zero findings, never a claimed clean.
+# An empty log: no goal execution, so the run is not observed and the finding count is zero. The original's case asserts
+# the domain parser's own status/total_findings for an empty text; in the port the call-site layer answers before a
+# dispatch, so the zero-finding expectation is met as NOT_OBSERVED rather than as a dispatched clean run.
 log
 domain active
 verdict NOT_OBSERVED

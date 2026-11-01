@@ -24,7 +24,8 @@ import lombok.Builder;
  * so a green banner over a failing test stays visible instead of being resolved here.</li>
  * <li>{@link #testCounts()} is {@code null} when the log carried no count line at all, {@link TestCounts.Unmeasured}
  * when it carried counts the parser could not aggregate, and {@link TestCounts.Measured} otherwise. Nothing reports a
- * zero in place of an absence (PM-WATCH-JOB-10).</li>
+ * zero in place of an absence (the aggregation defect PM-WATCH-JOB-10 recorded, closed by this package and deleted from
+ * the watch document).</li>
  * <li>{@link #noTestsRan()} is a verdict, not the complement of a count: it holds only when the build reported success,
  * the tool printed its own positive "no tests" marker, and the log carried no count line. A measured count of zero never
  * produces it (PM-WATCH-JOB-11).</li>

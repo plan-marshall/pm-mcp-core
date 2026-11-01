@@ -76,14 +76,15 @@ enumerations of those records.
 
 _Requirements:_ link:{spec}/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime Specification § Native Build Output Parsers]
 
-The model separates facts a consumer must not conflate (link:../adr/core-build/001-the-parsed-build-is-three-facts.adoc[ADR 001]):
+The model separates facts a consumer must not conflate (link:../adr/core-build/001-the-parsed-build-keeps-five-facts-apart.adoc[ADR 001]):
 
 * `status` is what the tool printed. A `testFailureIgnore` run that printed `BUILD SUCCESS` over two errored tests is
   `SUCCESS` with `failed = 2`; the parser does not resolve the contradiction, the gate does.
 * `successMarker` records that the positive banner was seen, so the contradiction stays readable after the status is
   consumed.
 * `testCounts` distinguishes three states: absent (`null`, the log carried no count line), `Unmeasured` (counts the parser
-  could not aggregate) and `Measured`. Nothing reports a zero in place of an absence (PM-WATCH-JOB-10).
+  could not aggregate) and `Measured`. Nothing reports a zero in place of an absence (the aggregation defect the
+  implementation watch recorded as PM-WATCH-JOB-10, closed by this package and deleted from the watch document).
 * `noTestsRan` holds only on a successful build with its success marker, its own positive "no tests" marker and no count
   line (PM-WATCH-JOB-11). A measured count of zero never produces it.
 
@@ -199,5 +200,7 @@ The pinned commit is `BuildLogFixtures.PIN`; it is advanced by re-reading the or
 == Specification Tracing
 
 * Specification: link:{spec}/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime Specification § Native Build Output Parsers]; link:{spec}/store-schemas/13-leases-integrity-testing.adoc#ported-tests[Store Schemas Specification § Ported-Primitive Tests]
-* Watch: link:../../../doc/implementation-watch/job-runtime.adoc[Job Runtime]; the items this package closed (PM-WATCH-JOB-10, -11, -18) are carried by the parsed-build and parser tests named above
-* Decisions: link:../adr/core-build/001-the-parsed-build-is-three-facts.adoc[ADR 001 the parsed build is three facts], link:../adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR 002 the deliberate changes]
+* Watch: link:../../../doc/implementation-watch/job-runtime.adoc[Job Runtime]; of the items this package closed,
+  PM-WATCH-JOB-10 and PM-WATCH-JOB-18 were deleted from the watch document and PM-WATCH-JOB-11 stays open for the npm and
+  pyproject parsers
+* Decisions: link:../adr/core-build/001-the-parsed-build-keeps-five-facts-apart.adoc[ADR 001 the parsed build keeps its five components apart], link:../adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR 002 the deliberate changes]

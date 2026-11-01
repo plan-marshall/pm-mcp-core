@@ -24,7 +24,8 @@ import lombok.Builder;
  * summed counts of an unmeasured population (ADR {@code core-build/002}).
  * <p>
  * A measured population is aggregated over every summary block of a multi-module run — one block per module and per test
- * plugin — never the last block alone (PM-WATCH-JOB-10).
+ * plugin — never the last block alone (the aggregation defect the implementation watch recorded as PM-WATCH-JOB-10,
+ * closed by this package and deleted from the watch document).
  *
  * @since 0.1
  */

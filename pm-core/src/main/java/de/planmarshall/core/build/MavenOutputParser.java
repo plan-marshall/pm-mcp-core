@@ -30,12 +30,14 @@ import lombok.experimental.UtilityClass;
  * the compiled JVM category table, stack-trace collection, deduplication across the reactor summary and the per-module
  * output, the Surefire and Failsafe summaries aggregated over every block, and the build status from Maven's own markers.
  * <p>
- * Two behaviours are deliberate changes against the original, each with its own fixture (ADR {@code core-build/002}):
+ * Three behaviours are deliberate changes against the original, each with its own fixture (ADR {@code core-build/002}):
  * <ul>
  * <li>An {@code [ERROR]} line no pattern recognises is {@link Category#UNRECOGNIZED}, never a real category. A warning
  * line without a match keeps the original's {@link Category#OTHER}.</li>
  * <li>A test population the parser cannot aggregate is {@link TestCounts.Unmeasured} and carries no number; the original
  * keeps the summed counts of an unmeasured population.</li>
+ * <li>A successful build with no count line and Maven's own <code>No tests to run.</code> marker reports
+ * {@code noTestsRan}; the original has no such verdict.</li>
  * </ul>
  * The failure trailer is <em>not</em> a change: the original drops the same lines with the same full match, and the port
  * holds that behaviour with fixtures of its own. A passing {@code Tests run:} line — zero failures and zero errors — is
@@ -100,6 +102,7 @@ public class MavenOutputParser {
      * @param logText the log text as the caller holds it; ANSI escape sequences are stripped here, so a colour-coded log
      *                matches the same plain-text patterns as an uncoloured one
      * @return the parsed build
+     * @throws NullPointerException if the log text is null
      */
     public static ParsedBuild parse(String logText) {
         Objects.requireNonNull(logText, "logText");

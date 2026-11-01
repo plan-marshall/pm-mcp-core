@@ -29,7 +29,7 @@ case test_surefire_goal_failure_is_not_a_deprecation_warning excluded: the share
 case test_genuine_javac_tag_lines_keep_their_category excluded: the shared category table is exercised by the fixtures of ported/build/jvm-patterns
 case test_control_unescaped_bracket_detector_flags_a_bare_tag excluded: the control of a source-level lint of the Python pattern strings; the compiled table's bracket patterns are guarded by the single-letter case of ported/build/jvm-patterns
 case test_no_maven_pattern_carries_an_unescaped_bracket excluded: a lint of the Python pattern strings; the Java table is compiled from code and its bracket patterns are escaped literals
-case test_failure_epilogue_is_not_filed_and_real_diagnostics_are -> maven-epilogue-maven3 maven-epilogue-maven4
+case test_failure_epilogue_is_not_filed_and_real_diagnostics_are -> maven-epilogue-maven3 maven-epilogue-maven4 maven-trailer-dropped maven-trailer-reworded
 case test_older_surefire_report_pointer_is_not_filed -> maven-failure
 case test_older_surefire_dump_file_pointer_is_not_filed -> maven-dump-pointer
 case test_passing_test_count_line_is_not_a_test_failure -> maven-passing-count

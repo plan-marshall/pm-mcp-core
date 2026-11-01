@@ -12,8 +12,10 @@ package de.planmarshall.core.build;
 /**
  * How serious a parsed build diagnostic is.
  * <p>
- * The two values are the parsed severity of a diagnostic, never the outcome of a gate: an {@link #ERROR} is a line the
- * build tool printed at error level.
+ * The two values are the parsed severity of a diagnostic, never the outcome of a gate. Where it comes from is the
+ * parser's: the Maven parser uses the level the tool printed ({@code [ERROR]} or {@code [WARNING]}), and the Gradle
+ * parser derives it from the diagnostic's category because Gradle prints no level on most of its lines. A parser that
+ * derives it documents that.
  *
  * @since 0.1
  */

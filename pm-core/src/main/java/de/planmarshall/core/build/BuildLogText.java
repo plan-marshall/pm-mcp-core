@@ -21,7 +21,8 @@ import lombok.experimental.UtilityClass;
  * Reads build-log text and removes the terminal control sequences a colour-coded log carries.
  * <p>
  * Stripping in the same step as reading is what makes it impossible for a parser to match a colour-coded line against
- * the plain-text patterns of {@link JvmCategoryPatterns}, which is why both parsers read their text through here.
+ * the plain-text patterns of {@link JvmCategoryPatterns}, which is why every parser strips its text through here or
+ * through the {@code String} overload of its own {@code parse}.
  * <p>
  * Undecodable bytes are replaced rather than refused: a build log is untrusted text, and one broken byte must not make
  * the whole parse fail.

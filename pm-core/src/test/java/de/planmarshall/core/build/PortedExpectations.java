@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import lombok.experimental.UtilityClass;
 
 /**
  * Evaluates the fixture directives of the two parsed-build parsers and of the OpenRewrite parser.
@@ -29,10 +30,8 @@ import java.util.Set;
  *
  * @since 0.1
  */
+@UtilityClass
 final class PortedExpectations {
-
-    private PortedExpectations() {
-    }
 
     /**
      * Evaluates every expectation of a parsed build.
@@ -203,13 +202,7 @@ final class PortedExpectations {
         if (expected.isEmpty()) {
             return;
         }
-        if (expected.size() != build.diagnostics().size()) {
-            throw new AssertionError("the fixture names " + expected.size() + " diagnostics, the parser filed "
-                    + build.diagnostics().size() + ": " + build.diagnostics().stream()
-                    .map(diagnostic -> diagnostic.severityName() + "/" + diagnostic.categoryName() + " "
-                            + diagnostic.message())
-                    .toList());
-        }
+        assertEquals(expected.size(), build.diagnostics().size(), "the fixture names every diagnostic");
         for (int position = 0; position < expected.size(); position++) {
             assertDiagnostic(expected.get(position), build.diagnostics().get(position), "diagnostic " + position);
         }
@@ -217,7 +210,7 @@ final class PortedExpectations {
 
     private static void assertDiagnostic(BuildLogFixtures.Expectation expectation, Diagnostic actual, String label) {
         List<String> parts = expectation.split(6);
-        assertEquals(6, parts.size(), label + " names severity, category, file, line, column and message");
+        assertEquals(6, parts.size(), label + " carries six fields");
         assertEquals(Severity.valueOf(parts.get(0).toUpperCase(Locale.ROOT)), actual.severity(),
                 label + ": the severity matches");
         assertEquals(Category.valueOf(parts.get(1).toUpperCase(Locale.ROOT)), actual.category(),

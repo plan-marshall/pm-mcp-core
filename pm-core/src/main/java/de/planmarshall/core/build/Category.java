@@ -46,6 +46,6 @@ public enum Category {
     /** An error line no pattern of the compiled table recognised. */
     UNRECOGNIZED,
 
-    /** A line the tool printed at error or warning level with no matching pattern. */
+    /** A line the tool printed at error or warning level with no matching pattern: the originals' {@code other}. */
     OTHER
 }

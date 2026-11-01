@@ -1,0 +1,9 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_rewrite_log.py::TestDomainInactiveVerdict::test_domain_inactive_does_not_dispatch_the_parser
+# The domain state is decided before the log is read: the log below carries a finding line with a drifted template, which
+# would be a parse error in an active domain. An inactive domain answers first, proving no parse ran — the original's
+# `test_domain_inactive_does_not_dispatch_the_parser` by its exploding dispatch stand-in.
+log [INFO] --- rewrite:run (default-cli) @ my-app ---
+log CUI_REWRITE-100: Finding located near src/main/java/de/cuioss/example/PaymentService.java:3:9 by TestRecipe: TODO
+domain inactive
+verdict DOMAIN_INACTIVE
+finding-count 0

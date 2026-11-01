@@ -1,4 +1,4 @@
-= ADR 001: The Parsed Build Is Three Facts, and an Unmeasured Population Carries No Number
+= ADR 001: The Parsed Build's Five Components Are Kept Apart, and an Unmeasured Population Carries No Number
 :nofooter:
 
 == Status
@@ -13,9 +13,10 @@ Accepted
 
 A build log answers several questions at once, and the answers disagree in exactly the cases that matter. A
 `testFailureIgnore` run prints `BUILD SUCCESS` while two tests errored; a 15-module `verify` printed 3,083 tests and was
-reported as `tests_run: 0` (PM-WATCH-JOB-10); a `-Dtest=<package>.*` filter that matched no class failed the build
-instead of reporting that it ran nothing (PM-WATCH-JOB-11); a quiet (`-q`) log drops the `[INFO] Results:` marker that
-tells a summary line from a per-class line.
+reported as `tests_run: 0` (the defect PM-WATCH-JOB-10 recorded, closed and deleted from the watch document by this
+package); a `-Dtest=<package>.*` filter that matched no class failed the build instead of reporting that it ran nothing
+(the defect PM-WATCH-JOB-11 records); a quiet (`-q`) log drops the `[INFO] Results:` marker that tells a summary line
+from a per-class line.
 
 The ported `plan-marshall` parsers answer with one `UnitTestSummary` that carries counts *and* a `population` string, so
 an unmeasured population still carries `tests_run: 0`-shaped numbers, and the status is resolved at the CLI layer from
@@ -23,7 +24,7 @@ facts the parser no longer carries. A Java model has to make the distinction a c
 
 == Decision
 
-`de.planmarshall.core.build` models a parse as a `ParsedBuild` of four facts, none derived from another:
+`de.planmarshall.core.build` models a parse as a `ParsedBuild` of five components, none derived from another:
 
 * `diagnostics` — the located findings, in log order, each a `Diagnostic`;
 * `status` — what the tool printed, `SUCCESS` or `FAILURE`, derived from its own markers;
@@ -34,9 +35,12 @@ facts the parser no longer carries. A Java model has to make the distinction a c
 * `noTestsRan` — a verdict that holds only when the build reported success, printed its success marker, printed its own
   positive "no tests" marker, and carried no count line.
 
+`status` and `successMarker` are two components of one fact — what the tool printed — because a consumer that resolves
+the contradiction needs both halves; the other three are facts of their own.
+
 `TestCounts` is a sealed interface of two types, so *unmeasured* has no count accessor at all: the state cannot be read
 as a zero. `Measured` is a record whose compact constructor refuses a total that is not `passed + failed + skipped`, and
-`ParsedBuild`'s compact constructor refuses a `noTestsRan` verdict that its other three facts do not support.
+`ParsedBuild`'s compact constructor refuses a `noTestsRan` verdict that its other three components do not support.
 
 The null contract of the package holds: an absent location is a `@Nullable` component of `Diagnostic`, never an
 `Optional`; absence as a whole (`testCounts`) is a `@Nullable` component of the record.
@@ -51,8 +55,8 @@ The null contract of the package holds: an absent location is a `@Nullable` comp
    the parser is a pure function of the log, and the decision which failures a run may ignore belongs to the gate, which
    is the consumer the parser serves. Keeping both facts lets that consumer decide and keeps the parser's expected values
    equal to the original's.
-4. *A `noTestsRan` accessor derived from the counts.* Not taken: the derivation needs the tool's own marker, which is not
-   a fact of the counts, and a derived accessor could not be checked against the other three components.
+4. *Collapsing `status` and `successMarker` into one component.* Not taken: the marker is what the status was derived from,
+   and a consumer that reports why a build looked green needs the marker even for a case where the status differs.
 
 == Consequences
 
@@ -66,5 +70,6 @@ single place the rule is enforced, and every parser supplies its tool's marker.
 == Source
 
 Work package `doc/plans/build-parsers-and-gate-honesty.adoc`; plan `PLAN-V2-08-native-build-parsers-jvm`; specification
-`doc/specification/job-runtime/03-parsers-and-gates.adoc` § Native Build Output Parsers; watch items PM-WATCH-JOB-10 and
-PM-WATCH-JOB-11; requirements `PM-IMPL-6` and `PM-TEST-2`.
+`doc/specification/job-runtime/03-parsers-and-gates.adoc` § Native Build Output Parsers; the watch items this package
+closed (PM-WATCH-JOB-10, whose item was deleted, and PM-WATCH-JOB-11, which stays for the npm and pyproject parsers);
+requirements `PM-IMPL-6` and `PM-TEST-2`.

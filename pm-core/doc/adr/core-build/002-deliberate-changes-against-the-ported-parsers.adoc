@@ -15,7 +15,8 @@ Each parser of `core.build` is a port of one `plan-marshall` module. The ported 
 expected values from the original and its pytest suite, so a port that simply copied every behaviour would also copy the
 behaviours that produced the defects of the implementation watch.
 
-Three defects are recorded there (PM-WATCH-JOB-10, -11, -18): a green multi-module build reported `tests_run: 0`; a test
+Three defects are recorded there (PM-WATCH-JOB-10, -11, -18; the first and third were closed by this package and their
+items deleted from the watch document): a green multi-module build reported `tests_run: 0`; a test
 filter matching nothing was not reported as having run nothing; the failure-trailer advice of the build tool was filed as
 located findings, and an unrecognised `[ERROR]` line was given a real category. The ported originals fix part of this —
 the Maven parser drops the trailer with a `fullmatch` table and skips a passing `Tests run:` line — and leave the rest.
@@ -65,8 +66,8 @@ the parser has no CLI exit code (the original's `cmd_parse` returns one).
 Everything else is held as in the original, including the behaviours that look surprising:
 
 * The Maven failure trailer is dropped whole against a compiled table matched with a full match, so a reworded trailer
-line is filed again (`ported/build/maven/deliberate-trailer-dropped.txt`,
-`deliberate-trailer-reworded.txt`). This is the original's behaviour, not a change.
+line is filed again (`ported/build/maven/maven-trailer-dropped.txt`,
+`maven-trailer-reworded.txt`). This is the original's behaviour, not a change.
 * A passing `Tests run:` line is not a diagnostic, and a line starting with `->` is a continuation.
 * The stack-trace collector attaches the last contiguous trace block to the last filed diagnostic
   (`StackTraceCollector`).
@@ -74,8 +75,8 @@ line is filed again (`ported/build/maven/deliberate-trailer-dropped.txt`,
 
 == Alternatives Considered
 
-1. *Port every behaviour unchanged.* Not taken: it would leave PM-WATCH-JOB-10, -11 and -18 open in the port, and the
-   specification names the corrected behaviour as the requirement.
+1. *Port every behaviour unchanged.* Not taken: it would leave the aggregation, zero-filter and trailer guards open in the
+   port, and the specification names the corrected behaviour as the requirement.
 2. *Clean up each surprise and record nothing.* Not taken: a change the ported tests do not state reads as an accident
    of the port. Each change has a fixture of its own, so a later reader can tell the port's intent from the original's
    behaviour.
@@ -95,5 +96,6 @@ guide, so a sibling port (the npm and Python parsers) can adopt them rather than
 == Source
 
 Work package `doc/plans/build-parsers-and-gate-honesty.adoc`; plan `PLAN-V2-08-native-build-parsers-jvm`; specification
-`doc/specification/job-runtime/03-parsers-and-gates.adoc` § Native Build Output Parsers; watch items PM-WATCH-JOB-10,
-PM-WATCH-JOB-11 and PM-WATCH-JOB-18; requirement `PM-TEST-2`.
+`doc/specification/job-runtime/03-parsers-and-gates.adoc` § Native Build Output Parsers; watch items PM-WATCH-JOB-10 and
+PM-WATCH-JOB-18 (closed here and deleted from the watch document) and PM-WATCH-JOB-11 (still open for the npm and
+pyproject parsers); requirement `PM-TEST-2`.

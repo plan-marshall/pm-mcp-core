@@ -34,7 +34,8 @@ import lombok.Builder;
  * @param column     the column in {@code line}, or {@code null} when the tool named none
  * @param message    the diagnostic text with the tool's level prefix removed, never blank
  * @param category   the category the compiled table assigned, never {@code null}
- * @param severity   the level the tool printed the line at, never {@code null}
+ * @param severity   how serious the parser rates the diagnostic — the level the tool printed where it prints one (Maven),
+ *                   the category otherwise (Gradle)
  * @param stackTrace the frames collected for this diagnostic joined by {@code \n}, or {@code null} when there were none
  * @since 0.1
  */
