@@ -121,6 +121,33 @@
                 <artifactId>pm-provider-sonar</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <!-- The `tests` classifier of the modules that publish a generator artifact. A test-jar dependency is a
+                 dependency type of its own, so it needs an entry of its own; the version stays here, never in the
+                 consuming POM. -->
+            <dependency>
+                <groupId>de.planmarshall</groupId>
+                <artifactId>pm-core</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+            <dependency>
+                <groupId>de.planmarshall</groupId>
+                <artifactId>pm-workflow</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+            <dependency>
+                <groupId>de.planmarshall</groupId>
+                <artifactId>pm-runtime</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+            <dependency>
+                <groupId>de.planmarshall</groupId>
+                <artifactId>pm-provider-http</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

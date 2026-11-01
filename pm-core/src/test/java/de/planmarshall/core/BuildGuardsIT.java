@@ -27,8 +27,9 @@ import org.junit.jupiter.params.provider.CsvSource;
 /**
  * Controls of the build guards of this repository (PM-IMPL-1): each fixture project below
  * {@code src/guard-controls} breaks one rule of the root POM, and its build must fail in the enforcer
- * execution of that rule. One fixture is a positive control: a provider adapter that depends on the
- * shared HTTP base passes the rule that admits it.
+ * execution of that rule. Four fixtures are positive controls: a provider adapter that depends on the
+ * shared HTTP base, and the test-scope test JARs of the foundation consumed by the engine, the runtime
+ * and a provider, each admitted by the rule that governs it.
  * <p>
  * Hazards the guards answer: a framework dependency in the engine ties the plain-Java modules to the
  * assembly; a dependency of the foundation on a module of the product other than {@code pm-api}, or on JGit
@@ -57,6 +58,8 @@ class BuildGuardsIT {
             "provider-sibling-module, validate, provider",
             "provider-contract-module, validate, provider-contract",
             "model-facing-content, prepare-package, no-model-facing-content",
+            "runtime-workflow-tests, validate, runtime",
+            "workflow-runtime-tests, validate, workflow",
             "central-before-registry, validate, product-coordinates-from-the-organisation-registry"})
     @DisplayName("a fixture that breaks a rule fails the build")
     void fixtureFails(String fixture, String phase, String execution, @TempDir Path temp) throws Exception {
@@ -99,7 +102,10 @@ class BuildGuardsIT {
     }
 
     @ParameterizedTest(name = "{0} passes in {2}")
-    @CsvSource({"provider-http-allowed, validate, provider"})
+    @CsvSource({"provider-http-allowed, validate, provider",
+            "workflow-core-tests, validate, workflow",
+            "runtime-core-tests, validate, runtime",
+            "provider-core-tests, validate, provider"})
     @DisplayName("a fixture the rule admits passes the build")
     void fixturePasses(String fixture, String phase, String execution, @TempDir Path temp) throws Exception {
         var root = Path.of(System.getProperty("pm.root"));

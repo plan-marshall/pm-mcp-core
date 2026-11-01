@@ -1,0 +1,80 @@
+= ADR 012: Generator Artifacts per Module
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-10-31.
+
+== Context
+
+The migration of about 400 test classes to `cui-test-generator` (PLAN-V2-85 to PLAN-V2-93) creates typed generators for
+domain types such as findings, profiles, store records and queue tasks. Without a shared home every test class, and
+every module, would build its own. `pm-runtime` already publishes a test JAR (`TestBases`, `FakeBus`,
+`FakeSecretService`) that the assembly's tests consume, so the build already has a working pattern for a test-scope
+artifact deployed with the `SNAPSHOT`.
+
+The dependency rules of the repository decide who may consume which artifact: `pm-core`'s types are visible to
+`pm-workflow`, `pm-runtime` and every provider; `pm-provider-http`'s types to `pm-provider-github`, `-gitlab` and
+`-sonar`; `pm-workflow` and `pm-runtime` may not depend on each other, so only the assembly sees both.
+
+== Decision
+
+Each module that provides generators useful to another module publishes its test scope as a `tests`-classified test
+JAR, built by `verify` and deployed like every other artifact of the repository. The artifact holds the package
+`de.planmarshall.<module>.testing.generators` with one `TypedGenerator<T>` per domain type, named `<Type>Generator`,
+and one factory class per artifact (`CoreGenerators`, `WorkflowGenerators`, `RuntimeGenerators`, `HttpGenerators`) that
+registers the generators in one place. The framework's `@GeneratorsSource` selects only the built-in `GeneratorType`
+enum, so the factory is consumed through `@TypeGeneratorFactorySource(factoryClass = …, factoryMethod = …)`; the
+factory is still the one registration point of the artifact.
+
+The consumption matrix:
+
+* `pm-core:tests` — `pm-workflow`, `pm-runtime` and every provider module.
+* `pm-provider-http:tests` — `pm-provider-github`, `pm-provider-gitlab` and `pm-provider-sonar`.
+* `pm-workflow:tests` and `pm-runtime:tests` — the assembly `plan-marshall-mcp` only.
+
+A consumer declares the artifact as a test-scope dependency of type `test-jar`; its version comes from the root POM's
+`dependencyManagement`, never from a literal. The enforcer rules of the root POM keep their meaning for a test-scope
+dependency: `pm-core:tests` is admitted for the modules that already depend on `pm-core`, and the tests of
+`pm-workflow` and `pm-runtime` stay refused for each other, test scope included.
+
+The rule for later work: **a test that needs a generator for a type of another module takes it from that module's
+artifact; a new generator for a type of this module goes into this module's artifact, not into a test class.**
+
+== Alternatives Considered
+
+* **A single repository-wide generator module.** It would give every module one artifact, but it would have to depend
+  on every module it generates for, turning the dependency direction and publishing the internal types of all modules
+  in one place. Rejected.
+* **Generators in the production source of each module.** Test data would then ship in the production JAR and a
+  consumer's test scope would see the generators only through the compile classpath. Rejected.
+* **Generators copied into each consuming test tree.** This is the duplication the plan exists to remove, and it
+  would let two modules' generators for the same type drift apart. Rejected.
+
+== Consequences
+
+* A module that adds a generator publishes it with its own artifact; the artifact must be built by `verify` and
+  deployed with the `SNAPSHOT`, so a consumer needs no local build of the producer.
+* The three new artifacts package only their generator package: the `test-jar` goal's `includes` narrows the artifact
+  to it, so a module's own test classes, fixtures and fakes are not published. `pm-runtime:tests` keeps its whole test
+  scope, because the assembly already consumes `TestBases` and the fakes there; the generator package joins it, and
+  PLAN-V2-106 replaces the fakes with EasyMock doubles.
+* In this plan `pm-workflow` and `pm-runtime` declare `pm-core:tests` and consume it, and `pm-provider-github` and
+  `pm-provider-gitlab` declare `pm-provider-http:tests` and consume it for the endpoint of their mock server.
+  `pm-provider-sonar` may consume the shared-HTTP artifact but builds no shared-HTTP type by hand in its own tests, so
+  it declares no dependency rather than an unused one.
+* `BuildGuardsIT` proves with fixture projects that a test-scope dependency on `pm-core:tests` is admitted for
+  `pm-workflow`, `pm-runtime` and a provider, and that a dependency of `pm-runtime` on the tests of `pm-workflow` (or
+  the reverse) is still refused.
+* A later plan that needs a generator for a type of its own module adds it to that module's artifact; it does not
+  introduce a second generator module.
+
+== Source
+
+The decision is recorded in the operator's decision of 2026-10-30 (epic `pm-mcp-core-m2-m4-v2`, decision "generator
+artifacts") and implemented by the pull request of PLAN-V2-107. The dependency rules are those of `CLAUDE.md` §
+Dependency Rules and the Module Structure Specification; the generator framework is `cui-test-generator` (R20).

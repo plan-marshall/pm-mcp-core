@@ -74,6 +74,32 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+            <!-- The test scope of this module, published as the `tests` classifier so the provider modules that
+                 depend on the shared HTTP base can reuse its typed generators; the jar plugin and its archive
+                 configuration are managed by the parent POM. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                        <configuration>
+                            <!-- The artifact holds the generator package only (PLAN-V2-107): the tests of this
+                                 module are not published, and a fixture joins this package when a generator needs
+                                 it. -->
+                            <includes>
+                                <include>de/planmarshall/provider/http/testing/generators/**</include>
+                            </includes>
+                            <excludes>
+                                <exclude>**/*Test.class</exclude>
+                                <exclude>**/*Test$*.class</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 </project>

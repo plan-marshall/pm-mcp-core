@@ -1,0 +1,48 @@
+= ADR 054: The Fact Value Is the Existing `JsonValue` Tree Validated by `SchemaSubset`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-31
+
+== Context
+
+A fact's value is kind-specific: the schema leaves `value` open and describes it as "validated against the value schema
+registered for the kind". The two fact-kind schemas of the specification (`module_discovery`, `cost_calibration`) are
+JSON objects whose value keywords are the subset `SchemaSubset` evaluates (`format` is carried by the specification but
+is not evaluated). `core.role.corpus` already holds an immutable JSON tree, `JsonValue`, which `SchemaSubset` walks and
+which the codec can read and write without a second parser.
+
+== Decision
+
+`DerivedFact.value` is a `de.planmarshall.core.role.corpus.JsonValue` tree or `null` (only for a failed entry), and
+`DerivedFactKinds.validate(kind, value)` runs `SchemaSubset.validate` over the value schema registered for the kind.
+The codec reads the value with `JsonValue.read(JsonParser)` and writes it with a private generator over the tree that
+keeps the member order; an integer is written as its plain digits, and a fraction in the canonical form the writer
+produces, so a spelling the parser normalizes (an exponent, a negative zero) is written in that form once.
+
+== Alternatives Considered
+
+* A second JSON tree in `core.store`: a duplicate of `JsonValue` and of its parser.
+* Typed value records per kind: every consumer plan would need this plan to add its record, and the registry could not
+  bind an arbitrary schema.
+
+== Consequences
+
+* `core.store` depends on `core.role.corpus`; no architecture test forbids it.
+* A value that does not match its kind's schema is a violation list, not a refusal at construction: the store decides
+  what to do with it, and the codec keeps the value as read.
+* A number that the parser spells differently from the writer's canonical form (an exponent, a negative zero) is
+  written in that form once, and `DerivedFactsCodecTest` states it; a document written by the writer is written again
+  byte for byte.
+
+== Source
+
+* Pull request of this work package, work package link:../../../../doc/plans/derived-facts-store.adoc[`derived-facts-store`]
+* link:../../../../doc/specification/store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas § Derived Facts Store]
+* link:../../../../doc/specification/store-schemas/09-derived-facts-and-build-timings.adoc#derived-fact-kinds-discovery-calibration[Store Schemas § Derived fact kinds: `module_discovery`, `cost_calibration`]
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-6[PM-EXT-6]
