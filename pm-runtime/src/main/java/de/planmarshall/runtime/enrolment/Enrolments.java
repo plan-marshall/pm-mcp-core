@@ -213,6 +213,10 @@ public final class Enrolments {
             }
             removed = removeOwingAudit(transaction, projectId);
         }
+        return logRemoval(removed, projectId);
+    }
+
+    private static boolean logRemoval(boolean removed, String projectId) {
         if (removed) {
             LOGGER.info(INFO.ENROLMENT_REMOVED, projectId);
         }

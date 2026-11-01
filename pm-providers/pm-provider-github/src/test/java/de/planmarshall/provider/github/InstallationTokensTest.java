@@ -141,7 +141,8 @@ class InstallationTokensTest {
         var request = requests.getFirst();
         String authorization = header(request, "Authorization");
         assertTrue(authorization.startsWith("Bearer "));
-        Object claims = Json.parse(TestKeys.verifiedClaims(authorization.substring(7), TestKeys.PAIR.getPublic()));
+        Object claims = Json.parse(TestKeys.verifiedClaims(authorization.substring(7),
+                TestKeys.PAIR.getPublic())).orElseThrow();
         assertEquals(Optional.of("Iv23liClient"), Json.string(claims, "iss"));
         assertEquals("{\"repositories\":[\"plan-marshall-mcp\"],\"permissions\":{\"contents\":\"read\","
                 + "\"pull_requests\":\"write\"}}", body(request));

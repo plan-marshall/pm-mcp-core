@@ -45,7 +45,7 @@ public final class DbusConnection implements AutoCloseable {
     private final SelectionKey key;
     private final Duration timeout;
     private long serial;
-    private String uniqueName;
+    private String uniqueName = "";
 
     private DbusConnection(SocketChannel channel, Duration timeout) throws IOException {
         this.channel = channel;

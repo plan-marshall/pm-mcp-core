@@ -61,13 +61,14 @@ class GlabCommandsTest {
         var create = glab.createMergeRequest("pm/plan-1", "main", "feat: x", "Body\n\nwith lines");
 
         assertTrue(invocation.argv().stream().noneMatch(a -> a.contains("rm -rf") || a.contains("heading")));
-        assertEquals(Optional.of(reply), Json.string(Json.parse(invocation.stdin().orElseThrow()), "body"));
+        assertEquals(Optional.of(reply), Json.string(Json.parse(invocation.stdin().orElseThrow()).orElseThrow(), "body"));
         assertEquals("projects/group%2Fproject/merge_requests/12/discussions/6a9c1750b37d513a43987b574953fceb50b03ce7/notes",
                 invocation.argv().getLast());
         assertTrue(create.argv().stream().noneMatch(a -> a.contains("with lines")));
         assertEquals(Optional.of("Body\n\nwith lines"),
-                Json.string(Json.parse(create.stdin().orElseThrow()), "description"));
-        assertEquals(Optional.of("pm/plan-1"), Json.string(Json.parse(create.stdin().orElseThrow()), "source_branch"));
+                Json.string(Json.parse(create.stdin().orElseThrow()).orElseThrow(), "description"));
+        assertEquals(Optional.of("pm/plan-1"),
+                Json.string(Json.parse(create.stdin().orElseThrow()).orElseThrow(), "source_branch"));
     }
 
     @Test

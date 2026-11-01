@@ -99,7 +99,7 @@ class GitLabClientTest {
     private Object body(int index) {
         var body = requests.get(index).getBody();
         assertNotNull(body, "the request carries a body");
-        return Json.parse(body.utf8());
+        return Json.parse(body.utf8()).orElseThrow();
     }
 
     @Nested
