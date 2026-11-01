@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The issue or pull-request URL of a source, resolved to its forge, repository and number.
@@ -77,24 +78,30 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
     /**
      * The outcome of resolving one URL: the resolved value, or the reason it was not resolved.
      *
-     * @param outcome the outcome
-     * @param url     the resolved URL, present exactly for {@link Outcome#RESOLVED}
-     * @param detail  the host that is unknown, the reason a URL is invalid, or empty
+     * @param outcome  the outcome
+     * @param resolved the resolved URL; {@code null} exactly when the outcome is not {@link Outcome#RESOLVED}
+     * @param detail   the host that is unknown, the reason a URL is invalid, or empty
      */
-    public record Resolution(Outcome outcome, Optional<ForgeUrl> url, String detail) {
+    public record Resolution(Outcome outcome, @Nullable ForgeUrl resolved, String detail) {
 
         /**
-         * @param outcome the outcome
-         * @param url     the resolved URL
-         * @param detail  the detail
+         * @param outcome  the outcome
+         * @param resolved the resolved URL
+         * @param detail   the detail
          */
         public Resolution {
             Objects.requireNonNull(outcome, "outcome");
-            Objects.requireNonNull(url, "url");
             detail = detail == null ? "" : detail;
-            if ((outcome == Outcome.RESOLVED) != url.isPresent()) {
+            if ((outcome == Outcome.RESOLVED) != (resolved != null)) {
                 throw new IllegalArgumentException("a resolution carries a URL exactly when it is resolved");
             }
+        }
+
+        /**
+         * @return the resolved URL; empty unless the outcome is {@link Outcome#RESOLVED}
+         */
+        public Optional<ForgeUrl> url() {
+            return Optional.ofNullable(resolved);
         }
 
         /**
@@ -102,7 +109,7 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
          * @return a resolved outcome
          */
         public static Resolution resolved(ForgeUrl url) {
-            return new Resolution(Outcome.RESOLVED, Optional.of(url), "");
+            return new Resolution(Outcome.RESOLVED, url, "");
         }
 
         /**
@@ -110,7 +117,7 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
          * @return an unknown-forge outcome
          */
         public static Resolution unknownForge(String host) {
-            return new Resolution(Outcome.UNKNOWN_FORGE, Optional.empty(), "unknown_forge: " + host);
+            return new Resolution(Outcome.UNKNOWN_FORGE, null, "unknown_forge: " + host);
         }
 
         /**
@@ -118,7 +125,7 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
          * @return an invalid outcome
          */
         public static Resolution invalid(String reason) {
-            return new Resolution(Outcome.INVALID, Optional.empty(), reason);
+            return new Resolution(Outcome.INVALID, null, reason);
         }
     }
 

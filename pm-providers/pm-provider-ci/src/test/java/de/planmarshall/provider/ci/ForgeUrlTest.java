@@ -16,7 +16,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.Map;
-import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -154,7 +153,7 @@ class ForgeUrlTest {
     void refusesMalformedValues() {
         assertAll("the value invariants",
                                 () -> assertThrows(IllegalArgumentException.class,
-                                                        () -> new ForgeUrl.Resolution(ForgeUrl.Outcome.RESOLVED, Optional.empty(), ""),
+                                                        () -> new ForgeUrl.Resolution(ForgeUrl.Outcome.RESOLVED, null, ""),
                                                         "a resolved outcome carries a URL"),
                                 () -> assertThrows(IllegalArgumentException.class,
                                                         () -> ForgeUrl.builder().forge("github")
