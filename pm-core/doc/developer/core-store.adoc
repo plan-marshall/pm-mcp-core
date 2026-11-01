@@ -739,7 +739,7 @@ again byte for byte. The member lists are package-private constants in the order
 
 A file that does not decode is not an exception: `decode` returns a sealed `Reading`, either `Readable(Lesson)` or
 `Unreadable(reason, detail)` with the reason `no_opening_fence`, `no_closing_fence`, `not_an_object`, `strict_reader` or
-`rule_violation`. That is what makes a file without parseable front matter list as `present_unreadable` and never as
+`rule_violation`. Planned resolver behavior: a file without parseable front matter is listed as `present_unreadable`, never as
 `absent`. A write with missing or invalid front matter is rejected: `Lesson` cannot be built without a front matter, and
 every rule of the record is refused by its constructor before the codec sees it.
 
@@ -758,13 +758,13 @@ every rule of the record is refused by its constructor before the codec sees it.
 |===
 |Symptom |Cause |What to do
 |`Unreadable` with `no_opening_fence` |the file does not start with the line `---` |the file is no lesson file; the
-resolver lists it `present_unreadable` with its path
+planned resolver lists it `present_unreadable` with its path
 |`Unreadable` with `no_closing_fence` |no second line `---` closes the front matter |the file is no lesson file; the
-resolver lists it `present_unreadable` with its path
+planned resolver lists it `present_unreadable` with its path
 |`Unreadable` with `not_an_object` |the front matter is a sequence or a scalar, not a mapping |read the detail; the
 front matter is an object, never a list
 |`Unreadable` with `strict_reader` |an anchor, an alias, a tag, a second document, a duplicate or unknown member, a
-missing or mistyped member, another `format_version` |read the detail; fix the front matter, never the reader
+missing or mistyped member, another `format_version`, or a file that is not UTF-8 |read the detail; fix the front matter, never the reader
 |`Unreadable` with `rule_violation` |a rule of the record or of its schema, for example a `wire_check` without its
 check or a value outside a pattern or a bound |read the detail, which names the rule
 |A block-style file is normalized on the next write |the writer emits the canonical JSON object |intended: the reader
@@ -774,7 +774,7 @@ accepts the hand-edited file, the writer one shape
 Tested by `LessonIdTest` (the grammar, the length bound, the file name, the hour prefix, the watch fixtures),
 `LessonFrontMatterTest` (every rule with a refusing case and a passing control, the bounds of the members),
 `LessonCodecTest` (the canonical bytes, the round trip both ways, a body with fence lines, a block-style file, a CRLF
-file, one refusing case per reason, an anchor, an alias and a tag) and `LessonFrontMatterSchemaParityTest` (the title,
+file, one refusing case per reason, a file that is not UTF-8, an anchor, an alias and a tag) and `LessonFrontMatterSchemaParityTest` (the title,
 the members and their order, the required sets, the enumerations, the `lesson_id` pattern at its three places, the
 format version, the bounds and the absence of a dependent-required pair).
 

@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -383,6 +384,21 @@ class LessonCodecTest {
         var reading = LessonCodec.decode(LessonCodec.encode(lesson));
 
         assertEquals(body, ((Readable) reading).lesson().body(), "The body keeps its first fence line");
+    }
+
+    @Test
+    @DisplayName("a file that is not UTF-8 is unreadable")
+    void invalidUtf8IsUnreadable() {
+        var canonical = CANONICAL.getBytes(UTF_8);
+        var file = Arrays.copyOf(canonical, canonical.length + 1);
+        file[canonical.length] = (byte) 0xFF;
+
+        var reading = LessonCodec.decode(file);
+
+        assertAll(
+                () -> assertInstanceOf(Unreadable.class, reading, "The file is unreadable"),
+                () -> assertEquals(UnreadableReason.STRICT_READER, ((Unreadable) reading).reason(),
+                        "The file is refused by the strict reader"));
     }
 
     @Test

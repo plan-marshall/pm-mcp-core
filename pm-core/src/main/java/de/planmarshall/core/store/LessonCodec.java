@@ -18,6 +18,9 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
 import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -290,7 +293,17 @@ public class LessonCodec {
      */
     public static Reading decode(byte[] file) {
         Objects.requireNonNull(file, "file");
-        var text = new String(file, UTF_8);
+        String text;
+        try {
+            text = UTF_8.newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(file))
+                    .toString();
+        } catch (CharacterCodingException e) {
+            return new Unreadable(UnreadableReason.STRICT_READER,
+                    "the file is not UTF-8: %s".formatted(e.getMessage()));
+        }
         var opening = lineEnd(text, 0);
         if (!isFence(text, 0, opening)) {
             return new Unreadable(UnreadableReason.NO_OPENING_FENCE, "the file does not start with the line '---'");
