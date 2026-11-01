@@ -212,10 +212,11 @@ public final class PrimitiveRegistry {
         checkReasonConditions(id, reasons);
     }
 
-    @SuppressWarnings({"java:S2583", "java:S2789"})
+    @SuppressWarnings({"java:S2583", "java:S2789", "java:S1905"})
     private static Optional<Class<? extends OutcomeReason>> declaredReasonType(String id, PrimitiveOutcome outcome) {
         // A primitive compiled against a raw PrimitiveOutcome can answer a null Optional or a payload that is no
-        // Class; both are refused as a malformed reason type instead of escaping as a ClassCastException.
+        // Class; both are refused as a malformed reason type instead of escaping as a ClassCastException. The cast to
+        // the wildcard Optional is deliberate: it erases the implicit cast to Class, so the payload is inspected first.
         var declared = (Optional<?>) outcome.reasonType();
         if (declared == null) {
             throw new PrimitiveRegistrationException(id, Reason.MALFORMED_REASON_TYPE,
