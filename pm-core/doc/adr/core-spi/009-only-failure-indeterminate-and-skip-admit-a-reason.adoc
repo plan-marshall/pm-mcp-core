@@ -1,0 +1,40 @@
+= ADR 009: Only Failure, Indeterminate and Skip Admit a Reason
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-31
+
+== Context
+
+An outcome class already tells the engine how to record an outcome. A reason explains "why not"; not every class has a
+"why not" to explain.
+
+== Decision
+
+Only an outcome of class `FAILURE`, `INDETERMINATE` or `SKIP` admits a reason. `SUCCESS` has nothing to explain, and
+`UNSETTLED` and `STEPPED_OUT` are engine control. The registry refuses a reason type on any other class
+(`REASON_ON_UNADMITTING_CLASS`), so the rule is checked where the declaration is made rather than left to the author.
+
+== Alternatives Considered
+
+1. **Let every class admit a reason**: *Rejected*: it would let a success carry a failure explanation and would put a
+   primitive-level cause on the engine's control outcomes.
+2. **Let the author decide per outcome**: *Rejected*: the class already says whether there is a "why not" to explain,
+   and a rule the registry can check is stronger than one it cannot.
+
+== Consequences
+
+* A reason on a `SUCCESS`, `UNSETTLED` or `STEPPED_OUT` outcome is refused at registration.
+* The registry establishes that the declared reason type is a closed enum before it checks the outcome's class, so
+  each refusal names the first malformed declaration in the order of its checks.
+
+== Source
+
+* Pull request of `PLAN-V2-01` (`primitive-failure-reasons`)
+* link:../../../../doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons]
+* PM-IMPL-5
