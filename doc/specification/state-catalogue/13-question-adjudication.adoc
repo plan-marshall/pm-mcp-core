@@ -23,7 +23,7 @@ The adjudication, its decision declarations, the blind input, the decision rule,
 |`auto`
 |Entering a question state (start state, the new question set bound).
 |`adjudicate.check`: for every question of the set its kind is declared `quorum`, the declaration passes the validation and is calibrated, every listed role is available and qualified, and a listed asking role's confidence reaches the score. A set whose kinds are declared `ask` ends `escalated` and records nothing.
-|`eligible` -> `adjudicate.vote`; `ineligible` (reason `kind_ask`, `quorum_invalid`, `calibration_failed`, `role_unavailable`, `role_unqualified`, or `below_score`) -> `adjudicate.escalated`.
+|`eligible` -> `adjudicate.vote`; `ineligible` (reason `kind_ask`, `quorum_invalid`, `calibration_failed`, `live_corrections`, `role_unavailable`, `role_unqualified`, or `below_score`) -> `adjudicate.escalated`.
 |link:../model-work/10-decision-quorum.adoc#adjudication[Model Work Specification, The Adjudication]
 
 |[[state-adjudicate.vote]]`adjudicate.vote`
@@ -54,7 +54,7 @@ The adjudication, its decision declarations, the blind input, the decision rule,
 |the caller's phase value
 |`terminal`
 |`adjudicate.check` (`ineligible`); `adjudicate.vote` (`lost`); `adjudicate.decide` (`not_agreed`).
-|Terminal `escalated` (class `success`): where a quorum voted, its transaction writes one `question.adjudicate` decision record per question with the reason and the votes taken, the set's `adjudicated` lines naming them; the decision then carries the support of each option.
+|Terminal `escalated` (class `success`): where a quorum voted, its transaction writes one `question.adjudicate` decision record per question with the reason and the votes taken, the set's `adjudicated` lines naming them; the decision then carries the support of each option. For every question of a kind with a shadow quorum that applies, the transaction queues the shadow vote tasks, which no state awaits (link:../model-work/10-decision-quorum.adoc#shadow-votes[Model Work Specification, Shadow Votes]).
 |Returns `escalated` to the question state, whose call of `decision` delivers the set to the operator as one decision (xref:16-decision.adoc#state-catalogue-decision[Decision]).
 |link:../model-work/06-envelopes-questions-deadlines.adoc#decision-structure[Model Work Specification, The Decision Structure]
 |===
