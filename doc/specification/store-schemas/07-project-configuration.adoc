@@ -161,6 +161,13 @@ The pinned compiled defaults (for example the review rate-window values) live in
           "enum": ["exact_sha", "after_last_push"],
           "default": "after_last_push",
           "description": "Strictness of the review currency test of the pre-merge barrier (phase-workflows.adoc, Predicate 2)."
+        },
+        "operator_paths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "uniqueItems": true,
+          "maxItems": 100,
+          "description": "Default []. Git pathspec globs of the paths whose changes the operator merges: a realized footprint that touches one leaves the merge to the operator whatever the asking axis (phase-workflows.adoc, Operator Paths). Server rule: every glob parses (invalid_glob)."
         }
       }
     }

@@ -285,6 +285,32 @@ A test that passes after a fix proves the bug is gone only if it failed before t
 4. *Never Clean without Evidence*: The check records `indeterminate`, never clean, when the change ledger is unreadable; an `indeterminate` check files one blocking finding (`source: fix_proof`, finding type `fix_proof_indeterminate`) under the same triage restriction.
 5. *Result*: `fix_proof: {state: clean | findings | indeterminate, owed, proven[], missing[], changed[], cause}` in the finalize facts and in the merge record; `clean` with `owed: 0` when the record has no such criterion.
 
+[#criterion-evidence]
+== Criterion Evidence Check (Self-Review)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-13[PM-WF-13: Finalize Step Ordering Bands, Verdict Currency & Pre-Merge Barrier]_
+
+_Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-128[PM-WATCH-PHASE-128]_
+
+Evidence can be true and still prove nothing about a criterion: a file that exists, a run that compiled, a test that never ran. Before the self-review's `met` stands for a criterion verified by `test`, the server checks the tests the review named against the run the server executed itself.
+
+1. *Named Tests*: a `met` result of a criterion verified by `test` names the test files that hold the criterion. A result that names none is recorded `not_verified` with the reason `no_test_named`.
+2. *Run and Passed at `HEAD`*: the server reads the parsed result of the plan's last green verification run of the reviewed `HEAD`, the run of its own build runner (xref:03-q-gate-and-execute.adoc[Q-Gate & Execute], Independent Command Re-Run), never a worker's report. Every named file must have at least one test in that result that ran and passed. A file whose tests all skipped themselves (`skipped_tests`, link:../job-runtime/03-parsers-and-gates.adoc[Job Runtime Specification, Gate Honesty Verification]), that the run did not execute, or that does not exist at `HEAD` makes the result `not_verified` with the reason `test_not_run`, naming the file.
+3. *Never Accepted Unchecked*: where no green run of the reviewed `HEAD` exists, or the parser of the module's build tool reports no test identities that map to files, the result is `not_verified` with the reason `evidence_unreadable`.
+4. *Result*: `criterion_evidence: {checked, accepted[], downgraded[]}` on the self-review's step record, each downgraded entry with its criterion, reason, and file. The accepted files are the ones `architecture-refresh` records as `verified_by` (xref:01-planning-phases-1-2.adoc#capability-specs[Capability Specs]). The check blocks nothing by itself: a downgraded criterion is a `not_verified` item, a non-blocking finding that keeps the round from being reported clean and is listed in `## Not Verified` (xref:04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Step Catalogue], row `8`).
+
+[#operator-paths]
+== Operator Paths (Pre-Merge)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-13[PM-WF-13: Finalize Step Ordering Bands, Verdict Currency & Pre-Merge Barrier]_
+
+_Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-129[PM-WATCH-PHASE-129]_
+
+What a change touches decides whether the operator reads and merges it, not who wrote it. A project names the paths whose changes the operator merges in its team configuration (`review.operator_paths`, link:../store-schemas/07-project-configuration.adoc#config-project-json[Store Schemas Specification, Team File `project.json`]); the plan's asking axis decides the merge only for a change that touches none of them.
+
+1. *Match*: the realized footprint at `HEAD` (every path changed from the merge base to `HEAD`, both sides of a rename) is matched against the globs (git pathspec glob semantics, case-sensitive), at the Pre-Merge Review Barrier (xref:06-finalize-re-entry-and-merge.adoc#merge-path[Merge Path], item 5) and in `finalize.land-main`. The declared footprint plays no part, because most plans change files beyond it. An absent or empty key matches nothing.
+2. *Merge Left to the Operator*: a match turns a passing barrier into `pass_hand_back` whatever the asking axis, and the plan enters the ready form of `finalize.hand-back` with the gap cause `operator_path`. A `landing.main` plan with a match is not pushed onto the base branch and enters `finalize.hand-back` in its local form with the same cause. `landing.files` writes no commit and is not matched. No waiver lifts a match: the operator merges.
+3. *What to Read*: the server-owned section `## Operator Paths` of the pull-request body lists each matched path with the glob it matched and its added and removed lines, so the operator reads those hunks and not the whole change; the landing record carries the same list. Without a match the section is omitted.
+4. *Never None without Evidence*: a realized footprint that is not `measured` counts as a match with the reason `footprint_unmeasured`, never as none.
+
 [#added-line-scan]
 == Added-Line Scan (Pre-Merge)
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1: Two-Boundary Security Model & Untrusted Content Containment]_
