@@ -279,27 +279,9 @@ Lessons live in the project's lesson store in the per-project machine store and 
     "provenance": { "type": "string", "enum": ["run_artifact", "tool_return", "operator_action"], "description": "What the lesson derives from: a run artifact (log, report, diff), a tool return, or an audited operator action (a waiver, an abort). Required on every lesson." },
     "derived_from_untrusted": { "type": "boolean", "description": "Server-set, never a submit parameter: true when the facts of the task that created or revised the lesson delivered text marked untrusted, or a merged or cited lesson is true; once true it stays true (Derived from Untrusted Text)." },
     "audience": { "type": "string", "enum": ["local", "upstream"], "description": "Server-derived by the audience predicate (Audience Classification); never a submit parameter." },
-    "audience_override": {
-      "type": ["object", "null"],
-      "additionalProperties": false,
-      "required": ["from", "to", "reason", "audit_id", "at"],
-      "properties": {
-        "from": { "type": "string", "enum": ["local", "upstream"] },
-        "to": { "type": "string", "enum": ["local", "upstream"] },
-        "reason": { "type": "string", "minLength": 1 },
-        "audit_id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
-        "at": { "type": "string", "format": "date-time" }
-      }
-    },
     "last_filing_failure": { "type": ["string", "null"], "enum": ["offline", "forbidden", "rate_limited", "refused", null], "description": "Set when an operator-confirmed upstream filing failed; the lesson stays upstream_pending with unchanged content." },
     "created_at": { "type": "string", "format": "date-time" },
     "tool_version": { "type": "string", "minLength": 1, "description": "Release version of the runtime that created the lesson." },
-    "tool_version_override": {
-      "type": ["object", "null"],
-      "additionalProperties": false,
-      "required": ["value", "audit_id"],
-      "properties": { "value": { "type": "string" }, "audit_id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" } }
-    },
     "promotions": {
       "type": "array",
       "items": {
@@ -331,8 +313,6 @@ Lessons live in the project's lesson store in the per-project machine store and 
         }
       }
     },
-    "golden_label": { "type": "string", "enum": ["correct", "incorrect", "partially_correct", "not_applicable"], "description": "Optional; written only by the operator labelling action; absent means unlabelled." },
-    "labelled_at": { "type": "string", "format": "date-time", "description": "Present iff golden_label is present." },
     "merged_from": {
       "type": "array",
       "description": "Lessons merged into this one by lessons.review (submit merge), in order; each merged lesson is retired with verdict merged and into naming this lesson, and the merge is a new revision of this lesson whose sources include the merged lessons (kind lesson).",
@@ -373,8 +353,7 @@ Lessons live in the project's lesson store in the per-project machine store and 
         "lesson_state": { "type": "string", "enum": ["found", "present_unreadable"] }
       }
     }
-  },
-  "dependentRequired": { "golden_label": ["labelled_at"], "labelled_at": ["golden_label"] }
+  }
 }
 ----
 
