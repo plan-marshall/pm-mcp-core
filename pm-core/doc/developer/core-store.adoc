@@ -1236,7 +1236,10 @@ The invariants of the write, per crash window (R14 (8)):
 |The file as it was. The derived outcome is lost and derived again by the next call; no half entry exists.
 
 |the lock, before its re-read
-|The file as it was; the transaction closes and releases the lock.
+|The file as it was; the process's lock is released with the process.
+
+|the re-read under the lock, before the write
+|The file as it was. No half transition exists.
 
 |the write, before it returns
 |The new document, complete: `AtomicStoreFile` writes a temporary file, syncs it and renames it over the store, so a

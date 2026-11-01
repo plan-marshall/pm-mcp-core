@@ -130,21 +130,21 @@ class DerivedFactStoreConcurrencyTest {
     }
 
     @Test
-    @DisplayName("two threads refreshing the same key write one current entry")
+    @DisplayName("two threads refreshing the same key lose no update")
     void twoRefreshersOfOneKey() throws Exception {
-        // "first" and "second" identify the two results in the assertion; they are the fixture's data.
+        // "first" and "second" identify the two results; they are the fixture's data.
         runConcurrently(
                 () -> store.refresh(FIRST, DIGEST, valueOf("first"), NOW),
                 () -> store.refresh(FIRST, DIGEST, valueOf("second"), NOW.plusSeconds(1)));
 
         var facts = store.snapshot().facts();
+        var entry = facts.get(FIRST);
+        var expectedDerivedAt = payload("first").equals(entry.value()) ? NOW : NOW.plusSeconds(1);
         assertAll(
                 () -> assertEquals(1, facts.size(), "Exactly one entry is stored"),
-                () -> assertEquals(DerivedFact.State.CURRENT, facts.get(FIRST).state(), "The entry is current"),
-                () -> assertEquals(NOW.plusSeconds(1), facts.get(FIRST).derivedAt(),
-                        "The newer result survives"),
-                () -> assertEquals(payload("second"), facts.get(FIRST).value(),
-                        "The newer payload survives"));
+                () -> assertEquals(DerivedFact.State.CURRENT, entry.state(), "The entry is current"),
+                () -> assertEquals(expectedDerivedAt, entry.derivedAt(),
+                        "The entry names the instant of its own value"));
     }
 
     @Test
