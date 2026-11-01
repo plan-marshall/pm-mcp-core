@@ -39,7 +39,7 @@ A generation holds at most one pending `pm_wait`. A newer `pm_wait` of the same 
 
 [#offer]
 === Offer
-_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-47[PM-WATCH-DISP-47], link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-12[PM-WATCH-CLIENT-12]_
+_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-47[PM-WATCH-DISP-47], link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-71[PM-WATCH-DISP-71], link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-12[PM-WATCH-CLIENT-12]_
 
 The server answers a pending `pm_wait` with the first queued task of the caller's role that the caller may take:
 

@@ -28,8 +28,9 @@
  * <p>
  * {@link de.planmarshall.workflow.engine.GuardEvaluator} evaluates guards with three values and raises the condition
  * {@code guard_indeterminate} for a guard that could not be evaluated, and decides the result guards of a returned
- * outcome. {@link de.planmarshall.workflow.engine.LoopBackBudget} keeps the loop-back and remediation budgets of a plan,
- * which are raised only and yield {@code exhausted} when spent (PM-WF-7).
+ * outcome. {@link de.planmarshall.workflow.engine.DerivedFactGuards} maps a reading of a derived fact onto the same
+ * three-valued result, failing closed. {@link de.planmarshall.workflow.engine.LoopBackBudget} keeps the loop-back and
+ * remediation budgets of a plan, which are raised only and yield {@code exhausted} when spent (PM-WF-7).
  * <p>
  * The engine counts no retry itself: a retrying primitive counts through
  * {@link de.planmarshall.core.store.RetryCounters}, and the engine drops the counts of every state of a sub-workflow

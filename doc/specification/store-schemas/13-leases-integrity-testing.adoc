@@ -110,7 +110,7 @@ A failure before the removal leaves an ended plan, which a repeated `delete-plan
 
 [#lock-free-snapshot-reads]
 === Lock-Free Snapshot Reads, Transaction Locks & Leases (`PM-IMPL-7`)
-_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-26[PM-WATCH-DISP-26], link:../../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-43[PM-WATCH-STORE-43]_
+_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-26[PM-WATCH-DISP-26]_
 
 [[_lock_free_snapshot_reads_transaction_locks_leases_pm_impl_7]]
 * *Lock-Free Snapshot Reads*: Because every store update uses atomic write-and-rename (`<file>.tmp.<uuid>` -> `<file>`), all read-only operations (`pm_state`, the `pm://` resources, and the reads of the local API) read the current inode snapshot directly without acquiring file locks. A snapshot reader never decides `store_tampered`; it reports `digest_unverified` (<<store-digest-verification>>).

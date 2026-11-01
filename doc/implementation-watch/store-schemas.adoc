@@ -758,18 +758,6 @@ silently because it is absent from the home write set.
 Fixture:: review-apparatus epic 028 D6 (foreign write declared only in `survey_scope`; fixtures carry `intent`).
 Source:: plan-marshall defects review-apparatus PLAN-PR-028 D6; truthful-signals PLAN-TRUTH-145 item B-001.
 
-[#PM-WATCH-STORE-43]
-=== PM-WATCH-STORE-43: The derived-facts store has its own lock in the total order
-
-Anchor:: link:../specification/store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[Store Schemas § Lock-Free Snapshot Reads, Transaction Locks & Leases],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]
-Hazard:: Derived facts refreshed by a plan transaction and by the setup reconcile at the same time overwrite each
-other, or a refresh taken under one scope lock deadlocks against a transaction holding the locks in another order.
-Guard:: Concurrency test: a plan transaction and `setup.reconcile-config` refresh the same derived fact at once; both
-writes serialize on `locks/derived-facts.lock`, which is taken after every scope lock and never before one; the
-lock-order checker rejects any acquisition outside the total order; no update is lost.
-Source:: design review.
-
 [#PM-WATCH-STORE-46]
 === PM-WATCH-STORE-46: A sweep never removes a row something still references, nor work history
 

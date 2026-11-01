@@ -277,14 +277,43 @@ The record of one grading of a role's configuration by the operator's grading in
     }
   },
   "$defs": {
-    "topicResult": {
+    "share": {
       "type": "object",
-      "required": ["agreement", "constant_baseline", "items"],
+      "required": ["items", "agreement"],
       "additionalProperties": false,
       "properties": {
-        "agreement": { "type": "number", "minimum": 0, "maximum": 100, "description": "Percent of the graded items of the topic (review status draft or confirmed, ungraded items excluded) answered right in this form." },
+        "items": { "type": "integer", "minimum": 0 },
+        "agreement": { "type": ["number", "null"], "minimum": 0, "maximum": 100, "description": "null when items is 0." }
+      }
+    },
+    "topicResult": {
+      "type": "object",
+      "required": ["agreement", "constant_baseline", "items", "interval", "thin", "confirmed", "costly", "costly_answers", "confusion", "derived"],
+      "additionalProperties": false,
+      "properties": {
+        "agreement": { "type": "number", "minimum": 0, "maximum": 100, "description": "Percent of the graded items of the topic (review status draft or confirmed, ungraded items and the items left out for this configuration excluded, model-work/01, Items Left Out of a Grading) answered right in this form." },
         "constant_baseline": { "type": "number", "minimum": 0, "maximum": 100, "description": "The agreement of the best constant answerer over the same items (model-work/01, Constant Baseline); the topic qualifies only when agreement exceeds it by the qualification margin." },
-        "items": { "type": "integer", "minimum": 1 }
+        "items": { "type": "integer", "minimum": 1 },
+        "interval": {
+          "type": "object",
+          "required": ["low", "high"],
+          "additionalProperties": false,
+          "description": "The Wilson 95 % interval of agreement over items, in percent (model-work/01, Qualification Records, How Far a Figure Reaches); shown, never a condition of validity.",
+          "properties": {
+            "low": { "type": "number", "minimum": 0, "maximum": 100 },
+            "high": { "type": "number", "minimum": 0, "maximum": 100 }
+          }
+        },
+        "thin": { "type": "boolean", "description": "true when items is below the compiled 20." },
+        "confirmed": { "$ref": "#/$defs/share", "description": "The agreement on the topic's items with review status confirmed alone." },
+        "costly": { "$ref": "#/$defs/share", "description": "The agreement on the costly subset (model-work/01, Costly Answers); the topic qualifies only when it reaches the agreement level where items is above 0." },
+        "costly_answers": { "type": "integer", "minimum": 0, "description": "The answers given that an item lists in target.costly_answers." },
+        "confusion": {
+          "type": "object",
+          "description": "exact_choice and label items only: per reference answer, the count of every answer given; an item without an answer counts under none. Empty for a topic of rubric items.",
+          "additionalProperties": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 1 } }
+        },
+        "derived": { "$ref": "#/$defs/share", "description": "The items tagged derived:<skill> for a skill of this configuration, graded and recorded apart, outside agreement and items (model-work/01, Items Left Out of a Grading)." }
       }
     },
     "formResult": {
