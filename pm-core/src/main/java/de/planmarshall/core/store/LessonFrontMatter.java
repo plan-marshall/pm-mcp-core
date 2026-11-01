@@ -620,7 +620,7 @@ List<Revision> revisions, List<MergedFrom> mergedFrom, @Nullable Claim claim, @N
         public MergedFrom {
             Objects.requireNonNull(lessonId, "lessonId");
             Objects.requireNonNull(at, "at");
-            requireText(by, "by");
+            Objects.requireNonNull(by, "by");
         }
     }
 

@@ -66,11 +66,12 @@ class LessonFrontMatterSchemaParityTest {
     @DisplayName("the members of the record are the members of the schema in schema order")
     void membersEqualSchema() {
         assertAll(
-                () -> assertFalse(MEMBERS().isEmpty(), "the schema declares members"),
-                () -> assertEquals("LessonFrontMatter", schema.get("title")),
-                () -> assertEquals(LessonCodec.MEMBERS, MEMBERS()),
+                () -> assertFalse(MEMBERS().isEmpty(), "The schema declares members at all"),
+                () -> assertEquals("LessonFrontMatter", schema.get("title"), "The schema title is the record's"),
+                () -> assertEquals(LessonCodec.MEMBERS, MEMBERS(), "The root members are the schema members"),
                 () -> assertEquals(Set.copyOf(LessonCodec.REQUIRED_MEMBERS),
-                        Set.copyOf(names(SpecificationDocument.array(schema.get("required"))))));
+                        Set.copyOf(names(SpecificationDocument.array(schema.get("required")))),
+                        "The required members are the schema's"));
     }
 
     @Test
@@ -85,20 +86,31 @@ class LessonFrontMatterSchemaParityTest {
         var retired = member(properties, "retired");
 
         assertAll(
-                () -> assertEquals(LessonCodec.SOURCE_MEMBERS, keys(source)),
-                () -> assertEquals(LessonCodec.SOURCE_REQUIRED_MEMBERS, required(source)),
-                () -> assertEquals(LessonCodec.REMEDY_MEMBERS, keys(remedy)),
-                () -> assertEquals(LessonCodec.REMEDY_REQUIRED_MEMBERS, required(remedy)),
-                () -> assertEquals(LessonCodec.PROMOTION_MEMBERS, keys(promotion)),
-                () -> assertEquals(LessonCodec.PROMOTION_REQUIRED_MEMBERS, required(promotion)),
-                () -> assertEquals(LessonCodec.REVISION_MEMBERS, keys(revision)),
-                () -> assertEquals(LessonCodec.REVISION_REQUIRED_MEMBERS, required(revision)),
-                () -> assertEquals(LessonCodec.MERGED_FROM_MEMBERS, keys(mergedFrom)),
-                () -> assertEquals(LessonCodec.MERGED_FROM_REQUIRED_MEMBERS, required(mergedFrom)),
-                () -> assertEquals(LessonCodec.CLAIM_MEMBERS, keys(claim)),
-                () -> assertEquals(LessonCodec.CLAIM_REQUIRED_MEMBERS, required(claim)),
-                () -> assertEquals(LessonCodec.RETIRED_MEMBERS, keys(retired)),
-                () -> assertEquals(LessonCodec.RETIRED_REQUIRED_MEMBERS, required(retired)));
+                () -> assertEquals(LessonCodec.SOURCE_MEMBERS, keys(source), "The source members are the schema's"),
+                () -> assertEquals(LessonCodec.SOURCE_REQUIRED_MEMBERS, required(source),
+                        "The required source members are the schema's"),
+                () -> assertEquals(LessonCodec.REMEDY_MEMBERS, keys(remedy), "The remedy members are the schema's"),
+                () -> assertEquals(LessonCodec.REMEDY_REQUIRED_MEMBERS, required(remedy),
+                        "The required remedy members are the schema's"),
+                () -> assertEquals(LessonCodec.PROMOTION_MEMBERS, keys(promotion),
+                        "The promotion members are the schema's"),
+                () -> assertEquals(LessonCodec.PROMOTION_REQUIRED_MEMBERS, required(promotion),
+                        "The required promotion members are the schema's"),
+                () -> assertEquals(LessonCodec.REVISION_MEMBERS, keys(revision),
+                        "The revision members are the schema's"),
+                () -> assertEquals(LessonCodec.REVISION_REQUIRED_MEMBERS, required(revision),
+                        "The required revision members are the schema's"),
+                () -> assertEquals(LessonCodec.MERGED_FROM_MEMBERS, keys(mergedFrom),
+                        "The merged-from members are the schema's"),
+                () -> assertEquals(LessonCodec.MERGED_FROM_REQUIRED_MEMBERS, required(mergedFrom),
+                        "The required merged-from members are the schema's"),
+                () -> assertEquals(LessonCodec.CLAIM_MEMBERS, keys(claim), "The claim members are the schema's"),
+                () -> assertEquals(LessonCodec.CLAIM_REQUIRED_MEMBERS, required(claim),
+                        "The required claim members are the schema's"),
+                () -> assertEquals(LessonCodec.RETIRED_MEMBERS, keys(retired),
+                        "The retirement members are the schema's"),
+                () -> assertEquals(LessonCodec.RETIRED_REQUIRED_MEMBERS, required(retired),
+                        "The required retirement members are the schema's"));
     }
 
     @Test
@@ -111,21 +123,30 @@ class LessonFrontMatterSchemaParityTest {
 
         assertAll(
                 () -> assertEquals(enumOf(properties, "category"),
-                        wireNames(Category.values(), Category::wireName)),
-                () -> assertEquals(enumOf(properties, "status"), wireNames(Status.values(), Status::wireName)),
+                        wireNames(Category.values(), Category::wireName), "The category values are the schema's"),
+                () -> assertEquals(enumOf(properties, "status"), wireNames(Status.values(), Status::wireName),
+                        "The status values are the schema's"),
                 () -> assertEquals(enumOf(properties, "provenance"),
-                        wireNames(Provenance.values(), Provenance::wireName)),
-                () -> assertEquals(enumOf(properties, "audience"), wireNames(Audience.values(), Audience::wireName)),
+                        wireNames(Provenance.values(), Provenance::wireName),
+                        "The provenance values are the schema's"),
+                () -> assertEquals(enumOf(properties, "audience"), wireNames(Audience.values(), Audience::wireName),
+                        "The audience values are the schema's"),
                 () -> assertEquals(enumOf(properties, "last_filing_failure"),
-                        wireNames(LastFilingFailure.values(), LastFilingFailure::wireName)),
-                () -> assertEquals(enumOf(source, "kind"), wireNames(Source.Kind.values(), Source.Kind::wireName)),
-                () -> assertEquals(enumOf(remedy, "kind"), wireNames(Remedy.Kind.values(), Remedy.Kind::wireName)),
+                        wireNames(LastFilingFailure.values(), LastFilingFailure::wireName),
+                        "The filing-failure values are the schema's"),
+                () -> assertEquals(enumOf(source, "kind"), wireNames(Source.Kind.values(), Source.Kind::wireName),
+                        "The source-kind values are the schema's"),
+                () -> assertEquals(enumOf(remedy, "kind"), wireNames(Remedy.Kind.values(), Remedy.Kind::wireName),
+                        "The remedy-kind values are the schema's"),
                 () -> assertEquals(enumOf(promotion, "kind"),
-                        wireNames(Promotion.Kind.values(), Promotion.Kind::wireName)),
+                        wireNames(Promotion.Kind.values(), Promotion.Kind::wireName),
+                        "The promotion-kind values are the schema's"),
                 () -> assertEquals(enumOf(retired, "verdict"),
-                        wireNames(Retired.Verdict.values(), Retired.Verdict::wireName)),
+                        wireNames(Retired.Verdict.values(), Retired.Verdict::wireName),
+                        "The verdict values are the schema's"),
                 () -> assertEquals(enumOf(retired, "lesson_state"),
-                        wireNames(Retired.LessonState.values(), Retired.LessonState::wireName)));
+                        wireNames(Retired.LessonState.values(), Retired.LessonState::wireName),
+                        "The lesson-state values are the schema's"));
     }
 
     @Test
@@ -135,11 +156,14 @@ class LessonFrontMatterSchemaParityTest {
         var retired = SpecificationDocument.object(member(properties, "retired").get("properties"));
 
         assertAll(
-                () -> assertEquals(LessonId.PATTERN, member(properties, "lesson_id").get("pattern")),
-                () -> assertEquals(LessonId.MAX_LENGTH, number(member(properties, "lesson_id").get("maxLength"))),
+                () -> assertEquals(LessonId.PATTERN, member(properties, "lesson_id").get("pattern"),
+                        "The root lesson id pattern is the schema's"),
+                () -> assertEquals(LessonId.MAX_LENGTH, number(member(properties, "lesson_id").get("maxLength")),
+                        "The lesson id length bound is the schema's"),
                 () -> assertEquals(LessonId.PATTERN, patternOf(mergedFrom, "lesson_id"),
-                        "the merged-from id pattern"),
-                () -> assertEquals(LessonId.PATTERN, patternOf(retired, "into"), "the retirement id pattern"));
+                        "The merged-from id pattern is the schema's"),
+                () -> assertEquals(LessonId.PATTERN, patternOf(retired, "into"),
+                        "The retirement id pattern is the schema's"));
     }
 
     @Test
@@ -150,40 +174,56 @@ class LessonFrontMatterSchemaParityTest {
         var retired = SpecificationDocument.object(member(properties, "retired").get("properties"));
 
         assertAll(
-                () -> assertEquals(LessonCodec.FORMAT_VERSION, number(member(properties, "format_version").get("const"))),
+                () -> assertEquals(LessonCodec.FORMAT_VERSION, number(member(properties, "format_version").get("const")),
+                        "The format version is the codec constant"),
                 () -> assertEquals(LessonFrontMatter.MIN_REMEDY_STATEMENT,
-                        number(SpecificationDocument.object(remedy.get("statement")).get("minLength"))),
+                        number(SpecificationDocument.object(remedy.get("statement")).get("minLength")),
+                        "The shortest remedy statement is the schema's"),
                 () -> assertEquals(LessonFrontMatter.MAX_REMEDY_STATEMENT,
-                        number(SpecificationDocument.object(remedy.get("statement")).get("maxLength"))),
+                        number(SpecificationDocument.object(remedy.get("statement")).get("maxLength")),
+                        "The longest remedy statement is the schema's"),
                 () -> assertEquals(LessonFrontMatter.MIN_REMEDY_CHECK,
-                        number(SpecificationDocument.object(remedy.get("check")).get("minLength"))),
+                        number(SpecificationDocument.object(remedy.get("check")).get("minLength")),
+                        "The shortest remedy check is the schema's"),
                 () -> assertEquals(LessonFrontMatter.MAX_REMEDY_CHECK,
-                        number(SpecificationDocument.object(remedy.get("check")).get("maxLength"))),
+                        number(SpecificationDocument.object(remedy.get("check")).get("maxLength")),
+                        "The longest remedy check is the schema's"),
                 () -> assertEquals(LessonFrontMatter.MIN_RECURRENCE_COUNT,
-                        number(member(properties, "recurrence_count").get("minimum"))),
+                        number(member(properties, "recurrence_count").get("minimum")),
+                        "The recurrence bound is the schema's"),
                 () -> assertEquals(LessonFrontMatter.MIN_REVISION,
-                        number(member(properties, "revision").get("minimum"))),
-                () -> assertEquals(LessonFrontMatter.MIN_SOURCES, number(member(properties, "sources").get("minItems"))),
+                        number(member(properties, "revision").get("minimum")),
+                        "The revision bound is the schema's"),
+                () -> assertEquals(LessonFrontMatter.MIN_SOURCES, number(member(properties, "sources").get("minItems")),
+                        "The source count bound is the schema's"),
                 () -> assertEquals(LessonFrontMatter.MIN_REVISIONS,
-                        number(member(properties, "revisions").get("minItems"))),
+                        number(member(properties, "revisions").get("minItems")),
+                        "The revision count bound is the schema's"),
                 () -> assertEquals(LessonFrontMatter.MIN_REVISION,
-                        number(SpecificationDocument.object(revision.get("n")).get("minimum"))),
+                        number(SpecificationDocument.object(revision.get("n")).get("minimum")),
+                        "The revision counter bound is the schema's"),
                 () -> assertEquals(LessonFrontMatter.MIN_SOURCES,
-                        number(SpecificationDocument.object(revision.get("sources")).get("minItems"))),
+                        number(SpecificationDocument.object(revision.get("sources")).get("minItems")),
+                        "The revision source bound is the schema's"),
                 () -> assertEquals(LessonFrontMatter.DIGEST_PATTERN, patternOf(
-                        SpecificationDocument.object(member(definitions, "source").get("properties")), "digest")),
-                () -> assertEquals(LessonFrontMatter.DIGEST_PATTERN, patternOf(revision, "body_sha256")),
+                        SpecificationDocument.object(member(definitions, "source").get("properties")), "digest"),
+                        "The source digest pattern is the schema's"),
+                () -> assertEquals(LessonFrontMatter.DIGEST_PATTERN, patternOf(revision, "body_sha256"),
+                        "The body digest pattern is the schema's"),
                 () -> assertEquals(LessonFrontMatter.PLAN_ID_PATTERN, patternOf(
-                        SpecificationDocument.object(member(properties, "claim").get("properties")), "plan_id")),
-                () -> assertEquals(1, number(SpecificationDocument.object(retired.get("by")).get("minLength"))),
-                () -> assertEquals(1, number(SpecificationDocument.object(retired.get("reason")).get("minLength"))));
+                        SpecificationDocument.object(member(properties, "claim").get("properties")), "plan_id"),
+                        "The plan id pattern is the schema's"),
+                () -> assertEquals(1, number(SpecificationDocument.object(retired.get("by")).get("minLength")),
+                        "The retirement author bound is the schema's"),
+                () -> assertEquals(1, number(SpecificationDocument.object(retired.get("reason")).get("minLength")),
+                        "The retirement reason bound is the schema's"));
     }
 
     @Test
     @DisplayName("the schema declares no dependent-required pair after the cut")
     void noDependentRequiredPair() {
         assertNull(schema.get("dependentRequired"),
-                "The golden_label/labelled_at pair left the schema with the amendment");
+                "The label pair left the schema with the amendment");
     }
 
     private static List<String> MEMBERS() {

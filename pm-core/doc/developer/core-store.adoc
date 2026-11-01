@@ -761,8 +761,8 @@ every rule of the record is refused by its constructor before the codec sees it.
 resolver lists it `present_unreadable` with its path
 |`Unreadable` with `strict_reader` |an anchor, an alias, a tag, a second document, a duplicate or unknown member, a
 missing or mistyped member, another `format_version` |read the detail; fix the front matter, never the reader
-|`Unreadable` with `rule_violation` |a rule of the record, for example a `wire_check` without its check |read the
-detail, which names the rule
+|`Unreadable` with `rule_violation` |a rule of the record or of its schema, for example a `wire_check` without its
+check or a value outside a pattern or a bound |read the detail, which names the rule
 |A block-style file is normalized on the next write |the writer emits the canonical JSON object |intended: the reader
 accepts the hand-edited file, the writer one shape
 |===
@@ -1549,7 +1549,9 @@ refuses. The factories are `absent(file, current)`, `unreadable(file, current, d
 Every versioned artifact stays at `format_version` 1: nothing is released yet, so a format change replaces version 1 in
 place (epic standing rule R13). No reader carries a migration, and no constant is raised for a change.
 
-`StrictJson` is the reading every store codec of `pm-core` shares, built on the streaming API of `jackson-core`.
+`StrictJson` is the reading every JSON store codec of `pm-core` shares, built on the streaming API of `jackson-core`;
+the lesson codec is the one store codec of the package that reads YAML instead, with its own strict reader (see
+<<_lesson_record_and_file_format>>).
 `StrictJson.read(file, document, current, reader)` checks the version first (a JSON object with exactly one integer
 `format_version`, equal to the current one), then lets the codec's reader read the object, and refuses anything that
 follows it. Whatever the codec throws through the helpers, or the parser throws, becomes a `StoreRefusal` naming the

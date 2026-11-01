@@ -250,7 +250,7 @@ public class LessonCodec {
         NOT_AN_OBJECT("not_an_object"),
         /** The strict reader refused the front matter. */
         STRICT_READER("strict_reader"),
-        /** A rule of the record refused the front matter. */
+        /** A rule of the record or of its schema refused the front matter. */
         RULE_VIOLATION("rule_violation");
 
         private final String wireName;

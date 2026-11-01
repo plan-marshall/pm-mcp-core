@@ -574,8 +574,9 @@ Source:: plan-marshall defect post-run-quality PLAN-PRQ-05 D4 (reach reading), P
 Anchor:: link:../specification/store-schemas/10-job-and-lesson-records.adoc#lesson-record[Store Schemas § Lesson Record]
 Hazard:: The lesson corpus grows with no signal on accuracy or relevance, and confidence or decay mechanics could be
 built before anyone knows their cost or need.
-Guard:: The lesson front matter carries the optional `golden_label` and `labelled_at`, written only by the operator
-labelling action; a test asserts that an absent label reads as unlabelled, never as a verdict. A
+Guard:: The lesson front matter carried the optional `golden_label` and `labelled_at` until the decision of 2026-10-29 cut
+them with `audience_override` and `tool_version_override`, because no operator verb writes them; no label exists, so an
+absent label is never a verdict. A
 precision measure against an enumerated golden set, with its population published, is an activity after the lifecycle gate has opened
 whose labelling cost is published first. Confidence and decay (corroboration up; age and contradiction down;
 pruning; tool-output-derived lessons as the lowest-trust class) are specified only after that measurement shows a

@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,8 +29,13 @@ import de.planmarshall.core.store.LessonCodec.Unreadable;
 import de.planmarshall.core.store.LessonCodec.UnreadableReason;
 import de.planmarshall.core.store.LessonFrontMatter.Audience;
 import de.planmarshall.core.store.LessonFrontMatter.Category;
+import de.planmarshall.core.store.LessonFrontMatter.Claim;
+import de.planmarshall.core.store.LessonFrontMatter.LastFilingFailure;
+import de.planmarshall.core.store.LessonFrontMatter.MergedFrom;
+import de.planmarshall.core.store.LessonFrontMatter.Promotion;
 import de.planmarshall.core.store.LessonFrontMatter.Provenance;
 import de.planmarshall.core.store.LessonFrontMatter.Remedy;
+import de.planmarshall.core.store.LessonFrontMatter.Retired;
 import de.planmarshall.core.store.LessonFrontMatter.Revision;
 import de.planmarshall.core.store.LessonFrontMatter.Source;
 import de.planmarshall.core.store.LessonFrontMatter.Status;
@@ -280,6 +286,80 @@ class LessonCodecTest {
         var file = "---\n" + BLOCK_FRONT_MATTER + "...\n" + BLOCK_FRONT_MATTER + "---\n" + BODY;
 
         unreadable(file, UnreadableReason.STRICT_READER);
+    }
+
+    @Test
+    @DisplayName("a full record with every optional member set round-trips")
+    void fullRecordRoundTrips() {
+        var source = new Source(Source.Kind.LESSON, "v2-10", DIGEST);
+        var lesson = new Lesson(LessonFrontMatter.builder()
+                .formatVersion(LessonFrontMatter.FORMAT_VERSION)
+                .lessonId(new LessonId("2026-09-08-22-004"))
+                .title("A full title")
+                .component("pm-core")
+                .category(Category.ARCH_CONSTRAINT)
+                .bundle("pm-dev-java")
+                .rule("no-direct-http")
+                .remedy(new Remedy(Remedy.Kind.WIRE_CHECK, STATEMENT, "Gate pm-core:no-http"))
+                .recurrenceCount(3)
+                .lastSeen(LocalDate.of(2026, 10, 31))
+                .status(Status.RETIRED)
+                .provenance(Provenance.OPERATOR_ACTION)
+                .derivedFromUntrusted(true)
+                .audience(Audience.UPSTREAM)
+                .lastFilingFailure(LastFilingFailure.RATE_LIMITED)
+                .createdAt(Instant.parse(INSTANT))
+                .toolVersion("0.1.0")
+                .promotions(List.of(new Promotion(Promotion.Kind.ISSUE,
+                        "plan-marshall/plan-marshall-documentation#1", Instant.parse(INSTANT))))
+                .revision(2)
+                .sources(List.of(source))
+                .revisions(List.of(new Revision(1, Instant.parse(INSTANT), List.of(source), DIGEST),
+                        new Revision(2, Instant.parse(INSTANT), List.of(source), DIGEST)))
+                .mergedFrom(List.of(new MergedFrom(new LessonId("2026-09-13-06-002"), Instant.parse(INSTANT),
+                        "operator")))
+                .claim(new Claim("v2-11-lesson-record-and-codec", Instant.parse(INSTANT)))
+                .retired(Retired.builder()
+                        .at(Instant.parse(INSTANT))
+                        .by("v2-11-lesson-record-and-codec")
+                        .verdict(Retired.Verdict.APPLIED)
+                        .into(null)
+                        .reason("the plan landed")
+                        .coveringClause(null)
+                        .coveringInput(null)
+                        .lessonState(Retired.LessonState.FOUND)
+                        .build())
+                .build(), BODY);
+
+        var bytes = LessonCodec.encode(lesson);
+        var reading = LessonCodec.decode(bytes);
+
+        assertAll(
+                () -> assertEquals(lesson, ((Readable) reading).lesson(), "The full record round-trips"),
+                () -> assertArrayEquals(bytes,
+                        LessonCodec.encode(((Readable) LessonCodec.decode(bytes)).lesson()),
+                        "The full canonical bytes round-trip"));
+    }
+
+    @Test
+    @DisplayName("an empty body stays empty")
+    void emptyBodyIsKeptEmpty() {
+        var lesson = new Lesson(canonical().frontMatter(), "");
+
+        var reading = LessonCodec.decode(LessonCodec.encode(lesson));
+
+        assertEquals("", ((Readable) reading).lesson().body(), "The empty body stays empty");
+    }
+
+    @Test
+    @DisplayName("a body whose first line is a fence is kept whole")
+    void bodyStartingWithAFenceIsKeptWhole() {
+        var body = "---\nA line after a fence.\n";
+        var lesson = new Lesson(canonical().frontMatter(), body);
+
+        var reading = LessonCodec.decode(LessonCodec.encode(lesson));
+
+        assertEquals(body, ((Readable) reading).lesson().body(), "The body keeps its first fence line");
     }
 
     @Test
