@@ -1097,13 +1097,12 @@ refused).
 == Derived Facts Store
 _Requirements: link:{docs}/Requirements.adoc#PM-EXT-6[PM-EXT-6], link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
 
-The work package `derived-facts-store` added the data side of the per-project cache `derived-facts.json`
+The work package `derived-facts-store` added the per-project cache `derived-facts.json`
 (`<PM_MCP_BASE>/projects/<project_id>/derived-facts.json`,
 link:{spec}/store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas § Derived Facts Store]):
-the entry records, the strict codec and the registry through which a consumer binds a fact kind to its value schema.
-The store itself — the input-digest recompute rule, the validity period of a network derivation, the `stale` and
-`failed` operations, the gate-evaluation helper and the exclusion of the operator-only fact from every model-facing
-view — is the second plan, `derived-facts-store-operations`.
+the entry records, the strict codec, the registry through which a consumer binds a fact kind to its value schema, and
+the store with the rules that decide when an entry is derived again. The derivations of the concrete kinds are not
+here — each belongs to the package that consumes the kind.
 
 [horizontal]
 `DerivedFactKind`:: The closed enumeration of the sixteen kinds of the schema's `kind` enum. Each constant carries its
@@ -1138,6 +1137,20 @@ registration is refused — and `spec(kind)` answers the specification or `Optio
 registered, never a default. `validate(kind, value)` returns the violations of `SchemaSubset.validate` of the
 registered schema and refuses a kind with no registration. `isOperatorOnly(kind)` answers the kind's flag whether it
 is registered or not.
+`DerivedFactReading`:: What a read of one fact can say, a sealed interface of four variants: `Value(fact)` for a
+`current` entry inside its validity period, `Indeterminate(reason)` for a `stale` or `failed` entry (the reason is the
+stored failure reason with the kind), `Expired()` for a `current` network entry past its validity period, and
+`Absent()`. `couldNotEvaluate()` is empty only for `Value`, so a consumer that maps a reading onto a three-valued guard
+result fails closed.
+`DerivedFactDerivation`:: The function a consumer hands to a refresh, and the sealed outcome it returns: `Derived(value,
+derivation, sourceClass)` or `Failed(reason)`. A failed derivation is a returned value, never an exception; an exception
+escaping the function is a programming fault of the consumer and is not turned into a stored failure.
+`DerivedFactStore`:: The reader and writer of `derived-facts.json`. Its constructor refuses a store file whose key is
+not a `DERIVED_FACTS` lock, as `BuildTimingsStore` does. `snapshot()` reads without a lock and answers the empty
+document when the file is absent; `fact(key)` answers one entry; `store()` answers the file. `reading(key, now)` answers
+a `DerivedFactReading` at the instant passed in, and `refresh(key, inputDigest, derivation, now)` applies the decision
+table below and returns the reading after the attempt. `modelFacing()` and `operatorFacts()` are the two projections
+of the snapshot.
 
 === Registering a Kind
 
@@ -1161,6 +1174,170 @@ onboarding plans and `cost_calibration` to the recalibration, each registering i
 (link:../adr/core-store/053-the-fact-kinds-are-an-enumeration-bound-by-a-registry.adoc[ADR 053],
 link:../adr/core-store/054-the-fact-value-is-the-jsonvalue-tree.adoc[ADR 054]).
 
+=== Refreshing a Fact
+
+`DerivedFactStore.refresh(key, inputDigest, derivation, now)` applies the decision table of the specification in this
+order; the first matching row derives again, and the last row returns the stored entry without calling the derivation:
+
+[cols="3,2"]
+|===
+|Condition |Outcome
+
+|No entry exists for the key
+|Derive.
+
+|The entry's `input_digest` differs from the digest passed, for a `local` and a `network` kind alike
+|Derive.
+
+|The entry's `source.class` is `network` and `now` is not before `derived_at` plus `86400` seconds
+|Derive.
+
+|The entry's `state` is `stale` or `failed`
+|Derive. A failed derivation is retried by the next call that needs the fact; no back-off is invented.
+
+|otherwise
+|Return the stored entry; the derivation is not called.
+|===
+
+The validity period is the compiled constant `DerivedFactStore.NETWORK_VALIDITY`
+(`Duration.ofSeconds(86400)`), not a setting: the specification says *fixed*. A local fact never expires by time; its
+digest decides. The instant is always the caller's `now`; the store reads no wall clock.
+
+A derived value is validated before it is written: the value against the schema registered for its kind through
+`DerivedFactKinds.validate`, the qualifier against `DerivedFactKindSpec.qualifierAllowed`, and the source class against
+the classes the kind admits. A value that violates any of them, a kind that is not registered, a qualifier a kind does
+not admit and a source class a kind does not admit are a failed derivation with that reason, never a `current` entry.
+
+=== The Lock and Its Order
+
+The derivation runs outside the lock: a network derivation is a provider call, and holding the lock across it would
+make every writer of the file wait behind a provider. The lock is held for the re-read and the write of the one entry
+only. `refresh` opens one transaction on the store's key `LockKey.derivedFacts(base, projectId)`, re-reads the file
+under the lock, changes the one entry and writes the whole document through `AtomicStoreFile`.
+
+A refresh made inside a scope transaction therefore takes `locks/derived-facts.lock` after the scope lock the caller
+holds, which is the place of `LockLevel.DERIVED_FACTS` in the total order. An acquisition of a scope lock while the
+derived-facts lock is held is a violation the lock manager refuses.
+
+Two refreshers of the same fact do not overwrite a newer result with an older one: the write re-reads the entry and,
+when the stored entry carries the same digest with a later `derived_at`, keeps it and returns it
+(link:../adr/core-store/056-the-derivation-runs-outside-the-lock.adoc[ADR 056]).
+
+The invariants of the write, per crash window (R14 (8)):
+
+[cols="1,3"]
+|===
+|Crash after |What the store holds
+
+|the decision read, before the derivation
+|The file as it was. Nothing was written; the next call decides again.
+
+|the derivation, before the lock
+|The file as it was. The derived outcome is lost and derived again by the next call; no half entry exists.
+
+|the lock, before its re-read
+|The file as it was; the process's lock is released with the process.
+
+|the re-read under the lock, before the write
+|The file as it was. No half transition exists.
+
+|the write, before it returns
+|The new document, complete: `AtomicStoreFile` writes a temporary file, syncs it and renames it over the store, so a
+reader sees the old or the new document and nothing in between.
+
+|the write, before the reading returns
+|The new document; the returned reading is rebuilt from the entry that was written.
+|===
+
+=== Stale and Failed Entries
+
+A `Failed` outcome for a key whose entry carries a value rewrites the entry as `state: stale`; it keeps the value, the
+source, the `input_digest` and the `derived_at` of the last good derivation and sets `failure` to the reason and the
+instant of the attempt. The last good digest is kept on purpose: the next call with the attempted digest still sees a
+digest mismatch and retries without a back-off
+(link:../adr/core-store/057-a-stale-entry-keeps-its-last-good-digest.adoc[ADR 057]).
+
+A `Failed` outcome for a key with no entry, or with only a `failed` one, writes `state: failed`, no value, the digest
+that was attempted, the instant of the attempt and the failure. A later `Derived` outcome rewrites the entry as
+`current` with no failure. A failed refresh of one key changes no other entry.
+
+The failure reason is cut to the schema bound of 500 code points. The failure of a network derivation that the
+credential is not permitted to perform carries the missing permission in the consumer's own text; the store carries it
+unchanged. A failed entry names the placeholder derivation `unknown` and the first source class its kind admits,
+because the schema requires a source on every entry and no derivation produced a value.
+
+The stale and failed transitions hold per crash window (R14 (8)):
+
+[cols="1,3"]
+|===
+|Crash after |What the file holds
+
+|the decision read, before the derivation
+|The entry as it was. Nothing was written.
+
+|the derivation, before the lock
+|The entry as it was; the outcome is lost and derived again by the next call.
+
+|the re-read under the lock, before the write
+|The entry as it was. No half transition exists.
+
+|the write, before it returns
+|The new entry, and every other entry as it was: the document is replaced by atomic rename and the changed entry is
+written with the rest.
+
+|the write, before the reading returns
+|The new entry; the reading is rebuilt from the entry that was written.
+|===
+
+=== The Readings
+
+`reading(key, now)` and the reading a `refresh` returns are the four variants of `DerivedFactReading`:
+
+[cols="2,3"]
+|===
+|Reading |When
+
+|`Value(fact)`
+|The entry is `current` and, for a `network` kind, `now` is before `derived_at` plus `86400` seconds.
+
+|`Indeterminate(reason)`
+|The entry is `stale` or `failed`; the reason is the stored failure reason with the kind.
+
+|`Expired()`
+|The entry is `current`, its class is `network`, and its validity period has run out. A read never refreshes by itself;
+the next call that needs the fact refreshes it.
+
+|`Absent()`
+|The store holds no entry for the key.
+|===
+
+`couldNotEvaluate()` answers the reason for every variant but `Value`. That is the failing-closed contract: a missing,
+expired, stale or failed fact is never a pass, and the consumer maps it to `COULD_NOT_EVALUATE`, the
+`guard_indeterminate` condition (link:../adr/core-store/058-the-reading-fails-closed.adoc[ADR 058]). A gate depends on
+a fact through `DerivedFactStore.reading` and maps the reading with
+`DerivedFactGuards.evaluate` in `pm-workflow` (see
+link:../../../pm-workflow/doc/developer/workflow-engine.adoc[Developer Guide § `workflow.engine`]).
+
+=== The Operator-Only Projection
+
+`modelFacing()` is the only collection a model-facing representation, the `pm://project/config` resource or a tool
+result may be built from. It holds every entry whose kind is not `operatorOnly`, and `agent_identity` — qualified or
+not — is excluded whether a consumer registered it or not: the exclusion is a property of the kind enumeration, not of
+a registration (link:../adr/core-store/060-the-operator-only-exclusion-is-a-property-of-the-kind.adoc[ADR 060]).
+`operatorFacts()` is the whole set for the operator's own clients; `reading`, `fact`, `refresh` and `snapshot` are the
+server-side and operator-side reads.
+
+The assembly (`plan-marshall-mcp`) owes the other half of this duty: every representation and tool result it builds,
+and its `ModelFacingFieldAuditTest` registry, serves only `modelFacing()`; the operator's local API and the web app
+serve `operatorFacts()`.
+
+=== Refusals
+
+An unreadable store file — content that does not parse — and a file of another `format_version` are a `StoreRefusal`
+naming the file: the store is never silently rebuilt, and the operator deletes the cache file to force a re-derivation
+(link:../adr/core-store/059-an-unreadable-store-is-a-refusal.adoc[ADR 059]). A file that cannot be read at the
+filesystem level is the `UncheckedIOException` of the snapshot read.
+
 === Invariants
 
 * *One shape per state*: a `DerivedFact` of `current` carries a value and no failure, `stale` its last value and a
@@ -1169,6 +1346,14 @@ link:../adr/core-store/054-the-fact-value-is-the-jsonvalue-tree.adoc[ADR 054]).
 * *The schema is the contract*: the member lists of the codec, the enumerations, the patterns and the reason bound are
   pinned to the schema block by `DerivedFactsSchemaParityTest`; the block is test input and stays byte-stable (R10).
 * *A kind is registered once*: a second registration is refused, and a kind never registered has no default schema.
+* *A local fact is decided by its digest, a network fact by its digest and the fixed period*: the period is
+  `NETWORK_VALIDITY`, a constant, and every read takes the instant it decides at.
+* *One write, one entry, one lock*: a refresh reads and writes the whole document under `locks/derived-facts.lock`,
+  changes one entry and loses no update of another key; it never overwrites a newer result of the same digest.
+* *The reading fails closed*: only `Value` has no `couldNotEvaluate` reason; a missing, expired, stale or failed fact
+  is never a pass.
+* *No operator-only fact is model-facing*: `modelFacing()` excludes `agent_identity` through the kind enumeration,
+  registered or not.
 
 === Failure Modes
 
@@ -1199,14 +1384,42 @@ link:../adr/core-store/054-the-fact-value-is-the-jsonvalue-tree.adoc[ADR 054]).
 
 |A value validated against a kind that is not registered
 |`DerivedFactKinds.validate` throws `IllegalStateException`; no default schema exists.
+
+|The store file does not exist
+|`snapshot()` answers `DerivedFacts.empty()`; a first refresh writes the file.
+
+|The store file's content does not parse, or it is of another format version
+|`StoreRefusal` naming the file; nothing is rewritten, and the operator deletes the cache file to force re-derivation.
+
+|The store file cannot be read at the filesystem level
+|`UncheckedIOException` from the snapshot read; nothing is rewritten.
+
+|A refresh of a kind with no registered schema, a qualifier the kind does not admit, a source class the kind does not admit, or a value that violates its schema
+|The attempt becomes a `failed` or `stale` entry with that reason; it is never written as `current`.
+
+|The derivation throws instead of returning `Failed`
+|The exception propagates; the store writes nothing for the attempt.
+
+|The store file's key is not a `DERIVED_FACTS` lock
+|The constructor throws `IllegalArgumentException`.
+
+|A write whose transaction does not hold the store's key
+|`AtomicStoreFile` throws `InternalFaultException` with `STORE_LOCK_NOT_HELD`; nothing is written.
 |===
 
 Tested by `DerivedFactKindTest` (the wire names, the operator-only flag and the completeness derived from the enum at
 run time), `DerivedFactKeyTest` (the wire form, the qualifier grammar and the unknown kind part), `DerivedFactTest`
 (the three state shapes, the digest and reason bounds and the key/entry kind invariant), `DerivedFactsCodecTest` (the
 canonical bytes, the round trip and one refusal per rule) and `DerivedFactsSchemaParityTest` (the members, the
-enumerations, the patterns and the bounds against the schema block), and `DerivedFactKindsTest` (the registration, the
-duplicate refusal, a value accepted and refused by a fixture schema, the operator-only flag and the empty registry).
+enumerations, the patterns and the bounds against the schema block), `DerivedFactKindsTest` (the registration, the
+duplicate refusal, a value accepted and refused by a fixture schema, the operator-only flag and the empty registry),
+`DerivedFactStoreTest` (the empty store, each reading with the instant passed in, the unreadable file, another format
+version and the refused lock level), `DerivedFactRefreshTest` (one case per cell of the decision table, the two
+validity boundaries, a local fact that never expires and a value refused by its schema), `DerivedFactFailureTest` (one
+case per transition, the reason bound, the kept digest and value and the unchanged neighbour),
+`DerivedFactStoreConcurrencyTest` (two threads on two keys and on one key, and the place of the lock in the order),
+`DerivedFactModelFacingTest` (the projection, the operator view and the exclusion independent of registration) and, in
+`pm-runtime`, `DerivedFactStoreLockTest` (the real lock manager: a plan lock then a refresh, and two keys at once).
 
 [#_the_store_substrate]
 == The Store Substrate

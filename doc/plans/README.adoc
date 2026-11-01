@@ -51,6 +51,12 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:worker-activity.adoc[`worker-activity`]; link:question-continuation.adoc[`question-continuation`]
 |Milestone 4
 
+|link:qualification-evidence.adoc[`qualification-evidence`]
+|What a role's qualification figures rest on: the items left out of a grading (an unconfirmed decision of its own, a derived item), the costly answers with their subset and confusion matrix, the interval, the `thin` mark and the confirmed-only agreement
+|`open`
+|nothing
+|Milestone 4
+
 |link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]
 |The onboarding of the machine: its sub-workflows, the consent store, harnesses, catalogue, roles, credentials, providers, automatic run, plan axes (the landing variants) and overrides, the machine's settings
 |`open`
@@ -78,7 +84,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:project-onboarding-unit.adoc[`project-onboarding-unit`]
 |The onboarding of a project as one process, the project's values over the machine's, and the projects of the machine
 |`open`
-|link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]; link:derived-facts-store.adoc[`derived-facts-store`] (`setup.verify-credentials` and the project settings read and refresh the derived facts)
+|link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]
 |Milestone 7; the client work of `pm-mcp-clients`
 
 |link:start-source-intake.adoc[`start-source-intake`]
@@ -198,7 +204,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:domain-extensions-and-architecture.adoc[`domain-extensions-and-architecture`]
 |The four-axis domain descriptors, the provenance-preserving edge and path merges, module discovery with the build map and the `pm://architecture/*` resources, and the `documentation` domain verbs
 |`open`
-|link:derived-facts-store.adoc[`derived-facts-store`] (its module discovery persists the snapshot as the derived fact `module_discovery`)
+|nothing
 |Milestone 6
 
 |link:client-profile-rendering.adoc[`client-profile-rendering`]
@@ -248,12 +254,6 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |`open`
 |link:finalize-pipeline-and-merge.adoc[`finalize-pipeline-and-merge`]
 |Milestone 10
-
-|link:derived-facts-store.adoc[`derived-facts-store`]
-|The derived facts store of a project: the entry records and the strict codec, the kind registry (no concrete kind), the input-digest recompute rule, the `stale` and `failed` semantics, the gate-evaluation helper and the operator-only fact
-|`open`
-|nothing
-|Milestones 6 and 7
 |===
 
 The work packages of the other repositories: link:../../../pm-mcp-clients/doc/plans/README.adoc[`pm-mcp-clients`] and link:../../../plan-marshall-mcp/doc/plans/README.adoc[`plan-marshall-mcp`].

@@ -44,6 +44,10 @@ unwind; `fromStore` and `toStore` convert between the AST frame `ast.CallFrame` 
 `GuardEvaluator`:: The three-valued evaluation of guard expressions (`Held`, `NotHeld`, `CouldNotEvaluate` of
 `ast.GuardResult`), the raise of the condition `guard_indeterminate` for the first guarded link whose guard could not be
 evaluated (`raiseUndecided`), and the two-valued decision of a result guard over a frame's result record (`holds`).
+`DerivedFactGuards`:: The bridge from a reading of a derived fact (`core.store.DerivedFactReading`) to
+`ast.GuardResult`: a current fact hands its value to the guard, and a stale, failed, expired or absent fact is
+`CouldNotEvaluate` with the reading's reason, so a gate that depends on the fact fails closed rather than passing on a
+missing value.
 `LoopBackBudget`:: The accounting of loop-backs and remediation budgets of a plan: `outlineLoopBack`,
 `policyLoopBack` and `policyRetry` return `Charge.Granted` with the count raised, or `Charge.Exhausted` with the
 outcome `exhausted` and the status unchanged.
