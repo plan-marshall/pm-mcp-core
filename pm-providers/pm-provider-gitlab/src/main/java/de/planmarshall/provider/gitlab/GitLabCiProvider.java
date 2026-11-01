@@ -56,6 +56,7 @@ public final class GitLabCiProvider implements CiProvider {
     /**
      * @param origin the forge's web origin the provider is bound to
      * @param http   the HTTP base on the {@code /api/v4/} origin, authenticated with the credential
+     * @throws IllegalArgumentException if the origin is not an https origin without a path
      */
     public GitLabCiProvider(String origin, HttpClient http) {
         this.origin = RepositoryRef.normaliseOrigin(Objects.requireNonNull(origin, "origin"));

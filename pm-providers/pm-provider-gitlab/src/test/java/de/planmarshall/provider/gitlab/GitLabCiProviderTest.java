@@ -269,7 +269,7 @@ class GitLabCiProviderTest {
         var result = provider(server).issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 7));
 
         assertAll("the issue endpoint",
-                () -> assertTrue(result.isOk(), "the issue is read"),
+                () -> assertTrue(result.isOk(), "the issue is read and is no merge request"),
                 () -> assertEquals("/projects/cuioss%2Fpm/issues/7", server.takeRequest().getTarget(),
                         "the issue endpoint is read, not the merge-request one"));
     }
@@ -283,6 +283,23 @@ class GitLabCiProviderTest {
 
         assertEquals(Result.Outcome.REJECTED, result.outcome(), "another origin is refused before sending");
         assertEquals(0, server.getRequestCount(), "no request is sent for another origin");
+    }
+
+    @Test
+    @DisplayName("normalises the origin it is bound to")
+    @MockResponseConfig(path = "/personal_access_tokens/self", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"id\":11,\"name\":\"cli\",\"user_id\":7,\"scopes\":[\"api\"],"
+                    + "\"active\":true,\"expires_at\":\"2026-12-01\"}")
+    @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"id\":7,\"username\":\"alice\",\"state\":\"active\"}")
+    @MockResponseConfig(path = "/projects/cuioss%2Fpm", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{}")
+    void normalisesOrigin(MockWebServer server) {
+        var provider = new GitLabCiProvider("https://GitLab.com/", http(server));
+
+        var result = provider.whoami(REPOSITORY);
+
+        assertEquals(Result.Outcome.OK, result.outcome(), "a normalised origin matches the reference");
     }
 
     @Test

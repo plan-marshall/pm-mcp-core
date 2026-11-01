@@ -88,6 +88,7 @@ public final class GitHubCiProvider implements CiProvider {
      * @param http   the HTTP base on the API origin, authenticated with the token
      * @param tokens the token source, read to name the token kind
      * @return the provider
+     * @throws IllegalArgumentException if the origin is not an https origin without a path
      */
     public static GitHubCiProvider forToken(String origin, HttpClient http, TokenSource tokens) {
         return new GitHubCiProvider(origin, http, new GitHubClient(http, GitHubClient.GRAPHQL_PATH),
@@ -103,6 +104,7 @@ public final class GitHubCiProvider implements CiProvider {
      * @param appClient the GitHub client on the App-JWT-authenticated API
      * @param userHttp  the HTTP base authenticated with the user access token
      * @return the provider
+     * @throws IllegalArgumentException if the origin is not an https origin without a path
      */
     public static GitHubCiProvider forApp(String origin, HttpClient http, GitHubClient appClient, HttpClient userHttp) {
         return new GitHubCiProvider(origin, http, new GitHubClient(http, GitHubClient.GRAPHQL_PATH), null,

@@ -20,8 +20,8 @@ import org.jspecify.annotations.Nullable;
  * {@link Result.Outcome#REJECTED} with the provider's reason, kept apart from {@link Result.Outcome#AUTH_FAILED} and
  * {@link Result.Outcome#PERMISSION_DENIED} (a credential refusal), {@link Result.Outcome#NOT_FOUND},
  * {@link Result.Outcome#RATE_LIMITED} with its reset instant, and {@link Result.Outcome#FAILED} (no usable answer).
- * A provider is bound to one origin and one credential; an issue on another origin is refused as
- * {@link Result.Outcome#REJECTED} before anything is sent.
+ * A provider is bound to one origin and one credential; an issue, or a repository named to {@code whoami}, that is on
+ * another origin (or of another forge) is refused as {@link Result.Outcome#REJECTED} before anything is sent.
  *
  * @since 0.1
  */
@@ -38,7 +38,8 @@ public interface CiProvider {
      *
      * @param repository the repository whose permissions the identity reports; {@code null} when no repository is
      *                   named, in which case the permissions are empty
-     * @return the identity; no value for a credential or transport outcome
+     * @return the identity; no value for a credential or transport outcome, and {@code REJECTED} when the repository
+     *         names another origin or another forge
      */
     Result<Identity> whoami(@Nullable RepositoryRef repository);
 

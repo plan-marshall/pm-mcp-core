@@ -40,6 +40,7 @@ import org.jspecify.annotations.Nullable;
 public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind kind) {
 
     /** The forges a URL can name. */
+    private static final String GITHUB = "github";
     private static final String GITLAB = "gitlab";
     /** The path segment GitLab puts before the operation. */
     private static final String GITLAB_SEPARATOR = "-";
@@ -54,7 +55,7 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
 
     /** The host-to-forge table of the well-known public forges. */
     public static final Map<String, String> BUILT_IN_HOSTS = Map.of(
-                            "github.com", "github",
+                            "github.com", GITHUB,
                             "gitlab.com", GITLAB,
                             "codeberg.org", "forgejo");
 
@@ -236,8 +237,8 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
         }
         Kind kind = switch (segments.get(2)) {
             case "issues" -> Kind.ISSUE;
-            case "pull" -> Kind.PULL_REQUEST;
-            case "pulls" -> "github".equals(forge) ? null : Kind.PULL_REQUEST;
+            case "pull" -> GITHUB.equals(forge) ? Kind.PULL_REQUEST : null;
+            case "pulls" -> GITHUB.equals(forge) ? null : Kind.PULL_REQUEST;
             default -> null;
         };
         if (kind == null) {
