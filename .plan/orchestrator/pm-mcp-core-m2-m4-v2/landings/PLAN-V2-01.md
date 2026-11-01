@@ -140,7 +140,7 @@ rest on the lane's runs and CI.
 
 ## Follow-Ups
 
-- `plan-marshall/plan-marshall-documentation#138` (three hunks) is open; merging it is the operator's. The `trace.py`
+- `plan-marshall/plan-marshall-documentation#138` (three hunks) was merged on the operator's word on 2026-11-01 (`3b04f805`). The `trace.py`
   count the lane reports (`BROKEN LINKS 2`) is the sibling's own `model-work` links.
 - Plans that waited for this one are now unblocked on it: PLAN-V2-19 (`engine-carries-reasons`), PLAN-V2-20
   (`git-commit-primitives`), PLAN-V2-25 (`command-record-and-dispatch`), and through them PLAN-V2-24, 29, 75, 22, 64. Their
