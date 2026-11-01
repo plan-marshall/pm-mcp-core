@@ -121,6 +121,22 @@ digest gets no new offer and is recycled; matched control: an edit that leaves t
 the running generation. Only a worker launched by the runtime as a job of its role is ever offered a task.
 Source:: design review.
 
+[#PM-WATCH-DISP-71]
+=== PM-WATCH-DISP-71: A task the caller may not take hides no later task it may take
+
+Anchor:: link:../specification/model-work/02-task-protocol.adoc#offer[Model Work § Offer],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-2[PM-WORK-2]
+Hazard:: The offer looks only at the role's first queued task, or at a bounded head of the role's queue, and answers
+the wait with nothing when that task is barred for the caller (another `writer` task of its plan is leased, its plan
+is paused, it runs in another working directory than the warm caller's), although a later task of the role is free
+for it; the worker waits idle and the queue looks drained while work is ready.
+Guard:: Scenario test over one role's queue: the first queued task is a `writer` task of a plan whose other `writer`
+task is leased, the second belongs to a paused plan, the third runs in another working directory, and the fourth is
+free; a warm caller's wait is answered with the fourth, and the three stay `queued` in their order; matched control:
+once the barring lease is released, the next wait is answered with the first. A queue of more tasks than any batch the
+implementation reads at once places the free task behind the batch.
+Source:: Repository analysis `beads` of plan-marshall-documentation.
+
 [#PM-WATCH-DISP-62]
 === PM-WATCH-DISP-62: A warm worker learns which files changed since its last task
 
