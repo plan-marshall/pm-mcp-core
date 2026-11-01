@@ -1,0 +1,6 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/pm-dev-java-cui/parse-rewrite-log/test_parse_rewrite_log.py::TestParseFileErrors::test_empty_log_returns_zero_findings
+# An empty log: no goal execution, so the run is not observed. Zero findings, never a claimed clean.
+log
+domain active
+verdict NOT_OBSERVED
+finding-count 0

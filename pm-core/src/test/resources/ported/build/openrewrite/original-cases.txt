@@ -1,0 +1,66 @@
+# Roster of the pytest cases of the two suites the OpenRewrite log parser is ported from. Every case is mapped to the
+# fixtures derived from it, or excluded with the reason it has no fixture. The pin is the commit the fixtures were
+# derived from (see ../PROVENANCE.adoc).
+
+suite: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/pm-dev-java-cui/parse-rewrite-log/test_parse_rewrite_log.py
+
+case TestCorpusDerivation::test_corpus_has_finding_lines -> rewrite-corpus
+case TestCorpusDerivation::test_corpus_covers_both_classifications -> rewrite-corpus
+case TestCorpusDerivation::test_corpus_has_a_layout_prefixed_line -> rewrite-corpus
+case TestCorpusDerivation::test_corpus_has_a_message_with_internal_separator -> rewrite-corpus
+case TestFieldExtraction::test_total_findings_matches_corpus -> rewrite-corpus
+case TestFieldExtraction::test_non_finding_lines_are_ignored -> rewrite-corpus
+case TestFieldExtraction::test_each_finding_matches_independent_extraction -> rewrite-corpus
+case TestClassification::test_classification_counts_match_corpus -> rewrite-corpus
+case TestClassification::test_identifier_100_is_newly_detected -> rewrite-corpus
+case TestClassification::test_identifier_101_is_pre_existing -> rewrite-corpus
+case TestGreedyMessageCapture::test_message_with_internal_separator_is_not_truncated -> rewrite-corpus
+case TestCrlfRobustness::test_crlf_terminated_line_message_has_no_trailing_cr -> rewrite-corpus-crlf
+case TestCrlfRobustness::test_crlf_and_lf_yield_identical_findings -> rewrite-corpus-crlf
+case TestSubstringMatch::test_layout_prefixed_line_still_parses -> rewrite-corpus
+case TestFormatDriftRegression::test_every_corpus_finding_line_matches_the_parser -> rewrite-corpus
+case TestFormatDriftRegression::test_altered_prefix_no_longer_matches -> rewrite-drift-prefix
+case TestFormatDriftRegression::test_altered_identifier_out_of_range_no_longer_matches -> rewrite-drift-identifier
+case TestFormatDriftRegression::test_altered_template_verb_no_longer_matches -> deliberate-rewrite-parse-error
+case TestExitCodeContract::test_corpus_with_findings_exits_non_zero excluded: the parser has no CLI and no exit code; the verdict carries whether findings exist
+case TestExitCodeContract::test_finding_free_log_exits_zero excluded: same reason, the parser has no CLI and no exit code
+case TestExitCodeContract::test_missing_log_exits_non_zero excluded: same reason, the parser has no CLI and no exit code
+case TestParseFileErrors::test_missing_file_returns_error excluded: the file read is BuildLogText, whose refusal has its own test
+case TestParseFileErrors::test_empty_log_returns_zero_findings -> rewrite-empty
+case TestProvenanceDocument::test_provenance_records_required_fields excluded: a test of the provenance document; ../PROVENANCE.adoc records the same facts
+case TestProvenanceDocument::test_provenance_names_the_format_drift_expectation excluded: a test of the provenance document; ../PROVENANCE.adoc records the drift expectation
+
+suite: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_rewrite_log.py
+
+case TestReachedRewriteRun::test_observed_log_reached_rewrite_run -> rewrite-observed
+case TestReachedRewriteRun::test_not_observed_log_did_not_reach_rewrite_run -> rewrite-not-observed
+case TestReachedRewriteRun::test_short_prefix_banner_form_matches -> rewrite-short-banner
+case TestReachedRewriteRun::test_unrelated_log_does_not_match -> rewrite-unrelated-banner
+case TestReachedRewriteRun::test_dryrun_advisory_prose_does_not_match -> rewrite-dryrun-prose
+case TestReachedRewriteRun::test_dryrun_advisory_fixture_did_not_reach_rewrite_run -> rewrite-dryrun-advisory
+case TestObservedVerdict::test_observed_yields_structured_findings -> rewrite-observed
+case TestObservedVerdict::test_observed_findings_carry_all_fields -> rewrite-observed
+case TestObservedVerdict::test_observed_classifies_newly_detected_and_pre_existing -> rewrite-observed
+case TestNotObservedVerdict::test_not_observed_verdict -> rewrite-not-observed
+case TestNotObservedVerdict::test_not_observed_is_never_clean -> rewrite-not-observed
+case TestNotObservedVerdict::test_not_observed_short_circuits_before_resolution -> rewrite-not-observed
+case TestNotObservedVerdict::test_dryrun_advisory_yields_not_observed -> rewrite-dryrun-advisory
+case TestDomainInactiveVerdict::test_domain_inactive_verdict -> rewrite-domain-inactive
+case TestDomainInactiveVerdict::test_domain_inactive_is_never_clean -> rewrite-domain-inactive
+case TestDomainInactiveVerdict::test_domain_inactive_does_not_dispatch_the_parser -> deliberate-rewrite-domain-inactive-skips-parse
+case TestSingleFormatSourceOfTruth::test_observed_fixture_carries_every_corpus_finding_line excluded: a cross-check between the two suites' corpora; the observed fixture is the corpus, and the corpus fixture carries it
+case TestSingleFormatSourceOfTruth::test_observed_fixture_finding_count_matches_corpus excluded: same reason, the observed fixture is the corpus
+case TestResolveDomainVerb::test_resolves_notation_when_a_domain_declares_the_verb excluded: the marshal.json lookup is not ported; the domain state is an input of the parse
+case TestResolveDomainVerb::test_returns_none_when_no_domain_declares_the_verb excluded: same reason, the domain state is an input of the parse
+case TestResolveDomainVerb::test_returns_none_when_marshal_absent excluded: same reason, the domain state is an input of the parse
+case TestParseErrorVerdict::test_dispatch_error_payload_yields_parse_error -> deliberate-rewrite-parse-error
+case TestParseErrorVerdict::test_parse_error_is_never_clean -> deliberate-rewrite-parse-error
+case TestParseErrorVerdict::test_parse_error_names_the_dispatch_error -> deliberate-rewrite-parse-error
+case TestParseErrorVerdict::test_non_dict_dispatch_return_yields_parse_error excluded: the parser dispatches nothing, so a non-dict dispatch return cannot occur
+case TestParseErrorVerdict::test_raising_dispatch_yields_parse_error excluded: the parser dispatches nothing, so a raising dispatcher cannot occur
+case TestParseErrorVerdict::test_malformed_successful_data_yields_parse_error excluded: the parser returns a typed result, so a malformed payload cannot occur
+case TestParseErrorVerdict::test_non_list_findings_yields_parse_error excluded: the parser returns a typed result, so a non-list findings value cannot occur
+case TestDispatchParserMalformedNotation::test_colonless_notation_returns_error_without_subprocess excluded: the port has no notation dispatch and starts no process
+case TestDispatchParserMalformedNotation::test_empty_skill_segment_returns_error excluded: same reason, no notation dispatch
+case TestDispatchParserMalformedNotation::test_empty_bundle_segment_returns_error excluded: same reason, no notation dispatch
+case TestDispatchParserMalformedNotation::test_extra_colon_segment_returns_error excluded: same reason, no notation dispatch
