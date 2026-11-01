@@ -277,7 +277,7 @@ class LessonCodecTest {
                         .detail().contains("anchor"), "The anchor is refused"),
                 () -> unreadable("---\n" + alias + "---\n" + BODY, UnreadableReason.STRICT_READER),
                 () -> assertTrue(unreadable("---\n" + tag + "---\n" + BODY, UnreadableReason.STRICT_READER)
-                        .detail().contains("tag"), "The tag is refused"));
+                        .detail().contains("tag"), "The explicit tag is refused"));
     }
 
     @Test
@@ -339,6 +339,29 @@ class LessonCodecTest {
                 () -> assertArrayEquals(bytes,
                         LessonCodec.encode(((Readable) LessonCodec.decode(bytes)).lesson()),
                         "The full canonical bytes round-trip"));
+    }
+
+    @Test
+    @DisplayName("a superseded retirement with its target round-trips")
+    void supersededRetirementRoundTrips() {
+        var retired = Retired.builder()
+                .at(Instant.parse(INSTANT))
+                .by("v2-11-lesson-record-and-codec")
+                .verdict(Retired.Verdict.SUPERSEDED)
+                .into(new LessonId("2026-09-13-06-002"))
+                .reason("a later lesson supersedes it")
+                .coveringClause("the later lesson")
+                .coveringInput("the worked example")
+                .lessonState(Retired.LessonState.PRESENT_UNREADABLE)
+                .build();
+        var lesson = new Lesson(LessonFixtures.frontMatterBuilder()
+                .status(Status.RETIRED)
+                .retired(retired)
+                .build(), BODY);
+
+        var reading = LessonCodec.decode(LessonCodec.encode(lesson));
+
+        assertEquals(lesson, ((Readable) reading).lesson(), "The superseded retirement round-trips");
     }
 
     @Test

@@ -759,6 +759,10 @@ every rule of the record is refused by its constructor before the codec sees it.
 |Symptom |Cause |What to do
 |`Unreadable` with `no_opening_fence` |the file does not start with the line `---` |the file is no lesson file; the
 resolver lists it `present_unreadable` with its path
+|`Unreadable` with `no_closing_fence` |no second line `---` closes the front matter |the file is no lesson file; the
+resolver lists it `present_unreadable` with its path
+|`Unreadable` with `not_an_object` |the front matter is a sequence or a scalar, not a mapping |read the detail; the
+front matter is an object, never a list
 |`Unreadable` with `strict_reader` |an anchor, an alias, a tag, a second document, a duplicate or unknown member, a
 missing or mistyped member, another `format_version` |read the detail; fix the front matter, never the reader
 |`Unreadable` with `rule_violation` |a rule of the record or of its schema, for example a `wire_check` without its
@@ -1509,7 +1513,7 @@ Lock Order].
 |Type |What it does
 
 |`StoreRefusal`, `StrictJson`
-|The refusal of a store document or record, and the strict reading every store codec shares (<<_format_versions>>).
+|The refusal of a store document or record, and the strict reading every JSON store codec shares (<<_format_versions>>).
 
 |`JsonlStoreFile`
 |The one append path of a JSONL store, with the repair of a torn tail (<<_jsonl_stores>>).

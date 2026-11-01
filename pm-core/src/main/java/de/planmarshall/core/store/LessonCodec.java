@@ -64,11 +64,12 @@ import de.planmarshall.core.store.LessonFrontMatter.Status;
  * PM-IMPL-2).
  * <p>
  * A lesson file is the line {@code ---}, the front matter, the line {@code ---} and the Markdown body. The front
- * matter is YAML restricted to the JSON data model (YAML 1.2 core schema): anchors, aliases, tags and multiple
- * documents are refused, and every member is validated against the {@code LessonFrontMatter} schema on every read and
- * write. The writer emits the front matter as one JSON object in the order of the schema — a JSON object is a YAML
- * 1.2 flow mapping — and the reader accepts any YAML restricted to that data model, so a hand-edited block-style file
- * is readable as well (ADR core-store/061).
+ * matter is YAML restricted to the JSON data model (YAML 1.2 core schema; its {@code .inf} and {@code .nan} spellings
+ * are not part of that data model and stay strings): anchors, aliases, tags and multiple documents are refused, and
+ * every member is validated against the {@code LessonFrontMatter} schema on every read and write. The writer emits the
+ * front matter as one JSON object in the order of the schema — a JSON object is a YAML 1.2 flow mapping — and the
+ * reader accepts any YAML restricted to that data model, so a hand-edited block-style file is readable as well (ADR
+ * core-store/061).
  * <p>
  * A file that does not decode is not an exception for the reader: {@link #decode(byte[])} returns a {@link Reading},
  * either {@link Readable} or {@link Unreadable} with its reason and detail, because a file without parseable front
@@ -380,17 +381,18 @@ public class LessonCodec {
                 .title(text(object.get(FIELD_TITLE), FIELD_TITLE))
                 .component(text(object.get(FIELD_COMPONENT), FIELD_COMPONENT))
                 .category(closed(object.get(FIELD_CATEGORY), FIELD_CATEGORY, Category::fromWireName))
-                .bundle(nullableText(object.get(FIELD_BUNDLE), FIELD_BUNDLE))
-                .rule(nullableText(object.get(FIELD_RULE), FIELD_RULE))
+                .bundle(nullableText(object.get(FIELD_BUNDLE), FIELD_BUNDLE).orElse(null))
+                .rule(nullableText(object.get(FIELD_RULE), FIELD_RULE).orElse(null))
                 .remedy(remedy(mapping(object.get(FIELD_REMEDY), FIELD_REMEDY)))
-                .recurrenceCount(nullableInteger(object.get(FIELD_RECURRENCE_COUNT), FIELD_RECURRENCE_COUNT))
-                .lastSeen(nullableDate(object.get(FIELD_LAST_SEEN), FIELD_LAST_SEEN))
+                .recurrenceCount(nullableInteger(object.get(FIELD_RECURRENCE_COUNT), FIELD_RECURRENCE_COUNT)
+                        .orElse(null))
+                .lastSeen(nullableDate(object.get(FIELD_LAST_SEEN), FIELD_LAST_SEEN).orElse(null))
                 .status(closed(object.get(FIELD_STATUS), FIELD_STATUS, Status::fromWireName))
                 .provenance(closed(object.get(FIELD_PROVENANCE), FIELD_PROVENANCE, Provenance::fromWireName))
                 .derivedFromUntrusted(bool(object.get(FIELD_DERIVED_FROM_UNTRUSTED), FIELD_DERIVED_FROM_UNTRUSTED))
                 .audience(closed(object.get(FIELD_AUDIENCE), FIELD_AUDIENCE, Audience::fromWireName))
                 .lastFilingFailure(nullableClosed(object.get(FIELD_LAST_FILING_FAILURE), FIELD_LAST_FILING_FAILURE,
-                        LastFilingFailure::fromWireName))
+                        LastFilingFailure::fromWireName).orElse(null))
                 .createdAt(instant(object.get(FIELD_CREATED_AT), FIELD_CREATED_AT))
                 .toolVersion(text(object.get(FIELD_TOOL_VERSION), FIELD_TOOL_VERSION))
                 .promotions(sequence(object, FIELD_PROMOTIONS, LessonCodec::promotion))
@@ -398,8 +400,8 @@ public class LessonCodec {
                 .sources(requiredSequence(object, FIELD_SOURCES, LessonCodec::source))
                 .revisions(requiredSequence(object, FIELD_REVISIONS, LessonCodec::revision))
                 .mergedFrom(sequence(object, FIELD_MERGED_FROM, LessonCodec::mergedFrom))
-                .claim(nullable(object, FIELD_CLAIM, LessonCodec::claim))
-                .retired(nullable(object, FIELD_RETIRED, LessonCodec::retired))
+                .claim(nullable(object, FIELD_CLAIM, LessonCodec::claim).orElse(null))
+                .retired(nullable(object, FIELD_RETIRED, LessonCodec::retired).orElse(null))
                 .build();
     }
 
@@ -408,14 +410,14 @@ public class LessonCodec {
         requireMembers(object, name, SOURCE_MEMBERS, SOURCE_REQUIRED_MEMBERS);
         return new Source(closed(object.get(FIELD_KIND), name + "." + FIELD_KIND, Source.Kind::fromWireName),
                 text(object.get(FIELD_REF), name + "." + FIELD_REF),
-                optionalText(object, FIELD_DIGEST, name + "." + FIELD_DIGEST));
+                optionalText(object, FIELD_DIGEST, name + "." + FIELD_DIGEST).orElse(null));
     }
 
     private static Remedy remedy(Map<String, Object> object) {
         requireMembers(object, FIELD_REMEDY, REMEDY_MEMBERS, REMEDY_REQUIRED_MEMBERS);
         return new Remedy(closed(object.get(FIELD_KIND), FIELD_REMEDY + "." + FIELD_KIND, Remedy.Kind::fromWireName),
                 text(object.get(FIELD_STATEMENT), FIELD_REMEDY + "." + FIELD_STATEMENT),
-                nullableText(object.get(FIELD_CHECK), FIELD_REMEDY + "." + FIELD_CHECK));
+                nullableText(object.get(FIELD_CHECK), FIELD_REMEDY + "." + FIELD_CHECK).orElse(null));
     }
 
     private static Promotion promotion(Object value, String name) {
@@ -457,12 +459,12 @@ public class LessonCodec {
                 .by(text(object.get(FIELD_BY), FIELD_RETIRED + "." + FIELD_BY))
                 .verdict(closed(object.get(FIELD_VERDICT), FIELD_RETIRED + "." + FIELD_VERDICT,
                         Retired.Verdict::fromWireName))
-                .into(into == null ? null : new LessonId(into))
+                .into(into.map(LessonId::new).orElse(null))
                 .reason(text(object.get(FIELD_REASON), FIELD_RETIRED + "." + FIELD_REASON))
                 .coveringClause(nullableText(object.get(FIELD_COVERING_CLAUSE),
-                        FIELD_RETIRED + "." + FIELD_COVERING_CLAUSE))
+                        FIELD_RETIRED + "." + FIELD_COVERING_CLAUSE).orElse(null))
                 .coveringInput(nullableText(object.get(FIELD_COVERING_INPUT),
-                        FIELD_RETIRED + "." + FIELD_COVERING_INPUT))
+                        FIELD_RETIRED + "." + FIELD_COVERING_INPUT).orElse(null))
                 .lessonState(closed(object.get(FIELD_LESSON_STATE), FIELD_RETIRED + "." + FIELD_LESSON_STATE,
                         Retired.LessonState::fromWireName))
                 .build();
@@ -503,12 +505,12 @@ public class LessonCodec {
         return text;
     }
 
-    private static @Nullable String nullableText(@Nullable Object value, String name) {
-        return value == null ? null : text(value, name);
+    private static Optional<String> nullableText(@Nullable Object value, String name) {
+        return value == null ? Optional.empty() : Optional.of(text(value, name));
     }
 
-    private static @Nullable String optionalText(Map<String, Object> object, String field, String name) {
-        return object.containsKey(field) ? text(object.get(field), name) : null;
+    private static Optional<String> optionalText(Map<String, Object> object, String field, String name) {
+        return object.containsKey(field) ? Optional.of(text(object.get(field), name)) : Optional.empty();
     }
 
     private static int integer(Object value, String name) {
@@ -518,8 +520,8 @@ public class LessonCodec {
         return number;
     }
 
-    private static @Nullable Integer nullableInteger(@Nullable Object value, String name) {
-        return value == null ? null : integer(value, name);
+    private static Optional<Integer> nullableInteger(@Nullable Object value, String name) {
+        return value == null ? Optional.empty() : Optional.of(integer(value, name));
     }
 
     private static boolean bool(Object value, String name) {
@@ -543,15 +545,15 @@ public class LessonCodec {
                 "'%s' is not in the one shape of an instant (RFC 3339, UTC, suffix Z): %s".formatted(name, text));
     }
 
-    private static @Nullable LocalDate nullableDate(@Nullable Object value, String name) {
+    private static Optional<LocalDate> nullableDate(@Nullable Object value, String name) {
         if (value == null) {
-            return null;
+            return Optional.empty();
         }
         var text = text(value, name);
         try {
             var date = LocalDate.parse(text);
             if (date.toString().equals(text)) {
-                return date;
+                return Optional.of(date);
             }
         } catch (DateTimeException e) {
             throw StrictJson.unreadable("'%s' is not a date: %s".formatted(name, text), e);
@@ -565,9 +567,9 @@ public class LessonCodec {
                 .orElseThrow(() -> StrictJson.unreadable("'%s' has the undeclared value '%s'".formatted(name, wireName)));
     }
 
-    private static <E> @Nullable E nullableClosed(@Nullable Object value, String name,
+    private static <E> Optional<E> nullableClosed(@Nullable Object value, String name,
             Function<String, Optional<E>> lookup) {
-        return value == null ? null : closed(value, name, lookup);
+        return value == null ? Optional.empty() : Optional.of(closed(value, name, lookup));
     }
 
     private static <V> List<V> requiredSequence(Map<String, Object> object, String field,
@@ -598,9 +600,9 @@ public class LessonCodec {
         return List.copyOf(elements);
     }
 
-    private static <V> @Nullable V nullable(Map<String, Object> object, String field, ValueReader<V> reader) {
+    private static <V> Optional<V> nullable(Map<String, Object> object, String field, ValueReader<V> reader) {
         var value = object.get(field);
-        return value == null ? null : reader.read(value);
+        return value == null ? Optional.empty() : Optional.of(reader.read(value));
     }
 
     /** Reads one element of an array, named by its position. */

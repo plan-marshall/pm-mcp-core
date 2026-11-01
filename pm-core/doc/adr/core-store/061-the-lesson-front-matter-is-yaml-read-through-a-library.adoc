@@ -45,6 +45,12 @@ alias and tag, and a front matter of more than one document is refused. The load
 * The writer's canonical bytes are a JSON object, so `encode(decode(b))` is `b` for canonical bytes and a block-style
   file is normalized once when it is written again.
 * `pm-core` depends on `org.yaml:snakeyaml` at compile scope; the version is managed by the parent POM.
+* The refusal of anchors, aliases and tags is a token scan over the library's scanner, which is internal rather than
+  public API (`ScannerImpl`, `StreamReader`, the token types). A SnakeYAML upgrade is therefore a breaking risk for
+  that pre-scan, and the reader's tests are what detect it. A later version may move the check to the public node
+  composer (`Node.getAnchor()` and `Node.getTag()`).
+* The reader resolves scalars by the YAML 1.2 core schema, without its `.inf` and `.nan` spellings: they have no value
+  in the JSON data model and resolve as strings, which the record then refuses for a numeric member.
 * A CRLF file is decoded; its front matter is normalized and its body keeps its line endings.
 
 == Source
