@@ -40,8 +40,8 @@ class GitHubAppJwtTest {
     void signsAndVerifies() throws Exception {
         String jwt = GitHubAppJwt.sign("Iv23liClientId", TestKeys.PKCS8_PEM, NOW);
 
-        Object claims = Json.parse(TestKeys.verifiedClaims(jwt, TestKeys.PAIR.getPublic()));
-        Object header = Json.parse(TestKeys.header(jwt));
+        Object claims = Json.parse(TestKeys.verifiedClaims(jwt, TestKeys.PAIR.getPublic())).orElseThrow();
+        Object header = Json.parse(TestKeys.header(jwt)).orElseThrow();
 
         assertEquals(Optional.of("RS256"), Json.string(header, "alg"));
         assertEquals(Optional.of("JWT"), Json.string(header, "typ"));
@@ -68,7 +68,7 @@ class GitHubAppJwtTest {
     void signsWithPkcs1() throws Exception {
         String jwt = GitHubAppJwt.sign("Iv23liClientId", TestKeys.PKCS1_PEM, NOW);
 
-        Object claims = Json.parse(TestKeys.verifiedClaims(jwt, TestKeys.PAIR.getPublic()));
+        Object claims = Json.parse(TestKeys.verifiedClaims(jwt, TestKeys.PAIR.getPublic())).orElseThrow();
 
         assertEquals(Optional.of("Iv23liClientId"), Json.string(claims, "iss"));
         assertEquals(GitHubAppJwt.sign("Iv23liClientId", TestKeys.PKCS8_PEM, NOW), jwt, "same key, same signature");

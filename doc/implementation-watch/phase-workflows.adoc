@@ -1868,3 +1868,34 @@ next to the approved `maven:org.example:util` refuses the worker's `pm_build` an
 alone builds; a version change of an existing dependency builds; an unparseable `package.json` builds and the pre-merge
 check files `dependency_delta_indeterminate`.
 Source:: Article analysis `your-agent-is-mine` of plan-marshall-documentation.
+
+[#PM-WATCH-PHASE-128]
+=== PM-WATCH-PHASE-128: A criterion is met only by a test that ran
+
+Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#criterion-evidence[Phase Workflows § Criterion Evidence Check],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-13[PM-WF-13]
+Hazard:: The check maps the names the review gave to the test identities of the parsed result by string, so a file named
+by a relative path, a nested class, or a parameterised test name never matches and every criterion turns `not_verified`;
+the check reads the last green run of the plan instead of the run of the reviewed `HEAD`, so a test deleted after it
+still counts; a test that skipped itself counts as run because the summary shows no failure.
+Guard:: Scenario with three `test` criteria at one `HEAD`: one names a file whose test passed (accepted, written into
+`verified_by`), one a file whose only test skips itself on a missing fixture (`test_not_run`), one a file deleted after
+the last green run (`test_not_run`). Matched controls: the same files named by an absolute path, and a JUnit nested class,
+are accepted alike; a module whose parser reports no test identities gives `evidence_unreadable`, never `met`.
+Source:: Article analysis `review-playbook` of plan-marshall-documentation.
+
+[#PM-WATCH-PHASE-129]
+=== PM-WATCH-PHASE-129: An operator path is matched on what the change touched
+
+Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#operator-paths[Phase Workflows § Operator Paths],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-13[PM-WF-13]
+Hazard:: The match reads the declared footprint, which most plans exceed, so a fix that reaches into a guarded path
+merges unread; it reads only the new side of a rename, so a file moved out of a guarded directory escapes; a match
+evaluated before the last rebase misses a path the rebase or a later fix brought in; an unmeasured footprint is
+treated as empty.
+Guard:: Scenario on `landing.pull-request` with `review.operator_paths: ["src/store/**"]` and an asking variant that
+merges by itself: a plan whose declared footprint is `src/feature/**` and whose last fix changes `src/store/Writer.java`
+ends in the ready hand-back with the gap cause `operator_path` and the section `## Operator Paths` naming that file;
+the same with the file renamed out of `src/store/`. Matched controls: a plan touching only `src/feature/**` merges by
+itself; on `landing.main` the matching plan is not pushed; an unmeasured footprint hands back with `footprint_unmeasured`.
+Source:: Article analysis `review-playbook` of plan-marshall-documentation.

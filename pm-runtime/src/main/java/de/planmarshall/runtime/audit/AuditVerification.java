@@ -184,7 +184,7 @@ public final class AuditVerification implements AuditChainVerification {
                 return state;
             }
         }
-        return state;
+        return Objects.requireNonNull(state, "state");
     }
 
     private Outcome evaluate(SecretKey key, State state, boolean full) {

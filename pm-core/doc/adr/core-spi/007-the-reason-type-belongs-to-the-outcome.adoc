@@ -1,0 +1,40 @@
+= ADR 007: The Reason Type Belongs to the Outcome
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-31
+
+== Context
+
+One primitive can have outcomes that explain themselves and outcomes that do not: `git.stage-and-commit`'s `failed`
+has reasons, its `hook_failed` has none. A declaration on the primitive could not say which outcome carries which
+reasons.
+
+== Decision
+
+`PrimitiveOutcome` gains `default Optional<Class<? extends OutcomeReason>> reasonType()`, empty by default. The
+declaration belongs to the outcome, not to the primitive. It is additive: the 59 fixture enums that implement
+`PrimitiveOutcome` are untouched and keep the default.
+
+== Alternatives Considered
+
+1. **Declare the reason type on `Primitive`**: *Rejected*: it cannot distinguish the outcomes of one primitive, and
+   would make a reason available on outcomes that have no cause to explain.
+
+== Consequences
+
+* A primitive declares a reason type exactly on the outcomes that explain a failure, a skip or an indeterminacy.
+* The registry checks the declaration per outcome, so one well-formed outcome and one malformed outcome of the same
+  primitive are told apart.
+* Every existing outcome enum keeps the empty default.
+
+== Source
+
+* Pull request of `PLAN-V2-01` (`primitive-failure-reasons`)
+* link:../../../../doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons]
+* PM-IMPL-5

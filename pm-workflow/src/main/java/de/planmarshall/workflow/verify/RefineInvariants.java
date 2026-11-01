@@ -21,6 +21,7 @@ import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.verify.CompiledInvariants.Check;
 import de.planmarshall.workflow.verify.CompiledInvariants.Context;
 import de.planmarshall.workflow.verify.CompiledInvariants.Edge;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The invariant of the refine phase of the plan unit, {@code INV-REFINE-1} (PM-IMPL-5).
@@ -178,7 +179,7 @@ final class RefineInvariants {
         }
     }
 
-    private static boolean isRefine(Context context, boolean reference, StateNode state) {
+    private static boolean isRefine(Context context, boolean reference, @Nullable StateNode state) {
         if (state == null) {
             return false;
         }

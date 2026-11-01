@@ -277,8 +277,8 @@ public final class LaunchComposer {
     // holder would hide which slot a caller sets and where its value comes from.
     @SuppressWarnings("java:S107")
     private static List<String> composeArgv(LaunchRequest request, HeadlessBlock block, RoleClass roleClass,
-            Path workingDirectory, String model, String effort, Path promptFile, Path resultSchema, List<String> tools,
-            McpComposition mcp) {
+            Path workingDirectory, String model, String effort, Path promptFile, @Nullable Path resultSchema,
+            List<String> tools, McpComposition mcp) {
         var template = request.resumeSessionId().isPresent() && !block.resumeArgv().isEmpty()
                 ? block.resumeArgv()
                 : block.argumentsFor(roleClass);

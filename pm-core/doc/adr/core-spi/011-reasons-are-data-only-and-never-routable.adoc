@@ -1,0 +1,41 @@
+= ADR 011: Reasons Are Data Only and Never Routable
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-31
+
+== Context
+
+Two readings of the rule were possible: give a reason a typed home and keep it data (B1), or also let a result guard
+branch on it (B2). Routing on a reason would grow `result_guard` from a boolean or an optional field to enum equality,
+and would amend `PM-WATCH-DSL-15` (result guards) and `PM-WATCH-DSL-22` (one target per outcome, branching through a
+router).
+
+== Decision
+
+Reasons are data only. No grammar production, guard or verifier reads a reason; `PM-WATCH-DSL-15` and
+`PM-WATCH-DSL-22` keep their text. A cause a unit must route on is promoted to a named outcome by the primitive's
+author — that is the rule, not an exception to it. What the engine does with a reason (the mapping to a condition, the
+data it records) belongs to `PLAN-V2-19`, which declares the same.
+
+== Alternatives Considered
+
+1. **Also let a result guard branch on a reason (B2)**: *Rejected for now*: it would make every reason a routable edge
+   and amend two watch items; it is taken only when a concrete unit needs it, as its own plan.
+
+== Consequences
+
+* The graph and the state catalogue are unaffected by a new reason.
+* A reason is safe to add without a verifier change.
+* The lane that adds the engine's use of a reason (`PLAN-V2-19`) must keep the guard surface unchanged.
+
+== Source
+
+* Pull request of `PLAN-V2-01` (`primitive-failure-reasons`)
+* link:../../../../doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons]
+* PM-WATCH-DSL-15, PM-WATCH-DSL-22 (read, not edited)
