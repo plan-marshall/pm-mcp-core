@@ -444,6 +444,17 @@ Source:: link:../../../plan-marshall-documentation/doc/specification/evaluation.
 
 == Native Build Output Parsers
 
+[#PM-WATCH-JOB-10]
+=== PM-WATCH-JOB-10: Green-build test counts aggregate every summary block
+
+Anchor:: link:../specification/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime § Native Build Output Parsers]
+Hazard:: A successful multi-module build reported `tests_run: 0` (sixth recurrence).
+Guard:: Parser test over the fixture below: counts aggregate every summary block; an aggregation failure reports the
+test population as unmeasured, never 0.
+Fixture:: 15-module `verify -Ppre-commit`, BUILD SUCCESS, 3,083 tests, reported `tests_run: 0`.
+Source:: plan-marshall truthful-signals PLAN-TRUTH-150 D5.
+Status:: Implemented by `pm-core` package `core.build` (link:../../../pm-core/doc/developer/core-build.adoc[`core.build` Developer Guide]): the `maven-reactor-three-modules` and `maven-surefire-failsafe` fixtures prove the sum over every block, and `deliberate-unmeasured-on-success` proves an unreadable population carries no number. The item stays in place rather than being deleted because the numbering of this watch area is contiguous and a deletion would leave a gap.
+
 [#PM-WATCH-JOB-11]
 === PM-WATCH-JOB-11: A test filter matching nothing reports zero tests
 
@@ -489,6 +500,19 @@ Hazard:: A payload was truncated in forwarding (2,475 bytes / 4 turns emitted, ~
 its counts still described the original.
 Guard:: Any truncated payload, such as the `failed_unparsed` tail, reports forwarded and total sizes.
 Source:: plan-marshall truthful-signals (quality-aspect) PLAN-217 D4.
+
+[#PM-WATCH-JOB-18]
+=== PM-WATCH-JOB-18: Build-tool trailer advice is not a diagnostic
+
+Anchor:: link:../specification/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime § Native Build Output Parsers]
+Hazard:: Failure-trailer advice of the build tool was filed as located findings, and unrecognised `[ERROR]` lines
+defaulted to a real category.
+Guard:: Parser test over a failing Maven log: trailer lines produce no findings; unknown `[ERROR]` lines are
+`unrecognized`, never a located finding.
+Fixture:: 6 trailer lines (`Re-run Maven using the -X switch…`, `[Help 1] http://…`, `mvn <args> -rf :<module>`) filed
+as `deprecation_warning`/`error` findings after a failing `verify -Pcoverage`.
+Source:: plan-marshall defect truthful-signals PLAN-TRUTH-150 item 2.
+Status:: Implemented by `pm-core` package `core.build` (link:../../../pm-core/doc/developer/core-build.adoc[`core.build` Developer Guide]): `maven-epilogue-maven3` and `maven-epilogue-maven4` prove the trailer produces no finding, and `deliberate-unrecognized-error` proves an unknown `[ERROR]` line is `unrecognized`. The item stays in place rather than being deleted because the numbering of this watch area is contiguous and a deletion would leave a gap.
 
 == Adaptive Build Timeouts, Coverage Parsers & Gate Honesty
 
