@@ -74,11 +74,11 @@ class TestCountsTest {
 
         assertAll(
                 () -> assertEquals(expected, counts.byRunner(), "The counts keep the map they were built from"),
-                () -> assertThrows(UnsupportedOperationException.class,
-                        () -> counts.byRunner().put("failsafe", 1),
-                        "The stored map cannot be modified"),
                 () -> assertNull(new TestCounts.Measured(1, 0, 0, 1, null).byRunner(),
                         "No runner attribution is a null map"));
+        assertThrows(UnsupportedOperationException.class,
+                () -> counts.byRunner().put("failsafe", 1),
+                "The stored map cannot be modified");
     }
 
     @Test

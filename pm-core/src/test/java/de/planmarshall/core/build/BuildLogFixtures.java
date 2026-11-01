@@ -496,11 +496,10 @@ final class BuildLogFixtures {
     private static String log(String name, List<Directive> directives, Path root) {
         var text = new StringBuilder();
         for (Directive directive : directives) {
-            switch (directive.keyword()) {
-                case "log" -> text.append(directive.argument()).append('\n');
-                case "log-file" -> text.append(readLogFile(name, directive, root));
-                default -> {
-                }
+            if ("log".equals(directive.keyword())) {
+                text.append(directive.argument()).append('\n');
+            } else if ("log-file".equals(directive.keyword())) {
+                text.append(readLogFile(name, directive, root));
             }
         }
         String assembled = text.toString();
@@ -522,7 +521,7 @@ final class BuildLogFixtures {
         try {
             String content = Files.readString(file, StandardCharsets.UTF_8);
             return content.endsWith("\n") ? content : content + "\n";
-        } catch (IOException e) {
+        } catch (IOException _) {
             throw refusal(name, directive.line(), "names an unreadable log file: " + directive.argument());
         }
     }

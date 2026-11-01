@@ -48,21 +48,49 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class MavenOutputParser {
 
+    private static final String RUNNER_SUREFIRE = "surefire";
+
+    private static final String RUNNER_FAILSAFE = "failsafe";
+
+    private static final String SUCCESS_MARKER = "BUILD SUCCESS";
+
+    private static final String FAILURE_MARKER = "BUILD FAILURE";
+
+    private static final String ERROR_MARKER = "[ERROR]";
+
+    private static final String WARNING_MARKER = "[WARNING]";
+
+    private static final String TIME_ELAPSED = "Time elapsed";
+
+    /** Maven's positive marker that an execution ran no test; the only source of a {@code no_tests_ran} verdict. */
+    private static final String NO_TESTS_MARKER = "No tests to run.";
+
+    private static final String PARALLEL_BUILD_BANNER = "MultiThreadedBuilder";
+
+    /** The stack-frame prefixes of a test failure, which the stack-trace collector reads instead. */
+    private static final String FRAME_PREFIX = "at ";
+
+    private static final String CAUSED_BY_PREFIX = "Caused by:";
+
+    private static final String CONTINUATION_PREFIX = "->";
+
     private static final Pattern LEVEL_PREFIX = Pattern.compile("^\\[(?:INFO|ERROR|WARNING)\\]\\s*");
 
+    @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
     private static final Pattern TESTS_RUN = Pattern.compile(
             "Tests run:\\s*(\\d+),\\s*Failures:\\s*(\\d+),\\s*Errors:\\s*(\\d+),\\s*Skipped:\\s*(\\d+)");
 
+    @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
     private static final Pattern EXECUTION_HEADER =
             Pattern.compile("---\\s+([\\w.\\-]+):[\\w.\\-]+:[\\w.\\-]+\\s.*@.*---");
 
     private static final Pattern RESULTS_MARKER = Pattern.compile("^(?:\\[(?:INFO|ERROR|WARNING)\\]\\s*)?Results\\s*:\\s*$");
 
     private static final Map<String, String> TEST_RUNNERS = Map.of(
-            "surefire", "surefire",
-            "maven-surefire-plugin", "surefire",
-            "failsafe", "failsafe",
-            "maven-failsafe-plugin", "failsafe");
+            RUNNER_SUREFIRE, RUNNER_SUREFIRE,
+            "maven-surefire-plugin", RUNNER_SUREFIRE,
+            RUNNER_FAILSAFE, RUNNER_FAILSAFE,
+            "maven-failsafe-plugin", RUNNER_FAILSAFE);
 
     /**
      * Maven's failure epilogue: fixed advice, report pointers and banners Maven and Surefire print at error level after a
@@ -79,18 +107,7 @@ public class MavenOutputParser {
             Pattern.compile("(Please refer to|See) .+ for the individual test results\\."),
             Pattern.compile("(Please refer to|See) dump files \\(if any exist\\) .+"),
             Pattern.compile("\\S.* \\.{3,} (SUCCESS|FAILURE|SKIPPED)( \\[.+\\])?"),
-            Pattern.compile("BUILD FAILURE"));
-
-    private static final String PARALLEL_BUILD_BANNER = "MultiThreadedBuilder";
-
-    private static final String SUCCESS_MARKER = "BUILD SUCCESS";
-
-    private static final String FAILURE_MARKER = "BUILD FAILURE";
-
-    private static final String ERROR_MARKER = "[ERROR]";
-
-    /** Maven's positive marker that an execution ran no test; the only source of a {@code no_tests_ran} verdict. */
-    private static final String NO_TESTS_MARKER = "No tests to run.";
+            Pattern.compile(FAILURE_MARKER));
 
     private static final int MAX_MESSAGE_LENGTH = 500;
 
@@ -136,43 +153,55 @@ public class MavenOutputParser {
         var diagnostics = new ArrayList<Diagnostic>();
         Set<String> seen = new HashSet<>();
         for (String line : lines) {
-            String stripped = line.strip();
-            if (stripped.startsWith("at ") || stripped.startsWith("Caused by:")) {
-                continue;
+            Diagnostic diagnostic = filedDiagnostic(line);
+            if (diagnostic != null) {
+                addDeduped(diagnostics, seen, diagnostic);
             }
-            @Nullable Severity severity = line.contains(ERROR_MARKER)
-                    ? Severity.ERROR
-                    : line.contains("[WARNING]") ? Severity.WARNING : null;
-            if (severity == null) {
-                continue;
-            }
-            String message = LEVEL_PREFIX.matcher(stripped).replaceFirst("");
-            if (message.isEmpty() || message.startsWith("->")) {
-                continue;
-            }
-            if (isEpilogue(message) || isPassingTestCount(message)) {
-                continue;
-            }
-            var location = JvmFileLocation.parse(line);
-            Category category = JvmCategoryPatterns.maven().categorize(message);
-            if (category == Category.OTHER && severity == Severity.ERROR) {
-                category = Category.UNRECOGNIZED;
-            }
-            addDeduped(diagnostics, seen, location, message, category, severity);
         }
         return diagnostics;
     }
 
-    private static void addDeduped(List<Diagnostic> diagnostics, Set<String> seen, JvmFileLocation.Location location,
-            String message, Category category, Severity severity) {
-        String key = category.name() + ":" + location.file() + ":" + location.line() + ":"
-                + message.substring(0, Math.min(message.length(), DEDUP_MESSAGE_LENGTH));
-        if (!seen.add(key)) {
-            return;
+    private static @Nullable Diagnostic filedDiagnostic(String line) {
+        String stripped = line.strip();
+        if (stripped.startsWith(FRAME_PREFIX) || stripped.startsWith(CAUSED_BY_PREFIX)) {
+            return null;
         }
-        String stored = message.substring(0, Math.min(message.length(), MAX_MESSAGE_LENGTH));
-        diagnostics.add(new Diagnostic(location.file(), location.line(), location.column(), stored, category, severity,
-                null));
+        Severity severity = printedSeverity(line);
+        if (severity == null) {
+            return null;
+        }
+        String message = LEVEL_PREFIX.matcher(stripped).replaceFirst("");
+        if (message.isEmpty() || message.startsWith(CONTINUATION_PREFIX) || isEpilogue(message)
+                || isPassingTestCount(message)) {
+            return null;
+        }
+        var location = JvmFileLocation.parse(line);
+        return new Diagnostic(location.file(), location.line(), location.column(), truncate(message, MAX_MESSAGE_LENGTH),
+                categoryOf(message, severity), severity, null);
+    }
+
+    private static @Nullable Severity printedSeverity(String line) {
+        if (line.contains(ERROR_MARKER)) {
+            return Severity.ERROR;
+        }
+        return line.contains(WARNING_MARKER) ? Severity.WARNING : null;
+    }
+
+    private static Category categoryOf(String message, Severity severity) {
+        Category category = JvmCategoryPatterns.maven().categorize(message);
+        return category == Category.OTHER && severity == Severity.ERROR ? Category.UNRECOGNIZED : category;
+    }
+
+    private static void addDeduped(List<Diagnostic> diagnostics, Set<String> seen, Diagnostic diagnostic) {
+        String key = diagnostic.category().name() + ":" + diagnostic.file() + ":" + diagnostic.line() + ":"
+                + truncate(diagnostic.message(), DEDUP_MESSAGE_LENGTH);
+        if (seen.add(key)) {
+            diagnostics.add(diagnostic);
+        }
+    }
+
+    private static String truncate(String text, int maxLength) {
+        return text.length() <= maxLength ? text : text.substring(0, maxLength);
     }
 
     private static boolean isEpilogue(String message) {
@@ -192,32 +221,51 @@ public class MavenOutputParser {
     }
 
     private static @Nullable TestCounts extractTestCounts(String logText, List<String> lines) {
-        var summaryLines = new ArrayList<int[]>();
-        var ambiguousLines = new ArrayList<int[]>();
-        var perClassLines = new ArrayList<int[]>();
-        var runnerExecuted = new LinkedHashMap<String, Integer>();
-        String currentRunner = null;
-        boolean resultsSeen = false;
-        for (String line : lines) {
+        var scan = new CountScan();
+        lines.forEach(scan::accept);
+        return scan.result(logText);
+    }
+
+    /**
+     * The running state of one pass over the count lines of a log: the summary, ambiguous and per-class blocks, and the
+     * executed count per runner.
+     */
+    private static final class CountScan {
+
+        private final List<int[]> summaryLines = new ArrayList<>();
+
+        private final List<int[]> ambiguousLines = new ArrayList<>();
+
+        private final List<int[]> perClassLines = new ArrayList<>();
+
+        private final Map<String, Integer> runnerExecuted = new LinkedHashMap<>();
+
+        private @Nullable String currentRunner;
+
+        private boolean resultsSeen;
+
+        void accept(String line) {
             Matcher header = EXECUTION_HEADER.matcher(line);
             if (header.find()) {
                 currentRunner = TEST_RUNNERS.get(header.group(1));
                 resultsSeen = false;
-                continue;
-            }
-            if (RESULTS_MARKER.matcher(line.strip()).matches()) {
+            } else if (RESULTS_MARKER.matcher(line.strip()).matches()) {
                 resultsSeen = true;
-                continue;
+            } else {
+                acceptCountLine(line);
             }
+        }
+
+        private void acceptCountLine(String line) {
             Matcher match = TESTS_RUN.matcher(line);
             if (!match.find()) {
-                continue;
+                return;
             }
             int total = Integer.parseInt(match.group(1));
             int failed = Integer.parseInt(match.group(2)) + Integer.parseInt(match.group(3));
             int skipped = Integer.parseInt(match.group(4));
             int[] counts = {total, failed, skipped};
-            if (line.contains("Time elapsed")) {
+            if (line.contains(TIME_ELAPSED)) {
                 perClassLines.add(counts);
             } else if (resultsSeen) {
                 summaryLines.add(counts);
@@ -228,20 +276,24 @@ public class MavenOutputParser {
                 ambiguousLines.add(counts);
             }
         }
-        if (summaryLines.isEmpty() && ambiguousLines.isEmpty() && perClassLines.isEmpty()) {
-            return null;
+
+        @Nullable
+        TestCounts result(String logText) {
+            if (summaryLines.isEmpty() && ambiguousLines.isEmpty() && perClassLines.isEmpty()) {
+                return null;
+            }
+            boolean unmeasured = !ambiguousLines.isEmpty() || (summaryLines.isEmpty() && !perClassLines.isEmpty());
+            if (unmeasured) {
+                return TestCounts.unmeasured();
+            }
+            List<int[]> counted = summaryLines.isEmpty() ? perClassLines : summaryLines;
+            int total = counted.stream().mapToInt(counts -> counts[0]).sum();
+            int failed = counted.stream().mapToInt(counts -> counts[1]).sum();
+            int skipped = counted.stream().mapToInt(counts -> counts[2]).sum();
+            Map<String, Integer> byRunner = runnerExecuted.isEmpty() || logText.contains(PARALLEL_BUILD_BANNER)
+                    ? null
+                    : runnerExecuted;
+            return new TestCounts.Measured(total - failed - skipped, failed, skipped, total, byRunner);
         }
-        boolean unmeasured = !ambiguousLines.isEmpty() || (summaryLines.isEmpty() && !perClassLines.isEmpty());
-        if (unmeasured) {
-            return TestCounts.unmeasured();
-        }
-        List<int[]> counted = summaryLines.isEmpty() ? perClassLines : summaryLines;
-        int total = counted.stream().mapToInt(counts -> counts[0]).sum();
-        int failed = counted.stream().mapToInt(counts -> counts[1]).sum();
-        int skipped = counted.stream().mapToInt(counts -> counts[2]).sum();
-        Map<String, Integer> byRunner = runnerExecuted.isEmpty() || logText.contains(PARALLEL_BUILD_BANNER)
-                ? null
-                : runnerExecuted;
-        return new TestCounts.Measured(total - failed - skipped, failed, skipped, total, byRunner);
     }
 }

@@ -42,6 +42,8 @@ public final class JvmCategoryPatterns {
 
     private static final Pattern METACHARACTERS = Pattern.compile("[\\\\^$.*+?{}\\[\\]|()]");
 
+    private static final String REWRITE_PREFIX = "rewrite:";
+
     private static final JvmCategoryPatterns MAVEN = compile(true);
 
     private static final JvmCategoryPatterns GRADLE = compile(false);
@@ -90,7 +92,8 @@ public final class JvmCategoryPatterns {
     private static JvmCategoryPatterns compile(boolean maven) {
         Map<Category, List<String>> definitions = new LinkedHashMap<>(base());
         if (maven) {
-            definitions.put(Category.OPENREWRITE_INFO, List.of("org.openrewrite", "rewrite-maven-plugin", "rewrite:"));
+            definitions.put(Category.OPENREWRITE_INFO,
+                    List.of("org.openrewrite", "rewrite-maven-plugin", REWRITE_PREFIX));
         } else {
             definitions.putAll(gradleOverrides());
         }
@@ -116,7 +119,7 @@ public final class JvmCategoryPatterns {
                 List.of("javadoc", "no @param", "no @return", "@param name", "missing @"));
         definitions.put(Category.DEPRECATION_WARNING, List.of("\\[deprecation\\]", "has been deprecated"));
         definitions.put(Category.UNCHECKED_WARNING, List.of("\\[unchecked\\]", "unchecked conversion"));
-        definitions.put(Category.OPENREWRITE_INFO, List.of("org.openrewrite", "rewrite:"));
+        definitions.put(Category.OPENREWRITE_INFO, List.of("org.openrewrite", REWRITE_PREFIX));
         return definitions;
     }
 
@@ -143,7 +146,8 @@ public final class JvmCategoryPatterns {
                         "Execution failed for task ':.*:javadoc'"));
         overrides.put(Category.DEPRECATION_WARNING, List.of("\\[deprecation\\]", "has been deprecated", "is deprecated"));
         overrides.put(Category.UNCHECKED_WARNING, List.of("\\[unchecked\\]", "unchecked conversion", "unchecked call"));
-        overrides.put(Category.OPENREWRITE_INFO, List.of("org\\.openrewrite", "rewrite-gradle-plugin", "rewrite:"));
+        overrides.put(Category.OPENREWRITE_INFO,
+                List.of("org\\.openrewrite", "rewrite-gradle-plugin", REWRITE_PREFIX));
         return overrides;
     }
 

@@ -33,13 +33,17 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class JvmFileLocation {
 
+    @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
     private static final Pattern MAVEN_STYLE = Pattern.compile("([^\\s\\[\\]]+\\.java):\\[(\\d+),(\\d+)\\]");
 
+    @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
     private static final Pattern GRADLE_STYLE =
             Pattern.compile("([^\\s:]+\\.(java|kt|groovy|scala)):(\\d+):?(\\d+)?");
 
+    @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
     private static final Pattern LINE_ONLY = Pattern.compile("([^\\s\\[\\]]+\\.java):(\\d+):");
 
+    @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
     private static final Pattern TEST_FAILURE = Pattern.compile("(\\w+Test)\\.(\\w+):(\\d+)");
 
     /**

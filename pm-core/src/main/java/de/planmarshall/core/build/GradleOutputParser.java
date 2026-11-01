@@ -41,6 +41,7 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class GradleOutputParser {
 
+    @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
     private static final Pattern COMPLETED_TESTS =
             Pattern.compile("(\\d+) tests? completed(?:, (\\d+) failed)?(?:, (\\d+) skipped)?");
 
@@ -53,6 +54,14 @@ public class GradleOutputParser {
 
     /** Gradle's explicit statement that its test filter matched no test. */
     private static final String NO_TESTS_MARKER = "No tests found for given includes";
+
+    private static final String FRAME_PREFIX = "at ";
+
+    private static final String CAUSED_BY_PREFIX = "Caused by:";
+
+    private static final String CONTINUATION_PREFIX = "->";
+
+    private static final String TASK_PREFIX = ">";
 
     private static final int MAX_MESSAGE_LENGTH = 500;
 
@@ -97,32 +106,44 @@ public class GradleOutputParser {
         var diagnostics = new ArrayList<Diagnostic>();
         Set<String> seen = new HashSet<>();
         for (String line : lines) {
-            String stripped = line.strip();
-            if (stripped.startsWith("at ") || stripped.startsWith("Caused by:")
-                    || stripped.startsWith("->") || stripped.startsWith(">")) {
-                continue;
+            Diagnostic diagnostic = filedDiagnostic(line);
+            if (diagnostic != null) {
+                addDeduped(diagnostics, seen, diagnostic);
             }
-            Category category = JvmCategoryPatterns.gradle().categorize(stripped);
-            if (category == Category.OTHER) {
-                continue;
-            }
-            var location = JvmFileLocation.parse(stripped);
-            Severity severity = ERROR_CATEGORIES.contains(category) ? Severity.ERROR : Severity.WARNING;
-            addDeduped(diagnostics, seen, location, stripped, category, severity);
         }
         return diagnostics;
     }
 
-    private static void addDeduped(List<Diagnostic> diagnostics, Set<String> seen, JvmFileLocation.Location location,
-            String message, Category category, Severity severity) {
-        String key = category.name() + ":" + location.file() + ":" + location.line() + ":"
-                + message.substring(0, Math.min(message.length(), DEDUP_MESSAGE_LENGTH));
-        if (!seen.add(key)) {
-            return;
+    private static @Nullable Diagnostic filedDiagnostic(String line) {
+        String stripped = line.strip();
+        if (isSkippedLine(stripped)) {
+            return null;
         }
-        String stored = message.substring(0, Math.min(message.length(), MAX_MESSAGE_LENGTH));
-        diagnostics.add(new Diagnostic(location.file(), location.line(), location.column(), stored, category, severity,
-                null));
+        Category category = JvmCategoryPatterns.gradle().categorize(stripped);
+        if (category == Category.OTHER) {
+            return null;
+        }
+        var location = JvmFileLocation.parse(stripped);
+        Severity severity = ERROR_CATEGORIES.contains(category) ? Severity.ERROR : Severity.WARNING;
+        return new Diagnostic(location.file(), location.line(), location.column(),
+                truncate(stripped, MAX_MESSAGE_LENGTH), category, severity, null);
+    }
+
+    private static boolean isSkippedLine(String stripped) {
+        return stripped.startsWith(FRAME_PREFIX) || stripped.startsWith(CAUSED_BY_PREFIX)
+                || stripped.startsWith(CONTINUATION_PREFIX) || stripped.startsWith(TASK_PREFIX);
+    }
+
+    private static void addDeduped(List<Diagnostic> diagnostics, Set<String> seen, Diagnostic diagnostic) {
+        String key = diagnostic.category().name() + ":" + diagnostic.file() + ":" + diagnostic.line() + ":"
+                + truncate(diagnostic.message(), DEDUP_MESSAGE_LENGTH);
+        if (seen.add(key)) {
+            diagnostics.add(diagnostic);
+        }
+    }
+
+    private static String truncate(String text, int maxLength) {
+        return text.length() <= maxLength ? text : text.substring(0, maxLength);
     }
 
     private static @Nullable TestCounts extractTestCounts(List<String> lines) {

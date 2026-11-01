@@ -82,8 +82,10 @@ final class PortedExpectations {
                     consumed.add(index);
                 }
                 case "diagnostic" -> {
+                    // asserted in fixture order by assertDiagnostics below
                 }
                 default -> {
+                    // a directive of another parser; assertConsumed reports it unevaluated
                 }
             }
         }
@@ -123,8 +125,10 @@ final class PortedExpectations {
                     consumed.add(index);
                 }
                 case "finding" -> {
+                    // asserted in fixture order by assertFindings below
                 }
                 default -> {
+                    // a directive of another parser; assertConsumed reports it unevaluated
                 }
             }
         }

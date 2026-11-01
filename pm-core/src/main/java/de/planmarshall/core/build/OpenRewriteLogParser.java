@@ -47,6 +47,7 @@ public class OpenRewriteLogParser {
 
     private static final Pattern REWRITE_RUN = Pattern.compile("---\\s+rewrite(?:-maven-plugin:[\\w.\\-]+)?:run\\s+\\(");
 
+    @SuppressWarnings("java:S8786") // ported pattern; the corpus fixtures pin it, a rewrite risks a silent change
     private static final Pattern FINDING = Pattern.compile(
             "CUI_REWRITE-(10[01]): Finding (?:detected|pre-existing) at (.+?):(\\d+):(\\d+) by (.+?): (.*)$");
 
