@@ -1,0 +1,83 @@
+= ADR 013: The Null Contract of the `@NullMarked` Packages
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-01.
+
+== Context
+
+PLAN-V2-84 marked every production package `@NullMarked`. JSpecify's package default then says that every
+unannotated value is non-null, so the defensive `== null` tests of the repository read as dead conditions and a
+`return null` reads as a violated contract. SonarCloud reported 292 open issues of three rules in 99 files —
+`java:S2583` x99 and `java:S2637` x44 (type `BUG`, the failing `new_reliability_rating` of `main`) and
+`java:S2589` x149 (code smell, the same cause). The question was how to make the annotations and the code agree
+without ignoring a rule: the null tests and the null returns are not simply deleted, because a null that a JSON
+decoder, a `Map.get`, an `orElse(null)` or an unannotated caller can produce is real.
+
+== Decision
+
+Each site is decided from the code, not from the Sonar message, and belongs to exactly one of three classes:
+
+* **Class (a) — the test is dead by construction.** The value is non-null because the code before it made it so (a
+  canonical constructor or `Objects.requireNonNull` already refused null, the value came from a method that cannot
+  return it, it is a record component the constructor checked). The dead test and the branch it guarded are
+  deleted, and the existing tests cover the removed branch.
+* **Class (b) — the null is real, the source was unannotated.** The value comes from a JSON decode, a `Map.get`, an
+  `orElse(null)`, a parameter whose contract accepts null, or a field that is null in some state. The source is
+  annotated `@Nullable` (JSpecify, `org.jspecify.annotations.Nullable`: a type-use annotation after the enclosing
+  type, `byte @Nullable []` for an array, a `@Nullable` record component) and the test stays live. Where the
+  annotation would spread, every caller of the changed member is checked and the pull request says how many were.
+* **Class (c) — a method returns null, or a field is left uninitialised (`java:S2637`).** Absence that a method
+  returns is `Optional<T>`: the return type, the `return null` and every caller change, and a `@Nullable` return is
+  never written. A field flagged "not initialized in this constructor" is initialised, or is `@Nullable` where null
+  is a real state of the object.
+
+A method that must keep the flagged shape because an external type forces it (an override of a JDK or library
+method whose contract permits null, a `CompletableFuture<Void>` completion) carries an inline
+`@SuppressWarnings("java:S2637")` with the reason beside it, never `NOSONAR`, and each such site is listed in the
+pull request body. Behaviour does not change except where class (c) changes a signature; a public method that
+refuses null keeps refusing it with the same exception and message, either as an `@Nullable` parameter (b) or as
+the `Optional` return (c).
+
+The decision is carried by `org.jspecify.annotations.Nullable` in the production and test sources of `pm-core`,
+`pm-workflow`, `pm-runtime` and the providers, by `Optional` returns in `StrictJson` and the codec readers, and by
+`doc/developer/*.adoc` § Invariants: a member the schema may leave absent reads as `Optional` and is kept as a
+`@Nullable` member.
+
+== Alternatives Considered
+
+* **Ignore the three rules in the Sonar configuration, as ADR 011 does for `java:S4449`.** Rejected by the
+  operator on 2026-10-31: the ignore would hide the dead tests the annotation exposed, and every later class of
+  the same defect with them.
+* **Wait for PLAN-V2-97 to PLAN-V2-99** (the `Optional`-to-`@Nullable` conformance family). Rejected by the
+  operator on 2026-10-31: those plans edit the same classes and signatures, `main` stays red until they land, and
+  the 0.1.0-SNAPSHOT is not deployed while the gate fails.
+* **Annotate the return types `@Nullable`.** Rejected by R20 `CLAUDE.md`: absence a method returns is `Optional`;
+  `@Nullable` marks fields, parameters and record components only.
+
+== Consequences
+
+* A dead null test is deleted only when its value is non-null by construction; otherwise the source is annotated and
+  the test stays. A later change that removes an `@Nullable` must also remove the test it kept live.
+* Absence a method returns is `Optional`; a field, a parameter and a record component that may be absent are
+  `@Nullable`. A new caller of either sees the contract in its type.
+* A site that must keep a flagged shape names the external contract and carries the suppressor beside it, so the
+  exception is reviewable and listed.
+* A file outside a plan's declared surface that must change for a (b) or (c) change is named in that plan's landing;
+  a `@Nullable` that spreads is followed to its callers and counted in the pull request body.
+
+== Source
+
+* Pull requests #264 (D1, `core.store` and `core.queue`), #268 (D2, the other `pm-core` packages) and this plan's
+  third pull request (D3, `pm-workflow`, `pm-runtime` and the providers) of PLAN-V2-110.
+* Work package: link:../../doc/plans/README.adoc[`doc/plans/`] — PLAN-V2-110, `null-contract-main-green`.
+* Specification sections: `Client Profiles` § Endpoint Profile Schema and § Remote Form; `Store Schemas` § Queue
+  Task Record, § Activity Journal and § Workflow State Store; `Job Runtime` § Pipeline and Subprocesses.
+* Related ADRs: link:011-ignore-s4449-for-jspecify-null-safety.adoc[011 Ignore `java:S4449` for the JSpecify Null
+  Contract] (the nullable marker this decision uses); link:010-the-coding-skills-and-the-accepted-exception.adoc[010
+  The Coding Skills and the Accepted Exception] (the skills this decision follows).
