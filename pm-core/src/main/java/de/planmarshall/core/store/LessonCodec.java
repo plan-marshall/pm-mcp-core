@@ -813,7 +813,7 @@ public class LessonCodec {
         private static final Pattern BOOLEAN = Pattern.compile("^(?:true|True|TRUE|false|False|FALSE)$");
         private static final Pattern INTEGER = Pattern.compile("^[-+]?\\d+$|^0o[0-7]+$|^0x[\\da-fA-F]+$");
         private static final Pattern DECIMAL = Pattern.compile(
-                "^[-+]?(?:\\d+\\.?\\d*|\\.\\d+)(?:[eE][-+]?\\d+)?$");
+                "^[-+]?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:[eE][-+]?\\d+)?$");
         private static final Pattern NOTHING = Pattern.compile("^(?:~|null|Null|NULL|)$");
         private static final Pattern EMPTY = Pattern.compile("^$");
 

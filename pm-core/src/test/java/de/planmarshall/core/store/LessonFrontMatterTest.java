@@ -202,6 +202,7 @@ class LessonFrontMatterTest {
         var instant = LessonFixtures.instant();
         var text = LessonFixtures.text();
         var source = LessonFixtures.source();
+        var sources = List.of(source);
 
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class, emptyTitle::build, "An empty title is refused"),
@@ -226,7 +227,7 @@ class LessonFrontMatterTest {
                         () -> new Source(Source.Kind.PLAN, text, "not-a-digest"),
                         "A source digest that is no SHA-256 is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new Revision(1, instant, List.of(source), "not-a-digest"),
+                        () -> new Revision(1, instant, sources, "not-a-digest"),
                         "A body digest that is no SHA-256 is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new Claim("Not A Plan", instant),
