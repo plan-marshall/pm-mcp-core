@@ -101,8 +101,8 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 
 |link:forgejo-provider.adoc[`forgejo-provider`]
 |Codeberg and Forgejo as a provider
-|`blocked`
-|the CI contract of `pm-provider-ci` (no work package)
+|`open`
+|nothing
 |Milestone 6; the client work of `pm-mcp-clients`
 
 |link:recipe-workflows.adoc[`recipe-workflows`]
