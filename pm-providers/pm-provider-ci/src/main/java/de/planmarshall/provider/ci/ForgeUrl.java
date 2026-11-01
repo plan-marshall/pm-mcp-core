@@ -174,7 +174,7 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
             return Resolution.invalid("not a URL: " + e.getMessage());
         }
         if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.isOpaque() || uri.getHost() == null
-                                || uri.getUserInfo() != null) {
+                || uri.getUserInfo() != null) {
             return Resolution.invalid("not an https URL without user information");
         }
         String path = uri.getPath();
@@ -215,7 +215,7 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
         }
         for (String segment : segments) {
             if (segment.isEmpty() || ".".equals(segment) || "..".equals(segment)
-                                    || segment.length() > MAX_SEGMENT_LENGTH) {
+                    || segment.length() > MAX_SEGMENT_LENGTH) {
                 return null;
             }
         }
