@@ -353,15 +353,15 @@ Optional<String> overrides, Map<String, Map<String, CallValue>> declarations) {
     public static final class Builder {
 
         private PlanInstanceHeader.@Nullable Lane lane;
-        private PlanInstanceHeader.Posture posture;
-        private String changeType;
-        private String postRun;
-        private List<String> footprint;
+        private PlanInstanceHeader.@Nullable Posture posture;
+        private @Nullable String changeType;
+        private @Nullable String postRun;
+        private @Nullable List<String> footprint;
         private final Map<String, String> configuration = new TreeMap<>();
         private List<String> steps = List.of();
         private List<String> tasks = List.of();
         private final Map<Axis, Map<Level, String>> axes = new EnumMap<>(Axis.class);
-        private String overrides;
+        private @Nullable String overrides;
         private final Map<String, Map<String, CallValue>> declarations = new TreeMap<>();
 
         private Builder() {

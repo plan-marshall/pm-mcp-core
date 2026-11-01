@@ -71,6 +71,12 @@ class JsonTest {
     }
 
     @Test
+    @DisplayName("returns no tree for the JSON null literal")
+    void parsesNullLiteralAsEmpty() {
+        assertEquals(Optional.empty(), Json.parse("null"));
+    }
+
+    @Test
     @DisplayName("maps failed responses to contract outcomes")
     void mapsOutcomes() {
         assertEquals(Result.Outcome.AUTH_FAILED, failed(401, "").outcome());

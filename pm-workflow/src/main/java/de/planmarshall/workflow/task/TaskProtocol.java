@@ -954,8 +954,12 @@ public final class TaskProtocol {
             return;
         }
         var target = journal.journalFor(task.scope());
+        if (target.isEmpty()) {
+            return;
+        }
+        var activityJournal = target.get();
         var attempt = task.currentAttempt().map(Attempt::attempt).orElse(1);
-        var present = target.entries(task.queueTaskId()).stream().anyMatch(entry ->
+        var present = activityJournal.entries(task.queueTaskId()).stream().anyMatch(entry ->
                 entry.kind() == ActivityEntry.Kind.SIGNAL
                         && entry.attempt() == attempt
                         && entry.signal() != null
@@ -964,7 +968,7 @@ public final class TaskProtocol {
         if (present) {
             return;
         }
-        target.appendNext(task.queueTaskId(), seq -> ActivityEntry.builder()
+        activityJournal.appendNext(task.queueTaskId(), seq -> ActivityEntry.builder()
                 .seq(seq)
                 .attempt(attempt)
                 .source(ActivityEntry.Source.SERVER)

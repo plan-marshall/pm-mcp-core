@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 
 
 import org.junit.jupiter.api.DisplayName;
@@ -264,7 +265,7 @@ class TaskProtocolReOfferTest {
         var queue = QueueStore.ofProject(base, "project-a", locks);
         queue.create(TaskFixtures.queued("qt-0000000000000001", TaskFixtures.ROLE).build());
         var protocol = TaskProtocol.builder(queue, locks)
-                .journal(scope -> ActivityJournal.ofScope(base, "project-a", scope, locks))
+                .journal(scope -> Optional.of(ActivityJournal.ofScope(base, "project-a", scope, locks)))
                 .build();
         var offered = TaskFixtures.task(protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION),
                 TaskFixtures.AT));
@@ -291,7 +292,7 @@ class TaskProtocolReOfferTest {
         var queue = QueueStore.ofProject(base, "project-a", locks);
         queue.create(TaskFixtures.queued("qt-0000000000000001", TaskFixtures.ROLE).build());
         var protocol = TaskProtocol.builder(queue, locks)
-                .journal(scope -> ActivityJournal.ofScope(base, "project-a", scope, locks))
+                .journal(scope -> Optional.of(ActivityJournal.ofScope(base, "project-a", scope, locks)))
                 .build();
         var offered = TaskFixtures.task(protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION),
                 TaskFixtures.AT));

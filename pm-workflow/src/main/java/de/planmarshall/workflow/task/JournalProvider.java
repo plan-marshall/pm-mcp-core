@@ -9,6 +9,8 @@
  */
 package de.planmarshall.workflow.task;
 
+import java.util.Optional;
+
 import de.planmarshall.core.queue.ActivityJournal;
 import de.planmarshall.core.queue.QueueTaskRecord;
 
@@ -26,5 +28,5 @@ public interface JournalProvider {
      * @param scope the scope of the task
      * @return the journal of the scope, or {@code null} for a scope without one
      */
-    ActivityJournal journalFor(QueueTaskRecord.Scope scope);
+    Optional<ActivityJournal> journalFor(QueueTaskRecord.Scope scope);
 }

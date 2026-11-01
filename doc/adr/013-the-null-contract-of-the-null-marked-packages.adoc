@@ -26,7 +26,8 @@ Each site is decided from the code, not from the Sonar message, and belongs to e
 * **Class (a) — the test is dead by construction.** The value is non-null because the code before it made it so (a
   canonical constructor or `Objects.requireNonNull` already refused null, the value came from a method that cannot
   return it, it is a record component the constructor checked). The dead test and the branch it guarded are
-  deleted, and the existing tests cover the removed branch.
+  deleted. No test can reach a branch that is dead by construction, so the removal needs no coverage evidence
+  beyond the construction.
 * **Class (b) — the null is real, the source was unannotated.** The value comes from a JSON decode, a `Map.get`, an
   `orElse(null)`, a parameter whose contract accepts null, or a field that is null in some state. The source is
   annotated `@Nullable` (JSpecify, `org.jspecify.annotations.Nullable`: a type-use annotation after the enclosing
