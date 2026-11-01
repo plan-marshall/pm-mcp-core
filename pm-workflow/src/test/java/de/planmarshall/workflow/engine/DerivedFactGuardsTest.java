@@ -16,12 +16,13 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.role.corpus.JsonValue;
 import de.planmarshall.core.store.DerivedFact;
 import de.planmarshall.core.store.DerivedFactKind;
@@ -91,9 +92,7 @@ class DerivedFactGuardsTest {
             var reading = new DerivedFactReading.Indeterminate("push_remote: the provider refused");
 
             var result = assertInstanceOf(GuardResult.CouldNotEvaluate.class,
-                    DerivedFactGuards.evaluate(reading, _ -> {
-                        return new GuardResult.Held();
-                    }), "A stale fact cannot be evaluated");
+                    DerivedFactGuards.evaluate(reading, _ -> new GuardResult.Held()), "A stale fact cannot be evaluated");
 
             assertEquals("push_remote: the provider refused", result.reason(), "The reading's reason is carried");
         }
@@ -104,9 +103,7 @@ class DerivedFactGuardsTest {
             var reading = new DerivedFactReading.Indeterminate("push_remote: no remote configured");
 
             var result = assertInstanceOf(GuardResult.CouldNotEvaluate.class,
-                    DerivedFactGuards.evaluate(reading, _ -> {
-                        return new GuardResult.Held();
-                    }), "A failed fact cannot be evaluated");
+                    DerivedFactGuards.evaluate(reading, _ -> new GuardResult.Held()), "A failed fact cannot be evaluated");
 
             assertTrue(result.reason().contains("no remote configured"), "The failure text is carried");
         }
@@ -117,9 +114,7 @@ class DerivedFactGuardsTest {
             var reading = new DerivedFactReading.Expired();
 
             var result = assertInstanceOf(GuardResult.CouldNotEvaluate.class,
-                    DerivedFactGuards.evaluate(reading, _ -> {
-                        return new GuardResult.Held();
-                    }), "An expired fact cannot be evaluated");
+                    DerivedFactGuards.evaluate(reading, _ -> new GuardResult.Held()), "An expired fact cannot be evaluated");
 
             assertTrue(result.reason().contains("validity period"), "The expiry reason is carried");
         }
@@ -130,9 +125,7 @@ class DerivedFactGuardsTest {
             var reading = new DerivedFactReading.Absent();
 
             var result = assertInstanceOf(GuardResult.CouldNotEvaluate.class,
-                    DerivedFactGuards.evaluate(reading, _ -> {
-                        return new GuardResult.Held();
-                    }), "An absent fact cannot be evaluated");
+                    DerivedFactGuards.evaluate(reading, _ -> new GuardResult.Held()), "An absent fact cannot be evaluated");
 
             assertTrue(result.reason().contains("absent"), "The absence reason is carried");
         }

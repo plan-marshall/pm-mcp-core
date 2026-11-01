@@ -122,7 +122,7 @@ class DerivedFactRefreshTest {
 
         @Test
         @DisplayName("a local entry of another digest is derived")
-        void localDigestMismatchIsDerived() throws IOException {
+        void localDigestMismatchIsDerived() throws Exception {
             seed(DerivedFactKind.MODULE_DISCOVERY, DerivedFact.DerivationClass.LOCAL, DerivedFact.State.CURRENT,
                     DIGEST_A, NOW.minusSeconds(60), "{\"name\":\"old\"}");
 
@@ -137,7 +137,7 @@ class DerivedFactRefreshTest {
 
         @Test
         @DisplayName("a network entry of another digest is derived")
-        void networkDigestMismatchIsDerived() throws IOException {
+        void networkDigestMismatchIsDerived() throws Exception {
             seed(DerivedFactKind.MERGE_METHODS_ALLOWED, DerivedFact.DerivationClass.NETWORK,
                     DerivedFact.State.CURRENT, DIGEST_A, NOW.minusSeconds(60), "{\"name\":\"old\"}");
 
@@ -148,7 +148,7 @@ class DerivedFactRefreshTest {
 
         @Test
         @DisplayName("a current entry of the same digest is returned without deriving")
-        void cacheHitDoesNotDerive() throws IOException {
+        void cacheHitDoesNotDerive() throws Exception {
             var stored = seed(DerivedFactKind.MODULE_DISCOVERY, DerivedFact.DerivationClass.LOCAL,
                     DerivedFact.State.CURRENT, DIGEST_A, NOW.minusSeconds(60), "{\"name\":\"old\"}");
 
@@ -161,7 +161,7 @@ class DerivedFactRefreshTest {
 
         @Test
         @DisplayName("a stale entry is derived even when its digest matches")
-        void staleIsDerived() throws IOException {
+        void staleIsDerived() throws Exception {
             seed(DerivedFactKind.MODULE_DISCOVERY, DerivedFact.DerivationClass.LOCAL, DerivedFact.State.STALE,
                     DIGEST_A, NOW.minusSeconds(60), "{\"name\":\"old\"}");
 
@@ -172,7 +172,7 @@ class DerivedFactRefreshTest {
 
         @Test
         @DisplayName("a failed entry is derived even when its digest matches")
-        void failedIsDerived() throws IOException {
+        void failedIsDerived() throws Exception {
             seed(DerivedFactKind.MODULE_DISCOVERY, DerivedFact.DerivationClass.LOCAL, DerivedFact.State.FAILED,
                     DIGEST_A, NOW.minusSeconds(60), "{\"name\":\"old\"}");
 
@@ -188,7 +188,7 @@ class DerivedFactRefreshTest {
 
         @Test
         @DisplayName("a network entry one second before its period is returned")
-        void beforeThePeriodDoesNotDerive() throws IOException {
+        void beforeThePeriodDoesNotDerive() throws Exception {
             seed(DerivedFactKind.MERGE_METHODS_ALLOWED, DerivedFact.DerivationClass.NETWORK,
                     DerivedFact.State.CURRENT, DIGEST_A, NOW, "{\"name\":\"merge\"}");
 
@@ -202,7 +202,7 @@ class DerivedFactRefreshTest {
 
         @Test
         @DisplayName("a network entry at exactly its period is derived")
-        void atThePeriodDerives() throws IOException {
+        void atThePeriodDerives() throws Exception {
             seed(DerivedFactKind.MERGE_METHODS_ALLOWED, DerivedFact.DerivationClass.NETWORK,
                     DerivedFact.State.CURRENT, DIGEST_A, NOW, "{\"name\":\"merge\"}");
 
@@ -214,7 +214,7 @@ class DerivedFactRefreshTest {
 
         @Test
         @DisplayName("a network entry one second after its period is derived")
-        void afterThePeriodDerives() throws IOException {
+        void afterThePeriodDerives() throws Exception {
             seed(DerivedFactKind.MERGE_METHODS_ALLOWED, DerivedFact.DerivationClass.NETWORK,
                     DerivedFact.State.CURRENT, DIGEST_A, NOW, "{\"name\":\"merge\"}");
 
@@ -226,7 +226,7 @@ class DerivedFactRefreshTest {
 
         @Test
         @DisplayName("a local entry never expires by time")
-        void localNeverExpiresByTime() throws IOException {
+        void localNeverExpiresByTime() throws Exception {
             seed(DerivedFactKind.MODULE_DISCOVERY, DerivedFact.DerivationClass.LOCAL, DerivedFact.State.CURRENT,
                     DIGEST_A, NOW.minusSeconds(10_000_000), "{\"name\":\"old\"}");
 
@@ -238,7 +238,7 @@ class DerivedFactRefreshTest {
         @Test
         @DisplayName("the validity period is the fixed constant of the specification")
         void validityPeriodIsTheConstant() {
-            assertEquals(Duration.ofSeconds(86_400), DerivedFactStore.NETWORK_VALIDITY,
+            assertEquals(DerivedFactStore.NETWORK_VALIDITY, Duration.ofSeconds(86_400),
                     "The period is fixed at 86400 seconds");
         }
     }

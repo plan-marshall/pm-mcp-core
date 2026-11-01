@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.jspecify.annotations.Nullable;
+
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -28,7 +30,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.corpus.JsonValue;
 
@@ -116,7 +117,7 @@ class DerivedFactStoreTest {
 
         @Test
         @DisplayName("a current local fact inside its validity is a value")
-        void currentLocalIsValue() throws IOException {
+        void currentLocalIsValue() throws Exception {
             var fact = entry(DerivedFactKind.MODULE_DISCOVERY, "{\"name\":\"tree\"}",
                     DerivedFact.DerivationClass.LOCAL, NOW.minusSeconds(3600), "a".repeat(64),
                     DerivedFact.State.CURRENT, null);
@@ -131,7 +132,7 @@ class DerivedFactStoreTest {
 
         @Test
         @DisplayName("a local fact never expires by time")
-        void localNeverExpires() throws IOException {
+        void localNeverExpires() throws Exception {
             var fact = entry(DerivedFactKind.MODULE_DISCOVERY, "{\"name\":\"tree\"}",
                     DerivedFact.DerivationClass.LOCAL, NOW.minusSeconds(10_000_000), "a".repeat(64),
                     DerivedFact.State.CURRENT, null);
@@ -143,7 +144,7 @@ class DerivedFactStoreTest {
 
         @Test
         @DisplayName("a stale entry is indeterminate with its kind and stored reason")
-        void staleIsIndeterminate() throws IOException {
+        void staleIsIndeterminate() throws Exception {
             var failure = new DerivedFact.Failure("the provider refused", NOW.minusSeconds(60));
             write(NETWORK_KEY, entry(DerivedFactKind.MERGE_METHODS_ALLOWED, "{\"name\":\"merge\"}",
                     DerivedFact.DerivationClass.NETWORK, NOW.minusSeconds(120), "a".repeat(64),
@@ -162,7 +163,7 @@ class DerivedFactStoreTest {
 
         @Test
         @DisplayName("a failed entry is indeterminate with its kind and stored reason")
-        void failedIsIndeterminate() throws IOException {
+        void failedIsIndeterminate() throws Exception {
             write(LOCAL_KEY, DerivedFact.builder()
                     .kind(DerivedFactKind.MODULE_DISCOVERY)
                     .source(new DerivedFact.Source("fixture", DerivedFact.DerivationClass.LOCAL))
@@ -181,7 +182,7 @@ class DerivedFactStoreTest {
 
         @Test
         @DisplayName("a current network fact expires exactly at derived_at plus 86400 s")
-        void networkExpiresAtTheValidityPeriod() throws IOException {
+        void networkExpiresAtTheValidityPeriod() throws Exception {
             write(NETWORK_KEY, entry(DerivedFactKind.MERGE_METHODS_ALLOWED, "{\"name\":\"merge\"}",
                     DerivedFact.DerivationClass.NETWORK, NOW, "a".repeat(64), DerivedFact.State.CURRENT, null));
 
@@ -203,7 +204,7 @@ class DerivedFactStoreTest {
 
         @Test
         @DisplayName("an unreadable store file is a refusal naming the file")
-        void unreadableFileIsRefused() throws IOException {
+        void unreadableFileIsRefused() throws Exception {
             Files.write(file, "{".getBytes(UTF_8));
 
             var refusal = assertThrows(StoreRefusal.class, store::snapshot, "The content cannot be read");
@@ -216,7 +217,7 @@ class DerivedFactStoreTest {
 
         @Test
         @DisplayName("another format version is a refusal naming the file")
-        void otherFormatVersionIsRefused() throws IOException {
+        void otherFormatVersionIsRefused() throws Exception {
             Files.write(file, "{\"format_version\":2,\"facts\":{}}".getBytes(UTF_8));
 
             var refusal = assertThrows(StoreRefusal.class, store::snapshot, "The version is not accepted");
@@ -246,7 +247,7 @@ class DerivedFactStoreTest {
 
     @Test
     @DisplayName("a document with another entry still answers one fact")
-    void factAccessor() throws IOException {
+    void factAccessor() throws Exception {
         var fact = entry(DerivedFactKind.MODULE_DISCOVERY, "{\"name\":\"tree\"}",
                 DerivedFact.DerivationClass.LOCAL, NOW, "a".repeat(64), DerivedFact.State.CURRENT, null);
         write(LOCAL_KEY, fact);

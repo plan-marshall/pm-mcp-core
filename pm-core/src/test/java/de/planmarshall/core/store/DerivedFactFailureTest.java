@@ -135,7 +135,7 @@ class DerivedFactFailureTest {
 
         @Test
         @DisplayName("a current entry becomes stale and keeps its last good state")
-        void currentToStale() throws IOException {
+        void currentToStale() throws Exception {
             seed(KEY, DerivedFact.State.CURRENT, DIGEST_A, "{\"name\":\"old\"}", null);
 
             var reading = store.refresh(KEY, DIGEST_B, fails("boom"), NOW);
@@ -155,7 +155,7 @@ class DerivedFactFailureTest {
 
         @Test
         @DisplayName("a stale entry stays stale with the new failure")
-        void staleToStale() throws IOException {
+        void staleToStale() throws Exception {
             seed(KEY, DerivedFact.State.STALE, DIGEST_A, "{\"name\":\"old\"}", "first");
 
             store.refresh(KEY, DIGEST_B, fails("second"), NOW);
@@ -169,7 +169,7 @@ class DerivedFactFailureTest {
 
         @Test
         @DisplayName("a failed entry stays failed and records the attempted digest")
-        void failedToFailed() throws IOException {
+        void failedToFailed() throws Exception {
             seed(KEY, DerivedFact.State.FAILED, DIGEST_A, null, "first");
 
             store.refresh(KEY, DIGEST_B, fails("again"), NOW);
@@ -185,7 +185,7 @@ class DerivedFactFailureTest {
 
         @Test
         @DisplayName("a failed entry becomes current and drops the failure")
-        void failedToCurrent() throws IOException {
+        void failedToCurrent() throws Exception {
             seed(KEY, DerivedFact.State.FAILED, DIGEST_A, null, "first");
 
             store.refresh(KEY, DIGEST_B, succeeds(), NOW);
@@ -199,7 +199,7 @@ class DerivedFactFailureTest {
 
         @Test
         @DisplayName("a stale entry becomes current and drops the failure")
-        void staleToCurrent() throws IOException {
+        void staleToCurrent() throws Exception {
             seed(KEY, DerivedFact.State.STALE, DIGEST_A, "{\"name\":\"old\"}", "first");
 
             store.refresh(KEY, DIGEST_B, succeeds(), NOW);
@@ -239,7 +239,7 @@ class DerivedFactFailureTest {
             store.refresh(KEY, DIGEST_B, fails(reason), NOW);
 
             assertEquals(500, store.fact(KEY).orElseThrow().failure().reason()
-                    .codePointCount(0, store.fact(KEY).orElseThrow().failure().reason().length()),
+                            .codePointCount(0, store.fact(KEY).orElseThrow().failure().reason().length()),
                     "The stored reason has the schema bound");
         }
 
@@ -255,7 +255,7 @@ class DerivedFactFailureTest {
 
     @Test
     @DisplayName("a failed refresh changes no other entry")
-    void otherEntryIsUnchanged() throws IOException {
+    void otherEntryIsUnchanged() throws Exception {
         seedTwo();
         var before = DerivedFactsCodec.write(new DerivedFacts(
                 Map.of(OTHER, store.fact(OTHER).orElseThrow())));

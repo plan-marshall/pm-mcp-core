@@ -11,6 +11,7 @@ package de.planmarshall.core.store;
 
 import org.jspecify.annotations.Nullable;
 
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -192,7 +193,7 @@ public final class DerivedFactStore {
     }
 
     /** @return the store file, absolute and normalized */
-    public java.nio.file.Path store() {
+    public Path store() {
         return storeFile.store();
     }
 

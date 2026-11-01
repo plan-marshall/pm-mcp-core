@@ -11,11 +11,11 @@ package de.planmarshall.workflow.engine;
 
 import java.util.Objects;
 import java.util.function.Function;
-import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.store.DerivedFact;
 import de.planmarshall.core.store.DerivedFactReading;
 import de.planmarshall.workflow.ast.GuardResult;
+import lombok.experimental.UtilityClass;
 
 /**
  * The bridge from a derived fact to the three-valued guard result (PM-IMPL-5; Store Schemas § Derived Facts Store,
