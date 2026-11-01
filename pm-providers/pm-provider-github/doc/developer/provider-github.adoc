@@ -16,8 +16,9 @@ GraphQL documents for review threads and the merge queue, and the REST calls of 
 HTTP base `pm-provider-http` (link:../../../pm-provider-http/doc/developer/provider-http.adoc[`provider.http`]) and names
 GitHub; the base names no forge.
 
-The module is a client, not a CI workflow: the engine's `ci` contract is implemented on top of these calls by the
-package that owns it, and this package returns typed results and closed outcomes.
+The module is a client, not a CI workflow: the engine's `ci` contract (`CiProvider`,
+link:../../../pm-provider-ci/doc/developer/provider-ci.adoc[`provider.ci`]) is implemented on top of these calls by
+`GitHubCiProvider`, and this package returns typed results and closed outcomes.
 
 == Main Types
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]_
@@ -43,6 +44,11 @@ keyed by installation, repository and permission set, until `REUSE_MARGIN_SECOND
 |link:{src}/GitHubOperation.java[`GitHubOperation`]
 |The operation classes, each with the narrowest repository permission set an installation token is minted with. The
 constants and their permission sets are `GitHubOperation`'s source; this guide does not repeat them.
+
+|link:{src}/GitHubCiProvider.java[`GitHubCiProvider`]
+|The adapter of the CI contract: `ci.whoami` (a personal access token's kind from its prefix and its expiry and scopes
+from the response headers; a GitHub App's bot identity beside the operator login), `ci.issue-view` (a pull request is
+refused) and `ci.issue-comment`.
 |===
 
 == Authentication
@@ -77,6 +83,18 @@ operations with different permission sets.
 * *Remote text is untrusted.* A comment body and an author login are data; a caller that emits or persists them passes a
   provider message through the runtime's redaction.
 
+== The CI Adapter
+
+`GitHubCiProvider` implements the CI contract on the native variant. A provider is bound to one web origin and one
+credential. `whoami` reads `GET /user` and, with a repository named, `GET /repos/{owner}/{repo}` for the permissions; the
+kind comes from the token prefix (`github_pat_` fine-grained, `ghp_` classic), the scopes from `x-oauth-scopes` and the
+expiry from `github-authentication-token-expiration`, both response headers the shared base keeps for
+`HttpClient.getWithHeaders`. For a GitHub App the adapter reads the App's slug from `GET /app` with the App JWT, the bot
+user id from `GET /users/{slug}[bot]` and the operator's login from `GET /user` with the user access token.
+`issueView` reads `GET /repos/{owner}/{repo}/issues/{n}` with a token narrowed by `GitHubOperation.ISSUE_READ`, flags the
+`pull_request` member and refuses a pull request. `issueComment` posts through `GitHubClient.postComment` and derives the
+comment URL. An issue on another origin or of another forge is refused before a request is sent.
+
 == Extending the Client
 
 . Add the operation to `GitHubOperation` with the narrowest permission set it needs.
@@ -91,7 +109,10 @@ The tests run against `cui-test-mockwebserver-junit5`, with no network and no re
 
 [horizontal]
 link:{test}/GitHubClientTest.java[`GitHubClientTest`]:: each GraphQL operation with its fixed document and its typed
-result, the REST comment, and an error status mapped to its outcome.
+result, the REST comment, the App identity and the issue read, and an error status mapped to its outcome.
+link:{test}/GitHubCiProviderTest.java[`GitHubCiProviderTest`]:: the personal access token and the App identity, the issue
+read with its structured fields, a pull request number, an anonymous private issue, a rate limit with its reset instant, a
+`403`, a `404`, a malformed body and an issue on another origin.
 link:{test}/InstallationTokensTest.java[`InstallationTokensTest`]:: a mint with a fresh JWT, reuse until the margin, a
 fresh mint after it, the key read per mint, the redaction registration, and a failed mint.
 link:{test}/GitHubAppJwtTest.java[`GitHubAppJwtTest`]:: the JWT header and claims, the RS256 signature verified with the
@@ -117,5 +138,9 @@ comment-endpoint rule.
   link:{spec}/credentials-and-enrolment/03-audit-and-outbound-https.adoc[Credentials & Enrolment § Outbound HTTPS],
   link:{spec}/phase-workflows/06-finalize-re-entry-and-merge.adoc[Phase Workflows § Finalize Re-Entry and Merge]
 * The shared base: link:../../../pm-provider-http/doc/developer/provider-http.adoc[`provider.http`]
+* The CI contract: link:../../../pm-provider-ci/doc/developer/provider-ci.adoc[`provider.ci`]
 * Decisions: link:../../../pm-provider-http/doc/adr/provider-http/001-neutral-class-names.adoc[`provider.http` ADR 001],
-  link:../../../../doc/adr/002-cui-http-and-the-mock-web-server-for-http.adoc[repository ADR 002]
+  link:../../../pm-provider-ci/doc/adr/provider-ci/003-the-app-identity-carries-both-identities.adoc[`provider.ci` ADR 003],
+  link:../../../pm-provider-ci/doc/adr/provider-ci/004-a-pull-request-is-no-issue.adoc[`provider.ci` ADR 004],
+  link:../../../../doc/adr/002-cui-http-and-the-mock-web-server-for-http.adoc[repository ADR 002],
+  link:../../../../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[repository ADR 014]
