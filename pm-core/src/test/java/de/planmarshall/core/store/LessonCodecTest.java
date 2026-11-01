@@ -284,9 +284,33 @@ class LessonCodecTest {
     @Test
     @DisplayName("more than one document in the front matter is unreadable")
     void moreThanOneDocumentIsUnreadable() {
-        var file = "---\n" + BLOCK_FRONT_MATTER + "...\n" + BLOCK_FRONT_MATTER + "---\n" + BODY;
+        var file = "---\n--- \n" + BLOCK_FRONT_MATTER + "--- \n" + BLOCK_FRONT_MATTER + "---\n" + BODY;
 
-        unreadable(file, UnreadableReason.STRICT_READER);
+        assertTrue(unreadable(file, UnreadableReason.STRICT_READER).detail().contains("more than one document"),
+                "The guard refuses the second document");
+    }
+
+    @Test
+    @DisplayName("a leading-zero integer is not read as an octal number")
+    void leadingZeroIntegerIsRefused() {
+        var octal = BLOCK_FRONT_MATTER.replace("revision: 1\n", "revision: 010\n");
+        var invalidOctal = BLOCK_FRONT_MATTER.replace("revision: 1\n", "revision: 08\n");
+        var yamlOctal = BLOCK_FRONT_MATTER.replace("revision: 1\n", "revision: 0o7\n");
+
+        assertAll(
+                () -> unreadable("---\n" + octal + "---\n" + BODY, UnreadableReason.STRICT_READER),
+                () -> unreadable("---\n" + invalidOctal + "---\n" + BODY, UnreadableReason.STRICT_READER),
+                () -> unreadable("---\n" + yamlOctal + "---\n" + BODY, UnreadableReason.STRICT_READER));
+    }
+
+    @Test
+    @DisplayName("a body that is not encodable as UTF-8 is refused")
+    void bodyWithAnUnpairedSurrogateIsRefused() {
+        var frontMatter = canonical().frontMatter();
+        var body = "A body with an unpaired surrogate: \uD800";
+
+        assertThrows(IllegalArgumentException.class, () -> new Lesson(frontMatter, body),
+                "A body with an unpaired surrogate is refused");
     }
 
     @Test

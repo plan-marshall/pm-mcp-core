@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.store;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
 /**
@@ -28,12 +29,15 @@ public record Lesson(LessonFrontMatter frontMatter, String body) {
     /**
      * @param frontMatter the structured front matter of the lesson
      * @param body        the Markdown body, verbatim
-     * @throws IllegalArgumentException if the front matter is missing
+     * @throws IllegalArgumentException if the front matter is missing or the body is not encodable as UTF-8
      */
     public Lesson {
         if (frontMatter == null) {
             throw new IllegalArgumentException("A lesson without front matter is not written");
         }
         Objects.requireNonNull(body, "body");
+        if (!StandardCharsets.UTF_8.newEncoder().canEncode(body)) {
+            throw new IllegalArgumentException("A lesson body with an unpaired surrogate is not UTF-8");
+        }
     }
 }
