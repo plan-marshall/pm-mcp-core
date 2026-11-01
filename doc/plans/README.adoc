@@ -51,6 +51,12 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:worker-activity.adoc[`worker-activity`]; link:question-continuation.adoc[`question-continuation`]
 |Milestone 4
 
+|link:qualification-evidence.adoc[`qualification-evidence`]
+|What a role's qualification figures rest on: the items left out of a grading (an unconfirmed decision of its own, a derived item), the costly answers with their subset and confusion matrix, the interval, the `thin` mark and the confirmed-only agreement
+|`open`
+|nothing
+|Milestone 4
+
 |link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]
 |The onboarding of the machine: its sub-workflows, the consent store, harnesses, catalogue, roles, credentials, providers, automatic run, plan axes (the landing variants) and overrides, the machine's settings
 |`open`

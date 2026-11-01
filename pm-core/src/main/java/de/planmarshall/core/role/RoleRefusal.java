@@ -30,7 +30,8 @@ public final class RoleRefusal extends RuntimeException {
     private final String pointer;
     private final String detail;
 
-    private RoleRefusal(RoleValidationReason reason, String role, String pointer, String detail) {
+    private RoleRefusal(RoleValidationReason reason, String role, @Nullable String pointer,
+            @Nullable String detail) {
         super(message(reason, role, pointer, detail));
         this.reason = Objects.requireNonNull(reason, "reason");
         this.role = Objects.requireNonNull(role, "role");

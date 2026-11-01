@@ -61,6 +61,19 @@ Guard:: The plan implementing this anchor decides the point (with the operator w
 the result in the specification and the requirement it touches, and deletes this item.
 Source:: `model-work/01-roles-and-configuration.adoc:15`, `:256`, `:279`.
 
+[#PM-WATCH-DISP-70]
+=== PM-WATCH-DISP-70: An item left out is left out, not scored
+
+Anchor:: link:../specification/model-work/01-roles-and-configuration.adoc#qualification-topics[Model Work § Corpus Topics of a Role] (Items Left Out of a Grading)
+Hazard:: An item tagged `decided-by:<role>` or `derived:<skill>` is scored `0` instead of left out, or counted in
+`items` and the constant baseline, or left out for every role instead of the configurations it concerns; a costly
+subset is computed over items whose `costly_answers` is empty, so a topic fails or passes on the wrong population.
+Guard:: Fixture corpus: a `draft` item `decided-by:triage-build` is absent from that role's topic and present in another
+role's, and present for both once `confirmed`; a `derived:<skill>` item is reported under `derived` only for a
+configuration bound to the skill; a topic of eight items, two with costly answers, records `costly.items: 2`, and a
+configuration that is right on six of the other items and wrong on both costly ones does not qualify at a level of 80.
+Source:: Article analysis `counting-house` of plan-marshall-documentation.
+
 == Task Protocol, Supervision & Skill Delivery
 
 [#PM-WATCH-DISP-41]
@@ -472,6 +485,33 @@ the question item with the operator's `branch_key`, the triage item with `FIX`, 
 no item's input contains `recommended`, `recommendation_confidence`, the asker's rationale, or the choice. Matched
 control: a decision without a correction is exported with its own choice and an unchanged line.
 Source:: design review.
+
+[#PM-WATCH-DISP-68]
+=== PM-WATCH-DISP-68: A shadow vote is never seen before the answer
+
+Anchor:: link:../specification/model-work/10-decision-quorum.adoc#shadow-votes[Model Work § Shadow Votes]
+Hazard:: The shadow votes reach the operator before the answer: the decision view derives each option's support from
+every vote line of the question, a resource or the export reads the `shadowed` line, or the escalated set waits for the
+shadow tasks before it is delivered. The operator then answers with the votes, the answer stops being an independent
+label, and the shadow figures measure agreement with themselves.
+Guard:: Scenario: a set of an `ask shadow(...)` kind is delivered before its shadow tasks end; until the answer, the
+decision view, `pm://plan/{plan_id}/decisions`, and both clients carry no shadow vote, no support, and no shadow figure;
+after the answer the `shadowed` line is shown and counted; a shadow vote ending after the answer is recorded and its
+facts hold no answer. Matched control: an escalated `quorum` set still shows its own votes before the answer.
+Source:: Article analysis `counting-house` of plan-marshall-documentation.
+
+[#PM-WATCH-DISP-69]
+=== PM-WATCH-DISP-69: Live corrections count only the declaration's own decisions since its calibration
+
+Anchor:: link:../specification/model-work/10-decision-quorum.adoc#live-corrections[Model Work § Live Corrections]
+Hazard:: The window is taken over the kind instead of the declaration digest, counts decisions before the calibration
+record or `escalated` records, reads the `decided` lines without folding their corrections, or counts `replanned` and
+`overridden`, so a declaration is demoted for another configuration's errors or never demoted at all.
+Guard:: Table test over decision stores of two plans and the workspace: a correction `answered_differently` among the
+first 19 automatic decisions demotes, one among 20 does not, two among the last 20 do; a decision before the
+calibration's `graded_at`, one of another declaration digest of the same kind, an `escalated` record, and corrections
+`replanned` and `overridden` count nothing; a new calibration record lifts the demotion.
+Source:: Article analysis `counting-house` of plan-marshall-documentation.
 
 == Worker Launch
 

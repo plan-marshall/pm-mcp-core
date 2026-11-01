@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.service;
 
+import org.jspecify.annotations.Nullable;
+
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.HashMap;
@@ -287,8 +289,8 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
      * @param targets       the store paths of the journal's targets, in its order
      * @return the record of the roll-forward
      */
-    public static AuditEvent transactionRolledForward(String scopeType, String scopeId, String transactionId,
-            List<String> targets) {
+    public static AuditEvent transactionRolledForward(String scopeType, @Nullable String scopeId,
+            String transactionId, List<String> targets) {
         var details = new HashMap<String, Object>();
         details.put(DETAIL_SCOPE_TYPE, scopeType);
         if (scopeId != null) {
@@ -608,7 +610,7 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
         return consent(CONSENT_WITHDRAWN, kind, projectId);
     }
 
-    private static AuditEvent consent(String event, String kind, String projectId) {
+    private static AuditEvent consent(String event, String kind, @Nullable String projectId) {
         var details = new HashMap<String, Object>();
         details.put(DETAIL_KIND, Objects.requireNonNull(kind, DETAIL_KIND));
         if (projectId != null) {

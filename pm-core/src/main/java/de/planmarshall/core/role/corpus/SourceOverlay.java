@@ -13,6 +13,8 @@ import static de.planmarshall.core.role.corpus.SourceManifest.NAME_PATTERN;
 import static de.planmarshall.core.role.corpus.SourceManifest.RELATIVE_PATH;
 import static de.planmarshall.core.role.corpus.SourceManifest.require;
 
+import org.jspecify.annotations.Nullable;
+
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
@@ -46,7 +48,8 @@ import de.planmarshall.core.role.corpus.ImportedItem.Target;
  * @param rows     the selected rows, at least one; unmodifiable
  * @since 0.1
  */
-public record SourceOverlay(String source, String file, String keyField, LocalDate created, List<Row> rows) {
+public record SourceOverlay(String source, String file, @Nullable String keyField, LocalDate created,
+List<Row> rows) {
 
     /** The key of a row selected by its position among the rows of the file, from 1. */
     public static final Pattern POSITION = Pattern.compile("^[1-9]\\d*$");
@@ -80,7 +83,8 @@ public record SourceOverlay(String source, String file, String keyField, LocalDa
      * @since 0.1
      */
     public record Row(String key, String slug, String topic, String role, String title, List<String> tags,
-    String group, String question, String facts, List<String> choices, JsonValue answerSchema, Target target,
+    String group, String question, String facts, @Nullable List<String> choices,
+    @Nullable JsonValue answerSchema, Target target,
     Grading grading, Review review, String contamination) {
 
         /**
