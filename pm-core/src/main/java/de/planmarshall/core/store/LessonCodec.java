@@ -235,7 +235,7 @@ public class LessonCodec {
          * @param detail what exactly could not be read
          */
         public Unreadable {
-            Objects.requireNonNull(reason, "reason");
+            Objects.requireNonNull(reason, FIELD_REASON);
             Objects.requireNonNull(detail, "detail");
         }
     }
@@ -811,9 +811,9 @@ public class LessonCodec {
     private static final class JsonModelResolver extends Resolver {
 
         private static final Pattern BOOLEAN = Pattern.compile("^(?:true|True|TRUE|false|False|FALSE)$");
-        private static final Pattern INTEGER = Pattern.compile("^[-+]?[0-9]+$|^0o[0-7]+$|^0x[0-9a-fA-F]+$");
+        private static final Pattern INTEGER = Pattern.compile("^[-+]?\\d+$|^0o[0-7]+$|^0x[\\da-fA-F]+$");
         private static final Pattern DECIMAL = Pattern.compile(
-                "^[-+]?(?:\\.[0-9]+|[0-9]+(?:\\.[0-9]*)?)(?:[eE][-+]?[0-9]+)?$");
+                "^[-+]?(?:\\d+\\.?\\d*|\\.\\d+)(?:[eE][-+]?\\d+)?$");
         private static final Pattern NOTHING = Pattern.compile("^(?:~|null|Null|NULL|)$");
         private static final Pattern EMPTY = Pattern.compile("^$");
 

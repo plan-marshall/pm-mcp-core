@@ -66,20 +66,22 @@ class LessonFrontMatterTest {
     @Test
     @DisplayName("a wire_check carries its check and no other kind does")
     void remedyCheckIsSetExactlyForWireCheck() {
+        var statement = LessonFixtures.statement();
+        var text = LessonFixtures.text();
         var refusal = assertThrows(IllegalArgumentException.class,
-                () -> new Remedy(Remedy.Kind.WIRE_CHECK, LessonFixtures.statement(), null),
+                () -> new Remedy(Remedy.Kind.WIRE_CHECK, statement, null),
                 "A wire_check without a check is refused");
+        var withCheck = new Remedy(Remedy.Kind.WIRE_CHECK, statement, text);
+        var withoutCheck = new Remedy(Remedy.Kind.CHECK, statement, null);
 
         assertAll(
                 () -> assertTrue(refusal.getMessage().contains(LessonFrontMatter.REMEDY_CHECK_MISMATCH),
                         "The refusal names the detail remedy_check_mismatch"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new Remedy(Remedy.Kind.CHECK, LessonFixtures.statement(), LessonFixtures.text()),
+                        () -> new Remedy(Remedy.Kind.CHECK, statement, text),
                         "A check on the kind check is refused"),
-                () -> assertNotNull(new Remedy(Remedy.Kind.WIRE_CHECK, LessonFixtures.statement(),
-                        LessonFixtures.text()).check(), "A wire_check with its check is taken"),
-                () -> assertNull(new Remedy(Remedy.Kind.CHECK, LessonFixtures.statement(), null).check(),
-                        "A check without a check is taken"));
+                () -> assertNotNull(withCheck.check(), "A wire_check with its check is taken"),
+                () -> assertNull(withoutCheck.check(), "A check without a check is taken"));
     }
 
     @Test
@@ -104,13 +106,14 @@ class LessonFrontMatterTest {
         var archConstraintWithoutRule = LessonFixtures.frontMatterBuilder()
                 .category(Category.ARCH_CONSTRAINT).rule(null);
         var bugWithRule = LessonFixtures.frontMatterBuilder().category(Category.BUG).rule(LessonFixtures.text());
+        var archConstraint = archConstraint().build();
 
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class, archConstraintWithoutRule::build,
                         "An arch-constraint without a rule is refused"),
                 () -> assertThrows(IllegalArgumentException.class, bugWithRule::build,
                         "A rule on another category is refused"),
-                () -> assertTrue(archConstraint().build().rule() != null, "An arch-constraint with rule is taken"));
+                () -> assertNotNull(archConstraint.rule(), "An arch-constraint with rule is taken"));
     }
 
     @Test
@@ -133,15 +136,17 @@ class LessonFrontMatterTest {
     @DisplayName("a lesson and a revision carry at least one source")
     void sourcesAreNeverEmpty() {
         var withoutSources = LessonFixtures.frontMatterBuilder().sources(List.of());
+        var instant = LessonFixtures.instant();
+        var digest = LessonFixtures.digest();
+        var frontMatter = LessonFixtures.frontMatter();
 
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class, withoutSources::build,
                         "A lesson without sources is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new Revision(1, LessonFixtures.instant(), List.of(), LessonFixtures.digest()),
+                        () -> new Revision(1, instant, List.of(), digest),
                         "A revision without sources is refused"),
-                () -> assertFalse(LessonFixtures.frontMatter().sources().isEmpty(),
-                        "A lesson with a source is taken"));
+                () -> assertFalse(frontMatter.sources().isEmpty(), "A lesson with a source is taken"));
     }
 
     @Test
@@ -190,6 +195,13 @@ class LessonFrontMatterTest {
         var zeroRecurrence = archConstraint().recurrenceCount(0);
         var wrongVersion = LessonFixtures.frontMatterBuilder()
                 .formatVersion(LessonFrontMatter.FORMAT_VERSION + 1);
+        var shortStatement = "x".repeat(LessonFrontMatter.MIN_REMEDY_STATEMENT - 1);
+        var longStatement = "x".repeat(LessonFrontMatter.MAX_REMEDY_STATEMENT + 1);
+        var statement = LessonFixtures.statement();
+        var longCheck = "x".repeat(LessonFrontMatter.MAX_REMEDY_CHECK + 1);
+        var instant = LessonFixtures.instant();
+        var text = LessonFixtures.text();
+        var source = LessonFixtures.source();
 
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class, emptyTitle::build, "An empty title is refused"),
@@ -198,30 +210,26 @@ class LessonFrontMatterTest {
                 () -> assertThrows(IllegalArgumentException.class, emptyToolVersion::build,
                         "An empty tool version is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new Remedy(Remedy.Kind.CHECK,
-                                "x".repeat(LessonFrontMatter.MIN_REMEDY_STATEMENT - 1), null),
+                        () -> new Remedy(Remedy.Kind.CHECK, shortStatement, null),
                         "A statement below its bound is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new Remedy(Remedy.Kind.CHECK,
-                                "x".repeat(LessonFrontMatter.MAX_REMEDY_STATEMENT + 1), null),
+                        () -> new Remedy(Remedy.Kind.CHECK, longStatement, null),
                         "A statement above its bound is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new Remedy(Remedy.Kind.WIRE_CHECK, LessonFixtures.statement(),
-                                "x".repeat(LessonFrontMatter.MAX_REMEDY_CHECK + 1)),
+                        () -> new Remedy(Remedy.Kind.WIRE_CHECK, statement, longCheck),
                         "A check above its bound is refused"),
                 () -> assertThrows(IllegalArgumentException.class, zeroRevision::build,
                         "A revision counter below its minimum is refused"),
                 () -> assertThrows(IllegalArgumentException.class, zeroRecurrence::build,
                         "A recurrence count below its minimum is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new Source(Source.Kind.PLAN, LessonFixtures.text(), "not-a-digest"),
+                        () -> new Source(Source.Kind.PLAN, text, "not-a-digest"),
                         "A source digest that is no SHA-256 is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new Revision(1, LessonFixtures.instant(), List.of(LessonFixtures.source()),
-                                "not-a-digest"),
+                        () -> new Revision(1, instant, List.of(source), "not-a-digest"),
                         "A body digest that is no SHA-256 is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new Claim("Not A Plan", LessonFixtures.instant()),
+                        () -> new Claim("Not A Plan", instant),
                         "A plan id outside its pattern is refused"),
                 () -> assertThrows(IllegalArgumentException.class, wrongVersion::build,
                         "A format version above one is refused"));
@@ -238,7 +246,7 @@ class LessonFrontMatterTest {
                 .build();
 
         assertAll(
-                () -> assertTrue(claimed.claim() != null, "A claimed lesson carries its claim"),
+                () -> assertNotNull(claimed.claim(), "A claimed lesson carries its claim"),
                 () -> assertEquals(1, merged.mergedFrom().size(), "A merged lesson carries its origin"));
     }
 }

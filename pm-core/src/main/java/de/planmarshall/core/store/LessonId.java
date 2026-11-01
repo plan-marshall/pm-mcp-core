@@ -32,8 +32,8 @@ public record LessonId(String value) {
     /** The longest identifier the schema admits. */
     public static final int MAX_LENGTH = 64;
 
-    /** The grammar of the identifier, as the schema states it. */
-    public static final String PATTERN = "^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{3,}$";
+    /** The grammar of the identifier, as the schema states it; the schema's text, pinned by the parity test. */
+    public static final String PATTERN = "^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{3,}$"; // NOSONAR java:S6353
 
     /** The suffix of the file a lesson is stored in. */
     public static final String FILE_SUFFIX = ".md";
