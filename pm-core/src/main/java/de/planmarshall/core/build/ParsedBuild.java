@@ -61,4 +61,19 @@ boolean noTestsRan) {
                     "no_tests_ran needs a successful build with its success marker and no test count");
         }
     }
+
+    /**
+     * Decides the {@code no_tests_ran} verdict of a parse: the rule is stated here once, beside the constructor that
+     * enforces it, so no parser can restate it differently.
+     *
+     * @param status        the status the tool printed
+     * @param successMarker whether the tool printed its positive success marker
+     * @param testCounts    the test counts of the parse, {@code null} when the log carried no count line
+     * @param noTestsMarker whether the tool printed its own positive "no tests" marker
+     * @return whether the build positively reported that it ran no test
+     */
+    public static boolean noTestsRanFrom(BuildStatus status, boolean successMarker,
+            @Nullable TestCounts testCounts, boolean noTestsMarker) {
+        return status == BuildStatus.SUCCESS && successMarker && testCounts == null && noTestsMarker;
+    }
 }

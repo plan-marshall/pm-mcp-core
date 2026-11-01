@@ -12,8 +12,6 @@ package de.planmarshall.core.build;
 import org.jspecify.annotations.Nullable;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -63,10 +61,6 @@ public class GradleOutputParser {
 
     private static final String TASK_PREFIX = ">";
 
-    private static final int MAX_MESSAGE_LENGTH = 500;
-
-    private static final int DEDUP_MESSAGE_LENGTH = 100;
-
     /**
      * Parses a Gradle build log.
      *
@@ -95,23 +89,13 @@ public class GradleOutputParser {
         TestCounts testCounts = extractTestCounts(lines);
         BuildStatus status = detectStatus(logText);
         boolean successMarker = logText.contains(SUCCESS_MARKER);
-        boolean noTestsRan = status == BuildStatus.SUCCESS
-                && successMarker
-                && testCounts == null
-                && logText.contains(NO_TESTS_MARKER);
+        boolean noTestsRan = ParsedBuild.noTestsRanFrom(status, successMarker, testCounts,
+                logText.contains(NO_TESTS_MARKER));
         return new ParsedBuild(diagnostics, status, successMarker, testCounts, noTestsRan);
     }
 
     private static List<Diagnostic> extractDiagnostics(List<String> lines) {
-        var diagnostics = new ArrayList<Diagnostic>();
-        Set<String> seen = new HashSet<>();
-        for (String line : lines) {
-            Diagnostic diagnostic = filedDiagnostic(line);
-            if (diagnostic != null) {
-                addDeduped(diagnostics, seen, diagnostic);
-            }
-        }
-        return diagnostics;
+        return DiagnosticCollector.collect(lines, GradleOutputParser::filedDiagnostic);
     }
 
     private static @Nullable Diagnostic filedDiagnostic(String line) {
@@ -126,24 +110,12 @@ public class GradleOutputParser {
         var location = JvmFileLocation.parse(stripped);
         Severity severity = ERROR_CATEGORIES.contains(category) ? Severity.ERROR : Severity.WARNING;
         return new Diagnostic(location.file(), location.line(), location.column(),
-                truncate(stripped, MAX_MESSAGE_LENGTH), category, severity, null);
+                DiagnosticCollector.stored(stripped), category, severity, null);
     }
 
     private static boolean isSkippedLine(String stripped) {
         return stripped.startsWith(FRAME_PREFIX) || stripped.startsWith(CAUSED_BY_PREFIX)
                 || stripped.startsWith(CONTINUATION_PREFIX) || stripped.startsWith(TASK_PREFIX);
-    }
-
-    private static void addDeduped(List<Diagnostic> diagnostics, Set<String> seen, Diagnostic diagnostic) {
-        String key = diagnostic.category().name() + ":" + diagnostic.file() + ":" + diagnostic.line() + ":"
-                + truncate(diagnostic.message(), DEDUP_MESSAGE_LENGTH);
-        if (seen.add(key)) {
-            diagnostics.add(diagnostic);
-        }
-    }
-
-    private static String truncate(String text, int maxLength) {
-        return text.length() <= maxLength ? text : text.substring(0, maxLength);
     }
 
     private static @Nullable TestCounts extractTestCounts(List<String> lines) {

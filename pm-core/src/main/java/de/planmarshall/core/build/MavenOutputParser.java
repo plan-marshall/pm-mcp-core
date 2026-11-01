@@ -13,12 +13,10 @@ import org.jspecify.annotations.Nullable;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
@@ -109,10 +107,6 @@ public class MavenOutputParser {
             Pattern.compile("\\S.* \\.{3,} (SUCCESS|FAILURE|SKIPPED)( \\[.+\\])?"),
             Pattern.compile(FAILURE_MARKER));
 
-    private static final int MAX_MESSAGE_LENGTH = 500;
-
-    private static final int DEDUP_MESSAGE_LENGTH = 100;
-
     /**
      * Parses a Maven build log.
      *
@@ -142,23 +136,13 @@ public class MavenOutputParser {
         TestCounts testCounts = extractTestCounts(logText, lines);
         BuildStatus status = detectStatus(logText);
         boolean successMarker = logText.contains(SUCCESS_MARKER);
-        boolean noTestsRan = status == BuildStatus.SUCCESS
-                && successMarker
-                && testCounts == null
-                && logText.contains(NO_TESTS_MARKER);
+        boolean noTestsRan = ParsedBuild.noTestsRanFrom(status, successMarker, testCounts,
+                logText.contains(NO_TESTS_MARKER));
         return new ParsedBuild(diagnostics, status, successMarker, testCounts, noTestsRan);
     }
 
     private static List<Diagnostic> extractDiagnostics(List<String> lines) {
-        var diagnostics = new ArrayList<Diagnostic>();
-        Set<String> seen = new HashSet<>();
-        for (String line : lines) {
-            Diagnostic diagnostic = filedDiagnostic(line);
-            if (diagnostic != null) {
-                addDeduped(diagnostics, seen, diagnostic);
-            }
-        }
-        return diagnostics;
+        return DiagnosticCollector.collect(lines, MavenOutputParser::filedDiagnostic);
     }
 
     private static @Nullable Diagnostic filedDiagnostic(String line) {
@@ -176,8 +160,8 @@ public class MavenOutputParser {
             return null;
         }
         var location = JvmFileLocation.parse(line);
-        return new Diagnostic(location.file(), location.line(), location.column(), truncate(message, MAX_MESSAGE_LENGTH),
-                categoryOf(message, severity), severity, null);
+        return new Diagnostic(location.file(), location.line(), location.column(),
+                DiagnosticCollector.stored(message), categoryOf(message, severity), severity, null);
     }
 
     private static @Nullable Severity printedSeverity(String line) {
@@ -190,18 +174,6 @@ public class MavenOutputParser {
     private static Category categoryOf(String message, Severity severity) {
         Category category = JvmCategoryPatterns.maven().categorize(message);
         return category == Category.OTHER && severity == Severity.ERROR ? Category.UNRECOGNIZED : category;
-    }
-
-    private static void addDeduped(List<Diagnostic> diagnostics, Set<String> seen, Diagnostic diagnostic) {
-        String key = diagnostic.category().name() + ":" + diagnostic.file() + ":" + diagnostic.line() + ":"
-                + truncate(diagnostic.message(), DEDUP_MESSAGE_LENGTH);
-        if (seen.add(key)) {
-            diagnostics.add(diagnostic);
-        }
-    }
-
-    private static String truncate(String text, int maxLength) {
-        return text.length() <= maxLength ? text : text.substring(0, maxLength);
     }
 
     private static boolean isEpilogue(String message) {
