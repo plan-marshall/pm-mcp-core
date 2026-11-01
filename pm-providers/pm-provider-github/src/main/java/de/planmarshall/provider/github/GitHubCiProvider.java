@@ -90,8 +90,8 @@ public final class GitHubCiProvider implements CiProvider {
      * @return the provider
      */
     public static GitHubCiProvider forToken(String origin, HttpClient http, TokenSource tokens) {
-        return new GitHubCiProvider(origin, http, new GitHubClient(http, GitHubClient.GRAPHQL_PATH), tokens, null,
-                null);
+        return new GitHubCiProvider(origin, http, new GitHubClient(http, GitHubClient.GRAPHQL_PATH),
+                Objects.requireNonNull(tokens, "tokens"), null, null);
     }
 
     /**
@@ -167,7 +167,7 @@ public final class GitHubCiProvider implements CiProvider {
     }
 
     private Result<Identity> tokenIdentity(@Nullable RepositoryRef repository) {
-        Optional<String> token = tokens == null ? Optional.empty() : tokens.token();
+        Optional<String> token = Objects.requireNonNull(tokens, "tokens").token();
         if (token.isEmpty()) {
             return Result.of(Result.Outcome.AUTH_FAILED, "no GitHub credential is available");
         }

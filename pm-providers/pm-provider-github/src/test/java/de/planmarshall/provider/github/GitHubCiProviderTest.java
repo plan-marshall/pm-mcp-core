@@ -11,6 +11,7 @@ package de.planmarshall.provider.github;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.URI;
@@ -69,6 +70,14 @@ class GitHubCiProviderTest {
 
     private IssueRef issue(String origin, String forge, int number) {
         return new IssueRef(new RepositoryRef(forge, origin, "cuioss", "pm"), number);
+    }
+
+    private GitHubCiProvider appProvider(MockWebServer server) {
+        HttpClient readHttp = http(server, () -> Optional.of("ghs_installation"));
+        HttpClient userHttp = http(server, () -> Optional.of("ghu_operator"));
+        GitHubClient appClient = new GitHubClient(http(server, () -> Optional.of("jwt")),
+                GitHubClient.GRAPHQL_PATH);
+        return GitHubCiProvider.forApp(WEB_ORIGIN, readHttp, appClient, userHttp);
     }
 
     @Test
@@ -309,6 +318,124 @@ class GitHubCiProviderTest {
                 () -> assertEquals(Result.Outcome.REJECTED,
                         provider.issueComment(issue(WEB_ORIGIN, "github", 5), " ").outcome(),
                         "a blank body is refused"));
+    }
+
+    @Test
+    @DisplayName("maps a refused identity read and a body without a login")
+    @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 401,
+            stringContent = "{\"message\":\"Bad credentials\"}")
+    void mapsRefusedIdentity(MockWebServer server) {
+        assertEquals(Result.Outcome.AUTH_FAILED, tokenProvider(server, "ghp_classic").whoami(null).outcome(),
+                "a refused user read is an auth failure");
+    }
+
+    @Test
+    @DisplayName("answers a user body without a login with failed")
+    @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"id\":1}")
+    void refusesUserWithoutLogin(MockWebServer server) {
+        assertEquals(Result.Outcome.FAILED, tokenProvider(server, "ghp_classic").whoami(null).outcome(),
+                "a user body without a login is a failure");
+    }
+
+    @Test
+    @DisplayName("maps a refused repository permission read")
+    @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"login\":\"octocat\",\"id\":1}")
+    @MockResponseConfig(path = "/repos/cuioss/pm", method = HttpMethodMapper.GET, status = 404,
+            stringContent = "{\"message\":\"Not Found\"}")
+    void mapsRefusedPermissions(MockWebServer server) {
+        assertEquals(Result.Outcome.NOT_FOUND, tokenProvider(server, "ghp_classic").whoami(REPOSITORY).outcome(),
+                "a refused permission read is mapped");
+    }
+
+    @Test
+    @DisplayName("reads an ISO expiry header and skips an unreadable one")
+    @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"login\":\"octocat\",\"id\":1}",
+            headers = {"x-oauth-scopes=repo, ,read:org",
+                    "github-authentication-token-expiration=2026-11-01T12:00:00Z"})
+    @MockResponseConfig(path = "/repos/cuioss/pm", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{}")
+    void readsExpiryVariants(MockWebServer server) {
+        Identity identity = tokenProvider(server, "ghp_classic").whoami(REPOSITORY).value().orElseThrow();
+
+        assertAll("the header variants",
+                () -> assertEquals(List.of("repo", "read:org"), identity.scopes(),
+                        "the empty scope is dropped"),
+                () -> assertEquals(Instant.parse("2026-11-01T12:00:00Z"), identity.expiresAt(),
+                        "an ISO expiry header is read"),
+                () -> assertTrue(identity.permissions().isEmpty(), "a body without permissions is empty"));
+    }
+
+    @Test
+    @DisplayName("drops an expiry header it cannot parse")
+    @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"login\":\"octocat\",\"id\":1}",
+            headers = {"github-authentication-token-expiration=not-a-date"})
+    void dropsUnreadableExpiry(MockWebServer server) {
+        var identity = tokenProvider(server, "ghp_classic").whoami(null).value().orElseThrow();
+
+        assertNull(identity.expiresAt(), "an unreadable expiry is dropped");
+    }
+
+    @Test
+    @DisplayName("maps a refused App read")
+    @MockResponseConfig(path = "/app", method = HttpMethodMapper.GET, status = 401,
+            stringContent = "{\"message\":\"Bad credentials\"}")
+    void mapsRefusedApp(MockWebServer server) {
+        var provider = appProvider(server);
+
+        assertEquals(Result.Outcome.AUTH_FAILED, provider.whoami(null).outcome(),
+                "a refused App JWT is an auth failure");
+    }
+
+    @Test
+    @DisplayName("maps a refused bot user read and a body without an id")
+    @MockResponseConfig(path = "/app", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"slug\":\"plan-marshall\",\"id\":123}")
+    @MockResponseConfig(path = "/users/plan-marshall%5Bbot%5D", method = HttpMethodMapper.GET, status = 404,
+            stringContent = "{\"message\":\"Not Found\"}")
+    void mapsRefusedBotUser(MockWebServer server) {
+        assertEquals(Result.Outcome.NOT_FOUND, appProvider(server).whoami(null).outcome(),
+                "a refused bot user read is mapped");
+    }
+
+    @Test
+    @DisplayName("answers a bot user body without an id with failed")
+    @MockResponseConfig(path = "/app", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"slug\":\"plan-marshall\",\"id\":123}")
+    @MockResponseConfig(path = "/users/plan-marshall%5Bbot%5D", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{}")
+    void refusesBotUserWithoutId(MockWebServer server) {
+        assertEquals(Result.Outcome.FAILED, appProvider(server).whoami(null).outcome(),
+                "a bot body without an id is a failure");
+    }
+
+    @Test
+    @DisplayName("maps a refused operator read and a body without a login")
+    @MockResponseConfig(path = "/app", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"slug\":\"plan-marshall\",\"id\":123}")
+    @MockResponseConfig(path = "/users/plan-marshall%5Bbot%5D", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"id\":456}")
+    @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 401,
+            stringContent = "{\"message\":\"Bad credentials\"}")
+    void mapsRefusedOperator(MockWebServer server) {
+        assertEquals(Result.Outcome.AUTH_FAILED, appProvider(server).whoami(null).outcome(),
+                "a refused operator read is an auth failure");
+    }
+
+    @Test
+    @DisplayName("answers an operator body without a login with failed")
+    @MockResponseConfig(path = "/app", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"slug\":\"plan-marshall\",\"id\":123}")
+    @MockResponseConfig(path = "/users/plan-marshall%5Bbot%5D", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"id\":456}")
+    @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{}")
+    void refusesOperatorWithoutLogin(MockWebServer server) {
+        assertEquals(Result.Outcome.FAILED, appProvider(server).whoami(null).outcome(),
+                "an operator body without a login is a failure");
     }
 
     @Test
