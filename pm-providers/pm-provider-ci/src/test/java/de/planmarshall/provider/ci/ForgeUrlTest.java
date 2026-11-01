@@ -23,6 +23,9 @@ import org.junit.jupiter.api.Test;
 @DisplayName("ForgeUrl")
 class ForgeUrlTest {
 
+    private static final RepositoryRef REPOSITORY = new RepositoryRef("github", "https://github.com", "cuioss",
+            "pm-mcp-core");
+
     @Test
     @DisplayName("resolves a GitHub issue URL")
     void resolvesGitHubIssue() {
@@ -146,6 +149,60 @@ class ForgeUrlTest {
                                 () -> ForgeUrl.builder().forge("gitlab").repository(repository).number(1)
                                                         .kind(ForgeUrl.Kind.ISSUE).build(),
                                 "a mismatched forge is refused");
+    }
+
+    @Test
+    @DisplayName("covers the remaining URL-grammar branches")
+    void coversRemainingGrammarBranches() {
+        assertAll("the remaining grammar branches",
+                () -> assertEquals("https://github.com:8443",
+                        ForgeUrl.resolve("https://github.com:8443/o/r/issues/1").url().orElseThrow()
+                                .repository().origin(),
+                        "an explicit port is kept in the origin"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://gitlab.com/g/p/-/pipelines/1").outcome(),
+                        "an unknown GitLab operation is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://gitlab.com/g/p/-/issues/0").outcome(),
+                        "a GitLab zero number is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://github.com/o/r/issues/1234567890").outcome(),
+                        "an over-long number is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://github.com/o//r/issues/1").outcome(),
+                        "an empty path segment is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://gitlab.com/a/b/c/d/e/f/g/h/i/j/k/issues/1").outcome(),
+                        "too many path segments are refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://gitlab.com/group/./project/-/issues/1").outcome(),
+                        "a current-directory segment is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https:/github.com/o/r/issues/1").outcome(),
+                        "a URL without a host is refused"),
+                () -> assertEquals(1,
+                        ForgeUrl.resolve("  https://github.com/o/r/issues/1  ").url().orElseThrow().number(),
+                        "surrounding whitespace is stripped"));
+    }
+
+    @Test
+    @DisplayName("refuses a null URL and a null host table")
+    void refusesNullArguments() {
+        assertAll("the null arguments",
+                () -> assertThrows(NullPointerException.class, () -> ForgeUrl.resolve(null),
+                        "a null URL is refused"),
+                () -> assertThrows(NullPointerException.class,
+                        () -> ForgeUrl.resolve("https://github.com/o/r/issues/1", null),
+                        "a null host table is refused"));
+    }
+
+    @Test
+    @DisplayName("refuses a forge outside the provider id pattern")
+    void refusesInvalidForge() {
+        assertThrows(IllegalArgumentException.class,
+                () -> ForgeUrl.builder().forge("Bad").repository(REPOSITORY)
+                        .number(1).kind(ForgeUrl.Kind.ISSUE).build(),
+                "a forge outside the pattern is refused");
     }
 
     @Test

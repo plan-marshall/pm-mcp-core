@@ -78,6 +78,8 @@ class CiProvidersTest {
                                                         "an id outside the pattern is refused"),
                                 () -> assertThrows(NullPointerException.class,
                                                         () -> new CiProviders(Collections.singletonList(null)),
-                                                        "a null provider is refused"));
+                                                        "a null provider is refused"),
+                                 () -> assertThrows(NullPointerException.class, () -> new CiProviders(null),
+                                                         "a null collection is refused"));
     }
 }

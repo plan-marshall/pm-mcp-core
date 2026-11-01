@@ -155,6 +155,55 @@ class ValueTypesTest {
     }
 
     @Test
+    @DisplayName("RepositoryRef covers the remaining origin and path branches")
+    void repositoryRefCoversRemainingBranches() {
+        var portOrigin = new RepositoryRef("github", "https://github.com:8443", "o", "r");
+        var plainOrigin = new RepositoryRef("github", "https://github.com", "o", "r");
+
+        assertAll("the remaining references",
+                () -> assertEquals("https://github.com:8443", portOrigin.origin(), "an explicit port is kept"),
+                () -> assertEquals("https://github.com", plainOrigin.origin(), "a missing port is dropped"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new RepositoryRef("github", "https://github.com?x=1", "o", "r"),
+                        "an origin with a query is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new RepositoryRef("github", "https://github.com#x", "o", "r"),
+                        "an origin with a fragment is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new RepositoryRef("github", "https:/github.com", "o", "r"),
+                        "an origin without a host is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new RepositoryRef("github", "https://github.com", "/o", "r"),
+                        "a leading slash is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new RepositoryRef("github", "https://github.com", "o/", "r"),
+                        "a trailing slash is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new RepositoryRef("github", "https://github.com", "", "r"),
+                        "an empty path is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new RepositoryRef("github", "https://github.com", "o", "."),
+                        "a current-directory name is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new RepositoryRef("github", "https://github.com", "o", "a".repeat(256)),
+                        "an over-long name is refused"));
+    }
+
+    @Test
+    @DisplayName("Identity and Issue refuse a null collection")
+    void refusesNullCollections() {
+        assertAll("the null collections",
+                () -> assertThrows(NullPointerException.class,
+                        () -> Identity.builder().login(text()).userId(text()).tokenKind(TokenKind.GITHUB_APP)
+                                .scopes(List.of()).build(),
+                        "missing permissions are refused"),
+                () -> assertThrows(NullPointerException.class,
+                        () -> Issue.builder().title(text()).body("").assignees(List.of()).state("open")
+                                .url("https://github.com/o/r/issues/1").build(),
+                        "missing labels are refused"));
+    }
+
+    @Test
     @DisplayName("IssueComment refuses a blank id and a blank URL")
     void issueCommentRefusesBlankValues() {
         assertAll("the refused comments",
