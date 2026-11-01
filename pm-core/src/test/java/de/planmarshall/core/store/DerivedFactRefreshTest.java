@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -51,7 +52,10 @@ class DerivedFactRefreshTest {
             + "\"additionalProperties\":false,\"properties\":{\"name\":{\"type\":\"string\"}}}";
     private static final DerivedFactKey LOCAL_KEY = new DerivedFactKey(DerivedFactKind.MODULE_DISCOVERY, null);
     private static final DerivedFactKey NETWORK_KEY = new DerivedFactKey(DerivedFactKind.MERGE_METHODS_ALLOWED, null);
-    private static final JsonValue VALUE = JsonValue.parse("{\"name\":\"tree\"}".getBytes(UTF_8));
+    private static final JsonValue VALUE = JsonValue.parse(
+            ("{\"name\":\"" + Generators.letterStrings(1, 20).next() + "\"}").getBytes(UTF_8));
+    /** A schema-valid payload of a stored entry; its member value is generated. */
+    private static final String OLD_PAYLOAD = "{\"name\":\"" + Generators.letterStrings(1, 20).next() + "\"}";
 
     @TempDir
     Path base;
@@ -115,7 +119,7 @@ class DerivedFactRefreshTest {
 
             assertAll(
                     () -> assertEquals(1, calls.get(), "The derivation is called once"),
-                    () -> assertInstanceOf(DerivedFactReading.Value.class, reading, "A value is written"),
+                    () -> assertInstanceOf(DerivedFactReading.Value.class, reading, "A current value is written"),
                     () -> assertEquals(DIGEST_A, store.fact(LOCAL_KEY).orElseThrow().inputDigest(),
                             "The attempted digest is stored"));
         }
@@ -124,13 +128,13 @@ class DerivedFactRefreshTest {
         @DisplayName("a local entry of another digest is derived")
         void localDigestMismatchIsDerived() throws Exception {
             seed(DerivedFactKind.MODULE_DISCOVERY, DerivedFact.DerivationClass.LOCAL, DerivedFact.State.CURRENT,
-                    DIGEST_A, NOW.minusSeconds(60), "{\"name\":\"old\"}");
+                    DIGEST_A, NOW.minusSeconds(60), OLD_PAYLOAD);
 
             var reading = store.refresh(LOCAL_KEY, DIGEST_B, succeeds(DerivedFact.DerivationClass.LOCAL), NOW);
 
             assertAll(
                     () -> assertEquals(1, calls.get(), "The derivation is called once"),
-                    () -> assertInstanceOf(DerivedFactReading.Value.class, reading, "A value is written"),
+                    () -> assertInstanceOf(DerivedFactReading.Value.class, reading, "A current value is written"),
                     () -> assertEquals(DIGEST_B, store.fact(LOCAL_KEY).orElseThrow().inputDigest(),
                             "The new digest is stored"));
         }
@@ -139,7 +143,7 @@ class DerivedFactRefreshTest {
         @DisplayName("a network entry of another digest is derived")
         void networkDigestMismatchIsDerived() throws Exception {
             seed(DerivedFactKind.MERGE_METHODS_ALLOWED, DerivedFact.DerivationClass.NETWORK,
-                    DerivedFact.State.CURRENT, DIGEST_A, NOW.minusSeconds(60), "{\"name\":\"old\"}");
+                    DerivedFact.State.CURRENT, DIGEST_A, NOW.minusSeconds(60), OLD_PAYLOAD);
 
             store.refresh(NETWORK_KEY, DIGEST_B, succeeds(DerivedFact.DerivationClass.NETWORK), NOW);
 
@@ -150,7 +154,7 @@ class DerivedFactRefreshTest {
         @DisplayName("a current entry of the same digest is returned without deriving")
         void cacheHitDoesNotDerive() throws Exception {
             var stored = seed(DerivedFactKind.MODULE_DISCOVERY, DerivedFact.DerivationClass.LOCAL,
-                    DerivedFact.State.CURRENT, DIGEST_A, NOW.minusSeconds(60), "{\"name\":\"old\"}");
+                    DerivedFact.State.CURRENT, DIGEST_A, NOW.minusSeconds(60), OLD_PAYLOAD);
 
             var reading = store.refresh(LOCAL_KEY, DIGEST_A, succeeds(DerivedFact.DerivationClass.LOCAL), NOW);
 
@@ -163,7 +167,7 @@ class DerivedFactRefreshTest {
         @DisplayName("a stale entry is derived even when its digest matches")
         void staleIsDerived() throws Exception {
             seed(DerivedFactKind.MODULE_DISCOVERY, DerivedFact.DerivationClass.LOCAL, DerivedFact.State.STALE,
-                    DIGEST_A, NOW.minusSeconds(60), "{\"name\":\"old\"}");
+                    DIGEST_A, NOW.minusSeconds(60), OLD_PAYLOAD);
 
             store.refresh(LOCAL_KEY, DIGEST_A, succeeds(DerivedFact.DerivationClass.LOCAL), NOW);
 
@@ -174,7 +178,7 @@ class DerivedFactRefreshTest {
         @DisplayName("a failed entry is derived even when its digest matches")
         void failedIsDerived() throws Exception {
             seed(DerivedFactKind.MODULE_DISCOVERY, DerivedFact.DerivationClass.LOCAL, DerivedFact.State.FAILED,
-                    DIGEST_A, NOW.minusSeconds(60), "{\"name\":\"old\"}");
+                    DIGEST_A, NOW.minusSeconds(60), OLD_PAYLOAD);
 
             store.refresh(LOCAL_KEY, DIGEST_A, succeeds(DerivedFact.DerivationClass.LOCAL), NOW);
 
@@ -190,7 +194,7 @@ class DerivedFactRefreshTest {
         @DisplayName("a network entry one second before its period is returned")
         void beforeThePeriodDoesNotDerive() throws Exception {
             seed(DerivedFactKind.MERGE_METHODS_ALLOWED, DerivedFact.DerivationClass.NETWORK,
-                    DerivedFact.State.CURRENT, DIGEST_A, NOW, "{\"name\":\"merge\"}");
+                    DerivedFact.State.CURRENT, DIGEST_A, NOW, OLD_PAYLOAD);
 
             var reading = store.refresh(NETWORK_KEY, DIGEST_A, succeeds(DerivedFact.DerivationClass.NETWORK),
                     NOW.plusSeconds(86_399));
@@ -204,7 +208,7 @@ class DerivedFactRefreshTest {
         @DisplayName("a network entry at exactly its period is derived")
         void atThePeriodDerives() throws Exception {
             seed(DerivedFactKind.MERGE_METHODS_ALLOWED, DerivedFact.DerivationClass.NETWORK,
-                    DerivedFact.State.CURRENT, DIGEST_A, NOW, "{\"name\":\"merge\"}");
+                    DerivedFact.State.CURRENT, DIGEST_A, NOW, OLD_PAYLOAD);
 
             store.refresh(NETWORK_KEY, DIGEST_A, succeeds(DerivedFact.DerivationClass.NETWORK),
                     NOW.plusSeconds(86_400));
@@ -216,7 +220,7 @@ class DerivedFactRefreshTest {
         @DisplayName("a network entry one second after its period is derived")
         void afterThePeriodDerives() throws Exception {
             seed(DerivedFactKind.MERGE_METHODS_ALLOWED, DerivedFact.DerivationClass.NETWORK,
-                    DerivedFact.State.CURRENT, DIGEST_A, NOW, "{\"name\":\"merge\"}");
+                    DerivedFact.State.CURRENT, DIGEST_A, NOW, OLD_PAYLOAD);
 
             store.refresh(NETWORK_KEY, DIGEST_A, succeeds(DerivedFact.DerivationClass.NETWORK),
                     NOW.plusSeconds(86_401));
@@ -228,7 +232,7 @@ class DerivedFactRefreshTest {
         @DisplayName("a local entry never expires by time")
         void localNeverExpiresByTime() throws Exception {
             seed(DerivedFactKind.MODULE_DISCOVERY, DerivedFact.DerivationClass.LOCAL, DerivedFact.State.CURRENT,
-                    DIGEST_A, NOW.minusSeconds(10_000_000), "{\"name\":\"old\"}");
+                    DIGEST_A, NOW.minusSeconds(10_000_000), OLD_PAYLOAD);
 
             store.refresh(LOCAL_KEY, DIGEST_A, succeeds(DerivedFact.DerivationClass.LOCAL), NOW);
 

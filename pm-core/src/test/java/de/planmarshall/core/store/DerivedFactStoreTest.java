@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.jspecify.annotations.Nullable;
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -48,6 +49,9 @@ class DerivedFactStoreTest {
             + "\"additionalProperties\":false,\"properties\":{\"name\":{\"type\":\"string\"}}}";
     private static final DerivedFactKey LOCAL_KEY = new DerivedFactKey(DerivedFactKind.MODULE_DISCOVERY, null);
     private static final DerivedFactKey NETWORK_KEY = new DerivedFactKey(DerivedFactKind.MERGE_METHODS_ALLOWED, null);
+
+    /** A schema-valid payload; the member value is generated, the member name is the fixture schema. */
+    private static final String VALUE = "{\"name\":\"" + Generators.letterStrings(1, 20).next() + "\"}";
 
     @TempDir
     Path base;
@@ -103,7 +107,7 @@ class DerivedFactStoreTest {
         void readsAbsent() {
             assertAll(
                     () -> assertTrue(store.snapshot().facts().isEmpty(), "No entry is stored yet"),
-                    () -> assertTrue(store.fact(LOCAL_KEY).isEmpty(), "The fact is absent"),
+                    () -> assertTrue(store.fact(LOCAL_KEY).isEmpty(), "The fact entry is absent"),
                     () -> assertInstanceOf(DerivedFactReading.Absent.class, store.reading(LOCAL_KEY, NOW),
                             "The reading is absent"),
                     () -> assertTrue(store.reading(LOCAL_KEY, NOW).couldNotEvaluate().isPresent(),
@@ -118,7 +122,7 @@ class DerivedFactStoreTest {
         @Test
         @DisplayName("a current local fact inside its validity is a value")
         void currentLocalIsValue() throws Exception {
-            var fact = entry(DerivedFactKind.MODULE_DISCOVERY, "{\"name\":\"tree\"}",
+            var fact = entry(DerivedFactKind.MODULE_DISCOVERY, VALUE,
                     DerivedFact.DerivationClass.LOCAL, NOW.minusSeconds(3600), "a".repeat(64),
                     DerivedFact.State.CURRENT, null);
             write(LOCAL_KEY, fact);
@@ -133,7 +137,7 @@ class DerivedFactStoreTest {
         @Test
         @DisplayName("a local fact never expires by time")
         void localNeverExpires() throws Exception {
-            var fact = entry(DerivedFactKind.MODULE_DISCOVERY, "{\"name\":\"tree\"}",
+            var fact = entry(DerivedFactKind.MODULE_DISCOVERY, VALUE,
                     DerivedFact.DerivationClass.LOCAL, NOW.minusSeconds(10_000_000), "a".repeat(64),
                     DerivedFact.State.CURRENT, null);
             write(LOCAL_KEY, fact);
@@ -146,7 +150,7 @@ class DerivedFactStoreTest {
         @DisplayName("a stale entry is indeterminate with its kind and stored reason")
         void staleIsIndeterminate() throws Exception {
             var failure = new DerivedFact.Failure("the provider refused", NOW.minusSeconds(60));
-            write(NETWORK_KEY, entry(DerivedFactKind.MERGE_METHODS_ALLOWED, "{\"name\":\"merge\"}",
+            write(NETWORK_KEY, entry(DerivedFactKind.MERGE_METHODS_ALLOWED, VALUE,
                     DerivedFact.DerivationClass.NETWORK, NOW.minusSeconds(120), "a".repeat(64),
                     DerivedFact.State.STALE, failure));
 
@@ -183,7 +187,7 @@ class DerivedFactStoreTest {
         @Test
         @DisplayName("a current network fact expires exactly at derived_at plus 86400 s")
         void networkExpiresAtTheValidityPeriod() throws Exception {
-            write(NETWORK_KEY, entry(DerivedFactKind.MERGE_METHODS_ALLOWED, "{\"name\":\"merge\"}",
+            write(NETWORK_KEY, entry(DerivedFactKind.MERGE_METHODS_ALLOWED, VALUE,
                     DerivedFact.DerivationClass.NETWORK, NOW, "a".repeat(64), DerivedFact.State.CURRENT, null));
 
             assertAll(
@@ -246,9 +250,9 @@ class DerivedFactStoreTest {
     }
 
     @Test
-    @DisplayName("a document with another entry still answers one fact")
+    @DisplayName("a stored entry is answered by the fact accessor")
     void factAccessor() throws Exception {
-        var fact = entry(DerivedFactKind.MODULE_DISCOVERY, "{\"name\":\"tree\"}",
+        var fact = entry(DerivedFactKind.MODULE_DISCOVERY, VALUE,
                 DerivedFact.DerivationClass.LOCAL, NOW, "a".repeat(64), DerivedFact.State.CURRENT, null);
         write(LOCAL_KEY, fact);
 

@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -43,11 +44,16 @@ import de.planmarshall.core.store.DerivedFactKinds;
 import de.planmarshall.core.store.DerivedFactReading;
 import de.planmarshall.core.store.DerivedFactStore;
 import de.planmarshall.core.store.LockKey;
+import de.planmarshall.core.store.LockOrder;
 
 /**
  * The derived facts store under the real {@link FileLockManager} (PM-IMPL-7; the guard of PM-WATCH-STORE-43): a
- * transaction that holds a plan lock refreshes a fact, which is permitted, and two threads refreshing two keys at once
- * lose no update.
+ * transaction that holds a plan lock may refresh a fact, which is permitted, and two threads refreshing two keys at
+ * once lose no update.
+ * <p>
+ * The manager asserts the order within one transaction only, and {@code refresh} opens its own transaction; the place
+ * of the derived-facts lock in the total order is therefore asserted explicitly here and by the pm-core
+ * {@code LockOrderTest}.
  */
 @EnableGeneratorController
 @Timeout(value = 30, unit = TimeUnit.SECONDS)
@@ -113,15 +119,20 @@ class DerivedFactStoreLockTest {
     }
 
     @Test
-    @DisplayName("a transaction holding a plan lock refreshes a fact")
+    @DisplayName("a transaction holding a plan lock may refresh a fact")
     void planLockThenRefresh() {
+        var plan = LockKey.plan(base, PROJECT, "plan-one");
+        var derivedFacts = LockKey.derivedFacts(base, PROJECT);
         try (var transaction = manager.openTransaction()) {
-            transaction.acquire(LockKey.plan(base, PROJECT, "plan-one"));
+            transaction.acquire(plan);
 
             var reading = store.refresh(FIRST, DIGEST, valueOf("first"), NOW);
 
-            assertInstanceOf(DerivedFactReading.Value.class, reading,
-                    "The derived-facts lock is taken after the plan lock");
+            assertAll(
+                    () -> assertInstanceOf(DerivedFactReading.Value.class, reading,
+                            "A held plan lock permits the refresh"),
+                    () -> assertInstanceOf(LockOrder.Permitted.class, LockOrder.check(List.of(plan), derivedFacts),
+                            "The derived-facts lock follows the plan lock"));
         }
     }
 

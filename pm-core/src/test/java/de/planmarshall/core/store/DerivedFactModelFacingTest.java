@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -46,6 +47,9 @@ class DerivedFactModelFacingTest {
     private static final DerivedFactKey QUALIFIED_IDENTITY = new DerivedFactKey(DerivedFactKind.AGENT_IDENTITY, "app");
     private static final DerivedFactKey PUSH_REMOTE = new DerivedFactKey(DerivedFactKind.PUSH_REMOTE, null);
 
+    /** A schema-valid payload; the member value is generated, the member name is the fixture schema. */
+    private static final String PAYLOAD = "{\"name\":\"" + Generators.letterStrings(1, 20).next() + "\"}";
+
     @TempDir
     Path base;
 
@@ -68,7 +72,7 @@ class DerivedFactModelFacingTest {
     private static DerivedFact fact(DerivedFactKind kind, DerivedFact.DerivationClass derivationClass) {
         return DerivedFact.builder()
                 .kind(kind)
-                .value(JsonValue.parse("{\"name\":\"fixture\"}".getBytes(UTF_8)))
+                .value(JsonValue.parse(PAYLOAD.getBytes(UTF_8)))
                 .source(new DerivedFact.Source("fixture", derivationClass))
                 .inputDigest("a".repeat(64))
                 .derivedAt(NOW)

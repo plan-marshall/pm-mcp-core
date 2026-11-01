@@ -22,6 +22,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.role.corpus.JsonValue;
 import de.planmarshall.core.store.DerivedFact;
@@ -39,6 +40,9 @@ import de.planmarshall.workflow.ast.GuardResult;
 class DerivedFactGuardsTest {
 
     private static final Instant NOW = Instant.parse("2026-10-29T12:00:00Z");
+
+    /** A schema-valid payload; the member value is generated. */
+    private static final String PAYLOAD = "{\"name\":\"" + Generators.letterStrings(1, 20).next() + "\"}";
 
     private static DerivedFact fact(DerivedFactKind kind, DerivedFact.State state, String value, String reason) {
         return DerivedFact.builder()
@@ -60,7 +64,7 @@ class DerivedFactGuardsTest {
         @DisplayName("hands its value to the guard and answers the guard's result")
         void handsTheValueToTheGuard() {
             var reading = new DerivedFactReading.Value(
-                    fact(DerivedFactKind.PUSH_REMOTE, DerivedFact.State.CURRENT, "{\"name\":\"origin\"}", null));
+                    fact(DerivedFactKind.PUSH_REMOTE, DerivedFact.State.CURRENT, PAYLOAD, null));
 
             assertAll(
                     () -> assertInstanceOf(GuardResult.Held.class, DerivedFactGuards.evaluate(reading, _ -> {
@@ -75,7 +79,7 @@ class DerivedFactGuardsTest {
         @DisplayName("a guard that answers null is a programming fault")
         void nullGuardResultIsRefused() {
             var reading = new DerivedFactReading.Value(
-                    fact(DerivedFactKind.PUSH_REMOTE, DerivedFact.State.CURRENT, "{\"name\":\"origin\"}", null));
+                    fact(DerivedFactKind.PUSH_REMOTE, DerivedFact.State.CURRENT, PAYLOAD, null));
 
             assertThrows(NullPointerException.class, () -> DerivedFactGuards.evaluate(reading, _ -> null),
                     "A null guard result is refused");

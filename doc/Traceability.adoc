@@ -1703,6 +1703,7 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/TransitionFuzz
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WorkflowEngine.java[WorkflowEngine],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/EngineStep.java[EngineStep],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/GuardEvaluator.java[GuardEvaluator],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/DerivedFactGuards.java[DerivedFactGuards],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/LoopBackBudget.java[LoopBackBudget],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/diagram/WorkflowDiagramGenerator.java[WorkflowDiagramGenerator],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java[PlanInstanceComposer],
@@ -1718,6 +1719,7 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/WorkflowValida
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/TransitionFuzzerTest.java[TransitionFuzzerTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/WorkflowEngineTest.java[WorkflowEngineTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/GuardEvaluatorTest.java[GuardEvaluatorTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/DerivedFactGuardsTest.java[DerivedFactGuardsTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineEventTest.java[EngineEventTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/LoopBackBudgetTest.java[LoopBackBudgetTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/diagram/WorkflowDiagramGeneratorTest.java[WorkflowDiagramGeneratorTest],
@@ -1954,10 +1956,17 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreTest.java[P
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_operator_and_question_stores[Scope Stores Developer Guide § Operator and Question Stores, the Project Store and the Project Resolution],
 link:../../plan-marshall-documentation/doc/concepts/locks-and-leases.adoc[Concepts § Locks and Leases], link:../../plan-marshall-documentation/doc/concepts/store-integrity.adoc[Concepts § Store Integrity], link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#rebaseline[Concepts § Enrolment, Re-Baseline], link:../pm-runtime/doc/developer/runtime-lock.adoc[Developer Guide § The Lock Manager], link:../pm-core/doc/developer/core-store.adoc#_the_store_substrate[Developer Guide § Store Substrate], link:../pm-core/doc/developer/core-store.adoc#_the_enrolment_store[Developer Guide § Enrolment Store, The Store]
 
-Implementation (the derived-facts lock key and its level in the total order, after the local configuration lock and before the build-timings lock; the store that takes the lock is the second plan, `derived-facts-store-operations`): link:../pm-core/src/main/java/de/planmarshall/core/store/LockKey.java[LockKey],
-link:../pm-core/src/main/java/de/planmarshall/core/store/LockLevel.java[LockLevel]
+Implementation (the derived-facts lock key and its level in the total order, after the local configuration lock and before the build-timings lock; the derived-facts store takes it for the re-read and the write of one entry, after every scope lock a caller may hold): link:../pm-core/src/main/java/de/planmarshall/core/store/LockKey.java[LockKey],
+link:../pm-core/src/main/java/de/planmarshall/core/store/LockLevel.java[LockLevel],
+link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactStore.java[DerivedFactStore]
 
-Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/LockKeyTest.java[LockKeyTest]
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/LockKeyTest.java[LockKeyTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LockOrderTest.java[LockOrderTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactStoreConcurrencyTest.java[DerivedFactStoreConcurrencyTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/lock/DerivedFactStoreLockTest.java[DerivedFactStoreLockTest]
+
+Documentation: link:../pm-core/doc/developer/core-store.adoc#_derived_facts_store[Developer Guide § Derived Facts Store],
+link:../pm-core/doc/adr/core-store/056-the-derivation-runs-outside-the-lock.adoc[ADR core-store/056]
 
 == link:../../plan-marshall-documentation/doc/requirements/15-extensions-and-recipes.adoc[Extensions and Recipes]
 

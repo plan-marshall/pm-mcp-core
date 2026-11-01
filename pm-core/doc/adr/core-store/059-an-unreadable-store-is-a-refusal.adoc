@@ -18,9 +18,11 @@ of another format version or a foreign edit.
 
 == Decision
 
-An unreadable store file and a file of another `format_version` are a `StoreRefusal` naming the file, the version found
-and the current one, exactly as every other store of `core.store` refuses them. The store never falls back to an empty
-document for a file that exists and cannot be read; only an absent file answers the empty document.
+An unreadable store file — content that does not parse, including a truncated write — and a file of another
+`format_version` are a `StoreRefusal` naming the file, the version found and the current one, exactly as every other
+store of `core.store` refuses them. A file that cannot be read at the filesystem level is the
+`UncheckedIOException` of the snapshot read. The store never falls back to an empty document for a file that exists
+and cannot be read; only an absent file answers the empty document.
 
 The operator deletes the cache file to force a re-derivation. The refusal names the file, so the next step is the
 operator's.

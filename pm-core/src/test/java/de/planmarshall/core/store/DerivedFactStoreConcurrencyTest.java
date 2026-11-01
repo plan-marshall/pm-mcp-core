@@ -16,9 +16,12 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -96,6 +99,19 @@ class DerivedFactStoreConcurrencyTest {
         return () -> new Derived(value, "fixture", DerivedFact.DerivationClass.LOCAL);
     }
 
+    private void seed(DerivedFactKey key, Instant derivedAt) throws IOException {
+        var entry = DerivedFact.builder()
+                .kind(key.kind())
+                .value(JsonValue.parse("{\"name\":\"newer\"}".getBytes(UTF_8)))
+                .source(new DerivedFact.Source("fixture", DerivedFact.DerivationClass.LOCAL))
+                .inputDigest(DIGEST)
+                .derivedAt(derivedAt)
+                .state(DerivedFact.State.CURRENT)
+                .build();
+        Files.write(base.resolve("derived-facts.json"),
+                DerivedFactsCodec.write(new DerivedFacts(Map.of(key, entry))));
+    }
+
     @Test
     @DisplayName("two threads refreshing two different keys lose no entry")
     void twoDifferentKeys() throws Exception {
@@ -119,10 +135,25 @@ class DerivedFactStoreConcurrencyTest {
 
         var facts = store.snapshot().facts();
         assertAll(
-                () -> assertEquals(1, facts.size(), "One entry is stored"),
+                () -> assertEquals(1, facts.size(), "Exactly one entry is stored"),
                 () -> assertEquals(DerivedFact.State.CURRENT, facts.get(FIRST).state(), "The entry is current"),
                 () -> assertEquals(NOW.plusSeconds(1), facts.get(FIRST).derivedAt(),
                         "The newer result survives"));
+    }
+
+    @Test
+    @DisplayName("a refresh keeps a newer stored result of the same digest")
+    void keepsANewerStoredResult() throws Exception {
+        seed(FIRST, NOW.plusSeconds(10));
+        var newer = store.fact(FIRST).orElseThrow();
+
+        var reading = store.refresh(FIRST, DIGEST, valueOf("older"), NOW);
+
+        assertAll(
+                () -> assertEquals(new DerivedFactReading.Value(newer), reading,
+                        "The newer stored entry is returned"),
+                () -> assertEquals(newer, store.fact(FIRST).orElseThrow(),
+                        "The newer stored entry is kept"));
     }
 
     @Test

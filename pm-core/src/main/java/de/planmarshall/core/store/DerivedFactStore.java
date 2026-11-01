@@ -11,6 +11,7 @@ package de.planmarshall.core.store;
 
 import org.jspecify.annotations.Nullable;
 
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -55,8 +56,9 @@ import de.planmarshall.core.store.DerivedFactDerivation.DerivationOutcome.Failed
  * <em>The operator-only fact.</em> {@link #modelFacing()} is the only projection a model-facing representation,
  * resource or tool result may be built from; it never holds a key whose kind is {@link DerivedFactKind#operatorOnly()}
  * ({@code agent_identity}), registered or not (ADR {@code core-store/060}). {@link #operatorFacts()} is the whole set
- * for the operator's own clients. An unreadable store file or another format version is a {@link StoreRefusal}, never
- * a silent rebuild (ADR {@code core-store/059}).
+ * for the operator's own clients. Content that does not parse, and another format version, are a {@link StoreRefusal}
+ * naming the file; a file that cannot be read at the filesystem level is an {@link UncheckedIOException} from the
+ * snapshot read. Neither is a silent rebuild (ADR {@code core-store/059}).
  * <p>
  * The directory of the store exists before the first write and this type does not create it, the pattern of
  * {@link BuildTimingsStore}. No concrete kind is registered here: the composition that owns the store creates the
@@ -97,7 +99,8 @@ public final class DerivedFactStore {
      * of the two projections; a model-facing representation uses {@link #modelFacing()}.
      *
      * @return the store; the empty one if the store does not exist
-     * @throws StoreRefusal if the store is in another format version or unreadable
+     * @throws StoreRefusal         if the store is in another format version or its content does not parse
+     * @throws UncheckedIOException if the store exists and cannot be read
      */
     public DerivedFacts snapshot() {
         return StoreSnapshot.read(storeFile.store()).content().map(this::decode).orElseGet(DerivedFacts::empty);
@@ -106,7 +109,8 @@ public final class DerivedFactStore {
     /**
      * @param key the key of a fact
      * @return the entry of the key; empty if the store holds no entry for it
-     * @throws StoreRefusal if the store is in another format version or unreadable
+     * @throws StoreRefusal         if the store is in another format version or its content does not parse
+     * @throws UncheckedIOException if the store exists and cannot be read
      */
     public Optional<DerivedFact> fact(DerivedFactKey key) {
         Objects.requireNonNull(key, "key");
@@ -121,7 +125,8 @@ public final class DerivedFactStore {
      * @param key the key of the fact
      * @param now the instant the validity period is decided at
      * @return the reading of the fact
-     * @throws StoreRefusal if the store is in another format version or unreadable
+     * @throws StoreRefusal         if the store is in another format version or its content does not parse
+     * @throws UncheckedIOException if the store exists and cannot be read
      */
     public DerivedFactReading reading(DerivedFactKey key, Instant now) {
         Objects.requireNonNull(key, "key");
@@ -143,7 +148,8 @@ public final class DerivedFactStore {
      * @param now         the instant of the attempt
      * @return the reading after the attempt
      * @throws IllegalArgumentException if the digest does not match {@link DerivedFact#INPUT_DIGEST_TEXT}
-     * @throws StoreRefusal             if the store is in another format version or unreadable
+     * @throws StoreRefusal             if the store is in another format version or its content does not parse
+     * @throws UncheckedIOException     if the store exists and cannot be read
      * @throws InternalFaultException   if the lock of the store must not be acquired by the transaction
      */
     public DerivedFactReading refresh(DerivedFactKey key, String inputDigest, Derivation derivation, Instant now) {
@@ -165,11 +171,12 @@ public final class DerivedFactStore {
      * of the kind enumeration and does not depend on a registration.
      * <p>
      * Every representation, the {@code pm://project/config} resource and every tool result of the assembly
-     * ({@code plan-marshall-mcp}) must be built from this projection; {@code agent_identity} never leaves the server's
+     * ({@code plan-marshall-mcp}) must be built from this projection; {@code agent_identity} never leaves the
      * server's own and the operator's surfaces.
      *
      * @return the model-facing projection of {@link #snapshot()}
-     * @throws StoreRefusal if the store is in another format version or unreadable
+     * @throws StoreRefusal         if the store is in another format version or its content does not parse
+     * @throws UncheckedIOException if the store exists and cannot be read
      */
     public DerivedFacts modelFacing() {
         var visible = new LinkedHashMap<DerivedFactKey, DerivedFact>();
@@ -186,7 +193,8 @@ public final class DerivedFactStore {
      * uses {@link #modelFacing()} instead.
      *
      * @return every entry of {@link #snapshot()}
-     * @throws StoreRefusal if the store is in another format version or unreadable
+     * @throws StoreRefusal         if the store is in another format version or its content does not parse
+     * @throws UncheckedIOException if the store exists and cannot be read
      */
     public DerivedFacts operatorFacts() {
         return snapshot();
@@ -203,7 +211,7 @@ public final class DerivedFactStore {
             var before = storeFile.read(transaction).map(this::decode).orElseGet(DerivedFacts::empty);
             var stored = before.fact(key).orElse(null);
             if (stored != null && stored.inputDigest().equals(inputDigest)
-                    && stored.state() == State.CURRENT && stored.derivedAt().isAfter(now)) {
+                    && stored.derivedAt().isAfter(now)) {
                 return readingOf(key, stored, now);
             }
             var entry = entryOf(key, inputDigest, outcome, stored, now);
