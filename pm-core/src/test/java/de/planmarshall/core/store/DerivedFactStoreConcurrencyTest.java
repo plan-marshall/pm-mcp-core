@@ -94,9 +94,12 @@ class DerivedFactStoreConcurrencyTest {
         }
     }
 
+    private static JsonValue payload(String name) {
+        return JsonValue.parse(("{\"name\":\"" + name + "\"}").getBytes(UTF_8));
+    }
+
     private static DerivedFactDerivation.Derivation valueOf(String name) {
-        var value = JsonValue.parse(("{\"name\":\"" + name + "\"}").getBytes(UTF_8));
-        return () -> new Derived(value, "fixture", DerivedFact.DerivationClass.LOCAL);
+        return () -> new Derived(payload(name), "fixture", DerivedFact.DerivationClass.LOCAL);
     }
 
     private void seed(DerivedFactKey key, Instant derivedAt) throws IOException {
@@ -129,6 +132,7 @@ class DerivedFactStoreConcurrencyTest {
     @Test
     @DisplayName("two threads refreshing the same key write one current entry")
     void twoRefreshersOfOneKey() throws Exception {
+        // "first" and "second" identify the two results in the assertion; they are the fixture's data.
         runConcurrently(
                 () -> store.refresh(FIRST, DIGEST, valueOf("first"), NOW),
                 () -> store.refresh(FIRST, DIGEST, valueOf("second"), NOW.plusSeconds(1)));
@@ -138,7 +142,9 @@ class DerivedFactStoreConcurrencyTest {
                 () -> assertEquals(1, facts.size(), "Exactly one entry is stored"),
                 () -> assertEquals(DerivedFact.State.CURRENT, facts.get(FIRST).state(), "The entry is current"),
                 () -> assertEquals(NOW.plusSeconds(1), facts.get(FIRST).derivedAt(),
-                        "The newer result survives"));
+                        "The newer result survives"),
+                () -> assertEquals(payload("second"), facts.get(FIRST).value(),
+                        "The newer payload survives"));
     }
 
     @Test

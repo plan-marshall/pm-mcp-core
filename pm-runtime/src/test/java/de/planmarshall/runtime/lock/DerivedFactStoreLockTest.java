@@ -97,6 +97,7 @@ class DerivedFactStoreLockTest {
     }
 
     private static Derivation valueOf(String name) {
+        // "first" and "second" identify the entries in the assertions; they are the fixture's data.
         var value = JsonValue.parse(("{\"name\":\"" + name + "\"}").getBytes(UTF_8));
         return () -> new Derived(value, "fixture", DerivedFact.DerivationClass.LOCAL);
     }

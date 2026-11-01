@@ -95,6 +95,9 @@ class DerivedFactFailureTest {
         return () -> new Failed(reason);
     }
 
+    // The failure texts ("boom", "first", "second", "again") are the fixture's asserted input; the tests compare them
+    // verbatim, so they are the contract of these tests.
+
     private void seed(DerivedFactKey key, DerivedFact.State state, String digest, String value, String reason)
             throws IOException {
         var fact = DerivedFact.builder()

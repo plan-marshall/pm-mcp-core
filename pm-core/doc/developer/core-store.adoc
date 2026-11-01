@@ -1229,14 +1229,14 @@ The invariants of the write, per crash window (R14 (8)):
 |===
 |Crash after |What the store holds
 
-|the decision read, before the lock
+|the decision read, before the derivation
 |The file as it was. Nothing was written; the next call decides again.
 
-|the lock, before the derivation
-|The file as it was; the transaction closes and releases the lock.
+|the derivation, before the lock
+|The file as it was. The derived outcome is lost and derived again by the next call; no half entry exists.
 
-|the derivation, before the write
-|The file as it was. The derived value is lost and derived again by the next call; no half entry exists.
+|the lock, before its re-read
+|The file as it was; the transaction closes and releases the lock.
 
 |the write, before it returns
 |The new document, complete: `AtomicStoreFile` writes a temporary file, syncs it and renames it over the store, so a

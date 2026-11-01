@@ -108,7 +108,9 @@ public final class DerivedFactStore {
 
     /**
      * @param key the key of a fact
-     * @return the entry of the key; empty if the store holds no entry for it
+     * @return the entry of the key; empty if the store holds no entry for it. The entry is the raw record — an
+     *         operator-side and server-side read, never a model-facing one; a model-facing representation uses
+     *         {@link #modelFacing()}
      * @throws StoreRefusal         if the store is in another format version or its content does not parse
      * @throws UncheckedIOException if the store exists and cannot be read
      */
