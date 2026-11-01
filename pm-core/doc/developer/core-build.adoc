@@ -111,9 +111,10 @@ left as a diagnostic:
 The test counts sum every Surefire and Failsafe summary block. A `Tests run:` line carrying `Time elapsed` repeats a
 block's counts and is excluded; a line inside a test-plugin execution, after the `[INFO] Results:` marker, is a summary
 block and is summed across modules and plugins; any other line is ambiguous, and one ambiguous line makes the population
-`Unmeasured`. Each summary block is attributed to the nearest preceding `surefire`/`failsafe` execution header, and
-`byRunner` carries the executed count (total minus skipped) per runner. A log with the `MultiThreadedBuilder` banner keeps
-the summed total and omits `byRunner`, because an interleaved module's header no longer names a summary's runner.
+`Unmeasured`. Each summary block is attributed to the runner of the nearest preceding execution header, and `byRunner`
+carries the executed count (total minus skipped) per runner; an execution header of another plugin resets the attribution,
+so an interleaved build under-counts — which is why a log with the `MultiThreadedBuilder` banner keeps the summed total and
+omits `byRunner`.
 
 === Gradle
 
@@ -141,8 +142,9 @@ longer matches the pinned template; `observed` otherwise, carrying the findings.
    through `JvmFileLocation.parse` where the tool prints one, and put every category in a `JvmCategoryPatterns`
    table rather than in the parser.
 2. Write the pytest-case roster and the fixtures: `{data}/<tool>/original-cases.txt` lists every case of the original
-   suite, mapped to its fixtures or excluded with a reason; one `*.txt` fixture per case and one `deliberate:` fixture per
-   deliberate change; the original's own log files copied beside them when a case uses one. See
+   suite, mapped to the fixtures derived from it or excluded with a reason — several cases may map to one fixture, and one
+   case may need several; one `*.txt` fixture per case group and one `deliberate:` fixture per deliberate change; the
+   original's own log files copied beside them when a case uses one. See
    link:{data}/PROVENANCE.adoc[`ported/build/PROVENANCE.adoc`].
 3. Add the test class: a `@ParameterizedTest` over the fixtures of the directory, the roster closure check and a fixture
    floor, and a record-invariant test for each new record.
@@ -151,10 +153,12 @@ longer matches the pinned template; `observed` otherwise, carrying the findings.
 
 == Deliberate Changes
 
-The port reproduces the originals' parsing and changes seven behaviours on purpose; each has a `deliberate:` fixture that
+The port reproduces the originals' parsing and changes five behaviours on purpose; each has a `deliberate:` fixture that
 asserts the corrected behaviour (link:../adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR 002]).
-The two a reader meets first are that an `[ERROR]` line no pattern recognises is `unrecognized` rather than a real
-category, and that an unmeasured population carries no number at all.
+The one a reader meets first is that an `[ERROR]` line no pattern recognises is `unrecognized` rather than a real
+category; the others are that an unmeasured population carries no number, that `no_tests_ran` needs the tool's marker,
+that the Gradle counts sum every block, and that an OpenRewrite format drift is a `parse_error`. The Maven failure-trailer
+drop and the passing-count skip are *not* changes: the original does both.
 
 == Ported Tests and Fixture Provenance
 

@@ -1883,7 +1883,7 @@ link:../pm-workflow/doc/adr/workflow-plan/017-per-lane-rework-fixture.adoc[workf
 link:../pm-workflow/doc/developer/workflow-diagram.adoc#instance-forms[Workflow Diagrams Developer Guide § Instance forms],
 link:../pm-core/doc/developer/core-spi.adoc#_the_contract_of_a_primitive[Developer Guide § The Contract of a Primitive], link:../pm-core/doc/developer/core-spi.adoc#_the_registry[Developer Guide § The Registry]
 
-[#PM-IMPL-7]
+[#PM-IMPL-6]
 === PM-IMPL-6: Native Build Output Parsers & Fallback Diagnostics
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-6[PM-IMPL-6]
@@ -1912,6 +1912,7 @@ Documentation: link:../pm-core/doc/developer/core-build.adoc[Build Output Parser
 link:../pm-core/doc/adr/core-build/001-the-parsed-build-is-three-facts.adoc[ADR core-build/001],
 link:../pm-core/doc/adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR core-build/002]
 
+[#PM-IMPL-7]
 === PM-IMPL-7: Data Store Invariants, Footprint Reconciliation & Lock Ordering
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]

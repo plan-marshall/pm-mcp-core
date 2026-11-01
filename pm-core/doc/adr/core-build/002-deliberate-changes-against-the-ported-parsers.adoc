@@ -12,7 +12,7 @@ Accepted
 == Context
 
 Each parser of `core.build` is a port of one `plan-marshall` module. The ported tests take their test data and their
-expected values from the original and its pytest suite, so a port that simply copies every behaviour would also copy the
+expected values from the original and its pytest suite, so a port that simply copied every behaviour would also copy the
 behaviours that produced the defects of the implementation watch.
 
 Three defects are recorded there (PM-WATCH-JOB-10, -11, -18): a green multi-module build reported `tests_run: 0`; a test
@@ -23,7 +23,8 @@ the Maven parser drops the trailer with a `fullmatch` table and skips a passing 
 == Decision
 
 The port reproduces the originals' parsing exactly, and records every behaviour it changes as a deliberate change with a
-fixture of its own (`deliberate:` header) that asserts the corrected behaviour, never a value of the original:
+fixture of its own (`deliberate:` header) that asserts the corrected behaviour, never a value of the original. There are
+five:
 
 [cols="2,3",options="header"]
 |===
@@ -35,19 +36,18 @@ specification names.
 |`ported/build/maven/deliberate-unrecognized-error.txt`
 
 |An unmeasured test population carries no number: `TestCounts.Unmeasured` has no count accessor. The original keeps the
-summed counts of an unmeasured population.
+summed counts of an unmeasured population. The port therefore loses the original's `failed > 0` signal for a quiet
+(`-q`) log, which an `[INFO]`-level failing count line also leaves unfiled; recovering that signal — a failing
+`Tests run:` line filed regardless of its level, or a status derived at the gate — belongs to the wiring plan
+(PLAN-V2-36), not to this model.
 |`ported/build/maven/deliberate-unmeasured-on-success.txt`
 
 |`no_tests_ran` needs the tool's own positive marker (`No tests to run.` for Maven, `No tests found for given includes`
-for Gradle) over a successful build with no count line; a measured count of zero never produces it.
+for Gradle) over a successful build with no count line; a measured count of zero never produces it. The original has no
+such verdict at all.
 |`ported/build/maven/deliberate-zero-count-is-no-no-tests-ran.txt`,
 `ported/build/maven/deliberate-no-tests-ran-positive-marker.txt`,
 `ported/build/gradle/deliberate-gradle-no-tests-marker.txt`
-
-|The Maven failure trailer is dropped whole against a compiled table matched with a full match, so a reworded trailer line
-is filed again. This is the original's behaviour, held by the port and pinned by its own fixture.
-|`ported/build/maven/deliberate-trailer-dropped.txt`,
-`ported/build/maven/deliberate-trailer-reworded.txt`
 
 |The Gradle counts follow the Maven rule: every `N tests completed` block contributes. The original keeps the last
 match.
@@ -56,15 +56,21 @@ match.
 |An OpenRewrite log line that carries a finding identifier but no longer matches the pinned template is
 `RewriteVerdict.PARSE_ERROR`. The original silently ignores it, so a format drift would read as zero findings.
 |`ported/build/openrewrite/deliberate-rewrite-parse-error.txt`
-
-|The domain state is decided before the log is read: an inactive domain answers `DOMAIN_INACTIVE` even over a log that
-would be a parse error.
-|`ported/build/openrewrite/deliberate-rewrite-domain-inactive-skips-parse.txt`
 |===
 
-Every other behaviour is ported as it stands, including the behaviours that look surprising: the stack-trace collector
-attaches the last contiguous trace block to the last filed diagnostic, because that is what the original does
-(`StackTraceCollector`).
+Two behaviours that do not exist in this package's model are *inputs*, not changes of the parse: the java-cui domain
+state is an argument of the OpenRewrite parse (the original resolves a marshal.json verb and dispatches a subprocess), and
+the parser has no CLI exit code (the original's `cmd_parse` returns one).
+
+Everything else is held as in the original, including the behaviours that look surprising:
+
+* The Maven failure trailer is dropped whole against a compiled table matched with a full match, so a reworded trailer
+line is filed again (`ported/build/maven/deliberate-trailer-dropped.txt`,
+`deliberate-trailer-reworded.txt`). This is the original's behaviour, not a change.
+* A passing `Tests run:` line is not a diagnostic, and a line starting with `->` is a continuation.
+* The stack-trace collector attaches the last contiguous trace block to the last filed diagnostic
+  (`StackTraceCollector`).
+* A Gradle line whose text matches no category is not filed at all, and Gradle's severity follows its category set.
 
 == Alternatives Considered
 
@@ -79,9 +85,9 @@ attaches the last contiguous trace block to the last filed diagnostic, because t
 
 == Consequences
 
-A consumer that compares a `plan-marshall` result with this one sees the three differences in the deliberate fixtures, and
-no others. A change of any ported behaviour must now either keep its fixture green or change the fixture and this record
-with it.
+A consumer that compares a `plan-marshall` result with this one sees the five differences listed above and the two input
+differences, and no others. A change of any ported behaviour must now either keep its fixture green or change the fixture
+and this record with it.
 
 The `unrecognized` category and the `no_tests_ran` rule are visible in the specification's paragraph and in the developer
 guide, so a sibling port (the npm and Python parsers) can adopt them rather than rediscovering them.
