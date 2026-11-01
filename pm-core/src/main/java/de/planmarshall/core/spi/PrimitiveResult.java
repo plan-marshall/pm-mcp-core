@@ -14,7 +14,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import lombok.Builder;
 
 /**
  * What one execution of a primitive returns (PM-IMPL-5): one of its closed outcomes, the facts it changed, the job it
@@ -32,7 +31,6 @@ import lombok.Builder;
  * @param <R> the closed outcome enum of the primitive
  * @since 0.1
  */
-@Builder
 public record PrimitiveResult<R extends Enum<R> & PrimitiveOutcome>(
 R outcome,
 Map<String, Object> updatedFacts,
@@ -81,6 +79,76 @@ Optional<OutcomeReason> reason) {
         if (reason.isPresent() && !declared.orElseThrow().isInstance(reason.get())) {
             throw new IllegalArgumentException("the reason %s is not a constant of the declared reason type %s"
                     .formatted(reason.get(), declared.orElseThrow().getName()));
+        }
+    }
+
+    /**
+     * @return a builder whose optional components default to empty, so a reasonless result names only its outcome
+     * @param <R> the closed outcome enum of the primitive
+     */
+    public static <R extends Enum<R> & PrimitiveOutcome> Builder<R> builder() {
+        return new Builder<>();
+    }
+
+    /**
+     * Builds a result component by component. Both optional components default to empty and the facts to an empty
+     * map, so a caller names only what it has; the canonical constructor still enforces the pairing invariant.
+     *
+     * @param <R> the closed outcome enum of the primitive
+     */
+    public static final class Builder<R extends Enum<R> & PrimitiveOutcome> {
+
+        private R outcome;
+        private Map<String, Object> updatedFacts = Map.of();
+        private Optional<String> spawnedJobId = Optional.empty();
+        private Optional<OutcomeReason> reason = Optional.empty();
+
+        private Builder() {
+        }
+
+        /**
+         * @param outcome the outcome of the execution
+         * @return this builder
+         */
+        public Builder<R> outcome(R outcome) {
+            this.outcome = outcome;
+            return this;
+        }
+
+        /**
+         * @param updatedFacts the facts the execution changed
+         * @return this builder
+         */
+        public Builder<R> updatedFacts(Map<String, Object> updatedFacts) {
+            this.updatedFacts = updatedFacts;
+            return this;
+        }
+
+        /**
+         * @param spawnedJobId the identifier of the job the execution started, if any
+         * @return this builder
+         */
+        public Builder<R> spawnedJobId(Optional<String> spawnedJobId) {
+            this.spawnedJobId = spawnedJobId;
+            return this;
+        }
+
+        /**
+         * @param reason the reason of the outcome, if the outcome declares one
+         * @return this builder
+         */
+        public Builder<R> reason(Optional<OutcomeReason> reason) {
+            this.reason = reason;
+            return this;
+        }
+
+        /**
+         * @return the result the named components describe
+         * @throws NullPointerException if a component, a fact name or a fact value is {@code null}
+         * @throws IllegalArgumentException if the reason does not pair with the outcome
+         */
+        public PrimitiveResult<R> build() {
+            return new PrimitiveResult<>(outcome, updatedFacts, spawnedJobId, reason);
         }
     }
 }

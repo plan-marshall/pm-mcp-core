@@ -94,6 +94,26 @@ class PrimitiveResultTest {
     }
 
     @Test
+    @DisplayName("the builder defaults both optional components to empty")
+    void builderDefaultsOptionalComponents() {
+        var result = PrimitiveResult.<PlainOutcome>builder().outcome(PlainOutcome.DONE).build();
+
+        assertAll(
+                () -> assertEquals(Optional.empty(), result.reason(), "the builder defaults the reason to empty"),
+                () -> assertEquals(Optional.empty(), result.spawnedJobId(), "the builder defaults the job id to empty"),
+                () -> assertEquals(Map.of(), result.updatedFacts(), "the builder defaults the facts to empty"));
+    }
+
+    @Test
+    @DisplayName("the builder carries a reason the outcome declares")
+    void builderCarriesDeclaredReason() {
+        var result = PrimitiveResult.<ReasonedOutcome>builder().outcome(ReasonedOutcome.FAILED)
+                .reason(Optional.of(TestReason.FOOTPRINT)).build();
+
+        assertEquals(Optional.of(TestReason.FOOTPRINT), result.reason(), "the builder carries the reason");
+    }
+
+    @Test
     @DisplayName("a null reason component is refused")
     void refusesNullReason() {
         var thrown = assertThrows(NullPointerException.class,

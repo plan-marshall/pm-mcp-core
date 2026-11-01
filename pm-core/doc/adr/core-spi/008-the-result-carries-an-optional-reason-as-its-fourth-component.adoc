@@ -22,7 +22,9 @@ which sets the reason to empty, so every existing `new PrimitiveResult(` site st
 record with an optional component, not a compatibility shim for an older caller. The record enforces the pairing in its
 compact constructor: the reason is present exactly when the outcome declares a reason type, and it is an instance of
 that type; a violation is an `IllegalArgumentException`, a programming error of the primitive, as the existing
-`NullPointerException` checks are. A record of four components carries `@Builder` per the repository's Lombok rule.
+`NullPointerException` checks are. A record of four components carries a builder per the repository's Lombok rule; it
+is hand-written because Lombok's `@Builder.Default` does not apply to record components, and it defaults both optional
+components to empty so a reasonless result names only its outcome.
 
 == Alternatives Considered
 

@@ -351,7 +351,7 @@ declarations a primitive may and may not carry.
 link:{test}/OutcomeReasonTest.java[`OutcomeReasonTest`]:: the closed condition table and its parity with the kinds the
 status store persists.
 link:{test}/PrimitiveResultTest.java[`PrimitiveResultTest`]:: the pairing of a result with the reason its outcome
-declares.
+declares, and the builder's defaults.
 link:{test}/SpiVocabularyTest.java[`SpiVocabularyTest`]:: the constants of the closed enums.
 link:{test}/validation/ConventionalCommitValidatorTest.java[`ConventionalCommitValidatorTest`],
 link:{test}/validation/AsciiDocValidatorTest.java[`AsciiDocValidatorTest`],

@@ -162,6 +162,7 @@ class ReasonPrimitives {
     /** The reason wire names and condition kinds are the contract, so this fixture states them literally. */
     enum WellFormedReason implements OutcomeReason {
         FOOTPRINT("footprint_violation", "footprint_violation"),
+        PRECONDITION_UNMET("precondition_unmet", "precondition_unmet"),
         MESSAGE_REFUSED("message_refused", null),
         COMMIT_FAILED("commit_failed", null);
 
