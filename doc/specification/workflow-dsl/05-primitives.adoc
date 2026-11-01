@@ -180,7 +180,7 @@ A reason maps to at most one engine condition. The table is total and closed: ev
 
 The other condition kinds are not mappable: `guard_indeterminate` arises from the engine's guard evaluation, `job_incomplete` from its task attempts, `config_drift` from its re-composition, and `integrity_breach` names the store it breached. `OutcomeReason.MAPPABLE_CONDITION_KINDS` states the set, and a test pins it to the kinds the status store persists.
 
-For example, the `failed` outcome of `git.stage-and-commit` declares the reasons `footprint_violation`, `message_refused` and `commit_failed` in one closed enum. The workflow routes the outcome `failed` once, whatever the reason, and a log, a diagnostic or a diagram prints the reason. This specification states the rule in prose; the concrete example of that primitive belongs to `PLAN-V2-20`.
+For example, `PLAN-V2-20` gives the `git.stage-and-commit` state a `failed` outcome that declares the reasons `footprint_violation`, `message_refused` and `commit_failed` in one closed enum; the workflow routes the outcome `failed` once, whatever the reason, and a log, a diagnostic or a diagram prints the reason. The concrete example below is that plan's and is not this plan's to change.
 
 === Concrete Primitive Example (`GitStageAndCommitPrimitive`)
 

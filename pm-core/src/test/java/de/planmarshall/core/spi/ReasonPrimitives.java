@@ -81,6 +81,9 @@ class ReasonPrimitives {
                         "a reason type that is no enum",
                         fixed("test.reason-not-enum", NonEnumReasonOutcome.class, NonEnumReasonOutcome.FAILED)),
                 new TestPrimitives.Refusal(Reason.MALFORMED_REASON_TYPE,
+                        "a reason type that is no class at all",
+                        fixed("test.reason-not-class", NonClassReasonOutcome.class, NonClassReasonOutcome.FAILED)),
+                new TestPrimitives.Refusal(Reason.MALFORMED_REASON_TYPE,
                         "a reason type that is a null Optional",
                         fixed("test.reason-null", NullReasonOutcome.class, NullReasonOutcome.FAILED)),
                 new TestPrimitives.Refusal(Reason.MALFORMED_REASON_TYPE,
@@ -142,6 +145,15 @@ class ReasonPrimitives {
     @SuppressWarnings("unchecked")
     private static Class<? extends OutcomeReason> asReasonType(Class<?> type) {
         return (Class<? extends OutcomeReason>) type;
+    }
+
+    /**
+     * Hands a payload that is no class at all out as a reason type, the way code compiled against a raw
+     * {@link PrimitiveOutcome} can.
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static Optional<Class<? extends OutcomeReason>> nonClassReasonType() {
+        return (Optional) Optional.of("not-a-class");
     }
 
     record ReasonParams() {
@@ -340,6 +352,25 @@ class ReasonPrimitives {
         @Override
         public Optional<Class<? extends OutcomeReason>> reasonType() {
             return Optional.of(asReasonType(String.class));
+        }
+    }
+
+    enum NonClassReasonOutcome implements PrimitiveOutcome {
+        FAILED;
+
+        @Override
+        public String wireName() {
+            return "failed";
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return OutcomeClass.FAILURE;
+        }
+
+        @Override
+        public Optional<Class<? extends OutcomeReason>> reasonType() {
+            return nonClassReasonType();
         }
     }
 

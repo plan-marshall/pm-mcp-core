@@ -214,13 +214,26 @@ public final class PrimitiveRegistry {
 
     @SuppressWarnings({"java:S2583", "java:S2789"})
     private static Optional<Class<? extends OutcomeReason>> declaredReasonType(String id, PrimitiveOutcome outcome) {
-        // A primitive compiled against a raw PrimitiveOutcome can answer a null Optional, which is refused here.
-        var declared = outcome.reasonType();
+        // A primitive compiled against a raw PrimitiveOutcome can answer a null Optional or a payload that is no
+        // Class; both are refused as a malformed reason type instead of escaping as a ClassCastException.
+        var declared = (Optional<?>) outcome.reasonType();
         if (declared == null) {
             throw new PrimitiveRegistrationException(id, Reason.MALFORMED_REASON_TYPE,
                     "has the outcome %s with a null reason type".formatted(outcome));
         }
-        return declared;
+        if (declared.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(reasonTypeOf(id, outcome, declared.get()));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Class<? extends OutcomeReason> reasonTypeOf(String id, PrimitiveOutcome outcome, Object payload) {
+        if (!(payload instanceof Class<?> type)) {
+            throw new PrimitiveRegistrationException(id, Reason.MALFORMED_REASON_TYPE,
+                    "has the outcome %s with a reason type that is no class".formatted(outcome));
+        }
+        return (Class<? extends OutcomeReason>) type;
     }
 
     private static void checkReasonType(String id, PrimitiveOutcome outcome, Class<? extends OutcomeReason> type) {

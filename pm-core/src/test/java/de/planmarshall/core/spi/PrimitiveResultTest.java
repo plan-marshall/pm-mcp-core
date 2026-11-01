@@ -85,6 +85,15 @@ class PrimitiveResultTest {
     }
 
     @Test
+    @DisplayName("the three-component form refuses an outcome that declares a reason")
+    void threeComponentFormRefusesMissingReason() {
+        var thrown = assertThrows(IllegalArgumentException.class,
+                () -> new PrimitiveResult<>(ReasonedOutcome.FAILED, Map.of(), Optional.empty()));
+
+        assertTrue(thrown.getMessage().contains("reason"), "the refusal names the missing reason");
+    }
+
+    @Test
     @DisplayName("a null reason component is refused")
     void refusesNullReason() {
         var thrown = assertThrows(NullPointerException.class,
