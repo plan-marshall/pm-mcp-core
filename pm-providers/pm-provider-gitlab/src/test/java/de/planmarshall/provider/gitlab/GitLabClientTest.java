@@ -14,7 +14,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import de.cuioss.test.mockwebserver.EnableMockWebServer;
 import java.net.URI;
 import java.util.Deque;
 import java.util.List;
@@ -28,10 +27,12 @@ import mockwebserver3.MockResponse;
 import mockwebserver3.MockWebServer;
 import mockwebserver3.RecordedRequest;
 
-import de.planmarshall.provider.http.Endpoint;
 import de.planmarshall.provider.http.HttpClient;
 import de.planmarshall.provider.http.Json;
 import de.planmarshall.provider.http.Result;
+import de.planmarshall.provider.http.testing.generators.HttpGenerators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.cuioss.test.mockwebserver.EnableMockWebServer;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +41,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 @EnableMockWebServer
+@EnableGeneratorController
 @DisplayName("GitLabClient")
 class GitLabClientTest {
 
@@ -70,8 +72,8 @@ class GitLabClientTest {
             }
         });
         base = "http://" + server.getHostName() + ":" + server.getPort() + "/";
-        http = new HttpClient(Endpoint.of(URI.create(base + "api/v4")), () -> Optional.of("glpat-secret"),
-                Map.of());
+        http = new HttpClient(HttpGenerators.endpointAt(URI.create(base + "api/v4")).next(),
+                () -> Optional.of("glpat-secret"), Map.of());
         client = new GitLabClient(http, "group/project");
     }
 

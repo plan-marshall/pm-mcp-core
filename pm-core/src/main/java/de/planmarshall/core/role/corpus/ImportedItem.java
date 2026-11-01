@@ -58,9 +58,9 @@ import java.util.regex.Pattern;
  * @param canary        the corpus canary
  * @since 0.1
  */
-public record ImportedItem(String id, String topic, String role, String title, List<String> tags, String group,
-Input input, Target target, Grading grading, Provenance provenance, Review review, String contamination,
-String canary) {
+public record ImportedItem(String id, String topic, String role, String title, List<String> tags,
+@Nullable String group, Input input, Target target, Grading grading, Provenance provenance, Review review,
+@Nullable String contamination, String canary) {
 
     /** An item id: a topic path and a slug. */
     public static final Pattern ID_PATTERN = PythonRegex.compile("^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)+$");
@@ -90,7 +90,8 @@ String canary) {
      *                     there is none
      * @since 0.1
      */
-    public record Input(String question, String facts, List<String> choices, JsonValue answerSchema) {
+    public record Input(String question, String facts, @Nullable List<String> choices,
+    @Nullable JsonValue answerSchema) {
 
         /**
          * @throws IllegalArgumentException if fewer than two choices are given
@@ -160,7 +161,7 @@ String canary) {
      * @param passThreshold the share of the score that passes, between 0 and 1; {@code null} if there is none
      * @since 0.1
      */
-    public record Grading(GradingMethod method, String judge, BigDecimal passThreshold) {
+    public record Grading(GradingMethod method, @Nullable String judge, @Nullable BigDecimal passThreshold) {
 
         /**
          * @throws IllegalArgumentException if the threshold is outside 0 to 1
@@ -273,7 +274,7 @@ String canary) {
      * @param notes  notes of the review; {@code null} if there are none
      * @since 0.1
      */
-    public record Review(ReviewStatus status, String by, LocalDate date, String notes) {
+    public record Review(ReviewStatus status, String by, @Nullable LocalDate date, String notes) {
 
         /**
          * Requires the status.
@@ -362,7 +363,7 @@ String canary) {
      * @param field the name of the member, named by a refusal
      * @throws IllegalArgumentException if a present value holds no character other than a line feed
      */
-    static void requireText(String value, String field) {
+    static void requireText(@Nullable String value, String field) {
         if (value != null && !TEXT_PATTERN.matcher(value).find()) {
             throw new IllegalArgumentException(
                     "'%s' must hold a character other than a line feed: %s".formatted(field, value));

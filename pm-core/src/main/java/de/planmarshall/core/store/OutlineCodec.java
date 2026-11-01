@@ -331,7 +331,7 @@ public class OutlineCodec {
             var field = nextField(parser, seen);
             switch (field) {
                 case FIELD_SUMMARY -> summary = string(parser, field);
-                case FIELD_OVERVIEW -> overview = nullableString(parser, field);
+                case FIELD_OVERVIEW -> overview = nullableString(parser, field).orElse(null);
                 case FIELD_SCOPE_ESTIMATE -> scope = required(ScopeEstimate.fromWireName(string(parser, field)), field);
                 case FIELD_DELIVERABLES -> deliverables = array(parser, field, OutlineCodec::readDeliverable);
                 default -> throw undeclared(field);
@@ -377,7 +377,7 @@ public class OutlineCodec {
                 case FIELD_DOMAIN -> domain = string(parser, field);
                 case FIELD_MODULE -> module = string(parser, field);
                 case FIELD_DEPENDS -> depends = array(parser, field, OutlineCodec::readNumber);
-                case FIELD_DESIGN_NOTES -> designNotes = nullableString(parser, field);
+                case FIELD_DESIGN_NOTES -> designNotes = nullableString(parser, field).orElse(null);
                 case FIELD_PROFILES -> profiles = array(parser, field, OutlineCodec::readProfile);
                 case FIELD_AFFECTED_FILES -> affectedFiles = array(parser, field, OutlineCodec::readAffectedFile);
                 case FIELD_CHANGE_PER_FILE -> changePerFile = string(parser, field);
@@ -426,7 +426,7 @@ public class OutlineCodec {
             switch (field) {
                 case FIELD_PATH -> path = string(parser, field);
                 case FIELD_INTENT -> intent = required(FileIntent.fromWireName(string(parser, field)), field);
-                case FIELD_GATE -> gate = nullableString(parser, field);
+                case FIELD_GATE -> gate = nullableString(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }

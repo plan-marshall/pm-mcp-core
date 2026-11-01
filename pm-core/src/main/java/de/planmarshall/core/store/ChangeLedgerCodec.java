@@ -140,7 +140,8 @@ public class ChangeLedgerCodec {
         return StrictJson.read(file, document, ChangeLedgerRecord.FORMAT_VERSION, ChangeLedgerCodec::readRecord);
     }
 
-    private static void writeWorktreeShaFailure(JsonGenerator generator, WorktreeShaFailure failure) throws IOException {
+    private static void writeWorktreeShaFailure(JsonGenerator generator, @Nullable WorktreeShaFailure failure)
+            throws IOException {
         if (failure == null) {
             generator.writeNullField(FIELD_WORKTREE_SHA_FAILURE);
             return;
@@ -157,7 +158,7 @@ public class ChangeLedgerCodec {
         generator.writeEndObject();
     }
 
-    private static void writeBaseline(JsonGenerator generator, Baseline baseline) throws IOException {
+    private static void writeBaseline(JsonGenerator generator, @Nullable Baseline baseline) throws IOException {
         if (baseline == null) {
             generator.writeNullField(FIELD_BASELINE);
             return;
@@ -227,18 +228,20 @@ public class ChangeLedgerCodec {
                 case FIELD_WORKTREE_SHA -> worktreeSha = string(parser, field);
                 case FIELD_WORKTREE_SHA_VERSION -> worktreeShaVersion = intValue(parser, field);
                 case FIELD_WORKTREE_SHA_FAILURE -> failure = nullableWorktreeShaFailure(parser, field).orElse(null);
-                case FIELD_GATE_KIND -> gateKind = nullableString(parser, field);
-                case FIELD_OUTCOME -> outcome = nullableEnum(parser, field, Outcome::fromWireName);
-                case FIELD_DURATION_MS -> durationMs = nullableLong(parser, field);
-                case FIELD_JOB_ID -> jobId = nullableString(parser, field);
-                case FIELD_COMMIT_SHA -> commitSha = nullableString(parser, field);
+                case FIELD_GATE_KIND -> gateKind = nullableString(parser, field).orElse(null);
+                case FIELD_OUTCOME -> outcome = nullableEnum(parser, field, Outcome::fromWireName).orElse(null);
+                case FIELD_DURATION_MS -> durationMs = nullableLong(parser, field).orElse(null);
+                case FIELD_JOB_ID -> jobId = nullableString(parser, field).orElse(null);
+                case FIELD_COMMIT_SHA -> commitSha = nullableString(parser, field).orElse(null);
                 case FIELD_CHANGED_PATHS -> changedPaths = stringList(parser, field);
-                case FIELD_CHANGE_ORIGIN -> changeOrigin = nullableEnum(parser, field, ChangeOrigin::fromWireName);
-                case FIELD_EXPECT -> expect = nullableEnum(parser, field, Expect::fromWireName);
-                case FIELD_EXPECT_RESULT -> expectResult = nullableEnum(parser, field, ExpectResult::fromWireName);
+                case FIELD_CHANGE_ORIGIN -> changeOrigin = nullableEnum(parser, field, ChangeOrigin::fromWireName)
+                        .orElse(null);
+                case FIELD_EXPECT -> expect = nullableEnum(parser, field, Expect::fromWireName).orElse(null);
+                case FIELD_EXPECT_RESULT -> expectResult = nullableEnum(parser, field, ExpectResult::fromWireName)
+                        .orElse(null);
                 case FIELD_BASELINE -> baseline = nullableBaseline(parser, field).orElse(null);
-                case FIELD_DELIVERABLE_ID -> deliverableId = nullableString(parser, field);
-                case FIELD_TASK_ID -> taskId = nullableString(parser, field);
+                case FIELD_DELIVERABLE_ID -> deliverableId = nullableString(parser, field).orElse(null);
+                case FIELD_TASK_ID -> taskId = nullableString(parser, field).orElse(null);
                 case FIELD_RECORDED_AT -> recordedAt = instant(parser, field);
                 default -> throw undeclared(field);
             }
@@ -273,8 +276,8 @@ public class ChangeLedgerCodec {
                 case FIELD_COMMAND -> command = stringList(parser, name);
                 case FIELD_FAILURE -> failure = enumValue(parser, name,
                         WorktreeShaFailure.FailureKind::fromWireName);
-                case FIELD_EXIT_CODE -> exitCode = nullableInteger(parser, name);
-                case FIELD_SIGNAL -> signal = nullableInteger(parser, name);
+                case FIELD_EXIT_CODE -> exitCode = nullableInteger(parser, name).orElse(null);
+                case FIELD_SIGNAL -> signal = nullableInteger(parser, name).orElse(null);
                 default -> throw undeclared(name);
             }
         }
@@ -311,8 +314,8 @@ public class ChangeLedgerCodec {
         return Optional.of(new Baseline(gateKind, mergeBase, baseCommit, proofSource, diagnosticsDigest, fingerprints));
     }
 
-    private static Integer nullableInteger(JsonParser parser, String field) throws IOException {
-        return parser.currentToken() == JsonToken.VALUE_NULL ? null : intValue(parser, field);
+    private static Optional<Integer> nullableInteger(JsonParser parser, String field) throws IOException {
+        return parser.currentToken() == JsonToken.VALUE_NULL ? Optional.empty() : Optional.of(intValue(parser, field));
     }
 
     /** Reads an integer that must fit an {@code int}; an out-of-range value is a refusal, never an overflow. */
@@ -325,8 +328,8 @@ public class ChangeLedgerCodec {
         }
     }
 
-    private static Long nullableLong(JsonParser parser, String field) throws IOException {
-        return parser.currentToken() == JsonToken.VALUE_NULL ? null : integer(parser, field);
+    private static Optional<Long> nullableLong(JsonParser parser, String field) throws IOException {
+        return parser.currentToken() == JsonToken.VALUE_NULL ? Optional.empty() : Optional.of(integer(parser, field));
     }
 
     private static <T> T enumValue(JsonParser parser, String field, Function<String, Optional<T>> of)
@@ -336,8 +339,8 @@ public class ChangeLedgerCodec {
                 .orElseThrow(() -> unreadable("'%s' has the undeclared value '%s'".formatted(field, name)));
     }
 
-    private static <T> T nullableEnum(JsonParser parser, String field,
+    private static <T> Optional<T> nullableEnum(JsonParser parser, String field,
             Function<String, Optional<T>> of) throws IOException {
-        return parser.currentToken() == JsonToken.VALUE_NULL ? null : enumValue(parser, field, of);
+        return parser.currentToken() == JsonToken.VALUE_NULL ? Optional.empty() : Optional.of(enumValue(parser, field, of));
     }
 }

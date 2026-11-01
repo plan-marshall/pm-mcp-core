@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.role.corpus;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
@@ -135,7 +137,7 @@ public class JsonlRowReader {
         }
     }
 
-    private static void walkValue(JsonParser parser, JsonToken token, int number) throws IOException {
+    private static void walkValue(JsonParser parser, @Nullable JsonToken token, int number) throws IOException {
         if (token == null) {
             throw new MalformedSource(number, "not JSON: the line ends inside a value", null);
         }

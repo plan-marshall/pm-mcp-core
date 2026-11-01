@@ -87,6 +87,10 @@ WorkflowStatus ──write──► WorkflowStatusCodec ──bytes──► Sco
 * *Closed schema*: a member the schema does not declare, or a member twice, is refused.
 * *Journal-only writes*: the status is written only as a target of a `ScopeTransaction` of its scope, so a state change
   and the writes of the other stores of the same transaction are one journaled write.
+* *Absent members are `Optional` at the reader*: `StrictJson.nullableString` and `StrictJson.nullableInstant` answer
+  `Optional` for a JSON `null`, and a codec assigns the `orElse(null)` of that answer to a member its record declares
+  `@Nullable`. A method that answers absence returns `Optional`; a field, a parameter and a record component that may be
+  absent are `@Nullable`.
 
 === Failure Modes
 
@@ -1089,6 +1093,120 @@ the unavailable digest, the task-diff and baseline rules, a refused line reporte
 the out-of-band edit of the ledger) and `QualificationSettingsStoreTest` (the defaults and the revision, the block
 replaced alone, the revision incremented, a stale revision refused, the absent document refused, a role skipped twice
 refused).
+
+== Derived Facts Store
+_Requirements: link:{docs}/Requirements.adoc#PM-EXT-6[PM-EXT-6], link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
+
+The work package `derived-facts-store` added the data side of the per-project cache `derived-facts.json`
+(`<PM_MCP_BASE>/projects/<project_id>/derived-facts.json`,
+link:{spec}/store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas § Derived Facts Store]):
+the entry records, the strict codec and the registry through which a consumer binds a fact kind to its value schema.
+The store itself — the input-digest recompute rule, the validity period of a network derivation, the `stale` and
+`failed` operations, the gate-evaluation helper and the exclusion of the operator-only fact from every model-facing
+view — is the second plan, `derived-facts-store-operations`.
+
+[horizontal]
+`DerivedFactKind`:: The closed enumeration of the sixteen kinds of the schema's `kind` enum. Each constant carries its
+wire name (`fromWireName` reads it back) and `operatorOnly`, true for `AGENT_IDENTITY` alone: the identity of the agent
+credential is shown to the operator and used server-side, and it never appears in a model-facing representation,
+resource or tool result.
+`DerivedFactKey`:: The key of an entry: a kind and an optional qualifier. Its wire form is `<kind>` or
+`<kind>:<qualifier>` (for example `domain_activation:java`) and matches the schema's `propertyNames` pattern
+`^[a-z][a-z0-9_]{0,47}(:[A-Za-z0-9_.-]{1,128})?$`. A key whose kind part names no `DerivedFactKind` is refused. The
+qualifier is opaque to the store; whether a kind admits one is declared by its `DerivedFactKindSpec`.
+`DerivedFact`:: One entry: the kind, the value as a `JsonValue` tree or `null`, the `Source` (the derivation and its
+class, `local` or `network`), the `inputDigest` (64 lower-case hexadecimal digits), the instant `derivedAt`, the
+`State` (`current`, `stale` or `failed`) and, for a failed derivation, the `Failure` (a reason of at most 500 code
+points and the instant it failed). The compact constructor holds the state shapes: `current` carries a value and no
+failure, `stale` carries the last value and a failure, `failed` carries no value and a failure.
+`DerivedFacts`:: The document: the entries by key in document order, `FORMAT_VERSION` 1, `empty()` and `fact(key)`.
+The compact constructor refuses an entry filed under a key of another kind.
+`DerivedFactsCodec`:: Reads and writes `derived-facts.json` over `StrictJson` as `BuildTimingsCodec` does: only the
+current format version, only the declared members, each at most once, every required member, the closed values of
+`kind`, `source.class` and `state`, the key grammar, the digest grammar, an instant in the one shape
+`Instant.toString` writes, and the value and failure shapes of `DerivedFact`. Anything else is a `StoreRefusal`
+naming the file, never an empty store. The value is read with `JsonValue.read` and written by a private generator over
+the tree, which keeps the member order; an integer is written as its plain digits, and a fraction in the canonical form
+the writer produces, so an exponent-spelled number or a negative zero is written in that form once and
+`DerivedFactsCodecTest` states it. A current entry is written with `"failure": null`, and the reader accepts the member
+absent or `null` there.
+`DerivedFactKindSpec`:: What a consumer registers for a kind: the value schema as a JSON object, the `source.class`
+values the kind admits (at least one), whether a key of the kind may carry a qualifier, and the description of the
+derivation inputs. A schema that is not a JSON object and an empty class set are refused.
+`DerivedFactKinds`:: The registry, an instance and never a static. `register(kind, spec)` binds a kind once — a second
+registration is refused — and `spec(kind)` answers the specification or `Optional.empty()` for a kind never
+registered, never a default. `validate(kind, value)` returns the violations of `SchemaSubset.validate` of the
+registered schema and refuses a kind with no registration. `isOperatorOnly(kind)` answers the kind's flag whether it
+is registered or not.
+
+=== Registering a Kind
+
+A consumer registers its kind once, with the value schema of the specification part that defines it, before the store
+is read:
+
+[source,java]
+----
+var kinds = new DerivedFactKinds();
+kinds.register(DerivedFactKind.MODULE_DISCOVERY, DerivedFactKindSpec.builder()
+        .schema(JsonValue.parse(moduleDiscoverySchema))
+        .classes(Set.of(DerivedFact.DerivationClass.LOCAL))
+        .qualifierAllowed(false)
+        .inputs("the descriptor tree hash of the worktree")
+        .build());
+----
+
+No concrete kind is registered by the data side, in production code or in a default registry: `module_discovery`
+belongs to module discovery, `ci_provider` and `base_branch_default` to the CI contract, the onboarding facts to the
+onboarding plans and `cost_calibration` to the recalibration, each registering its kind when it lands
+(link:../adr/core-store/053-the-fact-kinds-are-an-enumeration-bound-by-a-registry.adoc[ADR 053],
+link:../adr/core-store/054-the-fact-value-is-the-jsonvalue-tree.adoc[ADR 054]).
+
+=== Invariants
+
+* *One shape per state*: a `DerivedFact` of `current` carries a value and no failure, `stale` its last value and a
+  failure, `failed` no value and a failure; every other combination is refused at construction.
+* *The key names the entry's kind*: `DerivedFacts` refuses an entry whose kind is not the kind of its key.
+* *The schema is the contract*: the member lists of the codec, the enumerations, the patterns and the reason bound are
+  pinned to the schema block by `DerivedFactsSchemaParityTest`; the block is test input and stays byte-stable (R10).
+* *A kind is registered once*: a second registration is refused, and a kind never registered has no default schema.
+
+=== Failure Modes
+
+[cols="2,3"]
+|===
+|Failure |Behaviour
+
+|The document declares another format version, or is unreadable
+|`StoreRefusal` naming the file; nothing is rewritten.
+
+|A key outside the grammar, or a key whose kind part names no kind
+|`StoreRefusal` naming the file.
+
+|A key of another kind than its entry
+|`DerivedFacts` throws `IllegalArgumentException`; the codec turns it into a `StoreRefusal`.
+
+|A digest outside `^[0-9a-f]{64}$`, or a failure reason above 500 code points
+|`DerivedFact` throws `IllegalArgumentException`; the codec turns it into a `StoreRefusal`.
+
+|A value or a failure outside the shape of its state
+|`DerivedFact` throws `IllegalArgumentException`; the codec turns it into a `StoreRefusal`.
+
+|An instant spelled with an offset
+|`StrictJson.instant` refuses it; the codec reports a `StoreRefusal`.
+
+|A kind registered twice
+|`DerivedFactKinds.register` throws `IllegalStateException`; the first registration stays.
+
+|A value validated against a kind that is not registered
+|`DerivedFactKinds.validate` throws `IllegalStateException`; no default schema exists.
+|===
+
+Tested by `DerivedFactKindTest` (the wire names, the operator-only flag and the completeness derived from the enum at
+run time), `DerivedFactKeyTest` (the wire form, the qualifier grammar and the unknown kind part), `DerivedFactTest`
+(the three state shapes, the digest and reason bounds and the key/entry kind invariant), `DerivedFactsCodecTest` (the
+canonical bytes, the round trip and one refusal per rule) and `DerivedFactsSchemaParityTest` (the members, the
+enumerations, the patterns and the bounds against the schema block), and `DerivedFactKindsTest` (the registration, the
+duplicate refusal, a value accepted and refused by a fixture schema, the operator-only flag and the empty registry).
 
 [#_the_store_substrate]
 == The Store Substrate

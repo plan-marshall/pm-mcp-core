@@ -106,6 +106,10 @@ not those of `core.store`, on which the package must not depend.
 
 == Invariants and Failure Modes
 
+* *Nullable members are `@Nullable`, and a reader that may see JSON `null` answers `Optional`*: the analysis result
+  keeps its `analysis_ref`, `pr_number` and a condition's `actual` as `@Nullable` members, and `AnalysisResultCodec`
+  unwraps its `nullableString`/`nullableInteger` read with `orElse(null)` into them.
+
 * *A refusal is never an outcome.* An unknown target, a refusal and a rate limit have no `AnalysisOutcome` of their own;
   a transport failure is one of the shared outcomes, and a transport outcome carries neither a value nor a
   completeness.

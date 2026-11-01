@@ -165,6 +165,9 @@ harness homes of the machine. The default `ProfileRules.none()` binds only the r
 
 == Invariants and Failure Modes
 
+* *The null contract is the type*: a member the schema types `[string, null]` reads as `Optional` and is kept as a
+  `@Nullable` member; a validator that asks whether the member was given asks the `Optional`, never a `null` value.
+
 [cols="1,2,2"]
 |===
 |Invariant |Held by |Failure

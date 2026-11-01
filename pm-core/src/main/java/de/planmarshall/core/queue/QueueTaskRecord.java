@@ -67,10 +67,10 @@ import lombok.With;
  */
 @With
 @Builder(toBuilder = true)
-public record QueueTaskRecord(String queueTaskId, Kind kind, String role, TaskClass taskClass, Scope scope,
+public record QueueTaskRecord(String queueTaskId, Kind kind, String role, @Nullable TaskClass taskClass, Scope scope,
 String entity, String stateId, boolean formDowngraded, Status status, @Nullable Continuation continuation,
 @Nullable Lease lease, List<Attempt> attempts, List<Signal> signals, List<Consultation> consultations,
-@Nullable String consultationOf, @Nullable Outcome outcome, @Nullable LostReason reason, String questionId,
+@Nullable String consultationOf, @Nullable Outcome outcome, @Nullable LostReason reason, @Nullable String questionId,
 Instant createdAt, @Nullable Instant closedAt) {
 
     /** The format version of a queue task record that is read and written. */
@@ -715,7 +715,7 @@ Instant createdAt, @Nullable Instant closedAt) {
             }
         }
 
-        private static void requireOrder(Instant first, Instant second, String name) {
+        private static void requireOrder(Instant first, @Nullable Instant second, String name) {
             if (second != null && second.isBefore(first)) {
                 throw new IllegalArgumentException("'%s' precedes the offer: %s".formatted(name, second));
             }
@@ -857,8 +857,8 @@ Instant createdAt, @Nullable Instant closedAt) {
         return attempts.stream().filter(Attempt::counts).count();
     }
 
-    private static void requireSettlement(Status status, Lease lease, Outcome outcome, LostReason reason,
-            Instant closedAt, Instant createdAt) {
+    private static void requireSettlement(Status status, @Nullable Lease lease, @Nullable Outcome outcome,
+            @Nullable LostReason reason, @Nullable Instant closedAt, Instant createdAt) {
         var closed = status == Status.CLOSED;
         if (closed != (outcome != null) || closed != (closedAt != null)) {
             throw new IllegalArgumentException(
@@ -884,7 +884,8 @@ Instant createdAt, @Nullable Instant closedAt) {
         }
     }
 
-    private static void requireClass(TaskClass taskClass, Status status, Outcome outcome, LostReason reason) {
+    private static void requireClass(@Nullable TaskClass taskClass, Status status, Outcome outcome,
+            LostReason reason) {
         var undefined = outcome == Outcome.LOST && reason == LostReason.ROLE_UNDEFINED;
         if (undefined != (taskClass == null)) {
             throw new IllegalArgumentException(
@@ -895,7 +896,8 @@ Instant createdAt, @Nullable Instant closedAt) {
         }
     }
 
-    private static void requireConsultation(Kind kind, String consultationOf, String entity, String queueTaskId) {
+    private static void requireConsultation(Kind kind, @Nullable String consultationOf, String entity,
+            String queueTaskId) {
         if (kind == Kind.CONSULTATION) {
             if (consultationOf == null || QueueTaskId.parse(consultationOf).isEmpty()) {
                 throw new IllegalArgumentException("A consultation task names its asking task");
@@ -925,7 +927,7 @@ Instant createdAt, @Nullable Instant closedAt) {
         }
     }
 
-    private static void requireGeneration(String generation, String name) {
+    private static void requireGeneration(@Nullable String generation, String name) {
         if (generation == null || !GENERATION.matcher(generation).matches()) {
             throw new IllegalArgumentException("'%s' is not a generation (l- and 16 hex digits): %s".formatted(name,
                     generation));
@@ -938,7 +940,7 @@ Instant createdAt, @Nullable Instant closedAt) {
         }
     }
 
-    private static void requireMaxLength(String value, String name, int max) {
+    private static void requireMaxLength(@Nullable String value, String name, int max) {
         if (value != null && value.codePointCount(0, value.length()) > max) {
             throw new IllegalArgumentException("'%s' has at most %d characters".formatted(name, max));
         }

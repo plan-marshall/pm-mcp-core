@@ -92,7 +92,8 @@ boolean workPerformed, @Nullable String analysisRef, Instant observedAt) {
         checkConsistency(status, gate, countStatus, newCodeIssueCount);
     }
 
-    private static void checkConsistency(AnalysisStatus status, Gate gate, CountStatus countStatus, Long count) {
+    private static void checkConsistency(AnalysisStatus status, @Nullable Gate gate, CountStatus countStatus,
+            @Nullable Long count) {
         var gateFailed = gate != null && gate.result() == GateResult.FAILED;
         switch (status) {
             case PASSED -> requireThat(countStatus == CountStatus.MEASURED && count == 0 && !gateFailed,

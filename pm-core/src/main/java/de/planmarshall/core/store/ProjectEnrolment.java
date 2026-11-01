@@ -410,7 +410,7 @@ SortedMap<String, String> buildEnvironment) {
             }
         }
 
-        private static String wireName(Interpreter interpreter) {
+        private static String wireName(@Nullable Interpreter interpreter) {
             return interpreter == null ? "none" : interpreter.wireName();
         }
     }
@@ -864,7 +864,7 @@ SortedMap<String, String> buildEnvironment) {
         return Collections.unmodifiableMap(copy);
     }
 
-    private static <V> SortedMap<String, V> sortedMap(Map<String, V> map, String name, Pattern keys) {
+    private static <V> SortedMap<String, V> sortedMap(Map<String, V> map, String name, @Nullable Pattern keys) {
         var copy = new TreeMap<String, V>();
         for (var entry : Objects.requireNonNull(map, name).entrySet()) {
             var key = Objects.requireNonNull(entry.getKey(), name);

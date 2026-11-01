@@ -244,7 +244,8 @@ public class ImportedItemCodec {
         generator.writeEndObject();
     }
 
-    private static void writeOptionalString(JsonGenerator generator, String field, String value) throws IOException {
+    private static void writeOptionalString(JsonGenerator generator, String field, @Nullable String value)
+            throws IOException {
         if (value != null) {
             generator.writeStringField(field, value);
         }
@@ -484,9 +485,9 @@ public class ImportedItemCodec {
             var field = nextField(parser, seen);
             switch (field) {
                 case FIELD_STATUS -> status = wireValue(parser, field, ReviewStatus::fromWireName);
-                case FIELD_BY -> by = optionalMembers ? nullableString(parser, field) : string(parser, field);
-                case FIELD_DATE -> date = optionalMembers ? nullableDate(parser, field) : date(parser, field);
-                case FIELD_NOTES -> notes = optionalMembers ? nullableString(parser, field) : string(parser, field);
+                case FIELD_BY -> by = optionalMembers ? nullableString(parser, field).orElse(null) : string(parser, field);
+                case FIELD_DATE -> date = optionalMembers ? nullableDate(parser, field).orElse(null) : date(parser, field);
+                case FIELD_NOTES -> notes = optionalMembers ? nullableString(parser, field).orElse(null) : string(parser, field);
                 default -> throw undeclared(field);
             }
         }

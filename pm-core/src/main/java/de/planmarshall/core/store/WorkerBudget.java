@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 
 import de.planmarshall.core.store.BuildTimings.KeyTimings;
@@ -69,8 +71,8 @@ public record WorkerBudget(long seconds, BudgetDerivation derivation, int roleFl
      * @param timings          the learned timings of the key; {@code null} when the key has none
      * @return the budget of a worker of the role
      */
-    public static WorkerBudget allocate(int roleFloorSeconds, Long escalationSeconds, Long operatorBudget,
-            KeyTimings timings) {
+    public static WorkerBudget allocate(int roleFloorSeconds, @Nullable Long escalationSeconds,
+            @Nullable Long operatorBudget, @Nullable KeyTimings timings) {
         if (roleFloorSeconds < COMPILED_FLOOR_SECONDS) {
             throw new IllegalArgumentException(
                     "A role floor is at least %d seconds: %d".formatted(COMPILED_FLOOR_SECONDS, roleFloorSeconds));

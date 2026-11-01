@@ -173,7 +173,7 @@ Instant createdAt,
                 "transmit_reason must be null when transmit_outcome is pending or sent");
     }
 
-    private static void checkSourceMembers(FindingSourceKind source, String provider, CiFailure ciFailure,
+    private static void checkSourceMembers(FindingSourceKind source, @Nullable String provider, CiFailure ciFailure,
             FindingPhase phase, String raisedAtHead, ProviderRef providerRef) {
         var analysis = source == FindingSourceKind.ANALYSIS;
         requireThat(analysis == (provider != null), "provider is required iff source is analysis");
@@ -188,7 +188,7 @@ Instant createdAt,
                 "provider_ref.issue_key is set only for source analysis");
     }
 
-    private static void requireMatchIfSet(Pattern pattern, String value, String member) {
+    private static void requireMatchIfSet(Pattern pattern, @Nullable String value, String member) {
         if (value != null) {
             requireMatch(pattern, value, member);
         }

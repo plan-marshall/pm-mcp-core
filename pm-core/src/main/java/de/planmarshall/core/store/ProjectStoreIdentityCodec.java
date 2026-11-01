@@ -112,7 +112,7 @@ public class ProjectStoreIdentityCodec {
                 case FIELD_PROJECT_ROOT -> projectRoot = string(parser, field);
                 case FIELD_DISPLAY_NAME -> displayName = string(parser, field);
                 case FIELD_CREATED_AT -> createdAt = instant(parser, field);
-                case FIELD_UNENROLLED_AT -> unenrolledAt = nullableInstant(parser, field);
+                case FIELD_UNENROLLED_AT -> unenrolledAt = nullableInstant(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }

@@ -250,8 +250,8 @@ public class MetricsCodec {
         }
     }
 
-    private static void writePredictedCost(JsonGenerator generator, MetricsRow.PredictedCost predictedCost)
-            throws IOException {
+    private static void writePredictedCost(JsonGenerator generator,
+            MetricsRow.@Nullable PredictedCost predictedCost) throws IOException {
         if (predictedCost == null) {
             generator.writeNullField(FIELD_PREDICTED_COST);
             return;
@@ -287,7 +287,7 @@ public class MetricsCodec {
         }
     }
 
-    private static void writeEnum(JsonGenerator generator, String field, String value) throws IOException {
+    private static void writeEnum(JsonGenerator generator, String field, @Nullable String value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
         } else {
@@ -407,18 +407,18 @@ public class MetricsCodec {
             switch (field) {
                 case FIELD_KIND -> kind = string(parser, field);
                 case FIELD_QUEUE_TASK_ID -> queueTaskId = string(parser, field);
-                case FIELD_ATTEMPT -> attempt = nullableInteger(parser, field);
+                case FIELD_ATTEMPT -> attempt = nullableInteger(parser, field).orElse(null);
                 case FIELD_ROLE -> role = string(parser, field);
-                case FIELD_JOB_ID -> jobId = nullableString(parser, field);
-                case FIELD_GENERATION_ID -> generationId = nullableString(parser, field);
-                case FIELD_HARNESS -> harness = nullableString(parser, field);
-                case FIELD_HARNESS_VERSION -> harnessVersion = nullableString(parser, field);
-                case FIELD_MODEL -> model = nullableString(parser, field);
-                case FIELD_EFFORT -> effort = nullableString(parser, field);
+                case FIELD_JOB_ID -> jobId = nullableString(parser, field).orElse(null);
+                case FIELD_GENERATION_ID -> generationId = nullableString(parser, field).orElse(null);
+                case FIELD_HARNESS -> harness = nullableString(parser, field).orElse(null);
+                case FIELD_HARNESS_VERSION -> harnessVersion = nullableString(parser, field).orElse(null);
+                case FIELD_MODEL -> model = nullableString(parser, field).orElse(null);
+                case FIELD_EFFORT -> effort = nullableString(parser, field).orElse(null);
                 case FIELD_FORM -> form = enumValue(parser, field, MetricsRow.Form::fromWireName).orElse(null);
                 case FIELD_PHASE -> phase = enumValue(parser, field, MetricsRow.Phase::fromWireName).orElse(null);
-                case FIELD_STEP_ID -> stepId = nullableString(parser, field);
-                case FIELD_ENVELOPE_ID -> envelopeId = nullableString(parser, field);
+                case FIELD_STEP_ID -> stepId = nullableString(parser, field).orElse(null);
+                case FIELD_ENVELOPE_ID -> envelopeId = nullableString(parser, field).orElse(null);
                 case FIELD_PREDICTED_COST -> predictedCost = nullablePredictedCost(parser, field).orElse(null);
                 case FIELD_YIELD_REASON -> yieldReason =
                         enumValue(parser, field, MetricsRow.YieldReason::fromWireName).orElse(null);
@@ -436,11 +436,11 @@ public class MetricsCodec {
                     FIELD_CACHE_CREATION, FIELD_REASONING, FIELD_TOOL_USES, FIELD_COST_USD,
                     FIELD_UNMEASURED_REASON ->
                     usageState.read(parser, field);
-                case FIELD_DURATION_MS -> durationMs = nullableLong(parser, field);
+                case FIELD_DURATION_MS -> durationMs = nullableLong(parser, field).orElse(null);
                 case FIELD_DURATION_BASIS -> durationBasis = enumValue(parser, field,
                         MetricsRow.DurationBasis::fromWireName).orElse(null);
-                case FIELD_QUEUED_MS -> queuedMs = nullableLong(parser, field);
-                case FIELD_CONSULTATION_OF -> consultationOf = nullableString(parser, field);
+                case FIELD_QUEUED_MS -> queuedMs = nullableLong(parser, field).orElse(null);
+                case FIELD_CONSULTATION_OF -> consultationOf = nullableString(parser, field).orElse(null);
                 case FIELD_RECORDED_AT -> recordedAt = instant(parser, field);
                 default -> throw undeclared(field);
             }
@@ -650,7 +650,7 @@ public class MetricsCodec {
         }
     }
 
-    private static void requireCompleteUsage(HarnessUsage usage) {
+    private static void requireCompleteUsage(@Nullable HarnessUsage usage) {
         if (usage == null) {
             throw unreadable("the usage columns of a row are incomplete");
         }
@@ -685,8 +685,8 @@ public class MetricsCodec {
         }
     }
 
-    private static Integer nullableInteger(JsonParser parser, String field) throws IOException {
-        return parser.currentToken() == JsonToken.VALUE_NULL ? null : intValue(parser, field);
+    private static Optional<Integer> nullableInteger(JsonParser parser, String field) throws IOException {
+        return parser.currentToken() == JsonToken.VALUE_NULL ? Optional.empty() : Optional.of(intValue(parser, field));
     }
 
     /** Reads an integer that must fit an {@code int}; an out-of-range value is a refusal, never an overflow. */
@@ -699,12 +699,12 @@ public class MetricsCodec {
         }
     }
 
-    private static Long nullableLong(JsonParser parser, String field) throws IOException {
-        return parser.currentToken() == JsonToken.VALUE_NULL ? null : integer(parser, field);
+    private static Optional<Long> nullableLong(JsonParser parser, String field) throws IOException {
+        return parser.currentToken() == JsonToken.VALUE_NULL ? Optional.empty() : Optional.of(integer(parser, field));
     }
 
-    private static String nullableString(JsonParser parser, String field) throws IOException {
-        return parser.currentToken() == JsonToken.VALUE_NULL ? null : string(parser, field);
+    private static Optional<String> nullableString(JsonParser parser, String field) throws IOException {
+        return parser.currentToken() == JsonToken.VALUE_NULL ? Optional.empty() : Optional.of(string(parser, field));
     }
 
     private static <T> Optional<T> enumValue(JsonParser parser, String field, Function<String, Optional<T>> of)

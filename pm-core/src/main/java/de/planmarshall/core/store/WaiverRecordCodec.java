@@ -140,11 +140,11 @@ public class WaiverRecordCodec {
                 case FIELD_WAIVER_ID -> waiver.waiverId(string(parser, field));
                 case FIELD_GATE -> waiver.gate(string(parser, field));
                 case FIELD_MODE -> waiver.mode(enumValue(string(parser, field), Mode::fromWireName, field));
-                case FIELD_VALUE -> waiver.value(nullableInteger(parser, field));
+                case FIELD_VALUE -> waiver.value(nullableInteger(parser, field).orElse(null));
                 case FIELD_REASON -> waiver.reason(string(parser, field));
                 case FIELD_REASON_CLASS -> waiver.reasonClass(
                         enumValue(string(parser, field), ReasonClass::fromWireName, field));
-                case FIELD_REQUEST_ID -> waiver.requestId(nullableString(parser, field));
+                case FIELD_REQUEST_ID -> waiver.requestId(nullableString(parser, field).orElse(null));
                 case FIELD_OPERATOR -> waiver.operator(readOperator(parser));
                 case FIELD_AT -> waiver.at(instant(parser, field));
                 default -> throw undeclared(field);
@@ -169,7 +169,7 @@ public class WaiverRecordCodec {
             var field = nextField(parser, seen);
             switch (field) {
                 case FIELD_CHANNEL -> channel = enumValue(string(parser, field), Channel::fromWireName, field);
-                case FIELD_DEVICE_ID -> deviceId = nullableString(parser, field);
+                case FIELD_DEVICE_ID -> deviceId = nullableString(parser, field).orElse(null);
                 case FIELD_OS_PRINCIPAL -> osPrincipal = string(parser, field);
                 default -> throw undeclared(field);
             }
@@ -182,11 +182,12 @@ public class WaiverRecordCodec {
         }
     }
 
-    private static Long nullableInteger(JsonParser parser, String field) throws IOException {
-        return parser.currentToken() == JsonToken.VALUE_NULL ? null : integer(parser, field);
+    private static Optional<Long> nullableInteger(JsonParser parser, String field) throws IOException {
+        return parser.currentToken() == JsonToken.VALUE_NULL ? Optional.empty() : Optional.of(integer(parser, field));
     }
 
-    private static void writeIfPresent(JsonGenerator generator, String field, String value) throws IOException {
+    private static void writeIfPresent(JsonGenerator generator, String field, @Nullable String value)
+            throws IOException {
         if (value != null) {
             generator.writeStringField(field, value);
         }

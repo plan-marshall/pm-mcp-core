@@ -76,7 +76,7 @@ int contextBudgetTokens, Integer idleWakeups) {
             List<RoleSkill> skills, String harnessVersion, Optional<String> weightsIdentity, HarnessProfile profile) {
         return new EffectiveRole(artifact, harness, model, effort, skills, harnessVersion, weightsIdentity,
                 questions(artifact, profile), offTrack(artifact), contextBudget(artifact, profile),
-                idleWakeups(artifact, profile));
+                idleWakeups(artifact, profile).orElse(null));
     }
 
     /** @return whether the role has no tool and no PM-MCP connection */
@@ -136,9 +136,9 @@ int contextBudgetTokens, Integer idleWakeups) {
                 .orElse(COMPILED_CONTEXT_BUDGET);
     }
 
-    private static Integer idleWakeups(RoleArtifact role, HarnessProfile profile) {
+    private static Optional<Integer> idleWakeups(RoleArtifact role, HarnessProfile profile) {
         return role.recyclingBounds()
                 .map(RoleArtifact.Recycling::idleWakeups)
-                .orElse(profile.idleWakeups());
+                .or(() -> Optional.ofNullable(profile.idleWakeups()));
     }
 }

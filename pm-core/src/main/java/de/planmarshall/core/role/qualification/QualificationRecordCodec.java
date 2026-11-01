@@ -167,7 +167,7 @@ public class QualificationRecordCodec {
                 case CORPUS_REVISION -> corpusRevision = string(parser, field);
                 case MISSED_SOURCES -> missedSources = stringList(parser, field);
                 case FORMS -> forms = readForms(parser);
-                case WARM_FRESH_GAP -> gap = nullableDecimal(parser, field);
+                case WARM_FRESH_GAP -> gap = nullableDecimal(parser, field).orElse(null);
                 case UNGRADED -> ungraded = count(parser, field);
                 case GRADED_AT -> gradedAt = instant(parser, field);
                 case ITEMS -> items = StrictJson.array(parser, field, QualificationRecordCodec::readItem);
@@ -199,7 +199,7 @@ public class QualificationRecordCodec {
                 case HARNESS -> harness = string(parser, field);
                 case HARNESS_VERSION -> harnessVersion = string(parser, field);
                 case MODEL -> model = string(parser, field);
-                case EFFORT -> effort = nullableString(parser, field);
+                case EFFORT -> effort = nullableString(parser, field).orElse(null);
                 case TOOLS -> tools = stringList(parser, field);
                 case CLASS -> roleClass = closed(parser, field, RoleClass::fromWireName);
                 case SKILL_DIGESTS -> skillDigests = StrictJson.map(parser, field, StrictJson::string);
@@ -317,7 +317,7 @@ public class QualificationRecordCodec {
                 case TOTAL_TOKENS -> totalTokens = readTokens(parser, field);
                 case TOKENS_IN -> tokensIn = readSplit(parser, field).orElse(null);
                 case TOKENS_OUT -> tokensOut = readSplit(parser, field).orElse(null);
-                case DURATION_MS -> duration = nullableInteger(parser, field);
+                case DURATION_MS -> duration = nullableInteger(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }
@@ -431,8 +431,8 @@ public class QualificationRecordCodec {
         }
     }
 
-    private static Long nullableInteger(JsonParser parser, String field) throws IOException {
-        return parser.currentToken() == JsonToken.VALUE_NULL ? null : integer(parser, field);
+    private static Optional<Long> nullableInteger(JsonParser parser, String field) throws IOException {
+        return parser.currentToken() == JsonToken.VALUE_NULL ? Optional.empty() : Optional.of(integer(parser, field));
     }
 
     private static BigDecimal decimal(JsonParser parser, String field) throws IOException {
@@ -443,8 +443,8 @@ public class QualificationRecordCodec {
         return parser.getDecimalValue();
     }
 
-    private static BigDecimal nullableDecimal(JsonParser parser, String field) throws IOException {
-        return parser.currentToken() == JsonToken.VALUE_NULL ? null : decimal(parser, field);
+    private static Optional<BigDecimal> nullableDecimal(JsonParser parser, String field) throws IOException {
+        return parser.currentToken() == JsonToken.VALUE_NULL ? Optional.empty() : Optional.of(decimal(parser, field));
     }
 
     private static <E> E closed(JsonParser parser, String field, Function<String, Optional<E>> lookup)

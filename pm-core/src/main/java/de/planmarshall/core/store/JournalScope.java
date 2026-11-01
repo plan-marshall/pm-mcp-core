@@ -222,7 +222,7 @@ Path sidecarFile, List<Path> ownedDirectories, LockKey lockKey) {
      * @param path a path read from a journal or a sidecar
      * @return whether it has the one form of a store path
      */
-    static boolean isStorePath(String path) {
+    static boolean isStorePath(@Nullable String path) {
         if (path == null || path.isEmpty()) {
             return false;
         }

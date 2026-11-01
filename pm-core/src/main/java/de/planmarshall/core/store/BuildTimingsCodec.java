@@ -177,7 +177,7 @@ public class BuildTimingsCodec {
                 case FIELD_COLD -> cold = readBaseline(parser, key + ".cold");
                 case FIELD_ESCALATION_SECONDS -> escalationSeconds =
                         parser.currentToken() == JsonToken.VALUE_NULL ? null : integer(parser, field);
-                case FIELD_LAST_OBSERVED_AT -> lastObservedAt = nullableInstant(parser, field);
+                case FIELD_LAST_OBSERVED_AT -> lastObservedAt = nullableInstant(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }

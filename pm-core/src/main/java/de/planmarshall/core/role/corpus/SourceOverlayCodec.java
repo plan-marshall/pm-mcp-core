@@ -226,7 +226,7 @@ public class SourceOverlayCodec {
                 case FIELD_FORMAT_VERSION -> parser.skipChildren();
                 case FIELD_SOURCE -> source = string(parser, field);
                 case FIELD_FILE -> file = string(parser, field);
-                case FIELD_KEY_FIELD -> keyField = nullableString(parser, field);
+                case FIELD_KEY_FIELD -> keyField = nullableString(parser, field).orElse(null);
                 case FIELD_CREATED -> created = date(parser, field);
                 case FIELD_ROWS -> rows = array(parser, field, SourceOverlayCodec::readRow);
                 default -> throw undeclared(field);
@@ -255,15 +255,15 @@ public class SourceOverlayCodec {
                 case FIELD_ROLE -> values.role = string(parser, field);
                 case FIELD_TITLE -> values.title = string(parser, field);
                 case FIELD_TAGS -> values.tags = stringList(parser, field);
-                case FIELD_GROUP -> values.group = nullableString(parser, field);
+                case FIELD_GROUP -> values.group = nullableString(parser, field).orElse(null);
                 case FIELD_QUESTION -> values.question = string(parser, field);
                 case FIELD_FACTS -> values.facts = string(parser, field);
-                case FIELD_CHOICES -> values.choices = nullableStringList(parser, field);
+                case FIELD_CHOICES -> values.choices = nullableStringList(parser, field).orElse(null);
                 case FIELD_ANSWER_SCHEMA -> values.answerSchema = nullableValue(parser, field).orElse(null);
                 case FIELD_TARGET -> values.target = readTarget(parser);
                 case FIELD_GRADING -> values.grading = readGrading(parser);
                 case FIELD_REVIEW -> values.review = ImportedItemCodec.readReview(parser, true);
-                case FIELD_CONTAMINATION -> values.contamination = nullableString(parser, field);
+                case FIELD_CONTAMINATION -> values.contamination = nullableString(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }
@@ -302,7 +302,7 @@ public class SourceOverlayCodec {
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {
-                case FIELD_ANSWER -> answer = nullableString(parser, field);
+                case FIELD_ANSWER -> answer = nullableString(parser, field).orElse(null);
                 case FIELD_RATIONALE -> rationale = string(parser, field);
                 case FIELD_ALTERNATIVES -> alternatives = stringList(parser, field);
                 case FIELD_ITEMS -> items = array(parser, field, ImportedItemCodec::readRubricItem);
@@ -331,8 +331,8 @@ public class SourceOverlayCodec {
             var field = nextField(parser, seen);
             switch (field) {
                 case FIELD_METHOD -> method = wireValue(parser, field, GradingMethod::fromWireName);
-                case FIELD_JUDGE -> judge = nullableString(parser, field);
-                case FIELD_PASS_THRESHOLD -> passThreshold = nullableNumber(parser, field);
+                case FIELD_JUDGE -> judge = nullableString(parser, field).orElse(null);
+                case FIELD_PASS_THRESHOLD -> passThreshold = nullableNumber(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }

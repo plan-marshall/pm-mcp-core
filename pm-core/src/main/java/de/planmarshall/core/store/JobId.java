@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import org.jspecify.annotations.Nullable;
+
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.HexFormat;
@@ -111,7 +113,7 @@ public record JobId(String value) {
      * @param value a string that may be a job id
      * @return the id; empty if the string is not one
      */
-    public static Optional<JobId> parse(String value) {
+    public static Optional<JobId> parse(@Nullable String value) {
         return value != null && FORM.matcher(value).matches() ? Optional.of(new JobId(value)) : Optional.empty();
     }
 

@@ -1853,3 +1853,18 @@ the plan's own lines; an unreadable commit gives `unknown`; a binary file is nam
 a plan with no fix has equal sizes and an empty `fix_balance`; the same plan with fixes ten times as large takes the same
 transitions.
 Source:: Article analysis `review-never-stops` of plan-marshall-documentation.
+
+[#PM-WATCH-PHASE-127]
+=== PM-WATCH-PHASE-127: A substituted dependency never reaches a build
+
+Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#dependency-delta-pre-build[Phase Workflows § Before Every Build of the Plan],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-12[PM-WF-12]
+Hazard:: The check reads the last commit instead of the disk, so an uncommitted edit of a build file builds unchecked; the
+check is wired to `pm_build` only, so the plan's own verification build resolves the substituted package; a build file the
+parser cannot read refuses every build and stops a plan that only changed a comment.
+Guard:: Scenario in a plan worktree after `outline.gate`: an uncommitted `pom.xml` that adds `maven:org.exampel:util`
+next to the approved `maven:org.example:util` refuses the worker's `pm_build` and the verification build with
+`undeclared_dependency` naming the coordinate, and no build process is spawned. Matched controls: the approved coordinate
+alone builds; a version change of an existing dependency builds; an unparseable `package.json` builds and the pre-merge
+check files `dependency_delta_indeterminate`.
+Source:: Article analysis `your-agent-is-mine` of plan-marshall-documentation.

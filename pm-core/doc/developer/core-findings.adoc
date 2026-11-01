@@ -95,6 +95,9 @@ empty, which is not an outcome of an operation.
 
 == Invariants and Failure Modes
 
+* *A nullable provider is tested through its type*: `FindingSourceKey.isProviderId` accepts a `@Nullable String`, and
+  a finding's `provider` is `@Nullable` exactly when its source is not `analysis`.
+
 * *Register under the store's key, not under a provider name.* A source is found by the `source` value the store
   records and, for `analysis`, by the provider id. A key of its own (a provider name, a review-bot name) would fetch
   findings under one key and store them under another.

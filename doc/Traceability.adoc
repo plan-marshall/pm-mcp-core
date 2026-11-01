@@ -1666,6 +1666,14 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreIdentityCod
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_operator_and_question_stores[Scope Stores Developer Guide § Operator and Question Stores, the Project Store and the Project Resolution],
 link:../../plan-marshall-documentation/doc/concepts/store-integrity.adoc#format-versions[Concepts § Store Integrity, Format Versions], link:../pm-core/doc/developer/core-store.adoc#_format_versions[Developer Guide § Store Substrate, Format Versions and Refusals], link:../pm-core/doc/developer/core-analysis.adoc[Developer Guide § Code Analysis, The Analysis Result and Its Codec], link:../pm-core/doc/developer/core-store.adoc#_the_enrolment_store[Developer Guide § Enrolment Store, Schema and Codec]
 
+Implementation (the derived facts store `derived-facts.json` of a project at `format_version` 1, read strictly over `StrictJson` with every other version refused naming the file, never as an empty store): link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFacts.java[DerivedFacts],
+link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactsCodec.java[DerivedFactsCodec]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactsCodecTest.java[DerivedFactsCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactsSchemaParityTest.java[DerivedFactsSchemaParityTest]
+
+Documentation: link:../pm-core/doc/developer/core-store.adoc#_derived_facts_store[Developer Guide § Derived Facts Store]
+
 [#PM-IMPL-4]
 === PM-IMPL-4: Bounded Long-Poll & Progress-Reset Waiting Primitives
 
@@ -1963,6 +1971,38 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreTest.java[P
 
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_operator_and_question_stores[Scope Stores Developer Guide § Operator and Question Stores, the Project Store and the Project Resolution],
 link:../../plan-marshall-documentation/doc/concepts/locks-and-leases.adoc[Concepts § Locks and Leases], link:../../plan-marshall-documentation/doc/concepts/store-integrity.adoc[Concepts § Store Integrity], link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#rebaseline[Concepts § Enrolment, Re-Baseline], link:../pm-runtime/doc/developer/runtime-lock.adoc[Developer Guide § The Lock Manager], link:../pm-core/doc/developer/core-store.adoc#_the_store_substrate[Developer Guide § Store Substrate], link:../pm-core/doc/developer/core-store.adoc#_the_enrolment_store[Developer Guide § Enrolment Store, The Store]
+
+Implementation (the derived-facts lock key and its level in the total order, after the local configuration lock and before the build-timings lock; the store that takes the lock is the second plan, `derived-facts-store-operations`): link:../pm-core/src/main/java/de/planmarshall/core/store/LockKey.java[LockKey],
+link:../pm-core/src/main/java/de/planmarshall/core/store/LockLevel.java[LockLevel]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/LockKeyTest.java[LockKeyTest]
+
+== link:../../plan-marshall-documentation/doc/requirements/15-extensions-and-recipes.adoc[Extensions and Recipes]
+
+[#PM-EXT-6]
+=== PM-EXT-6: Configuration Split by Owner Class (Team, Operator, Server State)
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-6[PM-EXT-6]
+
+Implementation (the Server State bullet for the derived facts of a project: the cache `derived-facts.json`, its entry records with their kind, value, source, input digest, instant, state and failure, the strict codec, the closed kind enumeration and the registry that binds a kind to its value schema; the recompute rule, the network validity period, the store's operations and the model-facing exclusion of `agent_identity` are the second plan, `derived-facts-store-operations`; every other bullet is not implemented here): link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFacts.java[DerivedFacts],
+link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFact.java[DerivedFact],
+link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactKey.java[DerivedFactKey],
+link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactKind.java[DerivedFactKind],
+link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactsCodec.java[DerivedFactsCodec],
+link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactKindSpec.java[DerivedFactKindSpec],
+link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactKinds.java[DerivedFactKinds]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactKindTest.java[DerivedFactKindTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactKeyTest.java[DerivedFactKeyTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactTest.java[DerivedFactTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactsCodecTest.java[DerivedFactsCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactsSchemaParityTest.java[DerivedFactsSchemaParityTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactKindsTest.java[DerivedFactKindsTest]
+
+Documentation: link:../pm-core/doc/developer/core-store.adoc#_derived_facts_store[Developer Guide § Derived Facts Store],
+link:../pm-core/doc/adr/core-store/053-the-fact-kinds-are-an-enumeration-bound-by-a-registry.adoc[ADR core-store/053],
+link:../pm-core/doc/adr/core-store/054-the-fact-value-is-the-jsonvalue-tree.adoc[ADR core-store/054],
+link:../pm-core/doc/adr/core-store/055-the-writer-emits-a-null-failure-for-a-current-entry.adoc[ADR core-store/055]
 
 == link:../../plan-marshall-documentation/doc/requirements/16-model-work.adoc[Model Work]
 

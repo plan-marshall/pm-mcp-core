@@ -19,6 +19,12 @@ Run from the root of the repository:
 
 The commands for the whole repository are in `CLAUDE.md`.
 
+== Test artifact
+
+The module consumes `pm-provider-http:tests` as a test-scope dependency of type `test-jar`: the endpoint of the mock
+web server in `GitHubClientTest` comes from the `Endpoint` generator of the shared HTTP base. The module publishes no
+generator artifact of its own.
+
 == Developer Documentation and ADRs
 
 The developer guide is link:doc/developer/provider-github.adoc[`provider-github.adoc`]. The module has no ADRs of its own
