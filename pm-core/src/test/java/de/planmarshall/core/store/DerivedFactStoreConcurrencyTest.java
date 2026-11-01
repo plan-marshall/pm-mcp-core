@@ -164,7 +164,7 @@ class DerivedFactStoreConcurrencyTest {
 
     @Test
     @DisplayName("a write keeps a newer stored result of the same digest")
-    void updateKeepsANewerStoredResult() throws Exception {
+    void updateKeepsANewerStoredResult() {
         var reading = store.refresh(FIRST, DIGEST, () -> {
             store.refresh(FIRST, DIGEST, valueOf("newer"), NOW.plusSeconds(10));
             return new Derived(payload("older"), "fixture", DerivedFact.DerivationClass.LOCAL);
