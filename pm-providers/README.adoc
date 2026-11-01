@@ -11,6 +11,7 @@ https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/speci
 
 * link:pm-provider-git/README.adoc[`pm-provider-git`]: the git contract and its native variant on JGit.
 * link:pm-provider-http/README.adoc[`pm-provider-http`]: the shared HTTP base of the provider modules.
+* link:pm-provider-ci/README.adoc[`pm-provider-ci`]: the CI provider contract (identity, issue read, issue comment) and the URL grammar.
 * link:pm-provider-github/README.adoc[`pm-provider-github`]: the native GitHub client.
 * link:pm-provider-gitlab/README.adoc[`pm-provider-gitlab`]: the native GitLab client and the `glab` CLI variant.
 * link:pm-provider-sonar/README.adoc[`pm-provider-sonar`]: Sonar as a code analysis provider.

@@ -18,6 +18,7 @@
     <modules>
         <module>pm-provider-git</module>
         <module>pm-provider-http</module>
+        <module>pm-provider-ci</module>
         <module>pm-provider-github</module>
         <module>pm-provider-gitlab</module>
         <module>pm-provider-sonar</module>
