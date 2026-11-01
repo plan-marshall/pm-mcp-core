@@ -613,20 +613,6 @@ Fixture:: `api-sheriff:maven-build` (local) vs the compiled finalize-step id `de
 (`a7a657b00`).
 Source:: plan-marshall lessons-routing PLAN-LR-02 D4, PLAN-LR-03 D4.
 
-[#PM-WATCH-STORE-56]
-=== PM-WATCH-STORE-56: Open: lesson operator actions that no verb performs
-
-Anchor:: link:../specification/store-schemas/10-job-and-lesson-records.adoc#lesson-record[Store Schemas § Lesson Record]
-Hazard:: Undecided: `golden_label`/`labelled_at`, `audience_override`, `tool_version_override`, retiring a
-`present_unreadable` lesson, and releasing a stale claim each need an operator action, but the operator verb table
-has only `pm-operator lesson release`. Fields no verb writes are never set, and a lesson that only an operator can
-retire stays forever. Options: (1) a `pm-operator lesson` verb family; (2) remove the fields and paths without a
-verb (the golden label is already deferred). Recommendation: 2, unless the lesson slice needs one of them.
-Guard:: The plan implementing this anchor decides the point (with the operator where it changes scope), records
-the result in the specification and the requirement it touches, and deletes this item.
-Source:: `store-schemas/10-job-and-lesson-records.adoc:249-357`, `cli-and-security/02-credentials-and-operator.adoc:180`
-(verb table).
-
 == Machine Lease Stores (`merge-queue.json`, `review-bot-windows.json`, `build-slots.json`, `model-slots.json`)
 
 [#PM-WATCH-STORE-37]

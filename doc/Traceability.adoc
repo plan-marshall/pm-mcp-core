@@ -1668,6 +1668,20 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactStoreTest.ja
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_derived_facts_store[Developer Guide § Derived Facts Store],
 link:../pm-core/doc/adr/core-store/059-an-unreadable-store-is-a-refusal.adoc[ADR core-store/059]
 
+Implementation (the lesson record and the file format of the project lesson store, `format_version` 1, read strictly with the front matter as YAML restricted to the JSON data model and written as one canonical JSON object; the lesson id grammar, the closed enumerations and the rules of the record; a file that does not decode as a value, never as an exception): link:../pm-core/src/main/java/de/planmarshall/core/store/LessonId.java[LessonId],
+link:../pm-core/src/main/java/de/planmarshall/core/store/LessonFrontMatter.java[LessonFrontMatter],
+link:../pm-core/src/main/java/de/planmarshall/core/store/Lesson.java[Lesson],
+link:../pm-core/src/main/java/de/planmarshall/core/store/LessonCodec.java[LessonCodec]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/LessonIdTest.java[LessonIdTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonFrontMatterTest.java[LessonFrontMatterTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonCodecTest.java[LessonCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonFrontMatterSchemaParityTest.java[LessonFrontMatterSchemaParityTest]
+
+Documentation: link:../pm-core/doc/developer/core-store.adoc#_lesson_record_and_file_format[Developer Guide § Lesson Record and File Format],
+link:../pm-core/doc/adr/core-store/061-the-lesson-front-matter-is-yaml-read-through-a-library.adoc[ADR core-store/061],
+link:../pm-core/doc/adr/core-store/062-the-lesson-classes-live-in-core-store.adoc[ADR core-store/062]
+
 [#PM-IMPL-4]
 === PM-IMPL-4: Bounded Long-Poll & Progress-Reset Waiting Primitives
 
