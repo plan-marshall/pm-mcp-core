@@ -11,6 +11,7 @@ package de.planmarshall.workflow.task;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -283,6 +284,28 @@ class TaskProtocolReOfferTest {
                 () -> assertEquals(ActivityEntry.Kind.SIGNAL, entries.getFirst().kind()),
                 () -> assertTrue(Files.exists(base.resolve(
                         "projects/project-a/plans/plan-a/tasks/activity/qt-0000000000000001.jsonl"))));
+    }
+
+    @Test
+    @DisplayName("an off-track signal without a journal of the scope completes without an entry")
+    void signalWithoutJournal(@TempDir Path base) {
+        var locks = new TestLocks();
+        var queue = QueueStore.ofProject(base, "project-a", locks);
+        queue.create(TaskFixtures.queued("qt-0000000000000001", TaskFixtures.ROLE).build());
+        var protocol = TaskProtocol.builder(queue, locks).journal(scope -> Optional.empty()).build();
+        var offered = TaskFixtures.task(protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION),
+                TaskFixtures.AT));
+        protocol.acknowledge(TaskFixtures.call(offered), TaskFixtures.AT.plusSeconds(1));
+
+        var result = protocol.offTrack(TaskFixtures.call(offered),
+                new OffTrackSignal(QueueTaskRecord.SignalName.NO_PROGRESS, SignalAction.SHOW, 7, 5), 3,
+                TaskFixtures.AT.plusSeconds(2));
+
+        assertAll(
+                () -> assertInstanceOf(CallResult.Accepted.class, result, "the accepted signal call completes"),
+                () -> assertFalse(Files.exists(base.resolve(
+                                "projects/project-a/plans/plan-a/tasks/activity/qt-0000000000000001.jsonl")),
+                        "no journal entry exists without a journal of the scope"));
     }
 
     @Test

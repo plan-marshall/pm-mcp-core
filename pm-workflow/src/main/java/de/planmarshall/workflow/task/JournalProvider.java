@@ -26,7 +26,7 @@ public interface JournalProvider {
 
     /**
      * @param scope the scope of the task
-     * @return the journal of the scope, or {@code null} for a scope without one
+     * @return the journal of the scope, or {@link java.util.Optional#empty()} for a scope without one
      */
     Optional<ActivityJournal> journalFor(QueueTaskRecord.Scope scope);
 }
