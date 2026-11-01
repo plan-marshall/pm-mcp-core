@@ -43,6 +43,9 @@ import de.planmarshall.provider.http.Result;
  *
  * @since 0.1
  */
+// The web URL of a GitLab comment is the forge's fixed grammar, not a configurable endpoint (the API origin belongs
+// to the HttpClient), so the rule that asks for a configurable URI is suppressed for this contract literal.
+@SuppressWarnings("java:S1075")
 public final class GitLabCiProvider implements CiProvider {
 
     /** The provider id, equal to the derived fact {@code ci_provider} and the credential key. */
