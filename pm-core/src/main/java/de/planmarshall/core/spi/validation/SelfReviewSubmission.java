@@ -106,7 +106,7 @@ public record SelfReviewSubmission(List<ItemResult> results) {
     public record ItemResult(String itemId, Verdict verdict, @Nullable String evidence) {
 
         /**
-         * @throws NullPointerException if a value is {@code null}
+         * @throws NullPointerException if {@code itemId} or {@code verdict} is {@code null}
          */
         public ItemResult {
             Objects.requireNonNull(itemId, "itemId");

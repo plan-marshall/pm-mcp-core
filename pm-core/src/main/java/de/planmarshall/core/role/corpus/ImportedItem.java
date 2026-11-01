@@ -58,9 +58,9 @@ import java.util.regex.Pattern;
  * @param canary        the corpus canary
  * @since 0.1
  */
-public record ImportedItem(String id, String topic, String role, String title, List<String> tags, String group,
-Input input, Target target, Grading grading, Provenance provenance, Review review, String contamination,
-String canary) {
+public record ImportedItem(String id, String topic, String role, String title, List<String> tags,
+@Nullable String group, Input input, Target target, Grading grading, Provenance provenance, Review review,
+@Nullable String contamination, String canary) {
 
     /** An item id: a topic path and a slug. */
     public static final Pattern ID_PATTERN = PythonRegex.compile("^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)+$");
@@ -161,7 +161,7 @@ String canary) {
      * @param passThreshold the share of the score that passes, between 0 and 1; {@code null} if there is none
      * @since 0.1
      */
-    public record Grading(GradingMethod method, String judge, @Nullable BigDecimal passThreshold) {
+    public record Grading(GradingMethod method, @Nullable String judge, @Nullable BigDecimal passThreshold) {
 
         /**
          * @throws IllegalArgumentException if the threshold is outside 0 to 1
