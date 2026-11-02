@@ -84,7 +84,7 @@ link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-5[PM-ARC
 Hazard:: A forked finalize agent inherited the worktree as its working directory and could not finish
 branch-cleanup.
 Guard:: The branch-cleanup job spec runs `git worktree remove` with the main checkout as working directory; a test
-asserts it, and a relay or host started inside the worktree does not affect it (jobs never inherit the host's
+asserts it, and a relay or harness started inside the worktree does not affect it (jobs never inherit the harness's
 working directory).
 Fixture:: forked finalize agent with its working directory inside `.plan/local/worktrees/<plan_id>/` (lesson
 `2026-09-20-08-010`).
@@ -101,7 +101,7 @@ Hazard:: A wait budget passed as an iteration count expired in seconds and repor
 running; a wait at its ceiling could not tell waiting from re-polling finished work; wait cost was invisible.
 Guard:: Engine waits use monotonic wall-clock deadlines (test with fast pollers); an exhausted poll is `unproven`,
 not absent; the only calls a model holds open are a worker's `pm_wait` and a running `pm_build`: a `pm_wait` returns
-an offer, `wait_again`, or `end` within its host's bounded window and never fails with a transport timeout, a
+an offer, `wait_again`, or `end` within its harness's bounded window and never fails with a transport timeout, a
 `pm_build` whose window ends with the build still running returns `status: running` with its `job_id`, and a
 `pm_build` continuing on an unknown or finished `job_id`, or one of another scope, is refused `invalid_arguments`;
 time deferred by a provider rate limit is attributed

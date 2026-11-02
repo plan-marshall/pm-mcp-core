@@ -188,7 +188,7 @@ Documentation: link:../pm-runtime/doc/developer/runtime-start.adoc#_the_stalled_
 
 Implementation (the connection independence of the two calls a model holds, as far as the library module
 `pm-workflow` carries it: the server selects a bounded long-poll or a progress-reset wait from the harness profile and
-the request's progress token, and a progress wait emits a frame at every interval before the answer, at least one, so a host never reads the hold as
+the request's progress token, and a progress wait emits a frame at every interval before the answer, at least one, so a harness never reads the hold as
 an idle connection and the call never ends as a transport timeout. Not implemented yet: the relay and the MCP tool
 binding; the worker supervision that reads the profile is implemented in `runtime.worker`):
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WaitSelection.java[WaitSelection],

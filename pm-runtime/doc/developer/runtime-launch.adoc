@@ -191,7 +191,7 @@ enrolment is owed (see § Owed).
   `role_unavailable` after the compiled count.
 * *Specification sections left in place*: the launch sections of Model Work § Worker Launch are implemented and their
   prose carries an `Implemented by` pointer; what remains in place is the start-failure guard (above) and, in
-  § Skill Delivery Record & Re-Delivery, the warm offer, the re-delivery, the offer bound, host activation and the
+  § Skill Delivery Record & Re-Delivery, the warm offer, the re-delivery, the offer bound, harness activation and the
   `skills_not_loaded` submit refusal, which are the task protocol's.
 * *Output and usage reading* is not a Done-when clause of this package: the mapping of the output stream to activity,
   the per-turn usage and the result parsing remain in Model Work § Output Read While the Worker Runs.

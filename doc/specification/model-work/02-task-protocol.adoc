@@ -29,13 +29,13 @@ The queue is ordered per project and role: consultation tasks first, then work t
 === `pm_wait`: The Worker's Only Wait
 _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-41[PM-WATCH-DISP-41]_
 
-`pm_wait()` takes no argument (schema: link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/01-core-workflow-tools.adoc[MCP Tools Specification, Core Workflow Tools]). The caller's identity, role, and generation come from its connection: the worker's job token and generation, set by its job relay (link:../../../../plan-marshall-documentation/doc/specification/runtime-model.adoc[Runtime & Interaction Model Specification, Relay]). The server holds the call for at most the bounded wait of the caller's host (`connection.bounded_wait_seconds`) and sends progress frames during it where the host's `connection.progress_resets_timeout` is set (link:../timeouts/01-job-budgets-and-waits.adoc#bounded-wait[Timeouts & Budgets Specification, Bounded Wait]). It answers with exactly one of:
+`pm_wait()` takes no argument (schema: link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/01-core-workflow-tools.adoc[MCP Tools Specification, Core Workflow Tools]). The caller's identity, role, and generation come from its connection: the worker's job token and generation, set by its job relay (link:../../../../plan-marshall-documentation/doc/specification/runtime-model.adoc[Runtime & Interaction Model Specification, Relay]). The server holds the call for at most the bounded wait of the caller's harness (`connection.bounded_wait_seconds`) and sends progress frames during it where the harness's `connection.progress_resets_timeout` is set (link:../timeouts/01-job-budgets-and-waits.adoc#bounded-wait[Timeouts & Budgets Specification, Bounded Wait]). It answers with exactly one of:
 
 * *`offer`*: the representation of a task entity leased to the caller's generation: an offer (<<offer>>), the same offer again, or the caller's current task carrying a consultation answer (xref:05-consultation.adoc[Consultation]).
 * *`wait_again`*: the window ended without a task for the caller.
 * *`end`*: the caller is to end: a recycle, the end of a fresh worker's task, a configuration change, or a drain (xref:03-supervision-and-recycling.adoc#ending[Ending a Worker]).
 
-A generation holds at most one pending `pm_wait`. A newer `pm_wait` of the same generation supersedes the pending one, which is answered `wait_again` at once and never with a task, so a leased task is never offered to a second concurrent wait of one generation. A host's cancellation of the call ends only that call (link:../timeouts/01-job-budgets-and-waits.adoc#host-cancellation[Timeouts & Budgets Specification, Host Cancellation]).
+A generation holds at most one pending `pm_wait`. A newer `pm_wait` of the same generation supersedes the pending one, which is answered `wait_again` at once and never with a task, so a leased task is never offered to a second concurrent wait of one generation. A harness's cancellation of the call ends only that call (link:../timeouts/01-job-budgets-and-waits.adoc#harness-cancellation[Timeouts & Budgets Specification, Harness Cancellation]).
 
 [#offer]
 === Offer
@@ -56,7 +56,7 @@ The offer leases the task to the caller's generation in the transaction that ans
 [#ack]
 === Acknowledge
 
-The worker acknowledges an offer by following the link `ack` (rel `next`, form `noop`) of the offered entity through `pm_do`. The acknowledgement tells the server that the worker is alive and holds the task. It is due within `worker.ack_deadline_seconds` of the worker's host, counted from the offer, for a fresh worker from its first call (<<offer>>; link:../harness-profiles/01-profile-schema.adoc[Harness Profiles Specification, Worker Block]). Where the host's `worker.ack_informational` is set, a missing acknowledgement ends no worker and silence alone decides (xref:03-supervision-and-recycling.adoc#detection[Detection]).
+The worker acknowledges an offer by following the link `ack` (rel `next`, form `noop`) of the offered entity through `pm_do`. The acknowledgement tells the server that the worker is alive and holds the task. It is due within `worker.ack_deadline_seconds` of the worker's harness, counted from the offer, for a fresh worker from its first call (<<offer>>; link:../harness-profiles/01-profile-schema.adoc[Harness Profiles Specification, Worker Block]). Where the harness's `worker.ack_informational` is set, a missing acknowledgement ends no worker and silence alone decides (xref:03-supervision-and-recycling.adoc#detection[Detection]).
 
 A `pm_wait` of a generation that holds an unacknowledged offer shows that the offer's answer did not reach the worker; it is answered with the same offer under the same lease.
 

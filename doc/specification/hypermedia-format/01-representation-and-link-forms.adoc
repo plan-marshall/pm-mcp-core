@@ -228,7 +228,7 @@ These links are ordinary `submit` or `noop` links; their relation and form satis
 |`ack`
 |`next`
 |`noop`
-|The only link of an offered task entity (`task.offered`), and of a task entity that carries the answer to the question its worker held or resumed for (link:../model-work/06-envelopes-questions-deadlines.adoc#answer-acknowledgement[Model Work Specification, Answer Acknowledgement]: the worker received the answer and continues). The worker's explicit acknowledgement of the offer, within its host's acknowledgement deadline; it returns the task entity in the first state of its entity unit (link:../model-work/02-task-protocol.adoc[Model Work Specification, Task Protocol]).
+|The only link of an offered task entity (`task.offered`), and of a task entity that carries the answer to the question its worker held or resumed for (link:../model-work/06-envelopes-questions-deadlines.adoc#answer-acknowledgement[Model Work Specification, Answer Acknowledgement]: the worker received the answer and continues). The worker's explicit acknowledgement of the offer, within its harness's acknowledgement deadline; it returns the task entity in the first state of its entity unit (link:../model-work/02-task-protocol.adoc[Model Work Specification, Task Protocol]).
 
 |`ask` (`decision:schema[decision-envelope]`)
 |`submit`

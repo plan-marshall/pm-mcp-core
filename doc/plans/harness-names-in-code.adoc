@@ -1,0 +1,21 @@
+= The harness named harness in the engine's messages, Javadoc and tests
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `harness-names-in-code`
+
+[horizontal]
+Roadmap item:: none: the code already built follows the names of the specification (the coding agent a worker runs in is the _harness_; _host_ means only the machine)
+Where:: pm-core (`core.profile`, `core.role`); pm-runtime (`runtime.worker`, `runtime.launch`, `runtime.job`); pm-workflow (`workflow.engine`)
+Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== Tasks
+
+A rename only: no behaviour changes. No member, enum value or file of this repository that is stored or sent on the wire names the harness _host_, so no reader of an old name is needed (should one turn up, a reader accepts the old name beside the new one and every writer writes the new one); the harness detection (`HostDetection`, the package `de.planmarshall.api.host`), the neutral profile's signal variable and the relay's session headers live in `pm-mcp-clients` and `plan-marshall-mcp` and are renamed there (link:../../../pm-mcp-clients/doc/plans/harness-names-in-code.adoc[`pm-mcp-clients` / `harness-names-in-code`], link:../../../plan-marshall-mcp/doc/plans/relay-session-mode-removal.adoc[`plan-marshall-mcp` / `relay-session-mode-removal`]). _Host_ for the machine stays: the host tools (`HostTool`, `HostToolName`, `host_tools`, `host-tools.json`), a URL's or a forge's host (`ForgeUrl.BUILT_IN_HOSTS`, `GlabCommands.HOST`), a `host:port` endpoint, the `Host` header, and the machine's host name.
+
+. *Refusal messages of the profile*: the messages `an eligible worker host has a headless block` of `ProfileValidator` and `an eligible worker host declares its '<name>'` of `WorkerParameters` name the harness (`an eligible harness has a headless block`, `an eligible harness declares its '<name>'`), and the message of `ConnectionSettings` names `the idle timeout of a harness whose progress resets no timer`; `ProfileValidatorTest` and `WorkerParametersTest`, which assert the texts, follow them. The messages are refusal details only, never stored as a value a reader matches.
+  Proof: `ProfileValidatorTest`, `WorkerParametersTest` and the tests of `ConnectionSettings` pass; `git grep -n "worker host\|of a host whose"` over `pm-core/src` and `pm-workflow/src` finds nothing.
+. *Javadoc*: the Javadoc of `WorkerParameters`, `HarnessProfile`, `RoleArtifact` (`core.profile`, `core.role`), `LossDetection`, `LossReason`, `WorkerRecycling`, `SupervisorEnvironment` and `package-info` of `runtime.worker`, `HarnessVerification` (`runtime.launch`), `ProbeCandidate` (`runtime.job`, "a harness or a host tool" stays: the host tool is the machine's), and `ConnectionSettings`, `ModelWait` and `WaitSelection` (`workflow.engine`) says harness where it means the harness ("the harness's bounded wait", "the harness's idle wakeups", "whether the harness may run workers").
+  Proof: `git grep -n -w -i -e host -e "host's" -e hosts` over the classes named finds only the machine.
+. *Test names*: the nested class `WorkerParametersTest.IneligibleHost` becomes `IneligibleHarness`, `HarnessProfileEndpointTest.hostAndNoResumability` `harnessAndNoResumability`, `WorkerRecyclingTest.roleIdleBoundOnlyLowersTheHostValue` `roleIdleBoundOnlyLowersTheHarnessValue`; their display names and messages and those of `EffectiveRoleFactsTest` say harness ("an eligible harness without a silence grace is refused at its pointer", "claude may run workers").
+  Proof: the renamed tests pass under the new names; `git grep -n -i "IneligibleHost\|hostAndNo\|TheHostValue"` finds nothing.
+. *Module documents*: the developer document of `runtime.worker` names the idle trigger `min(harness.worker.idle_wakeups, role.recycling.idle_wakeups)`; the ADRs stay as written.

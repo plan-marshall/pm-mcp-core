@@ -43,7 +43,7 @@ The consultation task goes through the model caller (xref:01-roles-and-configura
 [#consult-answer]
 === The Answer through the Next Wait
 
-The asker waits in `pm_wait`, held within its bounded wait with progress frames where its host needs them, and receives `wait_again` at the end of each window while the consultation is open; the held wait is an open call, so a consulting worker is never silent (xref:03-supervision-and-recycling.adoc#detection[Detection]).
+The asker waits in `pm_wait`, held within its bounded wait with progress frames where its harness needs them, and receives `wait_again` at the end of each window while the consultation is open; the held wait is an open call, so a consulting worker is never silent (xref:03-supervision-and-recycling.adoc#detection[Detection]).
 
 * *Delivery*: When the consultation closes, the server answers the asker's pending `pm_wait`, or its next one, with the asking task's representation in `executing`, whose `facts.consultations` lists `{consultation_id, role, status, answer}`. The answer is delivered exactly once and only to the asking generation.
 * *No answer*: A consultation that closes `lost` (its re-offers spent, or its role undefined, unqualified, or unavailable) is delivered with `status: unavailable` and no answer; the asker continues on its own judgment.

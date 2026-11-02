@@ -141,13 +141,13 @@ Anchor:: link:../specification/model-work/04-worker-launch.adoc#skill-delivery[M
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SKILL-4[PM-SKILL-4]
 Hazard:: A clear or compaction of a worker's context is invisible to the server: a warm worker got its next offer
 with the task-protocol skill named by URI only, because the server had delivered it to that generation already, and
-only the shim made the worker read it again; a server that tries to detect the compaction from host markers relies on
+only the shim made the worker read it again; a server that tries to detect the compaction from harness markers relies on
 a signal no harness guarantees.
 Guard:: Scenario test: a new generation starts with an empty delivery record and its first offer carries every
 required skill in-band; a skill whose digest changed is delivered again to every running generation; matched
 control: without a new generation or a changed digest the next offer carries only the skills the record lacks, and
 every launch prompt of a `writer` or `read_only` worker starts with the shim paragraph, which makes the worker read
-a skill named by URI after a compaction; no server path reads a host marker for a clear or a compaction.
+a skill named by URI after a compaction; no server path reads a harness marker for a clear or a compaction.
 Source:: harness-as-worker evaluation (doc/specification/evaluation.adoc).
 
 [#PM-WATCH-DISP-56]
@@ -379,7 +379,7 @@ Anchor:: link:../specification/model-work/06-envelopes-questions-deadlines.adoc#
 link:../specification/timeouts/01-job-budgets-and-waits.adoc#question-wait[Timeouts & Budgets § Decision],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-12[PM-WF-12]
 Hazard:: A timer that ends an unanswered decision with a default takes a choice the operator never made; two clients
-that both accept an answer record two answers for one decision; a delivery to a host session or a model lets a
+that both accept an answer record two answers for one decision; a delivery to a harness session or a model lets a
 model answer for the operator.
 Guard:: Table test per class (`init`, `clarification`, `review`, `task`, `ask`, `setup`): a decision the adjudication
 escalates stays open as an operator wait however long it waits, with no deadline, no expiry, and no default, and no
@@ -498,16 +498,16 @@ longest-idle warm worker without a lease; a worker's budget starts at spawn and 
 Source:: design review.
 
 [#PM-WATCH-DISP-34]
-=== PM-WATCH-DISP-34: The host bundle stays inert inside a worker
+=== PM-WATCH-DISP-34: The harness bundle stays inert inside a worker
 
 Anchor:: link:../specification/model-work/04-worker-launch.adoc#job-token[Model Work § Job Token, Generation & Connection Binding],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-5[PM-WF-5]
-Hazard:: A headless harness run loads the host's own configuration: a second MCP server (an entry of the operator's
+Hazard:: A headless harness run loads the harness's own configuration: a second MCP server (an entry of the operator's
 own configuration, possibly named `plan-marshall`) connects beside the job relay, or a worker inherits the runtime
-token or the host's session markers and acts beyond its job.
+token or the harness's session markers and acts beyond its job.
 Guard:: Per harness with a `headless` block, a launch-vector test asserts the exclusive per-call MCP configuration
 (only the job relay) where the profile declares `mcp_config.exclusive`; an environment test asserts that a worker
-holds its job token only, never the runtime token, and none of the host markers; an integration test runs one worker
+holds its job token only, never the runtime token, and none of the harness markers; an integration test runs one worker
 in a project with the harness bundle installed and a global MCP entry in the operator's configuration and finds no
 second connection in the audit log and no tool of it in the worker's `tools/list`.
 Source:: design review.

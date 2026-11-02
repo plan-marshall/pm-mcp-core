@@ -87,7 +87,7 @@ Vocabulary skill templates (`SKILL.md`), the launch prompts of workers, and the 
 |`question` is withheld by the worker's agent, which denies every tool it does not name (`"*": false`).
 
 |`antigravity`
-|`ask_question` cannot be withheld: a worker runs with all its host tools. Its output carries no tool call, so a call of `ask_question` is not observable in it; the skill's instruction not to use it is the only measure on this harness.
+|`ask_question` cannot be withheld: a worker runs with all its harness tools. Its output carries no tool call, so a call of `ask_question` is not observable in it; the skill's instruction not to use it is the only measure on this harness.
 
 |`codex`
 |Not measured.
@@ -103,7 +103,7 @@ _Implementation watch: link:../../implementation-watch/harness-profiles.adoc#PM-
 1. *Zero Unresolved Placeholders*: If any `{{...}}` token in a skill template fails to resolve against the active `HarnessProfile`, `HarnessProfileRenderer` fails closed and logs a template defect rather than emitting raw `{{...}}` syntax to the model.
 2. *Per-Variant SHA-256 Digest (`PM-SKILL-2`)*: The digest `_meta["de.planmarshall.mcp/sha256"]` published by `pm_skills` / `pm_skill` and `resources/read` is the SHA-256 of the rendered bytes the harness receives (after rendering for `(project_config, harness_id, pm_mcp_version)`); it is stable while those bytes are unchanged, and a configuration or version change that leaves a skill's rendered bytes unchanged leaves its digest unchanged.
 3. *No Worker Without an Eligible Harness (`PM-WF-5`, `PM-WORK-1`)*: Rendering never replaces a worker by inline work elsewhere. A role whose harness has `headless: null`, is not eligible (`worker.eligible: false`), lacks a capability the role's class needs, or runs a model not listed in `worker.restricted_models` is invalid on load and counts as undefined, so a unit naming it is refused `role_undefined` at composition (xref:01-profile-schema.adoc#worker-block[Harness Profile Schema, Worker Block]; link:../model-work/01-roles-and-configuration.adoc[Model Work Specification, Roles & Configuration]).
-4. *Vocabulary-Only Translation*: `HarnessProfileRenderer` varies only the placeholder dimensions of `PM-CLIENT-2` (host tool names, skill load directives, tool idioms; model and effort enter only the launch argument vector). It never varies emphasis, scaffolding, structure, or format: rendered variants of one template are byte-identical outside resolved placeholders.
+4. *Vocabulary-Only Translation*: `HarnessProfileRenderer` varies only the placeholder dimensions of `PM-CLIENT-2` (harness tool names, skill load directives, tool idioms; model and effort enter only the launch argument vector). It never varies emphasis, scaffolding, structure, or format: rendered variants of one template are byte-identical outside resolved placeholders.
 5. *Profile Completeness*: Every canonical placeholder, and every rendering dimension added later, has a resolution in every built-in profile and in every profile the operator installs, which profile validation checks. A build-time test renders every template for every built-in profile and fails on any unresolved or missing form.
 6. *Technique Preconditions Rendered per Project*: A skill section whose technique precondition (link:../domain-extensions.adoc[Domain Extensions Specification], Core Architectural Invariants, Technique Preconditions) is unmet in the project is rendered with the marker "available technique, not adopted in this project" in place of binding wording; the precondition result is an input of the rendered variant and of its `_meta.sha256` digest. This is a project dimension, not a harness dimension, so it does not break Rendering Invariant 4.
 
@@ -113,8 +113,8 @@ _Implementation watch: link:../../implementation-watch/harness-profiles.adoc#PM-
 
 Model-facing content is written once and rendered vocabulary-only (Rendering Invariant 4), the same for every model a role set names. Whether it is adequate for a model is what role qualification measures: a role whose configuration does not reach the agreement level on its corpus topics with this content is unqualified, and its tasks take the conservative fallback (link:../model-work/01-roles-and-configuration.adoc#qualification[Model Work Specification, Role Qualification]). A calibration axis of the content is keyed by the model of the role artifact, never by the `harness_id`, because one harness hosts several models; such an axis multiplies the rendered digests (`PM-SKILL-2`) and requires per-model content and a qualification of every role on each model it distinguishes before it ships.
 
-[#host-resident-surface-inventory]
-=== Host-Resident Surface Inventory
+[#harness-resident-surface-inventory]
+=== Harness-Resident Surface Inventory
 _Implementation watch: link:../../implementation-watch/harness-profiles.adoc#PM-WATCH-CLIENT-3[PM-WATCH-CLIENT-3]_
 
 For every built-in profile, the build derives and publishes the resident surface of a worker: the bytes the harness injects into every turn of a worker by its registration mechanism (the MCP tool schemas and descriptions of the role's tool set when `schema_residency: resident`, the description of the shim skill where the bundle installed it in the project, and the `pm_skills` catalogue entries once loaded), per component and in total, together with the population it measured. The launch prompt and the skills the server delivers (`PM-SKILL-4`) are measured with the task, not as resident surface. Residency follows the actual injection mechanism, not file existence; the population is the served set for the profile (after domain filtering, `PM-SKILL-2`), not the set of files in the binary.

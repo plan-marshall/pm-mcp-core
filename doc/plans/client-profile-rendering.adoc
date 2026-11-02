@@ -15,7 +15,7 @@ The specification sections named are the single statement of what each task buil
 . *The renderer and the resolution table* for the built-in profiles, `{{tool:ask_user}}` included: link:../specification/harness-profiles/02-placeholders.adoc#_on_the_fly_placeholder_rendering_rules[Harness Profiles § On-the-Fly Placeholder Rendering Rules]; link:../specification/model-work/01-roles-and-configuration.adoc#role-validation[Model Work § Role Validation].
 . *The rendering invariants* with the build-time completeness test and the per-project technique marker: link:../specification/harness-profiles/02-placeholders.adoc#_rendering_invariants[Harness Profiles § Rendering Invariants].
 . *The calibration decision* (no calibration axis): link:../specification/harness-profiles/02-placeholders.adoc#calibration-decision[Harness Profiles § Calibration Decision].
-. *The host-resident surface inventory* and its build-time bound test: link:../specification/harness-profiles/02-placeholders.adoc#host-resident-surface-inventory[Harness Profiles § Host-Resident Surface Inventory].
+. *The harness-resident surface inventory* and its build-time bound test: link:../specification/harness-profiles/02-placeholders.adoc#harness-resident-surface-inventory[Harness Profiles § Harness-Resident Surface Inventory].
 
 Left out: the profile schema, harness scan, login probe and verification stages (`profile-loader`, done); the launch vector, job record and launch refusals (`runtime.launch`, link:../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide]); the served-bytes side of `pm_skills` and `pm_skill` (`plan-marshall-mcp` / `worker-surface-tools`); the preview and user documentation of the harness profiles.
 
