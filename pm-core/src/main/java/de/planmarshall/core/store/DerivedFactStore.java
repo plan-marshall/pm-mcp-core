@@ -43,7 +43,9 @@ import de.planmarshall.core.store.DerivedFactDerivation.DerivationOutcome.Failed
  * one short transaction on the store's own {@code locks/derived-facts.lock} key: the derivation runs outside the lock —
  * it may be a provider call — and the transaction re-reads the file under the lock, changes the one entry and writes
  * it through {@link AtomicStoreFile}. A refresh made inside a scope transaction therefore takes the derived-facts lock
- * after the scope lock, which is the total order of {@link LockLevel}. A result another refresher stored meanwhile for
+ * in its own transaction after the caller's lock is held, which is the place of {@link LockLevel#DERIVED_FACTS} in the
+ * total order; the lock manager asserts the order within one transaction only and does not see the caller's keys (ADR
+ * {@code core-store/063}). A result another refresher stored meanwhile for
  * the same digest with a later {@code derived_at} is kept and returned, so a result never overwrites a newer result of
  * the same digest. Two successful derivations of different digests are last-writer-wins: the digest names an input
  * snapshot, and the store keeps the value of the snapshot whose derivation wrote last. A failed refresh is not part of

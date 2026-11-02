@@ -14,10 +14,10 @@ Accepted
 
 `agent_identity` is operator-only: it is shown to the operator and used server-side, and it never appears in a
 model-facing representation, resource or tool result. `DerivedFactStore.validated` turns a schema violation into
-`Failed("The value violates its schema: " + join(violations))`, and `SchemaSubset` writes the offending value into the
-violations of `enum` (line 106) and `const` (line 103). For an operator-only kind the joined reason would therefore
-contain the value, and the reason travels through `DerivedFactReading.couldNotEvaluate()` into
-`DerivedFactGuards.evaluate` and a model-facing guard result.
+`Failed("The value violates its schema: " + join(violations))`. `SchemaSubset` writes the offending value into the
+violations of `enum` (line 106) and the expected constant into the violations of `const` (line 103). For an
+operator-only kind the joined reason would therefore carry the value (or the schema's constant), and the reason travels
+through `DerivedFactReading.couldNotEvaluate()` into `DerivedFactGuards.evaluate` and a model-facing guard result.
 
 == Decision
 
