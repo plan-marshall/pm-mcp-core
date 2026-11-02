@@ -451,7 +451,7 @@ class LessonStoreCrashTest {
                     () -> assertEquals(1, outcomes.stream()
                                     .filter(outcome -> outcome instanceof LessonResolution.Unavailable).count(),
                             "exactly one release found no claim"),
-                    () -> assertTrue(read(lessonId).orElseThrow().frontMatter().claim() == null,
+                    () -> assertNull(read(lessonId).orElseThrow().frontMatter().claim(),
                             "the claim is cleared once"));
         }
 

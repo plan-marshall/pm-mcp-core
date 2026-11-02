@@ -14,7 +14,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
@@ -23,10 +22,6 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
@@ -232,10 +227,11 @@ class LessonClaimTest {
                 assertUnchanged(before);
             }
         }
+
         @ParameterizedTest
         @EnumSource(State.class)
         @DisplayName("by plan B changes nothing in another state and reports the state")
-        void otherStatesByB(State state) throws IOException {
+        void otherStatesByB(State state) throws Exception {
             arrange(state);
             var before = bytesOrNull();
 
@@ -429,7 +425,7 @@ class LessonClaimTest {
         @ParameterizedTest
         @EnumSource(State.class)
         @DisplayName("by plan B changes nothing in another state and reports the state")
-        void otherStatesByB(State state) throws IOException {
+        void otherStatesByB(State state) throws Exception {
             arrange(state);
             var before = bytesOrNull();
 

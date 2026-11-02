@@ -603,7 +603,7 @@ class LessonStoreTest {
         @ParameterizedTest
         @EnumSource(Cell.class)
         @DisplayName("a create writes an absent id and is refused over every state that has a file")
-        void createEveryCell(Cell cell) throws IOException {
+        void createEveryCell(Cell cell) throws Exception {
             arrange(cell);
 
             if (cell == Cell.ABSENT) {
@@ -619,7 +619,7 @@ class LessonStoreTest {
 
         @Test
         @DisplayName("a create over an id the sidecar records without a file is refused")
-        void createOverDeletedOutOfBand() throws IOException {
+        void createOverDeletedOutOfBand() throws Exception {
             var lessonId = new LessonId("2026-10-13-09-510");
             inTransaction(write -> store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK));
             Files.delete(expectedPath(lessonId));
@@ -634,7 +634,7 @@ class LessonStoreTest {
 
         @Test
         @DisplayName("allocation never reuses an id whose file was removed out of band")
-        void allocateAfterOutOfBandDelete() throws IOException {
+        void allocateAfterOutOfBandDelete() throws Exception {
             var used = new LessonId("2026-10-13-09-001");
             inTransaction(write -> store.create(write, used, LessonFixtures.newLesson().build(), CLOCK));
             Files.delete(expectedPath(used));
