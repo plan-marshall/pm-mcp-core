@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -24,6 +25,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import lombok.experimental.UtilityClass;
 
 /**
  * The native parse of a pyproject (Python) build log, ported from {@code build-pyproject/_pyproject_cmd_parse.py}.
@@ -38,17 +40,16 @@ import java.util.regex.Pattern;
  * whose summary line carries no message tail, the message from the block's {@code E} gutter. The summary line supplies the
  * counts.
  * <p>
- * Four behaviours are deliberate changes against the original, all recorded in ADR {@code core-build/003}: the location is
+ * Three behaviours are deliberate changes against the original, all recorded in ADR {@code core-build/003}: the location is
  * the deepest traceback frame rather than the test file's frame; a pytest-xdist {@code @<group>} suffix is stripped before
- * test identity matching; every pytest summary block of a multi-run log is summed rather than the last
- * one read; and the parser reports no test count for a filter that matched nothing rather than a zero.
+ * test identity matching; and every pytest summary block of a multi-run log is summed rather than the last
+ * one read. A filter that matched nothing is held as in the original: pytest's {@code no tests ran} summary carries no
+ * count, so the port reports no count at all rather than a zero.
  *
  * @since 0.1
  */
-public final class PyprojectOutputParser {
-
-    private PyprojectOutputParser() {
-    }
+@UtilityClass
+public class PyprojectOutputParser {
 
     private static final String ERROR_LINE_PREFIX = "ERROR ";
 
@@ -100,6 +101,20 @@ public final class PyprojectOutputParser {
 
     private static final Pattern SKIPPED_COUNT = Pattern.compile("\\b(\\d+) skipped\\b");
 
+    /** The metacharacters that make a pattern of the original's Python table a regular expression rather than a literal. */
+    private static final Pattern PATTERN_METACHARACTERS = Pattern.compile("[\\\\^$.*+?{}\\[\\]|()]");
+
+    /**
+     * The original's {@code PYTHON_PATTERNS} table, in its order: the first category whose pattern matches a mypy message
+     * wins, and a message that matches none stays a {@link Category#TYPE_ERROR}.
+     */
+    private static final List<PythonCategory> PYTHON_CATEGORIES = List.of(
+            new PythonCategory(Category.TYPE_ERROR, List.of("\\.py:\\d+: error:", "incompatible type",
+                    "incompatible return value", "has no attribute", "missing positional argument")),
+            new PythonCategory(Category.LINT_ERROR, List.of("\\.py:\\d+:\\d+: [A-Z]+\\d+", "ruff")),
+            new PythonCategory(Category.TEST_FAILURE, List.of("^FAILED ", "AssertionError", "assert ")),
+            new PythonCategory(Category.IMPORT_ERROR, List.of("ModuleNotFoundError", "ImportError", "No module named")));
+
     /**
      * Parses a pyproject build log.
      *
@@ -136,7 +151,8 @@ public final class PyprojectOutputParser {
         if (hasPytestOutput(lines)) {
             diagnostics.addAll(pytestDiagnostics(lines));
             testCounts = pytestTestCounts(lines).orElse(null);
-            successMarker = PASSED_COUNT.matcher(logText).find();
+            successMarker = lines.stream()
+                    .anyMatch(line -> SUMMARY_LINE.matcher(line).matches() && PASSED_COUNT.matcher(line).find());
         }
         List<Diagnostic> result = List.copyOf(diagnostics);
         boolean failed = result.stream().anyMatch(diagnostic -> diagnostic.severity() == Severity.ERROR);
@@ -159,9 +175,35 @@ public final class PyprojectOutputParser {
                 continue;
             }
             add(diagnostics, seen, new Diagnostic(matcher.group(1), number, null,
-                    DiagnosticCollector.stored(matcher.group(3)), Category.TYPE_ERROR, Severity.ERROR, null));
+                    DiagnosticCollector.stored(matcher.group(3)), categoryOf(matcher.group(3)), Severity.ERROR, null));
         }
         return diagnostics;
+    }
+
+    /**
+     * Categorises a mypy message through the original's Python pattern table: the first category whose pattern matches
+     * wins, a pattern carrying a regular-expression metacharacter is a case-insensitive expression matched anywhere, and
+     * every other pattern is a case-insensitive literal substring. A message that matches none stays a type error.
+     *
+     * @param message the message mypy printed
+     * @return the category of the first matching pattern, or {@link Category#TYPE_ERROR}
+     */
+    private static Category categoryOf(String message) {
+        for (PythonCategory category : PYTHON_CATEGORIES) {
+            for (String pattern : category.patterns()) {
+                if (pythonPatternMatches(pattern, message)) {
+                    return category.category();
+                }
+            }
+        }
+        return Category.TYPE_ERROR;
+    }
+
+    private static boolean pythonPatternMatches(String pattern, String message) {
+        if (PATTERN_METACHARACTERS.matcher(pattern).find()) {
+            return Pattern.compile(pattern, Pattern.CASE_INSENSITIVE).matcher(message).find();
+        }
+        return message.toLowerCase(Locale.ROOT).contains(pattern.toLowerCase(Locale.ROOT));
     }
 
     private static List<Diagnostic> ruffDiagnostics(List<String> lines) {
@@ -199,8 +241,8 @@ public final class PyprojectOutputParser {
             }
             String testName = withoutXdistGroup(failed.group(2));
             String message = failed.group(3) == null ? "Test " + testName + " failed" : failed.group(3);
-            String block = consume(failureBlocks, failureCursors, pytestBlockKey(testName), message);
-            add(diagnostics, seen, pytestDiagnostic(failed.group(1), frame(block), message,
+            String block = consume(failureBlocks, failureCursors, pytestBlockKey(testName));
+            add(diagnostics, seen, pytestDiagnostic(failed.group(1), block == null ? null : frame(block), message,
                     Category.TEST_FAILURE));
         }
         for (String line : lines) {
@@ -211,10 +253,10 @@ public final class PyprojectOutputParser {
             String testName = error.testName() == null ? null : withoutXdistGroup(error.testName());
             String terse = testName == null ? "Error collecting " + error.file() : "Error in " + testName;
             String key = testName == null ? error.file() : pytestBlockKey(testName);
-            String block = consume(errorBlocks, errorCursors, key, terse);
+            String block = consume(errorBlocks, errorCursors, key);
             String message = error.message() != null ? error.message()
-                    : exceptionMessage(block).orElse(terse);
-            add(diagnostics, seen, pytestDiagnostic(error.file(), frame(block), message,
+                    : block == null ? terse : exceptionMessage(block).orElse(terse);
+            add(diagnostics, seen, pytestDiagnostic(error.file(), block == null ? null : frame(block), message,
                     Category.TEST_COLLECTION_ERROR));
         }
         return diagnostics;
@@ -405,12 +447,12 @@ public final class PyprojectOutputParser {
         return line.substring(nameStart, nameEnd);
     }
 
-    private static String consume(Map<String, List<String>> blocks, Map<String, Integer> cursors, String key,
-            String fallback) {
+    private static @Nullable String consume(Map<String, List<String>> blocks, Map<String, Integer> cursors,
+            String key) {
         List<String> candidates = blocks.get(key);
         int cursor = cursors.getOrDefault(key, 0);
         if (candidates == null || cursor >= candidates.size()) {
-            return fallback;
+            return null;
         }
         cursors.put(key, cursor + 1);
         return candidates.get(cursor);
@@ -507,5 +549,14 @@ public final class PyprojectOutputParser {
     }
 
     private record Frame(String file, @Nullable Integer line) {
+    }
+
+    /**
+     * One category of the original's Python pattern table.
+     *
+     * @param category the category the patterns assign
+     * @param patterns the patterns, in the original's order
+     */
+    private record PythonCategory(Category category, List<String> patterns) {
     }
 }

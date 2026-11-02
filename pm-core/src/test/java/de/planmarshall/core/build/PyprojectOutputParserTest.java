@@ -11,6 +11,8 @@ package de.planmarshall.core.build;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.List;
@@ -29,7 +31,7 @@ class PyprojectOutputParserTest extends ParsedBuildPortedTest {
 
     private static final String DIRECTORY = "ported/build/pyproject";
 
-    private static final int FIXTURE_FLOOR = 22;
+    private static final int FIXTURE_FLOOR = 21;
 
     private static final int ROSTER_CASES = 57;
 
@@ -76,6 +78,28 @@ class PyprojectOutputParserTest extends ParsedBuildPortedTest {
                         "The path ends at the first .py of the line"),
                 () -> assertEquals("ValueError: could not import test/test_beta.py::test_other",
                         build.diagnostics().getFirst().message(), "The message keeps its own path"));
+    }
+
+    @Test
+    @DisplayName("categorises a mypy import failure through the Python table")
+    void categorisesAnImportFailure() {
+        ParsedBuild build = PyprojectOutputParser.parse("src/app.py:5: error: No module named 'requests'\n");
+
+        assertAll(
+                () -> assertEquals(1, build.diagnostics().size(), "The mypy line files one diagnostic"),
+                () -> assertEquals(Category.IMPORT_ERROR, build.diagnostics().getFirst().category(),
+                        "The Python pattern table names the import failure"));
+    }
+
+    @Test
+    @DisplayName("reports no test count for a filter that matched nothing")
+    void reportsNoCountForAMatchedNothingFilter() {
+        ParsedBuild build = PyprojectOutputParser.parse("================ no tests ran in 0.02s ================\n");
+
+        assertAll(
+                () -> assertNull(build.testCounts(), "A filter that matched nothing yields no count"),
+                () -> assertFalse(build.noTestsRan(), "No positive success marker was printed"),
+                () -> assertEquals(BuildStatus.SUCCESS, build.status(), "The log carries no failing diagnostic"));
     }
 
     @Override

@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The ported tests of {@link TapOutputParser} (PM-TEST-2): one case per plain-file fixture below
- * {@code build/npm-tap}, derived by hand from the original's log and its pytest case.
+ * {@code ported/build/npm-tap}, derived by hand from the original's log and its pytest case.
  *
  * @since 0.1
  */
@@ -29,7 +29,7 @@ class TapOutputParserTest extends ParsedBuildPortedTest {
 
     private static final String DIRECTORY = "ported/build/npm-tap";
 
-    private static final int FIXTURE_FLOOR = 4;
+    private static final int FIXTURE_FLOOR = 5;
 
     private static final int ROSTER_CASES = 31;
 

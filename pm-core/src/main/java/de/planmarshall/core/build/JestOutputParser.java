@@ -118,7 +118,7 @@ public class JestOutputParser {
 
     private static void add(List<Diagnostic> diagnostics, HashSet<String> seen, String file, String test,
             List<String> stack) {
-        if (test == null || stack.isEmpty()) {
+        if (test == null || test.isBlank() || stack.isEmpty()) {
             return;
         }
         Integer line = file == null ? null : stackLocation(stack);

@@ -201,10 +201,10 @@ a filter that matched nothing reports either pytest's own `no tests ran` line (n
 
 == Adding a Parser
 
-1. Add the parser class: a `@UtilityClass` with `parse(String)` and `parse(Path)`, returning `ParsedBuild` (or a typed
-   result for a parser whose verdict is not a build status). Read the log through `BuildLogText.read`, take the location
-   through `JvmFileLocation.parse` where the tool prints a JVM location, and — where the message text decides the
-   category — put the patterns in a compiled table rather than in the parser.
+1. Add the parser class: a static-only class (`@UtilityClass`) with `parse(String)` and `parse(Path)`, returning
+   `ParsedBuild` (or a typed result for a parser whose verdict is not a build status). Read the log through
+   `BuildLogText.read`, take the location through `JvmFileLocation.parse` where the tool prints a JVM location, and — where
+   the message text decides the category — put the patterns in a compiled table rather than in the parser.
 2. Write the pytest-case roster and the fixtures: `{data}/<tool>/original-cases.txt` lists every case of the original
    suite, mapped to the fixtures derived from it or excluded with a reason — several cases may map to one fixture, and one
    case may need several; one `*.txt` fixture per case group and one `deliberate:` fixture per deliberate change; the
@@ -228,8 +228,7 @@ The six JavaScript and Python parsers add their own changes
 (link:../adr/core-build/003-the-six-remaining-parsers-and-their-deliberate-changes.adoc[ADR 003]), each again with a
 `deliberate:` fixture: one npm diagnostic per error block rather than only the first, both `tsc` forms scanned, the ESLint
 problem summary reported, every summary block summed, a contradictory summary reported `unmeasured`, the pytest location
-taken from the deepest traceback frame, a pytest-xdist `@<group>` suffix stripped, and no test count for a filter that
-matched nothing.
+taken from the deepest traceback frame, and a pytest-xdist `@<group>` suffix stripped.
 
 == Ported Tests and Fixture Provenance
 

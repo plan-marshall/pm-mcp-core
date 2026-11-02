@@ -1,0 +1,14 @@
+deliberate: deliberate-tap-unmeasured-tests
+# A summary whose `# tests` total is not the sum of its parts is no measurement: the original publishes the
+# total beside zero parts, which reads as four independent facts and is none of them.
+log TAP version 13
+log 1..2
+log # tests 5
+log # pass 2
+log # fail 0
+log # skipped 0
+status SUCCESS
+success-marker false
+tests unmeasured
+no-tests-ran false
+diagnostic-count 0

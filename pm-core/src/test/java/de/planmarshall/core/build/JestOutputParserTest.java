@@ -11,6 +11,7 @@ package de.planmarshall.core.build;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.List;
@@ -38,13 +39,10 @@ class JestOutputParserTest extends ParsedBuildPortedTest {
     }
 
     @Test
-    @DisplayName("closes a failure block at the blank line after its stack")
+    @DisplayName("closes a failure block before the summary line that follows it")
     void closesTheFailureBlock() {
         String logText = "FAIL  src/a.test.ts\n"
                 + "  ● a › fails\n"
-                + "\n"
-                + "    Expected: true\n"
-                + "    Received: false\n"
                 + "\n"
                 + "      at Object.<anonymous> (src/a.test.ts:7:9)\n"
                 + "\n"
@@ -59,7 +57,9 @@ class JestOutputParserTest extends ParsedBuildPortedTest {
                 () -> assertEquals(Integer.valueOf(7), build.diagnostics().getFirst().line(),
                         "The first stack frame supplies the line"),
                 () -> assertEquals("a › fails", build.diagnostics().getFirst().message(),
-                        "The test marker supplies the message"));
+                        "The test marker supplies the message"),
+                () -> assertTrue(build.diagnostics().getFirst().stackTrace().endsWith("src/a.test.ts:7:9)"),
+                        "The stack ends at the failure frame"));
     }
 
     @Override

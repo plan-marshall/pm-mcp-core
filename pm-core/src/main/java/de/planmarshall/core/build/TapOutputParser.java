@@ -19,6 +19,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import lombok.experimental.UtilityClass;
 
 /**
  * The native parse of a TAP (Test Anything Protocol) log, ported from {@code build-npm/_npm_parse_tap.py}.
@@ -36,10 +37,8 @@ import java.util.regex.Pattern;
  *
  * @since 0.1
  */
-public final class TapOutputParser {
-
-    private TapOutputParser() {
-    }
+@UtilityClass
+public class TapOutputParser {
 
     private static final String YAML_START = "---";
 

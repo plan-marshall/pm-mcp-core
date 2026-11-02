@@ -28,7 +28,7 @@ case test_tap_extracts_test_summary_success excluded: parsed by TapOutputParser;
 case test_tap_extracts_test_summary_failure excluded: parsed by TapOutputParser; its fixtures are in ../npm-tap
 case test_tap_extracts_failures excluded: parsed by TapOutputParser; its fixtures are in ../npm-tap
 case test_issue_to_dict excluded: the result model is a record set, so it has no dictionary projection
-case test_test_summary_to_dict excluded: parsed by TapOutputParser; its fixtures are in ../npm-tap
+case test_test_summary_to_dict excluded: the result model is a record set, so it has no dictionary projection
 case test_parse_log_file_not_found excluded: the Java parse takes the log text; the file read is BuildLogText, whose refusal has its own test
 case test_mixed_typescript_and_jest_output excluded: a multi-parser dispatch has no port surface; each parser is a pure function of one text
 case test_warning_baseline_satisfied_reports_pass_gate excluded: the caller-baselined warning gate has no port surface

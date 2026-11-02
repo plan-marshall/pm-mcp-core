@@ -22,7 +22,7 @@ import java.util.Set;
 import lombok.experimental.UtilityClass;
 
 /**
- * Evaluates the fixture directives of the two parsed-build parsers and of the OpenRewrite parser.
+ * Evaluates the fixture directives of the parsed-build parsers, the ESLint result and the OpenRewrite parser.
  * <p>
  * The directives are the fixture's expectations, never values produced by the implementation: a fixture is derived from
  * the original's log and its pytest case by hand. Every expectation that is evaluated is recorded in the caller's

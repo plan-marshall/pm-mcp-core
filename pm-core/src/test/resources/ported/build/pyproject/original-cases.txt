@@ -60,7 +60,7 @@ case test_a_collection_error_whose_path_carries_a_space_names_that_path excluded
 case test_a_message_containing_py_colons_still_splits_at_the_first_py excluded: asserted by a plain unit test of the error-line split
 case test_a_dash_inside_a_parametrized_node_id_does_not_truncate_the_record -> pyproject-param-dash
 case test_a_parametrized_node_id_containing_a_dash_stays_addressable_by_name excluded: the `parse --test` slice verb has no port surface
-case test_a_dash_after_the_closing_bracket_still_separates_the_message excluded: asserted by a plain unit test of the error-line split
+case test_a_dash_after_the_closing_bracket_still_separates_the_message excluded: asserted by the bracket-aware error-line split of PyprojectOutputParserTest.splitAMessageNamingAPath
 case test_a_syntax_error_collection_block_reports_the_exception_line -> pyproject-syntax-error
 case test_a_syntax_error_message_is_not_the_traceback_location_line -> pyproject-syntax-error
 case test_two_gutter_lines_at_one_indent_still_resolve_to_the_first -> pyproject-collection-error

@@ -48,7 +48,8 @@ class TypeScriptOutputParserTest extends ParsedBuildPortedTest {
                 () -> assertEquals(Category.COMPILATION_ERROR, build.diagnostics().getFirst().category(),
                         "The diagnostic is a compilation error"),
                 () -> assertEquals("src/b.ts", build.diagnostics().getFirst().file(), "The file precedes the line"),
-                () -> assertEquals(Integer.valueOf(9), build.diagnostics().getFirst().line(), "The line is carried"),
+                () -> assertEquals(Integer.valueOf(9), build.diagnostics().getFirst().line(),
+                        "The line number of the diagnostic is carried"),
                 () -> assertEquals(Integer.valueOf(4), build.diagnostics().getFirst().column(), "The column is carried"),
                 () -> assertEquals("TS2339: Property 'x' does not exist on type 'Y'.",
                         build.diagnostics().getFirst().message(), "The code prefixes the message"));

@@ -62,5 +62,8 @@ public enum Category {
     TYPE_ERROR,
 
     /** A pytest collection or setup error, the original's {@code test_collection_error}. */
-    TEST_COLLECTION_ERROR
+    TEST_COLLECTION_ERROR,
+
+    /** An import failure of the original's Python pattern table, the originals' {@code import_error}. */
+    IMPORT_ERROR
 }

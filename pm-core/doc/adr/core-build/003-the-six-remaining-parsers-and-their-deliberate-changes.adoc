@@ -24,7 +24,7 @@ original defines a pattern for and never reads.
 
 == Decision
 
-The port reproduces each original's parsing and changes twelve behaviours on purpose, one per `deliberate:` fixture:
+The port reproduces each original's parsing and changes eleven behaviours on purpose, one per `deliberate:` fixture:
 
 [cols="2,3",options="header"]
 |===
@@ -68,17 +68,18 @@ message with no line (PM-WATCH-JOB-12).
 
 |Every pytest summary line is summed rather than the last one read, so a matrix run reports the sum of its runs.
 |`ported/build/pyproject/deliberate-pyproject-multi-summary.txt`
-
-|A filter that matched nothing reports no test count at all: pytest's `no tests ran` summary carries none, and the port
-never substitutes a zero.
-|`ported/build/pyproject/deliberate-pyproject-no-tests.txt`
-
-|The ESLint row is placed without the original's backtracking expression: the rule is the last token of the line and the
-message the text before its whitespace run, so a hostile line cannot make the parse polynomial.
-|`ported/build/npm-eslint/npm-eslint-errors.txt` (the two rows the rule cannot place), `deliberate-eslint-summary-beside-rows.txt`
 |===
 
 Everything else is held as in the original, including the behaviours that look surprising:
+
+* A filter that matched nothing reports no test count at all: pytest's `no tests ran` summary carries none, and neither the
+  original nor the port substitutes a zero. The port pins that with a unit test rather than a `deliberate:` fixture,
+  because the fixture convention reserves that header for a behaviour the port corrects.
+* The ESLint row is placed without the original's backtracking expression — the rule is the last token of the line and the
+  message the text before its whitespace run — so a hostile line cannot make the parse polynomial. The verdict is the
+  original's: the six rows of its log fixture are placed and the two the pattern cannot take are not.
+* A pytest issue carries no `stackTrace`: the original's `collect_stack_traces` matches only `at ` and `Caused by:` frames,
+  which a Python traceback does not print.
 
 * An npm generic error's message is the block's first reportable line, and that line is the `npm ERR! code` line itself,
   so the message reads `CODE: code CODE`. The original does the same, because its first-line scan starts at the code line.
@@ -108,7 +109,7 @@ Everything else is held as in the original, including the behaviours that look s
 
 == Consequences
 
-A consumer that compares a `plan-marshall` result with this one sees the twelve differences of the table plus the six
+A consumer that compares a `plan-marshall` result with this one sees the eleven differences of the table plus the nine
 held surprises, and no others. A change of any ported behaviour must now either keep its fixture green or change the
 fixture and this record with it.
 
