@@ -140,10 +140,13 @@ class DerivedFactStoreConcurrencyTest {
 
         var facts = store.snapshot().facts();
         var entry = facts.get(FIRST);
-        var expectedDerivedAt = payload("first").equals(entry.value()) ? NOW : NOW.plusSeconds(1);
+        var firstStored = payload("first").equals(entry.value());
+        var expectedDerivedAt = firstStored ? NOW : NOW.plusSeconds(1);
         assertAll(
                 () -> assertEquals(1, facts.size(), "Exactly one entry is stored"),
                 () -> assertEquals(DerivedFact.State.CURRENT, entry.state(), "The entry is current"),
+                () -> assertTrue(firstStored || payload("second").equals(entry.value()),
+                        "The stored value is one of the two results"),
                 () -> assertEquals(expectedDerivedAt, entry.derivedAt(),
                         "The entry names the instant of its own value"));
     }
