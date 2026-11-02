@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.build;
 
+import org.jspecify.annotations.Nullable;
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,7 +18,6 @@ import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
-import org.jspecify.annotations.Nullable;
 
 /**
  * The native parse of the OpenRewrite finding lines of a Maven build log, ported from

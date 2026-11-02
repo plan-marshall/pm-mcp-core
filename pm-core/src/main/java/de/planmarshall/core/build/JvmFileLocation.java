@@ -9,10 +9,11 @@
  */
 package de.planmarshall.core.build;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
-import org.jspecify.annotations.Nullable;
 
 /**
  * Extracts the file, line and column of a JVM build error or warning line.
