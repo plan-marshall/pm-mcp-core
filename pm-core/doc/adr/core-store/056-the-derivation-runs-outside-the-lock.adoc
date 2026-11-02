@@ -53,8 +53,9 @@ not part of this rule: it keeps the value and digest of the last good derivation
 * A derivation that a concurrent refresh made unnecessary is still paid for once; it is never written over the newer
   entry.
 * The derived-facts lock is held for the re-read and the write only and stays where `LockLevel.DERIVED_FACTS` places
-  it, after every scope lock.
-* `DerivedFactStoreConcurrencyTest`, `DerivedFactStoreLockTest` and `LockOrderTest` state it.
+  it, after every scope lock. `LockOrderTest` and the pure `LockOrder.check` cases of
+  `DerivedFactStoreConcurrencyTest` state the order; `DerivedFactStoreLockTest` states that a held plan lock may
+  refresh and that two overlapping refreshes lose nothing (ADR `core-store/063`).
 
 == Source
 
