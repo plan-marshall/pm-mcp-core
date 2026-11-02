@@ -47,5 +47,20 @@ public enum Category {
     UNRECOGNIZED,
 
     /** A line the tool printed at error or warning level with no matching pattern: the originals' {@code other}. */
-    OTHER
+    OTHER,
+
+    /** An npm dependency-resolution failure, the originals' {@code npm_dependency}. */
+    NPM_DEPENDENCY,
+
+    /** An npm command failure that is not a dependency conflict, the originals' {@code npm_error}. */
+    NPM_ERROR,
+
+    /** A lint finding of ESLint or ruff, the originals' {@code lint_error}. */
+    LINT_ERROR,
+
+    /** A type-checking finding of mypy, the originals' {@code type_error}. */
+    TYPE_ERROR,
+
+    /** A pytest collection or setup error, the original's {@code test_collection_error}. */
+    TEST_COLLECTION_ERROR
 }
