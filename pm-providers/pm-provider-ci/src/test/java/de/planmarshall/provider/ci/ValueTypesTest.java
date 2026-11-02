@@ -38,7 +38,7 @@ class ValueTypesTest {
     void tokenKindRoundTrips() {
         for (TokenKind kind : TokenKind.values()) {
             assertEquals(kind, TokenKind.fromWireName(kind.wireName()).orElseThrow(),
-                                    "the wire name names its kind");
+                    "the wire name names its kind");
         }
         assertTrue(TokenKind.fromWireName("nonsense").isEmpty(), "an unknown wire name is empty");
         assertEquals("github_app", TokenKind.GITHUB_APP.wireName(), "the App is its own kind");
@@ -51,32 +51,32 @@ class ValueTypesTest {
         var gitlab = new RepositoryRef("gitlab", "https://gitlab.com", "group/sub", "project");
 
         assertAll("the resolved references",
-                                () -> assertEquals("https://github.com", github.origin(), "the origin is normalised"),
-                                () -> assertEquals("group/sub", gitlab.ownerOrPath(), "a group path is kept"));
+                () -> assertEquals("https://github.com", github.origin(), "the origin is normalised"),
+                () -> assertEquals("group/sub", gitlab.ownerOrPath(), "a group path is kept"));
     }
 
     @Test
     @DisplayName("RepositoryRef refuses an origin with a path and a dotted segment")
     void repositoryRefRefusesHostileValues() {
         assertAll("the refused references",
-                                () -> assertThrows(IllegalArgumentException.class,
-                                                        () -> new RepositoryRef("github", "https://github.com/api", "o", "r"),
-                                                        "an origin with a path is refused"),
-                                () -> assertThrows(IllegalArgumentException.class,
-                                                        () -> new RepositoryRef("github", "https://user@github.com", "o", "r"),
-                                                        "an origin with user information is refused"),
-                                () -> assertThrows(IllegalArgumentException.class,
-                                                        () -> new RepositoryRef("github", "http://github.com", "o", "r"),
-                                                        "a cleartext origin is refused"),
-                                () -> assertThrows(IllegalArgumentException.class,
-                                                        () -> new RepositoryRef("github", "https://github.com", "o/../r", "r"),
-                                                        "a dotted path segment is refused"),
-                                () -> assertThrows(IllegalArgumentException.class,
-                                                        () -> new RepositoryRef("github", "https://github.com", "o", "a name"),
-                                                        "a name with a space is refused"),
-                                () -> assertThrows(IllegalArgumentException.class,
-                                                        () -> new RepositoryRef("Bad", "https://github.com", "o", "r"),
-                                                        "a forge outside the pattern is refused"));
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new RepositoryRef("github", "https://github.com/api", "o", "r"),
+                        "an origin with a path is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new RepositoryRef("github", "https://user@github.com", "o", "r"),
+                        "an origin with user information is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new RepositoryRef("github", "http://github.com", "o", "r"),
+                        "a cleartext origin is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new RepositoryRef("github", "https://github.com", "o/../r", "r"),
+                        "a dotted path segment is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new RepositoryRef("github", "https://github.com", "o", "a name"),
+                        "a name with a space is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new RepositoryRef("Bad", "https://github.com", "o", "r"),
+                        "a forge outside the pattern is refused"));
     }
 
     @Test
@@ -85,11 +85,11 @@ class ValueTypesTest {
         var repository = new RepositoryRef("github", "https://github.com", "o", "r");
 
         assertAll("the issue reference",
-                                () -> assertEquals(3, new IssueRef(repository, 3).number(), "the issue number is kept"),
-                                () -> assertThrows(IllegalArgumentException.class, () -> new IssueRef(repository, 0),
-                                                        "a number below one is refused"),
-                                 () -> assertThrows(IllegalArgumentException.class, () -> new IssueRef(repository, -1),
-                                                         "a negative number is refused"));
+                () -> assertEquals(3, new IssueRef(repository, 3).number(), "the issue number is kept"),
+                () -> assertThrows(IllegalArgumentException.class, () -> new IssueRef(repository, 0),
+                        "a number below one is refused"),
+                () -> assertThrows(IllegalArgumentException.class, () -> new IssueRef(repository, -1),
+                        "a negative number is refused"));
     }
 
     @Test
@@ -98,24 +98,24 @@ class ValueTypesTest {
         var permissions = new HashMap<String, String>(Map.of("issues", "write"));
         var scopes = new ArrayList<>(List.of("repo"));
         var identity = Identity.builder().login("bot[bot]").userId(text()).tokenKind(TokenKind.GITHUB_APP)
-                                .operatorLogin("operator").permissions(permissions).scopes(scopes)
-                                .expiresAt(Instant.EPOCH).build();
+                .operatorLogin("operator").permissions(permissions).scopes(scopes)
+                .expiresAt(Instant.EPOCH).build();
         permissions.put("contents", "write");
         scopes.add("admin");
         var returnedPermissions = identity.permissions();
         var returnedScopes = identity.scopes();
 
         assertAll("the identity",
-                                () -> assertEquals(1, returnedPermissions.size(), "the permissions are copied"),
-                                () -> assertEquals(1, returnedScopes.size(), "the scopes are copied"),
-                                () -> assertEquals("operator", identity.operatorLogin(), "the operator login is carried"),
-                                () -> assertEquals(Instant.EPOCH, identity.expiresAt(), "the expiry is carried"),
-                                () -> assertThrows(UnsupportedOperationException.class,
-                                                        () -> returnedPermissions.put("contents", "write"),
-                                                        "the returned permissions are immutable"),
-                                () -> assertThrows(UnsupportedOperationException.class,
-                                                        () -> returnedScopes.add("admin"),
-                                                        "the returned scopes are immutable"));
+                () -> assertEquals(1, returnedPermissions.size(), "the permissions are copied"),
+                () -> assertEquals(1, returnedScopes.size(), "the scopes are copied"),
+                () -> assertEquals("operator", identity.operatorLogin(), "the operator login is carried"),
+                () -> assertEquals(Instant.EPOCH, identity.expiresAt(), "the expiry is carried"),
+                () -> assertThrows(UnsupportedOperationException.class,
+                        () -> returnedPermissions.put("contents", "write"),
+                        "the returned permissions are immutable"),
+                () -> assertThrows(UnsupportedOperationException.class,
+                        () -> returnedScopes.add("admin"),
+                        "the returned scopes are immutable"));
     }
 
     @Test
@@ -144,22 +144,22 @@ class ValueTypesTest {
         var title = text();
         var body = text();
         var issue = Issue.builder().title(title).body(body).labels(labels).assignees(List.of()).state("open")
-                                .url("https://github.com/o/r/issues/1").build();
+                .url("https://github.com/o/r/issues/1").build();
         labels.add("docs");
         var returnedLabels = issue.labels();
         var returnedAssignees = issue.assignees();
 
         assertAll("the issue",
-                                () -> assertEquals(1, returnedLabels.size(), "the labels are copied"),
-                                () -> assertNull(issue.milestone(), "a missing milestone stays null"),
-                                () -> assertEquals(title, issue.title(), "the title text is carried unchanged"),
-                                () -> assertEquals(body, issue.body(), "the body text is carried unchanged"),
-                                () -> assertThrows(UnsupportedOperationException.class,
-                                                        () -> returnedLabels.add("docs"),
-                                                        "the returned labels are immutable"),
-                                () -> assertThrows(UnsupportedOperationException.class,
-                                                        () -> returnedAssignees.add("alice"),
-                                                        "the returned assignees are immutable"));
+                () -> assertEquals(1, returnedLabels.size(), "the labels are copied"),
+                () -> assertNull(issue.milestone(), "a missing milestone stays null"),
+                () -> assertEquals(title, issue.title(), "the title text is carried unchanged"),
+                () -> assertEquals(body, issue.body(), "the body text is carried unchanged"),
+                () -> assertThrows(UnsupportedOperationException.class,
+                        () -> returnedLabels.add("docs"),
+                        "the returned labels are immutable"),
+                () -> assertThrows(UnsupportedOperationException.class,
+                        () -> returnedAssignees.add("alice"),
+                        "the returned assignees are immutable"));
     }
 
     @Test
@@ -239,10 +239,10 @@ class ValueTypesTest {
     @DisplayName("IssueComment refuses a blank id and a blank URL")
     void issueCommentRefusesBlankValues() {
         assertAll("the refused comments",
-                                () -> assertThrows(IllegalArgumentException.class, () -> new IssueComment(" ", "https://x/1"),
-                                                        "a blank comment id is refused"),
-                                () -> assertThrows(IllegalArgumentException.class, () -> new IssueComment("1", " "),
-                                                        "a blank comment URL is refused"),
-                                () -> assertEquals("1", new IssueComment("1", "https://x/1").id(), "the comment id is kept"));
+                () -> assertThrows(IllegalArgumentException.class, () -> new IssueComment(" ", "https://x/1"),
+                        "a blank comment id is refused"),
+                () -> assertThrows(IllegalArgumentException.class, () -> new IssueComment("1", " "),
+                        "a blank comment URL is refused"),
+                () -> assertEquals("1", new IssueComment("1", "https://x/1").id(), "the comment id is kept"));
     }
 }

@@ -191,7 +191,7 @@ class GitHubClientTest {
             on("GET", "/app", json(200, "{\"slug\":\"plan-marshall\",\"id\":123}"));
 
             try (var jwtHttp = new HttpClient(http.endpoint(), () -> Optional.of("jwt"),
-                    InstallationTokens.HEADERS)) {
+                         InstallationTokens.HEADERS)) {
                 var appClient = new GitHubClient(jwtHttp, GitHubClient.GRAPHQL_PATH);
                 var result = appClient.app();
 

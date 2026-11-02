@@ -28,7 +28,7 @@ import java.util.Optional;
  * @since 0.1
  */
 public record Result<V>(Outcome outcome, Optional<V> value, boolean complete, Optional<Instant> resetAt,
-                        String detail) {
+String detail) {
 
     /** The closed outcome of a provider operation. */
     public enum Outcome {

@@ -34,12 +34,12 @@ class ForgeUrlTest {
         assertEquals(ForgeUrl.Outcome.RESOLVED, resolution.outcome(), "the URL is resolved");
         var url = resolution.url().orElseThrow();
         assertAll("the resolved source",
-                                () -> assertEquals("github", url.forge(), "the resolved forge is github"),
-                                () -> assertEquals("cuioss", url.repository().ownerOrPath(), "the owner is resolved"),
-                                () -> assertEquals("pm-mcp-core", url.repository().name(), "the repository is resolved"),
-                                () -> assertEquals("https://github.com", url.repository().origin(), "the origin is resolved"),
-                                () -> assertEquals(12, url.number(), "the number is resolved"),
-                                () -> assertEquals(ForgeUrl.Kind.ISSUE, url.kind(), "an issue path is an issue"));
+                () -> assertEquals("github", url.forge(), "the resolved forge is github"),
+                () -> assertEquals("cuioss", url.repository().ownerOrPath(), "the owner is resolved"),
+                () -> assertEquals("pm-mcp-core", url.repository().name(), "the repository is resolved"),
+                () -> assertEquals("https://github.com", url.repository().origin(), "the origin is resolved"),
+                () -> assertEquals(12, url.number(), "the number is resolved"),
+                () -> assertEquals(ForgeUrl.Kind.ISSUE, url.kind(), "an issue path is an issue"));
     }
 
     @Test
@@ -65,14 +65,14 @@ class ForgeUrlTest {
     void resolvesGitLab() {
         var issue = ForgeUrl.resolve("https://gitlab.com/group/project/-/issues/9").url().orElseThrow();
         var merge = ForgeUrl.resolve("https://gitlab.com/group/sub/project/-/merge_requests/42").url()
-                                .orElseThrow();
+                .orElseThrow();
 
         assertAll("the GitLab grammar",
-                                () -> assertEquals("group", issue.repository().ownerOrPath(), "the group is resolved"),
-                                () -> assertEquals("project", issue.repository().name(), "the project is resolved"),
-                                () -> assertEquals(ForgeUrl.Kind.ISSUE, issue.kind(), "an issue path is an issue"),
-                                () -> assertEquals("group/sub", merge.repository().ownerOrPath(), "the nested group is resolved"),
-                                () -> assertEquals(ForgeUrl.Kind.PULL_REQUEST, merge.kind(), "a merge request is a pull request"));
+                () -> assertEquals("group", issue.repository().ownerOrPath(), "the group is resolved"),
+                () -> assertEquals("project", issue.repository().name(), "the project is resolved"),
+                () -> assertEquals(ForgeUrl.Kind.ISSUE, issue.kind(), "an issue path is an issue"),
+                () -> assertEquals("group/sub", merge.repository().ownerOrPath(), "the nested group is resolved"),
+                () -> assertEquals(ForgeUrl.Kind.PULL_REQUEST, merge.kind(), "a merge request is a pull request"));
     }
 
     @Test
@@ -102,42 +102,42 @@ class ForgeUrlTest {
         var resolution = ForgeUrl.resolve("https://unknown.example/owner/repo/issues/4");
 
         assertAll("the unknown-forge outcome",
-                                () -> assertEquals(ForgeUrl.Outcome.UNKNOWN_FORGE, resolution.outcome(), "the host is not in the table"),
-                                () -> assertTrue(resolution.url().isEmpty(), "an unknown host carries no URL"),
-                                () -> assertTrue(resolution.detail().contains("unknown_forge"), "the detail names the outcome"));
+                () -> assertEquals(ForgeUrl.Outcome.UNKNOWN_FORGE, resolution.outcome(), "the host is not in the table"),
+                () -> assertTrue(resolution.url().isEmpty(), "an unknown host carries no URL"),
+                () -> assertTrue(resolution.detail().contains("unknown_forge"), "the detail names the outcome"));
     }
 
     @Test
     @DisplayName("reports a hostile or malformed URL as invalid")
     void reportsInvalidUrls() {
         assertAll("the invalid URLs",
-                                () -> assertEquals(ForgeUrl.Outcome.INVALID,
-                                                        ForgeUrl.resolve("https://user:pass@github.com/o/r/issues/1").outcome(),
-                                                        "user information is refused"),
-                                () -> assertEquals(ForgeUrl.Outcome.INVALID,
-                                                        ForgeUrl.resolve("https://github.com/o/../../r/issues/1").outcome(),
-                                                        "a parent segment is refused"),
-                                () -> assertEquals(ForgeUrl.Outcome.INVALID,
-                                                        ForgeUrl.resolve("http://github.com/o/r/issues/1").outcome(),
-                                                        "a cleartext URL is refused"),
-                                () -> assertEquals(ForgeUrl.Outcome.INVALID,
-                                                        ForgeUrl.resolve("https://github.com/o/r/issues/0").outcome(),
-                                                        "a zero number is refused"),
-                                () -> assertEquals(ForgeUrl.Outcome.INVALID,
-                                                        ForgeUrl.resolve("https://github.com/o/r/issues/007").outcome(),
-                                                        "a padded number is refused"),
-                                () -> assertEquals(ForgeUrl.Outcome.INVALID,
-                                                        ForgeUrl.resolve("https://github.com/o/r").outcome(),
-                                                        "a repository URL is no source URL"),
-                                () -> assertEquals(ForgeUrl.Outcome.INVALID,
-                                                        ForgeUrl.resolve("https://github.com/o/r/releases/1").outcome(),
-                                                        "an unknown operation is refused"),
-                                () -> assertEquals(ForgeUrl.Outcome.INVALID,
-                                                        ForgeUrl.resolve("https://gitlab.com/project/-/issues/1").outcome(),
-                                                        "GitLab needs a group and a project"),
-                                () -> assertEquals(ForgeUrl.Outcome.INVALID,
-                                                        ForgeUrl.resolve("https://github.com/" + "a".repeat(300) + "/r/issues/1").outcome(),
-                                                        "an over-long segment is refused"));
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://user:pass@github.com/o/r/issues/1").outcome(),
+                        "user information is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://github.com/o/../../r/issues/1").outcome(),
+                        "a parent segment is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("http://github.com/o/r/issues/1").outcome(),
+                        "a cleartext URL is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://github.com/o/r/issues/0").outcome(),
+                        "a zero number is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://github.com/o/r/issues/007").outcome(),
+                        "a padded number is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://github.com/o/r").outcome(),
+                        "a repository URL is no source URL"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://github.com/o/r/releases/1").outcome(),
+                        "an unknown operation is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://gitlab.com/project/-/issues/1").outcome(),
+                        "GitLab needs a group and a project"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://github.com/" + "a".repeat(300) + "/r/issues/1").outcome(),
+                        "an over-long segment is refused"));
     }
 
     @Test

@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 import mockwebserver3.MockWebServer;
 
 import de.planmarshall.provider.ci.Identity;
@@ -473,7 +474,7 @@ class GitHubCiProviderTest {
         var provider = appProvider(server);
 
         var result = provider.issueComment(issue(WEB_ORIGIN, "github", 5), "A comment");
-        var request = server.takeRequest(5, java.util.concurrent.TimeUnit.SECONDS);
+        var request = server.takeRequest(5, TimeUnit.SECONDS);
 
         assertAll("the App comment",
                 () -> assertNotNull(request, "the comment request reaches the server"),
