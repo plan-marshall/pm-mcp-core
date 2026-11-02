@@ -37,8 +37,9 @@ import de.planmarshall.core.role.corpus.JsonValue;
 import de.planmarshall.core.store.DerivedFactDerivation.DerivationOutcome.Derived;
 
 /**
- * One lock and no lost update on the derived facts store (PM-IMPL-7, PM-WATCH-STORE-43): two threads refreshing two
- * different keys and two refreshing the same key, and the place of the derived-facts lock in the total order.
+ * One lock and no lost update on the derived facts store (PM-IMPL-7, PM-WATCH-STORE-43): a deterministic cross-key
+ * case and two racing cases that are the smoke test, and the place of the derived-facts lock in the total order (a
+ * pure {@link LockOrder#check} on a hand-built list, never a refresh).
  */
 @EnableGeneratorController
 @Timeout(value = 30, unit = TimeUnit.SECONDS)
@@ -116,7 +117,7 @@ class DerivedFactStoreConcurrencyTest {
     }
 
     @Test
-    @DisplayName("two threads refreshing two different keys lose no entry")
+    @DisplayName("smoke: two threads refreshing two different keys lose no entry")
     void twoDifferentKeys() throws Exception {
         runConcurrently(
                 () -> store.refresh(FIRST, DIGEST, valueOf("first"), NOW.plusSeconds(1)),
@@ -130,7 +131,7 @@ class DerivedFactStoreConcurrencyTest {
     }
 
     @Test
-    @DisplayName("two threads refreshing the same key lose no update")
+    @DisplayName("smoke: two threads refreshing the same key lose no update")
     void twoRefreshersOfOneKey() throws Exception {
         // "first" and "second" identify the two results; they are the fixture's data.
         runConcurrently(
@@ -145,6 +146,25 @@ class DerivedFactStoreConcurrencyTest {
                 () -> assertEquals(DerivedFact.State.CURRENT, entry.state(), "The entry is current"),
                 () -> assertEquals(expectedDerivedAt, entry.derivedAt(),
                         "The entry names the instant of its own value"));
+    }
+
+    @Test
+    @DisplayName("a nested refresh of a second key inside the first derivation keeps both entries")
+    void nestedRefreshOfASecondKey() {
+        var reading = store.refresh(FIRST, DIGEST, () -> {
+            store.refresh(SECOND, DIGEST, valueOf("second"), NOW);
+            return new Derived(payload("first"), "fixture", DerivedFact.DerivationClass.LOCAL);
+        }, NOW.plusSeconds(1));
+
+        var facts = store.snapshot().facts();
+        assertAll(
+                () -> assertEquals(2, facts.size(), "Both entries are stored"),
+                () -> assertEquals(payload("first"), facts.get(FIRST).value(),
+                        "The first entry carries the outer value"),
+                () -> assertEquals(payload("second"), facts.get(SECOND).value(),
+                        "The second entry carries the nested value"),
+                () -> assertEquals(new DerivedFactReading.Value(facts.get(FIRST)), reading,
+                        "The outer reading is its own stored entry"));
     }
 
     @Test
