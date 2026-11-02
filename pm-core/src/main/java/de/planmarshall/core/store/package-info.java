@@ -113,6 +113,15 @@
  * fixed network validity period, the {@code stale} and {@code failed} operations, the readings of
  * {@link de.planmarshall.core.store.DerivedFactReading} and the operator-only projection. No concrete kind is
  * registered here.</li>
+ * <li><em>The lesson store</em> (PM-IMPL-2, PM-IMPL-7): {@code lessons/<lesson_id>.md} of a project, one Markdown file
+ * per lesson with its structured front matter ({@link de.planmarshall.core.store.Lesson}, read and written by
+ * {@link de.planmarshall.core.store.LessonCodec}) and named by its {@link de.planmarshall.core.store.LessonId}: the id of
+ * the current UTC hour and a per-hour sequence, the one resolver
+ * ({@link de.planmarshall.core.store.LessonResolution}) with its four states and the three integrity states of the
+ * sidecar, the revision of a body, the retirement with its closed verdicts, and the claim of a lesson by a plan, its
+ * release and its end. {@link de.planmarshall.core.store.LessonStore} reads without a lock for a listing and under the
+ * lock of the lesson scope for every decision, and writes only as a target of the caller's
+ * {@link de.planmarshall.core.store.ScopeTransaction}.</li>
  * </ul>
  * <p>
  * The package also holds the path confinement to the workspace root and its worktrees (PM-SEC-2): a project path is

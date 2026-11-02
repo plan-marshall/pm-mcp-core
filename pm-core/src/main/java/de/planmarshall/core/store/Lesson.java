@@ -16,9 +16,9 @@ import java.util.Objects;
  * One lesson of the project lesson store: its front matter and its Markdown body (Store Schemas § Lesson Record;
  * PM-IMPL-2).
  * <p>
- * The body is the narrative that stays Markdown; the front matter is the structured part of the file. A body may be
- * empty — a lesson with valid front matter and an empty body is the state {@code empty_shell}, never a content
- * verdict.
+ * The body is the narrative that stays Markdown; the front matter is the structured part of the file. A body may
+ * carry no non-whitespace character — a lesson with valid front matter and such a body is the state
+ * {@code empty_shell}, never a content verdict.
  *
  * @param frontMatter the structured front matter of the lesson
  * @param body        the Markdown body, verbatim

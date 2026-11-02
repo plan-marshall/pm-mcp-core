@@ -1,0 +1,53 @@
+= ADR 067: The Lesson Store Builds No Operator Act, and the Package `lesson-lifecycle` Owns the Remainder
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-02
+
+== Context
+
+The lesson record of PLAN-V2-11 carried `golden_label`, `labelled_at`, `audience_override` and `tool_version_override`.
+PM-WATCH-STORE-56 asked what writes them; the operator walked it on 2026-10-29 (option 1) and decided that no operator
+verb writes them, so they were cut from the record. Two operator acts remain that the store cannot perform on its own:
+retiring a `present_unreadable` lesson (it needs a human decision and replaces the unparseable front matter by a minimal
+valid one, keeping the original bytes as the body) and releasing a stale claim (a claim of a lesson whose file is
+unreadable, which neither a recovery nor an end event can read or change), beside the `accept-edit` that re-baselines a
+tampered lesson.
+
+This plan builds the store's transitions only. It must not build the operator surface, and it must not leave the
+remainder ownerless — a lesson that can never be retired or released is exactly the state the watch item names.
+
+== Decision
+
+The plan builds `LessonStore`'s allocation, resolver, revision, retirement, claim, release and end, and no operator verb.
+It records the remainder in a new work package, `doc/plans/lesson-lifecycle.adoc`, whose first items are the two
+recovery acts and whose bullets are the lesson sections that stay in the specification: the `submit:lesson` transition
+and its Q-Gate, the audience classification and the upstream release, the `arch-constraint` recurrence, the lesson
+maintenance submits, the retention sweeps, the operator acts of PM-WATCH-STORE-56, and the `stalled_lessons` population.
+The package `lesson-store` is closed with this plan: its file is deleted and its row leaves the index.
+
+== Alternatives Considered
+
+* Build the operator acts here: they need the operator command surface (`pm-operator`), which lives outside this
+  repository and outside this package's scope; a partial act here would be a second owner of the same transition.
+* Leave the remainder unowned in the specification: the watch item was added because a lesson that can never be retired
+  is a hole, and an unowned package is the same hole with a different name.
+
+== Consequences
+
+* A retirement of a `present_unreadable` lesson is refused by `LessonStore.retire` (the recorded state must be `found`),
+  and the refusal is the documented gap the new package fills.
+* The `stalled_lessons` population has no producer yet; the claim itself is recorded, so the population is derivable from
+  the store as soon as the harvester exists.
+* PM-WATCH-STORE-56 stays deleted; this plan neither deletes nor keeps it.
+
+== Source
+
+* Operator walk of 2026-10-29, option 1 (PM-WATCH-STORE-56 decided and deleted by PLAN-V2-11)
+* link:../../../../doc/specification/store-schemas/10-job-and-lesson-records.adoc#lesson-record[Store Schemas § Lesson Record] (Retirement; Claim)
+* link:../../../../doc/plans/lesson-lifecycle.adoc[Work Package `lesson-lifecycle`]

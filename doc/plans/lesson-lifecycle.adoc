@@ -1,0 +1,36 @@
+= The lesson lifecycle
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `lesson-lifecycle`
+
+[horizontal]
+Roadmap item:: _Port the lesson store's storage invariants_, and the lesson lifecycle of a running plan (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
+Where:: pm-core (package `core.store`, beside the `LessonStore` this package extends) and the runtime's operator surface
+Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== Tasks
+
+The specification sections named are the single statement of what each task builds. The lesson store with its id allocation, resolver, revision, retirement, claim, release and end of a claim is implemented (link:../Traceability.adoc[Traceability]); the tasks build the rest of the lesson's lifecycle around it.
+
+. *The `submit:lesson` transition and its Q-Gate*, the only writer that creates a lesson: link:../specification/phase-workflows.adoc[Phase Workflows Specification], Lesson Creation & Body; link:../specification/store-schemas/10-job-and-lesson-records.adoc#lesson-record[Store Schemas § Lesson Record], _File Format_, _Version Provenance_, _Provenance_, _Derived from Untrusted Text_ and _Remedy_.
+. *The audience classification and the upstream release* with its rendering, duplicate detection and `promotions[]` entry: § Lesson Record, _Audience Classification_, _Upstream Release_ and _Promotion Provenance_.
+. *The `arch-constraint` recurrence* and its quiet-window retirement: § Lesson Record, _arch-constraint Recurrence_.
+. *The lesson maintenance submits* of `lessons.pmwf`: § Lesson Record, _Lesson Maintenance_.
+. *The retention sweep* of a retired lesson's body: § Lesson Record, _Retirement_.
+. *The operator acts on a lesson*: `accept-edit` (§ Lesson Record, _Lesson-Store Digest_), the retirement of a `present_unreadable` lesson (§ Lesson Record, _Retirement_) and the release of a stale claim (§ Lesson Record, _Claim_).
+. *The `stalled_lessons` population*: § Lesson Record, _Claim_.
+
+Left out: the calls of `start.create-scope`, the plan end and the recovery (link:start-source-intake.adoc[`start-source-intake`], link:plan-and-epic-control.adoc[`plan-and-epic-control`]), which call the `LessonStore` this repository ships.
+
+== Trace
+
+The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]; link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]; link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1]; link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-2[PM-ARCH-2]
+* Specification: the sections the tasks name; link:../specification/store-schemas/10-job-and-lesson-records.adoc#lesson-claim[§ A Claimed Lesson Ends with the Landing]
+* Watch: link:../implementation-watch/store-schemas.adoc[Store Schemas]
+
+== Done When
+
+* Watch: link:../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-14[PM-WATCH-STORE-14], link:../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-15[PM-WATCH-STORE-15], link:../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-16[PM-WATCH-STORE-16], link:../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-20[PM-WATCH-STORE-20], link:../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-34[PM-WATCH-STORE-34], link:../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-58[PM-WATCH-STORE-58].
+* Tests: a lesson created only through `submit:lesson`; an `upstream` lesson classified, filed and returned to `active` only by the operator's reviewed release; an `arch-constraint` lesson recurring instead of duplicating; merge, supersede and retire with the store's transition rules; a retired body removed and a quiet `arch-constraint` lesson retired by the sweeps; an edit accepted, a `present_unreadable` lesson retired and a stale claim released by the operator.

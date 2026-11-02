@@ -25,7 +25,7 @@ The specification sections named are the single statement of what each task buil
 . *Loopback only* for the listing of files, a move, and documents outside the checkout: § Documents as a Source.
 . *Schema parity*: `PendingEntrySchemaParityTest` re-enabled against the directory form.
 
-Left out: the source units, the setup gate and the other sources (link:start-from-clients.adoc[`start-from-clients`]); the lesson store (link:lesson-store.adoc[`lesson-store`]).
+Left out: the source units, the setup gate and the other sources (link:start-from-clients.adoc[`start-from-clients`]).
 
 == Trace
 

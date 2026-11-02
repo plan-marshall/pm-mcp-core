@@ -18,8 +18,10 @@ import java.util.regex.Pattern;
  * {@code lesson_id}; PM-IMPL-2).
  * <p>
  * The identifier is the UTC date and hour of creation plus a per-hour sequence, {@code yyyy-MM-dd-HH-nnn}: the
- * sequence has at least three digits and grows, so an hour never runs out of identifiers. The store holds one file
- * {@code <lesson_id>.md} per lesson, and a file name that does not parse as an identifier is no lesson.
+ * sequence has at least three digits and at most 50 (the 64-character bound less the 14-character hour prefix and its
+ * hyphen), so an hour holds a finite number of identifiers; the store's allocation fails when the highest sequence of an
+ * hour is 50 nines. The store holds one file {@code <lesson_id>.md} per lesson, and a file name that does not parse as an
+ * identifier is no lesson.
  * <p>
  * The hour prefix is the key the store allocates a new identifier against: it reads the sequence of the highest
  * identifier of the current hour and continues from it.
