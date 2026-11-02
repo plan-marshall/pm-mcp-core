@@ -468,7 +468,7 @@ class GitHubCiProviderTest {
     @DisplayName("posts an App comment with the user access token")
     @MockResponseConfig(path = "/repos/cuioss/pm/issues/5/comments", method = HttpMethodMapper.POST, status = 201,
             stringContent = "{\"id\":9001}")
-    void postsAppCommentWithUserToken(MockWebServer server) throws Exception {
+    void postsAppCommentWithUserToken(MockWebServer server) {
         var provider = appProvider(server);
 
         var result = provider.issueComment(issue(WEB_ORIGIN, "github", 5), "A comment");
