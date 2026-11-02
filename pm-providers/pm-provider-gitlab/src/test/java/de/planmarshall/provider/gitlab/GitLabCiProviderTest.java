@@ -303,6 +303,20 @@ class GitLabCiProviderTest {
     }
 
     @Test
+    @DisplayName("refuses a number that names a merge request")
+    @MockResponseConfig(path = "/projects/cuioss%2Fpm/issues/8", method = HttpMethodMapper.GET, status = 404,
+            stringContent = "{\"message\":\"404 Not found\"}")
+    @MockResponseConfig(path = "/projects/cuioss%2Fpm/merge_requests/8", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"iid\":8}")
+    void refusesMergeRequest(MockWebServer server) {
+        var result = provider(server).issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 8));
+
+        assertAll("the merge-request refusal",
+                () -> assertEquals(Result.Outcome.REJECTED, result.outcome(), "a merge request is refused"),
+                () -> assertEquals("is a pull request", result.detail(), "the reason names the pull request"));
+    }
+
+    @Test
     @DisplayName("has the CI provider id")
     void hasProviderId(MockWebServer server) {
         assertEquals("gitlab", provider(server).id(), "the provider id is gitlab");

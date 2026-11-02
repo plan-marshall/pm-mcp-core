@@ -11,6 +11,7 @@ package de.planmarshall.provider.ci;
 
 import de.planmarshall.core.findings.FindingSourceKey;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -178,9 +179,9 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
         Objects.requireNonNull(hostToForge, "hostToForge");
         URI uri;
         try {
-            uri = URI.create(url.strip());
-        } catch (IllegalArgumentException e) {
-            return Resolution.invalid("not a URL: " + e.getMessage());
+            uri = new URI(url.strip());
+        } catch (URISyntaxException e) {
+            return Resolution.invalid("not a URL: " + (e.getReason() == null ? "malformed" : e.getReason()));
         }
         if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.isOpaque() || uri.getHost() == null
                 || uri.getUserInfo() != null) {

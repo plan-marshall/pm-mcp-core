@@ -151,7 +151,9 @@ public final class GitHubCiProvider implements CiProvider {
             return Result.of(Result.Outcome.REJECTED, "a comment body is never blank");
         }
         RepositoryRef repository = issue.repository();
-        Result<String> id = client.postComment(repository.ownerOrPath(), repository.name(), issue.number(), body);
+        GitHubClient writer = userHttp == null ? client
+                : new GitHubClient(Objects.requireNonNull(userHttp, "userHttp"), GitHubClient.GRAPHQL_PATH);
+        Result<String> id = writer.postComment(repository.ownerOrPath(), repository.name(), issue.number(), body);
         if (!id.isOk()) {
             return id.asFailure();
         }

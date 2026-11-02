@@ -112,7 +112,11 @@ public final class GitLabCiProvider implements CiProvider {
         if (refusal != null) {
             return Result.of(Result.Outcome.REJECTED, refusal);
         }
-        return client(issue.repository()).issue(issue.number());
+        Result<Issue> read = client(issue.repository()).issue(issue.number());
+        if (read.outcome() == Result.Outcome.NOT_FOUND && mergeRequestExists(issue.repository(), issue.number())) {
+            return Result.of(Result.Outcome.REJECTED, "is a pull request");
+        }
+        return read;
     }
 
     @Override
@@ -156,6 +160,14 @@ public final class GitLabCiProvider implements CiProvider {
     private GitLabClient client(@Nullable RepositoryRef repository) {
         String project = repository == null ? "" : repository.ownerOrPath() + "/" + repository.name();
         return new GitLabClient(http, project);
+    }
+
+    /** @return whether the number names a merge request, so a 404 of the issue read is the pull-request refusal */
+    private boolean mergeRequestExists(RepositoryRef repository, int iid) {
+        String path = PROJECT_PATH
+                + URLEncoder.encode(repository.ownerOrPath() + "/" + repository.name(), StandardCharsets.UTF_8)
+                + "/merge_requests/" + iid;
+        return http.get(path).isOk();
     }
 
     private Result<Map<String, String>> permissions(@Nullable RepositoryRef repository) {

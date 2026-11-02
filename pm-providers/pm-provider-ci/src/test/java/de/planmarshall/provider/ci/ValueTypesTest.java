@@ -168,6 +168,9 @@ class ValueTypesTest {
 
         assertAll("the remaining references",
                 () -> assertEquals("https://github.com:8443", portOrigin.origin(), "an explicit port is kept"),
+                () -> assertEquals("https://github.com",
+                        new RepositoryRef("github", "https://github.com:443", "o", "r").origin(),
+                        "the default HTTPS port is dropped"),
                 () -> assertEquals("https://github.com", plainOrigin.origin(), "a missing port is dropped"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new RepositoryRef("github", "https://github.com?x=1", "o", "r"),

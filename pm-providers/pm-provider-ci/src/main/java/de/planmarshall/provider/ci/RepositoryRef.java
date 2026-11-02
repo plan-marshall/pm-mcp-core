@@ -87,7 +87,8 @@ public record RepositoryRef(String forge, String origin, String ownerOrPath, Str
             throw new IllegalArgumentException("the origin '%s' is not an https origin without a path".formatted(origin));
         }
         String host = uri.getHost().toLowerCase(Locale.ROOT);
-        return uri.getPort() == -1 ? "https://" + host : "https://" + host + ":" + uri.getPort();
+        boolean defaultPort = uri.getPort() == -1 || uri.getPort() == 443;
+        return defaultPort ? "https://" + host : "https://" + host + ":" + uri.getPort();
     }
 
     private static boolean isSegmentPath(String path) {

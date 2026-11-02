@@ -190,11 +190,15 @@ class GitHubClientTest {
         void readsApp() {
             on("GET", "/app", json(200, "{\"slug\":\"plan-marshall\",\"id\":123}"));
 
-            var result = client.app();
+            try (var jwtHttp = new HttpClient(http.endpoint(), () -> Optional.of("jwt"),
+                    InstallationTokens.HEADERS)) {
+                var appClient = new GitHubClient(jwtHttp, GitHubClient.GRAPHQL_PATH);
+                var result = appClient.app();
 
-            assertEquals(Optional.of(new GitHubClient.AppIdentity("plan-marshall", "123")), result.value(),
-                    "the App slug and id are read");
-            assertEquals("Bearer ghs_installation", requests.getFirst().getHeaders().get("Authorization"),
+                assertEquals(Optional.of(new GitHubClient.AppIdentity("plan-marshall", "123")), result.value(),
+                        "the App slug and id are read");
+            }
+            assertEquals("Bearer jwt", requests.getFirst().getHeaders().get("Authorization"),
                     "the App JWT is the bearer token");
         }
 

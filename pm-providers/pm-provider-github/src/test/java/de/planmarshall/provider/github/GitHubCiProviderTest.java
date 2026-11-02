@@ -465,6 +465,22 @@ class GitHubCiProviderTest {
     }
 
     @Test
+    @DisplayName("posts an App comment with the user access token")
+    @MockResponseConfig(path = "/repos/cuioss/pm/issues/5/comments", method = HttpMethodMapper.POST, status = 201,
+            stringContent = "{\"id\":9001}")
+    void postsAppCommentWithUserToken(MockWebServer server) throws Exception {
+        var provider = appProvider(server);
+
+        var result = provider.issueComment(issue(WEB_ORIGIN, "github", 5), "A comment");
+
+        assertAll("the App comment",
+                () -> assertTrue(result.isOk(), "the comment is posted"),
+                () -> assertEquals("Bearer ghu_operator",
+                        server.takeRequest().getHeaders().get("Authorization"),
+                        "the user access token authors the comment"));
+    }
+
+    @Test
     @DisplayName("has the CI provider id")
     void hasProviderId(MockWebServer server) {
         assertEquals("github", tokenProvider(server, "ghp_classic").id(), "the provider id is github");
