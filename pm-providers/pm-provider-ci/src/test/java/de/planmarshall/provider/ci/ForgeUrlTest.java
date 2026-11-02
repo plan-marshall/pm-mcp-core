@@ -171,8 +171,13 @@ class ForgeUrlTest {
                         ForgeUrl.resolve("https://github.com/o//r/issues/1").outcome(),
                         "an empty path segment is refused"),
                 () -> assertEquals(ForgeUrl.Outcome.INVALID,
-                        ForgeUrl.resolve("https://gitlab.com/a/b/c/d/e/f/g/h/i/j/k/issues/1").outcome(),
-                        "too many path segments are refused"),
+                        ForgeUrl.resolve("https://gitlab.com/a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v/w/-/issues/1")
+                                .outcome(),
+                        "a project nested in 22 groups is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.RESOLVED,
+                        ForgeUrl.resolve("https://gitlab.com/a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v/-/issues/1")
+                                .outcome(),
+                        "a project nested in 21 groups is accepted"),
                 () -> assertEquals(ForgeUrl.Outcome.INVALID,
                         ForgeUrl.resolve("https://gitlab.com/group/./project/-/issues/1").outcome(),
                         "a current-directory segment is refused"),

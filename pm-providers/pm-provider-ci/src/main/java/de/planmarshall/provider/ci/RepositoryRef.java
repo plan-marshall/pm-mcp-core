@@ -56,9 +56,9 @@ public record RepositoryRef(String forge, String origin, String ownerOrPath, Str
             throw new IllegalArgumentException("the forge '%s' does not match the provider id pattern".formatted(forge));
         }
         origin = originOf(origin);
-        if (!isSegmentPath(ownerOrPath)) {
+        if ("gitlab".equals(forge) ? !isSegmentPath(ownerOrPath) : !isSegment(ownerOrPath)) {
             throw new IllegalArgumentException("the owner or group path '%s' is not a path of plain segments"
-                                    .formatted(ownerOrPath));
+                    .formatted(ownerOrPath));
         }
         if (!isSegment(name)) {
             throw new IllegalArgumentException("the repository name '%s' is not one plain segment".formatted(name));

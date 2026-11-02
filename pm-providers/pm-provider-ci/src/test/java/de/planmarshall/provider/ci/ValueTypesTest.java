@@ -87,7 +87,9 @@ class ValueTypesTest {
         assertAll("the issue reference",
                                 () -> assertEquals(3, new IssueRef(repository, 3).number(), "the issue number is kept"),
                                 () -> assertThrows(IllegalArgumentException.class, () -> new IssueRef(repository, 0),
-                                                        "a number below one is refused"));
+                                                        "a number below one is refused"),
+                                 () -> assertThrows(IllegalArgumentException.class, () -> new IssueRef(repository, -1),
+                                                         "a negative number is refused"));
     }
 
     @Test
@@ -105,7 +107,13 @@ class ValueTypesTest {
                                 () -> assertEquals(1, identity.permissions().size(), "the permissions are copied"),
                                 () -> assertEquals(1, identity.scopes().size(), "the scopes are copied"),
                                 () -> assertEquals("operator", identity.operatorLogin(), "the operator login is carried"),
-                                () -> assertEquals(Instant.EPOCH, identity.expiresAt(), "the expiry is carried"));
+                                () -> assertEquals(Instant.EPOCH, identity.expiresAt(), "the expiry is carried"),
+                                () -> assertThrows(UnsupportedOperationException.class,
+                                                        () -> identity.permissions().put("contents", "write"),
+                                                        "the returned permissions are immutable"),
+                                () -> assertThrows(UnsupportedOperationException.class,
+                                                        () -> identity.scopes().add("admin"),
+                                                        "the returned scopes are immutable"));
     }
 
     @Test
@@ -141,7 +149,13 @@ class ValueTypesTest {
                                 () -> assertEquals(1, issue.labels().size(), "the labels are copied"),
                                 () -> assertNull(issue.milestone(), "a missing milestone stays null"),
                                 () -> assertEquals(title, issue.title(), "the title text is carried unchanged"),
-                                () -> assertEquals(body, issue.body(), "the body text is carried unchanged"));
+                                () -> assertEquals(body, issue.body(), "the body text is carried unchanged"),
+                                () -> assertThrows(UnsupportedOperationException.class,
+                                                        () -> issue.labels().add("docs"),
+                                                        "the returned labels are immutable"),
+                                () -> assertThrows(UnsupportedOperationException.class,
+                                                        () -> issue.assignees().add("alice"),
+                                                        "the returned assignees are immutable"));
     }
 
     @Test
@@ -193,6 +207,9 @@ class ValueTypesTest {
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new RepositoryRef("github", "https://github.com", "o", "."),
                         "a current-directory name is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new RepositoryRef("github", "https://github.com", "o/r", "r"),
+                        "a GitHub owner with a slash is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new RepositoryRef("github", "https://github.com", "o", longName),
                         "an over-long name is refused"));

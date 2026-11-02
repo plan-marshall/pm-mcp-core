@@ -11,6 +11,7 @@ package de.planmarshall.provider.github;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -468,15 +469,17 @@ class GitHubCiProviderTest {
     @DisplayName("posts an App comment with the user access token")
     @MockResponseConfig(path = "/repos/cuioss/pm/issues/5/comments", method = HttpMethodMapper.POST, status = 201,
             stringContent = "{\"id\":9001}")
-    void postsAppCommentWithUserToken(MockWebServer server) {
+    void postsAppCommentWithUserToken(MockWebServer server) throws Exception {
         var provider = appProvider(server);
 
         var result = provider.issueComment(issue(WEB_ORIGIN, "github", 5), "A comment");
+        var request = server.takeRequest(5, java.util.concurrent.TimeUnit.SECONDS);
 
         assertAll("the App comment",
+                () -> assertNotNull(request, "the comment request reaches the server"),
                 () -> assertTrue(result.isOk(), "the comment is posted"),
                 () -> assertEquals("Bearer ghu_operator",
-                        server.takeRequest().getHeaders().get("Authorization"),
+                        request == null ? null : request.getHeaders().get("Authorization"),
                         "the user access token authors the comment"));
     }
 

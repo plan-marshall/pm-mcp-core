@@ -313,7 +313,20 @@ class GitLabCiProviderTest {
 
         assertAll("the merge-request refusal",
                 () -> assertEquals(Result.Outcome.REJECTED, result.outcome(), "a merge request is refused"),
-                () -> assertEquals("is a pull request", result.detail(), "the reason names the pull request"));
+                () -> assertTrue(result.detail().contains("pull request"), "the detail names the pull request"));
+    }
+
+    @Test
+    @DisplayName("keeps a rate limit of the merge-request probe")
+    @MockResponseConfig(path = "/projects/cuioss%2Fpm/issues/8", method = HttpMethodMapper.GET, status = 404,
+            stringContent = "{\"message\":\"404 Not found\"}")
+    @MockResponseConfig(path = "/projects/cuioss%2Fpm/merge_requests/8", method = HttpMethodMapper.GET, status = 429,
+            stringContent = "{\"message\":\"Too many requests\"}", headers = {"Retry-After=60"})
+    void keepsProbeRateLimit(MockWebServer server) {
+        var result = provider(server).issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 8));
+
+        assertEquals(Result.Outcome.RATE_LIMITED, result.outcome(),
+                "the probe's rate limit is not read as absent");
     }
 
     @Test

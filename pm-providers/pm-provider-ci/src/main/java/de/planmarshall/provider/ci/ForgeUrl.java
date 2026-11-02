@@ -47,8 +47,8 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
     private static final String GITLAB_SEPARATOR = "-";
     /** The longest URL path that is considered. */
     private static final int MAX_PATH_LENGTH = 2048;
-    /** The most path segments that are considered. */
-    private static final int MAX_SEGMENTS = 12;
+    /** The most path segments that are considered: 21 GitLab group segments, a project and {@code /-/issues/<n>}. */
+    private static final int MAX_SEGMENTS = 25;
     /** The longest one path segment that is considered. */
     private static final int MAX_SEGMENT_LENGTH = 255;
     /** The most digits an issue or pull-request number has. */

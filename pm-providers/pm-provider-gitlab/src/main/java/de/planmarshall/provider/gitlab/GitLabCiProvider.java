@@ -113,8 +113,25 @@ public final class GitLabCiProvider implements CiProvider {
             return Result.of(Result.Outcome.REJECTED, refusal);
         }
         Result<Issue> read = client(issue.repository()).issue(issue.number());
-        if (read.outcome() == Result.Outcome.NOT_FOUND && mergeRequestExists(issue.repository(), issue.number())) {
-            return Result.of(Result.Outcome.REJECTED, "is a pull request");
+        if (read.outcome() == Result.Outcome.NOT_FOUND) {
+            return mergeRequestOutcome(issue, read);
+        }
+        return read;
+    }
+
+    /**
+     * A missing issue is the pull-request refusal when a merge request with that number is visible; a failed lookup keeps
+     * its own outcome, so the caller never reads a rate limit as "absent".
+     */
+    private Result<Issue> mergeRequestOutcome(IssueRef issue, Result<Issue> read) {
+        Response probe = mergeRequestProbe(issue.repository(), issue.number());
+        if (probe.isOk()) {
+            return Result.of(Result.Outcome.REJECTED,
+                    "is a pull request, or an issue the credential cannot see");
+        }
+        if (probe.outcome() == Response.Outcome.RATE_LIMITED || probe.outcome() == Response.Outcome.TRANSPORT_FAILED
+                || (probe.outcome() == Response.Outcome.HTTP_ERROR && probe.status() >= 500)) {
+            return Result.failed(probe);
         }
         return read;
     }
@@ -162,12 +179,12 @@ public final class GitLabCiProvider implements CiProvider {
         return new GitLabClient(http, project);
     }
 
-    /** @return whether the number names a merge request, so a 404 of the issue read is the pull-request refusal */
-    private boolean mergeRequestExists(RepositoryRef repository, int iid) {
+    /** @return the answer of the merge-request read, so a failed lookup is not read as "no merge request" */
+    private Response mergeRequestProbe(RepositoryRef repository, int iid) {
         String path = PROJECT_PATH
                 + URLEncoder.encode(repository.ownerOrPath() + "/" + repository.name(), StandardCharsets.UTF_8)
                 + "/merge_requests/" + iid;
-        return http.get(path).isOk();
+        return http.get(path);
     }
 
     private Result<Map<String, String>> permissions(@Nullable RepositoryRef repository) {
