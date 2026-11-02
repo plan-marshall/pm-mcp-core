@@ -102,17 +102,19 @@ class ValueTypesTest {
                                 .expiresAt(Instant.EPOCH).build();
         permissions.put("contents", "write");
         scopes.add("admin");
+        var returnedPermissions = identity.permissions();
+        var returnedScopes = identity.scopes();
 
         assertAll("the identity",
-                                () -> assertEquals(1, identity.permissions().size(), "the permissions are copied"),
-                                () -> assertEquals(1, identity.scopes().size(), "the scopes are copied"),
+                                () -> assertEquals(1, returnedPermissions.size(), "the permissions are copied"),
+                                () -> assertEquals(1, returnedScopes.size(), "the scopes are copied"),
                                 () -> assertEquals("operator", identity.operatorLogin(), "the operator login is carried"),
                                 () -> assertEquals(Instant.EPOCH, identity.expiresAt(), "the expiry is carried"),
                                 () -> assertThrows(UnsupportedOperationException.class,
-                                                        () -> identity.permissions().put("contents", "write"),
+                                                        () -> returnedPermissions.put("contents", "write"),
                                                         "the returned permissions are immutable"),
                                 () -> assertThrows(UnsupportedOperationException.class,
-                                                        () -> identity.scopes().add("admin"),
+                                                        () -> returnedScopes.add("admin"),
                                                         "the returned scopes are immutable"));
     }
 
@@ -144,17 +146,19 @@ class ValueTypesTest {
         var issue = Issue.builder().title(title).body(body).labels(labels).assignees(List.of()).state("open")
                                 .url("https://github.com/o/r/issues/1").build();
         labels.add("docs");
+        var returnedLabels = issue.labels();
+        var returnedAssignees = issue.assignees();
 
         assertAll("the issue",
-                                () -> assertEquals(1, issue.labels().size(), "the labels are copied"),
+                                () -> assertEquals(1, returnedLabels.size(), "the labels are copied"),
                                 () -> assertNull(issue.milestone(), "a missing milestone stays null"),
                                 () -> assertEquals(title, issue.title(), "the title text is carried unchanged"),
                                 () -> assertEquals(body, issue.body(), "the body text is carried unchanged"),
                                 () -> assertThrows(UnsupportedOperationException.class,
-                                                        () -> issue.labels().add("docs"),
+                                                        () -> returnedLabels.add("docs"),
                                                         "the returned labels are immutable"),
                                 () -> assertThrows(UnsupportedOperationException.class,
-                                                        () -> issue.assignees().add("alice"),
+                                                        () -> returnedAssignees.add("alice"),
                                                         "the returned assignees are immutable"));
     }
 
