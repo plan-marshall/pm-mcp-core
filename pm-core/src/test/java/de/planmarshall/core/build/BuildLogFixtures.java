@@ -427,9 +427,11 @@ final class BuildLogFixtures {
                         .filter(candidate -> candidate.name().equals(name))
                         .findFirst()
                         .orElseThrow(() -> new AssertionError("the roster maps to no fixture: " + name));
-                if (fixture.original() && !fixture.cases().contains(entry.name())) {
-                    throw new AssertionError(
-                            "the fixture " + name + " does not name the case " + entry.name());
+                if (fixture.original()
+                        && (!fixture.pytestPath().equals(entry.pytestPath())
+                                || !fixture.cases().contains(entry.name()))) {
+                    throw new AssertionError("the fixture " + name + " does not name the case "
+                            + entry.pytestPath() + "::" + entry.name());
                 }
             }
         }

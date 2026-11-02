@@ -14,6 +14,7 @@ import org.jspecify.annotations.Nullable;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -86,7 +87,7 @@ public class GradleOutputParser {
     private static ParsedBuild parseStripped(String logText) {
         List<String> lines = List.of(logText.split("\n", -1));
         List<Diagnostic> diagnostics = StackTraceCollector.attach(lines, extractDiagnostics(lines));
-        TestCounts testCounts = extractTestCounts(lines);
+        TestCounts testCounts = extractTestCounts(lines).orElse(null);
         BuildStatus status = detectStatus(logText);
         boolean successMarker = logText.contains(SUCCESS_MARKER);
         boolean noTestsRan = ParsedBuild.noTestsRanFrom(status, successMarker, testCounts,
@@ -102,19 +103,19 @@ public class GradleOutputParser {
         return DiagnosticCollector.collect(lines, GradleOutputParser::filedDiagnostic);
     }
 
-    private static @Nullable Diagnostic filedDiagnostic(String line) {
+    private static Optional<Diagnostic> filedDiagnostic(String line) {
         String stripped = line.strip();
         if (isSkippedLine(stripped)) {
-            return null;
+            return Optional.empty();
         }
         Category category = JvmCategoryPatterns.gradle().categorize(stripped);
         if (category == Category.OTHER) {
-            return null;
+            return Optional.empty();
         }
         var location = JvmFileLocation.parse(stripped);
         Severity severity = ERROR_CATEGORIES.contains(category) ? Severity.ERROR : Severity.WARNING;
-        return new Diagnostic(location.file(), location.line(), location.column(),
-                DiagnosticCollector.stored(stripped), category, severity, null);
+        return Optional.of(new Diagnostic(location.file(), location.line(), location.column(),
+                DiagnosticCollector.stored(stripped), category, severity, null));
     }
 
     private static boolean isSkippedLine(String stripped) {
@@ -122,7 +123,7 @@ public class GradleOutputParser {
                 || stripped.startsWith(CONTINUATION_PREFIX) || stripped.startsWith(TASK_PREFIX);
     }
 
-    private static @Nullable TestCounts extractTestCounts(List<String> lines) {
+    private static Optional<TestCounts> extractTestCounts(List<String> lines) {
         long total = 0;
         long failed = 0;
         long skipped = 0;
@@ -135,8 +136,10 @@ public class GradleOutputParser {
             long blockTotal = parseCount(match.group(1));
             long blockFailed = parseCount(match.group(2));
             long blockSkipped = parseCount(match.group(3));
-            if (blockTotal < 0 || blockFailed < 0 || blockSkipped < 0 || blockSkipped > blockTotal) {
-                return TestCounts.unmeasured();
+            if (blockTotal < 0 || blockFailed < 0 || blockSkipped < 0 || blockSkipped > blockTotal
+                    || blockTotal > Integer.MAX_VALUE - total || blockFailed > Integer.MAX_VALUE - failed
+                    || blockSkipped > Integer.MAX_VALUE - skipped) {
+                return Optional.of(TestCounts.unmeasured());
             }
             found = true;
             total += blockTotal;
@@ -144,9 +147,9 @@ public class GradleOutputParser {
             skipped += blockSkipped;
         }
         if (!found) {
-            return null;
+            return Optional.empty();
         }
-        return TestCounts.from(total - failed - skipped, failed, skipped, null);
+        return Optional.of(TestCounts.from(total - failed - skipped, failed, skipped, null));
     }
 
     private static long parseCount(@Nullable String digits) {

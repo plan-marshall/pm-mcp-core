@@ -133,7 +133,10 @@ public sealed interface TestCounts {
      */
     public static TestCounts from(long passed, long failed, long skipped, @Nullable Map<String, Integer> byRunner) {
         long total = passed + failed + skipped;
-        boolean representable = passed >= 0 && failed >= 0 && skipped >= 0 && total <= Integer.MAX_VALUE
+        boolean representable = passed >= 0 && passed <= Integer.MAX_VALUE
+                && failed >= 0 && failed <= Integer.MAX_VALUE
+                && skipped >= 0 && skipped <= Integer.MAX_VALUE
+                && total <= Integer.MAX_VALUE
                 && (byRunner == null || byRunner.values().stream().noneMatch(executed -> executed < 0));
         if (!representable) {
             return Unmeasured.INSTANCE;

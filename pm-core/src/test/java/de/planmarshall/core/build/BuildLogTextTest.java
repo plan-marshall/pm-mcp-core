@@ -36,6 +36,8 @@ class BuildLogTextTest {
         var word = Generators.letterStrings(4, 12).next();
         var coloured = "\u001B[1;31m[ERROR]\u001B[0m " + word;
         var linked = "\u001B]8;;file:///p/Foo.java\u0007[ERROR] /p/Foo.java:[7,3] cannot find symbol\u001B]8;;\u0007";
+        var linkedEsc = "\u001B]8;;file:///p/Foo.java\u001B\\[ERROR] /p/Foo.java:[7,3] cannot find symbol"
+                + "\u001B]8;;\u001B\\";
 
         assertAll(
                 () -> assertEquals("[ERROR] " + word, BuildLogText.stripAnsi(coloured),
@@ -44,7 +46,9 @@ class BuildLogTextTest {
                 () -> assertEquals("[WARNING] x", BuildLogText.stripAnsi("[WARNING] x"),
                         "Text without escapes is untouched"),
                 () -> assertEquals("[ERROR] /p/Foo.java:[7,3] cannot find symbol",
-                        BuildLogText.stripAnsi(linked), "An OSC hyperlink is removed with its payload"));
+                        BuildLogText.stripAnsi(linked), "A BEL-terminated hyperlink is removed"),
+                () -> assertEquals("[ERROR] /p/Foo.java:[7,3] cannot find symbol",
+                        BuildLogText.stripAnsi(linkedEsc), "An ESC-backslash hyperlink is removed"));
     }
 
     @Test

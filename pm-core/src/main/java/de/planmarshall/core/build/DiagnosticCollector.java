@@ -12,6 +12,7 @@ package de.planmarshall.core.build;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import lombok.experimental.UtilityClass;
@@ -36,16 +37,16 @@ class DiagnosticCollector {
      * Files the diagnostics one line classifier yields, dropping a duplicate of one already filed.
      *
      * @param lines      the log lines, in log order
-     * @param classifier the per-line classifier, returning {@code null} for a line that is no diagnostic
+     * @param classifier the per-line classifier, returning an empty {@link Optional} for a line that is no diagnostic
      * @return the filed diagnostics, in log order
      */
-    static List<Diagnostic> collect(List<String> lines, Function<String, Diagnostic> classifier) {
+    static List<Diagnostic> collect(List<String> lines, Function<String, Optional<Diagnostic>> classifier) {
         var diagnostics = new ArrayList<Diagnostic>();
         Set<String> seen = new HashSet<>();
         for (String line : lines) {
-            Diagnostic diagnostic = classifier.apply(line);
-            if (diagnostic != null && seen.add(key(diagnostic))) {
-                diagnostics.add(diagnostic);
+            Optional<Diagnostic> diagnostic = classifier.apply(line);
+            if (diagnostic.isPresent() && seen.add(key(diagnostic.get()))) {
+                diagnostics.add(diagnostic.get());
             }
         }
         return List.copyOf(diagnostics);

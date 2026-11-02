@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
@@ -98,12 +99,13 @@ public class OpenRewriteLogParser {
             String line = stripCarriageReturn(rawLine);
             Matcher match = FINDING.matcher(line);
             if (match.find() && !match.group(2).isBlank() && !match.group(5).isBlank()) {
-                Integer lineNumber = digits(match.group(3));
-                Integer column = digits(match.group(4));
-                if (lineNumber == null || column == null) {
+                Optional<Integer> lineNumber = digits(match.group(3));
+                Optional<Integer> column = digits(match.group(4));
+                if (lineNumber.isEmpty() || column.isEmpty()) {
                     return parseError(line, "the finding location is outside the int range");
                 }
-                findings.add(new RewriteFinding(match.group(2), lineNumber, column, match.group(5), match.group(6),
+                findings.add(new RewriteFinding(match.group(2), lineNumber.get(), column.get(), match.group(5),
+                        match.group(6),
                         "100".equals(match.group(1))
                                 ? RewriteClassification.NEWLY_DETECTED
                                 : RewriteClassification.PRE_EXISTING));
@@ -120,11 +122,11 @@ public class OpenRewriteLogParser {
         return new RewriteLogResult(RewriteVerdict.PARSE_ERROR, List.of(), reason + ": " + line.strip());
     }
 
-    private static @Nullable Integer digits(String text) {
+    private static Optional<Integer> digits(String text) {
         try {
-            return Integer.valueOf(text);
+            return Optional.of(Integer.valueOf(text));
         } catch (NumberFormatException _) {
-            return null;
+            return Optional.empty();
         }
     }
 

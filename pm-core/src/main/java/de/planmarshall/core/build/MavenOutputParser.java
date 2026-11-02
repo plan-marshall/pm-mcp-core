@@ -17,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
@@ -133,7 +134,7 @@ public class MavenOutputParser {
     private static ParsedBuild parseStripped(String logText) {
         List<String> lines = List.of(logText.split("\n", -1));
         List<Diagnostic> diagnostics = StackTraceCollector.attach(lines, extractDiagnostics(lines));
-        TestCounts testCounts = extractTestCounts(logText, lines);
+        TestCounts testCounts = extractTestCounts(logText, lines).orElse(null);
         BuildStatus status = detectStatus(logText);
         boolean successMarker = logText.contains(SUCCESS_MARKER);
         boolean noTestsRan = ParsedBuild.noTestsRanFrom(status, successMarker, testCounts,
@@ -145,30 +146,30 @@ public class MavenOutputParser {
         return DiagnosticCollector.collect(lines, MavenOutputParser::filedDiagnostic);
     }
 
-    private static @Nullable Diagnostic filedDiagnostic(String line) {
+    private static Optional<Diagnostic> filedDiagnostic(String line) {
         String stripped = line.strip();
         if (stripped.startsWith(FRAME_PREFIX) || stripped.startsWith(CAUSED_BY_PREFIX)) {
-            return null;
+            return Optional.empty();
         }
-        Severity severity = printedSeverity(line);
-        if (severity == null) {
-            return null;
+        Optional<Severity> severity = printedSeverity(line);
+        if (severity.isEmpty()) {
+            return Optional.empty();
         }
         String message = LEVEL_PREFIX.matcher(stripped).replaceFirst("");
         if (message.isEmpty() || message.startsWith(CONTINUATION_PREFIX) || isEpilogue(message)
                 || isPassingTestCount(message)) {
-            return null;
+            return Optional.empty();
         }
         var location = JvmFileLocation.parse(line);
-        return new Diagnostic(location.file(), location.line(), location.column(),
-                DiagnosticCollector.stored(message), categoryOf(message, severity), severity, null);
+        return Optional.of(new Diagnostic(location.file(), location.line(), location.column(),
+                DiagnosticCollector.stored(message), categoryOf(message, severity.get()), severity.get(), null));
     }
 
-    private static @Nullable Severity printedSeverity(String line) {
+    private static Optional<Severity> printedSeverity(String line) {
         if (line.contains(ERROR_MARKER)) {
-            return Severity.ERROR;
+            return Optional.of(Severity.ERROR);
         }
-        return line.contains(WARNING_MARKER) ? Severity.WARNING : null;
+        return line.contains(WARNING_MARKER) ? Optional.of(Severity.WARNING) : Optional.empty();
     }
 
     private static Category categoryOf(String message, Severity severity) {
@@ -192,7 +193,7 @@ public class MavenOutputParser {
         return logText.contains(SUCCESS_MARKER) ? BuildStatus.SUCCESS : BuildStatus.FAILURE;
     }
 
-    private static @Nullable TestCounts extractTestCounts(String logText, List<String> lines) {
+    private static Optional<TestCounts> extractTestCounts(String logText, List<String> lines) {
         var scan = new CountScan();
         lines.forEach(scan::accept);
         return scan.result(logText);
@@ -259,42 +260,46 @@ public class MavenOutputParser {
 
         private long parse(String digits) {
             try {
-                return Long.parseLong(digits);
+                long value = Long.parseLong(digits);
+                if (value > Integer.MAX_VALUE) {
+                    unrepresentable = true;
+                }
+                return value;
             } catch (NumberFormatException _) {
                 unrepresentable = true;
                 return 0L;
             }
         }
 
-        @Nullable
-        TestCounts result(String logText) {
+        Optional<TestCounts> result(String logText) {
             if (summaryLines.isEmpty() && ambiguousLines.isEmpty() && perClassLines.isEmpty()) {
-                return null;
+                return Optional.empty();
             }
             boolean unmeasured = unrepresentable || !ambiguousLines.isEmpty()
                     || (summaryLines.isEmpty() && !perClassLines.isEmpty());
             if (unmeasured) {
-                return TestCounts.unmeasured();
+                return Optional.of(TestCounts.unmeasured());
             }
             List<long[]> counted = summaryLines.isEmpty() ? perClassLines : summaryLines;
             long total = counted.stream().mapToLong(counts -> counts[0]).sum();
             long failed = counted.stream().mapToLong(counts -> counts[1]).sum();
             long skipped = counted.stream().mapToLong(counts -> counts[2]).sum();
-            Map<String, Integer> byRunner = runnerExecuted.isEmpty() || logText.contains(PARALLEL_BUILD_BANNER)
-                    ? null
-                    : runnerCounts();
-            return TestCounts.from(total - failed - skipped, failed, skipped, byRunner);
+            Optional<Map<String, Integer>> byRunner = runnerExecuted.isEmpty()
+                    || logText.contains(PARALLEL_BUILD_BANNER)
+                            ? Optional.empty()
+                            : runnerCounts();
+            return Optional.of(TestCounts.from(total - failed - skipped, failed, skipped, byRunner.orElse(null)));
         }
 
-        private @Nullable Map<String, Integer> runnerCounts() {
+        private Optional<Map<String, Integer>> runnerCounts() {
             var counts = new LinkedHashMap<String, Integer>();
             for (Map.Entry<String, Long> entry : runnerExecuted.entrySet()) {
                 if (entry.getValue() < 0 || entry.getValue() > Integer.MAX_VALUE) {
-                    return null;
+                    return Optional.empty();
                 }
                 counts.put(entry.getKey(), entry.getValue().intValue());
             }
-            return counts;
+            return Optional.of(counts);
         }
     }
 }

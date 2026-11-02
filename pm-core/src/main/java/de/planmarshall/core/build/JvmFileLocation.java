@@ -11,6 +11,7 @@ package de.planmarshall.core.build;
 
 import org.jspecify.annotations.Nullable;
 
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
@@ -65,31 +66,31 @@ public class JvmFileLocation {
         }
         Matcher lineOnly = LINE_ONLY.matcher(line);
         if (lineOnly.find()) {
-            return new Location(lineOnly.group(1), toInt(lineOnly.group(2)), null);
+            return new Location(lineOnly.group(1), toInt(lineOnly.group(2)).orElse(null), null);
         }
         Matcher testFailure = TEST_FAILURE.matcher(line);
         if (testFailure.find()) {
-            return new Location(testFailure.group(1) + ".java", toInt(testFailure.group(3)), null);
+            return new Location(testFailure.group(1) + ".java", toInt(testFailure.group(3)).orElse(null), null);
         }
         return Location.NONE;
     }
 
     private static Location withColumn(String file, String lineDigits, @Nullable String columnDigits) {
-        Integer line = toInt(lineDigits);
-        if (line == null) {
+        Optional<Integer> line = toInt(lineDigits);
+        if (line.isEmpty()) {
             return new Location(file, null, null);
         }
-        return new Location(file, line, toInt(columnDigits));
+        return new Location(file, line.get(), toInt(columnDigits).orElse(null));
     }
 
-    private static @Nullable Integer toInt(@Nullable String digits) {
+    private static Optional<Integer> toInt(@Nullable String digits) {
         if (digits == null) {
-            return null;
+            return Optional.empty();
         }
         try {
-            return Integer.valueOf(digits);
+            return Optional.of(Integer.valueOf(digits));
         } catch (NumberFormatException _) {
-            return null;
+            return Optional.empty();
         }
     }
 

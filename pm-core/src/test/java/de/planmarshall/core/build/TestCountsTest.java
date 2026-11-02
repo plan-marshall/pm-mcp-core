@@ -101,6 +101,8 @@ class TestCountsTest {
                 () -> assertSame(TestCounts.Unmeasured.INSTANCE, overflowing,
                         "A count above the int range is unmeasured"),
                 () -> assertSame(TestCounts.Unmeasured.INSTANCE, wrapped, "A wrapped sum is unmeasured"),
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, TestCounts.from(Long.MAX_VALUE, 1, 0, null),
+                        "A long sum that wraps is unmeasured"),
                 () -> assertInstanceOf(TestCounts.Measured.class, TestCounts.from(4999, 3, 1, null),
                         "A representable sum is a measurement"));
     }
