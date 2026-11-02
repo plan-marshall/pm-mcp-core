@@ -43,6 +43,7 @@ public class EslintOutputParser {
     private static final Pattern FILE_PATH =
             Pattern.compile("^(/[^\\s:]+|[A-Z]:\\\\[^\\s:]+|\\.{0,2}/[^\\s:]+\\.\\w+)$");
 
+    @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
     private static final Pattern ISSUE_HEAD = Pattern.compile("^\\s+(\\d+):(\\d+)\\s+(error|warning)\\s+(.+)$");
 
     private static final Pattern PROBLEM_SUMMARY =

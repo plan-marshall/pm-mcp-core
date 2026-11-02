@@ -174,9 +174,9 @@ public class TapOutputParser {
         if (!found) {
             return Optional.empty();
         }
-        return Optional.of(total != passed + failed + skipped
-                ? TestCounts.unmeasured()
-                : TestCounts.from(passed, failed, skipped, null));
+        return Optional.of(total == passed + failed + skipped
+                ? TestCounts.from(passed, failed, skipped, null)
+                : TestCounts.unmeasured());
     }
 
     private static Optional<Long> count(Pattern pattern, String line) {
@@ -189,18 +189,6 @@ public class TapOutputParser {
         } catch (NumberFormatException _) {
             return Optional.empty();
         }
-    }
-
-    private static String stripQuotes(String value) {
-        int start = 0;
-        int end = value.length();
-        while (start < end && (value.charAt(start) == '\'' || value.charAt(start) == '"')) {
-            start++;
-        }
-        while (end > start && (value.charAt(end - 1) == '\'' || value.charAt(end - 1) == '"')) {
-            end--;
-        }
-        return value.substring(start, end);
     }
 
     private static List<String> withoutCarriageReturns(List<String> lines) {
@@ -271,6 +259,18 @@ public class TapOutputParser {
         @Nullable
         String stackTrace() {
             return stackLines.isEmpty() ? null : String.join("\n", stackLines);
+        }
+
+        private static String stripQuotes(String value) {
+            int start = 0;
+            int end = value.length();
+            while (start < end && (value.charAt(start) == '\'' || value.charAt(start) == '"')) {
+                start++;
+            }
+            while (end > start && (value.charAt(end - 1) == '\'' || value.charAt(end - 1) == '"')) {
+                end--;
+            }
+            return value.substring(start, end);
         }
     }
 

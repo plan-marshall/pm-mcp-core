@@ -273,8 +273,9 @@ public class PyprojectOutputParser {
     }
 
     private static String errorMessage(ParsedError error, @Nullable String block) {
-        if (error.message() != null) {
-            return error.message();
+        String summary = error.message();
+        if (summary != null) {
+            return summary;
         }
         String terse = error.testName() == null
                 ? "Error collecting " + error.file()
