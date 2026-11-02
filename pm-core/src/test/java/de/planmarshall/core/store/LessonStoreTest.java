@@ -649,6 +649,35 @@ class LessonStoreTest {
         }
 
         @Test
+        @DisplayName("counts a higher lesson the transaction supplies before the first draw")
+        void higherTargetInOneTransaction() {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(lessons.lockKey());
+                var write = ScopeTransaction.open(transaction, lessons, audit, CLOCK);
+                var supplied = new LessonId("2026-10-13-09-900");
+                store.create(write, supplied, LessonFixtures.newLesson().build(), CLOCK);
+
+                var drawn = store.allocate(write, CLOCK);
+
+                assertEquals("2026-10-13-09-901", drawn.value(),
+                        "the draw follows a lesson the transaction supplied itself");
+            }
+        }
+
+        @Test
+        @DisplayName("refuses a create whose id names another hour than the clock's")
+        void createOfAnotherHour() {
+            var otherHour = new LessonId("2026-10-13-08-001");
+            var lesson = LessonFixtures.newLesson().build();
+
+            var refusal = assertThrows(IllegalArgumentException.class,
+                    () -> createInTransaction(otherHour, lesson));
+            assertAll(
+                    () -> assertTrue(refusal.getMessage().contains(otherHour.value()), refusal::getMessage),
+                    () -> assertEquals(List.of(), store.list(), "the refused create wrote nothing"));
+        }
+
+        @Test
         @DisplayName("two draws before the first create of a transaction return the same id")
         void twoDrawsInOneTransaction() {
             try (var transaction = locks.openTransaction()) {

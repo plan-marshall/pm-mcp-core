@@ -23,7 +23,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -205,6 +207,24 @@ public final class ScopeTransaction {
      */
     boolean isTarget(Path store) {
         return targets.containsKey(Objects.requireNonNull(store, "store"));
+    }
+
+    /** @return the store paths of the targets collected so far, relative to the path base in the journal's form */
+    Set<String> targetPaths() {
+        return targets.values().stream().map(PendingTarget::path)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    /**
+     * @param relativePath a store path of the scope, in the journal's form
+     * @return the content the transaction will write to the store; empty if the store is a delete target or no target
+     */
+    Optional<byte[]> targetContent(String relativePath) {
+        Objects.requireNonNull(relativePath, "relativePath");
+        return targets.values().stream()
+                .filter(target -> target.path().equals(relativePath) && target.mode() != Mode.DELETE)
+                .map(target -> target.content().clone())
+                .findFirst();
     }
 
     /**

@@ -20,9 +20,11 @@ check it against the records present, because their ids carry no order.
 == Decision
 
 `LessonStore.allocate(transaction, clock)` formats the UTC hour of the clock and takes the sequence that follows every
-lesson file of that hour on disk and every lesson the same transaction already holds. The sequence has at least three
-digits and grows past `999`, so an hour never runs out. The draw and the create of the lesson happen in one transaction
-under the lesson store lock, so two writers never see the same set of files.
+lesson file of that hour on disk, every sequence the sidecar records and every lesson the same transaction already holds
+as a target. The sequence has at least three digits and at most 50 (the identifier's 64-character bound less its
+14-character hour prefix and hyphen), so an hour holds a finite number of identifiers; allocation fails when the highest
+sequence of an hour is 50 nines. The draw and the create of the lesson happen in one transaction under the lesson store
+lock, so two writers never see the same set of files.
 
 == Alternatives Considered
 

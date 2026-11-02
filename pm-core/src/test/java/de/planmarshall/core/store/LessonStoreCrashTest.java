@@ -289,7 +289,9 @@ class LessonStoreCrashTest {
                 recover();
 
                 assertAll(
-                        () -> assertConsistent(lessonId, LessonCodec.encode(before), newBytes),
+                        () -> assertEquals(stop != Step.STAGE,
+                                assertConsistent(lessonId, LessonCodec.encode(before), newBytes),
+                                "a stop after the journal rolls forward to the new revision"),
                         () -> assertTrue(isListed(lessonId), "the lesson stays listed"));
             }
         }
@@ -308,7 +310,9 @@ class LessonStoreCrashTest {
                 recover();
 
                 assertAll(
-                        () -> assertConsistent(lessonId, LessonCodec.encode(before), newBytes),
+                        () -> assertEquals(stop != Step.STAGE,
+                                assertConsistent(lessonId, LessonCodec.encode(before), newBytes),
+                                "a stop after the journal rolls forward to the new claim"),
                         () -> assertTrue(isListed(lessonId), "the lesson stays listed"));
             }
         }
@@ -327,7 +331,9 @@ class LessonStoreCrashTest {
                 recover();
 
                 assertAll(
-                        () -> assertConsistent(lessonId, LessonCodec.encode(before), newBytes),
+                        () -> assertEquals(stop != Step.STAGE,
+                                assertConsistent(lessonId, LessonCodec.encode(before), newBytes),
+                                "a stop after the journal rolls forward to the retirement"),
                         () -> assertTrue(isListed(lessonId), "the lesson stays listed"),
                         () -> assertFalse(Files.exists(lessons.journalFile()), "the journal is closed"));
             }

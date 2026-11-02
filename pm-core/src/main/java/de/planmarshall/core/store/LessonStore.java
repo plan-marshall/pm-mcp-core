@@ -131,7 +131,7 @@ public final class LessonStore {
     public LessonId allocate(ScopeTransaction transaction, Clock clock) {
         requireOwnScope(transaction);
         var hour = HOUR.format(clock.instant());
-        var sequence = nextSequence(hour);
+        var sequence = nextSequence(transaction, hour);
         var candidate = new LessonId(hour + "-" + sequence);
         while (transaction.isTarget(store(candidate))) {
             sequence = increment(sequence);
@@ -160,11 +160,16 @@ public final class LessonStore {
         requireOwnScope(transaction);
         Objects.requireNonNull(lessonId, LessonResolution.LESSON_ID);
         Objects.requireNonNull(newLesson, "newLesson");
+        var now = Objects.requireNonNull(clock, "clock").instant();
+        var hour = HOUR.format(now);
+        if (!lessonId.hourPrefix().equals(hour)) {
+            throw new IllegalArgumentException("The lesson id %s does not name the UTC hour %s of its creation"
+                    .formatted(lessonId, hour));
+        }
         if (recordedEntry(storePath(lessonId))) {
             throw new IllegalArgumentException("The lesson %s was recorded already and is never created again"
                     .formatted(lessonId));
         }
-        var now = Objects.requireNonNull(clock, "clock").instant();
         var sources = newLesson.sources();
         var bodySha256 = StoreSnapshot.sha256(newLesson.body().getBytes(StandardCharsets.UTF_8));
         var frontMatter = LessonFrontMatter.builder()
@@ -300,7 +305,11 @@ public final class LessonStore {
                 candidates.add(found);
             }
         }
-        candidates.sort(Comparator.comparing((LessonResolution.Found found) -> found.lessonId().value()).reversed());
+        candidates.sort(Comparator
+                .comparing((LessonResolution.Found found) -> found.lessonId().hourPrefix())
+                .thenComparingInt(found -> found.lessonId().value().length())
+                .thenComparing(found -> found.lessonId().value())
+                .reversed());
         return List.copyOf(candidates);
     }
 
@@ -648,14 +657,24 @@ public final class LessonStore {
         return storePath.indexOf('/') < 0 ? LessonId.fromFileName(storePath) : Optional.empty();
     }
 
-    /** The next sequence string of the hour: one past every sequence present on disk or recorded by a sidecar entry. */
-    private String nextSequence(String hour) {
+    /** The next sequence string of the hour: one past every sequence present on disk, in the sidecar or in a target. */
+    private String nextSequence(ScopeTransaction transaction, String hour) {
         String highest = null;
         for (var lessonId : lessonIds()) {
             if (!lessonId.hourPrefix().equals(hour)) {
                 continue;
             }
             var present = lessonId.value().substring(LessonId.HOUR_PREFIX_LENGTH + 1);
+            if (highest == null || isHigher(present, highest)) {
+                highest = present;
+            }
+        }
+        for (var targetPath : transaction.targetPaths()) {
+            var target = targetPath.indexOf('/') < 0 ? LessonId.fromFileName(targetPath) : Optional.<LessonId>empty();
+            if (target.isEmpty() || !target.get().hourPrefix().equals(hour)) {
+                continue;
+            }
+            var present = target.get().value().substring(LessonId.HOUR_PREFIX_LENGTH + 1);
             if (highest == null || isHigher(present, highest)) {
                 highest = present;
             }
@@ -693,9 +712,20 @@ public final class LessonStore {
      */
     private boolean citesUntrustedLesson(ScopeTransaction transaction, List<Source> sources) {
         for (var source : sources) {
-            if (source.kind() == Source.Kind.LESSON && LessonId.parse(source.ref()).isPresent()
-                    && get(transaction, new LessonId(source.ref())) instanceof LessonResolution.Found cited
-                    && cited.lesson().frontMatter().derivedFromUntrusted()) {
+            var cited = source.kind() == Source.Kind.LESSON ? LessonId.parse(source.ref()) : Optional.<LessonId>empty();
+            if (cited.isEmpty()) {
+                continue;
+            }
+            var pending = transaction.targetContent(storePath(cited.get()));
+            if (pending.isPresent()) {
+                if (LessonCodec.decode(pending.get()) instanceof LessonCodec.Readable readable
+                        && readable.lesson().frontMatter().derivedFromUntrusted()) {
+                    return true;
+                }
+                continue;
+            }
+            if (get(transaction, cited.get()) instanceof LessonResolution.Found found
+                    && found.lesson().frontMatter().derivedFromUntrusted()) {
                 return true;
             }
         }
@@ -711,7 +741,7 @@ public final class LessonStore {
     private LessonResolution decode(LessonId lessonId, Path file, byte[] content, StoreIntegrity integrity) {
         return switch (LessonCodec.decode(content)) {
             case LessonCodec.Readable(Lesson lesson) -> lesson.body().isBlank()
-                    ? new LessonResolution.EmptyShell(lessonId, lesson, file)
+                    ? new LessonResolution.EmptyShell(lessonId, lesson, file, integrity)
                     : new LessonResolution.Found(lessonId, lesson, file, integrity);
             case LessonCodec.Unreadable(LessonCodec.UnreadableReason reason, String detail) ->
                 new LessonResolution.PresentUnreadable(lessonId, file, reason, detail);

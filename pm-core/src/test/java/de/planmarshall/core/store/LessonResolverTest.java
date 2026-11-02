@@ -174,7 +174,9 @@ class LessonResolverTest {
                             "a YAML fixture resolves found: " + resolution)),
                     () -> assertEquals(Found.class, store.get(new LessonId(LessonFixtures.PORTED_ID_YAML_FIRST))
                             .getClass(), "the first YAML fixture resolves found"),
-                    () -> assertTrue(statedLegacyIdDiffers(), "the front matter states the legacy id, not the file name"));
+                    () -> LessonFixtures.PORTED_YAML_IDS.forEach(lessonId -> assertTrue(
+                            statedLegacyIdDiffers(lessonId),
+                            "the front matter states the legacy id, not the file name: " + lessonId)));
         }
 
         @Test
@@ -197,11 +199,23 @@ class LessonResolverTest {
                             ((PresentUnreadable) resolution).path(), "the listing carries the path")));
         }
 
-        private boolean statedLegacyIdDiffers() {
-            var resolution = store.get(new LessonId(LessonFixtures.PORTED_ID_YAML_FIRST));
-            return resolution instanceof Found found
-                    && !LessonFixtures.PORTED_ID_YAML_FIRST
-                    .equals(found.lesson().frontMatter().lessonId().value());
+        @Test
+        @DisplayName("the fifteen fixture lists name every committed file of the directory")
+        void fixtureListsMatchTheDirectory() throws Exception {
+            try (var entries = Files.list(Path.of(
+                         getClass().getResource("/" + LessonFixtures.PORTED_DIRECTORY).toURI()))) {
+                var files = entries.filter(entry -> entry.getFileName().toString().endsWith(".md"))
+                        .map(entry -> entry.getFileName().toString().replace(".md", ""))
+                        .sorted().toList();
+
+                assertEquals(ALL_LISTED.stream().sorted().toList(), files,
+                        "every committed fixture is named by one of the two lists");
+            }
+        }
+
+        private boolean statedLegacyIdDiffers(String lessonId) {
+            return store.get(new LessonId(lessonId)) instanceof Found found
+                    && !found.lesson().frontMatter().lessonId().value().equals(lessonId);
         }
     }
 
@@ -249,7 +263,23 @@ class LessonResolverTest {
             assertAll(
                     () -> assertEquals(LessonResolution.State.EMPTY_SHELL, shell.state(), "the state is empty_shell"),
                     () -> assertEquals(lesson.frontMatter(), shell.lesson().frontMatter(),
-                            "the front matter is readable"));
+                            "the front matter is readable"),
+                    () -> assertEquals(StoreIntegrity.UNCHECKED, shell.integrity(),
+                            "a blank body carries the integrity of its read"));
+        }
+
+        @Test
+        @DisplayName("a blank body that differs from its entry is an empty shell and unverified")
+        void tamperedEmptyShell() throws Exception {
+            var lessonId = new LessonId("2026-11-02-09-001");
+            create(lessonId);
+            Files.write(expectedPath(lessonId), LessonCodec.encode(
+                    new Lesson(LessonFixtures.frontMatterBuilder().lessonId(lessonId).build(), "   \n")));
+
+            var shell = assertInstanceOf(EmptyShell.class, store.get(lessonId));
+
+            assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, shell.integrity(),
+                    "a blank body that differs from its entry is still unverified");
         }
 
         @Test
@@ -397,6 +427,19 @@ class LessonResolverTest {
                             "the untrusted mark travels on the candidate"),
                     () -> assertEquals(Status.ACTIVE, candidates.getLast().lesson().frontMatter().status(),
                             "a candidate is active"));
+        }
+
+        @Test
+        @DisplayName("unclaimed orders the ids of one hour by sequence, four digits after three")
+        void unclaimedOrdersBySequence() {
+            create(new LessonId("2026-11-02-09-999"));
+            create(new LessonId("2026-11-02-09-1000"));
+
+            var candidates = store.unclaimed();
+
+            assertEquals(List.of("2026-11-02-09-1000", "2026-11-02-09-999"),
+                    candidates.stream().map(found -> found.lessonId().value()).toList(),
+                    "the four-digit sequence is the newer one");
         }
 
         @Test

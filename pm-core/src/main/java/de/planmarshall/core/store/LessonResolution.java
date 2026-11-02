@@ -165,20 +165,25 @@ public sealed interface LessonResolution {
 
     /**
      * The front matter decodes, but the body carries no non-whitespace character. It is a content state, never a
-     * verdict: a lesson in it is found and addressable.
+     * verdict: a lesson in it is found and addressable. The integrity travels on it as on {@link Found}, so a blank body
+     * that differs from its sidecar entry is still reported as unverified.
      *
      * @param lessonId the id the lesson is listed under
      * @param lesson   the lesson
      * @param path     the file the lesson was read from
+     * @param integrity what the read can say about the content
      * @since 0.1
      */
-    record EmptyShell(LessonId lessonId, Lesson lesson, Path path) implements LessonResolution {
+    @Builder
+    record EmptyShell(LessonId lessonId, Lesson lesson, Path path, StoreIntegrity integrity)
+            implements LessonResolution {
 
         /** @throws NullPointerException if a component is {@code null} */
         public EmptyShell {
             Objects.requireNonNull(lessonId, LESSON_ID);
             Objects.requireNonNull(lesson, LESSON);
             Objects.requireNonNull(path, "path");
+            Objects.requireNonNull(integrity, "integrity");
         }
 
         @Override
