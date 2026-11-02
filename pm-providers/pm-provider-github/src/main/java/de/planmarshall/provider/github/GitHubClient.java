@@ -21,15 +21,16 @@ import java.util.Objects;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.provider.ci.Issue;
 import de.planmarshall.provider.http.HttpClient;
 import de.planmarshall.provider.http.Json;
 import de.planmarshall.provider.http.Response;
 import de.planmarshall.provider.http.Result;
 
 /**
- * The native GitHub operations of the review and merge path: review threads (list, resolve) and the
- * merge-queue enqueue through fixed GraphQL documents shipped as resources, and comment posting
- * through REST. Every body travels in memory as a request payload.
+ * The native GitHub operations: the identity and issue reads of the CI contract, and the review and merge path
+ * (review threads, resolve, merge-queue enqueue) through fixed GraphQL documents shipped as resources, and comment
+ * posting through REST. Every body travels in memory as a request payload.
  *
  * @since 0.1
  */
@@ -47,6 +48,24 @@ public final class GitHubClient {
 
     private final HttpClient http;
     private final String graphqlPath;
+
+    /**
+     * The App's own identity, from {@code GET /app}.
+     *
+     * @param slug the App's slug, the name its bot user login is built from
+     * @param id   the App's id
+     */
+    public record AppIdentity(String slug, String id) {
+    }
+
+    /**
+     * One issue read: its fields and whether the number names a pull request.
+     *
+     * @param issue       the issue's fields
+     * @param pullRequest whether the number names a pull request (GitHub answers one through the issue endpoint)
+     */
+    public record IssuePayload(Issue issue, boolean pullRequest) {
+    }
 
     /**
      * A review comment.
@@ -188,6 +207,59 @@ public final class GitHubClient {
         }
         return Json.string(Json.parseOrNull(response.body()).orElse(null), "id").map(Result::ok)
                 .orElseGet(() -> Result.of(Result.Outcome.FAILED, "comment response without id"));
+    }
+
+    /**
+     * Reads the App's own identity; the client must be authenticated with the App JWT.
+     *
+     * @return the App's slug and id; {@code AUTH_FAILED} for a refused App JWT
+     */
+    public Result<AppIdentity> app() {
+        Response response = http.get("app");
+        if (!response.isOk()) {
+            return Result.failed(response);
+        }
+        Object json = Json.parseOrNull(response.body()).orElse(null);
+        Optional<String> slug = Json.string(json, "slug");
+        Optional<String> id = Json.string(json, "id");
+        if (slug.isEmpty() || id.isEmpty()) {
+            return Result.of(Result.Outcome.FAILED, "the app response carries no slug or id");
+        }
+        return Result.ok(new AppIdentity(slug.get(), id.get()));
+    }
+
+    /**
+     * Reads one issue by its number. The token needs the permission set of {@link GitHubOperation#ISSUE_READ}; a
+     * public issue of another repository is read without a credential.
+     *
+     * @param owner  the repository owner
+     * @param name   the repository name
+     * @param number the issue number; a pull request number is answered too, and flagged
+     * @return the issue's fields and whether it is a pull request
+     */
+    public Result<IssuePayload> issue(String owner, String name, int number) {
+        Response response = http.get("repos/" + owner + "/" + name + "/issues/" + number);
+        if (!response.isOk()) {
+            return Result.failed(response);
+        }
+        Object json = Json.parseOrNull(response.body()).orElse(null);
+        if (json == null) {
+            return Result.of(Result.Outcome.FAILED, "the issue response is not JSON");
+        }
+        Optional<String> title = Json.string(json, "title").filter(t -> !t.isBlank());
+        Optional<String> state = Json.string(json, "state").filter(s -> !s.isBlank());
+        Optional<String> url = Json.string(json, "html_url").filter(u -> !u.isBlank());
+        if (title.isEmpty() || state.isEmpty() || url.isEmpty()) {
+            return Result.of(Result.Outcome.FAILED, "the issue response carries no title, state or URL");
+        }
+        var labels = Json.list(json, "labels").stream().map(label -> Json.string(label, "name"))
+                .flatMap(Optional::stream).toList();
+        var assignees = Json.list(json, "assignees").stream().map(assignee -> Json.string(assignee, "login"))
+                .flatMap(Optional::stream).toList();
+        var issue = Issue.builder().title(title.get()).body(Json.string(json, "body").orElse(""))
+                .labels(labels).milestone(Json.string(json, "milestone", "title").orElse(null))
+                .assignees(assignees).state(state.get()).url(url.get()).build();
+        return Result.ok(new IssuePayload(issue, Json.at(json, "pull_request").isPresent()));
     }
 
     private Result<Object> graphql(String query, Map<String, Object> variables) {

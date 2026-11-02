@@ -30,6 +30,7 @@ The repository:
 ** link:011-ignore-s4449-for-jspecify-null-safety.adoc[011 Ignore java:S4449 for the JSpecify Null Contract]: the Sonar rule that asks for `javax.annotation.Nullable` is ignored for Java sources, because the repository's nullable marker is JSpecify's.
 ** link:012-generator-artifacts.adoc[012 Generator Artifacts per Module]: each module that provides reusable generators publishes them as a `tests`-classified test JAR, with the consumption matrix and the rule that a generator for another module's type comes from that module's artifact.
 ** link:013-the-null-contract-of-the-null-marked-packages.adoc[013 The Null Contract of the `@NullMarked` Packages]: the three classes a null-contract site belongs to, the evidence each needs, the rule that absence a method returns is `Optional`, and the rejection of the ignore and of waiting for the conformance family.
+** link:014-the-ci-contract-is-the-module-pm-provider-ci.adoc[014 The CI Contract Is the Module `pm-provider-ci`]: the operator's choice of the module over a `pm-core` port, the three dependency rules (the `provider` include, `provider-contract`, and the new `provider-analysis` for Sonar), and what they mean for a consumer in `pm-runtime` or `pm-workflow`.
 
 `pm-core`:
 
@@ -41,6 +42,10 @@ The repository:
 * link:../../pm-core/doc/adr/core-service/[`pm-core/doc/adr/core-service/`]: the service interfaces.
 * link:../../pm-core/doc/adr/core-spi/[`pm-core/doc/adr/core-spi/`]: the primitive SPI and the content validators.
 * link:../../pm-core/doc/adr/core-store/[`pm-core/doc/adr/core-store/`]: the state stores and the engine ports.
+
+`pm-provider-ci`:
+
+* link:../../pm-providers/pm-provider-ci/doc/adr/provider-ci/[`pm-providers/pm-provider-ci/doc/adr/provider-ci/`]: the closed result of the shared HTTP base, the cut of the contract, the App identity with both identities, the pull-request refusal and the decision against a shared contract test JAR.
 
 `pm-provider-git`:
 

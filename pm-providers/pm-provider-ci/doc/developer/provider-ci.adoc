@@ -1,0 +1,172 @@
+= The CI Provider Contract (`provider.ci`) Developer Guide
+:docs: ../../../../../plan-marshall-documentation/doc
+:toc:
+:toclevels: 3
+:nofooter:
+
+:spec: ../../../../doc/specification
+:src: ../../src/main/java/de/planmarshall/provider/ci
+:test: ../../src/test/java/de/planmarshall/provider/ci
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1], link:{docs}/Requirements.adoc#PM-CRED-1[PM-CRED-1], link:{docs}/Requirements.adoc#PM-CRED-5[PM-CRED-5]_
+
+Package `de.planmarshall.provider.ci` is the CI contract of the engine: the operations a forge adapter answers for the
+CI provider of a project, the value types of their answers, the URL grammar that resolves a source's URL to its forge,
+repository and number, and the explicit registry of the runtime's providers. The contract names no transport and no
+forge: the request belongs to the adapter (`pm-provider-github`, `pm-provider-gitlab`, and later
+`pm-provider-forgejo`), and the module depends on the shared HTTP base for its closed `Result` and on `pm-core` for the
+provider id pattern.
+
+The operator decided on 2026-10-29 that the contract is this module and not a port in `pm-core`
+(link:../../../../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[repository ADR 014]).
+
+== Main Types
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]_
+
+[cols="1,3",options="header"]
+|===
+|Type |What it does
+
+|link:{src}/CiProvider.java[`CiProvider`]
+|The contract: `id()`, `whoami(RepositoryRef)`, `issueView(IssueRef)` and `issueComment(IssueRef, String)`, each operation
+returning the closed `Result` of the shared HTTP base.
+
+|link:{src}/CiProviders.java[`CiProviders`]
+|The explicit registry of a runtime: the members are the ones passed to the constructor, nothing is discovered on the
+classpath, an unknown id is empty, and `select(ForgeUrl)` finds the provider of a resolved URL's forge.
+
+|link:{src}/ForgeUrl.java[`ForgeUrl`]
+|The URL grammar of each forge, resolved against a host-to-forge table (the built-in one names `github.com`,
+`gitlab.com` and `codeberg.org`). A resolution is `RESOLVED`, `UNKNOWN_FORGE` or `INVALID`, always a value.
+
+|link:{src}/Identity.java[`Identity`]
+|The identity of the credential: login, user id, `TokenKind`, the operator login beside a GitHub App's bot identity, the
+repository permissions, the scopes and the expiry.
+
+|link:{src}/TokenKind.java[`TokenKind`]
+|The closed kind of the credential: the `token_kind` values of the machine credential store plus the GitHub App.
+
+|link:{src}/Issue.java[`Issue`]
+|One issue read: title and body as text; labels, milestone, assignees, state and URL as structured fields.
+
+|link:{src}/IssueRef.java[`IssueRef`], link:{src}/RepositoryRef.java[`RepositoryRef`]
+|The address of an issue and of a repository: forge id, web origin, owner or group path, name and number.
+
+|link:{src}/IssueComment.java[`IssueComment`]
+|The posted comment: its provider id and its web URL.
+|===
+
+`RepositoryRef` and `ForgeUrl` are the origin-pinning seam: a provider is bound to one web origin, and an `IssueRef`
+on another origin is `REJECTED` before anything is sent. `whoami` takes a `@Nullable RepositoryRef` rather than an
+`Optional`: the standing rule for the repository's null contract (R20) forbids `Optional` in a parameter, so the spec's
+`Optional<RepositoryRef>` is realised as the nullable parameter.
+
+== How the Adapters Implement the Contract
+
+`GitHubCiProvider` (`pm-provider-github`) and `GitLabCiProvider` (`pm-provider-gitlab`) implement `CiProvider` on their
+native variant, over their REST client and the shared HTTP base. Both read the identity the provider reports, never guess
+one: GitHub tells a personal access token's kind from its prefix and its expiry from the
+`github-authentication-token-expiration` response header; GitLab tells a project or group access token from the bot user
+`GET /user` reports and an OAuth token from the `400` of `personal_access_tokens/self`. A GitHub App answers two
+identities in one `Identity`: its bot login and the operator whose user access token authors the writes.
+
+The CLI variants are not part of this contract. A `gh` or `glab` job keeps its own argument vectors
+(`GlabCommands`), and no CLI-lane token ever enters a `CiProvider`.
+
+The contract deliberately holds only the operations that have a stated field-level shape and a staged consumer.
+Everything else the Module Structure Specification gives the module is *Remaining*: the pull-request read
+(`ci.pr-view`, PLAN-V2-62), the review and merge operations, the four cross-repository reads with the grant check, the
+CLI variant of every operation, the Forgejo adapter, and the `Primitive` wrappers with the credential and origin
+resolution of the assembly.
+
+== Mapping a Result to the State Catalogue
+_Requirements: link:{spec}/state-catalogue/09-bootstrap-and-lessons.adoc#issues[State Catalogue § Issues by Number or URL]_
+
+A consumer maps the closed outcomes to the failure causes of `source-issue.fetch` and `providers.verify`:
+
+[cols="1,2",options="header"]
+|===
+|Contract value |Catalogue outcome
+
+|`Result.Outcome.OK` |`fetched`
+|`Result.Outcome.NOT_FOUND` |`not_found`
+|`Result.Outcome.AUTH_FAILED` without a credential in the credential store |`no_credential`
+|`Result.Outcome.AUTH_FAILED` with a credential stored |`not_readable`
+|`Result.Outcome.PERMISSION_DENIED` |`not_readable`
+|`Result.Outcome.RATE_LIMITED` |`rate_limited`, with `resets_at` from `Result.resetAt()`
+|`Result.Outcome.REJECTED` "is a pull request" |the consumer's own pull-request branch (the follow-up plan)
+|`Result.Outcome.REJECTED` otherwise |`not_readable` (the provider refused the operation itself)
+|`Result.Outcome.FAILED` |`provider_unavailable`
+|`ForgeUrl.Resolution.Outcome.UNKNOWN_FORGE` |`unknown_forge`
+|`ForgeUrl.Resolution.Outcome.INVALID` |the consumer refuses the source reference before it fetches
+|===
+
+`rate_limited` is not retried by the consumer on its own: it waits for `resets_at`.
+
+== Invariants and Failure Modes
+
+* *One origin per provider.* An `IssueRef` whose repository names another origin (or another forge) is `REJECTED` and no
+  request is sent, and a `RepositoryRef` given to `whoami` is checked the same way. The provider normalises the origin it
+  is constructed with.
+* *Absence is a value, never an exception.* A URL on an unknown host is `UNKNOWN_FORGE`; a malformed or hostile URL is
+  `INVALID`; a malformed provider body is `FAILED`. The URL grammar refuses user information, a `..` segment, a
+  cleartext URL and an over-long path.
+* *The registry is explicit and immutable.* A duplicate id, or an id outside the provider id pattern, is refused when the
+  registry is constructed; an unknown id is empty, never a default provider.
+* *A pull request is no issue.* GitHub answers a pull request through the issue endpoint; the adapter flags it and the
+  operation answers `REJECTED` "is a pull request".
+* *Text is returned unvalidated.* Title, body and comment text are remote text; the level-1 validator cleans them before a
+  model sees them (PM-SEC-1). The contract says so and does not validate.
+* *No credential in a detail.* The outcome's detail carries the provider's reason or the failing step, never a token.
+
+== Adding an Operation or a Forge
+
+. Add the value type and the method to `CiProvider`, with its Javadoc naming the outcome of each failure.
+. Implement it in every adapter that supports the operation; an adapter that does not support one answers
+   `Result.of(Result.Outcome.REJECTED, reason)` rather than throwing.
+. Add the operation to the adapter's client with a recorded-shape test on the mock web server.
+. Add the grammar to `ForgeUrl` where the operation brings a new URL shape, and its cases to `ForgeUrlTest`.
+. For a new forge, add its host to `ForgeUrl.BUILT_IN_HOSTS` only if the host is a well-known public forge; every other
+   host belongs to the caller's table. Register the provider in `CiProviders` at the assembly.
+
+== Testing
+
+[horizontal]
+link:{test}/ForgeUrlTest.java[`ForgeUrlTest`]:: the grammar of every forge, a trailing slash, a query and a fragment, an
+unknown host, a pull-request URL, a hostile URL (user information, a parent segment, an over-long path) and the value
+invariants.
+link:{test}/CiProvidersTest.java[`CiProvidersTest`]:: the lookup by id, the registration order, the selection by a
+resolved URL, and the refusal of a duplicate or malformed id.
+link:{test}/ValueTypesTest.java[`ValueTypesTest`]:: the invariants and the defensive copies of the value types.
+
+The module has no shared abstract contract test and publishes no test JAR
+(link:../adr/provider-ci/005-no-shared-contract-test.adoc[module ADR 005]); each adapter tests the contract against its
+own mock web server.
+
+== Pitfalls
+
+* *Do not add a forge name to this module.* The value types carry a forge id, and the grammar is selected by the
+  host-to-forge table; the contract names no forge beyond the ids.
+* *Do not read a missing optional as a failure.* An identity without an expiry is complete; `expiresAt` is `null` when
+  the provider reports none.
+* *Do not guess a credential kind.* A token whose kind the provider cannot establish is `FAILED`, not the nearest kind.
+* *Do not depend on this module from `pm-runtime` or `pm-workflow`.* Their rule allows `pm-core` and `pm-api` alone (and
+  `pm-workflow` `pm-core` alone); a consumer there declares its own port in `pm-core` or calls the primitive by name.
+
+== Specification Tracing
+
+* Specification: link:{docs}/specification/module-structure.adoc#module-pm-provider-ci[Module Structure §
+  `pm-provider-ci` and § Provider registries],
+  link:{spec}/credentials-and-enrolment/01-provider-credentials.adoc[Credentials &
+  Enrolment § Two-Lane Provider Architecture], link:{spec}/credentials-and-enrolment/01-provider-credentials.adoc#agent-credentials[§
+  Agent Credentials of the Native Variant],
+  link:{spec}/credentials-and-enrolment/01-provider-credentials.adoc#cross-repository-reads[§ Cross-Repository Reads &
+  Issues], link:{spec}/store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas § Derived Facts
+  (`agent_identity`, `ci_provider`)] and link:{spec}/store-schemas/12-machine-stores.adoc#credential-store[Store Schemas §
+  Credential File (`token_kind`)], link:{spec}/state-catalogue/09-bootstrap-and-lessons.adoc#issues[State Catalogue § Issues
+  by Number or URL], link:{spec}/job-runtime.adoc[Job Runtime § Outcome Derivation]
+* The shared base: link:../../../pm-provider-http/doc/developer/provider-http.adoc[`provider.http`]
+* The adapters: link:../../../pm-provider-github/doc/developer/provider-github.adoc[`provider.github`],
+  link:../../../pm-provider-gitlab/doc/developer/provider-gitlab.adoc[`provider.gitlab`]
+* Decisions: link:../adr/provider-ci/[the module's ADRs], link:../../../../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[repository ADR 014]

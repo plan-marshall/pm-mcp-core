@@ -970,12 +970,24 @@ link:../pm-runtime/doc/developer/runtime-start.adoc#_job_drain_participant[§ Th
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-5[PM-EXEC-5]
 
-Implementation (in part: the cache repository operations of the git contract that the corpus sources use, served natively in process on JGit with typed inputs and closed outcomes; the operations on a project repository, the CLI variants, the provider operations and the integration variants are not traced here): link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/GitOperations.java[GitOperations],
+Implementation (in part: the cache repository operations of the git contract that the corpus sources use, served natively in process on JGit with typed inputs and closed outcomes; the CLI variants and the integration variants are not traced here, and the provider operations are traced by the paragraph below): link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/GitOperations.java[GitOperations],
 link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/JGitOperations.java[JGitOperations]
 
-Verified by: link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/JGitCacheRepositoryTest.java[JGitCacheRepositoryTest] (every outcome of the three operations against a fixture repository on disk, except `capability_missing` of the commit fetch, which no `file://` fixture reaches since its in-process transport runs no hook and no process)
+Implementation (the CI contract's provider operations on the native variant: `ci.whoami`, `ci.issue-view` and
+`ci.issue-comment`, each returning the closed outcome; the CLI variant, the four cross-repository reads, the grant check
+and the pull-request read are not implemented yet): module link:../pm-providers/pm-provider-ci/pom.xml[pm-provider-ci] with
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProvider.java[CiProvider],
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProviders.java[CiProviders],
+link:../pm-providers/pm-provider-github/src/main/java/de/planmarshall/provider/github/GitHubCiProvider.java[GitHubCiProvider],
+link:../pm-providers/pm-provider-gitlab/src/main/java/de/planmarshall/provider/gitlab/GitLabCiProvider.java[GitLabCiProvider]
 
-Documentation: link:../pm-providers/pm-provider-git/doc/developer/provider-git.adoc[Cache Repository Operations Developer Guide]
+Verified by: link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/JGitCacheRepositoryTest.java[JGitCacheRepositoryTest] (every outcome of the three operations against a fixture repository on disk, except `capability_missing` of the commit fetch, which no `file://` fixture reaches since its in-process transport runs no hook and no process),
+link:../pm-providers/pm-provider-github/src/test/java/de/planmarshall/provider/github/GitHubCiProviderTest.java[GitHubCiProviderTest],
+link:../pm-providers/pm-provider-gitlab/src/test/java/de/planmarshall/provider/gitlab/GitLabCiProviderTest.java[GitLabCiProviderTest]
+
+Documentation: link:../pm-providers/pm-provider-git/doc/developer/provider-git.adoc[Cache Repository Operations Developer Guide],
+link:../pm-providers/pm-provider-ci/doc/developer/provider-ci.adoc[CI Provider Contract Developer Guide],
+link:../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[ADR 014]
 
 == link:../../plan-marshall-documentation/doc/requirements/07-credentials.adoc[Credentials]
 
@@ -1072,10 +1084,17 @@ write boundary, and the activity is served as plain entries that no model reads 
 link:../pm-core/src/main/java/de/planmarshall/core/queue/ActivityJournal.java[ActivityJournal],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/web/ActivityService.java[ActivityService]
 
-Verified by: link:../pm-core/src/test/java/de/planmarshall/core/queue/SecretRedactorTest.java[SecretRedactorTest] (a credential-shaped assignment, a bearer value and a provider token masked; prose, a path and a commit id kept)
+Implementation (the CI contract's share: the title, body and comment text a provider returns travel unvalidated and are
+cleaned by the consumer's level-1 validator before a model sees them; the contract says so and validates nothing):
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/Issue.java[Issue],
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProvider.java[CiProvider]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/queue/SecretRedactorTest.java[SecretRedactorTest] (a credential-shaped assignment, a bearer value and a provider token masked; prose, a path and a commit id kept),
+link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/ValueTypesTest.java[ValueTypesTest] (the title and a non-empty body are carried unchanged)
 
 Documentation: link:../pm-core/doc/developer/core-queue.adoc[Task Queue Developer Guide] (§ Invariants and failure modes),
-link:../pm-core/doc/adr/core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR core-queue/008]
+link:../pm-core/doc/adr/core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR core-queue/008],
+link:../pm-providers/pm-provider-ci/doc/developer/provider-ci.adoc[CI Provider Contract Developer Guide] (§ Invariants and Failure Modes)
 
 [#PM-SEC-2]
 === PM-SEC-2: Workspace Confinement & Path Traversal Prevention
@@ -1270,10 +1289,11 @@ link:../pm-core/doc/adr/core-config/003-the-consent-record-is-handed-over-before
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-TECH-2[PM-TECH-2]
 
-Implementation (the outbound HTTPS client of the provider adapters over `cui-http`: the origin-pinned client with pagination, conditional requests and rate-limit outcomes, its endpoint, the closed outcomes of one request and of an operation, its token seam and the JSON tree of a provider body; the LSP client and the McpAssured test libraries are traced with the other requirements, not here): module link:../pm-providers/pm-provider-http/pom.xml[pm-provider-http] with
+Implementation (the outbound HTTPS client of the provider adapters over `cui-http`: the origin-pinned client with pagination, conditional requests and rate-limit outcomes, its endpoint, the closed outcomes of one request and of an operation, its token seam, the JSON tree of a provider body, and the response-with-headers read the CI identity needs; the LSP client and the McpAssured test libraries are traced with the other requirements, not here): module link:../pm-providers/pm-provider-http/pom.xml[pm-provider-http] with
 link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/HttpClient.java[HttpClient],
 link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/Endpoint.java[Endpoint],
 link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/Response.java[Response],
+link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/ResponseWithHeaders.java[ResponseWithHeaders],
 link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/Result.java[Result],
 link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/PagedResult.java[PagedResult],
 link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/TokenSource.java[TokenSource],
@@ -1282,6 +1302,7 @@ link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/htt
 Verified by: link:../pm-providers/pm-provider-http/src/test/java/de/planmarshall/provider/http/HttpClientTest.java[HttpClientTest],
 link:../pm-providers/pm-provider-http/src/test/java/de/planmarshall/provider/http/EndpointTest.java[EndpointTest],
 link:../pm-providers/pm-provider-http/src/test/java/de/planmarshall/provider/http/JsonTest.java[JsonTest],
+link:../pm-providers/pm-provider-github/src/test/java/de/planmarshall/provider/github/GitHubCiProviderTest.java[GitHubCiProviderTest] (the scopes and expiry read from the response headers),
 link:../pm-core/src/test/java/de/planmarshall/core/BuildGuardsIT.java[BuildGuardsIT]
 
 Documentation: link:../pm-providers/pm-provider-http/doc/developer/provider-http.adoc[Developer Guide § The Shared HTTP Base (`provider.http`)], link:../pm-providers/pm-provider-http/doc/adr/provider-http/001-neutral-class-names.adoc[ADR provider-http/001], link:../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-provider-http[Module Structure § `pm-provider-http`]
@@ -1598,6 +1619,18 @@ link:../pm-core/src/main/java/de/planmarshall/core/analysis/AnalysisCallResult.j
 link:../pm-core/src/main/java/de/planmarshall/core/analysis/AnalysisOutcome.java[AnalysisOutcome],
 link:../pm-core/src/main/java/de/planmarshall/core/analysis/Completeness.java[Completeness],
 link:../pm-core/src/main/java/de/planmarshall/core/analysis/CodeAnalysisProviderRegistry.java[CodeAnalysisProviderRegistry]
+
+Implementation (the CI provider contract of `pm-provider-ci` with its explicit registry and the guards that keep the contract modules, the provider adapters and the analysis adapter apart; the adapters and the assembly wiring are traced with PM-EXEC-5 and with the assembly): module link:../pm-providers/pm-provider-ci/pom.xml[pm-provider-ci] with
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProvider.java[CiProvider],
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProviders.java[CiProviders],
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/ForgeUrl.java[ForgeUrl]
+
+Verified by (the CI contract's registry and URL grammar, and the three dependency rules):
+link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/CiProvidersTest.java[CiProvidersTest],
+link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/ForgeUrlTest.java[ForgeUrlTest],
+link:../pm-core/src/test/java/de/planmarshall/core/BuildGuardsIT.java[BuildGuardsIT]
+
+Documentation (the CI contract): link:../pm-providers/pm-provider-ci/doc/developer/provider-ci.adoc[CI Provider Contract Developer Guide], link:../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[ADR 014]
 
 Verified by (the findings and code-analysis contracts): link:../pm-core/src/test/java/de/planmarshall/core/findings/FindingTest.java[FindingTest],
 link:../pm-core/src/test/java/de/planmarshall/core/findings/FindingScopeTest.java[FindingScopeTest],
