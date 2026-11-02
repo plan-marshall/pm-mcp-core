@@ -82,7 +82,7 @@ class CorpusJson {
     /**
      * @param parser the parser, positioned on the value of the field
      * @param field  the name of the field
-     * @return the date; {@code null} for a JSON {@code null}
+     * @return the date; empty for a JSON {@code null}
      * @throws IOException if the document does not parse as JSON
      */
     static Optional<LocalDate> nullableDate(JsonParser parser, String field) throws IOException {
@@ -92,7 +92,7 @@ class CorpusJson {
     /**
      * @param parser the parser, positioned on the value of the field
      * @param field  the name of the field
-     * @return the strings of the array; {@code null} for a JSON {@code null}
+     * @return the strings of the array; empty for a JSON {@code null}
      * @throws IOException if the document does not parse as JSON
      */
     static Optional<List<String>> nullableStringList(JsonParser parser, String field) throws IOException {
@@ -117,7 +117,7 @@ class CorpusJson {
     /**
      * @param parser the parser, positioned on the value of the field
      * @param field  the name of the field
-     * @return the number; {@code null} for a JSON {@code null}
+     * @return the number; empty for a JSON {@code null}
      * @throws IOException if the document does not parse as JSON
      */
     static Optional<BigDecimal> nullableNumber(JsonParser parser, String field) throws IOException {

@@ -73,7 +73,7 @@ class JsonTest {
     @Test
     @DisplayName("returns no tree for the JSON null literal")
     void parsesNullLiteralAsEmpty() {
-        assertEquals(Optional.empty(), Json.parse("null"));
+        assertEquals(Optional.empty(), Json.parse("null"), "The JSON null literal yields no tree");
     }
 
     @Test

@@ -447,8 +447,8 @@ Instant at) {
     }
 
     private static void requireAsked(String questionId, QuestionClass questionClass, Origin origin,
-            String sourceEntity, String askingRole, String questionSet, String planTaskId, Integer revision,
-            Decision decision) {
+            String sourceEntity, String askingRole, String questionSet, @Nullable String planTaskId,
+            Integer revision, Decision decision) {
         Objects.requireNonNull(questionClass, "class");
         Objects.requireNonNull(origin, "origin");
         requireLength(Objects.requireNonNull(sourceEntity, SOURCE_ENTITY), SOURCE_ENTITY, 1, Integer.MAX_VALUE);

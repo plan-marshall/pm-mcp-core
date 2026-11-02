@@ -111,7 +111,7 @@ public class QualificationSettingsCodec {
         } catch (StrictJson.Malformed e) {
             throw StoreRefusal.unreadable(file, 1, String.valueOf(e.getMessage()), e);
         }
-        return reader.rewritten;
+        return Objects.requireNonNull(reader.rewritten, "rewritten");
     }
 
     /**
@@ -123,7 +123,7 @@ public class QualificationSettingsCodec {
         private final Path file;
         private QualificationSettings settings = QualificationSettings.defaults();
         private long revision;
-        private byte[] rewritten;
+        private byte @Nullable [] rewritten;
 
         DocumentReader(Path file) {
             this.file = file;

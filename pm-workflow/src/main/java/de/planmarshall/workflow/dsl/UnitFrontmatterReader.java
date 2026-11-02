@@ -473,7 +473,7 @@ public final class UnitFrontmatterReader {
         }
 
         /**
-         * @return what the character cannot be used for in a frontmatter shown to the operator, or {@code null} when it
+         * @return what the character cannot be used for in a frontmatter shown to the operator, or empty when it
          *         is admitted: an ISO control character, a format character (Cf, such as a bidi override or a
          *         zero-width space), a line separator (Zl) or a paragraph separator (Zp)
          */

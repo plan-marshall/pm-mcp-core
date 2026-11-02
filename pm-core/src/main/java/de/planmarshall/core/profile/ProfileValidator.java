@@ -533,7 +533,7 @@ public final class ProfileValidator {
 
         /**
          * @param node the value of a member the schema types {@code [string, null]}
-         * @return the string, or {@code null} for the JSON null
+         * @return the string, or empty for the JSON null
          */
         private Optional<String> optionalText(@Nullable JsonNode node, String pointer, String name, int max) {
             return node == null || node.isNull() ? Optional.empty()
@@ -754,7 +754,8 @@ public final class ProfileValidator {
             }
         }
 
-        private void modelsListingProbe(JsonNode identityPointer, JsonNode argv, JsonNode pattern, String pointer) {
+        private void modelsListingProbe(@Nullable JsonNode identityPointer, @Nullable JsonNode argv,
+                @Nullable JsonNode pattern, String pointer) {
             if (identityPointer == null || identityPointer.isNull()) {
                 throw invalid(pointer + PTR_POINTER, "a models-listing weights probe names its pointer");
             }
@@ -770,7 +771,8 @@ public final class ProfileValidator {
             }
         }
 
-        private void argvProbe(JsonNode identityPointer, JsonNode argv, JsonNode pattern, String pointer) {
+        private void argvProbe(@Nullable JsonNode identityPointer, @Nullable JsonNode argv,
+                @Nullable JsonNode pattern, String pointer) {
             if (identityPointer != null && !identityPointer.isNull()) {
                 throw invalid(pointer + PTR_POINTER, "an argv weights probe has a null pointer");
             }
@@ -1231,7 +1233,7 @@ public final class ProfileValidator {
                     .anyMatch(ENFORCED::equals);
         }
 
-        private boolean covered(String model, JsonNode restricted) {
+        private boolean covered(String model, @Nullable JsonNode restricted) {
             if (restricted == null || restricted.isNull()) {
                 return false;
             }
