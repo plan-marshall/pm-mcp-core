@@ -2,10 +2,10 @@
   "id": "PLAN-V2-111",
   "slug": "derived-facts-guard-coverage",
   "workstream": "WS-05",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-111-derived-facts-guard-coverage",
+  "pr": "283",
+  "landing": "landings/PLAN-V2-111.md",
   "seq": 99
 }
