@@ -12,8 +12,10 @@ package de.planmarshall.core.store;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -50,6 +52,8 @@ class DerivedFactRefreshTest {
     private static final String DIGEST_B = "b".repeat(64);
     private static final String SCHEMA = "{\"type\":\"object\",\"required\":[\"name\"],"
             + "\"additionalProperties\":false,\"properties\":{\"name\":{\"type\":\"string\"}}}";
+    /** An enum schema whose violations echo the offending value. */
+    private static final String ENUM_SCHEMA = "{\"type\":\"string\",\"enum\":[\"alpha\",\"beta\"]}";
     private static final DerivedFactKey LOCAL_KEY = new DerivedFactKey(DerivedFactKind.MODULE_DISCOVERY, null);
     private static final DerivedFactKey NETWORK_KEY = new DerivedFactKey(DerivedFactKind.MERGE_METHODS_ALLOWED, null);
     private static final JsonValue VALUE = JsonValue.parse(
@@ -70,6 +74,8 @@ class DerivedFactRefreshTest {
         var kinds = new DerivedFactKinds();
         kinds.register(DerivedFactKind.MODULE_DISCOVERY, spec(DerivedFact.DerivationClass.LOCAL));
         kinds.register(DerivedFactKind.MERGE_METHODS_ALLOWED, spec(DerivedFact.DerivationClass.NETWORK));
+        kinds.register(DerivedFactKind.AGENT_IDENTITY, enumSpec());
+        kinds.register(DerivedFactKind.PUSH_REMOTE, enumSpec());
         store = new DerivedFactStore(new AtomicStoreFile(file, LockKey.derivedFacts(base, PROJECT)),
                 new RecordingLockManager(), kinds);
     }
@@ -78,6 +84,15 @@ class DerivedFactRefreshTest {
         return DerivedFactKindSpec.builder()
                 .schema(JsonValue.parse(SCHEMA.getBytes(UTF_8)))
                 .classes(Set.of(derivationClass))
+                .qualifierAllowed(false)
+                .inputs("the fixture inputs of the kind")
+                .build();
+    }
+
+    private static DerivedFactKindSpec enumSpec() {
+        return DerivedFactKindSpec.builder()
+                .schema(JsonValue.parse(ENUM_SCHEMA.getBytes(UTF_8)))
+                .classes(Set.of(DerivedFact.DerivationClass.LOCAL))
                 .qualifierAllowed(false)
                 .inputs("the fixture inputs of the kind")
                 .build();
@@ -300,6 +315,43 @@ class DerivedFactRefreshTest {
 
             assertInstanceOf(DerivedFactReading.Indeterminate.class, reading,
                     "A refused source class is indeterminate");
+        }
+
+        @Test
+        @DisplayName("an operator-only value is not repeated in the reason or the guard input")
+        void operatorOnlyValueIsNotInTheReason() {
+            var secret = "operator-secret-" + Generators.letterStrings(1, 20).next();
+            var key = new DerivedFactKey(DerivedFactKind.AGENT_IDENTITY, null);
+            var value = JsonValue.parse(("\"" + secret + "\"").getBytes(UTF_8));
+
+            var reading = store.refresh(key, DIGEST_A,
+                    () -> new Derived(value, "fixture", DerivedFact.DerivationClass.LOCAL), NOW);
+
+            var reason = reading.couldNotEvaluate().orElseThrow();
+            assertAll(
+                    () -> assertInstanceOf(DerivedFactReading.Indeterminate.class, reading,
+                            "The invalid value is indeterminate"),
+                    () -> assertFalse(reason.contains(secret),
+                            "The operator-only value is not in the reason"),
+                    () -> assertFalse(reason.contains(value.toJson()),
+                            "The value text is not in the reason"));
+        }
+
+        @Test
+        @DisplayName("a non-operator kind still names the violating value in its reason")
+        void nonOperatorValueStaysInTheReason() {
+            var invalid = "not-a-remote-" + Generators.letterStrings(1, 20).next();
+            var key = new DerivedFactKey(DerivedFactKind.PUSH_REMOTE, null);
+            var value = JsonValue.parse(("\"" + invalid + "\"").getBytes(UTF_8));
+
+            var reading = store.refresh(key, DIGEST_A,
+                    () -> new Derived(value, "fixture", DerivedFact.DerivationClass.LOCAL), NOW);
+
+            assertAll(
+                    () -> assertInstanceOf(DerivedFactReading.Indeterminate.class, reading,
+                            "The invalid value is indeterminate"),
+                    () -> assertTrue(reading.couldNotEvaluate().orElseThrow().contains(invalid),
+                            "The reason still names the violating value"));
         }
 
         private static JsonValue invalidValue() {
