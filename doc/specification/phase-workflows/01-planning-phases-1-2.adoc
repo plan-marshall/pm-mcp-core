@@ -387,7 +387,7 @@ At `phase-2-refine` entry, the engine caches loop-invariant inputs (`request.md`
 * *Drift Routing*: Content overlap (`overlap_with_content_conflict`) is the only drift routed to refinement. A `main_sha` ancestry drift is informational before Phase 5 and is cleared only by a sync or rebase transition; a refine relaunch is never offered as its remedy, and no operator override exists.
 
 [#quality-dimensions]
-==== [[_five_quality_dimensions_fixed_weight_confidence_aggregation]]Six Quality Dimensions & Fixed-Weight Confidence Aggregation
+==== Six Quality Dimensions & Fixed-Weight Confidence Aggregation
 _Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-6[PM-WATCH-PHASE-6], link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-68[PM-WATCH-PHASE-68]_
 
 During `refine.analyze`, a `job llm` state of role `refine` (<<phase-roles>>), the refine task executes source-premise verification (checking cited files, flags, and APIs against the codebase) and proposed-fix verification (constructing a semantic probe to verify whether a proposed fix resolves the stated symptom), maps affected modules, estimates scope (`none`, `surgical`, `single_module`, `multi_module`, `broad`), authors a conventional-commit `pr_title` ($\le 72$ characters, distinct from the human plan `title`), and submits raw scores (`0..100`) for the six quality dimensions of the table below.
