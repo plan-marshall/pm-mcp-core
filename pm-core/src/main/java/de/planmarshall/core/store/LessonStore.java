@@ -117,8 +117,10 @@ public final class LessonStore {
 
     /**
      * Draws the next free lesson id of the current UTC hour: the hour plus the per-hour sequence that follows every
-     * sequence present on disk and every lesson the transaction already holds. An id is never reused, because a
-     * lesson file is never deleted.
+     * sequence present on disk, every sequence a sidecar entry records (an id is never reused, not even after a file was
+     * removed out of band) and every lesson the transaction already holds. A draw is free for the transaction that
+     * creates its lesson in the same step; two draws before the first create of the transaction return the same id,
+     * because neither is a target yet.
      *
      * @param transaction an open transaction of the lesson scope, which holds the lesson store lock
      * @param clock       the clock whose hour and instant the id and the lesson carry
@@ -157,6 +159,10 @@ public final class LessonStore {
         requireOwnScope(transaction);
         Objects.requireNonNull(lessonId, "lessonId");
         Objects.requireNonNull(newLesson, "newLesson");
+        if (recordedEntry(storePath(lessonId))) {
+            throw new IllegalArgumentException("The lesson %s was recorded already and is never created again"
+                    .formatted(lessonId));
+        }
         var now = Objects.requireNonNull(clock, "clock").instant();
         var sources = newLesson.sources();
         var bodySha256 = StoreSnapshot.sha256(newLesson.body().getBytes(StandardCharsets.UTF_8));
@@ -191,8 +197,11 @@ public final class LessonStore {
     // ---------------------------------------------------------------- reading
 
     /**
-     * Resolves a lesson without a lock. A file that differs from its sidecar entry is {@link LessonResolution.Found}
-     * with {@link StoreIntegrity#DIGEST_UNVERIFIED}, never an edit (PM-IMPL-7).
+     * Resolves a lesson without a lock. The content and its integrity come from one {@link StoreSnapshot}, so a file
+     * that differs from its sidecar entry is {@link LessonResolution.Found} with
+     * {@link StoreIntegrity#DIGEST_UNVERIFIED} and never an edit (PM-IMPL-7). A record of the sidecar whose file is
+     * gone is {@link LessonResolution.DeletedOutOfBand}: an observed absence, not a digest verdict, and never
+     * {@link LessonResolution.Absent}.
      *
      * @param lessonId the id the lesson is listed under
      * @return the resolution
@@ -203,20 +212,21 @@ public final class LessonStore {
         Objects.requireNonNull(lessonId, "lessonId");
         var relative = storePath(lessonId);
         var file = store(lessonId);
-        var content = StoreSnapshot.read(file).content();
-        if (content.isEmpty()) {
-            return DigestSidecar.load(scope.sidecarFile()).digest(relative).isPresent()
-                    ? new LessonResolution.DeletedOutOfBand(lessonId)
-                    : new LessonResolution.Absent(lessonId);
-        }
-        return decode(lessonId, file, content.get(), ScopeIntegrity.snapshot(scope, relative).integrity());
+        var snapshot = ScopeIntegrity.snapshot(scope, relative);
+        return snapshot.content()
+                .map(content -> decode(lessonId, file, content, snapshot.integrity()))
+                .orElseGet(() -> recordedEntry(relative)
+                        ? new LessonResolution.DeletedOutOfBand(lessonId)
+                        : new LessonResolution.Absent(lessonId));
     }
 
     /**
      * Resolves a lesson under the lock of the store: it recovers the journal of the scope and decides through
      * {@link ScopeIntegrity#verify}, so a file that differs from its entry is {@link LessonResolution.StoreTampered}
      * or, when it is gone, {@link LessonResolution.DeletedOutOfBand}, and a file without an entry is
-     * {@link LessonResolution.Untracked}. Every transition uses this flavour.
+     * {@link LessonResolution.Untracked}. The bytes it decodes are the bytes it hashed: a file replaced between the
+     * verification and the read is reported as {@link LessonResolution.StoreTampered} as well. Every transition uses
+     * this flavour.
      *
      * @param transaction an open transaction of the lesson scope, which holds the lesson store lock
      * @param lessonId    the id the lesson is listed under
@@ -233,7 +243,7 @@ public final class LessonStore {
         var verification = ScopeIntegrity.verify(transaction.lockTransaction(), scope, storePath(lessonId),
                 transaction.auditSink());
         return switch (verification) {
-            case ScopeIntegrity.Verified _ -> decode(lessonId, file, read(file), StoreIntegrity.VERIFIED);
+            case ScopeIntegrity.Verified verified -> verified(lessonId, file, verified);
             case ScopeIntegrity.Absent _ -> new LessonResolution.Absent(lessonId);
             case ScopeIntegrity.Mismatch mismatch -> mismatch.current().isPresent()
                     ? new LessonResolution.StoreTampered(lessonId, file, mismatch.recorded(), mismatch.current())
@@ -243,6 +253,17 @@ public final class LessonStore {
                     TransactionJournal.FORMAT_VERSION,
                     "the journal of the lesson store could not be rolled forward: " + violation.stores(), null);
         };
+    }
+
+    /** Decodes the bytes just read, and reports a file that no longer has the digest that was verified. */
+    private LessonResolution verified(LessonId lessonId, Path file, ScopeIntegrity.Verified verified) {
+        var content = read(file);
+        var current = StoreDigest.of(content);
+        if (!current.equals(verified.digest())) {
+            return new LessonResolution.StoreTampered(lessonId, file, verified.digest(),
+                    Optional.of(current));
+        }
+        return decode(lessonId, file, content, StoreIntegrity.VERIFIED);
     }
 
     /**
@@ -259,9 +280,10 @@ public final class LessonStore {
     }
 
     /**
-     * The unclaimed candidates of a lesson start: every lesson that resolves {@link LessonResolution.Found}, is
-     * {@code active} and carries no claim, newest id first. A lesson marked {@code derived_from_untrusted} is listed
-     * and carries the mark in its front matter, which its caller screens.
+     * The unclaimed candidates of a lesson start: every lesson that resolves {@link LessonResolution.Found} with a
+     * verified digest, is {@code active} and carries no claim, newest id first. A lesson whose digest is unverified or
+     * untracked is not a candidate: it is the state the specification forbids reaching a plan. A lesson marked
+     * {@code derived_from_untrusted} is listed and carries the mark in its front matter, which its caller screens.
      *
      * @return the candidates, newest id first
      * @see #list()
@@ -270,6 +292,7 @@ public final class LessonStore {
         var candidates = new ArrayList<LessonResolution.Found>();
         for (var resolution : list()) {
             if (resolution instanceof LessonResolution.Found found
+                    && found.integrity() == StoreIntegrity.VERIFIED
                     && found.lesson().frontMatter().status() == Status.ACTIVE
                     && found.lesson().frontMatter().claim() == null) {
                 candidates.add(found);
@@ -611,14 +634,22 @@ public final class LessonStore {
         return Collections.unmodifiableSortedSet(ids);
     }
 
+    /**
+     * @param relative a store path of the lesson scope
+     * @return whether the sidecar of the scope records an entry for it
+     */
+    private boolean recordedEntry(String relative) {
+        return DigestSidecar.load(scope.sidecarFile()).digest(relative).isPresent();
+    }
+
     private static Optional<LessonId> lessonIdOfStorePath(String storePath) {
         return storePath.indexOf('/') < 0 ? LessonId.fromFileName(storePath) : Optional.empty();
     }
 
-    /** The next sequence string of the hour: one past every sequence present on disk. */
+    /** The next sequence string of the hour: one past every sequence present on disk or recorded by a sidecar entry. */
     private String nextSequence(String hour) {
         String highest = null;
-        for (var lessonId : fileIds()) {
+        for (var lessonId : lessonIds()) {
             if (!lessonId.hourPrefix().equals(hour)) {
                 continue;
             }
@@ -628,21 +659,6 @@ public final class LessonStore {
             }
         }
         return highest == null ? FIRST_SEQUENCE : increment(highest);
-    }
-
-    /** The ids the directory names, without consulting the sidecar: allocation counts the files present. */
-    private SortedSet<LessonId> fileIds() {
-        var ids = new TreeSet<>(BY_VALUE);
-        try (var entries = Files.list(directoryPath())) {
-            entries.filter(entry -> Files.isRegularFile(entry, LinkOption.NOFOLLOW_LINKS))
-                    .map(entry -> LessonId.fromFileName(entry.getFileName().toString()))
-                    .flatMap(Optional::stream).forEach(ids::add);
-        } catch (NoSuchFileException _) {
-            // The directory is created with the first transaction of the store.
-        } catch (IOException e) {
-            throw new UncheckedIOException("The lesson store cannot be listed: " + directoryPath(), e);
-        }
-        return ids;
     }
 
     /**

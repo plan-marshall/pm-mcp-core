@@ -30,6 +30,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
@@ -201,12 +203,12 @@ class LessonStoreCrashTest {
         return List.copyOf(revisions);
     }
 
-    private static byte[] encodeAfter(Lesson before, LessonFrontMatter frontMatter, String body) {
+    private static byte[] encodeAfter(LessonFrontMatter frontMatter, String body) {
         return LessonCodec.encode(new Lesson(frontMatter, body));
     }
 
     private static byte[] encodeAfter(Lesson before, LessonFrontMatter frontMatter) {
-        return encodeAfter(before, frontMatter, before.body());
+        return encodeAfter(frontMatter, before.body());
     }
 
     private byte[] encodeAfterEnd(Lesson before) {
@@ -230,6 +232,17 @@ class LessonStoreCrashTest {
 
     private boolean isListed(LessonId lessonId) {
         return store.list().stream().anyMatch(resolution -> resolution.lessonId().equals(lessonId));
+    }
+
+    /** Runs the operation and proves it added no target: its commit is refused as a transaction without one. */
+    private void assertAddsNoTarget(Function<ScopeTransaction, LessonResolution.Outcome> operation) {
+        try (var transaction = locks.openTransaction()) {
+            transaction.acquire(lessons.lockKey());
+            var write = ScopeTransaction.open(transaction, lessons, audit, CLOCK);
+            operation.apply(write);
+            var refusal = assertThrows(IllegalStateException.class, write::commit);
+            assertTrue(refusal.getMessage().contains("no target"), refusal::getMessage);
+        }
     }
 
     @Nested
@@ -263,7 +276,7 @@ class LessonStoreCrashTest {
                         LessonFixtures.newLesson().build(), CLOCK));
                 var next = before.body() + "next\n";
                 var sources = List.of(LessonFixtures.source());
-                var newBytes = encodeAfter(before, before.frontMatter().toBuilder()
+                var newBytes = encodeAfter(before.frontMatter().toBuilder()
                         .revision(2)
                         .sources(sources)
                         .revisions(appended(before.frontMatter(), 2, sources, next))
@@ -329,15 +342,15 @@ class LessonStoreCrashTest {
             inTransaction(write -> store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK));
             run(write -> store.claim(write, lessonId, "a-plan", NOW));
             run(write -> store.release(write, lessonId, "a-plan"));
-            var before = Files.exists(expectedPath(lessonId));
 
-            var outcome = withoutCommit(write -> store.release(write, lessonId, "a-plan"));
+            assertAddsNoTarget(write -> store.release(write, lessonId, "a-plan"));
 
             assertAll(
                     () -> assertEquals(LessonResolution.Refusal.UNCLAIMED,
-                            assertInstanceOf(LessonResolution.Unavailable.class, outcome).refusal(),
+                            assertInstanceOf(LessonResolution.Unavailable.class,
+                                    withoutCommit(write -> store.release(write, lessonId, "a-plan"))).refusal(),
                             "the second release reports that no claim is held"),
-                    () -> assertTrue(before && Files.exists(expectedPath(lessonId)), "the lesson stays in place"));
+                    () -> assertTrue(Files.exists(expectedPath(lessonId)), "the lesson stays in place"));
         }
 
         @Test
@@ -347,14 +360,14 @@ class LessonStoreCrashTest {
             inTransaction(write -> store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK));
             run(write -> store.claim(write, lessonId, "a-plan", NOW));
             run(write -> store.endClaimApplied(write, lessonId, "a-plan", NOW));
-            var before = Files.exists(expectedPath(lessonId));
 
             var outcome = withoutCommit(write -> store.endClaimApplied(write, lessonId, "a-plan", NOW));
+            assertAddsNoTarget(write -> store.endClaimApplied(write, lessonId, "a-plan", NOW));
 
             assertAll(
                     () -> assertInstanceOf(LessonResolution.Retired.class, outcome,
-                            "the second end reports the retirement"),
-                    () -> assertTrue(before && Files.exists(expectedPath(lessonId)), "the lesson stays in place"));
+                            "a repeated end reports the retirement"),
+                    () -> assertTrue(Files.exists(expectedPath(lessonId)), "the lesson stays in place"));
         }
 
         @Test
@@ -368,6 +381,149 @@ class LessonStoreCrashTest {
 
             assertEquals("a-plan", assertInstanceOf(LessonResolution.Unavailable.class, outcome).claimingPlan(),
                     "the release is authorized by the durable claim alone");
+        }
+    }
+
+    @Nested
+    @DisplayName("two concurrent writers")
+    class ConcurrentWriters {
+
+        private static final String PLAN_A = "plan-a";
+        private static final String PLAN_B = "plan-b";
+
+        @Test
+        @DisplayName("two claims of one lesson end with exactly one claimant")
+        void twoClaims() throws Exception {
+            var lessonId = created("2026-11-02-09-701");
+
+            var outcomes = concurrently(
+                    write -> store.claim(write, lessonId, PLAN_A, NOW),
+                    write -> store.claim(write, lessonId, PLAN_B, NOW));
+
+            assertAll(
+                    () -> assertEquals(1, outcomes.stream()
+                                    .filter(outcome -> outcome instanceof LessonResolution.Claimed).count(),
+                            "exactly one claim succeeded"),
+                    () -> assertEquals(1, outcomes.stream()
+                                    .filter(outcome -> outcome instanceof LessonResolution.Unavailable).count(),
+                            "exactly one claim was refused"),
+                    () -> assertTrue(read(lessonId).orElseThrow().frontMatter().claim() != null,
+                            "the lesson carries exactly one claim"));
+        }
+
+        @Test
+        @DisplayName("a claim racing a retirement ends in one of the two orders, never both")
+        void claimRacingRetirement() throws Exception {
+            var lessonId = created("2026-11-02-09-702");
+
+            var outcomes = concurrently(
+                    write -> store.claim(write, lessonId, PLAN_A, NOW),
+                    write -> store.retire(write, lessonId, LessonFixtures.retirement(Verdict.OBSOLETE).build()));
+
+            var claim = outcomes.getFirst();
+            var retirement = outcomes.getLast();
+            var claimed = claim instanceof LessonResolution.Claimed;
+            var retired = retirement instanceof LessonResolution.Retired;
+            assertAll(
+                    () -> assertTrue(claimed != retired, "one transition won and one was refused"),
+                    () -> assertTrue(claimed
+                                    ? retirement instanceof LessonResolution.Unavailable claimRefused
+                                    && claimRefused.refusal() == LessonResolution.Refusal.CLAIMED
+                                    : claim instanceof LessonResolution.Unavailable retireRefused
+                                    && retireRefused.refusal() == LessonResolution.Refusal.RETIRED,
+                            "the refused transition names the state the winner left"));
+        }
+
+        @Test
+        @DisplayName("two releases of one claim end with exactly one release")
+        void twoReleases() throws Exception {
+            var lessonId = created("2026-11-02-09-703");
+            run(write -> store.claim(write, lessonId, PLAN_A, NOW));
+
+            var outcomes = concurrently(
+                    write -> store.release(write, lessonId, PLAN_A),
+                    write -> store.release(write, lessonId, PLAN_A));
+
+            assertAll(
+                    () -> assertEquals(1, outcomes.stream()
+                                    .filter(outcome -> outcome instanceof LessonResolution.Released).count(),
+                            "exactly one release succeeded"),
+                    () -> assertEquals(1, outcomes.stream()
+                                    .filter(outcome -> outcome instanceof LessonResolution.Unavailable).count(),
+                            "exactly one release found no claim"),
+                    () -> assertTrue(read(lessonId).orElseThrow().frontMatter().claim() == null,
+                            "the claim is cleared once"));
+        }
+
+        @Test
+        @DisplayName("two ends of one claim retire the lesson once")
+        void twoEnds() throws Exception {
+            var lessonId = created("2026-11-02-09-704");
+            run(write -> store.claim(write, lessonId, PLAN_A, NOW));
+
+            var outcomes = concurrently(
+                    write -> store.endClaimApplied(write, lessonId, PLAN_A, NOW),
+                    write -> store.endClaimApplied(write, lessonId, PLAN_A, NOW));
+
+            var retired = read(lessonId).orElseThrow().frontMatter().retired();
+            assertAll(
+                    () -> assertEquals(2, outcomes.stream()
+                                    .filter(outcome -> outcome instanceof LessonResolution.Retired).count(),
+                            "both ends report the retirement"),
+                    () -> assertEquals(Verdict.APPLIED, retired.verdict(), "the lesson is retired applied"),
+                    () -> assertEquals(PLAN_A, retired.by(), "the plan stays the author of the retirement"));
+        }
+
+        private LessonId created(String value) {
+            var lessonId = new LessonId(value);
+            inTransaction(write -> store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK));
+            return lessonId;
+        }
+
+        /** Runs one operation per writer under the serializing lock manager and returns both outcomes. */
+        private List<LessonResolution.Outcome> concurrently(
+                Function<ScopeTransaction, LessonResolution.Outcome> first,
+                Function<ScopeTransaction, LessonResolution.Outcome> second) throws Exception {
+            var serializing = new SerializingLockManager();
+            var start = new CountDownLatch(1);
+            var outcomes = new ArrayList<LessonResolution.Outcome>();
+            try (var executor = Executors.newFixedThreadPool(2)) {
+                var futures = List.of(executor.submit(() -> write(serializing, start, first)),
+                        executor.submit(() -> write(serializing, start, second)));
+                start.countDown();
+                for (var future : futures) {
+                    outcomes.add(future.get());
+                }
+            }
+            return outcomes;
+        }
+
+        private LessonResolution.Outcome write(SerializingLockManager manager, CountDownLatch start,
+                Function<ScopeTransaction, LessonResolution.Outcome> operation) throws InterruptedException {
+            start.await();
+            try (var transaction = manager.openTransaction()) {
+                transaction.acquire(lessons.lockKey());
+                var write = ScopeTransaction.open(transaction, lessons, new RecordingAuditSink(), CLOCK);
+                var outcome = operation.apply(write);
+                if (!(outcome instanceof LessonResolution.Unavailable)) {
+                    commitOrNoTarget(write);
+                }
+                return outcome;
+            }
+        }
+
+        /**
+         * Commits a successful outcome, and tolerates the one successful outcome that changes nothing: a repeated end
+         * reports the retirement it finds, so its transaction has no target and its commit is refused.
+         */
+        private void commitOrNoTarget(ScopeTransaction write) {
+            try {
+                write.commit();
+            } catch (IllegalStateException refusal) {
+                if (!refusal.getMessage().contains("no target")) {
+                    throw refusal;
+                }
+            }
         }
     }
 

@@ -205,9 +205,8 @@ class LessonRetirementTest {
 
         @Test
         @DisplayName("a found lesson is retired and the file keeps its path and its body")
-        void found() throws Exception {
+        void found() {
             var lesson = create();
-            var before = Files.readAllBytes(expectedPath(LESSON_ID));
 
             var outcome = inTransaction(write -> store.retire(write, LESSON_ID,
                     LessonFixtures.retirement(Verdict.REDUNDANT).build()));
@@ -215,7 +214,9 @@ class LessonRetirementTest {
             assertAll(
                     () -> assertInstanceOf(LessonResolution.Retired.class, outcome, "a found lesson is retired"),
                     () -> assertTrue(Files.exists(expectedPath(LESSON_ID)), "the file stays in place"),
-                    () -> assertTrue(before.length > 0, "the fixture wrote the lesson"));
+                    () -> assertEquals(Status.RETIRED, readFound().frontMatter().status(),
+                            "the status is retired in the same file"),
+                    () -> assertEquals(lesson.body(), readFound().body(), "the body stays in place"));
         }
 
         @Test

@@ -41,9 +41,13 @@ snapshot reported a difference. Every transition uses the locked read.
 == Consequences
 
 * A caller that must not act on a lesson with an unverified digest reads `Found.integrity()`; the candidates of
-  `source-lesson.choose` are read lock-free and carry the mark, and the caller screens them.
-* `store_tampered`, `deleted_out_of_band` and `untracked` are answers of the locked read alone; a lock-free reader never
-  raises an integrity breach on its own.
+  `source-lesson.choose` are read lock-free, and `unclaimed()` lists only a lesson whose digest is `verified`, so a
+  tampered or untracked lesson never reaches a plan.
+* `store_tampered` and `untracked` are answers of the locked read alone: a lock-free reader never raises a digest verdict
+  on its own. The one integrity state it does decide is `deleted_out_of_band` — a sidecar entry whose file is gone is an
+  observed absence, never a digest verdict, and it must never be reported as `absent`.
+* The locked read hashes the bytes it decodes: a file replaced between the verification and the read is reported
+  `store_tampered`, so no transition decides on bytes that were never verified.
 * The transitions always pay the recovery check, which is a file-exists test when no journal is present.
 
 == Source

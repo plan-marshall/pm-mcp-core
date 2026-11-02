@@ -789,9 +789,11 @@ new plan scope, the end after the plan's terminal transaction — is ordered by 
 Journal, Writes outside the scope).
 
 **Allocation and creation.** `allocate(transaction, clock)` draws the UTC hour of the clock and the per-hour sequence that
-follows every lesson file of that hour and every lesson the transaction already holds, at least three digits and growing
-past `999`. The id is never reused, because a lesson file is never deleted. `create` adds a create target (`mustBeAbsent`)
-whose server-set members the store derives itself: `format_version` 1, the id, `created_at`, the status (`upstream_pending`
+follows every lesson file of that hour, every sequence the sidecar records (an out-of-band delete does not free an id)
+and every lesson the transaction already holds, at least three digits and growing past `999`. A draw is free for the
+transaction that creates its lesson in the same step; two draws before the first create return the same id, because
+neither is a target yet. `create` adds a create target (`mustBeAbsent`) and refuses an id the sidecar records already;
+its server-set members are derived by the store: `format_version` 1, the id, `created_at`, the status (`upstream_pending`
 for the audience `upstream`, `active` otherwise), revision 1 with its first `revisions` entry and the SHA-256 of the UTF-8
 body, and the null claim and retirement. The caller gives the title, component, category, bundle, rule, remedy,
 provenance, audience, `derived_from_untrusted`, `tool_version`, the non-empty sources and the body.
@@ -799,14 +801,17 @@ provenance, audience, `derived_from_untrusted`, `tool_version`, the non-empty so
 **The two read flavours.** `list()` and `get(LessonId)` take no lock and read through `ScopeIntegrity.snapshot`: a file
 that differs from its sidecar entry is `found` with `StoreIntegrity.DIGEST_UNVERIFIED`, and `get(transaction, LessonId)`
 recovers the journal of the scope and decides through `ScopeIntegrity.verify`, so the same file is `store_tampered` there.
-Only the locked read raises `store_tampered` and `deleted_out_of_band`, and reports a file without an entry as
-`untracked`; the lock-free read decides nothing (ADR core-store/066). `LessonResolution` is the one sealed result:
-`found`, `absent`, `present_unreadable` (listed with its path, never omitted), `empty_shell` (a body without a
-non-whitespace character), `store_tampered`, `deleted_out_of_band` and `untracked`. The listing names only files whose
-name parses as `<lesson_id>.md`; a staged file `<lesson_id>.md.tmp.<transaction id>` and the sidecar are never lessons.
-`unclaimed()` is the candidate list of `source-lesson.choose` — `active`, `claim` null, resolved `found`, newest id first,
-the `derived_from_untrusted` mark travelling in the front matter — and `claims()` and `claimedBy(planId)` are the read of
-the plan's end, which lists an unreadable lesson separately by id, because no one can read or release its claim.
+The locked read raises `store_tampered` and `untracked`; the lock-free read decides nothing about a digest. Its one
+integrity state is `deleted_out_of_band`: a sidecar entry whose file is gone is an observed absence, never a digest
+verdict, and never `absent` (ADR core-store/066). The locked read hashes the bytes it decodes, so a file replaced between
+the verification and the read is `store_tampered` as well. `LessonResolution` is the one sealed result: `found`, `absent`,
+`present_unreadable` (listed with its path, never omitted), `empty_shell` (a body without a non-whitespace character),
+`store_tampered`, `deleted_out_of_band` and `untracked`. The listing names only files whose name parses as
+`<lesson_id>.md`; a staged file `<lesson_id>.md.tmp.<transaction id>` and the sidecar are never lessons. `unclaimed()` is
+the candidate list of `source-lesson.choose` — `active`, `claim` null, resolved `found` with a `verified` digest, newest
+id first, the `derived_from_untrusted` mark travelling in the front matter — and `claims()` and `claimedBy(planId)` are
+the read of the plan's end, which lists an unreadable lesson separately by id, because no one can read or release its
+claim.
 
 **The transitions.** `revise` replaces the body wholesale as the next revision and never turns `derived_from_untrusted`
 back; a revision whose sources name a lesson of the kind `lesson` that is marked becomes marked itself.

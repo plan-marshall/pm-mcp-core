@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 
 /**
  * What one lesson of the project lesson store resolves to (Store Schemas § Lesson Record, One Resolver, Four States;
@@ -29,8 +30,10 @@ import java.util.Optional;
  * <p>
  * The three integrity states come from the digest sidecar ({@link ScopeIntegrity}). A lock-free read reports a file
  * that differs from its recorded digest as {@link Found} with {@link StoreIntegrity#DIGEST_UNVERIFIED} and decides
- * nothing (PM-IMPL-7); only the locked read raises {@link StoreTampered} and {@link DeletedOutOfBand}, and reports a
- * file without a sidecar entry as {@link Untracked}.
+ * nothing (PM-IMPL-7); only the locked read raises {@link StoreTampered} and {@link Untracked}, and reports a file that
+ * is gone while its entry remains as {@link DeletedOutOfBand}. The one integrity state a lock-free read does decide is
+ * {@link DeletedOutOfBand}: a sidecar entry whose file is gone is an observed absence, never a digest verdict, and it is
+ * never {@link Absent}.
  * <p>
  * The same file carries the outcomes of the store's transitions: the successful {@link Claimed}, {@link Released},
  * {@link Retired} and {@link Revised}, and {@link Unavailable} for every state in which a transition changes nothing.
@@ -90,6 +93,7 @@ public sealed interface LessonResolution {
      * @param integrity what the read can say about the content
      * @since 0.1
      */
+    @Builder
     record Found(LessonId lessonId, Lesson lesson, Path path, StoreIntegrity integrity) implements LessonResolution {
 
         /** @throws NullPointerException if a component is {@code null} */
@@ -135,6 +139,7 @@ public sealed interface LessonResolution {
      * @param detail   what exactly could not be read
      * @since 0.1
      */
+    @Builder
     record PresentUnreadable(LessonId lessonId, Path path, LessonCodec.UnreadableReason reason, String detail)
             implements LessonResolution {
 
@@ -187,6 +192,7 @@ public sealed interface LessonResolution {
      * @param current  the digest of the file as it is; empty if the file does not exist
      * @since 0.1
      */
+    @Builder
     record StoreTampered(LessonId lessonId, Path path, StoreDigest recorded, Optional<StoreDigest> current)
             implements LessonResolution {
 

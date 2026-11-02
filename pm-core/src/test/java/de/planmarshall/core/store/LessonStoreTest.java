@@ -200,17 +200,17 @@ class LessonStoreTest {
         }
 
         @Test
-        @DisplayName("over an existing id is refused by the commit and leaves the existing lesson")
+        @DisplayName("over an existing id is refused by the store and leaves the existing lesson")
         void overExistingId() throws Exception {
             var lessonId = new LessonId(CREATED_ID);
             run(write -> store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK));
             var existing = Files.readAllBytes(expectedPath(lessonId));
 
-            var refusal = assertThrows(IllegalStateException.class,
+            var refusal = assertThrows(IllegalArgumentException.class,
                     () -> run(write -> store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK)));
 
             assertAll(
-                    () -> assertTrue(refusal.getMessage().contains(lessonId.fileName()), refusal::getMessage),
+                    () -> assertTrue(refusal.getMessage().contains(lessonId.value()), refusal::getMessage),
                     () -> assertArrayEquals(existing, Files.readAllBytes(expectedPath(lessonId)),
                             "the refused create leaves the existing lesson"));
         }
@@ -270,11 +270,12 @@ class LessonStoreTest {
             var second = enter(CLOCK);
 
             assertAll(
-                    () -> assertEquals(CREATED_ID, first.frontMatter().lessonId().value(), "the first id is 001"),
+                    () -> assertEquals(CREATED_ID, first.frontMatter().lessonId().value(),
+                            "the first drawn id takes the sequence 001"),
                     () -> assertEquals("2026-10-13-09-002", second.frontMatter().lessonId().value(),
                             "the second id follows the first"),
                     () -> assertNotEquals(first.frontMatter().lessonId(), second.frontMatter().lessonId(),
-                            "two writers never share an id"));
+                            "two writers under the lock never share an id"));
         }
 
         @Test
@@ -354,7 +355,7 @@ class LessonStoreTest {
 
             assertAll(
                     () -> assertEquals(200, ids.size(), "both threads recorded every id"),
-                    () -> assertEquals(200, new LinkedHashSet<>(ids).size(), "no id was shared"),
+                    () -> assertEquals(200, new LinkedHashSet<>(ids).size(), "no id was shared by the two writers"),
                     () -> assertEquals(200, store.list().size(), "every creation wrote one lesson"),
                     () -> assertEquals(200, countFiles(), "every creation wrote one file"));
         }
@@ -599,17 +600,69 @@ class LessonStoreTest {
             }
         }
 
-        @Test
-        @DisplayName("a create acts on an absent id only, so its row of the table has one cell")
-        void createEveryCell() {
-            var created = inTransaction(write -> store.create(write, TABLE_ID,
-                    LessonFixtures.newLesson().build(), CLOCK));
+        @ParameterizedTest
+        @EnumSource(Cell.class)
+        @DisplayName("a create writes an absent id and is refused over every state that has a file")
+        void createEveryCell(Cell cell) throws IOException {
+            arrange(cell);
 
+            if (cell == Cell.ABSENT) {
+                var created = inTransaction(write -> store.create(write, TABLE_ID,
+                        LessonFixtures.newLesson().build(), CLOCK));
+                assertEquals(TABLE_ID, created.frontMatter().lessonId(), "an absent id is created");
+                return;
+            }
+            assertThrows(RuntimeException.class, () -> run(write -> store.create(write, TABLE_ID,
+                    LessonFixtures.newLesson().build(), CLOCK)));
+            assertEquals(1, store.list().size(), "the refused create wrote no second lesson");
+        }
+
+        @Test
+        @DisplayName("a create over an id the sidecar records without a file is refused")
+        void createOverDeletedOutOfBand() throws IOException {
+            var lessonId = new LessonId("2026-10-13-09-510");
+            inTransaction(write -> store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK));
+            Files.delete(expectedPath(lessonId));
+
+            var refusal = assertThrows(IllegalArgumentException.class, () -> run(write -> store.create(write, lessonId,
+                    LessonFixtures.newLesson().build(), CLOCK)));
             assertAll(
-                    () -> assertEquals(TABLE_ID, created.frontMatter().lessonId(), "an absent id is created"),
-                    () -> assertThrows(IllegalStateException.class, () -> run(write -> store.create(write, TABLE_ID,
-                            LessonFixtures.newLesson().build(), CLOCK))),
-                    () -> assertEquals(1, store.list().size(), "only the first create wrote a lesson"));
+                    () -> assertTrue(refusal.getMessage().contains(lessonId.value()), refusal::getMessage),
+                    () -> assertEquals(LessonResolution.State.DELETED_OUT_OF_BAND, store.get(lessonId).state(),
+                            "the lesson keeps its identity and its entry"));
+        }
+
+        @Test
+        @DisplayName("allocation never reuses an id whose file was removed out of band")
+        void allocateAfterOutOfBandDelete() throws IOException {
+            var used = new LessonId("2026-10-13-09-001");
+            inTransaction(write -> store.create(write, used, LessonFixtures.newLesson().build(), CLOCK));
+            Files.delete(expectedPath(used));
+
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(lessons.lockKey());
+                var drawn = store.allocate(ScopeTransaction.open(transaction, lessons, audit, CLOCK), CLOCK);
+
+                assertEquals("2026-10-13-09-002", drawn.value(),
+                        "the id of the deleted lesson is not handed out again");
+            }
+        }
+
+        @Test
+        @DisplayName("two draws before the first create of a transaction return the same id")
+        void twoDrawsInOneTransaction() {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(lessons.lockKey());
+                var write = ScopeTransaction.open(transaction, lessons, audit, CLOCK);
+                var first = store.allocate(write, CLOCK);
+                var second = store.allocate(write, CLOCK);
+                store.create(write, first, LessonFixtures.newLesson().build(), CLOCK);
+                var third = store.allocate(write, CLOCK);
+
+                assertAll(
+                        () -> assertEquals(first, second, "neither draw is a target of the transaction yet"),
+                        () -> assertNotEquals(first, third, "the lesson the transaction holds is counted"));
+            }
         }
     }
 

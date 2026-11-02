@@ -26,6 +26,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -50,7 +51,9 @@ import de.planmarshall.core.store.LessonStore.Claims;
  * The one resolver of the lesson store (Store Schemas § Lesson Record, One Resolver, Four States; PM-IMPL-7): every
  * listed lesson resolves by the id it is listed under, the ported fixtures of PM-WATCH-STORE-14 list and resolve, a
  * headerless file is {@code present_unreadable} and never {@code absent}, the three integrity states of the digest
- * sidecar are decided only under the lock, and a lock-free read reports a difference as unverified and decides nothing.
+ * sidecar are decided under the lock, and a lock-free read reports a difference as unverified and decides nothing — but
+ * for one observed absence: a sidecar entry whose file is gone is {@code deleted_out_of_band} there too, and never
+ * {@code absent}.
  */
 @EnableGeneratorController
 @DisplayName("Lesson resolver")
@@ -396,6 +399,20 @@ class LessonResolverTest {
         }
 
         @Test
+        @DisplayName("unclaimed excludes a lesson whose file differs from its entry")
+        void unclaimedExcludesTampered() throws Exception {
+            var lessonId = new LessonId("2026-11-02-09-001");
+            create(lessonId);
+            replaceByte(expectedPath(lessonId), (byte) '!');
+
+            assertAll(
+                    () -> assertEquals(List.of(), store.unclaimed(),
+                            "a lesson with an unverified digest is no candidate"),
+                    () -> assertEquals(LessonResolution.State.FOUND, store.get(lessonId).state(),
+                            "the lesson is still listed as found, with an unverified digest"));
+        }
+
+        @Test
         @DisplayName("claims separates the claimed lessons from the unreadable ids")
         void claims() throws Exception {
             var claimed = create(new LessonId("2026-11-02-09-001"));
@@ -469,6 +486,14 @@ class LessonResolverTest {
                     }
                 }
             }
+            var ghost = new LessonId("2026-11-02-09-004");
+            Files.write(expectedPath(ghost), LessonCodec.encode(
+                    new Lesson(LessonFixtures.frontMatterBuilder().lessonId(ghost).build(), "# Gone\n")));
+            var ghostBytes = Files.readAllBytes(expectedPath(ghost));
+            Files.delete(expectedPath(ghost));
+            Files.write(lessons.sidecarFile(),
+                    DigestSidecar.of(Map.of(ghost.fileName(), StoreDigest.of(ghostBytes))).write());
+            ids.add(ghost);
             return ids;
         }
     }

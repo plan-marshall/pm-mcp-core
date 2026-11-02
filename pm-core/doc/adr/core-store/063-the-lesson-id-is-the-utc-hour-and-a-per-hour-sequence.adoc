@@ -36,10 +36,11 @@ under the lesson store lock, so two writers never see the same set of files.
 == Consequences
 
 * Two concurrent creates get two ids, and an id is never reused because a lesson file is never deleted.
-* The sequence of an hour is derived from the files present, so a lost file (an out-of-band delete) could in principle
-  free an id; the sidecar entry of the deleted lesson remains and the resolver reports `deleted_out_of_band`, so the id is
-  not silently free — a create over it is refused by the create target.
-* The allocation reads the directory once per create. It is a small directory read under a lock the caller already holds.
+* The sequence of an hour is derived from the files present and from the sidecar entries, so an out-of-band delete does
+  not free an id: the deleted lesson's entry remains and the store reports it `deleted_out_of_band`, and `create` refuses
+  an id the sidecar records already as well as one a file names.
+* The allocation reads the directory and the sidecar once per create. Both are small reads under a lock the caller
+  already holds.
 
 == Source
 

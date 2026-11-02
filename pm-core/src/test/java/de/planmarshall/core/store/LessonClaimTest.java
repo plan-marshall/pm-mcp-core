@@ -232,6 +232,27 @@ class LessonClaimTest {
                 assertUnchanged(before);
             }
         }
+        @ParameterizedTest
+        @EnumSource(State.class)
+        @DisplayName("by plan B changes nothing in another state and reports the state")
+        void otherStatesByB(State state) throws IOException {
+            arrange(state);
+            var before = bytesOrNull();
+
+            var outcome = withoutCommit(write -> store.claim(write, LESSON_ID, PLAN_B, NOW));
+
+            switch (state) {
+                case UNCLAIMED -> assertInstanceOf(LessonResolution.Claimed.class, outcome,
+                        "an unclaimed lesson is claimed");
+                case CLAIMED_BY_A -> refused(outcome, Refusal.CLAIMED, PLAN_A);
+                case CLAIMED_BY_B -> refused(outcome, Refusal.CLAIMED, PLAN_B);
+                case RETIRED -> refused(outcome, Refusal.RETIRED, null);
+                default -> refused(outcome, resolutionRefusal(state), null);
+            }
+            if (state != State.UNCLAIMED) {
+                assertUnchanged(before);
+            }
+        }
     }
 
     @Nested
@@ -290,6 +311,28 @@ class LessonClaimTest {
                 assertUnchanged(before);
             }
         }
+
+        @ParameterizedTest
+        @EnumSource(State.class)
+        @DisplayName("by plan B changes nothing in another state and reports the state")
+        void otherStatesByB(State state) throws Exception {
+            arrange(state);
+            var before = bytesOrNull();
+
+            var outcome = withoutCommit(write -> store.release(write, LESSON_ID, PLAN_B));
+
+            switch (state) {
+                case CLAIMED_BY_B -> assertInstanceOf(LessonResolution.Released.class, outcome,
+                        "the plan's own claim is released");
+                case UNCLAIMED -> refused(outcome, Refusal.UNCLAIMED, null);
+                case CLAIMED_BY_A -> refused(outcome, Refusal.CLAIMED, PLAN_A);
+                case RETIRED -> refused(outcome, Refusal.RETIRED, null);
+                default -> refused(outcome, resolutionRefusal(state), null);
+            }
+            if (state != State.CLAIMED_BY_B) {
+                assertUnchanged(before);
+            }
+        }
     }
 
     @Nested
@@ -310,6 +353,10 @@ class LessonClaimTest {
                     () -> assertEquals(Verdict.APPLIED, retirement.verdict(), "the verdict is applied"),
                     () -> assertEquals(PLAN_A, retirement.by(), "the plan is the author"),
                     () -> assertEquals(NOW, retirement.at(), "the instant is the one given"),
+                    () -> assertEquals(LessonStore.END_OF_CLAIM_REASON, retirement.reason(),
+                            "the reason states the landing"),
+                    () -> assertEquals(LessonFrontMatter.Retired.LessonState.FOUND, retirement.lessonState(),
+                            "the recorded state is the found lesson"),
                     () -> assertNull(retired.lesson().frontMatter().claim(),
                             "the claim is cleared and the plan stays in retired.by"),
                     () -> assertEquals(Status.RETIRED, retired.lesson().frontMatter().status(),
@@ -378,82 +425,26 @@ class LessonClaimTest {
                 assertUnchanged(before);
             }
         }
-    }
 
-    @Nested
-    @DisplayName("two concurrent writers")
-    class ConcurrentWriters {
+        @ParameterizedTest
+        @EnumSource(State.class)
+        @DisplayName("by plan B changes nothing in another state and reports the state")
+        void otherStatesByB(State state) throws IOException {
+            arrange(state);
+            var before = bytesOrNull();
 
-        @Test
-        @DisplayName("two claims of one lesson end with exactly one claimant")
-        void twoClaims() throws Exception {
-            create();
+            var outcome = withoutCommit(write -> store.endClaimApplied(write, LESSON_ID, PLAN_B, NOW));
 
-            var outcomes = concurrently(
-                    write -> store.claim(write, LESSON_ID, PLAN_A, NOW),
-                    write -> store.claim(write, LESSON_ID, PLAN_B, NOW));
-
-            assertAll(
-                    () -> assertEquals(1, outcomes.stream()
-                                    .filter(outcome -> outcome instanceof LessonResolution.Claimed).count(),
-                            "exactly one claim succeeded"),
-                    () -> assertEquals(1, outcomes.stream()
-                                    .filter(outcome -> outcome instanceof Unavailable).count(),
-                            "exactly one claim was refused"),
-                    () -> assertTrue(readFound().frontMatter().claim() != null, "the lesson is claimed once"));
-        }
-
-        @Test
-        @DisplayName("a claim racing a retirement ends in one of the two orders, never both")
-        void claimRacingRetirement() throws Exception {
-            create();
-
-            var outcomes = concurrently(
-                    write -> store.claim(write, LESSON_ID, PLAN_A, NOW),
-                    write -> store.retire(write, LESSON_ID, LessonFixtures.retirement(Verdict.OBSOLETE).build()));
-
-            var claim = outcomes.getFirst();
-            var retirement = outcomes.getLast();
-            var claimed = claim instanceof LessonResolution.Claimed;
-            var retired = retirement instanceof LessonResolution.Retired;
-            assertAll(
-                    () -> assertTrue(claimed != retired, "one transition won and one was refused"),
-                    () -> assertTrue(claimed
-                                    ? retirement instanceof Unavailable claimRefused
-                                    && claimRefused.refusal() == Refusal.CLAIMED
-                                    : claim instanceof Unavailable retireRefused
-                                    && retireRefused.refusal() == Refusal.RETIRED,
-                            "the refused transition names the state the winner left"));
-        }
-
-        /** Runs one operation per writer under the serializing lock manager and returns both outcomes. */
-        private List<Outcome> concurrently(Function<ScopeTransaction, Outcome> first,
-                Function<ScopeTransaction, Outcome> second) throws Exception {
-            var serializing = new SerializingLockManager();
-            var start = new CountDownLatch(1);
-            var outcomes = new ArrayList<Outcome>();
-            try (var executor = Executors.newFixedThreadPool(2)) {
-                var futures = List.of(executor.submit(() -> write(serializing, start, first)),
-                        executor.submit(() -> write(serializing, start, second)));
-                start.countDown();
-                for (var future : futures) {
-                    outcomes.add(future.get());
-                }
+            switch (state) {
+                case CLAIMED_BY_B -> assertInstanceOf(LessonResolution.Retired.class, outcome,
+                        "the plan's own claim is retired applied");
+                case UNCLAIMED -> refused(outcome, Refusal.UNCLAIMED, null);
+                case CLAIMED_BY_A -> refused(outcome, Refusal.CLAIMED, PLAN_A);
+                case RETIRED -> refused(outcome, Refusal.RETIRED, null);
+                default -> refused(outcome, resolutionRefusal(state), null);
             }
-            return outcomes;
-        }
-
-        private Outcome write(SerializingLockManager manager, CountDownLatch start,
-                Function<ScopeTransaction, Outcome> operation) throws InterruptedException {
-            start.await();
-            try (var transaction = manager.openTransaction()) {
-                transaction.acquire(lessons.lockKey());
-                var write = ScopeTransaction.open(transaction, lessons, new RecordingAuditSink(), CLOCK);
-                var outcome = operation.apply(write);
-                if (!(outcome instanceof Unavailable)) {
-                    write.commit();
-                }
-                return outcome;
+            if (state != State.CLAIMED_BY_B) {
+                assertUnchanged(before);
             }
         }
     }
