@@ -286,8 +286,8 @@ public class MavenOutputParser {
             long skipped = counted.stream().mapToLong(counts -> counts[2]).sum();
             Optional<Map<String, Integer>> byRunner = runnerExecuted.isEmpty()
                     || logText.contains(PARALLEL_BUILD_BANNER)
-                            ? Optional.empty()
-                            : runnerCounts();
+                    ? Optional.empty()
+                    : runnerCounts();
             return Optional.of(TestCounts.from(total - failed - skipped, failed, skipped, byRunner.orElse(null)));
         }
 
