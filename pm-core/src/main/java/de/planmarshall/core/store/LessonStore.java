@@ -75,7 +75,6 @@ public final class LessonStore {
 
     private static final DateTimeFormatter HOUR = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH").withZone(ZoneOffset.UTC);
     private static final String FIRST_SEQUENCE = "001";
-    private static final String LESSON_ID = "lessonId";
     private static final String PLAN_ID = "planId";
     private static final Comparator<LessonId> BY_VALUE = Comparator.comparing(LessonId::value);
 
@@ -159,7 +158,7 @@ public final class LessonStore {
      */
     public Lesson create(ScopeTransaction transaction, LessonId lessonId, NewLesson newLesson, Clock clock) {
         requireOwnScope(transaction);
-        Objects.requireNonNull(lessonId, LESSON_ID);
+        Objects.requireNonNull(lessonId, LessonResolution.LESSON_ID);
         Objects.requireNonNull(newLesson, "newLesson");
         if (recordedEntry(storePath(lessonId))) {
             throw new IllegalArgumentException("The lesson %s was recorded already and is never created again"
@@ -211,7 +210,7 @@ public final class LessonStore {
      * @throws UncheckedIOException if a file of the store exists and cannot be read
      */
     public LessonResolution get(LessonId lessonId) {
-        Objects.requireNonNull(lessonId, LESSON_ID);
+        Objects.requireNonNull(lessonId, LessonResolution.LESSON_ID);
         var relative = storePath(lessonId);
         var file = store(lessonId);
         var snapshot = ScopeIntegrity.snapshot(scope, relative);
@@ -240,14 +239,14 @@ public final class LessonStore {
      */
     public LessonResolution get(ScopeTransaction transaction, LessonId lessonId) {
         requireOwnScope(transaction);
-        Objects.requireNonNull(lessonId, LESSON_ID);
+        Objects.requireNonNull(lessonId, LessonResolution.LESSON_ID);
         var file = store(lessonId);
         var verification = ScopeIntegrity.verify(transaction.lockTransaction(), scope, storePath(lessonId),
                 transaction.auditSink());
         return switch (verification) {
             case ScopeIntegrity.Verified verified -> verified(lessonId, file, verified);
             case ScopeIntegrity.Absent _ -> new LessonResolution.Absent(lessonId);
-            case ScopeIntegrity.Mismatch(String store, StoreDigest recorded, Optional<StoreDigest> current)
+            case ScopeIntegrity.Mismatch(_, StoreDigest recorded, Optional<StoreDigest> current)
                 -> current.isPresent()
                     ? new LessonResolution.StoreTampered(lessonId, file, recorded, current)
                     : new LessonResolution.DeletedOutOfBand(lessonId);
@@ -711,11 +710,11 @@ public final class LessonStore {
 
     private LessonResolution decode(LessonId lessonId, Path file, byte[] content, StoreIntegrity integrity) {
         return switch (LessonCodec.decode(content)) {
-            case LessonCodec.Readable readable -> readable.lesson().body().isBlank()
-                    ? new LessonResolution.EmptyShell(lessonId, readable.lesson(), file)
-                    : new LessonResolution.Found(lessonId, readable.lesson(), file, integrity);
-            case LessonCodec.Unreadable unreadable -> new LessonResolution.PresentUnreadable(lessonId, file,
-                    unreadable.reason(), unreadable.detail());
+            case LessonCodec.Readable(Lesson lesson) -> lesson.body().isBlank()
+                    ? new LessonResolution.EmptyShell(lessonId, lesson, file)
+                    : new LessonResolution.Found(lessonId, lesson, file, integrity);
+            case LessonCodec.Unreadable(LessonCodec.UnreadableReason reason, String detail) ->
+                new LessonResolution.PresentUnreadable(lessonId, file, reason, detail);
         };
     }
 
