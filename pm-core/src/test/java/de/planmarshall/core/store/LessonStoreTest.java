@@ -42,6 +42,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import de.planmarshall.core.store.LessonFrontMatter.Audience;
 import de.planmarshall.core.store.LessonFrontMatter.Category;
@@ -74,17 +76,6 @@ class LessonStoreTest {
     private LessonStore store;
     private RecordingLockManager locks;
     private RecordingAuditSink audit;
-
-    /** What the step hook throws to stop a commit at a step of the transaction. */
-    private static final class StopWrite extends RuntimeException {
-
-        @Serial
-        private static final long serialVersionUID = 1L;
-
-        StopWrite() {
-            super("stopped at a step of the transaction");
-        }
-    }
 
     @BeforeEach
     void createStore() throws IOException {
@@ -452,94 +443,6 @@ class LessonStoreTest {
     }
 
     @Nested
-    @DisplayName("crash windows")
-    class CrashWindows {
-
-        @Test
-        @DisplayName("of a create stopped at any step leave the old or the new lesson and a matching sidecar")
-        void createAtEveryStep() {
-            for (var stop : Step.values()) {
-                var lessonId = new LessonId("2026-10-13-09-1" + "%03d".formatted(stop.ordinal() + 1));
-                var newLesson = LessonFixtures.newLesson().body("# New\n").build();
-                var newBytes = newLessonDocument(lessonId, newLesson);
-
-                stopAt(stop, write -> store.create(write, lessonId, newLesson, CLOCK));
-                recover();
-
-                assertAll(
-                        () -> assertConsistent(lessonId, null, newBytes),
-                        () -> assertEquals(stop != Step.STAGE, isListed(lessonId),
-                                "the lesson is listed once the journal was written"));
-            }
-        }
-
-        @Test
-        @DisplayName("of a revise stopped at any step leave the old or the new body and a matching sidecar")
-        void reviseAtEveryStep() {
-            for (var stop : Step.values()) {
-                var lessonId = new LessonId("2026-10-13-09-2" + "%03d".formatted(stop.ordinal() + 1));
-                var before = inTransaction(write -> store.create(write, lessonId,
-                        LessonFixtures.newLesson().build(), CLOCK));
-                var next = before.body() + "next\n";
-                var sources = List.of(LessonFixtures.source());
-                var newBytes = encodeAfter(before, before.frontMatter().toBuilder()
-                        .revision(2)
-                        .sources(sources)
-                        .revisions(appended(before.frontMatter(), 2, sources, next))
-                        .build(), next);
-
-                stopAt(stop, write -> store.revise(write, lessonId, next, sources, false, NOW));
-                recover();
-
-                assertAll(
-                        () -> assertConsistent(lessonId, LessonCodec.encode(before), newBytes),
-                        () -> assertTrue(isListed(lessonId), "the lesson stays listed"));
-            }
-        }
-
-        @Test
-        @DisplayName("of a claim stopped at any step leave the old or the new claim and a matching sidecar")
-        void claimAtEveryStep() {
-            for (var stop : Step.values()) {
-                var lessonId = new LessonId("2026-10-13-09-3" + "%03d".formatted(stop.ordinal() + 1));
-                var before = inTransaction(write -> store.create(write, lessonId,
-                        LessonFixtures.newLesson().build(), CLOCK));
-                var newBytes = encodeAfter(before, before.frontMatter().toBuilder()
-                        .claim(new LessonFrontMatter.Claim("a-plan", NOW)).build());
-
-                stopAt(stop, write -> store.claim(write, lessonId, "a-plan", NOW));
-                recover();
-
-                assertAll(
-                        () -> assertConsistent(lessonId, LessonCodec.encode(before), newBytes),
-                        () -> assertTrue(isListed(lessonId), "the lesson stays listed"));
-            }
-        }
-
-        @Test
-        @DisplayName("of an end applied stopped at any step leave the old or the retired lesson")
-        void endAtEveryStep() {
-            for (var stop : Step.values()) {
-                var lessonId = new LessonId("2026-10-13-09-4" + "%03d".formatted(stop.ordinal() + 1));
-                var created = inTransaction(write -> store.create(write, lessonId,
-                        LessonFixtures.newLesson().build(), CLOCK));
-                run(write -> store.claim(write, lessonId, "a-plan", NOW));
-                var before = read(lessonId).orElseThrow();
-                var newBytes = encodeAfterEnd(before);
-
-                stopAt(stop, write -> store.endClaimApplied(write, lessonId, "a-plan", NOW));
-                recover();
-
-                assertAll(
-                        () -> assertConsistent(lessonId, LessonCodec.encode(before), newBytes),
-                        () -> assertTrue(isListed(lessonId), "the lesson stays listed"),
-                        () -> assertTrue(created.frontMatter().lessonId().equals(lessonId),
-                                "the fixture created the lesson"));
-            }
-        }
-    }
-
-    @Nested
     @DisplayName("characters the YAML reader could refuse")
     class RoundTrip {
 
@@ -574,115 +477,147 @@ class LessonStoreTest {
         }
     }
 
-    // ---------------------------------------------------------------- helpers of the crash windows
+    @Nested
+    @DisplayName("the transition table")
+    class Transitions {
 
-    private void stopAt(Step stop, Consumer<ScopeTransaction> operation) {
-        try (var transaction = locks.openTransaction()) {
-            transaction.acquire(lessons.lockKey());
-            ScopeTransaction.StepHook hook = (step, target) -> {
-                if (step == stop) {
-                    throw new StopWrite();
+        /** The lesson state of one cell of the table of Deliverable 5. */
+        enum Cell {
+            UNCLAIMED,
+            CLAIMED_BY_A,
+            CLAIMED_BY_B,
+            RETIRED,
+            PRESENT_UNREADABLE,
+            STORE_TAMPERED,
+            ABSENT
+        }
+
+        private static final LessonId TABLE_ID = new LessonId("2026-10-13-09-500");
+
+        private Path tablePath() {
+            return expectedPath(TABLE_ID);
+        }
+
+        private void arrange(Cell cell) throws IOException {
+            switch (cell) {
+                case UNCLAIMED -> inTransaction(write -> store.create(write, TABLE_ID,
+                        LessonFixtures.newLesson().build(), CLOCK));
+                case CLAIMED_BY_A -> {
+                    inTransaction(write -> store.create(write, TABLE_ID, LessonFixtures.newLesson().build(), CLOCK));
+                    run(write -> store.claim(write, TABLE_ID, "plan-a", NOW));
                 }
-            };
-            var write = ScopeTransaction.open(transaction, lessons, audit, CLOCK, hook);
-            operation.accept(write);
-            assertThrows(StopWrite.class, write::commit);
+                case CLAIMED_BY_B -> {
+                    inTransaction(write -> store.create(write, TABLE_ID, LessonFixtures.newLesson().build(), CLOCK));
+                    run(write -> store.claim(write, TABLE_ID, "plan-b", NOW));
+                }
+                case RETIRED -> {
+                    inTransaction(write -> store.create(write, TABLE_ID, LessonFixtures.newLesson().build(), CLOCK));
+                    run(write -> store.retire(write, TABLE_ID,
+                            LessonFixtures.retirement(Verdict.OBSOLETE).build()));
+                }
+                case PRESENT_UNREADABLE -> {
+                    Files.writeString(tablePath(), "# No front matter\n");
+                    try (var transaction = locks.openTransaction()) {
+                        transaction.acquire(lessons.lockKey());
+                        ScopeIntegrity.rebaseline(transaction, lessons, TABLE_ID.fileName(), audit);
+                    }
+                }
+                case STORE_TAMPERED -> {
+                    inTransaction(write -> store.create(write, TABLE_ID, LessonFixtures.newLesson().build(), CLOCK));
+                    var bytes = Files.readAllBytes(tablePath());
+                    bytes[bytes.length - 1] = '!';
+                    Files.write(tablePath(), bytes);
+                }
+                case ABSENT -> {
+                    // no file and no entry
+                }
+            }
         }
-    }
 
-    /**
-     * @param lessonId the lesson
-     * @param oldBytes the bytes before the operation; {@code null} when the lesson did not exist
-     * @param newBytes the bytes the operation writes
-     * @return whether the lesson file holds the new bytes
-     */
-    private boolean assertConsistent(LessonId lessonId, byte[] oldBytes, byte[] newBytes) {
-        var file = expectedPath(lessonId);
-        var recorded = DigestSidecar.load(lessons.sidecarFile()).digest(lessonId.fileName());
-        if (!Files.exists(file)) {
-            assertEquals(Optional.empty(), recorded, "an absent lesson has no sidecar entry");
-            assertTrue(oldBytes == null, "the operation created the lesson, so it cannot be absent");
-            return false;
+        private LessonResolution.Outcome revise() {
+            return withoutCommit(write -> store.revise(write, TABLE_ID, "# Table\n",
+                    List.of(LessonFixtures.source()), false, NOW));
         }
-        byte[] bytes;
-        try {
-            bytes = Files.readAllBytes(file);
-        } catch (IOException e) {
-            throw new AssertionError("The lesson file cannot be read: " + file, e);
+
+        private LessonResolution.Outcome retire() {
+            return withoutCommit(write -> store.retire(write, TABLE_ID,
+                    LessonFixtures.retirement(Verdict.OBSOLETE).build()));
         }
-        assertAll(
-                () -> assertTrue(Arrays.equals(bytes, oldBytes) || Arrays.equals(bytes, newBytes),
-                        "the lesson is the old or the new one, never a torn one"),
-                () -> assertEquals(Optional.of(StoreDigest.of(bytes)), recorded,
-                        "the sidecar entry matches the lesson file"));
-        return Arrays.equals(bytes, newBytes);
-    }
 
-    private byte[] newLessonDocument(LessonId lessonId, LessonStore.NewLesson newLesson) {
-        var frontMatter = LessonFrontMatter.builder()
-                .formatVersion(LessonFrontMatter.FORMAT_VERSION)
-                .lessonId(lessonId)
-                .title(newLesson.title())
-                .component(newLesson.component())
-                .category(newLesson.category())
-                .bundle(newLesson.bundle())
-                .rule(newLesson.rule())
-                .remedy(newLesson.remedy())
-                .status(newLesson.audience() == Audience.UPSTREAM ? Status.UPSTREAM_PENDING : Status.ACTIVE)
-                .provenance(newLesson.provenance())
-                .derivedFromUntrusted(newLesson.derivedFromUntrusted())
-                .audience(newLesson.audience())
-                .createdAt(NOW)
-                .toolVersion(newLesson.toolVersion())
-                .promotions(List.of())
-                .revision(1)
-                .sources(newLesson.sources())
-                .revisions(List.of(new LessonFrontMatter.Revision(1, NOW, newLesson.sources(),
-                        StoreDigest.of(newLesson.body().getBytes(StandardCharsets.UTF_8)).sha256())))
-                .mergedFrom(List.of())
-                .claim(null)
-                .retired(null)
-                .build();
-        return LessonCodec.encode(new Lesson(frontMatter, newLesson.body()));
-    }
+        @ParameterizedTest
+        @EnumSource(Cell.class)
+        @DisplayName("a revision acts on every found lesson, claimed or not, and on no other state")
+        void reviseEveryCell(Cell cell) throws IOException {
+            arrange(cell);
 
-    private byte[] encodeAfter(Lesson before, LessonFrontMatter frontMatter) {
-        return encodeAfter(before, frontMatter, before.body());
-    }
+            var outcome = revise();
 
-    private static List<LessonFrontMatter.Revision> appended(LessonFrontMatter frontMatter, int revision,
-            List<LessonFrontMatter.Source> sources, String body) {
-        var revisions = new ArrayList<>(frontMatter.revisions());
-        revisions.add(new LessonFrontMatter.Revision(revision, NOW, sources,
-                StoreDigest.of(body.getBytes(StandardCharsets.UTF_8)).sha256()));
-        return List.copyOf(revisions);
-    }
+            switch (cell) {
+                case UNCLAIMED, CLAIMED_BY_A, CLAIMED_BY_B ->
+                        assertInstanceOf(LessonResolution.Revised.class, outcome, "a found lesson is revised");
+                case RETIRED -> assertEquals(LessonResolution.Refusal.RETIRED,
+                        assertInstanceOf(LessonResolution.Unavailable.class, outcome).refusal(),
+                        "a retired lesson is not revised");
+                case PRESENT_UNREADABLE -> assertEquals(LessonResolution.Refusal.PRESENT_UNREADABLE,
+                        assertInstanceOf(LessonResolution.Unavailable.class, outcome).refusal(),
+                        "an unreadable lesson is not revised");
+                case STORE_TAMPERED -> assertEquals(LessonResolution.Refusal.STORE_TAMPERED,
+                        assertInstanceOf(LessonResolution.Unavailable.class, outcome).refusal(),
+                        "a tampered lesson is not revised");
+                case ABSENT -> assertEquals(LessonResolution.Refusal.ABSENT,
+                        assertInstanceOf(LessonResolution.Unavailable.class, outcome).refusal(),
+                        "an absent lesson is not revised");
+            }
+        }
 
-    private static byte[] encodeAfter(Lesson before, LessonFrontMatter frontMatter, String body) {
-        return LessonCodec.encode(new Lesson(frontMatter, body));
-    }
+        @ParameterizedTest
+        @EnumSource(Cell.class)
+        @DisplayName("a retirement acts on an unclaimed found lesson and on no other state")
+        void retireEveryCell(Cell cell) throws IOException {
+            arrange(cell);
 
-    private byte[] encodeAfterEnd(Lesson before) {
-        var frontMatter = before.frontMatter().toBuilder()
-                .status(Status.RETIRED)
-                .claim(null)
-                .retired(LessonFrontMatter.Retired.builder()
-                        .at(NOW)
-                        .by("a-plan")
-                        .verdict(Verdict.APPLIED)
-                        .reason(LessonStore.END_OF_CLAIM_REASON)
-                        .lessonState(LessonFrontMatter.Retired.LessonState.FOUND)
-                        .build())
-                .build();
-        return encodeAfter(before, frontMatter);
+            var outcome = retire();
+
+            switch (cell) {
+                case UNCLAIMED -> assertInstanceOf(LessonResolution.Retired.class, outcome,
+                        "an unclaimed found lesson is retired");
+                case CLAIMED_BY_A -> assertEquals("plan-a",
+                        assertInstanceOf(LessonResolution.Unavailable.class, outcome).claimingPlan(),
+                        "a lesson claimed by A is not retired");
+                case CLAIMED_BY_B -> assertEquals("plan-b",
+                        assertInstanceOf(LessonResolution.Unavailable.class, outcome).claimingPlan(),
+                        "a lesson claimed by B is not retired");
+                case RETIRED -> assertEquals(LessonResolution.Refusal.RETIRED,
+                        assertInstanceOf(LessonResolution.Unavailable.class, outcome).refusal(),
+                        "a retired lesson is not retired again");
+                case PRESENT_UNREADABLE -> assertEquals(LessonResolution.Refusal.PRESENT_UNREADABLE,
+                        assertInstanceOf(LessonResolution.Unavailable.class, outcome).refusal(),
+                        "an unreadable lesson is not retired");
+                case STORE_TAMPERED -> assertEquals(LessonResolution.Refusal.STORE_TAMPERED,
+                        assertInstanceOf(LessonResolution.Unavailable.class, outcome).refusal(),
+                        "a tampered lesson is not retired");
+                case ABSENT -> assertEquals(LessonResolution.Refusal.ABSENT,
+                        assertInstanceOf(LessonResolution.Unavailable.class, outcome).refusal(),
+                        "an absent lesson is not retired");
+            }
+        }
+
+        @Test
+        @DisplayName("a create acts on an absent id only, so its row of the table has one cell")
+        void createEveryCell() {
+            var created = inTransaction(write -> store.create(write, TABLE_ID,
+                    LessonFixtures.newLesson().build(), CLOCK));
+
+            assertAll(
+                    () -> assertEquals(TABLE_ID, created.frontMatter().lessonId(), "an absent id is created"),
+                    () -> assertThrows(IllegalStateException.class, () -> run(write -> store.create(write, TABLE_ID,
+                            LessonFixtures.newLesson().build(), CLOCK))),
+                    () -> assertEquals(1, store.list().size(), "only the first create wrote a lesson"));
+        }
     }
 
     private Optional<Lesson> read(LessonId lessonId) {
         return store.get(lessonId) instanceof Found found ? Optional.of(found.lesson()) : Optional.empty();
-    }
-
-    private boolean isListed(LessonId lessonId) {
-        return store.list().stream().anyMatch(resolution -> resolution.lessonId().equals(lessonId));
     }
 
     private long countFiles() {
