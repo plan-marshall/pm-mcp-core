@@ -83,6 +83,29 @@ class TestCountsTest {
     }
 
     @Test
+    @DisplayName("a negative per-runner executed count is refused")
+    void refusesNegativeRunnerCount() {
+        var byRunner = Map.of("surefire", -3);
+
+        assertThrows(IllegalArgumentException.class, () -> new TestCounts.Measured(1, 0, 0, 1, byRunner),
+                "An executed count is never negative");
+    }
+
+    @Test
+    @DisplayName("counts outside the int range are no measurement")
+    void refusesUnrepresentableCounts() {
+        var overflowing = TestCounts.from((long) Integer.MAX_VALUE + 1, 0, 0, null);
+        var wrapped = TestCounts.from(Integer.MAX_VALUE, 1, 0, null);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, overflowing,
+                        "A count above the int range is unmeasured"),
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, wrapped, "A wrapped sum is unmeasured"),
+                () -> assertInstanceOf(TestCounts.Measured.class, TestCounts.from(4999, 3, 1, null),
+                        "A representable sum is a measurement"));
+    }
+
+    @Test
     @DisplayName("an unmeasured population carries no number")
     void unmeasuredCarriesNoNumber() {
         var counts = TestCounts.unmeasured();

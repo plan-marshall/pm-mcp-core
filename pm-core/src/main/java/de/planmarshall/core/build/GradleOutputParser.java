@@ -41,7 +41,7 @@ public class GradleOutputParser {
 
     @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
     private static final Pattern COMPLETED_TESTS =
-            Pattern.compile("(\\d+) tests? completed(?:, (\\d+) failed)?(?:, (\\d+) skipped)?");
+            Pattern.compile("^\\s*(\\d+) tests? completed(?:, (\\d+) failed)?(?:, (\\d+) skipped)?\\s*$");
 
     private static final Set<Category> ERROR_CATEGORIES =
             Set.of(Category.COMPILATION_ERROR, Category.TEST_FAILURE, Category.DEPENDENCY_ERROR);
@@ -50,7 +50,7 @@ public class GradleOutputParser {
 
     private static final String FAILURE_MARKER = "BUILD FAILED";
 
-    /** Gradle's explicit statement that its test filter matched no test. */
+    /** Gradle's explicit statement, on a line of its own, that its test filter matched no test. */
     private static final String NO_TESTS_MARKER = "No tests found for given includes";
 
     private static final String FRAME_PREFIX = "at ";
@@ -90,8 +90,12 @@ public class GradleOutputParser {
         BuildStatus status = detectStatus(logText);
         boolean successMarker = logText.contains(SUCCESS_MARKER);
         boolean noTestsRan = ParsedBuild.noTestsRanFrom(status, successMarker, testCounts,
-                logText.contains(NO_TESTS_MARKER));
+                hasNoTestsMarker(logText));
         return new ParsedBuild(diagnostics, status, successMarker, testCounts, noTestsRan);
+    }
+
+    private static boolean hasNoTestsMarker(String logText) {
+        return logText.lines().anyMatch(line -> line.strip().startsWith(NO_TESTS_MARKER));
     }
 
     private static List<Diagnostic> extractDiagnostics(List<String> lines) {
@@ -119,24 +123,41 @@ public class GradleOutputParser {
     }
 
     private static @Nullable TestCounts extractTestCounts(List<String> lines) {
-        int total = 0;
-        int failed = 0;
-        int skipped = 0;
+        long total = 0;
+        long failed = 0;
+        long skipped = 0;
         boolean found = false;
         for (String line : lines) {
             Matcher match = COMPLETED_TESTS.matcher(line);
-            if (!match.find()) {
+            if (!match.matches()) {
                 continue;
             }
+            long blockTotal = parseCount(match.group(1));
+            long blockFailed = parseCount(match.group(2));
+            long blockSkipped = parseCount(match.group(3));
+            if (blockTotal < 0 || blockFailed < 0 || blockSkipped < 0 || blockSkipped > blockTotal) {
+                return TestCounts.unmeasured();
+            }
             found = true;
-            total += Integer.parseInt(match.group(1));
-            failed += match.group(2) == null ? 0 : Integer.parseInt(match.group(2));
-            skipped += match.group(3) == null ? 0 : Integer.parseInt(match.group(3));
+            total += blockTotal;
+            failed += blockFailed;
+            skipped += blockSkipped;
         }
         if (!found) {
             return null;
         }
-        return new TestCounts.Measured(total - failed - skipped, failed, skipped, total, null);
+        return TestCounts.from(total - failed - skipped, failed, skipped, null);
+    }
+
+    private static long parseCount(@Nullable String digits) {
+        if (digits == null) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(digits);
+        } catch (NumberFormatException _) {
+            return -1L;
+        }
     }
 
     private static BuildStatus detectStatus(String logText) {

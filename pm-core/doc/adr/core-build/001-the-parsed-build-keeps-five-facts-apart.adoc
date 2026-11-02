@@ -64,8 +64,11 @@ A consumer cannot mistake an unreadable test population for a passing one, and c
 tests it did not run. The cost is that the consumer must read three facts to answer "did this build test anything", and
 that a future parser must feed `noTestsRan` explicitly rather than inferring it.
 
-A change of the verdict rule is a change of this model, not of a parser: the compact constructor of `ParsedBuild` is the
-single place the rule is enforced, and every parser supplies its tool's marker.
+A change of the verdict rule is a change of this model, not of a parser: `ParsedBuild.noTestsRanFrom` states the rule once,
+and the compact constructor of `ParsedBuild` refuses a verdict the other components contradict (a failed build, a missing
+success marker, a count that exists). The positive "no tests" marker itself is an input of the parse rather than a
+component of the result, so a caller that constructs the record directly supplies the verdict it has decided; every parser
+in this package reaches it through `noTestsRanFrom`.
 
 == Source
 

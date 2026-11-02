@@ -201,20 +201,25 @@ public class MavenOutputParser {
     /**
      * The running state of one pass over the count lines of a log: the summary, ambiguous and per-class blocks, and the
      * executed count per runner.
+     * <p>
+     * Counts are read and summed as {@code long}, so a count or a sum outside the {@code int} range is reported as
+     * {@link TestCounts.Unmeasured} instead of wrapping into a figure that passes as a measurement.
      */
     private static final class CountScan {
 
-        private final List<int[]> summaryLines = new ArrayList<>();
+        private final List<long[]> summaryLines = new ArrayList<>();
 
-        private final List<int[]> ambiguousLines = new ArrayList<>();
+        private final List<long[]> ambiguousLines = new ArrayList<>();
 
-        private final List<int[]> perClassLines = new ArrayList<>();
+        private final List<long[]> perClassLines = new ArrayList<>();
 
-        private final Map<String, Integer> runnerExecuted = new LinkedHashMap<>();
+        private final Map<String, Long> runnerExecuted = new LinkedHashMap<>();
 
         private @Nullable String currentRunner;
 
         private boolean resultsSeen;
+
+        private boolean unrepresentable;
 
         void accept(String line) {
             Matcher header = EXECUTION_HEADER.matcher(line);
@@ -233,19 +238,31 @@ public class MavenOutputParser {
             if (!match.find()) {
                 return;
             }
-            int total = Integer.parseInt(match.group(1));
-            int failed = Integer.parseInt(match.group(2)) + Integer.parseInt(match.group(3));
-            int skipped = Integer.parseInt(match.group(4));
-            int[] counts = {total, failed, skipped};
+            long total = parse(match.group(1));
+            long failed = parse(match.group(2)) + parse(match.group(3));
+            long skipped = parse(match.group(4));
+            if (skipped > total) {
+                unrepresentable = true;
+            }
+            long[] counts = {total, failed, skipped};
             if (line.contains(TIME_ELAPSED)) {
                 perClassLines.add(counts);
             } else if (resultsSeen) {
                 summaryLines.add(counts);
                 if (currentRunner != null) {
-                    runnerExecuted.merge(currentRunner, total - skipped, Integer::sum);
+                    runnerExecuted.merge(currentRunner, total - skipped, Long::sum);
                 }
             } else {
                 ambiguousLines.add(counts);
+            }
+        }
+
+        private long parse(String digits) {
+            try {
+                return Long.parseLong(digits);
+            } catch (NumberFormatException _) {
+                unrepresentable = true;
+                return 0L;
             }
         }
 
@@ -254,18 +271,30 @@ public class MavenOutputParser {
             if (summaryLines.isEmpty() && ambiguousLines.isEmpty() && perClassLines.isEmpty()) {
                 return null;
             }
-            boolean unmeasured = !ambiguousLines.isEmpty() || (summaryLines.isEmpty() && !perClassLines.isEmpty());
+            boolean unmeasured = unrepresentable || !ambiguousLines.isEmpty()
+                    || (summaryLines.isEmpty() && !perClassLines.isEmpty());
             if (unmeasured) {
                 return TestCounts.unmeasured();
             }
-            List<int[]> counted = summaryLines.isEmpty() ? perClassLines : summaryLines;
-            int total = counted.stream().mapToInt(counts -> counts[0]).sum();
-            int failed = counted.stream().mapToInt(counts -> counts[1]).sum();
-            int skipped = counted.stream().mapToInt(counts -> counts[2]).sum();
+            List<long[]> counted = summaryLines.isEmpty() ? perClassLines : summaryLines;
+            long total = counted.stream().mapToLong(counts -> counts[0]).sum();
+            long failed = counted.stream().mapToLong(counts -> counts[1]).sum();
+            long skipped = counted.stream().mapToLong(counts -> counts[2]).sum();
             Map<String, Integer> byRunner = runnerExecuted.isEmpty() || logText.contains(PARALLEL_BUILD_BANNER)
                     ? null
-                    : runnerExecuted;
-            return new TestCounts.Measured(total - failed - skipped, failed, skipped, total, byRunner);
+                    : runnerCounts();
+            return TestCounts.from(total - failed - skipped, failed, skipped, byRunner);
+        }
+
+        private @Nullable Map<String, Integer> runnerCounts() {
+            var counts = new LinkedHashMap<String, Integer>();
+            for (Map.Entry<String, Long> entry : runnerExecuted.entrySet()) {
+                if (entry.getValue() < 0 || entry.getValue() > Integer.MAX_VALUE) {
+                    return null;
+                }
+                counts.put(entry.getKey(), entry.getValue().intValue());
+            }
+            return counts;
         }
     }
 }

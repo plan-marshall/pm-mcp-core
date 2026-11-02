@@ -9,11 +9,10 @@
  */
 package de.planmarshall.core.build;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Extracts the file, line and column of a JVM build error or warning line.
@@ -27,6 +26,8 @@ import lombok.experimental.UtilityClass;
  * <li>{@code TestName.methodName:line} — a test-failure reference, whose file is {@code TestName.java}.</li>
  * </ol>
  * A location is absent component-wise and never guessed: a line that matches no pattern carries no file, line or column.
+ * A number too large for an {@code int} is not a location — the component is dropped, and so is every component that
+ * depends on it (a column without its line is no location), so a hostile log cannot make the parse throw.
  *
  * @since 0.1
  */
@@ -55,23 +56,40 @@ public class JvmFileLocation {
     public static Location parse(String line) {
         Matcher maven = MAVEN_STYLE.matcher(line);
         if (maven.find()) {
-            return new Location(maven.group(1), Integer.valueOf(maven.group(2)), Integer.valueOf(maven.group(3)));
+            return withColumn(maven.group(1), maven.group(2), maven.group(3));
         }
         Matcher gradle = GRADLE_STYLE.matcher(line);
         if (gradle.find()) {
-            String column = gradle.group(4);
-            return new Location(gradle.group(1), Integer.valueOf(gradle.group(3)),
-                    column == null ? null : Integer.valueOf(column));
+            return withColumn(gradle.group(1), gradle.group(3), gradle.group(4));
         }
         Matcher lineOnly = LINE_ONLY.matcher(line);
         if (lineOnly.find()) {
-            return new Location(lineOnly.group(1), Integer.valueOf(lineOnly.group(2)), null);
+            return new Location(lineOnly.group(1), toInt(lineOnly.group(2)), null);
         }
         Matcher testFailure = TEST_FAILURE.matcher(line);
         if (testFailure.find()) {
-            return new Location(testFailure.group(1) + ".java", Integer.valueOf(testFailure.group(3)), null);
+            return new Location(testFailure.group(1) + ".java", toInt(testFailure.group(3)), null);
         }
         return Location.NONE;
+    }
+
+    private static Location withColumn(String file, String lineDigits, @Nullable String columnDigits) {
+        Integer line = toInt(lineDigits);
+        if (line == null) {
+            return new Location(file, null, null);
+        }
+        return new Location(file, line, toInt(columnDigits));
+    }
+
+    private static @Nullable Integer toInt(@Nullable String digits) {
+        if (digits == null) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(digits);
+        } catch (NumberFormatException _) {
+            return null;
+        }
     }
 
     /**

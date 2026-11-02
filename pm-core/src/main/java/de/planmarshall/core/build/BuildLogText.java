@@ -24,6 +24,10 @@ import lombok.experimental.UtilityClass;
  * the plain-text patterns of {@link JvmCategoryPatterns}, which is why every parser strips its text through here or
  * through the {@code String} overload of its own {@code parse}.
  * <p>
+ * Three forms are removed: an OSC string ({@code ESC ]} … terminated by BEL or {@code ESC \}), whose payload is the hyperlink
+ * text an OSC 8 sequence wraps around a path; the two-character escapes such as the SGR colour codes; and the CSI
+ * sequences, which also cover cursor movement.
+ * <p>
  * Undecodable bytes are replaced rather than refused: a build log is untrusted text, and one broken byte must not make
  * the whole parse fail.
  *
@@ -32,8 +36,9 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class BuildLogText {
 
-    /** ANSI escapes: two-character escapes and CSI sequences, covering SGR colour and cursor movement. */
-    private static final Pattern ANSI_ESCAPE = Pattern.compile("\u001B(?:[@-Z\\\\-_]|\\[[0-?]*[ -/]*[@-~])");
+    /** ANSI escapes: OSC strings, two-character escapes and CSI sequences. */
+    private static final Pattern ANSI_ESCAPE =
+            Pattern.compile("\\u001B(?:\\][^\\u0007\\u001B]*(?:\\u0007|\\u001B\\\\)|[@-Z\\\\-_]|\\[[0-?]*[ -/]*[@-~])");
 
     /**
      * Removes every ANSI escape sequence.

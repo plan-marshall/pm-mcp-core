@@ -57,17 +57,22 @@ public sealed interface TestCounts {
         /**
          * Validates the counts and copies the per-runner map.
          *
-         * @throws IllegalArgumentException if a count is negative or {@code total} is not the sum of the three parts
+         * @throws IllegalArgumentException if a count is negative, {@code total} is not the sum of the three parts, or the
+         *                                  per-runner map carries a negative executed count
          */
         public Measured {
             if (passed < 0 || failed < 0 || skipped < 0) {
                 throw new IllegalArgumentException(
                         "test counts must not be negative: " + passed + "/" + failed + "/" + skipped);
             }
-            if (total != passed + failed + skipped) {
+            long sum = (long) passed + failed + skipped;
+            if (total != sum) {
                 throw new IllegalArgumentException("total " + total + " is not " + passed + "+" + failed + "+" + skipped);
             }
             if (byRunner != null) {
+                if (byRunner.values().stream().anyMatch(executed -> executed < 0)) {
+                    throw new IllegalArgumentException("executed counts must not be negative: " + byRunner);
+                }
                 byRunner = Collections.unmodifiableMap(new LinkedHashMap<>(byRunner));
             }
         }
@@ -113,5 +118,26 @@ public sealed interface TestCounts {
      */
     static TestCounts unmeasured() {
         return Unmeasured.INSTANCE;
+    }
+
+    /**
+     * Builds a measurement from counts gathered as {@code long}, or the {@link Unmeasured} state when the counts cannot be
+     * represented: a count outside the {@code int} range, a negative count, or a per-runner executed count below zero is
+     * no measurement, and reporting one would let a wrapped sum pass as a figure.
+     *
+     * @param passed   the tests that passed
+     * @param failed   the tests that failed
+     * @param skipped  the tests the runner declined to run
+     * @param byRunner the executed count per runner, or {@code null}
+     * @return the measured counts, or {@link Unmeasured#INSTANCE}
+     */
+    public static TestCounts from(long passed, long failed, long skipped, @Nullable Map<String, Integer> byRunner) {
+        long total = passed + failed + skipped;
+        boolean representable = passed >= 0 && failed >= 0 && skipped >= 0 && total <= Integer.MAX_VALUE
+                && (byRunner == null || byRunner.values().stream().noneMatch(executed -> executed < 0));
+        if (!representable) {
+            return Unmeasured.INSTANCE;
+        }
+        return new Measured((int) passed, (int) failed, (int) skipped, (int) total, byRunner);
     }
 }

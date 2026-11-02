@@ -142,6 +142,9 @@ class BuildLogFixturesTest {
                         "A case listed twice is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> BuildLogFixtures.rosterOf(suite + "case test_one\n"),
-                        "A case without a mapping or a reason is refused"));
+                        "A case without a mapping or a reason is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> BuildLogFixtures.rosterOf(suite + "case test_one excluded: \n"),
+                        "An exclusion without a reason is refused"));
     }
 }

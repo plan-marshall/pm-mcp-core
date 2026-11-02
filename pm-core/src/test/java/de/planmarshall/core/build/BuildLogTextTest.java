@@ -35,13 +35,16 @@ class BuildLogTextTest {
     void stripsAnsiEscapes() {
         var word = Generators.letterStrings(4, 12).next();
         var coloured = "\u001B[1;31m[ERROR]\u001B[0m " + word;
+        var linked = "\u001B]8;;file:///p/Foo.java\u0007[ERROR] /p/Foo.java:[7,3] cannot find symbol\u001B]8;;\u0007";
 
         assertAll(
                 () -> assertEquals("[ERROR] " + word, BuildLogText.stripAnsi(coloured),
                         "The colour codes are removed"),
                 () -> assertEquals(word, BuildLogText.stripAnsi(word), "Plain text is returned unchanged"),
                 () -> assertEquals("[WARNING] x", BuildLogText.stripAnsi("[WARNING] x"),
-                        "Text without escapes is untouched"));
+                        "Text without escapes is untouched"),
+                () -> assertEquals("[ERROR] /p/Foo.java:[7,3] cannot find symbol",
+                        BuildLogText.stripAnsi(linked), "An OSC hyperlink is removed with its payload"));
     }
 
     @Test

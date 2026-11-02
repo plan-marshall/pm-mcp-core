@@ -339,8 +339,11 @@ final class BuildLogFixtures {
                 entry = new RosterEntry(suite, caseName, fixtures, "");
             } else if (excluded > 0) {
                 caseName = body.substring(0, excluded);
-                entry = new RosterEntry(suite, caseName, Set.of(),
-                        body.substring(excluded + " excluded: ".length()).strip());
+                String reason = body.substring(excluded + " excluded: ".length()).strip();
+                if (reason.isEmpty()) {
+                    throw refusal(ROSTER, index + 1, "excludes the case without a reason: " + line);
+                }
+                entry = new RosterEntry(suite, caseName, Set.of(), reason);
             } else {
                 throw refusal(ROSTER, index + 1, "maps the case to no fixture and gives no exclusion: " + line);
             }
@@ -398,9 +401,17 @@ final class BuildLogFixtures {
                 continue;
             }
             for (String name : fixture.cases()) {
-                if (!roster.cases().containsKey(fixture.pytestPath() + "::" + name)) {
+                RosterEntry entry = roster.cases().get(fixture.pytestPath() + "::" + name);
+                if (entry == null) {
                     throw new AssertionError("the roster does not list the case " + name + " of "
                             + fixture.pytestPath());
+                }
+                if (!entry.reason().isEmpty()) {
+                    throw new AssertionError("the excluded case " + name + " names the fixture " + fixture.name());
+                }
+                if (!entry.fixtures().contains(fixture.name())) {
+                    throw new AssertionError(
+                            "the roster does not map the case " + name + " to the fixture " + fixture.name());
                 }
             }
         }

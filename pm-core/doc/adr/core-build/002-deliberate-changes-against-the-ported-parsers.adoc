@@ -54,9 +54,11 @@ such verdict at all.
 match.
 |`ported/build/gradle/deliberate-gradle-two-test-tasks.txt`
 
-|An OpenRewrite log line that carries a finding identifier but no longer matches the pinned template is
-`RewriteVerdict.PARSE_ERROR`. The original silently ignores it, so a format drift would read as zero findings.
-|`ported/build/openrewrite/deliberate-rewrite-parse-error.txt`
+|An OpenRewrite log line that carries a finding identifier but no longer matches the pinned template — a reworded verb,
+a blank capture, a colon-less identifier or a location outside the {@code int} range — is
+`RewriteVerdict.PARSE_ERROR`. The original silently ignores such a line, so a format drift would read as zero findings.
+|`ported/build/openrewrite/deliberate-rewrite-parse-error.txt`,
+`deliberate-rewrite-colonless-identifier.txt`
 |===
 
 Two behaviours that do not exist in this package's model are *inputs*, not changes of the parse: the java-cui domain

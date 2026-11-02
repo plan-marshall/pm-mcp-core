@@ -16,6 +16,7 @@ import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The native parse of the OpenRewrite finding lines of a Maven build log, ported from
@@ -50,6 +51,9 @@ public class OpenRewriteLogParser {
     @SuppressWarnings("java:S8786") // ported pattern; the corpus fixtures pin it, a rewrite risks a silent change
     private static final Pattern FINDING = Pattern.compile(
             "CUI_REWRITE-(10[01]): Finding (?:detected|pre-existing) at (.+?):(\\d+):(\\d+) by (.+?): (.*)$");
+
+    /** The identifier of a finding line, matched with a word boundary so a colon-less one is still recognised. */
+    private static final Pattern FINDING_IDENTIFIER = Pattern.compile(RECIPE_LOG_PREFIX + "-10[01]\\b");
 
     private static final String NOT_OBSERVED_REASON =
             "build did not reach rewrite:run — OpenRewrite findings were not produced this run";
@@ -92,20 +96,35 @@ public class OpenRewriteLogParser {
         for (String rawLine : logText.split("\n", -1)) {
             String line = stripCarriageReturn(rawLine);
             Matcher match = FINDING.matcher(line);
-            if (match.find()) {
-                findings.add(new RewriteFinding(match.group(2), Integer.parseInt(match.group(3)),
-                        Integer.parseInt(match.group(4)), match.group(5), match.group(6),
+            if (match.find() && !match.group(2).isBlank() && !match.group(5).isBlank()) {
+                Integer lineNumber = digits(match.group(3));
+                Integer column = digits(match.group(4));
+                if (lineNumber == null || column == null) {
+                    return parseError(line, "the finding location is outside the int range");
+                }
+                findings.add(new RewriteFinding(match.group(2), lineNumber, column, match.group(5), match.group(6),
                         "100".equals(match.group(1))
                                 ? RewriteClassification.NEWLY_DETECTED
                                 : RewriteClassification.PRE_EXISTING));
                 continue;
             }
-            if (line.contains(RECIPE_LOG_PREFIX + "-100:") || line.contains(RECIPE_LOG_PREFIX + "-101:")) {
-                return new RewriteLogResult(RewriteVerdict.PARSE_ERROR, List.of(),
-                        "finding line does not match the pinned template: " + line.strip());
+            if (FINDING_IDENTIFIER.matcher(line).find()) {
+                return parseError(line, "the finding line does not match the pinned template");
             }
         }
         return new RewriteLogResult(RewriteVerdict.OBSERVED, findings, null);
+    }
+
+    private static RewriteLogResult parseError(String line, String reason) {
+        return new RewriteLogResult(RewriteVerdict.PARSE_ERROR, List.of(), reason + ": " + line.strip());
+    }
+
+    private static @Nullable Integer digits(String text) {
+        try {
+            return Integer.valueOf(text);
+        } catch (NumberFormatException _) {
+            return null;
+        }
     }
 
     private static String stripCarriageReturn(String line) {
