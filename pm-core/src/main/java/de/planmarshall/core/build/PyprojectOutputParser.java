@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
@@ -44,9 +44,9 @@ import lombok.experimental.UtilityClass;
  * <p>
  * Three behaviours are deliberate changes against the original, all recorded in ADR {@code core-build/003}: the location is
  * the deepest traceback frame rather than the test file's frame; a pytest-xdist {@code @<group>} suffix is stripped before
- * test identity matching; and every pytest summary block of a multi-run log is summed rather than the last
- * one read. A filter that matched nothing is held as in the original: pytest's {@code no tests ran} summary carries no
- * count, so the port reports no count at all rather than a zero.
+ * test identity matching; and every pytest summary block of a multi-run log is summed rather than the last one read. A
+ * filter that matched nothing is held as in the original: pytest's {@code no tests ran} summary carries no count, so the
+ * port reports no count at all rather than a zero.
  *
  * @since 0.1
  */
@@ -59,22 +59,22 @@ public class PyprojectOutputParser {
 
     private static final String MESSAGE_DELIMITER = " - ";
 
-    private static final String FAILURES_BANNER = "FAILURES";
-
-    private static final String ERRORS_BANNER = "ERRORS";
-
     private static final String CAPTURED_SECTION = "\n---";
 
     private static final String XDIST_GROUP = "@[A-Za-z0-9_.-]+$";
 
     private static final String NO_TESTS_MARKER = "no tests ran";
 
+    private static final String PY_FILE = ".py";
+
     private static final Pattern MYPY_DETECT = Pattern.compile("\\.py:\\d+: error:");
 
     private static final Pattern RUFF_DETECT = Pattern.compile("\\.py:\\d+:\\d+: [A-Z]+\\d+");
 
+    @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
     private static final Pattern MYPY = Pattern.compile("^(.+\\.py):(\\d+): error: (.+)$");
 
+    @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
     private static final Pattern RUFF = Pattern.compile("^(.+\\.py):(\\d+):(\\d+): ([A-Z]+\\d+) (.+)$");
 
     @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
@@ -84,16 +84,19 @@ public class PyprojectOutputParser {
 
     private static final Pattern ERRORS_BANNER_LINE = Pattern.compile("^=+ ERRORS =+\\s*$");
 
+    @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
     private static final Pattern SECTION_LINE = Pattern.compile("^=+\\s+\\S.*\\s+=+\\s*$");
 
     private static final Pattern ERROR_HEADER_COLLECTING = Pattern.compile("^ERROR collecting (.+)$");
 
     private static final Pattern ERROR_HEADER_PHASE = Pattern.compile("^ERROR at (?:setup|teardown) of (.+)$");
 
+    @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
     private static final Pattern EXCEPTION_LINE = Pattern.compile("^E([ \\t]+)(\\S.*?)[ \\t]*$", Pattern.MULTILINE);
 
     private static final Pattern FRAME = Pattern.compile("^(\\S.*\\.py):(\\d+):");
 
+    @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
     private static final Pattern SUMMARY_LINE =
             Pattern.compile("^.*\\b(?:passed|failed|skipped)\\b.*\\bin\\s+[\\d.]+s.*$");
 
@@ -144,7 +147,7 @@ public class PyprojectOutputParser {
     private static ParsedBuild parseStripped(String logText) {
         List<String> lines = withoutCarriageReturns(List.of(logText.split("\n", -1)));
         var diagnostics = new ArrayList<Diagnostic>();
-        TestCounts testCounts = null;
+        @Nullable TestCounts testCounts = null;
         boolean successMarker = false;
         if (MYPY_DETECT.matcher(logText).find()) {
             diagnostics.addAll(mypyDiagnostics(lines));
@@ -155,8 +158,7 @@ public class PyprojectOutputParser {
         if (hasPytestOutput(lines)) {
             diagnostics.addAll(pytestDiagnostics(lines));
             testCounts = pytestTestCounts(lines).orElse(null);
-            successMarker = lines.stream()
-                    .anyMatch(line -> SUMMARY_LINE.matcher(line).matches() && PASSED_COUNT.matcher(line).find());
+            successMarker = hasPassedSummary(lines);
         }
         List<Diagnostic> result = List.copyOf(diagnostics);
         boolean failed = result.stream().anyMatch(diagnostic -> diagnostic.severity() == Severity.ERROR);
@@ -166,20 +168,37 @@ public class PyprojectOutputParser {
         return new ParsedBuild(result, status, successMarker, testCounts, noTestsRan);
     }
 
+    private static boolean hasPassedSummary(List<String> lines) {
+        return lines.stream()
+                .anyMatch(line -> SUMMARY_LINE.matcher(line).matches() && PASSED_COUNT.matcher(line).find());
+    }
+
     private static List<Diagnostic> mypyDiagnostics(List<String> lines) {
         var diagnostics = new ArrayList<Diagnostic>();
         var seen = new HashSet<String>();
         for (String line : lines) {
             Matcher matcher = MYPY.matcher(line);
-            if (!matcher.matches()) {
-                continue;
+            Integer number = matcher.matches() ? integer(matcher.group(2)) : null;
+            if (number != null) {
+                add(diagnostics, seen, new Diagnostic(matcher.group(1), number, null,
+                        DiagnosticCollector.stored(matcher.group(3)), categoryOf(matcher.group(3)), Severity.ERROR,
+                        null));
             }
-            Integer number = integer(matcher.group(2));
-            if (number == null) {
-                continue;
+        }
+        return diagnostics;
+    }
+
+    private static List<Diagnostic> ruffDiagnostics(List<String> lines) {
+        var diagnostics = new ArrayList<Diagnostic>();
+        var seen = new HashSet<String>();
+        for (String line : lines) {
+            Matcher matcher = RUFF.matcher(line);
+            Integer number = matcher.matches() ? integer(matcher.group(2)) : null;
+            if (number != null) {
+                add(diagnostics, seen, new Diagnostic(matcher.group(1), number, integer(matcher.group(3)),
+                        DiagnosticCollector.stored(matcher.group(4) + " " + matcher.group(5)), Category.LINT_ERROR,
+                        Severity.ERROR, null));
             }
-            add(diagnostics, seen, new Diagnostic(matcher.group(1), number, null,
-                    DiagnosticCollector.stored(matcher.group(3)), categoryOf(matcher.group(3)), Severity.ERROR, null));
         }
         return diagnostics;
     }
@@ -213,71 +232,61 @@ public class PyprojectOutputParser {
         return List.copyOf(matchers);
     }
 
-    private static List<Diagnostic> ruffDiagnostics(List<String> lines) {
-        var diagnostics = new ArrayList<Diagnostic>();
-        var seen = new HashSet<String>();
-        for (String line : lines) {
-            Matcher matcher = RUFF.matcher(line);
-            if (!matcher.matches()) {
-                continue;
-            }
-            Integer number = integer(matcher.group(2));
-            if (number == null) {
-                continue;
-            }
-            add(diagnostics, seen, new Diagnostic(matcher.group(1), number, integer(matcher.group(3)),
-                    DiagnosticCollector.stored(matcher.group(4) + " " + matcher.group(5)), Category.LINT_ERROR,
-                    Severity.ERROR, null));
-        }
-        return diagnostics;
-    }
-
     private static List<Diagnostic> pytestDiagnostics(List<String> lines) {
         var diagnostics = new ArrayList<Diagnostic>();
         var seen = new HashSet<String>();
-        Map<String, List<String>> failureBlocks =
-                blocks(lines, FAILURES_BANNER_LINE, PyprojectOutputParser::pytestBlockKey);
-        Map<String, List<String>> errorBlocks =
-                blocks(lines, ERRORS_BANNER_LINE, PyprojectOutputParser::pytestErrorBlockKey);
-        var failureCursors = new HashMap<String, Integer>();
-        var errorCursors = new HashMap<String, Integer>();
-        for (String line : lines) {
-            Matcher failed = FAILED_LINE.matcher(line);
-            if (!failed.matches()) {
-                continue;
-            }
-            String testName = withoutXdistGroup(failed.group(2));
-            String message = failed.group(3) == null ? "Test " + testName + " failed" : failed.group(3);
-            String block = consume(failureBlocks, failureCursors, pytestBlockKey(testName));
-            add(diagnostics, seen, pytestDiagnostic(failed.group(1), block == null ? null : frame(block), message,
-                    Category.TEST_FAILURE));
-        }
-        for (String line : lines) {
-            ParsedError error = parseErrorLine(line);
-            if (error == null) {
-                continue;
-            }
-            String testName = error.testName() == null ? null : withoutXdistGroup(error.testName());
-            String terse = testName == null ? "Error collecting " + error.file() : "Error in " + testName;
-            String key = testName == null ? error.file() : pytestBlockKey(testName);
-            String block = consume(errorBlocks, errorCursors, key);
-            String message;
-            if (error.message() != null) {
-                message = error.message();
-            } else if (block == null) {
-                message = terse;
-            } else {
-                message = exceptionMessage(block).orElse(terse);
-            }
-            add(diagnostics, seen, pytestDiagnostic(error.file(), block == null ? null : frame(block), message,
-                    Category.TEST_COLLECTION_ERROR));
-        }
+        addFailures(lines, diagnostics, seen);
+        addErrors(lines, diagnostics, seen);
         return diagnostics;
     }
 
-    private static Diagnostic pytestDiagnostic(String summaryFile, Frame frame, String message, Category category) {
-        String file = frame == null ? summaryFile : frame.file();
-        Integer line = frame == null ? null : frame.line();
+    private static void addFailures(List<String> lines, List<Diagnostic> diagnostics, Set<String> seen) {
+        Map<String, List<String>> blocks = blocks(lines, FAILURES_BANNER_LINE, PyprojectOutputParser::pytestBlockKey);
+        var cursors = new HashMap<String, Integer>();
+        for (String line : lines) {
+            Matcher failed = FAILED_LINE.matcher(line);
+            if (failed.matches()) {
+                String testName = withoutXdistGroup(failed.group(2));
+                String message = failed.group(3) == null ? "Test " + testName + " failed" : failed.group(3);
+                String block = consume(blocks, cursors, pytestBlockKey(testName));
+                add(diagnostics, seen, pytestDiagnostic(failed.group(1), block, message, Category.TEST_FAILURE));
+            }
+        }
+    }
+
+    private static void addErrors(List<String> lines, List<Diagnostic> diagnostics, Set<String> seen) {
+        Map<String, List<String>> blocks = blocks(lines, ERRORS_BANNER_LINE, PyprojectOutputParser::pytestErrorBlockKey);
+        var cursors = new HashMap<String, Integer>();
+        for (String line : lines) {
+            ParsedError error = parseErrorLine(line);
+            if (error != null) {
+                String block = consume(blocks, cursors, errorKey(error));
+                add(diagnostics, seen,
+                        pytestDiagnostic(error.file(), block, errorMessage(error, block),
+                                Category.TEST_COLLECTION_ERROR));
+            }
+        }
+    }
+
+    private static String errorKey(ParsedError error) {
+        return error.testName() == null ? error.file() : pytestBlockKey(withoutXdistGroup(error.testName()));
+    }
+
+    private static String errorMessage(ParsedError error, @Nullable String block) {
+        if (error.message() != null) {
+            return error.message();
+        }
+        String terse = error.testName() == null
+                ? "Error collecting " + error.file()
+                : "Error in " + withoutXdistGroup(error.testName());
+        return block == null ? terse : exceptionMessage(block).orElse(terse);
+    }
+
+    private static Diagnostic pytestDiagnostic(String summaryFile, @Nullable String block, String message,
+            Category category) {
+        Frame location = block == null ? null : frame(block);
+        String file = location == null ? summaryFile : location.file();
+        Integer line = location == null ? null : location.line();
         return new Diagnostic(file, line, null, DiagnosticCollector.stored(message), category, Severity.ERROR, null);
     }
 
@@ -308,36 +317,46 @@ public class PyprojectOutputParser {
      * @param line the line to inspect
      * @return the parsed line, or {@code null} when it is no error short-summary line
      */
-    private static ParsedError parseErrorLine(String line) {
+    private static @Nullable ParsedError parseErrorLine(String line) {
         if (!line.startsWith(ERROR_LINE_PREFIX)) {
             return null;
         }
         String rest = line.substring(ERROR_LINE_PREFIX.length());
         int searchFrom = 0;
-        while (true) {
-            int start = rest.indexOf(".py", searchFrom);
-            if (start < 1) {
+        int start = rest.indexOf(PY_FILE, searchFrom);
+        while (start >= 0) {
+            ParsedError parsed = errorAt(rest, start);
+            if (parsed != null) {
+                return parsed;
+            }
+            searchFrom = start + PY_FILE.length();
+            start = rest.indexOf(PY_FILE, searchFrom);
+        }
+        return null;
+    }
+
+    private static @Nullable ParsedError errorAt(String rest, int start) {
+        if (start < 1) {
+            return null;
+        }
+        int end = start + PY_FILE.length();
+        String tail = rest.substring(end);
+        if (tail.isEmpty()) {
+            return new ParsedError(rest.substring(0, end), null, null);
+        }
+        if (tail.startsWith(NODE_SEPARATOR)) {
+            String nodeTail = tail.substring(NODE_SEPARATOR.length());
+            if (nodeTail.isEmpty()) {
                 return null;
             }
-            int end = start + ".py".length();
-            String tail = rest.substring(end);
-            if (tail.isEmpty()) {
-                return new ParsedError(rest.substring(0, end), null, null);
-            }
-            if (tail.startsWith(NODE_SEPARATOR)) {
-                String nodeTail = tail.substring(NODE_SEPARATOR.length());
-                if (nodeTail.isEmpty()) {
-                    return null;
-                }
-                String[] parts = splitErrorTail(nodeTail);
-                return new ParsedError(rest.substring(0, end), parts[0], parts[1]);
-            }
-            if (tail.startsWith(MESSAGE_DELIMITER)) {
-                String message = tail.substring(MESSAGE_DELIMITER.length());
-                return message.isEmpty() ? null : new ParsedError(rest.substring(0, end), null, message);
-            }
-            searchFrom = end;
+            String[] parts = splitErrorTail(nodeTail);
+            return new ParsedError(rest.substring(0, end), parts[0], parts[1]);
         }
+        if (tail.startsWith(MESSAGE_DELIMITER)) {
+            String message = tail.substring(MESSAGE_DELIMITER.length());
+            return message.isEmpty() ? null : new ParsedError(rest.substring(0, end), null, message);
+        }
+        return null;
     }
 
     /**
@@ -382,40 +401,37 @@ public class PyprojectOutputParser {
         return pytestBlockKey(name);
     }
 
-    private static Map<String, List<String>> blocks(List<String> lines, Pattern banner, Function<String, String> key) {
+    private static Map<String, List<String>> blocks(List<String> lines, Pattern banner, UnaryOperator<String> key) {
         Map<String, List<String>> blocks = new LinkedHashMap<>();
         var current = new ArrayList<String>();
-        String currentKey = null;
-        boolean inSection = false;
+        var state = new BlockState();
         for (String line : lines) {
             if (banner.matcher(line).matches()) {
-                inSection = true;
-                continue;
-            }
-            if (!inSection) {
-                continue;
-            }
-            String header = blockHeader(line);
-            if (header != null) {
-                flush(blocks, currentKey, current);
-                currentKey = key.apply(header);
-                continue;
-            }
-            if (SECTION_LINE.matcher(line).matches()) {
-                flush(blocks, currentKey, current);
-                currentKey = null;
-                inSection = false;
-                continue;
-            }
-            if (currentKey != null) {
-                current.add(line);
+                state.inSection = true;
+            } else if (state.inSection) {
+                acceptBlockLine(line, state, blocks, current, key);
             }
         }
-        flush(blocks, currentKey, current);
+        flush(blocks, state.currentKey, current);
         return blocks;
     }
 
-    private static void flush(Map<String, List<String>> blocks, String key, List<String> lines) {
+    private static void acceptBlockLine(String line, BlockState state, Map<String, List<String>> blocks,
+            List<String> current, UnaryOperator<String> key) {
+        String header = blockHeader(line);
+        if (header != null) {
+            flush(blocks, state.currentKey, current);
+            state.currentKey = key.apply(header);
+        } else if (SECTION_LINE.matcher(line).matches()) {
+            flush(blocks, state.currentKey, current);
+            state.currentKey = null;
+            state.inSection = false;
+        } else if (state.currentKey != null) {
+            current.add(line);
+        }
+    }
+
+    private static void flush(Map<String, List<String>> blocks, @Nullable String key, List<String> lines) {
         if (key != null) {
             blocks.computeIfAbsent(key, unused -> new ArrayList<>()).add(String.join("\n", lines).strip());
             lines.clear();
@@ -426,8 +442,11 @@ public class PyprojectOutputParser {
      * Returns the name of a pytest block header such as {@code ____ test_alpha ____}, or {@code null} for a line that is
      * no header. The trailing underscore rule is read from the end, so a long name that collapses the padding to one
      * underscore per side is still recognised.
+     *
+     * @param line the line to inspect
+     * @return the name inside the header, or {@code null}
      */
-    private static String blockHeader(String line) {
+    private static @Nullable String blockHeader(String line) {
         int end = line.length();
         while (end > 0 && Character.isWhitespace(line.charAt(end - 1))) {
             end--;
@@ -471,10 +490,10 @@ public class PyprojectOutputParser {
         return candidates.get(cursor);
     }
 
-    private static Frame frame(String block) {
+    private static @Nullable Frame frame(String block) {
         int captured = block.indexOf(CAPTURED_SECTION);
         String traceback = captured < 0 ? block : block.substring(0, captured);
-        Frame frame = null;
+        @Nullable Frame frame = null;
         for (String line : traceback.split("\n", -1)) {
             Matcher matcher = FRAME.matcher(line);
             if (matcher.find()) {
@@ -505,22 +524,22 @@ public class PyprojectOutputParser {
         boolean found = false;
         boolean unrepresentable = false;
         for (String line : lines) {
-            if (!SUMMARY_LINE.matcher(line).matches()) {
-                continue;
+            if (SUMMARY_LINE.matcher(line).matches()) {
+                found = true;
+                long blockPassed = count(PASSED_COUNT, line);
+                long blockFailed = count(FAILED_COUNT, line);
+                long blockSkipped = count(SKIPPED_COUNT, line);
+                boolean representable = blockPassed >= 0 && blockFailed >= 0 && blockSkipped >= 0
+                        && blockPassed <= Integer.MAX_VALUE - passed && blockFailed <= Integer.MAX_VALUE - failed
+                        && blockSkipped <= Integer.MAX_VALUE - skipped;
+                if (representable) {
+                    passed += blockPassed;
+                    failed += blockFailed;
+                    skipped += blockSkipped;
+                } else {
+                    unrepresentable = true;
+                }
             }
-            found = true;
-            long blockPassed = count(PASSED_COUNT, line);
-            long blockFailed = count(FAILED_COUNT, line);
-            long blockSkipped = count(SKIPPED_COUNT, line);
-            if (blockPassed < 0 || blockFailed < 0 || blockSkipped < 0
-                    || blockPassed > Integer.MAX_VALUE - passed || blockFailed > Integer.MAX_VALUE - failed
-                    || blockSkipped > Integer.MAX_VALUE - skipped) {
-                unrepresentable = true;
-                continue;
-            }
-            passed += blockPassed;
-            failed += blockFailed;
-            skipped += blockSkipped;
         }
         if (!found) {
             return Optional.empty();
@@ -542,7 +561,7 @@ public class PyprojectOutputParser {
         }
     }
 
-    private static Integer integer(String digits) {
+    private static @Nullable Integer integer(String digits) {
         try {
             return Integer.valueOf(digits);
         } catch (NumberFormatException _) {
@@ -556,6 +575,14 @@ public class PyprojectOutputParser {
             result.add(line.endsWith("\r") ? line.substring(0, line.length() - 1) : line);
         }
         return result;
+    }
+
+    /** The running state of one pass over a block section of the log. */
+    private static final class BlockState {
+
+        private @Nullable String currentKey;
+
+        private boolean inSection;
     }
 
     private record ParsedError(String file, @Nullable String testName, @Nullable String message) {

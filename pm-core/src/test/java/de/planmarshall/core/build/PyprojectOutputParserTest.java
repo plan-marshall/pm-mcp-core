@@ -42,14 +42,16 @@ class PyprojectOutputParserTest extends ParsedBuildPortedTest {
     @Test
     @DisplayName("names a collection-error path that carries a space")
     void reportsASpacedPath() {
-        String logText = "==================================== ERRORS ====================================\n"
-                + "_ ERROR collecting test/broken module/test_x.py _\n"
-                + "test/broken module/test_x.py:3: in <module>\n"
-                + "    raise ImportError('no such thing')\n"
-                + "E   ImportError: no such thing\n"
-                + "=========================== short test summary info ============================\n"
-                + "ERROR test/broken module/test_x.py\n"
-                + "======================== 5 passed, 1 error in 2.00s ========================\n";
+        String logText = """
+                ==================================== ERRORS ====================================
+                _ ERROR collecting test/broken module/test_x.py _
+                test/broken module/test_x.py:3: in <module>
+                    raise ImportError('no such thing')
+                E   ImportError: no such thing
+                =========================== short test summary info ============================
+                ERROR test/broken module/test_x.py
+                ========================= 5 passed, 1 error in 2.00s ========================
+                """;
 
         ParsedBuild build = PyprojectOutputParser.parse(logText);
 
@@ -66,9 +68,10 @@ class PyprojectOutputParserTest extends ParsedBuildPortedTest {
     @Test
     @DisplayName("splits the node id at the first path that ends it")
     void splitsAMessageNamingAPath() {
-        String logText = "ERROR test/test_alpha.py::test_thing - "
-                + "ValueError: could not import test/test_beta.py::test_other\n"
-                + "======================== 5 passed, 1 error in 2.00s ========================\n";
+        String logText = """
+                ERROR test/test_alpha.py::test_thing - ValueError: could not import test/test_beta.py::test_other
+                ======================== 5 passed, 1 error in 2.00s ========================
+                """;
 
         ParsedBuild build = PyprojectOutputParser.parse(logText);
 

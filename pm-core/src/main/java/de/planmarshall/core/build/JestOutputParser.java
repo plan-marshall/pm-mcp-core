@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.build;
 
+import org.jspecify.annotations.Nullable;
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -41,10 +43,12 @@ public class JestOutputParser {
 
     private static final String STACK_FRAME = "at ";
 
+    @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
     private static final Pattern FAIL_HEADER = Pattern.compile("^\\s*FAIL\\s+(.+)$");
 
     private static final Pattern STACK_LOCATION = Pattern.compile(":(\\d+):\\d+\\)?$");
 
+    @SuppressWarnings({"java:S5843", "java:S8786"}) // ported pattern; the fixtures pin its behaviour
     private static final Pattern SUMMARY =
             Pattern.compile("Tests:\\s+(?:(\\d+)\\s+failed,\\s+)?(?:(\\d+)\\s+skipped,\\s+)?(?:(\\d+)\\s+passed,\\s+)?(\\d+)\\s+total");
 
@@ -91,34 +95,30 @@ public class JestOutputParser {
             if (fail.matches()) {
                 String file = fail.group(1).strip();
                 currentFile = file.isBlank() ? null : file;
-                continue;
-            }
-            if (line.strip().startsWith(TEST_MARKER)) {
+            } else if (line.strip().startsWith(TEST_MARKER)) {
                 add(diagnostics, seen, currentFile, currentTest, stack);
                 stack.clear();
                 currentTest = line.strip().substring(TEST_MARKER.length()).strip();
                 collecting = true;
-                continue;
-            }
-            if (!collecting) {
-                continue;
-            }
-            String stripped = line.strip();
-            if (!stripped.isEmpty()) {
-                stack.add(line);
-            } else if (currentTest != null && !stack.isEmpty() && stack.stream().anyMatch(frame -> frame.contains(STACK_FRAME))) {
-                add(diagnostics, seen, currentFile, currentTest, stack);
-                stack.clear();
-                collecting = false;
-                currentTest = null;
+            } else if (collecting) {
+                String stripped = line.strip();
+                if (!stripped.isEmpty()) {
+                    stack.add(line);
+                } else if (currentTest != null && !stack.isEmpty()
+                        && stack.stream().anyMatch(frame -> frame.contains(STACK_FRAME))) {
+                    add(diagnostics, seen, currentFile, currentTest, stack);
+                    stack.clear();
+                    collecting = false;
+                    currentTest = null;
+                }
             }
         }
         add(diagnostics, seen, currentFile, currentTest, stack);
         return List.copyOf(diagnostics);
     }
 
-    private static void add(List<Diagnostic> diagnostics, HashSet<String> seen, String file, String test,
-            List<String> stack) {
+    private static void add(List<Diagnostic> diagnostics, HashSet<String> seen, @Nullable String file,
+            @Nullable String test, List<String> stack) {
         if (test == null || test.isBlank() || stack.isEmpty()) {
             return;
         }
@@ -131,7 +131,7 @@ public class JestOutputParser {
         }
     }
 
-    private static Integer stackLocation(List<String> stack) {
+    private static @Nullable Integer stackLocation(List<String> stack) {
         for (String frame : stack) {
             Matcher matcher = STACK_LOCATION.matcher(frame);
             if (matcher.find()) {
@@ -177,7 +177,7 @@ public class JestOutputParser {
                 : TestCounts.from(passed, failed, skipped, null));
     }
 
-    private static long parseCount(String digits) {
+    private static long parseCount(@Nullable String digits) {
         if (digits == null) {
             return 0L;
         }

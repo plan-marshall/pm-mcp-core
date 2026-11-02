@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.build;
 
+import org.jspecify.annotations.Nullable;
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,8 +40,6 @@ import lombok.experimental.UtilityClass;
  */
 @UtilityClass
 public class NpmErrorParser {
-
-    private static final String CODE_MARKER = "npm ERR! code ";
 
     private static final String ERROR_PREFIX = "npm ERR! ";
 
@@ -107,7 +107,7 @@ public class NpmErrorParser {
         return List.copyOf(diagnostics);
     }
 
-    private static String errorCode(String line) {
+    private static @Nullable String errorCode(String line) {
         Matcher matcher = ERROR_CODE.matcher(line);
         return matcher.find() ? matcher.group(1) : null;
     }

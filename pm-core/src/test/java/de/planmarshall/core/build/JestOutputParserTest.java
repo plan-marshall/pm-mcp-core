@@ -42,12 +42,14 @@ class JestOutputParserTest extends ParsedBuildPortedTest {
     @Test
     @DisplayName("closes a failure block before the summary line that follows it")
     void closesTheFailureBlock() {
-        String logText = "FAIL  src/a.test.ts\n"
-                + "  ● a › fails\n"
-                + "\n"
-                + "      at Object.<anonymous> (src/a.test.ts:7:9)\n"
-                + "\n"
-                + "Tests:       1 failed, 2 passed, 3 total\n";
+        String logText = """
+                FAIL  src/a.test.ts
+                  ● a › fails
+
+                      at Object.<anonymous> (src/a.test.ts:7:9)
+
+                Tests:       1 failed, 2 passed, 3 total
+                """;
 
         ParsedBuild build = JestOutputParser.parse(logText);
 
@@ -66,12 +68,11 @@ class JestOutputParserTest extends ParsedBuildPortedTest {
     @Test
     @DisplayName("ignores a FAIL header that names no suite")
     void ignoresABlankSuite() {
-        ParsedBuild build = JestOutputParser.parse("FAIL   \n"
-                + "  ● a › b\n"
-                + "\n"
-                + "      at Object.<anonymous> (src/a.ts:3:1)\n"
-                + "\n"
-                + "Tests:       1 failed, 0 passed, 1 total\n");
+        String logText = String.join("\n", "FAIL   ", "  ● a › b", "",
+                "      at Object.<anonymous> (src/a.ts:3:1)", "",
+                "Tests:       1 failed, 0 passed, 1 total");
+
+        ParsedBuild build = JestOutputParser.parse(logText);
 
         assertAll(
                 () -> assertEquals(1, build.diagnostics().size(), "The block is still filed as one diagnostic"),

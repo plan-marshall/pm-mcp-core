@@ -17,6 +17,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
@@ -54,6 +55,7 @@ public class TapOutputParser {
 
     private static final String STACK_INDENT = "        ";
 
+    @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
     private static final Pattern NOT_OK = Pattern.compile("^\\s*not ok\\s+\\d+\\s*-\\s*(.+)$");
 
     private static final Pattern LOCATION = Pattern.compile("^(.+):(\\d+):\\d+");
@@ -103,18 +105,22 @@ public class TapOutputParser {
         int index = 0;
         while (index < lines.size()) {
             Matcher notOk = NOT_OK.matcher(lines.get(index));
-            if (!notOk.find()) {
+            if (notOk.find()) {
+                index = addDiagnostic(lines, index, notOk.group(1), diagnostics, seen);
+            } else {
                 index++;
-                continue;
             }
-            String testName = notOk.group(1).strip();
-            var cursor = new Cursor(index + 1);
-            var block = yamlBlock(lines, cursor);
-            index = cursor.index;
-            String message = block.errorMessage().isEmpty() ? testName : block.errorMessage();
-            if (message.isBlank()) {
-                continue;
-            }
+        }
+        return List.copyOf(diagnostics);
+    }
+
+    private static int addDiagnostic(List<String> lines, int index, String rawName, List<Diagnostic> diagnostics,
+            Set<String> seen) {
+        String testName = rawName.strip();
+        var cursor = new Cursor(index + 1);
+        YamlBlock block = yamlBlock(lines, cursor);
+        String message = block.errorMessage().isEmpty() ? testName : block.errorMessage();
+        if (!message.isBlank()) {
             Location location = location(block.location());
             var diagnostic = new Diagnostic(location.file(), location.line(), null,
                     DiagnosticCollector.stored(message), Category.TEST_FAILURE, Severity.ERROR,
@@ -123,45 +129,15 @@ public class TapOutputParser {
                 diagnostics.add(diagnostic);
             }
         }
-        return List.copyOf(diagnostics);
+        return cursor.index;
     }
 
     private static YamlBlock yamlBlock(List<String> lines, Cursor cursor) {
-        String errorMessage = "";
-        String location = "";
-        var stackLines = new ArrayList<String>();
-        boolean inYaml = false;
-        boolean inStack = false;
-        while (cursor.index < lines.size()) {
-            String yamlLine = lines.get(cursor.index);
-            String stripped = yamlLine.strip();
-            if (YAML_START.equals(stripped)) {
-                inYaml = true;
-            } else if (YAML_END.equals(stripped)) {
-                break;
-            } else if (inYaml) {
-                if (stripped.startsWith(ERROR_KEY)) {
-                    errorMessage = stripQuotes(stripped.substring(ERROR_KEY.length()).strip());
-                } else if (stripped.startsWith(LOCATION_KEY)) {
-                    location = stripQuotes(stripped.substring(LOCATION_KEY.length()).strip());
-                } else if (stripped.startsWith(STACK_KEY)) {
-                    inStack = true;
-                    String stackValue = stripped.substring(STACK_KEY.length()).strip();
-                    if (!stackValue.isEmpty() && !BLOCK_STACK.equals(stackValue)) {
-                        stackLines.add(stackValue);
-                    }
-                } else if (inStack && yamlLine.startsWith(STACK_INDENT)) {
-                    stackLines.add(stripped);
-                } else if (!yamlLine.startsWith(" ")) {
-                    break;
-                }
-            } else {
-                break;
-            }
+        var block = new YamlBlock();
+        while (cursor.index < lines.size() && block.accept(lines.get(cursor.index))) {
             cursor.index++;
         }
-        String stackTrace = stackLines.isEmpty() ? null : String.join("\n", stackLines);
-        return new YamlBlock(errorMessage, location, stackTrace);
+        return block;
     }
 
     private static Location location(String rawLocation) {
@@ -235,10 +211,67 @@ public class TapOutputParser {
         return result;
     }
 
-    private record YamlBlock(String errorMessage, String location, String stackTrace) {
+    private record Location(@Nullable String file, @Nullable Integer line) {
     }
 
-    private record Location(@Nullable String file, @Nullable Integer line) {
+    /** The YAML block of one {@code not ok} line, read line by line. */
+    private static final class YamlBlock {
+
+        private String errorMessage = "";
+
+        private String location = "";
+
+        private final List<String> stackLines = new ArrayList<>();
+
+        private boolean inYaml;
+
+        private boolean inStack;
+
+        /**
+         * Accepts one line of the block.
+         *
+         * @param yamlLine the line to inspect
+         * @return whether the block continues with the next line
+         */
+        boolean accept(String yamlLine) {
+            String stripped = yamlLine.strip();
+            if (YAML_START.equals(stripped)) {
+                inYaml = true;
+                return true;
+            }
+            if (YAML_END.equals(stripped) || !inYaml) {
+                return false;
+            }
+            if (stripped.startsWith(ERROR_KEY)) {
+                errorMessage = stripQuotes(stripped.substring(ERROR_KEY.length()).strip());
+            } else if (stripped.startsWith(LOCATION_KEY)) {
+                location = stripQuotes(stripped.substring(LOCATION_KEY.length()).strip());
+            } else if (stripped.startsWith(STACK_KEY)) {
+                inStack = true;
+                String stackValue = stripped.substring(STACK_KEY.length()).strip();
+                if (!stackValue.isEmpty() && !BLOCK_STACK.equals(stackValue)) {
+                    stackLines.add(stackValue);
+                }
+            } else if (inStack && yamlLine.startsWith(STACK_INDENT)) {
+                stackLines.add(stripped);
+            } else if (!yamlLine.startsWith(" ")) {
+                return false;
+            }
+            return true;
+        }
+
+        String errorMessage() {
+            return errorMessage;
+        }
+
+        String location() {
+            return location;
+        }
+
+        @Nullable
+        String stackTrace() {
+            return stackLines.isEmpty() ? null : String.join("\n", stackLines);
+        }
     }
 
     private static final class Cursor {

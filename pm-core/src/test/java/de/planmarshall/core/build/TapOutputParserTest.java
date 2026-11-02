@@ -40,18 +40,20 @@ class TapOutputParserTest extends ParsedBuildPortedTest {
     @Test
     @DisplayName("reads a test failure's YAML block, not the suite that contains it")
     void readsTheYamlBlock() {
-        String logText = "TAP version 13\n"
-                + "not ok 2 - renders provided text\n"
-                + "  ---\n"
-                + "  location: '/p/App.test.js:15:5'\n"
-                + "  error: 'Expected \"Hello\" but got \"Goodbye\"'\n"
-                + "  stack: |\n"
-                + "    at TestContext.<anonymous> (file:///p/App.test.js:15:5)\n"
-                + "  ...\n"
-                + "# tests 1\n"
-                + "# pass 0\n"
-                + "# fail 1\n"
-                + "# skipped 0\n";
+        String logText = """
+                TAP version 13
+                not ok 2 - renders provided text
+                  ---
+                  location: '/p/App.test.js:15:5'
+                  error: 'Expected "Hello" but got "Goodbye"'
+                  stack: |
+                    at TestContext.<anonymous> (file:///p/App.test.js:15:5)
+                  ...
+                # tests 1
+                # pass 0
+                # fail 1
+                # skipped 0
+                """;
 
         ParsedBuild build = TapOutputParser.parse(logText);
 
@@ -68,8 +70,9 @@ class TapOutputParserTest extends ParsedBuildPortedTest {
     @Test
     @DisplayName("ignores a not-ok line that carries no message at all")
     void ignoresABlankTestName() {
-        ParsedBuild build = TapOutputParser.parse(
-                "not ok 1 -   \n# tests 1\n# pass 0\n# fail 1\n# skipped 0\n");
+        String logText = String.join("\n", "not ok 1 -   ", "# tests 1", "# pass 0", "# fail 1", "# skipped 0");
+
+        ParsedBuild build = TapOutputParser.parse(logText);
 
         assertAll(
                 () -> assertEquals(0, build.diagnostics().size(), "A line with no identity and no message files nothing"),
@@ -79,12 +82,10 @@ class TapOutputParserTest extends ParsedBuildPortedTest {
     @Test
     @DisplayName("files a nameless not-ok block that carries its own error")
     void filesANamelessBlockWithAnError() {
-        ParsedBuild build = TapOutputParser.parse("not ok 1 -  \n"
-                + "  ---\n"
-                + "  location: '/p/a.js:4:2'\n"
-                + "  error: 'boom'\n"
-                + "  ...\n"
-                + "# tests 1\n# pass 0\n# fail 1\n# skipped 0\n");
+        String logText = String.join("\n", "not ok 1 -  ", "  ---", "  location: '/p/a.js:4:2'", "  error: 'boom'",
+                "  ...", "# tests 1", "# pass 0", "# fail 1", "# skipped 0");
+
+        ParsedBuild build = TapOutputParser.parse(logText);
 
         assertAll(
                 () -> assertEquals(1, build.diagnostics().size(), "The block's own error is filed"),

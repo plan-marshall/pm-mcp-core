@@ -39,6 +39,7 @@ public class EslintOutputParser {
 
     private static final String ERROR = "error";
 
+    @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
     private static final Pattern FILE_PATH =
             Pattern.compile("^(/[^\\s:]+|[A-Z]:\\\\[^\\s:]+|\\.{0,2}/[^\\s:]+\\.\\w+)$");
 
@@ -88,14 +89,11 @@ public class EslintOutputParser {
             Optional<String> file = filePath(line);
             if (file.isPresent()) {
                 currentFile = file.get();
-                continue;
-            }
-            if (currentFile == null) {
-                continue;
-            }
-            Optional<Diagnostic> diagnostic = issue(line, currentFile);
-            if (diagnostic.isPresent() && seen.add(DiagnosticCollector.key(diagnostic.get()))) {
-                diagnostics.add(diagnostic.get());
+            } else if (currentFile != null) {
+                Optional<Diagnostic> diagnostic = issue(line, currentFile);
+                if (diagnostic.isPresent() && seen.add(DiagnosticCollector.key(diagnostic.get()))) {
+                    diagnostics.add(diagnostic.get());
+                }
             }
         }
         return List.copyOf(diagnostics);
