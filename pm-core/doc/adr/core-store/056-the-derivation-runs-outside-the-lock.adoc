@@ -27,10 +27,11 @@ the attempt, keeps the stored entry and returns its reading. Two refreshers of t
 a newer result with an older one.
 
 The comparison is made on the callers' start instants: each caller passes its `now`, and `derived_at` records the
-instant its derivation started, not the instant it finished. That ordering is applied to a successful attempt against
-the stored entry only. A failure has no ordering check: it rewrites the entry `failed` (or `stale`, when it carried a
-value) whatever its start instant, so a failure that started later and commits after an earlier-started success wins,
-while a failure that commits before an earlier-started success can be overwritten by that success. That gap of the
+instant its derivation started, not the instant it finished. The same-digest check runs before the outcome is applied,
+so a stored same-digest entry with a later `derived_at` is kept for a failure too. A failure has no further ordering
+check: when its stored entry has a different digest or no stored entry, it rewrites the entry `failed` (or `stale`,
+when it carried a value) whatever its start instant. A failure that started later and commits after an earlier-started
+success of the same digest wins; a failure that commits before that success can be overwritten by it. That gap of the
 write rule is reported by PLAN-V2-111 and not changed there, because the plan touches production only in `validated`.
 
 Two successful derivations of different digests are last-writer-wins. A digest names an input snapshot, and the store

@@ -192,7 +192,9 @@ class DerivedFactStoreLockTest {
 
     private static void await(CountDownLatch latch) {
         try {
-            latch.await();
+            if (!latch.await(10, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("The latch was not counted down in time");
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("The latch wait was interrupted", e);
