@@ -136,6 +136,39 @@ final class PortedExpectations {
     }
 
     /**
+     * Evaluates the expectations of an ESLint result: the problem summary beside the directives of its parsed build.
+     *
+     * @param fixture  the fixture, for its name in a failure
+     * @param result   the parsed result
+     * @param consumed the indices of the evaluated expectations, amended in place
+     */
+    static void eslint(BuildLogFixtures.Case fixture, EslintResult result, Set<Integer> consumed) {
+        List<BuildLogFixtures.Expectation> expectations = fixture.expectations();
+        for (int index = 0; index < expectations.size(); index++) {
+            BuildLogFixtures.Expectation expectation = expectations.get(index);
+            switch (expectation.keyword()) {
+                case "problems" -> {
+                    List<String> parts = expectation.split(2);
+                    assertEquals(2, parts.size(), "the problems expectation names errors and warnings");
+                    var problems = assertInstanceOf(EslintResult.ProblemCounts.class, result.problems(),
+                            "the fixture's log carries a problem summary");
+                    assertEquals(Integer.parseInt(parts.getFirst()), problems.errors(), "the error count matches");
+                    assertEquals(Integer.parseInt(parts.get(1)), problems.warnings(), "the warning count matches");
+                    consumed.add(index);
+                }
+                case "no-problems" -> {
+                    assertNull(result.problems(), "the fixture's log carries no problem summary");
+                    consumed.add(index);
+                }
+                default -> {
+                    // a directive of the parsed build; evaluated by parsedBuild below
+                }
+            }
+        }
+        parsedBuild(fixture, result.build(), consumed);
+    }
+
+    /**
      * Returns the message of every diagnostic of a parsed build.
      *
      * @param build the parsed build
