@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
@@ -472,6 +473,76 @@ class LessonStoreCrashTest {
                             "both ends report the retirement"),
                     () -> assertEquals(Verdict.APPLIED, retired.verdict(), "the lesson is retired applied"),
                     () -> assertEquals(PLAN_A, retired.by(), "the plan stays the author of the retirement"));
+        }
+
+        @Test
+        @DisplayName("two creates of one id end with exactly one lesson")
+        void twoCreatesOfOneId() throws Exception {
+            var lessonId = new LessonId("2026-11-02-09-705");
+            var serializing = new SerializingLockManager();
+            var start = new CountDownLatch(1);
+            Callable<Boolean> writer = () -> {
+                start.await();
+                try (var transaction = serializing.openTransaction()) {
+                    transaction.acquire(lessons.lockKey());
+                    var write = ScopeTransaction.open(transaction, lessons, new RecordingAuditSink(), CLOCK);
+                    store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK);
+                    write.commit();
+                    return true;
+                } catch (IllegalArgumentException | IllegalStateException refused) {
+                    return false;
+                }
+            };
+            try (var executor = Executors.newFixedThreadPool(2)) {
+                var futures = List.of(executor.submit(writer), executor.submit(writer));
+                start.countDown();
+                var written = List.of(futures.get(0).get(), futures.get(1).get());
+                assertAll(
+                        () -> assertEquals(1, written.stream().filter(Boolean::booleanValue).count(),
+                                "exactly one create wrote the lesson"),
+                        () -> assertEquals(1, store.list().size(), "exactly one lesson exists"));
+            }
+        }
+
+        @Test
+        @DisplayName("two revisions of one lesson leave one of the two bodies")
+        void twoRevisions() throws Exception {
+            var lessonId = created("2026-11-02-09-706");
+            var sources = List.of(LessonFixtures.source());
+
+            var outcomes = concurrently(
+                    write -> store.revise(write, lessonId, "# One\n", sources, false, NOW),
+                    write -> store.revise(write, lessonId, "# Two\n", sources, false, NOW));
+
+            var body = read(lessonId).orElseThrow().body();
+            assertAll(
+                    () -> assertEquals(2, outcomes.stream()
+                                    .filter(outcome -> outcome instanceof LessonResolution.Revised).count(),
+                            "both revisions were written, one after the other"),
+                    () -> assertTrue("# One\n".equals(body) || "# Two\n".equals(body),
+                            "the lesson holds one of the two bodies, never a mixture"),
+                    () -> assertEquals(3, read(lessonId).orElseThrow().frontMatter().revisions().size(),
+                            "the history keeps every revision written"));
+        }
+
+        @Test
+        @DisplayName("two retirements of one lesson end with exactly one retirement")
+        void twoRetirements() throws Exception {
+            var lessonId = created("2026-11-02-09-707");
+
+            var outcomes = concurrently(
+                    write -> store.retire(write, lessonId, LessonFixtures.retirement(Verdict.OBSOLETE).build()),
+                    write -> store.retire(write, lessonId, LessonFixtures.retirement(Verdict.REDUNDANT).build()));
+
+            assertAll(
+                    () -> assertEquals(1, outcomes.stream()
+                                    .filter(outcome -> outcome instanceof LessonResolution.Retired).count(),
+                            "exactly one retirement was written"),
+                    () -> assertEquals(1, outcomes.stream()
+                                    .filter(outcome -> outcome instanceof LessonResolution.Unavailable).count(),
+                            "exactly one retirement found the lesson retired"),
+                    () -> assertTrue(read(lessonId).orElseThrow().frontMatter().retired() != null,
+                            "the lesson carries one retirement"));
         }
 
         private LessonId created(String value) {
