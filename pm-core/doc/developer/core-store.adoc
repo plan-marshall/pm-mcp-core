@@ -1282,6 +1282,10 @@ A derived value is validated before it is written: the value against the schema 
 `DerivedFactKinds.validate`, the qualifier against `DerivedFactKindSpec.qualifierAllowed`, and the source class against
 the classes the kind admits. A value that violates any of them, a kind that is not registered, a qualifier a kind does
 not admit and a source class a kind does not admit are a failed derivation with that reason, never a `current` entry.
+The reason of a violation of an operator-only kind names the kind and the number of violations and never the value or a
+violation text, so an `agent_identity` value never reaches a model-facing guard reason; a consumer's own `Failed` reason
+is the consumer's text and must not carry an operator-only value
+(link:../adr/core-store/064-the-operator-only-value-never-enters-a-reason.adoc[ADR 064]).
 
 === The Lock and Its Order
 

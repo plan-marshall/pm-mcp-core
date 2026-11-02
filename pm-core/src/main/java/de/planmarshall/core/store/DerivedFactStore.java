@@ -144,7 +144,10 @@ public final class DerivedFactStore {
      * <p>
      * A derived value is validated against the schema registered for its kind, and its class and qualifier against the
      * kind's specification. A value that violates any of them becomes a failed derivation with that reason and is never
-     * written as {@code current}.
+     * written as {@code current}. The reason of a violation of an {@link DerivedFactKind#operatorOnly()} kind names the
+     * kind and the number of violations and never a violation text, so the value never reaches a model-facing guard
+     * reason. A consumer's own {@link DerivationOutcome.Failed} reason is the consumer's text and must not carry an
+     * operator-only value; the store carries it unchanged.
      *
      * @param key         the key of the fact
      * @param inputDigest the SHA-256 over the canonical derivation inputs, 64 lower-case hexadecimal digits
@@ -276,6 +279,10 @@ public final class DerivedFactStore {
         }
         var violations = kinds.validate(key.kind(), derived.value());
         if (!violations.isEmpty()) {
+            if (key.kind().operatorOnly()) {
+                return new Failed("The operator-only fact kind '%s' has %d schema violation(s)".formatted(
+                        key.kind().wireName(), violations.size()));
+            }
             return new Failed("The value violates its schema: " + String.join("; ", violations));
         }
         return derived;
