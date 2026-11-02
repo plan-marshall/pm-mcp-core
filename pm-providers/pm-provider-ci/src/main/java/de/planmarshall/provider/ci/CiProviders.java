@@ -42,7 +42,7 @@ public final class CiProviders {
             var id = Objects.requireNonNull(provider.id(), "provider id");
             if (!FindingSourceKey.isProviderId(id)) {
                 throw new IllegalArgumentException("the provider id '%s' does not match the provider id pattern"
-                                        .formatted(id));
+                        .formatted(id));
             }
             if (byId.putIfAbsent(id, provider) != null) {
                 throw new IllegalArgumentException("a second provider is registered under the id '%s'".formatted(id));

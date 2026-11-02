@@ -43,15 +43,18 @@ import de.planmarshall.core.store.DerivedFactDerivation.DerivationOutcome.Failed
  * one short transaction on the store's own {@code locks/derived-facts.lock} key: the derivation runs outside the lock —
  * it may be a provider call — and the transaction re-reads the file under the lock, changes the one entry and writes
  * it through {@link AtomicStoreFile}. A refresh made inside a scope transaction therefore takes the derived-facts lock
- * after the scope lock, which is the total order of {@link LockLevel}. A result another refresher stored meanwhile for
+ * in its own transaction after the caller's lock is held, which is the place of {@link LockLevel#DERIVED_FACTS} in the
+ * total order; the lock manager asserts the order within one transaction only and does not see the caller's keys (ADR
+ * {@code core-store/063}). A result another refresher stored meanwhile for
  * the same digest with a later {@code derived_at} is kept and returned, so a result never overwrites a newer result of
  * the same digest. Two successful derivations of different digests are last-writer-wins: the digest names an input
  * snapshot, and the store keeps the value of the snapshot whose derivation wrote last. A failed refresh is not part of
  * that rule: it keeps the last good value and digest, as the failure rule below states (ADR {@code core-store/056}).
  * <p>
  * <em>Failure.</em> A failed derivation keeps the last value with {@code state: stale} and records the failure, or
- * writes {@code failed} when no value was ever derived. The last good {@code input_digest} is kept on {@code stale}, so
- * the next call still sees the digest mismatch and retries without a back-off (ADR {@code core-store/057}). A
+ * writes {@code failed} when no value was ever derived. The last good {@code input_digest} is kept on {@code stale}
+ * because the kept value was derived from it; the next call derives again because the state is not {@code current},
+ * whatever the digest, without a back-off (ADR {@code core-store/057}). A
  * {@code failed} entry names the placeholder derivation {@code unknown} and the first class its kind admits, because
  * the schema requires a source on every entry and no derivation produced a value.
  * <p>
@@ -144,7 +147,10 @@ public final class DerivedFactStore {
      * <p>
      * A derived value is validated against the schema registered for its kind, and its class and qualifier against the
      * kind's specification. A value that violates any of them becomes a failed derivation with that reason and is never
-     * written as {@code current}.
+     * written as {@code current}. The reason of a violation of an {@link DerivedFactKind#operatorOnly()} kind names the
+     * kind and the number of violations and never a violation text, so the value never reaches a model-facing guard
+     * reason. A consumer's own {@link DerivationOutcome.Failed} reason is the consumer's text and must not carry an
+     * operator-only value; the store carries it unchanged.
      *
      * @param key         the key of the fact
      * @param inputDigest the SHA-256 over the canonical derivation inputs, 64 lower-case hexadecimal digits
@@ -276,6 +282,10 @@ public final class DerivedFactStore {
         }
         var violations = kinds.validate(key.kind(), derived.value());
         if (!violations.isEmpty()) {
+            if (key.kind().operatorOnly()) {
+                return new Failed("The operator-only fact kind '%s' has %d schema violation(s)".formatted(
+                        key.kind().wireName(), violations.size()));
+            }
             return new Failed("The value violates its schema: " + String.join("; ", violations));
         }
         return derived;

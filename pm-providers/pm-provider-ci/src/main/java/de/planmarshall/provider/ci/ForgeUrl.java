@@ -56,9 +56,9 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
 
     /** The host-to-forge table of the well-known public forges. */
     public static final Map<String, String> BUILT_IN_HOSTS = Map.of(
-                            "github.com", GITHUB,
-                            "gitlab.com", GITLAB,
-                            "codeberg.org", "forgejo");
+            "github.com", GITHUB,
+            "gitlab.com", GITLAB,
+            "codeberg.org", "forgejo");
 
     /** Whether the URL names an issue or a pull request. */
     public enum Kind {
@@ -153,7 +153,7 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
         }
         if (!forge.equals(repository.forge())) {
             throw new IllegalArgumentException("the repository names the forge '%s', not '%s'"
-                                    .formatted(repository.forge(), forge));
+                    .formatted(repository.forge(), forge));
         }
     }
 

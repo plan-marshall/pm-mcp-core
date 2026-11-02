@@ -21,6 +21,9 @@ A `Failed` outcome for a key whose entry carries a value rewrites the entry as `
 `source`, `input_digest` and `derived_at` of the last good derivation, and sets `failure` to the reason and the instant
 of the attempt. The digest of the last good derivation stays, not the digest that was attempted. The state rule
 (`stale` or `failed` derives again) retries on the very next call even when the caller passes the same digest again.
+The kept digest records what the kept value was derived from; it is not what makes the retry automatic. The retry is
+guaranteed by the decision table's state rule, which derives again for a `stale` and a `failed` entry whatever the
+digest.
 
 A `Failed` outcome for a key with no entry, or with only a `failed` one, writes `state: failed` with the digest that was
 attempted, because there is no last good digest to keep.
