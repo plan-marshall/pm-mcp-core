@@ -47,5 +47,5 @@ verification measured, the exact bytes are what the sidecar signed.
 == Source
 
 * Work package `profile-loader` (PLAN-19)
-* link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#profile-sets[Client Profiles § Profile Sets]
-* link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#profile-verification[Client Profiles § Profile Verification]
+* link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#profile-sets[Client Profiles § Profile Sets]
+* link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#profile-verification[Client Profiles § Profile Verification]

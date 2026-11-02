@@ -1,0 +1,34 @@
+= The harness side named harness in the code
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `harness-renames`
+
+[horizontal]
+Roadmap item:: none: the code already built follows the names of the specification (a harness profile names a harness by its `harness_id`; "client" names only the operator's two clients)
+Where:: pm-core (`core.profile`, `core.role`, `core.config`, `core.service`); pm-runtime (`runtime.launch`, `runtime.worker`, `runtime.endpoint`)
+Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== Tasks
+
+A rename only: no behaviour changes. Every record, file and audit detail written with the old name stays readable: a reader accepts the old member name where the new one is absent, writes only the new one, and refuses a document that carries both.
+
+. *The harness identifier*: the profile member `client_id` becomes `harness_id` in `ProfileValidator`, `ProfileLoader`, `VerificationRecord`, `EndpointProfile` and `ShippedProfiles` (link:../specification/harness-profiles/01-profile-schema.adoc#_normative_harness_profile_json_schema[Harness Profiles § Normative Harness Profile JSON Schema], link:../specification/identifiers/02-registry-stores-to-web.adoc#id-harness-id[Identifier Registry, `harness_id`]); a machine or project profile and a verification record with `client_id` are still read (the old member is the new one, the canonical digest is computed over the document as stored, so a bound verification record stays bound).
+. *Fields and parameters*: `clientId` becomes `harnessId` in `HarnessProfile`, `RoleAssignmentProposal`, `RoleValidationReason`, `ProfileSet`, `ProfileSets`, `LoadedProfile`, `WorkerParameters`, `ProfileStages`, `HarnessEnrolment`, `HarnessEnrolmentStore`, `HarnessVerifier`, `LaunchComposer`, `HeadlessBlock`, `LaunchRefusal`, `EndpointEnrolment`, `EndpointHarness`, `JudgmentEndpoint` (unless `z3-deferred-code-removal` removed it first), `WorkerCalls`, `EligibilityRefusal` and `ProfileWorkerEligibility`; Javadoc that says "client profile" or "client id" says "harness profile" and "harness id". The `client_id` of a GitHub App credential (`pm-provider-github`) is not this identifier and stays.
+. *Enrolment store*: the entry key of `harnesses.json` is the `harness_id` (link:../specification/store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas § Harness Enrolment Store]); a file written with the old key is read, and rewritten with the new one only by the next enrolment, under its HMAC sidecar.
+. *Audit detail*: `AuditEvent.DETAIL_CLIENT_ID` becomes the detail key `harness_id` of the harness records (`harness_updated` and its siblings); audit records already written keep `client_id` and are read as they are.
+. *Machine configuration*: the operator overrides of a profile's connection are the object `harness_profiles.<harness_id>.connection` of `machine-config.json` (link:../specification/store-schemas/12-machine-stores.adoc#machine-config[Store Schemas § Machine Configuration Store]); where the code reads it, a file with `client_profiles` is still read.
+. *Log messages*: the records of link:../LogMessages.adoc[Log Messages] that name a harness say harness id; their identifiers stay.
+. *Module documents*: the developer documents of `core.profile`, `runtime.worker`, `runtime.launch` and `runtime.endpoint` name `harness_id` and the new fields (they keep `client_id` until this package lands); the ADRs stay as written.
+
+== Trace
+
+The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-1[PM-CLIENT-1], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5]
+* Specification: the sections the tasks name; link:../Traceability.adoc[Traceability]
+* Watch: link:../implementation-watch/harness-profiles.adoc[Harness Profiles]
+
+== Done When
+
+* Tests: a profile, a verification record, a `harnesses.json` entry and an audit record written with `client_id` read as before (a matched positive control with `harness_id` and a negative control with both members); no main class, field or parameter of the modules touched names `clientId` for a harness; the parity tests of the changed schema blocks pass against the specification; `verify`, `verify -Ppre-commit` and `verify -Pcoverage` green in every module touched.
+* The shipped profiles (`classpath:/profiles/<harness_id>.json`, a resource of `pm-api`) carry `harness_id`: that is the package of `pm-mcp-clients` that renames the harness side there; until it lands, the old member is read.

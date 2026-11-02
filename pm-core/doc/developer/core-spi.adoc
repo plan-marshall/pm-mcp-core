@@ -162,7 +162,10 @@ missing exhaustion outcome. A `null` collection or element is a `NullPointerExce
 
 The constructor does not check what needs more than the primitive itself: whether a declared gate is on the list of
 waivable gates, whether a produced artifact is required by anyone, whether a name collides with a keyword of the
-workflow language, and whether an execution that returns a job-starting outcome carries a job identifier.
+workflow language, and whether an execution that returns a job-starting outcome carries a job identifier. The registry
+reads `@FreeParam` to check the declaration and for nothing else: `core.spi` binds no supplied value and refuses none
+that lies outside the bounds. The workflow verifier compares a link's free parameters with the annotated components
+(link:../../../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification]).
 
 [#outcomes-and-reasons]
 == Outcomes and Reasons
@@ -297,9 +300,11 @@ Three properties of the validators are deliberate:
 * *A line of a list that does not parse is a violation, never skipped.* `OutlineValidator` reads each of the two lists
   from its marker line to the next line that starts with `+**+` or `+#+`. A bullet with a typing error therefore
   surfaces with its line number instead of silently dropping an entry.
-* *A coordinate has the name form of its ecosystem.* A Maven coordinate is `maven:<groupId>:<artifactId>`; an npm
-  coordinate is `npm:<name>` in lower case, optionally scoped; a Python coordinate is `pypi:<name>`, and two Python
-  names are the same when they differ only in case or in their runs of `-`, `_` and `.`.
+* *A coordinate has the name form of its ecosystem.* A Maven coordinate is `maven:<groupId>:<artifactId>`, both parts
+  of letters, digits, `_`, `.` and `-`. An npm coordinate is `npm:<name>` in lower case (letters, digits, `.`, `_`, `~`
+  and `-`, not starting with `.` or `_`), optionally with a scope (`npm:@scope/name`). A Python coordinate is
+  `pypi:<name>` of letters, digits, `.`, `_` and `-`, starting and ending with a letter or digit; two Python names are
+  the same when they differ only in case or in their runs of `-`, `_` and `.`.
 
 `OutlineValidator` decides only what the text decides on its own. It does not check that the files exist, that the tasks
 of the outline can be derived, or that a deliverable declares what its files require.
@@ -312,10 +317,14 @@ delimiter:
 * four or more times one of the characters `+-+`, `+.+`, `+=+`, `+*+`, `+_+`, `{plus}` and `+/+`, and nothing else: the
   listing, literal, example, sidebar, quote, passthrough and comment block;
 * exactly `--`: the open block; a line of three hyphens is ordinary text;
-* one of the characters `+|+`, `+,+`, `+:+` and `+!+` followed by three or more `+=+`, and nothing else: a table.
+* one of the characters `+|+`, `+,+`, `+:+` and `+!+` followed by three or more `+=+`, and nothing else: a table;
+  `+!==+` and `+,===x+` are ordinary text.
 
-A block is closed by a line equal to the one that opened it. The content of a listing, literal, passthrough and comment
-block is taken verbatim. Every block still open at the end of the text is one violation of
+A block is closed by a line equal to the one that opened it; a longer or shorter delimiter does not close it. The
+content of a listing, literal, passthrough and comment block is taken verbatim, so a delimiter inside it opens nothing.
+Inside every other block, the open block and the table included, a further block may open.
+
+No kind of block has a rule key of its own. Every block still open at the end of the text is one violation of
 `AsciiDocValidator.RULE_UNCLOSED_BLOCK` on the line that opened it, the outer block first.
 
 == Adding a Primitive or a Validator
@@ -334,10 +343,15 @@ A new primitive:
 . Test it without a framework: construct a `PrimitiveRegistry` with it, which proves that it is well formed, and call
   `execute` with a `WorkflowExecutionContext` the test writes itself.
 
+link:{test}/TestPrimitives.java[`TestPrimitives`] is the pattern for such a test: one well-formed primitive for every
+outcome class, each with its own parameter record and closed outcome enum, one primitive that starts a job, one with an
+attempt cap, and the malformed primitives, at least one for every reason of a refusal.
+
 A new validator, or a new rule of an existing one:
 
 . Add a public `RULE_*` constant with the key and a Javadoc sentence that states the rule.
-. Return a `ContentViolation` with the key, the line and a message that quotes the offending content.
+. Return a `ContentViolation` with the key, the line and a message that quotes the offending content. Return
+  violations in the order of their lines.
 . Add an accepted text and, for the new key, a rejected text that breaks only that rule, to the test of the validator.
 
 == Testing
@@ -364,7 +378,7 @@ that breaks exactly that rule, with the key and the line.
   returns an outcome of class `FAILURE`. The class reaches the caller unchanged, and a caller reads the class, never the
   wire name.
 * *Declare the awaited event that is true.* `NONE` is right only for a primitive whose outcome cannot change without a
-  new call.
+  new call. A primitive that looks at a provider, a remote or the checkout again waits for an event.
 * *An attempt cap ends in a failure.* The exhaustion outcome of a primitive with `ATTEMPT_CAP` has the class `FAILURE`.
 * *Do not treat the workspace scope as a plan.* An empty `scopeId()` is the workspace scope; do not replace it by a
   placeholder identifier.

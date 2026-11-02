@@ -1,0 +1,33 @@
+= The initial planning-lane router and the planning bounds
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `initial-lane-router`
+
+[horizontal]
+Roadmap item:: _Implement Phase 2 (`phase-2-refine`)_ and _Implement Phase 3 (`phase-3-outline`)_ (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
+Where:: pm-workflow (the router in `init.classify`, the `refine` and `outline` states); pm-core (the `lane_route` audit record)
+Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== Tasks
+
+The specification sections named are the single statement of what each task builds.
+
+. *The router* (`LaneRouter`): the request text, the path references, the scope estimate, the concrete request, the change-type reading, the signals `S1` to `S5`, the minimum lane, and the record `lane_route` in `audit.jsonl`: link:../specification/phase-workflows/01-planning-phases-1-2.adoc#initial-lane-router[Phase Workflows § Initial Planning-Lane Router].
+. *The bound of the clarification batch*: a `refine_prompt` of more than four parts refused with `invalid_link_args`: link:../specification/phase-workflows/01-planning-phases-1-2.adoc#_single_batch_clarification_relaunch_ceiling[§ Single-Batch Clarification & Relaunch Ceiling], item 1.
+. *The builder check's overflow*: the operator questions left when the refine relaunch is spent, kept as `facts.builder_open_questions`: link:../specification/phase-workflows/01-planning-phases-1-2.adoc#builder-check[§ Builder Check], _Routing_; link:../specification/state-catalogue/02-plan-phases-1-3.adoc[State Catalogue § Plan Phases 1 to 3], `refine.builder-check`.
+. *The outline review's revisions of a light plan*, charged by `outline.route-review` to the counter `outline_review_revisions`: link:../specification/phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-gate[§ Outline Gate], _Outline Review_; link:../specification/timeouts/01-job-budgets-and-waits.adoc#outline-review-revisions[Timeouts § Outline Review Revisions]; link:../specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store], `outline_review_revisions`.
+
+Left out: the phases `refine` and `outline` themselves and their role skills (the milestone's other packages, not cut yet).
+
+== Trace
+
+The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-11[PM-WF-11]
+* Specification: the sections the tasks name; link:../specification/phase-workflows/02-planning-lanes-phases-3-4.adoc#planning-lanes[Phase Workflows § Planning Lanes]
+* Watch: link:../implementation-watch/phase-workflows.adoc[Phase Workflows]
+
+== Done When
+
+* Watch: link:../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-109[PM-WATCH-PHASE-109]; none anchored to the router; the trace matrix names any it finds.
+* Tests: one case per row of the scope-estimate table and per signal, fired and not fired, with the narrow-and-concrete exceptions; the minimum lane `deep` over a `light` route; the `lane_route` record with every signal; a five-part `refine_prompt` refused and a four-part one accepted; operator questions after the spent relaunch kept in `facts.builder_open_questions`; each revise answer of the outline review charged once, and the budget's end routed as the section states.

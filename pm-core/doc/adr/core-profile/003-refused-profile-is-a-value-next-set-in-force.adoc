@@ -45,4 +45,4 @@ refusal is reported in both clients and by `pm-operator profile show`.
 == Source
 
 * Work package `profile-loader` (PLAN-19)
-* link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#profile-sets[Client Profiles § Profile Sets]
+* link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#profile-sets[Client Profiles § Profile Sets]

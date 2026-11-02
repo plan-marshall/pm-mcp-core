@@ -1,0 +1,32 @@
+= The epic's surface check and its acts on an ended epic
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `epic-surface-and-ended-acts`
+
+[horizontal]
+Roadmap item:: _Implement the staging-time surface disjointness check within one epic, and apply the operator's acts of Milestone 10 to epics_ (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
+Where:: pm-workflow (the staging check under the epic lock, the epic's acts)
+Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== Tasks
+
+The specification sections named are the single statement of what each task builds.
+
+. *The declared surface*: paths, directories and globs, an untracked path admitted inside a tracked directory and refused otherwise: link:../specification/model-work/08-epic-coordination.adoc#epic-surface-disjointness[Model Work § Staging-Time Surface Disjointness], item 1; the refusal `surface_undeclared` of link:../../../plan-marshall-documentation/doc/specification/mcp-tools/04-errors-and-testing.adoc[MCP Tools § Errors & Protocol Testing].
+. *The staging check and its overlap*: the tracked files at the epic's `HEAD` that both surfaces match, plus the untracked entries they share: § Staging-Time Surface Disjointness, items 2 and 4.
+. *An ended epic refuses its acts*: link:../specification/model-work/08-epic-coordination.adoc#epic-actions[Model Work § An Epic's Actions].
+
+Left out: the toggle's refusal on an ended epic and the run of `epic.next-work` after a restart (`epic-auto`); admission at start against the running plans (§ Staging-Time Surface Disjointness, item 3, `epic-auto`).
+
+== Trace
+
+The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-15[PM-WF-15], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-23[PM-WF-23]
+* Specification: the sections the tasks name; link:../specification/model-work/08-epic-coordination.adoc#git-distributed-epic-ledger[Model Work § Git-Distributed Epic Ledger]; link:../specification/store-schemas/04-epic-and-change-ledger.adoc#epic-queue-row[Store Schemas § Epic Queue Row]
+* Watch: link:../implementation-watch/model-work.adoc#PM-WATCH-DISP-16[PM-WATCH-DISP-16]; link:../implementation-watch/model-work.adoc#PM-WATCH-DISP-21[PM-WATCH-DISP-21]
+
+== Done When
+
+* Watch: link:../implementation-watch/model-work.adoc#PM-WATCH-DISP-16[PM-WATCH-DISP-16], link:../implementation-watch/model-work.adoc#PM-WATCH-DISP-21[PM-WATCH-DISP-21].
+* Tests: an untracked path inside a tracked directory admitted and one outside refused `surface_undeclared`; two rows overlapping only in a tracked file, only in a shared untracked entry, and not at all; every act of an ended epic refused.

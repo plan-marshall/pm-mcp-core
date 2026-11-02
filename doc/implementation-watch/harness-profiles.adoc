@@ -1,23 +1,23 @@
-= Client Profiles Implementation Watch
+= Harness Profiles Implementation Watch
 :toc: left
 :toclevels: 2
 :toc-title: Table of Contents
 :sectnums:
 :nofooter:
 
-link:../ImplementationWatch.adoc[Implementation Watch] » Client Profiles
+link:../ImplementationWatch.adoc[Implementation Watch] » Harness Profiles
 
 == Overview
 
-Watch items for the link:../specification/client-profiles.adoc[Client Profiles Specification]. The sections mirror the
+Watch items for the link:../specification/harness-profiles.adoc[Harness Profiles Specification]. The sections mirror the
 specification. Item format and lifecycle: link:../ImplementationWatch.adoc[Implementation Watch].
 
-== Normative Client Profile JSON Schema
+== Normative Harness Profile JSON Schema
 
 [#PM-WATCH-CLIENT-8]
 === PM-WATCH-CLIENT-8: A writable harness path never covers a managed settings, command, or skill file
 
-Anchor:: link:../specification/client-profiles/01-profile-schema.adoc#_normative_client_profile_json_schema[Client Profiles § Normative Client Profile JSON Schema] (Writable paths)
+Anchor:: link:../specification/harness-profiles/01-profile-schema.adoc#_normative_harness_profile_json_schema[Harness Profiles § Normative Harness Profile JSON Schema] (Writable paths)
 Hazard:: A `headless.writable_paths` entry that names a harness home as a whole, or a directory holding the settings,
 command, or skill file the bundle installed, puts that file into the Landlock write set of every worker: a worker
 rewrites the host's deny rules or shim skill, and the host runs without them from then on.
@@ -32,7 +32,7 @@ own state file; were an element the bundle owns held there, a worker with the fi
 remove it, and the host's enforcement would change without the operator.
 Guard:: The bundle owns nothing in a writable shared configuration file, `~/.claude.json` included (build-time test over
 every shipped profile and manifest); a fixture worker that rewrites a recorded owned element elsewhere is reported `bundle_modified`
-with that element by `pm-operator client status`; a confined `claude` writer worker
+with that element by `pm-operator harness status`; a confined `claude` writer worker
 runs with exactly the declared entries (not `~/.claude` as a whole) before the _(provisional)_ marker of its
 sub-paths is removed.
 Fixture:: Claude Code 2.1.291 under Landlock ABI 8: writes to `~/.claude.json` (a file rule; `$HOME` not needed),
@@ -43,8 +43,8 @@ Source:: design review; link:../../../plan-marshall-documentation/doc/specificat
 [#PM-WATCH-CLIENT-11]
 === PM-WATCH-CLIENT-11: A harness that cannot restrict its workers
 
-Anchor:: link:../specification/client-profiles/01-profile-schema.adoc#role-classes[Client Profiles § Role Classes of a Harness],
-link:../specification/client-profiles/01-profile-schema.adoc#worker-block[Client Profiles § Worker Block] (`worker.eligible`),
+Anchor:: link:../specification/harness-profiles/01-profile-schema.adoc#role-classes[Harness Profiles § Role Classes of a Harness],
+link:../specification/harness-profiles/01-profile-schema.adoc#worker-block[Harness Profiles § Worker Block] (`worker.eligible`),
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]
 Hazard:: Antigravity runs every worker with all its host tools and beside the MCP servers of the operator's own
 configuration (`tool_set: advisory`, `mcp_config.exclusive: false`). That is accepted for `writer` and `read_only`
@@ -66,7 +66,7 @@ Source:: link:../../../plan-marshall-documentation/doc/specification/evaluation.
 [#PM-WATCH-CLIENT-12]
 === PM-WATCH-CLIENT-12: A harness that cuts a tool result loses the task
 
-Anchor:: link:../specification/client-profiles/01-profile-schema.adoc#headless-tool-result-limit[Client Profiles § Normative Client Profile JSON Schema] (Tool-result limit),
+Anchor:: link:../specification/harness-profiles/01-profile-schema.adoc#headless-tool-result-limit[Harness Profiles § Normative Harness Profile JSON Schema] (Tool-result limit),
 link:../specification/model-work/02-task-protocol.adoc#offer[Model Work § Offer]
 Hazard:: A harness truncates an MCP tool result above its own limit and keeps the full text in a file that a
 worker restricted to the server's tools cannot read. An offer whose task identifiers lie in the cut part leaves
@@ -87,7 +87,7 @@ Source:: link:../../../plan-marshall-documentation/doc/specification/evaluation.
 [#PM-WATCH-CLIENT-17]
 === PM-WATCH-CLIENT-17: An inline setting the harness accepts is not one it applies
 
-Anchor:: link:../specification/client-profiles/01-profile-schema.adoc#headless-inline-settings[Client Profiles § Inline Settings],
+Anchor:: link:../specification/harness-profiles/01-profile-schema.adoc#headless-inline-settings[Harness Profiles § Inline Settings],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]
 Hazard:: A harness reads its configuration leniently: a key of an older configuration version is migrated with a
 warning or dropped, an unknown key is ignored, a setting under a provider id that is not the model's provider applies to
@@ -111,8 +111,8 @@ retries after a timeout).
 [#PM-WATCH-CLIENT-1]
 === PM-WATCH-CLIENT-1: Format-accuracy evidence is secondhand
 
-Anchor:: link:../specification/client-profiles/02-placeholders.adoc#_rendering_invariants[Client Profiles § Rendering Invariants],
-link:../specification/client-profiles/02-placeholders.adoc#calibration-decision[Client Profiles § Calibration Decision],
+Anchor:: link:../specification/harness-profiles/02-placeholders.adoc#_rendering_invariants[Harness Profiles § Rendering Invariants],
+link:../specification/harness-profiles/02-placeholders.adoc#calibration-decision[Harness Profiles § Calibration Decision],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TOOL-5[PM-TOOL-5], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-2[PM-IMPL-2],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-6[PM-TEST-6]
 Hazard:: The TOON wire form is a settled design decision, but its parse fidelity per client runtime is unmeasured;
@@ -129,8 +129,8 @@ Source:: plan-marshall defect instrumentation-substrate PLAN-03 deliverable 5 an
 [#PM-WATCH-CLIENT-2]
 === PM-WATCH-CLIENT-2: No design rests on "weaker models need more scaffolding"
 
-Anchor:: link:../specification/client-profiles/02-placeholders.adoc#_on_the_fly_placeholder_rendering_rules[Client Profiles § On-the-Fly Placeholder Rendering Rules],
-link:../specification/client-profiles/02-placeholders.adoc#calibration-decision[Client Profiles § Calibration Decision],
+Anchor:: link:../specification/harness-profiles/02-placeholders.adoc#_on_the_fly_placeholder_rendering_rules[Harness Profiles § On-the-Fly Placeholder Rendering Rules],
+link:../specification/harness-profiles/02-placeholders.adoc#calibration-decision[Harness Profiles § Calibration Decision],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-6[PM-TEST-6]
 Hazard:: The claim is plausible but unmeasured; designing against it bakes in resident cost.
 Guard:: Reviews of skill content and profile additions reject a rationale citing this claim unless a `PM-TEST-6` verdict
@@ -140,7 +140,7 @@ Source:: plan-marshall defect instrumentation-substrate PLAN-03 § Claim Labels,
 [#PM-WATCH-CLIENT-3]
 === PM-WATCH-CLIENT-3: The `plan-marshall` description surface is a re-derivable baseline
 
-Anchor:: link:../specification/client-profiles/02-placeholders.adoc#host-resident-surface-inventory[Client Profiles § Host-Resident Surface Inventory],
+Anchor:: link:../specification/harness-profiles/02-placeholders.adoc#host-resident-surface-inventory[Harness Profiles § Host-Resident Surface Inventory],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-MIG-5[PM-MIG-5]
 Hazard:: The `plan-marshall` always-resident description surface drifted by +660 bytes between staging and re-grounding; the
 measuring script was git-ignored and lost, so the figure could not be re-derived; the 500-character description
@@ -154,12 +154,12 @@ bytes (earlier 26,694), mean 174, median 119 (mean/median 1.46, right-skewed), 0
 components. Registered: 154 skills (157 on disk), 2 agents, 2 commands = 158.
 Source:: plan-marshall defect instrumentation-substrate PLAN-05 § Claim Labels claims 1, 3 and 4.
 
-== Embedded Client Bundle `bundle-manifest.json` Schema
+== Embedded Harness Bundle `bundle-manifest.json` Schema
 
 [#PM-WATCH-CLIENT-6]
 === PM-WATCH-CLIENT-6: Every artifact an emitted instruction references is emitted too
 
-Anchor:: link:../specification/client-profiles/02-placeholders.adoc#_rendering_invariants[Client Profiles § Rendering Invariants],
+Anchor:: link:../specification/harness-profiles/02-placeholders.adoc#_rendering_invariants[Harness Profiles § Rendering Invariants],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SKILL-2[PM-SKILL-2], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]
 Hazard:: A target emitter shipped a routing table whose referenced documents were not part of that target's unit.
 Guard:: Build-time test: every template is rendered for every built-in profile and fails on
@@ -174,8 +174,8 @@ Source:: plan-marshall defect process-compliance inbox module-budget-campaign-co
 [#PM-WATCH-CLIENT-16]
 === PM-WATCH-CLIENT-16: A worker's isolation covers the operator's own instruction files and skills
 
-Anchor:: link:../specification/client-profiles/01-profile-schema.adoc#user-level-files[Client Profiles § Nothing of the Operator's Own],
-link:../specification/client-profiles/01-profile-schema.adoc#profile-verification[§ Profile Verification],
+Anchor:: link:../specification/harness-profiles/01-profile-schema.adoc#user-level-files[Harness Profiles § Nothing of the Operator's Own],
+link:../specification/harness-profiles/01-profile-schema.adoc#profile-verification[§ Profile Verification],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]
 Hazard:: A harness reads user-level instruction files and skills from several places (its own home directory, a shared
 `~/.agents/skills/`, another harness's skill directory it also supports), and some of these lookups use the home

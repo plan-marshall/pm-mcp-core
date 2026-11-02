@@ -11,7 +11,7 @@ _Requirements: link:{docs}/Requirements.adoc#PM-WORK-1[PM-WORK-1], link:{docs}/R
 
 Package `de.planmarshall.core.role` of `pm-core` owns the *role*: one JSON artifact per role, the shipped, machine and
 project sets it lives in, the effective configuration the role runs on, and the two digests that bind a worker generation
-and a qualification record to it. No class of this package names a harness: a harness is its client profile
+and a qualification record to it. No class of this package names a harness: a harness is its harness profile
 (link:core-profile.adoc[`core.profile`]), and a role is the document an operator or the release supplies. The two roles
 the specification fixes by name — the judge and the steward — appear only as the model caller's and the catalog's
 named exemptions.
@@ -23,17 +23,17 @@ The package owns five things:
 * the *set loader*, the whole-artifact precedence of the shipped, machine and project sets;
 * the *effective configuration*, the six levels that supply the harness, model and effort of a role;
 * the *two digests*, the configuration digest of a worker generation and the qualification digest of a record;
-* *validation against the client profile and the model catalogue*, the table of reasons that makes an invalid role
+* *validation against the harness profile and the model catalogue*, the table of reasons that makes an invalid role
   undefined.
 
 The stores the package reads — the machine and project `role-assignments.json`, the plan's `overrides.json`, the model
-catalogues, the client profiles, the enrolment, the skills and the machine configuration — arrive through one port,
+catalogues, the harness profiles, the enrolment, the skills and the machine configuration — arrive through one port,
 link:https://github.com/plan-marshall/pm-mcp-core/blob/main/pm-core/src/main/java/de/planmarshall/core/role/RoleEnvironment.java[`RoleEnvironment`].
 Writing them is `machine-onboarding-unit`'s, `project-onboarding-unit`'s and `plan-and-epic-control`'s; the runtime never
 reads a role, a harness or a model from git-tracked configuration.
 
 Specification (the sections this package was built against): `model-work/01-roles-and-configuration.adoc`,
-`client-profiles/01-profile-schema.adoc#role-classes`,
+`harness-profiles/01-profile-schema.adoc#role-classes`,
 `store-schemas/12-machine-stores.adoc#model-catalogue` and `#role-assignments-store`,
 `workflow-dsl/09-plan-instance.adoc#plan-overrides`. The package's pull request does not delete those specification
 sections or their watch items: other specification parts link to them from more than a hundred places, and
@@ -268,7 +268,7 @@ split.
 
 == Related
 
-* link:core-profile.adoc[Client Profiles Developer Guide] — the harness and its profile.
+* link:core-profile.adoc[Harness Profiles Developer Guide] — the harness and its profile.
 * link:../adr/core-role/001-role-sets-and-the-effective-configuration.adoc[ADR core-role/001]
 * link:../adr/core-role/002-two-digests-over-the-effective-values.adoc[ADR core-role/002]
 * link:../adr/core-role/003-qualification-measurements-decided-at-every-check.adoc[ADR core-role/003]

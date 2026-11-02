@@ -23,7 +23,7 @@ process of its own: it composes through `runtime.launch` and starts through `run
 protocol through the module-boundary adapter `WorkerProtocol`.
 
 The package serves the three requirements above. Its start path also enforces
-link:{req}/13-client-profiles.adoc#PM-CLIENT-5[PM-CLIENT-5] and link:{req}/08-security.adoc#PM-SEC-8[PM-SEC-8] through
+link:{req}/13-harness-profiles.adoc#PM-CLIENT-5[PM-CLIENT-5] and link:{req}/08-security.adoc#PM-SEC-8[PM-SEC-8] through
 the verification-record gate, its off-track detection serves link:{req}/16-model-work.adoc#PM-WORK-7[PM-WORK-7], and its
 scenario tests serve link:{req}/12-testing.adoc#PM-TEST-4[PM-TEST-4]. The model slots are
 link:{req}/02-workflow.adoc#PM-WF-14[PM-WF-14]'s.
@@ -57,7 +57,7 @@ started generations, serializes starts, bounds the registry by the role's form a
 `stopAdmitting()`, `quiet()` and `awaitQuiet(Instant)` for the drain. A start answers `StartOutcome.Started` or
 `StartOutcome.Declined`; a declined start names a `WorkerStartRefusal` and leaves the caller's task queued.
 link:{src}/SupervisorEnvironment.java[`SupervisorEnvironment`]:: The collaborators and installation values the supervisor
-is built with: the project and its enrolment, the runtime base and home, the relay socket, the effective client profile,
+is built with: the project and its enrolment, the runtime base and home, the relay socket, the effective harness profile,
 the landed launch and job contracts, the state writer, the job tokens, the model slots, the protocol adapter, the audit
 sink, the clock, the timers, the lock manager and the two seams `StartGuard` and `EligibilityGate`.
 link:{src}/WorkerGeneration.java[`WorkerGeneration`]:: One worker generation: the immutable facts it was started with
@@ -83,7 +83,7 @@ launch's own refusals, which the runtime records on the refused job.
 == The Start Path and the Generations
 
 _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3], link:{req}/02-workflow.adoc#PM-WF-14[PM-WF-14],
-link:{req}/13-client-profiles.adoc#PM-CLIENT-5[PM-CLIENT-5], link:{req}/08-security.adoc#PM-SEC-8[PM-SEC-8],
+link:{req}/13-harness-profiles.adoc#PM-CLIENT-5[PM-CLIENT-5], link:{req}/08-security.adoc#PM-SEC-8[PM-SEC-8],
 link:{req}/01-architecture.adoc#PM-ARCH-8[PM-ARCH-8]
 
 A start is one ordered decision, and each step can decline it. The order is the code's, not the caller's:
@@ -117,7 +117,7 @@ two seams). The job record's worker block is ADR 003's.
 
 == Detection
 
-_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3], link:{req}/13-client-profiles.adoc#PM-CLIENT-2[PM-CLIENT-2],
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3], link:{req}/13-harness-profiles.adoc#PM-CLIENT-2[PM-CLIENT-2],
 link:{req}/16-model-work.adoc#PM-WORK-7[PM-WORK-7]
 
 link:{src}/LossDetection.java[`LossDetection`] owns the three deadlines of one generation and keeps no timing literal.
@@ -302,7 +302,7 @@ ADR 009's.
 
 == The Verification-Record Gate
 
-_Requirements:_ link:{req}/13-client-profiles.adoc#PM-CLIENT-5[PM-CLIENT-5], link:{req}/08-security.adoc#PM-SEC-8[PM-SEC-8]
+_Requirements:_ link:{req}/13-harness-profiles.adoc#PM-CLIENT-5[PM-CLIENT-5], link:{req}/08-security.adoc#PM-SEC-8[PM-SEC-8]
 
 link:{src}/ProfileWorkerEligibility.java[`ProfileWorkerEligibility`] is the pure predicate the supervisor consults before
 every start. It decides whether a machine or project profile's claims may be believed on the platform the runtime runs
@@ -335,7 +335,7 @@ is a machine-level decision the egress owner holds, and this gate only requires 
 
 == The Three Verification Controls
 
-_Requirements:_ link:{req}/13-client-profiles.adoc#PM-CLIENT-5[PM-CLIENT-5], link:{req}/12-testing.adoc#PM-TEST-4[PM-TEST-4]
+_Requirements:_ link:{req}/13-harness-profiles.adoc#PM-CLIENT-5[PM-CLIENT-5], link:{req}/12-testing.adoc#PM-TEST-4[PM-TEST-4]
 
 The record's stages attest three controls built in this package. The stage runner that uses them is the verification's,
 not the gate's; the gate only reads the stages the controls produced.
@@ -578,16 +578,16 @@ beside the tokens; the figures are evidence, never a limit
 == Specification Tracing
 
 _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3], link:{req}/01-architecture.adoc#PM-ARCH-8[PM-ARCH-8],
-link:{req}/02-workflow.adoc#PM-WF-14[PM-WF-14], link:{req}/13-client-profiles.adoc#PM-CLIENT-5[PM-CLIENT-5],
+link:{req}/02-workflow.adoc#PM-WF-14[PM-WF-14], link:{req}/13-harness-profiles.adoc#PM-CLIENT-5[PM-CLIENT-5],
 link:{req}/08-security.adoc#PM-SEC-8[PM-SEC-8], link:{req}/16-model-work.adoc#PM-WORK-7[PM-WORK-7],
 link:{req}/12-testing.adoc#PM-TEST-4[PM-TEST-4]
 
 * Specification: link:{spec}/model-work/03-supervision-and-recycling.adoc[Model Work § Supervision & Recycling],
   link:{spec}/model-work/03-supervision-and-recycling.adoc#worker-off-track[§ A Worker Off Track],
   link:{spec}/model-work/04-worker-launch.adoc[Model Work § Worker Launch],
-  link:{spec}/client-profiles/01-profile-schema.adoc#profile-verification[Client Profiles § Profile Verification],
-  link:{spec}/client-profiles/01-profile-schema.adoc#profile-hardening[§ Profile Hardening],
-  link:{spec}/client-profiles/01-profile-schema.adoc#worker-activity[§ What a Worker Does],
+  link:{spec}/harness-profiles/01-profile-schema.adoc#profile-verification[Harness Profiles § Profile Verification],
+  link:{spec}/harness-profiles/01-profile-schema.adoc#profile-hardening[§ Profile Hardening],
+  link:{spec}/harness-profiles/01-profile-schema.adoc#worker-activity[§ What a Worker Does],
   link:{spec}/timeouts/01-job-budgets-and-waits.adoc#worker-supervision[Timeouts § Worker Supervision & Recycling]
 * Stores and records: link:../../../pm-core/doc/developer/core-store.adoc[`core.store`] (the job record's worker block,
   `WorkerState`, `WorkerStateCodec`)

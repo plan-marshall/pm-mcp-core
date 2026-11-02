@@ -23,15 +23,6 @@ A plan runs as a workflow of phases. Its plan unit calls each of the six phases,
 * *Composition*: the plan instance composes the plan unit and the phase sub-workflows; a pruned phase is a pruned call, with its reason (xref:14-plan-instance-waivers-questions.adoc#plan-instance[Plan Instance]). A phase is shown, replaced, and extended on its own, as a unit the composition resolves by level (link:../workflow-dsl/04-ast-node-model.adoc#process-designer[Workflow DSL Specification, Designing a Process]).
 * *Depth*: the phase level adds one frame to every call path of a plan: `call_stack` holds at most five frames (`PM-WF-16`).
 
-*Status.* The engine and language half of this section is implemented: `Phase` names the six phase units, the plan unit
-calls each at the entry its call state names, the parser and the printer refuse the removed `phase` clause, the call
-depth is five (`WorkflowStatus.MAX_CALL_DEPTH`, `CallStack.MAX_DEPTH`, the verifier's depth rule), and a call frame
-carries no phase (link:../../../pm-workflow/doc/developer/workflow-engine.adoc#_the_phase_of_a_scope[Workflow Engine
-Developer Guide § The Phase of a Scope]). The default units themselves — `plan.pmwf`, the six phase sub-workflows and
-`land.pmwf` — are resources of `plan-marshall-mcp` (its package `default-units-and-drift-tests`), so the plan unit and
-its phase calls are proven here over the fixture corpus; the plan's history and the start of its current phase are
-PLAN-105's.
-
 *The phase value of a record*: the stores record a phase by its phase value, one per phase sub-workflow:
 
 [cols="1,1"]
@@ -50,9 +41,10 @@ Every `phase` field of a plan's record (the `phase` of `mcp/status.json`, a find
 
 [#owed-item-record]
 == Owed Item Record (`mcp/status.json` → `owed[]`)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-30[PM-WF-30: PR Body & Landing Record]_
 
 An owed item is an obligation a plan incurred but did not discharge. It is written by the step that incurs it, never
-derived from prose, and it stays in the plan's `mcp/status.json` through archival (`PM-WF-13`).
+derived from prose, and it stays in the plan's `mcp/status.json` through archival (`PM-WF-30`).
 
 [source,json]
 ----
@@ -92,6 +84,7 @@ derived from prose, and it stays in the plan's `mcp/status.json` through archiva
 * *Discharge*: An item is discharged only by recording `discharge_proof` and `discharged_at` through the discharger's transition: the step that incurred it on a later firing, or the operator's discharge in either client (in the terminal client `pm-operator discharge-owed --plan <plan_id> --owed <owed_id> --proof <ref>`, and `pm-operator drop-capture <plan_id>` for `capture_ref_retained`), which also serve archived plans; these two acts are the only writes to an archived plan's records, beside the transcript of a chat about it and the cleanup's deletion; a discharged item is kept, never deleted.
 
 == Findings Ledger Record (`findings.jsonl`)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-27[PM-WF-27: Findings & Triage]_
 _Implementation watch: link:../../../../plan-marshall-documentation/doc/implementation-watch/cross-cutting.adoc#PM-WATCH-GEN-16[PM-WATCH-GEN-16], link:../../../../plan-marshall-documentation/doc/implementation-watch/cross-cutting.adoc#PM-WATCH-GEN-43[PM-WATCH-GEN-43], link:../../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-4[PM-WATCH-STORE-4], link:../../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-5[PM-WATCH-STORE-5], link:../../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-7[PM-WATCH-STORE-7], link:../../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-31[PM-WATCH-STORE-31], link:../../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-45[PM-WATCH-STORE-45], link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-116[PM-WATCH-PHASE-116], link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-126[PM-WATCH-PHASE-126]_
 
 Each line in `findings.jsonl` (of a plan, or of the workspace scope for the findings of plan-less builds) is a standalone JSON object representing a finding from Q-Gate validation, code review, a code analysis provider, or PR review bots. External provider identifiers (`provider_ref`) are persisted as a typed sub-object rather than packed into free-text `detail` strings.
@@ -123,7 +116,7 @@ Each line in `findings.jsonl` (of a plan, or of the workspace scope for the find
     "source": {
       "type": "string",
       "enum": ["analysis", "github_pr", "gitlab_mr", "ci", "self_review", "arch_gate", "compiler", "qgate", "security_audit", "code_review", "dependency_delta", "capability_tests", "fix_proof", "added_lines"],
-      "description": "fix_proof is the server's pre-merge Fix Proof Guard (Phase Workflows Specification, fix-proof); its finding types are fix_red_missing, fix_test_changed (non-blocking), and fix_proof_indeterminate. added_lines is the server's pre-merge Added-Line Scan (Phase Workflows Specification, added-line-scan); its finding types are hidden_characters, model_instruction (non-blocking), credential_shaped, and added_lines_indeterminate. dependency_delta is the server's pre-merge Dependency Delta Check (Phase Workflows Specification, dependency-delta); its finding types are undeclared_dependency and dependency_delta_indeterminate. capability_tests is the server's pre-merge Capability Test Guard (Phase Workflows Specification, capability-test-guard); its finding types are capability_test_removed and capability_tests_indeterminate. ci is a failed CI check filed by ci-verify (Phase Workflows Specification, step 22); it carries ci_failure."
+      "description": "fix_proof is the server's pre-merge Fix Proof Guard (Phase Workflows Specification, fix-proof); its finding types are fix_red_missing, fix_test_changed (non-blocking), and fix_proof_indeterminate. added_lines is the server's pre-merge Added-Line Scan (Phase Workflows Specification, added-line-scan); its finding types are hidden_characters, model_instruction (non-blocking), credential_shaped, and added_lines_indeterminate. dependency_delta is the server's pre-merge Dependency Delta Check (Phase Workflows Specification, dependency-delta); its finding types are undeclared_dependency and dependency_delta_indeterminate. capability_tests is filed by no step: the Capability Test Guard is deferred (Later Improvements, L-36). ci is a failed CI check filed by ci-verify (Phase Workflows Specification, step 22); it carries ci_failure."
     },
     "provider": {
       "type": ["string", "null"],
@@ -557,4 +550,4 @@ One record per `bot_kind` is compiled into the binary; a project may add records
 }
 ----
 
-The compiled-in records carry the data verified in `plan-marshall` `automatic-review/standards/` (re-verify before implementing): `coderabbit` (one review per hour, `awaitable_window`, trigger verb `@coderabbitai review`, CodeRabbit refusal wrapper `<details><summary>⚠️ Action not completed</summary>`, and the bot-author skip notices "Bot user detected" and "authored by a bot without an assigned CodeRabbit review seat" among its `refusal_patterns`), `sourcery` (`hard_quota`, an account-level diff-character quota over a rolling 7-day window, and per-pull-request size and file-count ceilings), and `cuioss-review-bot` (`unknown`, reviewed SHA only in the body). No record encodes a bot's ceiling or quota as a number: the detection patterns are number-free and the ceiling is read from the bot's own notice (`refusal_size_cap_patterns`, `rate_limit_eta_patterns`), so a plan change of the bot needs no record change. `sourcery` declares `participation_requires_update: false`; `coderabbit` and `cuioss-review-bot` declare `true` (they edit their summary comment in place on re-review). The provider comment body cap (GitHub 65,536 characters) is a provider limit, not a bot record.
+The compiled-in records carry the data derived from `plan-marshall` `automatic-review/standards/` at f3de0e14f, normative as written: `coderabbit` (one review per hour, `awaitable_window`, trigger verb `@coderabbitai review`, CodeRabbit refusal wrapper `<details><summary>⚠️ Action not completed</summary>`, and the bot-author skip notices "Bot user detected" and "authored by a bot without an assigned CodeRabbit review seat" among its `refusal_patterns`), `sourcery` (`hard_quota`, an account-level diff-character quota over a rolling 7-day window, and per-pull-request size and file-count ceilings), and `cuioss-review-bot` (`unknown`, reviewed SHA only in the body). No record encodes a bot's ceiling or quota as a number: the detection patterns are number-free and the ceiling is read from the bot's own notice (`refusal_size_cap_patterns`, `rate_limit_eta_patterns`), so a plan change of the bot needs no record change. `sourcery` declares `participation_requires_update: false`; `coderabbit` and `cuioss-review-bot` declare `true` (they edit their summary comment in place on re-review). The provider comment body cap (GitHub 65,536 characters) is a provider limit, not a bot record.

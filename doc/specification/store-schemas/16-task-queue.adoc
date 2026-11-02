@@ -169,7 +169,7 @@ One record per task. A `job llm <entity_kind> role <role> [each <primitive>]` st
 === Activity Journal (`tasks/activity/<queue_task_id>.jsonl`)
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-7[PM-WORK-7: Worker Activity & Off-Track Signals]_
 
-What a worker does while it serves a task, one entry per activity, in an append-only journal per task in the store of the task's scope: `plans/<plan_id>/tasks/activity/<queue_task_id>.jsonl`, and the same below `epics/<epic_id>/`, `workspace/`, and the machine scope. The runtime maps each line of the worker's output stream onto one harness-neutral kind through the `headless.events` pointers of the harness's client profile and adds what it knows itself (link:../client-profiles/01-profile-schema.adoc#worker-activity[Client Profiles Specification, What a Worker Does]); the off-track signals are computed from the journal (link:../model-work/03-supervision-and-recycling.adoc#worker-off-track[Model Work Specification, A Worker Off Track]).
+What a worker does while it serves a task, one entry per activity, in an append-only journal per task in the store of the task's scope: `plans/<plan_id>/tasks/activity/<queue_task_id>.jsonl`, and the same below `epics/<epic_id>/`, `workspace/`, and the machine scope. The runtime maps each line of the worker's output stream onto one harness-neutral kind through the `headless.events` pointers of the harness's harness profile and adds what it knows itself (link:../harness-profiles/01-profile-schema.adoc#worker-activity[Harness Profiles Specification, What a Worker Does]); the off-track signals are computed from the journal (link:../model-work/03-supervision-and-recycling.adoc#worker-off-track[Model Work Specification, A Worker Off Track]).
 
 * *Written while the worker runs*: the runtime appends each entry as its line arrives, under the journal's own leaf lock taken on the file (like the plan mailbox's), outside the scope's transaction journal and digest sidecar, like a job log; a torn last line is ignored by a reader and repaired by the next writer (xref:01-format-and-session-log.adoc#format-versioning[Format Versioning & Atomic Write Discipline], item 6). Every text and target is masked like every job log before it is written (link:../job-runtime/01-pipeline-and-subprocesses.adoc[Job Runtime Specification]).
 * *Harness and server entries*: the harness's kinds are `text` (what the model wrote, cut to the compiled bound of 2,000 characters), `tool_call` (the tool's name and its target: a path, a command line, a server link with its id, never its whole arguments), `tool_result` (its size and whether it failed, never its content), `file_changed` (a path of the worktree), and `turn` (its usage, from the usage pointers, and its stop reason where the profile maps one). The server's kinds are `link` (a link of the task the worker followed: `ack`, `submit`, `ask`, `consult`, `yield`, `infeasible`), `question` (a question the worker asked), `answer_ack` (its acknowledgement of an answer), `signal` (an off-track signal with the action taken), and `attempt_end` (how the attempt ended, with the count of the output lines that matched no mapping, which are counted and never shown). A harness whose profile declares `headless.events: null` has only server entries.
@@ -198,7 +198,7 @@ What a worker does while it serves a task, one entry per activity, in an append-
     "tool": { "type": ["object", "null"], "required": ["name", "target"], "additionalProperties": false, "description": "tool_call only.", "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 128 }, "target": { "type": ["string", "null"], "maxLength": 1000, "description": "A path, a command line, or a server link with its id; masked; untrusted." } } },
     "result": { "type": ["object", "null"], "required": ["bytes", "failed"], "additionalProperties": false, "description": "tool_result only.", "properties": { "bytes": { "type": "integer", "minimum": 0 }, "failed": { "type": "boolean" } } },
     "path": { "type": ["string", "null"], "maxLength": 1000, "description": "file_changed only: a path relative to the worktree." },
-    "stop_reason": { "type": ["string", "null"], "enum": ["end_turn", "tool_use", "max_tokens", "refusal", "other", null], "description": "turn only: the turn's stop reason as the profile maps it (client-profiles/01, What a Worker Does); null where the profile maps none. Recorded only; no rule reads it." },
+    "stop_reason": { "type": ["string", "null"], "enum": ["end_turn", "tool_use", "max_tokens", "refusal", "other", null], "description": "turn only: the turn's stop reason as the profile maps it (harness-profiles/01, What a Worker Does); null where the profile maps none. Recorded only; no rule reads it." },
     "usage": { "type": ["object", "null"], "description": "turn only: the turn's usage figures read through the profile's pointers — the five token components and tool_uses as measured integers, unmeasured or not_applicable, and cost_usd as the number the harness reports or unmeasured (store-schemas/05, Metrics Store)." },
     "link": { "type": ["object", "null"], "required": ["rel", "target"], "additionalProperties": false, "description": "link only.", "properties": { "rel": { "type": "string", "enum": ["ack", "submit", "ask", "consult", "yield", "infeasible"] }, "target": { "type": ["string", "null"], "maxLength": 128, "description": "The entity or role the link names, for example TASK-007 or a consulted role." } } },
     "question_id": { "type": ["string", "null"], "pattern": "^Q-[0-9]{3,6}$", "description": "question and answer_ack only." },
@@ -234,7 +234,7 @@ The record of one grading of a role's configuration by the operator's grading in
       "additionalProperties": false,
       "description": "The graded members the qualification digest covers (PM-WORK-6).",
       "properties": {
-        "harness": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "client_id of the graded harness (identifiers.adoc, client_id), an operator-added harness included; worker eligibility of its client profile gates a launch." },
+        "harness": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "harness_id of the graded harness (identifiers.adoc, harness_id), an operator-added harness included; worker eligibility of its harness profile gates a launch." },
         "harness_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$", "description": "major.minor of the enrolled harness version; a patch change keeps the record valid." },
         "model": { "type": "string", "minLength": 1 },
         "effort": { "type": ["string", "null"] },
@@ -257,6 +257,7 @@ The record of one grading of a role's configuration by the operator's grading in
     },
     "warm_fresh_gap": { "type": ["number", "null"], "description": "The largest, over the topics, of the topic's fresh agreement minus its warm agreement in percentage points; null when only one form was graded." },
     "ungraded": { "type": "integer", "minimum": 0, "description": "Items whose judge task closed lost, or whose item task ended for a reason of the runtime (role_unavailable, withdrawn); excluded from the agreement. A record with ungraded > 0 qualifies no form." },
+    "judge_check": { "type": "string", "enum": ["passed", "failed"], "description": "The result of the judge instrument check the grading's judge ran (model-work/01, Judge Instrument Check); absent where no check ran (while the corpus holds no topic judge/), and in every record written before this member existed. It blocks no grading." },
     "graded_at": { "type": "string", "format": "date-time" },
     "items": {
       "type": "array",
@@ -277,43 +278,15 @@ The record of one grading of a role's configuration by the operator's grading in
     }
   },
   "$defs": {
-    "share": {
-      "type": "object",
-      "required": ["items", "agreement"],
-      "additionalProperties": false,
-      "properties": {
-        "items": { "type": "integer", "minimum": 0 },
-        "agreement": { "type": ["number", "null"], "minimum": 0, "maximum": 100, "description": "null when items is 0." }
-      }
-    },
     "topicResult": {
       "type": "object",
-      "required": ["agreement", "constant_baseline", "items", "interval", "thin", "confirmed", "costly", "costly_answers", "confusion", "derived"],
+      "required": ["agreement", "constant_baseline", "items", "thin"],
       "additionalProperties": false,
       "properties": {
-        "agreement": { "type": "number", "minimum": 0, "maximum": 100, "description": "Percent of the graded items of the topic (review status draft or confirmed, ungraded items and the items left out for this configuration excluded, model-work/01, Items Left Out of a Grading) answered right in this form." },
+        "agreement": { "type": "number", "minimum": 0, "maximum": 100, "description": "Percent of the graded items of the topic (ungraded items excluded) answered right in this form." },
         "constant_baseline": { "type": "number", "minimum": 0, "maximum": 100, "description": "The agreement of the best constant answerer over the same items (model-work/01, Constant Baseline); the topic qualifies only when agreement exceeds it by the qualification margin." },
         "items": { "type": "integer", "minimum": 1 },
-        "interval": {
-          "type": "object",
-          "required": ["low", "high"],
-          "additionalProperties": false,
-          "description": "The Wilson 95 % interval of agreement over items, in percent (model-work/01, Qualification Records, How Far a Figure Reaches); shown, never a condition of validity.",
-          "properties": {
-            "low": { "type": "number", "minimum": 0, "maximum": 100 },
-            "high": { "type": "number", "minimum": 0, "maximum": 100 }
-          }
-        },
-        "thin": { "type": "boolean", "description": "true when items is below the compiled 20." },
-        "confirmed": { "$ref": "#/$defs/share", "description": "The agreement on the topic's items with review status confirmed alone." },
-        "costly": { "$ref": "#/$defs/share", "description": "The agreement on the costly subset (model-work/01, Costly Answers); the topic qualifies only when it reaches the agreement level where items is above 0." },
-        "costly_answers": { "type": "integer", "minimum": 0, "description": "The answers given that an item lists in target.costly_answers." },
-        "confusion": {
-          "type": "object",
-          "description": "exact_choice and label items only: per reference answer, the count of every answer given; an item without an answer counts under none. Empty for a topic of rubric items.",
-          "additionalProperties": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 1 } }
-        },
-        "derived": { "$ref": "#/$defs/share", "description": "The items tagged derived:<skill> for a skill of this configuration, graded and recorded apart, outside agreement and items (model-work/01, Items Left Out of a Grading)." }
+        "thin": { "type": "boolean", "description": "true when items is below the compiled 20." }
       }
     },
     "formResult": {
@@ -402,10 +375,10 @@ The record of one calibration of a quorum declaration by the operator's calibrat
       "additionalProperties": false,
       "properties": {
         "role": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
-        "form": { "type": "string", "enum": ["warm", "fresh"], "description": "The form the role's vote tasks ran in at the calibration; a judgment role is fresh." },
+        "form": { "type": "string", "enum": ["warm", "fresh"], "description": "The form the role's vote tasks ran in at the calibration." },
         "qualification_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "The role's qualification digest at the calibration (Role Qualification Record)." },
         "harness": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "The harness of the qualification record the digest names." },
-        "model": { "type": "string", "description": "For a judgment role the versioned model id." }
+        "model": { "type": "string" }
       }
     }
   }

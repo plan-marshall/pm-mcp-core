@@ -35,6 +35,10 @@ empty for a unit that binds entries instead; there is no empty-string stand-in
 (link:../adr/workflow-ast/002-start-state-optional-for-a-unit-with-entries.adoc[ADR 002]).
 `entryBindings`:: The `entry <name> -> <state_id>` lines, an ordered map from the entry name to a
 `WorkflowDefinition.EntryBinding`, which holds the bound state id and the `SourceLocation` of the line.
+`origin`:: The `UnitOrigin` the caller of the parser passes: `DEFAULT` for a unit compiled into the binary, `PROJECT`
+for a project's copy. The parser cannot know where a text came from.
+`derivedFrom`:: The default revision a project unit derives from, by unit id: the `derived_from <n>` clause of its
+header, recorded as `{<unit id> -> n}`; empty for a default unit, on which the parser refuses the clause.
 
 `startingStates()` is the one place that answers where control enters a unit: the start state, followed by the state of
 every entry binding in source order, each once. The verifier takes its roots for reachability, exit paths, gate
@@ -45,13 +49,33 @@ Which of the two a unit declares, and that the bindings match the entries the fr
 the tree: the parser keeps what the text says, and the verifier checks it
 (link:workflow-verify.adoc#interface-rules[Workflow Verification § Interface Rules], rule 1).
 
-Two components of the definition are not read from the text of one file:
-
-* `PlanInstanceComposer` of `workflow.plan` gives a composed plan instance version the frontmatter of its template with
-  the type `instance`, and the template's start state and entry bindings.
+A composed plan instance version takes components from its template rather than from its own text:
+`PlanInstanceComposer` of `workflow.plan` gives it the frontmatter of its template with the type `instance`, and the
+template's start state and entry bindings.
 
 A phase is not a component of a state (<<_the_phase_of_a_unit>>): the plan unit carries no phase, and each phase is the
 sub-workflow its call state `phases.<name>` names.
+
+[#_the_node_model]
+== States, Links and Transitions
+_Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
+
+Below the definition the tree is built from these nodes:
+
+* *States*: a `StateNode` carries its id, an optional `TerminalOutcome` (the outcome id with the `OutcomeClass` of
+  `pm-core`), optional `skill` and `facts` clauses, its `SourceLocation` and exactly one `StateBehavior`:
+  `InteractiveLinks`, `AutoStep`, `JobStep` (with `composite` for a `composite_job`), `ModelJob` (a `job llm` task
+  state with its entity kind, role, `each` or `role each` primitive, asking axis and consulted roles),
+  `SubWorkflowCall` (with its entry and its bound `CallValue` arguments), `QuestionWait` or `TerminalState`.
+* *Links and guards*: a `LinkSpec` has its relation and form (`LinkRelation`, `LinkForm`; every relation knows its
+  allowed forms and its default form), its identifier pattern, its free parameters (`ParamSpec` with a `ParamType`:
+  `Text`, `Int`, `EnumOf`, `SchemaRef`, `ListOf`), an optional `GuardSpec` (a `GuardExpr` and the configuration keys it
+  depends on), its action (`LinkAction.ExecutePrimitive`) and its transitions.
+* *Transitions*: an `OutcomeTransition` routes an outcome to a target state, with an optional `ResultGuard` and the
+  `StepCompletion` clauses it settles.
+* *Engine types*: `CallFrame`, one frame of a scope's call stack (<<_entries_and_the_call_through_an_entry>>), and
+  `GuardResult` (`Held`, `NotHeld`, `CouldNotEvaluate(reason)`), the three-valued result of a guard. The parser
+  produces neither; the engine of `workflow.engine` builds and reads them.
 
 [#_the_frontmatter]
 == The Frontmatter
@@ -229,7 +253,10 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
   their order; `UnitFrontmatter` copies its entries and exits, `WorkflowDefinition` its entry bindings, `CallFrame` its
   bound arguments.
 * *Declaration order*: the entries, the exits and the entry bindings keep the order of the source, so the printer emits
-  them in that order and the round trip holds. An entry or an exit is never collapsed into another.
+  them in that order and the round trip holds. An entry or an exit is never collapsed into another. A map keyed by id
+  (`states`, `declarations`, `decisions`, `derivedFrom`, `entryBindings`, the parameter bindings of a call, the bound
+  arguments of a frame) is an unmodifiable view of a `LinkedHashMap` copy, never `Map.copyOf`, whose iteration order
+  would make the printer's output depend on hashing.
 * *Locations*: ten nodes carry the `SourceLocation` they were read at, among them the frontmatter (at its opening `---`)
   and each entry binding; the entries and exits of the frontmatter carry none. The verifier therefore reports a declared
   entry or exit at the frontmatter's location, and a binding of an undeclared entry or of a missing state at the
@@ -238,7 +265,9 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
 * *Closed hierarchies*: every sealed interface lists its variants as nested records, so a `switch` over them needs no
   `default`, and adding a variant breaks every such `switch` at compile time. A new construct is a new variant, never an
   open base class.
-* *No validation*: a record takes what it is given. Bounds, reachability, the interface rules and every other rule of the
+* *No validation*: a record takes what it is given, apart from the shape of a single value: a list value
+  (`CallValue.EnumList`) and an `enum[...]` type refuse a value that occurs twice, and a `text` or `int` type takes both
+  range bounds or none. Bounds, reachability, the interface rules and every other rule of the
   specification belong to the static verification of `workflow.verify`, never to the tree; a tree that exists is
   well-formed, not necessarily valid. Structural comparison happens after the source locations are stripped
   (`AstWithoutLocations`).
@@ -252,7 +281,9 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
 
 |`AstNodeModelTest`
 |The definition with its frontmatter, entry bindings and optional start state, the call with its entry and the call
-frame with its entry are built and compared, and the copies of their collections are immutable.
+frame with its entry are built and compared, and the copies of their collections are immutable; the starting states;
+a repeated list or enumeration value and a single range bound refused; the declaration order of the maps; a `switch`
+over every sealed hierarchy without `default`; the constants of the enumerations.
 
 |`AstVocabularyTest`
 |The unit types are the six of the language, in their declared order.
@@ -267,6 +298,10 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
   built for a test names the entry of its callee.
 * *The descriptions are not part of the interface.* Two units whose entries and exits differ only in their descriptions
   have the same interface (`INV-GEN-1`).
+* *Keep the order.* A new map component of a record copies into a `LinkedHashMap` and keeps declaration order like the
+  others; `Map.copyOf` would make the printer's output depend on hashing.
+* *A new construct touches four places.* The record in `workflow.ast`, the parser, the printer, and a fixture with its
+  expected tree; the round-trip tests of `WorkflowPrinterTest` fail until the printer writes what the parser reads.
 
 == Decisions
 

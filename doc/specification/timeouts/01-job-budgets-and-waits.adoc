@@ -189,20 +189,13 @@ A `timed_out` `git worktree remove` can leave a partially deleted tree. Before a
 == Waits & Long-Polls
 _Implementation watch: link:../../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-5[PM-WATCH-JOB-5]_
 
-The bounded wait window, the progress wait upper bound and the progress notification interval are implemented for the
-only calls a model holds, `pm_wait` and a running `pm_build`, by the wait value and the selection of
-`pm-workflow` package `workflow.engine`; see
-link:../../../pm-workflow/doc/developer/workflow-engine.adoc#_waits_held_by_a_model[Workflow Engine Developer Guide § Waits Held by a Model].
-The remaining rows of this section and the wait attribution of the job runtime are implemented elsewhere or remain open
-(for example <<ci-repoll-cadence>>, <<review-bot-windows>> and <<merge-queue-wait>>, and the item PM-WATCH-JOB-5).
-
 [cols="2,3,2,2,2,3,2"]
 |===
 |Name |Value / derivation |Configurable? |Floor / cap |Applies to |Behaviour on expiry |Defined for
 
 |[[bounded-wait]]Bounded wait window
-|Compiled default `240` per client profile.
-|`connection.bounded_wait_seconds` of the client profile; operator override in `machine-config.json` (`client_profiles.<client_id>.connection`, link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas, Machine Configuration Store])
+|Compiled default `240` per harness profile.
+|`connection.bounded_wait_seconds` of the harness profile; operator override in `machine-config.json` (`harness_profiles.<harness_id>.connection`, link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas, Machine Configuration Store])
 |`15`..`3600`; for a host whose `connection.progress_resets_timeout` is false, profile validation also rejects a value above `connection.idle_timeout_seconds − 30`
 |`pm_wait` of a worker (consultation answers included; where the host's `progress_resets_timeout` is set, progress frames hold it through the window); a `pm_build` call and its `job_id` continuation when the connection does not qualify for a progress wait
 |`pm_wait` answers `wait_again` (or `end`, link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/01-core-workflow-tools.adoc[MCP Tools, `pm_wait`]); `pm_build` returns the running result with its `job_id` continuation; never an MCP transport timeout.
@@ -212,7 +205,7 @@ The remaining rows of this section and the wait attribution of the job runtime a
 |`1800`
 |`progress_wait_max_seconds` in `machine-config.json`
 |`60`..`7200`
-|a `pm_build` call and its `job_id` continuation, when the client profile declares `progress_resets_timeout: true` and the request carries a `progressToken`; a `pm_wait` keeps the bounded wait window
+|a `pm_build` call and its `job_id` continuation, when the harness profile declares `progress_resets_timeout: true` and the request carries a `progressToken`; a `pm_wait` keeps the bounded wait window
 |As bounded wait.
 |link:../job-runtime/01-pipeline-and-subprocesses.adoc#_bounded_long_poll_progress_reset_waiting_primitives_pm_wf_8_pm_impl_4[Job Runtime, Bounded Long-Poll]; link:../../../../plan-marshall-documentation/doc/specification/runtime-model/04-sessions-and-workers.adoc#_connection_scoped_rendering[Runtime Model, Connection-Scoped Rendering]
 
@@ -295,23 +288,23 @@ a|* *Rate window*: `reset_at` is the bot-stated reset ETA when one is published 
 == Worker Supervision & Recycling
 _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-2[PM-WORK-2: Task Protocol], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3: Supervision & Recycling]_
 
-The supervisor ends, recycles, and replaces workers by these values (link:../model-work/03-supervision-and-recycling.adoc[Model Work Specification, Supervision & Recycling]). The per-host values live in the `worker` block of the client profile of the worker's harness (link:../client-profiles/01-profile-schema.adoc[Client Profiles Specification, Profile Schema]), the per-role values in the role artifact (link:../model-work/01-roles-and-configuration.adoc[Model Work Specification, Roles & Configuration]); this table names each value, its source, and its effect, and the measured basis is recorded in the link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#parameters[Evaluation Reference, Substantiated Values].
+The supervisor ends, recycles, and replaces workers by these values (link:../model-work/03-supervision-and-recycling.adoc[Model Work Specification, Supervision & Recycling]). The per-host values live in the `worker` block of the harness profile of the worker's harness (link:../harness-profiles/01-profile-schema.adoc[Harness Profiles Specification, Profile Schema]), the per-role values in the role artifact (link:../model-work/01-roles-and-configuration.adoc[Model Work Specification, Roles & Configuration]); this table names each value, its source, and its effect, and the measured basis is recorded in the link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#parameters[Evaluation Reference, Substantiated Values].
 
 [cols="2,3,2,2,2,3,2"]
 |===
 |Name |Value / derivation |Configurable? |Floor / cap |Applies to |Behaviour on expiry |Defined for
 
 |[[ack-deadline]]Acknowledgement deadline
-|`worker.ack_deadline_seconds` of the harness's client profile, counted from the offer; for a fresh worker from its first call; where the profile marks it informational (`worker.ack_informational`), silence alone decides.
-|client profile (compiled)
+|`worker.ack_deadline_seconds` of the harness's harness profile, counted from the offer; for a fresh worker from its first call; where the profile marks it informational (`worker.ack_informational`), silence alone decides.
+|harness profile (compiled)
 |`1`..`600`
 |every offer to a worker (a `zero_tool` worker receives no offer)
 |The worker is ended (`end_reason: ack_missed`) and the task is offered to its successor.
 |link:../model-work/02-task-protocol.adoc[Model Work, Task Protocol]
 
 |[[silence-limit]]Silence limit
-|The bounded wait (<<bounded-wait>>) plus `worker.silence_grace_seconds` of the client profile, measured from the worker's last call while it holds no open wait call.
-|client profile (compiled)
+|The bounded wait (<<bounded-wait>>) plus `worker.silence_grace_seconds` of the harness profile, measured from the worker's last call while it holds no open wait call.
+|harness profile (compiled)
 |grace `5`..`600`
 |every running worker except a `zero_tool` worker, which has no connection and whose exit and budget alone decide
 |The worker is ended (`end_reason: silence`, then the fence), its lease released at once, and a successor started while work remains.
@@ -322,12 +315,12 @@ The supervisor ends, recycles, and replaces workers by these values (link:../mod
 |fixed
 |—
 |every running worker
-|Not an expiry: a detection above the bound fails the fault-matrix test of the harness, which is then not eligible as a worker host (link:../client-profiles/01-profile-schema.adoc#worker-block[Client Profiles, Worker Block]).
+|Not an expiry: a detection above the bound fails the fault-matrix test of the harness, which is then not eligible as a worker host (link:../harness-profiles/01-profile-schema.adoc#worker-block[Harness Profiles, Worker Block]).
 |link:../model-work/03-supervision-and-recycling.adoc#detection[Model Work, Detection]
 
 |[[idle-recycle]]Idle recycle
-|After `worker.idle_wakeups` consecutive bounded waits without a task (the client profile's value, lowered and never raised by the role artifact's `recycling.idle_wakeups`).
-|client profile; role artifact
+|After `worker.idle_wakeups` consecutive bounded waits without a task (the harness profile's value, lowered and never raised by the role artifact's `recycling.idle_wakeups`).
+|harness profile; role artifact
 |`1`..`100`
 |warm workers
 |The next wait is answered `end`; the worker exits and its slot is released.
@@ -401,7 +394,7 @@ The supervisor ends, recycles, and replaces workers by these values (link:../mod
 |Compiled per signal, computed by the runtime from the task's activity and records: `repeating`: `5` identical tool calls (same tool, same target) in a row; `no_progress`: `40` turns without a link of the task followed; `over_size`: the tokens spent on the current plan task above `3 ×` its `predicted_cost_tokens`; `outside_footprint`: `3` unplanned changed files recorded for the task; `agent_started`: `1`, fixed (no role artifact changes it or its action).
 |role artifact, which may lower each threshold and never raise it
 |the compiled values are the caps; `repeating` and `outside_footprint` at least `1`, `no_progress` at least `5` turns, `over_size` at least `1.5 ×`
-|every worker whose harness reports activity events (link:../client-profiles/01-profile-schema.adoc#worker-activity[Client Profiles, What a Worker Does])
+|every worker whose harness reports activity events (link:../harness-profiles/01-profile-schema.adoc#worker-activity[Harness Profiles, What a Worker Does])
 |Not an expiry and no limit: the signal is raised and the role's action for it taken (`show`, `nudge`, `yield`, `restart`); it never ends a plan.
 |link:../model-work/03-supervision-and-recycling.adoc#worker-off-track[Model Work, A Worker Off Track]
 |===
@@ -434,6 +427,14 @@ Every blocking condition of a plan has a bounded server retry and then a defined
 |`fix` of a remediation unit's `decide`, including the `loop_back` form; charged when the fix's commit or artifact exists
 |As retry budget.
 |link:../workflow-dsl/08-remediation-units.adoc#remediation-units[Workflow DSL, Remediation Policy Units]
+
+|[[outline-review-revisions]]Outline review revisions of a light plan (`outline_review_revisions`)
+|The default of the `fix` budget of `qgate-findings` (`3`).
+|as the fix budget of `qgate-findings` (`fix_budget:qgate-findings`)
+|hard cap `5`
+|a `revise` answer of the outline review of a light plan, charged by `outline.route-review` on every path; never reset
+|The `revise` takes the fallback `returned` (`plan.return`).
+|link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-gate[Phase Workflows, Outline Review]
 
 |[[sweep-localisation-cap]]Sweep localisation builds
 |$\lceil \log_2 n \rceil + 1$ builds for $n$ plan commits after the merge base, capped.
@@ -548,4 +549,4 @@ Every blocking condition of a plan has a bounded server retry and then a defined
 |link:../domain-extensions/04-setup-state-machine.adoc#setup-verify-credentials[Domain Extensions, Credential Verification]; link:../state-catalogue/06-setup-epic-other.adoc#state-setup.verify-credentials[State Catalogue, `setup.verify-credentials`]; link:../workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL Specification] (Rule 11a)
 |===
 
-*Deadline processing*: The prerequisite wait of a re-planning is an engine-owned instant persisted with its record (`deadline_at`), processed by the runtime's deadline timer (link:../job-runtime/01-pipeline-and-subprocesses.adoc#engine-deadlines[Job Runtime Specification, Engine Deadlines]); an operator wait has none. The integrity pause and the operator's pause hold every fallback and deadline until they end, and an operator act that ends the plan (cancel, abandon, the integrity abort, the release, `delete-plan`) closes its open decisions and waiver requests `cancelled`.
+*Deadline processing*: The prerequisite wait of a re-planning is an engine-owned instant persisted with its record (`deadline_at`), processed by the runtime's deadline timer (link:../job-runtime/01-pipeline-and-subprocesses.adoc#engine-deadlines[Job Runtime Specification, Engine Deadlines]); an operator wait has none. The integrity hold and the operator's pause hold every fallback and deadline until they end, and an operator act that ends the plan (cancel, abandon, the integrity abort, the release, `delete-plan`) closes its open decisions and waiver requests `cancelled`.

@@ -36,15 +36,20 @@ _See Requirements:_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-23[PM-WF-23: Operator Acts on Plans and Epics]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-24[PM-WF-24: Chatting with the Planning Role]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-25[PM-WF-25: Plan Behaviour Axes & Plan Overrides]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-27[PM-WF-27: Findings & Triage]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-28[PM-WF-28: Security Audit]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-29[PM-WF-29: Pre-Submission Self-Review]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-30[PM-WF-30: PR Body & Landing Record]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-31[PM-WF-31: Lessons]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6: Role Qualification]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-7[PM-WORK-7: Worker Activity & Off-Track Signals]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-4[PM-EXT-4: Recipes as Workflows]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-1[PM-IMPL-1: Decoupled Plain-Java Core Engine & Quarkus Assembly]_
-* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-19[PM-WF-19: Uniform Decision Records & Corpus Export]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-19[PM-WF-19: Uniform Decision Log & Corpus Export]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-MIG-5[PM-MIG-5: Quantitative Triggers & Project Release]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1: Two-Boundary Security Model & Untrusted Content Containment]_
 
-== Status: PLANNED
+== Status: IN PROGRESS
 
 == Modules
 
@@ -62,7 +67,7 @@ Implemented in (link:../../../plan-marshall-documentation/doc/specification/modu
 * link:phase-workflows/02-planning-lanes-phases-3-4.adoc[Planning Lanes, Phases 3–4 & Guards] — planning lanes and the lane ratchet, land and adopt lanes, phase 3 (`outline`) with the server outline gate and the outline review, phase 4 (`plan`) with the plan instance composition, planning guards, and in-band text submissions
 * link:phase-workflows/03-q-gate-and-execute.adoc[Q-Gate Contracts & Phase 5 Execute] — the Q-Gate loop with its task and server verdict, the `change_type` contract, unplanned changes, and phase 5 execute with its envelope tasks, a worker off track, the re-planning of infeasible deliverables, the loop-back to the outline, and verification sweep
 * link:phase-workflows/04-finalize-step-bands.adoc[Finalize Step Ordering Bands] — phase 6 finalize: the step ordering bands, the step states, and the normative step catalogue
-* link:phase-workflows/05-finalize-review-metrics-descriptor.adoc[Finalize Review, Metrics & Step Descriptor] — automatic review, post-run metrics with the migration trigger evaluation and the landing envelope, the quality report, footprint capture, dependency delta, and the step descriptor record
+* link:phase-workflows/05-finalize-review-metrics-descriptor.adoc[Finalize Review, Metrics & Step Descriptor] — automatic review, post-run metrics with the migration trigger evaluation and the landing envelope, the quality report, footprint capture, the pre-merge diff checks (dependency delta, fix proof, added lines), the self-review submission and its criterion evidence, operator paths, the change map, the pull-request body sections, code scanning alerts, the security audit calibration, and the step descriptor record
 * link:phase-workflows/06-finalize-re-entry-and-merge.adoc[Finalize Re-Entry & Merge] — re-entry and verdict currency, the landing variants, the merge path with the hand-back, the pre-merge review barrier and its waivable gates, the cross-plan merge mutex, and the start of an epic's plans
 * link:phase-workflows/07-questions-waivers-operator-influence.adoc[Questions, Waivers & Operator Influence] — question records and decisions as operator waits delivered to both clients, the choices of a start, the options asked where needed, waivers, waiver requests and the operator's acts, and the question envelope schema
 * link:phase-workflows/08-dynamic-re-planning.adoc[Dynamic Re-Planning] — re-planning of a running plan: the triggers with their checkpoints and the thresholds the project-owned `replan` unit declares, the `replan` task with its facts and closed actions, the guards of a revision, re-entry and the `replan` instance version, follow-up plans and split pull requests, a revision from the operator's chat, the conservative fallback, and the relation to the remediation policies

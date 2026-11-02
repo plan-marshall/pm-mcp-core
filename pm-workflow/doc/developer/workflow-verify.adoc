@@ -20,7 +20,7 @@ The rules themselves are defined by the specification, link:../../../doc/specifi
 `WorkflowValidator`:: The entry point. Runs every check over one unit and returns a `VerificationResult`; no check stops at the first violation.
 `VerificationRule`:: The closed set of checks, 32 constants; each names the number of the specification rule it implements a part of.
 `Violation`:: One finding: its `VerificationRule`, the state it concerns, its `SourceLocation` (resource and line) and a message.
-`VerificationResult`:: The record of the `violations` alone, immutable and ordered. `passed()` is `true` when there is no violation. Every finding of the verifier refuses the unit; the advisories channel PLAN-54 added was removed with the only check that used it (link:../adr/workflow-verify/008-verification-result-advisories.adoc[ADR 008]).
+`VerificationResult`:: The record of the `violations` alone, immutable and ordered. `passed()` is `true` when there is no violation. Every finding of the verifier refuses the unit; the result has no advisory channel (link:../adr/workflow-verify/008-verification-result-advisories.adoc[ADR 008]).
 `UnitGraph`:: The transition graph of one unit: successors and predecessors, forward and backward closures, simple cycles, the reachability without a producer, the implicit exits of a state, and the outcomes of the terminals reachable from the entry-bound states (`outcomesReachedFromEntries`).
 `TransitionFuzzer`:: A seeded explorer that draws Boolean assignments for the guard atoms of a unit and reports the states in which no exit holds (`FuzzConfiguration`: seed, runs, greatest number of steps). Each run walks from the start state, or under the same assignment from each entry-bound state in turn.
 
@@ -53,7 +53,7 @@ Violations are ordered by the declaration order of their state, released state n
 === Rule 1: Bindings
 
 * `PRIMITIVE_BINDING`: every primitive of an `auto`, `job`, `composite_job` or `facts` clause, of a link's `do` and of a `predicate:` guard is registered in the `PrimitiveRegistry`.
-* `PARAMETER_EQUIVALENCE`: the free parameters of a link equal the `@FreeParam` components of its primitive's parameter record in name, type (text) and bounds; optionality is not compared.
+* `PARAMETER_EQUIVALENCE`: the free parameters of a link equal the `@FreeParam` components of its primitive's parameter record in name, type (text) and bounds, a link parameter without a range counting as `0..Integer.MAX_VALUE`; optionality is not compared, because `@FreeParam` declares none.
 * `ENTITY_KIND_BINDING`: the entity kind of a `job llm` state is registered; its return-evaluation primitive is registered; its entity unit, when it has one, is registered in the `WorkflowCatalog`; the primitive of an `each` clause and of a `role each` clause is registered; `role each` occurs only in the unit `adjudicate.decisions`; `ask` is refused on a `role each` state and on a kind without an entity unit.
 * `ROLE_NAME_GRAMMAR`: the role of a `job llm` state and every `consult role` match `^[a-z][a-z0-9-]{1,31}$` and are no reserved keyword.
 * `SCHEMA_BINDING`: the result schema of a unit and every `schema[...]` of a parameter name a registered schema.
@@ -76,7 +76,7 @@ _Specification: link:../../../doc/specification/workflow-dsl/09-plan-instance.ad
 A composition prunes a state with every transition into it and never re-routes the outcome that led there, so a version that prunes the only target of an outcome would fail Rule 2.
 `WorkflowValidator.verify(definition, settledByPrune)` takes, by state id, the outcomes the composition settled by a prune record, and `OUTCOME_COVERAGE` counts them as routed at an `auto` or `job` state; the outcomes of a declared link, a `job llm` state and a question state are never settled.
 `verify(definition)` is `verify(definition, Map.of())`.
-Only `PlanInstanceComposer` passes settled outcomes, those `InstancePruner` records for the states it pruned with a prune record of the closed reason set (link:workflow-plan.adoc#_outcomes_settled_by_a_prune[Plan Instance § Outcomes Settled by a Prune]); every other caller, the loaders among them, settles nothing, so an unrouted outcome and a transition into a missing state are refused as before.
+Only `PlanInstanceComposer` passes settled outcomes, those `InstancePruner` records for the states it pruned with a prune record of the closed reason set (link:workflow-plan.adoc#_outcomes_settled_by_a_prune[Plan Instance § Outcomes Settled by a Prune]); every other caller, the loaders among them, settles nothing, so an unrouted outcome and a transition into a missing state are refused.
 The cases that need it are the `light` exit of `init.ready` in a `deep` version, pruned with `other_lane`, and the `pass` of `finalize.merge-barrier` in a version that prunes the merge execution with `merge_by_operator` (link:../adr/workflow-plan/016-pruned-merge-gate-settles-in-the-engine.adoc[ADR workflow-plan 016]).
 `WorkflowValidatorTest` keeps the refusal of an outcome no prune record settles (no record, a record of another state, a record of another outcome) beside the settled control.
 
@@ -91,7 +91,7 @@ The cases that need it are the `light` exit of `init.ready` in a `deep` version,
 * `LINK_ID_UNIQUE`: the link identifiers of a state are unique, and no declared link repeats an implicit one (`ack`, `consult:<role>`, `answer:<question_id>`, and `step_out` on a link state of a sub-workflow).
 * `INTERFACE_START_OR_ENTRIES`, `INTERFACE_STOP_POINTS_OR_EXITS`, `INTERFACE_EXIT_REACHED`: interface rules 1, 2 and 4 (<<interface-rules>>).
 
-Seam (link:../adr/workflow-verify/006-rule-3-value-activation-gap.adoc[ADR 006], link:../adr/workflow-verify/004-rule-3-configuration-reachability.adoc[ADR 004]): configuration reachability is not implemented. The enumeration of the values of the `depends_on_config` keys, the rule by which a value activates a guard, the report of a state or transition that some combinations do not reach, and the refusal of one that no combination reaches are not checked; the specification gives the key domains but no activation rule. The check `CONFIG_REACHABILITY`, which judged reachability under an all-keys-true activation of its own and could refuse nothing, is removed with its advisories.
+Seam (link:../adr/workflow-verify/006-rule-3-value-activation-gap.adoc[ADR 006], link:../adr/workflow-verify/004-rule-3-configuration-reachability.adoc[ADR 004]): configuration reachability is not implemented. The enumeration of the values of the `depends_on_config` keys, the rule by which a value activates a guard, the report of a state or transition that some combinations do not reach, and the refusal of one that no combination reaches are not checked; the specification gives the key domains but no activation rule. No rule judges reachability under an activation of its own.
 
 === Rule 4: Leaf Tasks
 
@@ -101,14 +101,14 @@ Seams (link:../adr/workflow-verify/001-static-verifier-remaining-rules.adoc[ADR 
 
 === Rule 5: Released States
 
-* `RELEASED_STATE`: every released state name of the baseline the caller passes is a state of the unit or is migrated directly to one.
+* `RELEASED_STATE`: every released state name of the baseline the caller passes is a state of the unit or is migrated directly to one. The violation names the released name and stands at its first `migrate` line, or at the unit header when no `migrate` names it; the released names are reported after every state, in the order the caller passes them.
 
 === Rule 6: The Sub-Workflow Call Contract
 
 `SUBWORKFLOW_CALL_CONTRACT`:
 
 * the called unit is registered in the `WorkflowCatalog` and has the scope `subworkflow`;
-* the exit contract of a callee is the exits its frontmatter declares plus `stepped_out`, which every sub-workflow returns implicitly (link:../adr/workflow-verify/009-rule-6-implicit-stepped-out.adoc[ADR 009]); it is no longer derived from the callee's terminals, which interface rule 2 ties to the declared exits; a call routes each exit outcome once and no other outcome;
+* the exit contract of a callee is the exits its frontmatter declares plus `stepped_out`, which every sub-workflow returns implicitly (link:../adr/workflow-verify/009-rule-6-implicit-stepped-out.adoc[ADR 009]), not derived from the callee's terminals, which interface rule 2 ties to the declared exits; a call routes each exit outcome once and no other outcome;
 * a result guard sits only on the `done` of a call: a result guard on the transition of any state that is no call, its declared links included, and on a call outcome other than `done` is refused, and so is a result guard on a call whose callee declares no `result` schema, once per call (link:../adr/workflow-verify/023-rule-6-result-guards-on-a-schema-callee-done.adoc[ADR 023]); a guarded `done` is admitted only as the complementary pair `guard result.<f>` / `guard not result.<f>`;
 * the parameter bindings name declared parameters only, bind every declared parameter, and fit its type (enum value, integer range, non-empty list of enum values);
 * a resting link state of a sub-workflow declares a skill;
@@ -217,7 +217,7 @@ A check that another member already makes is not repeated either: a missing boun
 === The Exit Contract
 
 The exit contract of a sub-workflow is the exits its frontmatter declares plus the implicit control exit `stepped_out`.
-Rule 6 checks every call against it, and the compiled invariant `INV-GIT-1` reads the declared exits of `git.commit_and_push` (exactly `done`) the same way; neither derives the contract from the terminals any more.
+Rule 6 checks every call against it, and the compiled invariant `INV-GIT-1` reads the declared exits of `git.commit_and_push` (exactly `done`) the same way; neither derives the contract from the terminals.
 Interface rule 2 keeps the terminals and the declared exits in agreement within the callee.
 
 === The Type Rows as Checked
@@ -227,6 +227,23 @@ Interface rule 2 keeps the terminals and the declared exits in agreement within 
 The tree marks neither a landing variant nor the adjudication unit, so both exceptions are recognised by name: a landing variant by the id prefix `landing.` (no exit, no terminal, and no `INTERFACE_CALLED_UNIT` violation for its missing exit), the adjudication unit by the id `adjudicate.decisions` (the `subworkflow` without entries).
 
 The machine unit is a resident unit: type `system`, scope `machine`, started, no entries and no exits, no terminal, resting in `onboard.completed`; `EXIT_PATH` checks that every state returns to it (link:../../../doc/specification/workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL § Machine Scope]).
+
+[#_transition_fuzzer]
+== Transition Fuzzer
+
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/12-testing.adoc#PM-TEST-3[PM-TEST-3]_
+
+`TransitionFuzzer.fuzz(definition, configuration)` walks a unit that passed `WorkflowValidator` and reports every reached non-terminal state none of whose exits holds under a drawn assignment of the guard atoms: a dead state that reachability over the graph cannot see, because the verifier evaluates no guard.
+
+* *Configuration*: `FuzzConfiguration` holds the seed, the number of runs and the greatest number of steps of one run; a number of runs or of steps that is not positive is refused with `IllegalArgumentException`.
+* *Seed*: the generator is created from the seed with the fixed algorithm `L64X128MixRandom` of the JDK (`TransitionFuzzer.ALGORITHM`), so the same configuration over the same unit gives the same report on every JDK.
+* *Guard atoms*: each run draws one two-valued assignment over the atoms the guards of the unit name: `in_worktree`, `has_open_findings`, `all_tasks_completed`, and `predicate:<primitive_id>` for a predicate primitive. Each atom is drawn once, in the order of its first occurrence: the states and their declared links in declaration order, each guard read from left to right. An atom no guard names is not drawn. The atoms of a guard are named by `UnitGraph.atomsOf(GuardExpr)`, one exhaustive switch over `GuardExpr`, and the fuzzer's evaluation of a guard looks each atom up by the name that switch gives it; a new guard variant fails to compile there, and what is drawn cannot diverge from what is looked up.
+* *The walk*: under the assignment of the run, a walk starts at each starting state of the unit in turn (`WorkflowDefinition.startingStates()`) and takes at most the configured number of steps. A declared link holds when it has no guard or its guard is true. The transitions the engine takes on its own (of `auto`, `job`, `composite_job`, `job llm`, `call` and the resolution of a question) always hold, and so do the implicit `step_out` of a link state of a sub-workflow and the default `lost` route of a task state that declares no `lost` transition (`UnitGraph.hasImplicitExit`), which leave the unit and end the walk. At a state without a holding exit the walk records the dead state and stops; otherwise it takes one holding exit and one of its targets at random. A terminal state ends the walk, and so does a target that is not a state of the unit.
+* *The report*: `FuzzReport` holds the configuration, the number of runs executed and every dead state reached, each once with its first witness, in the order found; `foundDeadState()` tells whether there is one. A `DeadState` names the state, its `SourceLocation`, the assignment of the run that reached it, in drawing order, and the number of that run, counted from 1.
+
+The guards are evaluated two-valued over the drawn atoms. The engine's three-valued evaluation (`GuardResult.CouldNotEvaluate`), the persisted sub-states, the condition overlays and the bound jobs are not modelled.
+
+*Feed it a verified unit only.* The fuzzer walks what the verifier accepted: a target that is not a state ends a walk instead of failing it, so an unverified unit hides defects rather than showing them.
 
 == Compiled Invariants
 
@@ -288,7 +305,7 @@ difference once as `INV-GEN-1`, naming the differing element
 * the entry bindings, each entry with the state it binds, compared as a map, so the order of the binding lines does not matter.
 
 The descriptions of the entries and exits are not compared.
-A start state is compared as before, a unit that binds entries instead reading as having none.
+The start state is compared too; a unit that binds entries instead reads as having none.
 A plan instance version declares the type `instance` and is checked against the template it is composed from: its type passes the comparison when the default unit is of the type `workflow` or `recipe`, because that difference is the composition's, not a replacement's (link:../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance]).
 The exception holds for the composition only.
 The caller states at construction what it checks, `CompiledInvariants.Subject`: `PlanInstanceComposer` builds its checker with `COMPOSED_INSTANCE`, the one subject for which the type `instance` passes against a `workflow` or `recipe` default; `ProjectUnitLoader` builds it with `PROJECT_REPLACEMENT`, so a project unit of the type `instance` that replaces a `workflow` or `recipe` default unit is refused with `INV-GEN-1`, naming both types, like any other difference of type.
@@ -351,6 +368,10 @@ The fixture units route the rework of each lane to its own authoring entry, as t
 The rework of the per-lane *call* states is proved over `src/test/resources/plan/per-lane-rework.pmwf`, a plan unit that declares both lane entries at `init.ready` and a call state per lane for the phases `plan` and `execute`: `PlanInstanceComposerTest.PerLaneRework` composes it at `outline` and asserts that a `deep` version prunes the light call states while its own calls re-enter `outline.deep`, and that a `light` version keeps both routes and routes the light calls to `outline.light-regate` (link:../adr/workflow-plan/017-per-lane-rework-fixture.adoc[ADR workflow-plan 017]).
 `DeclarationBoundsTest` covers the variant schemas with their shipped values, the empty list `[]` of `wait_after` and a value outside each bound.
 
+`TransitionFuzzerTest` runs over a fixture pair below `src/test/resources/verify/fuzz/`. `planted-dead-state.pmwf` is an entity unit with a link state whose only link is guarded by `in_worktree`; the fuzzer finds it with a fixed seed and names it with its location and an assignment with `in_worktree=false`. `control.pmwf` is the same unit without that guard, and the same seed reports nothing. Both pass the verifier and differ only in the planted guard line, which the test asserts. Beside them: equal seeds give equal reports, other seeds find the planted state within the configured runs, only the atoms the guards name are drawn and in the order of their first occurrence, the witness run is counted from 1, the same unit as a sub-workflow steps out of the planted state, a unit with entries is walked from each entry-bound state under the same assignment, a run stops at the greatest number of steps, and a configuration with a count that is not positive is refused.
+
+`VerifyFixtures` reads, lists and parses the fixtures below `src/test/resources/verify/`.
+
 == Usage
 
 === Verifying a Workflow
@@ -366,6 +387,16 @@ if (WorkflowParser.parse("workflow.pmwf", source, UnitOrigin.DEFAULT) instanceof
         // every entry of result.violations() refuses the unit
     }
 }
+----
+
+=== Fuzzing a Verified Workflow
+
+[source,java]
+----
+FuzzReport report = new TransitionFuzzer().fuzz(definition, new FuzzConfiguration(42L, 64, 16));
+report.deadStates().forEach(dead -> {
+    // dead.stateId(), dead.location(), dead.assignment(), dead.run()
+});
 ----
 
 === Adding Entity Kinds or Question Classes
@@ -388,6 +419,8 @@ QuestionClassRegistry customQuestions = QuestionClassRegistry.defaults()
 1. **Deterministic order**: violations are ordered by state declaration order, then by `VerificationRule` order.
 2. **Values, not exceptions**: a semantic defect is a `Violation` of the result, never an exception.
 3. **Parse boundary**: syntax is refused by `WorkflowParser`; cross-references and the graph are checked by `WorkflowValidator`.
+4. **An exemption stays at its check**: the abort terminals exempt from reachability, the implicit `step_out` and the default `lost` route counted as exits, the workspace unit returning to its start state: each exemption is written where its check runs, as a named constant (`ABORT_TERMINALS`, `UnitGraph.hasImplicitExit`) or condition with its reason, never as a filter on the result, so a new check does not inherit an exemption it should not have.
+5. **One vocabulary for the rules**: a new check is a new constant of `VerificationRule`; no message, test or document names a rule by a string of its own.
 
 == Specification Tracing
 

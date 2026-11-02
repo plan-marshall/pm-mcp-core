@@ -18,7 +18,7 @@ server-owned; no element is read from a file a model can write.
 == Main types
 
 `HeadlessBlock`::
-The launch contract of one client profile, projected out of its `headless` block: the executable, the argument-vector
+The launch contract of one harness profile, projected out of its `headless` block: the executable, the argument-vector
 template with its typed slots, the per-class templates, the agent mode, the MCP delivery, the launch environment, the
 model tiers and efforts, the supported version range, the update evidence, the resource tools, the per-worker data
 home, the session residue, the resumability and the writable sub-paths.
@@ -222,4 +222,4 @@ enrolment carries the start context.
 * `doc/specification/store-schemas/13-leases-integrity-testing.adoc#machine-lease-stores` (Machine Lease Stores)
 * `doc/specification/timeouts/02-runtime-leases-operator-web.adoc#model-slot-lease` (Model slot lease)
 * `doc/specification/timeouts/01-job-budgets-and-waits.adoc#model-slot-wait` (Model Slot Wait)
-* `doc/specification/client-profiles/01-profile-schema.adoc` (Profile Schema, Update Evidence)
+* `doc/specification/harness-profiles/01-profile-schema.adoc` (Profile Schema, Update Evidence)

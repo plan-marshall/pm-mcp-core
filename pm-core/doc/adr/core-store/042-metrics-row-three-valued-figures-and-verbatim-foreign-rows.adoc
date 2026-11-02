@@ -62,7 +62,7 @@ the schema of the other three.
   Quality Report]
 * link:../../../../doc/specification/model-work/09-completion-usage-and-spend.adoc[Model Work § Worker Result & Usage
   Parsing], § Post-Completion Integrity Invariants
-* link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#token-usage[Client Profiles § Tokens, Not
+* link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#token-usage[Client Profiles § Tokens, Not
   Money]
 * `pm-core/src/main/java/de/planmarshall/core/store/MetricsCodec.java`,
   `pm-core/src/main/java/de/planmarshall/core/store/HarnessUsage.java`,

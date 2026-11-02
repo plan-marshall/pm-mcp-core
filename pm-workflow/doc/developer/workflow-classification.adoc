@@ -13,7 +13,7 @@ _Requirements: link:{docs}/Requirements.adoc#PM-WF-11[PM-WF-11]_
 
 Package `de.planmarshall.workflow.classification` of `pm-workflow` holds the classification of a plan and of its
 deliverables by the intent of the change: the closed set `ChangeType`. The classification is orthogonal to the domain
-and the client profile: the same intent means the same thing in a Java module and in a documentation repository, and a
+and the harness profile: the same intent means the same thing in a Java module and in a documentation repository, and a
 domain extension does not add a type.
 
 Whether a change breaks compatibility is not a change type. That is a separate property of a versioned artifact, and a

@@ -47,7 +47,7 @@ The asker waits in `pm_wait`, held within its bounded wait with progress frames 
 
 * *Delivery*: When the consultation closes, the server answers the asker's pending `pm_wait`, or its next one, with the asking task's representation in `executing`, whose `facts.consultations` lists `{consultation_id, role, status, answer}`. The answer is delivered exactly once and only to the asking generation.
 * *No answer*: A consultation that closes `lost` (its re-offers spent, or its role undefined, unqualified, or unavailable) is delivered with `status: unavailable` and no answer; the asker continues on its own judgment.
-* *Fenced asker*: When the asking generation is fenced while the consultation is open or its answer undelivered, the answer is recorded in the asking task's facts, and the successor's offer of the task carries it (xref:02-task-protocol.adoc#redelivery[Exactly-Once Redelivery]); the successor does not consult again for it.
+* *Fenced asker*: When the asking generation is fenced while the consultation is open or its answer undelivered, the answer is recorded in the asking task's facts, and the successor's offer of the task carries it (xref:02-task-protocol.adoc#redelivery[Redelivery within the Re-Offer Budget]); the successor does not consult again for it.
 
 [#consult-reference]
 === The Submit Refers to the Consultation

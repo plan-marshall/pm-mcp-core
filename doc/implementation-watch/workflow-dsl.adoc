@@ -39,11 +39,11 @@ Anchor:: link:../specification/workflow-dsl/04-ast-node-model.adoc#static-verifi
 link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#_build_time_startup_static_invariant_verification_finalizepipelinevalidator[Phase Workflows § Build-Time & Startup Static Invariant Verification]
 Hazard:: A registered consumer key had no reachable producer, so the consuming section never rendered. The ordering
 invariant checks one artifact only.
-Guard:: The `metrics` part is implemented: a step that reads `metrics` at an order below `record-metrics` (998)
+Guard:: A step that reads `metrics` at an order below `record-metrics` (998)
 without recording the fact `measured_until` is refused by rule 5, and a reader ordered after it passes without the
 label (`FinalizePipelineValidatorTest` of `pm-workflow`,
 link:../../pm-workflow/doc/developer/workflow-finalize.adoc#_the_rules[Finalize Pipeline Developer Guide § The Rules]).
-Remaining: a build-time test that every `reads` token except ambient ones (such as `worktree`) has a producing step
+A build-time test that every `reads` token except ambient ones (such as `worktree`) has a producing step
 of lower order; the validator checks only that no step reads an artifact at or after the order of a step that
 destroys it, and the step descriptor declares no artifact it produces.
 Source:: plan-marshall lesson 2026-09-23-05-008.
@@ -54,13 +54,13 @@ Source:: plan-marshall lesson 2026-09-23-05-008.
 Anchor:: link:../specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules]
 Hazard:: Non-convergent loops (seven cases) retried without any event capable of changing the outcome, or the retry
 was never wired while the configuration looked wired.
-Guard:: The refusal of a cycle without an awaited event is implemented as Rule 11b, judged per traversed link: a
+Guard:: Rule 11b refuses a cycle without an awaited event, judged per traversed link: a
 cycle through a resting state whose `noop` link runs a primitive that declares no awaited event is refused, while a
 `submit` link or a primitive that declares one satisfies it (`WorkflowValidatorTest` with
 `cycle-noop-without-event.pmwf` and `question-link-no-awaited-event.pmwf`, and `AdditionalRulesTest`, of
 `pm-workflow`,
 link:../../pm-workflow/doc/developer/workflow-verify.adoc#_rule_11_cycles[Workflow Verification Developer Guide § Rule 11: Cycles]).
-Remaining: a static check of every `retry` link, wherever it leads, that its primitive declares the event it awaits
+A static check of every `retry` link, wherever it leads, that its primitive declares the event it awaits
 (the verifier judges a link only on a cycle of the unit's own graph, and does not enter the callee of a `call` on
 the cycle); a scenario test asserts that a retry with no satisfying event is refused.
 Source:: plan-marshall review-apparatus PLAN-PR-043 and PLAN-PR-045.
@@ -72,9 +72,9 @@ Anchor:: link:../specification/workflow-dsl/04-ast-node-model.adoc#static-verifi
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-3[PM-TEST-3]
 Hazard:: An escalation class was unreachable at the default configuration.
 Guard:: Static reachability is evaluated under the default configuration and every enumerated configuration variant;
-a class unreachable in all of them is made reachable or deleted. Nothing of this is implemented: the verifier checks
-graph reachability only, and configuration reachability over the values of the `depends_on_config` keys is a named
-seam, because the specification defines no rule by which a value activates a guard
+a class unreachable in all of them is made reachable or deleted. The verifier checks graph
+reachability; configuration reachability over the values of the `depends_on_config` keys waits for a rule by which a
+value activates a guard
 (link:../../pm-workflow/doc/developer/workflow-verify.adoc#_rule_3_the_state_graph[Workflow Verification Developer Guide § Rule 3: The State Graph]).
 The item waits on https://github.com/plan-marshall/plan-marshall-documentation/issues/71[issue #71], which defines
 that rule.
@@ -87,11 +87,11 @@ Anchor:: link:../specification/workflow-dsl/04-ast-node-model.adoc#static-verifi
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10]
 Hazard:: A gate refused a plan for an artifact its own lane could not produce: `pr_title` was written only in the
 deep-lane refine step, and the light lane skipped refine.
-Guard:: Rule 8 is implemented: a unit with a path from the start state to a state that requires an artifact and no
+Guard:: Rule 8: a unit with a path from the start state to a state that requires an artifact and no
 producer on it is refused, and the matched control with the producer on the path passes (`WorkflowValidatorTest`
 with `gate-producer-missing.pmwf` of `pm-workflow`,
 link:../../pm-workflow/doc/developer/workflow-verify.adoc#_rule_8_gate_producers[Workflow Verification Developer Guide § Rule 8: Gate Producers]).
-Remaining: a test unit with two paths to the Phase 3 arrival gate, one without a `pr_title` producer, fails rule 8
+A test unit with two paths to the Phase 3 arrival gate, one without a `pr_title` producer, fails rule 8
 (the fixture has a single path); a recipe's workflow passes because its own phases render the recipe's
 `pr_title_template` before it calls the phase, and the light lane, which skips Phase 2 by design, passes because
 its collapsed envelope's `submit:outline` must carry `pr_title`, both over the shipped default units of
@@ -110,10 +110,10 @@ Anchor:: link:../specification/workflow-dsl/04-ast-node-model.adoc#static-verifi
 link:../specification/workflow-dsl/05-primitives.adoc#primitive-outcome-classes[§ Outcome Classes & Step Records],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]
 Hazard:: A step whose sub-operations failed completed `done`.
-Guard:: The refusal of a unit that completes a step `done` on an outcome of class `FAILURE` is implemented
+Guard:: A unit that completes a step `done` on an outcome of class `FAILURE` is refused
 (`WorkflowValidatorTest` with `step-completion-outcome-class.pmwf`, and `AdditionalRulesTest`, of `pm-workflow`,
 link:../../pm-workflow/doc/developer/workflow-verify.adoc#_rule_9_step_completion[Workflow Verification Developer Guide § Rule 9: Step Completion]).
-Remaining: a composite step with 3 failing sub-operations records `failed`.
+A composite step with 3 failing sub-operations records `failed`.
 Fixture:: the retrospective fragment pipeline emitted three script-failure markers (stale `--output-file`, doubled
 plan dir, missing fragments file) while the step completed `done` (work-log 2026-09-21T01:17–01:20Z,
 `plan-07-opencode-repairs-007`).
@@ -127,12 +127,12 @@ link:../specification/phase-workflows/06-finalize-re-entry-and-merge.adoc#_step_
 Hazard:: A `completes <step> as waived` clause on a routine or `SUCCESS` outcome lets a unit settle the wait-region
 steps without a waiver, and Phase-Exit Completeness accepts it; an operator skip verb completes a step with no gate
 evaluated.
-Guard:: The refusal of a unit placing `as waived` on any transition other than the `waived` outcome of a call to a
-remediation unit is implemented, refused by rule 9 at the completion, with the `waived` outcome of such a call as
+Guard:: A unit placing `as waived` on any transition other than the `waived` outcome of a call to a
+remediation unit is refused by rule 9 at the completion, with the `waived` outcome of such a call as
 the matched control (`WorkflowValidatorTest` with `step-completion-waived-guard.pmwf`, and `AdditionalRulesTest`, of
 `pm-workflow`,
 link:../../pm-workflow/doc/developer/workflow-verify.adoc#_rule_9_step_completion[Workflow Verification Developer Guide § Rule 9: Step Completion]).
-Remaining: the five shipped `waived` transitions of `finalize.remediate-ci`, `finalize.remediate-analysis`,
+The five shipped `waived` transitions of `finalize.remediate-ci`, `finalize.remediate-analysis`,
 `finalize.remediate-review`, `finalize.remediate-security-audit`, and `finalize.remediate-self-review` pass and
 complete `default:ci-verify`, `default:analysis-roundtrip`, `default:automatic-review`,
 `default:finalize-step-security-audit`, and `default:pre-submission-self-review` with the waiver id (over the shipped
@@ -147,7 +147,7 @@ Anchor:: link:../specification/workflow-dsl/04-ast-node-model.adoc#static-verifi
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-3[PM-TEST-3]
 Hazard:: A cycle of `auto` states (or a `retry` whose primitive awaits nothing) spins inside one transaction or
 burns a budget without any observable change, for example a failed fetch re-fired through the shared failure state.
-Guard:: The checks over units written for the tests are implemented: a cycle of `auto` states whose primitives
+Guard:: Over units written for the tests: a cycle of `auto` states whose primitives
 declare no cycle measure fails Rule 11a naming the cycle, the retry pair of two `auto` states included; a cycle
 through a `noop` link whose primitive declares no awaited event fails Rule 11b; a dispatch hub passes Rule 11a with
 the progress measure `STEP_LIST`, and Rule 9 refuses an outcome of the hub with a pass that settles no step or more
@@ -156,7 +156,7 @@ than one; a cycle that waits in a `job` state passes (`WorkflowValidatorTest` wi
 `AdditionalRulesTest`, of `pm-workflow`,
 link:../../pm-workflow/doc/developer/workflow-verify.adoc#_rule_11_cycles[Workflow Verification Developer Guide § Rule 11: Cycles],
 link:../../pm-workflow/doc/developer/workflow-verify.adoc#_rule_9_step_completion[§ Rule 9: Step Completion]).
-Remaining, the matched controls over the shipped default units of `pm-mcp-server`: the `remediation-ci` cycle
+The matched controls over the shipped default units of `pm-mcp-server`: the `remediation-ci` cycle
 `budget-check` -> `waiver-wait` -> `budget-check` passes (awaited `OPERATOR_WAIVER` or `TIME`), the retry pairs
 `finalize.archive-plan` -> `finalize.archive-unobserved` and `finalize.adopt-pr` -> `finalize.adopt-blocked` and the
 `remediation-merge` loop through `remediation-merge.rerun` pass because each retry waits in its `composite_job` for
@@ -174,10 +174,10 @@ Hazard:: A unit whose `decide` is entered with every budget spent offers no reme
 without its budget check loops without bound; a unit that skips part of the template or takes a remedy past
 `decide` decides by its wiring instead of by the bound remedies; a land call site forced to route `fix_requested`
 it can never reach invites a fake route.
-Guard:: The refusal of a weakened unit for each of `INV-REM-1` to `INV-REM-7` over units written for the test is
-implemented (`CompiledInvariantsTest` of `pm-workflow`,
+Guard:: A weakened unit for each of `INV-REM-1` to `INV-REM-7`, written for the test, is
+refused (`CompiledInvariantsTest` of `pm-workflow`,
 link:../../pm-workflow/doc/developer/workflow-verify.adoc#_compiled_invariants[Workflow Verification Developer Guide § Compiled Invariants]).
-Remaining: `DefaultUnitInvariantTest` in `pm-mcp-server` runs the same checks over the shipped default units; a
+`DefaultUnitInvariantTest` in `pm-mcp-server` runs the same checks over the shipped default units; a
 runtime test asserts that a decision task is created only when `remediation.offer-actions` computes more than one
 remedy and that a single remedy is taken without a task; Rule 6 demands a route for every outcome of the exit
 contract at every call site, `fix_requested` included, and a `land` plan's instance (calls bound `actions=[retry]`)
@@ -186,15 +186,15 @@ routes `stepped_out`.
 Source:: design review.
 
 [#PM-WATCH-DSL-18]
-=== PM-WATCH-DSL-18: The integrity pause offers only its two acts and takes no transition
+=== PM-WATCH-DSL-18: The integrity hold offers only its two acts and takes no transition
 
-Anchor:: link:../specification/workflow-dsl/02-units-jobs-decisions.adoc#waivers-and-integrity[Workflow DSL § Waivers, Waiver Requests & the Integrity Pause],
+Anchor:: link:../specification/workflow-dsl/02-units-jobs-decisions.adoc#waivers-and-integrity[Workflow DSL § Waivers, Waiver Requests & the Integrity Hold],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-3[PM-WF-3]
 Hazard:: A paused scope still renders a link or takes a transition, or the pause restores the file or computes a
 difference over a store that cannot be trusted; accepting the edit clears the pause without re-verifying the store.
 Guard:: Scenario: a digest mismatch of `status.json` raises `integrity_breach`; the representation carries the
-condition and no link, every `pm_do` is refused with `integrity_paused`, and no transition of the scope is taken
-while it is set; both clients show the hold `integrity_pause` with the tampered file and its recorded and current
+condition and no link, every `pm_do` is refused with `integrity_held`, and no transition of the scope is taken
+while it is set; both clients show the hold `integrity_hold` with the tampered file and its recorded and current
 size and digest, and nothing is restored and no difference is computed; accepting the edit re-baselines and the
 engine re-verifies before the current state is re-rendered; the cancel ends the plan in `plan.aborted` with the
 outcome `aborted` (an epic `cancelled`); matched control: a non-integrity condition on the same state is remedied
@@ -278,7 +278,7 @@ link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-3[PM-TES
 Hazard:: A cycle of `auto` and `call` transitions chains inside one `pm_do` transaction; without a measure that
 shrinks on every pass it spins, and a validator that admits only the dispatch hub rejects the shipped git sync loop,
 the setup re-probe, and the epic archive.
-Guard:: The checks over units written for the tests are implemented: a cycle measured by `ATTEMPT_CAP`,
+Guard:: Over units written for the tests: a cycle measured by `ATTEMPT_CAP`,
 `ARCHIVE_STEPS` (on an archive path that commits and lands), or `STEP_LIST` passes Rule 11a, and a cycle without a
 measure fails it naming the cycle; an `ATTEMPT_CAP` whose exhaustion transition stays on the cycle fails Rule 9, and
 an `ATTEMPT_CAP` primitive whose exhaustion outcome is not of class `FAILURE` is refused at its registration
@@ -287,7 +287,7 @@ an `ATTEMPT_CAP` primitive whose exhaustion outcome is not of class `FAILURE` is
 `pm-core`;
 link:../../pm-workflow/doc/developer/workflow-verify.adoc#_rule_11_cycles[Workflow Verification Developer Guide § Rule 11: Cycles],
 link:../../pm-workflow/doc/developer/workflow-verify.adoc#_rule_9_step_completion[§ Rule 9: Step Completion]).
-Remaining: over the shipped default units of `pm-mcp-server`, the three shipped measured cycles pass (the git sync
+Over the shipped default units of `pm-mcp-server`, the three shipped measured cycles pass (the git sync
 loop under the sync attempt cap of `git.sync-required` with `attempts_exhausted`, the setup re-probe under the
 re-probe cap of `setup.verify-credentials` with `reprobe_exhausted`, the epic archive under the archive steps of
 `epic.next-work`), and so do the `finalize.next-step` cycles, and the same cycles with the measure removed fail
@@ -330,7 +330,7 @@ Anchor:: link:../specification/workflow-dsl/02-units-jobs-decisions.adoc#model-j
 link:../specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules]
 Hazard:: A question state made only at runtime escapes the static rules (unique ids, outcome coverage, reachability),
 and an `asked` outcome routed like a completion settles a finalize step without its judgment.
-Guard:: The verifier's part is implemented: an engine-made id `<state>.asked` colliding with a declared state is
+Guard:: Verifier: an engine-made id `<state>.asked` colliding with a declared state is
 refused (Rule 3, `state-id-duplicate.pmwf`); an `ask` on a vote task (`role each`) and on an entity kind without an
 entity unit is refused (Rule 1, `role-each-ask.pmwf`, `ask-without-entity-unit.pmwf`); a declared `asked`
 transition, and with it any `completes … as` clause on it, is refused (Rule 2, `model-job-asked-declared.pmwf`)
@@ -338,7 +338,7 @@ transition, and with it any `completes … as` clause on it, is refused (Rule 2,
 link:../../pm-workflow/doc/developer/workflow-verify.adoc#_rule_1_bindings[Workflow Verification Developer Guide § Rule 1: Bindings],
 link:../../pm-workflow/doc/developer/workflow-verify.adoc#_rule_2_outcome_coverage[§ Rule 2: Outcome Coverage],
 link:../../pm-workflow/doc/developer/workflow-verify.adoc#_rule_3_the_state_graph[§ Rule 3: The State Graph]).
-Remaining: loader test: a state that declares `ask` yields `<state>.asked` in the AST, subject to Rules 2 and 3 (the
+Loader test: a state that declares `ask` yields `<state>.asked` in the AST, subject to Rules 2 and 3 (the
 loader does not add the state yet); an `ask` on a state of a `zero_tool` role is refused (Rule 13, at composition).
 Matched control: `answered` and `assumed` re-enter the asking state.
 Source:: design review.
@@ -393,9 +393,9 @@ link:../specification/workflow-dsl/04-ast-node-model.adoc#condition-overlays[Wor
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-1[PM-WF-1]
 Hazard:: A step-out that carries no `{by, cause}` record leaves the caller's fallback without the gap it must name; a
 step-out offered to a model inside a plan, or on an `auto` or job state, lets the model leave a bounded wait.
-Guard:: The engine's half is implemented: a step-out pops exactly one frame which the calling unit routes, and a
+Guard:: Engine: a step-out pops exactly one frame which the calling unit routes, and a
 spent condition budget unwinds every frame in one transaction to the fallback state with no caller's `stepped_out`
-transition taken (`SubWorkflowExecutionTest` in `pm-workflow`). Open: scenario tests that the server step-out of
+transition taken (`SubWorkflowExecutionTest` in `pm-workflow`). Scenario tests assert that the server step-out of
 `git.commit_and_push` (`cause: attempts_exhausted`) called by `remediation-ci.commit-fix` returns
 `stepped_out {by: server, cause: attempts_exhausted}` to that call site, which routes it to
 `remediation-ci.budget-check`, and that the unwind of a spent condition budget records the server step-out
@@ -413,14 +413,14 @@ link:../specification/workflow-dsl/04-ast-node-model.adoc#static-verification-ru
 Hazard:: Two `done` transitions of one call site guarded by overlapping or incomplete result guards leave a result
 that matches none (a dead end) or both (a nondeterministic route), for example a commit call routing `result.pushed`
 without the negated branch.
-Guard:: Rule 6 over result guards is implemented: a call site with `guard result.pushed` and no
+Guard:: Rule 6 over result guards: a call site with `guard result.pushed` and no
 `guard not result.pushed` branch is refused; a result guard on an outcome other than `done`, on a state that is no
 call, or on a call whose callee declares no `result` schema is refused; the complementary pair on a call of
 `git.commit_and_push` passes (`WorkflowValidatorTest` with `result-guard-single-done.pmwf`,
 `result-guard-not-done.pmwf`, `result-guard-outside-call.pmwf` and `result-guard-callee-without-schema.pmwf`, and
 `AdditionalRulesTest`, of `pm-workflow`,
 link:../../pm-workflow/doc/developer/workflow-verify.adoc#_rule_6_the_sub_workflow_call_contract[Workflow Verification Developer Guide § Rule 6: The Sub-Workflow Call Contract]).
-Remaining: a test that a call site with two guards that can both hold fails (the verifier refuses every guarded
+A test that a call site with two guards that can both hold fails (the verifier refuses every guarded
 pair that is not complementary, but no test plants one); a guard naming a field outside the sub-workflow's `result`
 declaration fails naming the field (a named seam: the schema registry holds schema names only); the shipped call
 sites of `git.commit_and_push` (`result.pushed`, `result.commit`) pass; a property test over generated result
