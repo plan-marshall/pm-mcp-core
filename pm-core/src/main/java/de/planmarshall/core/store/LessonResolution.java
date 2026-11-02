@@ -278,38 +278,36 @@ public sealed interface LessonResolution {
     /**
      * The lesson was claimed by the plan.
      *
-     * @param lesson the lesson as it is recorded after the transition
+     * @param lessonId the id the lesson is listed under
+     * @param lesson   the lesson as it is recorded after the transition
      * @since 0.1
      */
-    record Claimed(Lesson lesson) implements Outcome {
+    record Claimed(LessonId lessonId, Lesson lesson) implements Outcome {
 
-        /** @throws NullPointerException if the lesson is {@code null} */
+        /**
+         * @throws NullPointerException if a component is {@code null}
+         */
         public Claimed {
+            Objects.requireNonNull(lessonId, LESSON_ID);
             Objects.requireNonNull(lesson, LESSON);
-        }
-
-        @Override
-        public LessonId lessonId() {
-            return lesson.frontMatter().lessonId();
         }
     }
 
     /**
      * The claim was released: the lesson carries no claim and is not retired.
      *
-     * @param lesson the lesson as it is recorded after the transition
+     * @param lessonId the id the lesson is listed under
+     * @param lesson   the lesson as it is recorded after the transition
      * @since 0.1
      */
-    record Released(Lesson lesson) implements Outcome {
+    record Released(LessonId lessonId, Lesson lesson) implements Outcome {
 
-        /** @throws NullPointerException if the lesson is {@code null} */
+        /**
+         * @throws NullPointerException if a component is {@code null}
+         */
         public Released {
+            Objects.requireNonNull(lessonId, LESSON_ID);
             Objects.requireNonNull(lesson, LESSON);
-        }
-
-        @Override
-        public LessonId lessonId() {
-            return lesson.frontMatter().lessonId();
         }
     }
 
@@ -317,38 +315,36 @@ public sealed interface LessonResolution {
      * The lesson was retired, or was retired already by the same plan with the verdict {@code applied} and was left
      * untouched (the end of a claim is repeatable).
      *
-     * @param lesson the lesson as it is recorded after the transition
+     * @param lessonId the id the lesson is listed under
+     * @param lesson   the lesson as it is recorded after the transition
      * @since 0.1
      */
-    record Retired(Lesson lesson) implements Outcome {
+    record Retired(LessonId lessonId, Lesson lesson) implements Outcome {
 
-        /** @throws NullPointerException if the lesson is {@code null} */
+        /**
+         * @throws NullPointerException if a component is {@code null}
+         */
         public Retired {
+            Objects.requireNonNull(lessonId, LESSON_ID);
             Objects.requireNonNull(lesson, LESSON);
-        }
-
-        @Override
-        public LessonId lessonId() {
-            return lesson.frontMatter().lessonId();
         }
     }
 
     /**
      * The body was replaced by its next revision.
      *
-     * @param lesson the lesson as it is recorded after the transition
+     * @param lessonId the id the lesson is listed under
+     * @param lesson   the lesson as it is recorded after the transition
      * @since 0.1
      */
-    record Revised(Lesson lesson) implements Outcome {
+    record Revised(LessonId lessonId, Lesson lesson) implements Outcome {
 
-        /** @throws NullPointerException if the lesson is {@code null} */
+        /**
+         * @throws NullPointerException if a component is {@code null}
+         */
         public Revised {
+            Objects.requireNonNull(lessonId, LESSON_ID);
             Objects.requireNonNull(lesson, LESSON);
-        }
-
-        @Override
-        public LessonId lessonId() {
-            return lesson.frontMatter().lessonId();
         }
     }
 
