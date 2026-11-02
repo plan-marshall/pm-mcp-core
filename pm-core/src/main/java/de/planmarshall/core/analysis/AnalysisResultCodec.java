@@ -153,7 +153,7 @@ public class AnalysisResultCodec {
         generator.writeEndObject();
     }
 
-    private static void writeGate(JsonGenerator generator, Gate gate) throws IOException {
+    private static void writeGate(JsonGenerator generator, @Nullable Gate gate) throws IOException {
         if (gate == null) {
             generator.writeNull();
             return;
@@ -205,10 +205,10 @@ public class AnalysisResultCodec {
                 case FIELD_STATUS -> status = wireValue(parser, field, AnalysisResultCodec::analysisStatus);
                 case FIELD_GATE -> gate = readGate(parser).orElse(null);
                 case FIELD_COUNT_STATUS -> countStatus = wireValue(parser, field, CountStatus::fromWireName);
-                case FIELD_NEW_CODE_ISSUE_COUNT -> newCodeIssueCount = nullableInteger(parser, field);
+                case FIELD_NEW_CODE_ISSUE_COUNT -> newCodeIssueCount = nullableInteger(parser, field).orElse(null);
                 case FIELD_ISSUES_FETCHED -> issuesFetched = integer(parser, field);
                 case FIELD_WORK_PERFORMED -> workPerformed = bool(parser, field);
-                case FIELD_ANALYSIS_REF -> analysisRef = nullableString(parser, field);
+                case FIELD_ANALYSIS_REF -> analysisRef = nullableString(parser, field).orElse(null);
                 case FIELD_OBSERVED_AT -> observedAt = instant(parser, field);
                 default -> throw undeclared(field);
             }
@@ -239,7 +239,7 @@ public class AnalysisResultCodec {
             switch (field) {
                 case FIELD_KIND -> kind = wireValue(parser, field, FindingScope.Kind::fromWireName);
                 case FIELD_COMMIT_SHA -> commitSha = string(parser, field);
-                case FIELD_PR_NUMBER -> prNumber = nullableInteger(parser, field);
+                case FIELD_PR_NUMBER -> prNumber = nullableInteger(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }
@@ -303,7 +303,7 @@ public class AnalysisResultCodec {
                 case FIELD_METRIC -> metric = string(parser, field);
                 case FIELD_COMPARATOR -> comparator = wireValue(parser, field, Comparator::fromWireName);
                 case FIELD_THRESHOLD -> threshold = string(parser, field);
-                case FIELD_ACTUAL -> actual = nullableString(parser, field);
+                case FIELD_ACTUAL -> actual = nullableString(parser, field).orElse(null);
                 case FIELD_RESULT -> result = wireValue(parser, field, GateResult::fromWireName);
                 default -> throw undeclared(field);
             }
@@ -352,8 +352,8 @@ public class AnalysisResultCodec {
         return parser.getText();
     }
 
-    private static String nullableString(JsonParser parser, String field) throws IOException {
-        return parser.currentToken() == JsonToken.VALUE_NULL ? null : string(parser, field);
+    private static Optional<String> nullableString(JsonParser parser, String field) throws IOException {
+        return parser.currentToken() == JsonToken.VALUE_NULL ? Optional.empty() : Optional.of(string(parser, field));
     }
 
     private static long integer(JsonParser parser, String field) throws IOException {
@@ -363,8 +363,8 @@ public class AnalysisResultCodec {
         return parser.getLongValue();
     }
 
-    private static Long nullableInteger(JsonParser parser, String field) throws IOException {
-        return parser.currentToken() == JsonToken.VALUE_NULL ? null : integer(parser, field);
+    private static Optional<Long> nullableInteger(JsonParser parser, String field) throws IOException {
+        return parser.currentToken() == JsonToken.VALUE_NULL ? Optional.empty() : Optional.of(integer(parser, field));
     }
 
     private static boolean bool(JsonParser parser, String field) {

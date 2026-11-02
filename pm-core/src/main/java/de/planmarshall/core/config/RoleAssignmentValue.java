@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.config;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -62,7 +64,7 @@ Optional<EffortValue> effortValue, Optional<Escalation> escalation) {
      * @param effort  the effort value; {@code null} for the profile's default effort
      * @return the assignment the onboarding writes
      */
-    public static RoleAssignmentValue of(String harness, String model, String effort) {
+    public static RoleAssignmentValue of(String harness, String model, @Nullable String effort) {
         var value = effort == null ? Optional.<EffortValue>empty() : Optional.of(new EffortValue(effort));
         return new RoleAssignmentValue(harness, model, effort == null ? EffortSetting.DEFAULT : EffortSetting.VALUE,
                 value, Optional.empty());

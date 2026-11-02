@@ -66,7 +66,7 @@ Every decision a scope takes at a decision point is one `decided` line of the sc
         "model": { "type": ["string", "null"] },
         "effort": { "type": ["string", "null"] },
         "queue_task_id": { "type": ["string", "null"], "pattern": "^qt-[0-9a-f]{16}$" },
-        "votes": { "type": "array", "maxItems": 3, "items": { "$ref": "#/$defs/vote" }, "description": "quorum only: every vote of the question's quorum declaration." },
+        "votes": { "type": "array", "maxItems": 3, "items": { "$ref": "#/$defs/vote" }, "description": "quorum only: every vote of the question's quorum declaration, or on a shadowed line of its shadow quorum." },
         "channel": { "type": ["string", "null"], "enum": ["web", "cli", null], "description": "operator answer only: the channel of the answer (store-schemas/14, Answers from the Terminal Client)." },
         "device_id": { "type": ["string", "null"], "pattern": "^dev-[0-9a-f]{12}$", "description": "operator answer only, channel web: the paired device." },
         "answer": { "type": ["string", "null"], "enum": ["chosen", "interpreted", "own_option", "delegated", "none_fits", null], "description": "operator answer only: how the operator answered (store-schemas/14, Question Record, answer.kind)." },
@@ -77,21 +77,22 @@ Every decision a scope takes at a decision point is one `decided` line of the sc
   },
   "properties": {
     "format_version": { "type": "integer", "const": 1 },
-    "event": { "type": "string", "enum": ["decided", "corrected"] },
-    "decision_id": { "$ref": "#/$defs/decision_id", "description": "decided: the new decision; corrected: the decision corrected." },
+    "event": { "type": "string", "enum": ["decided", "corrected", "shadowed"], "description": "shadowed: the shadow votes of a question the operator decides (model-work/10, Shadow Votes); it is no decision and no correction, and no reader folds it into a decision." },
+    "decision_id": { "$ref": "#/$defs/decision_id", "description": "decided: the new decision; corrected: the decision corrected; shadowed: an id of its own." },
+    "declaration_digest": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$", "description": "question.adjudicate and shadowed only: the declaration digest (model-work/10, Quorum Calibration) of the quorum declaration applied, or of the shadow quorum; null where none applied (kind_ask without a shadow quorum)." },
     "decision_point": { "type": "string", "pattern": "^[a-z][a-z-]*\\.[a-z][a-z-]*$", "description": "decided only: one of the closed decision points (model-work/11, Decision Points), for example outline.classify-change-type, remediation.choose, triage.group, decision.interpret, question.adjudicate, question.answer." },
     "state_id": { "type": "string", "description": "decided only: the state that took the decision." },
     "subject": {
       "type": "object",
       "required": ["kind", "ref"],
       "additionalProperties": false,
-      "description": "decided only: what was decided.",
+      "description": "decided: what was decided; shadowed: the question voted on in shadow.",
       "properties": {
         "kind": { "type": "string", "enum": ["question", "finding_group", "trigger", "remediation_call", "plan_task", "plan", "scope"] },
         "ref": { "type": ["string", "null"], "description": "question_id, the group key (domain, rule_id) with its firing, the trigger kind with its evidence key, the policy with its call state, a plan task id; null for plan and scope." }
       }
     },
-    "decision_kind": { "type": "string", "enum": ["interpretation", "approach", "granularity", "placement", "test_strategy", "scope", "product_behaviour", "assurance", "external_fact"], "description": "decided only." },
+    "decision_kind": { "type": "string", "enum": ["interpretation", "approach", "granularity", "placement", "test_strategy", "scope", "product_behaviour", "assurance", "external_fact"], "description": "decided and shadowed only." },
     "decider": { "$ref": "#/$defs/decider", "description": "decided: the decider; corrected: who caused the correction." },
     "evidence": {
       "type": "object",
@@ -107,7 +108,7 @@ Every decision a scope takes at a decision point is one `decided` line of the sc
     "confidence": { "type": ["integer", "null"], "minimum": 0, "maximum": 100, "description": "decided only." },
     "measurements": {
       "type": "array",
-      "description": "decided only: every measured value with the threshold applied.",
+      "description": "decided and shadowed only: every measured value with the threshold applied.",
       "items": {
         "type": "object",
         "required": ["name", "value", "comparator", "threshold", "source"],
@@ -123,7 +124,7 @@ Every decision a scope takes at a decision point is one `decided` line of the sc
         }
       }
     },
-    "choice": { "type": ["string", "null"], "maxLength": 64, "description": "decided: the option taken, null when the decision hands the choice on; corrected: the new choice, null for the causes overridden and replanned." },
+    "choice": { "type": ["string", "null"], "maxLength": 64, "description": "decided: the option taken, null when the decision hands the choice on; corrected: the new choice, null for the causes overridden and replanned; shadowed: the option the shadow quorum would have decided, null when it would not have decided or took no votes." },
     "reason": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]{1,40}$" },
     "rationale": { "type": ["string", "null"], "maxLength": 2000 },
     "head_sha": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$" },
@@ -134,7 +135,8 @@ Every decision a scope takes at a decision point is one `decided` line of the sc
   },
   "allOf": [
     { "if": { "properties": { "event": { "const": "decided" } } }, "then": { "required": ["decision_point", "state_id", "subject", "decision_kind", "decider", "evidence", "options", "confidence", "measurements", "choice", "reason", "rationale", "head_sha", "follows"] } },
-    { "if": { "properties": { "event": { "const": "corrected" } } }, "then": { "required": ["cause", "decider", "choice", "ref", "rationale"] } }
+    { "if": { "properties": { "event": { "const": "corrected" } } }, "then": { "required": ["cause", "decider", "choice", "ref", "rationale"] } },
+    { "if": { "properties": { "event": { "const": "shadowed" } } }, "then": { "required": ["subject", "decision_kind", "decider", "declaration_digest", "measurements", "choice", "reason"] } }
   ]
 }
 ----

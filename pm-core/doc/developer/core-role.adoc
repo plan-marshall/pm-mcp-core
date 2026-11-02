@@ -227,6 +227,10 @@ exceeds the baseline and the blind accuracy by the margin and nothing is unscore
 
 == Invariants and Failure Modes
 
+* *Absence is `Optional` or `@Nullable`*: `HarnessProfile.askUserTool`, a qualification's `effort` and `duration_ms`
+  and a grading's `pass_threshold` are `@Nullable`; the JSON readers that may see a `null` answer `Optional`, and the
+  caller keeps the `orElse(null)` in the member.
+
 * A role set, an assignment and an override are operator files. Never add a code path that reads them from the repository.
 * Validation is per read. A value that a later change makes invalid (an unenrolled harness, a model the catalogue no
   longer allows) makes the role invalid at its next read, exactly like an invalid artifact.

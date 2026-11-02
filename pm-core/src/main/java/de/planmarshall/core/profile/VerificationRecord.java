@@ -271,7 +271,7 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
             return read;
         }
 
-        private List<ProfileStages.StartContext> startContext(JsonNode startContext, String pointer,
+        private List<ProfileStages.StartContext> startContext(@Nullable JsonNode startContext, String pointer,
                 List<String> harnessModels) {
             if (startContext == null) {
                 return List.of();
@@ -325,7 +325,7 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
                     "'tokens' must be an integer or 'unmeasured'");
         }
 
-        private Map<String, String> results(JsonNode results, String pointer) {
+        private Map<String, String> results(@Nullable JsonNode results, String pointer) {
             if (results == null) {
                 return Map.of();
             }

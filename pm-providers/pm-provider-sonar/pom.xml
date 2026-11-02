@@ -13,6 +13,8 @@
     <description>Sonar as a code analysis provider: the adapter of the code-analysis and findings contracts of pm-core.</description>
     <properties>
         <maven.jar.plugin.automatic.module.name>de.planmarshall.provider.sonar</maven.jar.plugin.automatic.module.name>
+        <!-- Switches on the rule of the root POM for a code analysis adapter: no CI module -->
+        <pm.guard.provider-analysis.skip>false</pm.guard.provider-analysis.skip>
     </properties>
     <dependencies>
         <dependency>

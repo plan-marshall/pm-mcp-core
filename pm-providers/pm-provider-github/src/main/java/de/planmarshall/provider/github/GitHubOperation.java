@@ -31,6 +31,8 @@ public enum GitHubOperation {
     PULL_REQUEST_COMMENT(Map.of(Permission.PULL_REQUESTS, Permission.WRITE)),
     /** Posting a comment on an issue that is no pull request. */
     ISSUE_COMMENT(Map.of(Permission.ISSUES, Permission.WRITE)),
+    /** Reading one issue. */
+    ISSUE_READ(Map.of(Permission.ISSUES, Permission.READ)),
     /** Adding a pull request to the merge queue. */
     MERGE_QUEUE_ENQUEUE(Map.of(Permission.CONTENTS, Permission.WRITE, Permission.PULL_REQUESTS, Permission.WRITE));
 

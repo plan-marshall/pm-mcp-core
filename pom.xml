@@ -61,6 +61,7 @@
         <pm.guard.runtime-libraries.skip>false</pm.guard.runtime-libraries.skip>
         <pm.guard.provider.skip>true</pm.guard.provider.skip>
         <pm.guard.provider-contract.skip>true</pm.guard.provider-contract.skip>
+        <pm.guard.provider-analysis.skip>true</pm.guard.provider-analysis.skip>
         <!-- java:S4032 ("Remove this package") reports on a package-info.java that holds no type. The Module
              Structure Specification requires every package to exist with its package-info.java also where no type
              has arrived yet, so the rule is ignored for those files only (ADR 008). -->
@@ -104,6 +105,11 @@
             <dependency>
                 <groupId>de.planmarshall</groupId>
                 <artifactId>pm-provider-http</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>de.planmarshall</groupId>
+                <artifactId>pm-provider-ci</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -284,8 +290,8 @@
                             </rules>
                         </configuration>
                     </execution>
-                    <!-- Provider modules: pm-core and pm-provider-http (the shared HTTP base) alone among the
-                         modules of the product; never the engine, pm-runtime or another provider implementation.
+                    <!-- Provider modules: pm-core, the shared HTTP base and the CI contract alone among the modules of
+                         the product; never the engine, pm-runtime or another provider implementation.
                          Switched on in pm-providers. -->
                     <execution>
                         <id>provider</id>
@@ -304,8 +310,9 @@
                                         <include>de.planmarshall:pm-core</include>
                                         <include>de.planmarshall:pm-api</include>
                                         <include>de.planmarshall:pm-provider-http</include>
+                                        <include>de.planmarshall:pm-provider-ci</include>
                                     </includes>
-                                    <message>A provider module depends on pm-core and, for the shared HTTP base, on pm-provider-http alone among the modules of the product.</message>
+                                    <message>A provider module depends on pm-core and, for the shared HTTP base and the CI contract, on pm-provider-http and pm-provider-ci alone among the modules of the product.</message>
                                 </bannedDependencies>
                             </rules>
                         </configuration>
@@ -326,6 +333,29 @@
                                         <exclude>de.planmarshall:pm-provider-*</exclude>
                                     </excludes>
                                     <message>pm-provider-git and pm-provider-http depend on pm-core alone among the modules of the product.</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                    <!-- The analysis adapter pm-provider-sonar: the shared HTTP base alone among the provider modules,
+                         because Sonar is no CI provider and depends on no CI module. Switched on in its POM. -->
+                    <execution>
+                        <id>provider-analysis</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${pm.guard.provider-analysis.skip}</skip>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>de.planmarshall:pm-provider-*</exclude>
+                                    </excludes>
+                                    <includes>
+                                        <include>de.planmarshall:pm-provider-http</include>
+                                    </includes>
+                                    <message>A code analysis adapter depends on the shared HTTP base alone among the provider modules; Sonar is no CI provider and depends on no CI module.</message>
                                 </bannedDependencies>
                             </rules>
                         </configuration>

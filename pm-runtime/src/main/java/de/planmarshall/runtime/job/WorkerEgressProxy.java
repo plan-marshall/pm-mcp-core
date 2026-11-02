@@ -20,12 +20,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
-import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -147,10 +147,10 @@ public final class WorkerEgressProxy implements AutoCloseable {
             var input = client.getInputStream();
             client.setSoTimeout(REQUEST_HEAD_TIMEOUT_MILLIS);
             var requestLine = readLine(input);
-            if (requestLine == null) {
+            if (requestLine.isEmpty()) {
                 return;
             }
-            var parts = requestLine.split(" ");
+            var parts = requestLine.get().split(" ");
             if (parts.length < 2 || !CONNECT.equalsIgnoreCase(parts[0])) {
                 respond(client.getOutputStream(), "405 Method Not Allowed");
                 return;
@@ -237,18 +237,20 @@ public final class WorkerEgressProxy implements AutoCloseable {
     }
 
     private static void drainHeaders(InputStream input) throws IOException {
-        @Nullable String line;
-        do {
-            line = readLine(input);
-        } while (line != null && !line.isEmpty());
+        while (true) {
+            var line = readLine(input);
+            if (line.isEmpty() || line.get().isEmpty()) {
+                return;
+            }
+        }
     }
 
-    private static String readLine(InputStream input) throws IOException {
+    private static Optional<String> readLine(InputStream input) throws IOException {
         var buffer = new StringBuilder();
         int read;
         while ((read = input.read()) != -1) {
             if (read == '\n') {
-                return buffer.toString();
+                return Optional.of(buffer.toString());
             }
             if (read != '\r') {
                 buffer.append((char) read);
@@ -257,7 +259,7 @@ public final class WorkerEgressProxy implements AutoCloseable {
                 throw new IOException("The request line is too long");
             }
         }
-        return buffer.isEmpty() ? null : buffer.toString();
+        return buffer.isEmpty() ? Optional.empty() : Optional.of(buffer.toString());
     }
 
     @Override

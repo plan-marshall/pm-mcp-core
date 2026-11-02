@@ -1,0 +1,47 @@
+= ADR 008: The Result Carries an Optional Reason as Its Fourth Component
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-31
+
+== Context
+
+`PrimitiveResult` is the record `(outcome, updatedFacts, spawnedJobId)`, constructed at 23 test sites. A reason has to
+reach the caller without changing any of those sites and without weakening the pairing between an outcome and its
+reason.
+
+== Decision
+
+`PrimitiveResult` gains `Optional<OutcomeReason> reason` as a fourth component and keeps the three-argument constructor,
+which sets the reason to empty, so every existing `new PrimitiveResult(` site stays valid. This is the short form of a
+record with an optional component, not a compatibility shim for an older caller. The record enforces the pairing in its
+compact constructor: the reason is present exactly when the outcome declares a reason type, and it is an instance of
+that type; a violation is an `IllegalArgumentException`, a programming error of the primitive, as the existing
+`NullPointerException` checks are. A record of four components carries a builder per the repository's Lombok rule; it
+is hand-written because Lombok's `@Builder.Default` does not apply to record components, and it defaults both optional
+components to empty so a reasonless result names only its outcome.
+
+== Alternatives Considered
+
+1. **A separate wrapper or a result subtype**: *Rejected*: it would change every call site and every consumer of the
+   result for a component most outcomes do not have.
+2. **Carry the reason in `updatedFacts`**: *Rejected*: untyped and unchecked, and it would put a control value into the
+   fact space.
+3. **A second record type for a reasoned result**: *Rejected*: two result types would split every consumer of the SPI.
+
+== Consequences
+
+* The 23 existing `new PrimitiveResult(` sites compile and behave unchanged.
+* A mismatch is caught where the result is constructed, not where it is routed.
+* The three-argument constructor is legal only for an outcome that declares no reason type.
+
+== Source
+
+* Pull request of `PLAN-V2-01` (`primitive-failure-reasons`)
+* link:../../../../doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons]
+* PM-IMPL-5

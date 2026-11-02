@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.role.qualification;
 
+import org.jspecify.annotations.Nullable;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -114,7 +116,7 @@ public final class JudgeCheck {
      * @since 0.1
      */
     public record ItemScore(String itemId, Label label, Grade oracleScore, Grade blindScore, TokenTotal totalTokens,
-    Long durationMs) {
+    @Nullable Long durationMs) {
 
         /**
          * @throws IllegalArgumentException if the item carries no id or a negative duration

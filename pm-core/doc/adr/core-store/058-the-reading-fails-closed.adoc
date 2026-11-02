@@ -1,0 +1,51 @@
+= ADR 058: The Reading Fails Closed
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-01
+
+== Context
+
+The specification says every gate or guard that depends on a `stale` or `failed` fact evaluates `indeterminate`
+(`COULD_NOT_EVALUATE`, the `guard_indeterminate` condition), never pass, and that the next read that needs a fact past
+its validity period refreshes it. A read may also find no entry at all. The store is read by consumers of three
+different kinds: the committer identity and setup checks, the gate that depends on a fact, and the representations of
+the assembly.
+
+== Decision
+
+A read answers a `DerivedFactReading`, a sealed interface of four variants: `Value(fact)` for a `current` entry inside
+its validity period, `Indeterminate(reason)` for a `stale` or `failed` entry, `Expired()` for a `current` network entry
+past its validity period, and `Absent()` for a key with no entry. `couldNotEvaluate()` answers a reason for every
+variant but `Value`, and a consumer that maps a reading onto the three-valued guard result maps every non-`Value` to
+`CouldNotEvaluate`.
+
+`DerivedFactGuards.evaluate` in `pm-workflow` is that mapping: a current fact hands its value to the guard, and a
+stale, failed, expired or absent fact is `GuardResult.CouldNotEvaluate` with the reading's reason. It lives in
+`pm-workflow` because `pm-workflow` depends on `pm-core` and never the other way round.
+
+== Alternatives Considered
+
+* Refreshing inside the read: the read would need the derivation and the lock, which the caller of a snapshot read does
+  not have; the specification places the refresh in the next call that needs the fact, not in every read.
+* Answering an `Optional<DerivedFact>` and letting every consumer decide: two consumers would write their own mapping
+  and one of them would fold a missing fact into a pass. The three-valued reading is the one place that decision is
+  made.
+
+== Consequences
+
+* A missing or expired fact is never a pass, and a consumer cannot obtain a value for one without a refresh.
+* An expired entry reads as `Expired`, not `Indeterminate`: only a failed refresh makes it `stale`.
+* `DerivedFactStoreTest` states the four readings and `DerivedFactGuardsTest` the mapping.
+
+== Source
+
+* Pull request of the work package `derived-facts-store` (closed in this pull request)
+* link:../../../../doc/specification/store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas § Derived Facts Store]
+* link:../../../../doc/specification/timeouts/03-retention-host-config.adoc#derived-fact-validity[Timeouts & Budgets § Derived Facts]
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]

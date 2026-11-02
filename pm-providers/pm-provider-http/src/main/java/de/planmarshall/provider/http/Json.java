@@ -41,10 +41,10 @@ public final class Json {
 
     /**
      * @param json the JSON text
-     * @return the tree
+     * @return the tree; empty for the JSON {@code null} literal
      * @throws JsonFormatException if the text is not JSON
      */
-    public static Object parse(String json) {
+    public static Optional<Object> parse(String json) {
         try (JsonParser parser = FACTORY.createParser(json)) {
             if (parser.nextToken() == null) {
                 throw new JsonFormatException("empty document");
@@ -61,35 +61,35 @@ public final class Json {
      */
     public static Optional<Object> parseOrNull(String json) {
         try {
-            return Optional.ofNullable(parse(json));
+            return parse(json);
         } catch (JsonFormatException _) {
             return Optional.empty();
         }
     }
 
-    private static Object read(JsonParser parser) throws IOException {
+    private static Optional<Object> read(JsonParser parser) throws IOException {
         return switch (parser.currentToken()) {
             case START_OBJECT -> {
                 var map = new LinkedHashMap<String, Object>();
                 while (parser.nextToken() == JsonToken.FIELD_NAME) {
                     String key = parser.currentName();
                     parser.nextToken();
-                    map.put(key, read(parser));
+                    map.put(key, read(parser).orElse(null));
                 }
-                yield map;
+                yield Optional.of(map);
             }
             case START_ARRAY -> {
                 var list = new ArrayList<>();
                 while (parser.nextToken() != JsonToken.END_ARRAY) {
-                    list.add(read(parser));
+                    list.add(read(parser).orElse(null));
                 }
-                yield list;
+                yield Optional.of(list);
             }
-            case VALUE_STRING -> parser.getText();
-            case VALUE_NUMBER_INT, VALUE_NUMBER_FLOAT -> parser.getDecimalValue();
-            case VALUE_TRUE -> Boolean.TRUE;
-            case VALUE_FALSE -> Boolean.FALSE;
-            default -> null;
+            case VALUE_STRING -> Optional.of(parser.getText());
+            case VALUE_NUMBER_INT, VALUE_NUMBER_FLOAT -> Optional.of(parser.getDecimalValue());
+            case VALUE_TRUE -> Optional.of(Boolean.TRUE);
+            case VALUE_FALSE -> Optional.of(Boolean.FALSE);
+            default -> Optional.empty();
         };
     }
 

@@ -1,0 +1,52 @@
+= ADR 003: The App Identity Carries Both Identities of a GitHub App
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-01.
+
+== Context
+
+A GitHub App acts with two identities at once. A read-only query runs with an installation token, so the provider reports
+the App's bot identity; every write runs with the operator's user access token, so the provider reports the operator's
+login beside it (Credentials & Enrolment § Agent Credentials of the Native Variant and § User Access Token). The committer
+of an agent commit is derived from that identity: `<app-slug>[bot]` with the address
+`<id>+<app-slug>[bot]@users.noreply.github.com` (Credentials & Enrolment § Committer identity).
+
+`ci.whoami` could answer only one identity, and the consumer could ask twice, or the contract could carry both.
+
+== Decision
+
+`de.planmarshall.provider.ci.Identity` carries one `login` and `userId` (the App's bot identity for an App) and, for an
+App only, the `operatorLogin`. The operator login is `null` for a token credential. The committer address is derived by
+the consumer from the identity, not by the contract.
+
+The GitHub adapter reads the App's slug from `GET /app` (signed with the App JWT) and the operator's login from
+`GET /user` with the user access token. The bot user id is read from `GET /users/{slug}[bot]`: the App id from `GET /app`
+is not the number the committer address carries.
+
+== Alternatives Considered
+
+* *One identity per call, chosen by the caller.* A consumer that needs both would call `whoami` twice with two
+  credentials, and could observe two different credential states in one identity.
+* *Return the operator login only.* The bot identity is what the committer address needs and what a read-only query
+  acts as; dropping it loses the fact the derived `agent_identity` records.
+* *Derive the committer address in the contract.* It would put a consumer's formatting rule into the contract and couple
+  the contract to the noreply-address convention of one forge.
+
+== Consequences
+
+* `agent_identity` can be derived from one `Identity` without a second call.
+* A token credential and an App differ in one optional component, and a consumer that ignores it is correct for a token.
+* A forge without a second identity leaves `operatorLogin` empty.
+
+== Source
+
+* Work package: PLAN-V2-12 `ci-contract-module` of the epic `pm-mcp-core-m2-m4-v2`.
+* Specification: Credentials & Enrolment § Agent Credentials of the Native Variant, § User Access Token, § Committer
+  Identity; Store Schemas 09 § Derived Facts (`agent_identity`).
+* `pm-providers/pm-provider-github/src/main/java/de/planmarshall/provider/github/GitHubCiProvider.java`.

@@ -12,6 +12,7 @@ package de.planmarshall.runtime.worker;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 
@@ -154,8 +155,8 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
                 return refuse(EligibilityRefusal.Reason.CLAIM_STAGE_ABSENT, stage, profile);
             }
             var refusal = refusalOf(recorded, stage, profile);
-            if (refusal != null) {
-                return EligibilityVerdict.refused(refusal);
+            if (refusal.isPresent()) {
+                return EligibilityVerdict.refused(refusal.get());
             }
         }
         for (var entry : verificationRecord.stages().entrySet()) {
@@ -163,8 +164,8 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
                 continue;
             }
             var refusal = refusalOf(entry.getValue(), entry.getKey(), profile);
-            if (refusal != null) {
-                return EligibilityVerdict.refused(refusal);
+            if (refusal.isPresent()) {
+                return EligibilityVerdict.refused(refusal.get());
             }
         }
         return EligibilityVerdict.eligible();
@@ -201,11 +202,14 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
                         .filter(HarnessProfile.ToolSet.ENFORCED::equals).isPresent());
     }
 
-    private static EligibilityRefusal refusalOf(VerificationRecord.Stage stage, String name, LoadedProfile profile) {
+    private static Optional<EligibilityRefusal> refusalOf(VerificationRecord.Stage stage, String name,
+            LoadedProfile profile) {
         return switch (stage.status()) {
-            case PASSED -> null;
-            case FAILED -> new EligibilityRefusal(EligibilityRefusal.Reason.STAGE_FAILED, name, profile.clientId());
-            case NOT_RUN -> new EligibilityRefusal(EligibilityRefusal.Reason.STAGE_NOT_RUN, name, profile.clientId());
+            case PASSED -> Optional.empty();
+            case FAILED -> Optional.of(
+                    new EligibilityRefusal(EligibilityRefusal.Reason.STAGE_FAILED, name, profile.clientId()));
+            case NOT_RUN -> Optional.of(
+                    new EligibilityRefusal(EligibilityRefusal.Reason.STAGE_NOT_RUN, name, profile.clientId()));
             default -> throw new IllegalStateException("Not a stage status: " + stage.status());
         };
     }

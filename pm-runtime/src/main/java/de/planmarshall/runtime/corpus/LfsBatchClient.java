@@ -372,7 +372,7 @@ public final class LfsBatchClient implements LfsObjectSource {
         private final long limit;
         private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         private final CompletableFuture<byte[]> result = new CompletableFuture<>();
-        private Flow.Subscription subscription;
+        private Flow.@Nullable Subscription subscription;
 
         /** @param limit the most bytes read */
         BoundedBody(long limit) {
@@ -403,7 +403,9 @@ public final class LfsBatchClient implements LfsObjectSource {
                 bytes.write(chunk, 0, take);
                 if (bytes.size() >= limit) {
                     result.complete(bytes.toByteArray());
-                    subscription.cancel();
+                    if (subscription != null) {
+                        subscription.cancel();
+                    }
                     return;
                 }
             }

@@ -38,6 +38,7 @@ class GitHubOperationTest {
         assertEquals(Map.of("pull_requests", "read"), GitHubOperation.REVIEW_THREADS_READ.permissions());
         assertEquals(Map.of("pull_requests", "write"), GitHubOperation.REVIEW_THREAD_RESOLVE.permissions());
         assertEquals(Map.of("issues", "write"), GitHubOperation.ISSUE_COMMENT.permissions());
+        assertEquals(Map.of("issues", "read"), GitHubOperation.ISSUE_READ.permissions());
         assertEquals(Map.of("contents", "write", "pull_requests", "write"),
                 GitHubOperation.MERGE_QUEUE_ENQUEUE.permissions());
     }

@@ -193,12 +193,12 @@ public final class AnswerSchema {
 
     private static Check number(JsonNode schema, BigDecimal value, String pointer) {
         var minimum = decimal(schema, "minimum");
-        if (minimum != null && value.compareTo(minimum) < 0) {
-            return Check.refused(pointer, "the number is below %s".formatted(minimum));
+        if (minimum.isPresent() && value.compareTo(minimum.get()) < 0) {
+            return Check.refused(pointer, "the number is below %s".formatted(minimum.get()));
         }
         var maximum = decimal(schema, "maximum");
-        if (maximum != null && value.compareTo(maximum) > 0) {
-            return Check.refused(pointer, "the number is above %s".formatted(maximum));
+        if (maximum.isPresent() && value.compareTo(maximum.get()) > 0) {
+            return Check.refused(pointer, "the number is above %s".formatted(maximum.get()));
         }
         return Check.ok();
     }
@@ -226,9 +226,9 @@ public final class AnswerSchema {
         return Optional.of((int) value.integerValue().orElseThrow());
     }
 
-    private static BigDecimal decimal(JsonNode schema, String member) {
+    private static Optional<BigDecimal> decimal(JsonNode schema, String member) {
         var value = schema.member(member).orElse(null);
-        return value == null ? null : value.decimalValue().orElse(null);
+        return value == null ? Optional.empty() : value.decimalValue();
     }
 
     private static boolean typeMatches(String type, JsonNode answer) {

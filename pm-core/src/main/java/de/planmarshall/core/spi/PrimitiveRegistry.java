@@ -9,9 +9,12 @@
  */
 package de.planmarshall.core.spi;
 
+import org.jspecify.annotations.Nullable;
+
 import java.lang.reflect.RecordComponent;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +40,8 @@ import de.planmarshall.core.spi.PrimitiveRegistrationException.Reason;
  * <li>its parameter type, a record class whose free parameters are texts with bounds that can hold;</li>
  * <li>its outcome type, a closed enum whose outcomes each have a class and a wire name of their own that is not
  * reserved for the engine;</li>
+ * <li>the reasons an outcome declares, a closed enum of the classes that admit one, with wire names of their own and
+ * a condition kind a primitive can originate;</li>
  * <li>its job: it enqueues one exactly when one of its outcomes starts one;</li>
  * <li>its cycle measure, which it declares, and its exhaustion outcome: a primitive with an attempt cap names one
  * of its outcomes of class {@link OutcomeClass#FAILURE}, and every other primitive names none;</li>
@@ -55,6 +60,10 @@ public final class PrimitiveRegistry {
     private static final Pattern WIRE_NAME = Pattern.compile(IDENTIFIER);
 
     private static final Pattern PRIMITIVE_ID = Pattern.compile(IDENTIFIER + "\\." + IDENTIFIER);
+
+    /** The outcome classes that explain "why not"; only these admit a reason. */
+    private static final Set<OutcomeClass> ADMITTING_REASON_CLASSES = EnumSet.of(OutcomeClass.FAILURE,
+            OutcomeClass.INDETERMINATE, OutcomeClass.SKIP);
 
     private final Map<String, Primitive<?, ?>> primitivesById;
 
@@ -77,10 +86,8 @@ public final class PrimitiveRegistry {
             var outcomes = checkedOutcomes(id, primitive);
             checkJobSideEffect(id, primitive, outcomes);
             checkCycle(id, primitive, outcomes);
-            if (primitive.awaitedEvent() == null) {
-                throw new PrimitiveRegistrationException(id, Reason.MISSING_AWAITED_EVENT,
-                        "declares no awaited event");
-            }
+            requirePresent(id, primitive.awaitedEvent(), Reason.MISSING_AWAITED_EVENT,
+                    "declares no awaited event");
         }
         primitivesById = Collections.unmodifiableMap(accepted);
     }
@@ -102,7 +109,7 @@ public final class PrimitiveRegistry {
 
     private static String checkedId(Primitive<?, ?> primitive) {
         var id = primitive.id();
-        if (id == null || !PRIMITIVE_ID.matcher(id).matches()) {
+        if (Optional.ofNullable(id).filter(value -> PRIMITIVE_ID.matcher(value).matches()).isEmpty()) {
             throw new PrimitiveRegistrationException(id, Reason.MALFORMED_ID,
                     "has an id that is not two lower-case identifiers joined by a dot");
         }
@@ -111,7 +118,7 @@ public final class PrimitiveRegistry {
 
     private static void checkParameterType(String id, Primitive<?, ?> primitive) {
         Class<?> type = primitive.parameterType();
-        if (type == null || !type.isRecord()) {
+        if (Optional.ofNullable(type).filter(Class::isRecord).isEmpty()) {
             throw new PrimitiveRegistrationException(id, Reason.PARAMETER_TYPE_NOT_A_RECORD,
                     "declares the parameter type %s, which is not a record class".formatted(nameOf(type)));
         }
@@ -150,7 +157,8 @@ public final class PrimitiveRegistry {
 
     private static List<PrimitiveOutcome> checkedOutcomes(String id, Primitive<?, ?> primitive) {
         Class<?> type = primitive.outcomeType();
-        if (type == null || !type.isEnum() || !PrimitiveOutcome.class.isAssignableFrom(type)) {
+        if (Optional.ofNullable(type)
+                .filter(value -> value.isEnum() && PrimitiveOutcome.class.isAssignableFrom(value)).isEmpty()) {
             throw new PrimitiveRegistrationException(id, Reason.OPEN_OUTCOME_SET,
                     "declares the outcome type %s, which is not an enum of outcomes".formatted(nameOf(type)));
         }
@@ -162,7 +170,7 @@ public final class PrimitiveRegistry {
         var seen = new LinkedHashMap<String, PrimitiveOutcome>();
         for (PrimitiveOutcome outcome : outcomes) {
             var wireName = outcome.wireName();
-            if (wireName == null || !WIRE_NAME.matcher(wireName).matches()) {
+            if (Optional.ofNullable(wireName).filter(value -> WIRE_NAME.matcher(value).matches()).isEmpty()) {
                 throw new PrimitiveRegistrationException(id, Reason.MALFORMED_WIRE_NAME,
                         "has the outcome %s with the wire name '%s', which is not a lower-case identifier"
                                 .formatted(outcome, wireName));
@@ -177,12 +185,117 @@ public final class PrimitiveRegistry {
                 throw new PrimitiveRegistrationException(id, Reason.DUPLICATE_WIRE_NAME,
                         "has the outcomes %s and %s with the same wire name '%s'".formatted(first, outcome, wireName));
             }
-            if (outcome.outcomeClass() == null) {
-                throw new PrimitiveRegistrationException(id, Reason.MISSING_OUTCOME_CLASS,
-                        "has the outcome %s without an outcome class".formatted(outcome));
-            }
+            requirePresent(id, outcome.outcomeClass(), Reason.MISSING_OUTCOME_CLASS,
+                    "has the outcome %s without an outcome class".formatted(outcome));
+        }
+        for (PrimitiveOutcome outcome : outcomes) {
+            checkReason(id, outcome);
         }
         return outcomes;
+    }
+
+    /**
+     * Checks the reasons an outcome declares, after every existing check of the outcome type has passed, so a
+     * primitive refused for a reason of the older contract keeps that refusal.
+     */
+    private static void checkReason(String id, PrimitiveOutcome outcome) {
+        var declared = declaredReasonType(id, outcome);
+        if (declared.isEmpty()) {
+            return;
+        }
+        var type = declared.get();
+        checkReasonType(id, outcome, type);
+        checkReasonClass(id, outcome);
+        var reasons = Stream.of(type.getEnumConstants()).map(OutcomeReason.class::cast).toList();
+        checkReasonWireNames(id, reasons);
+        checkReasonConditions(id, reasons);
+    }
+
+    @SuppressWarnings({"java:S2583", "java:S2789", "java:S1905"})
+    private static Optional<Class<? extends OutcomeReason>> declaredReasonType(String id, PrimitiveOutcome outcome) {
+        // A primitive compiled against a raw PrimitiveOutcome can answer a null Optional or a payload that is no
+        // Class; both are refused as a malformed reason type instead of escaping as a ClassCastException. The cast to
+        // the wildcard Optional is deliberate: it erases the implicit cast to Class, so the payload is inspected first.
+        var declared = (Optional<?>) outcome.reasonType();
+        if (declared == null) {
+            throw new PrimitiveRegistrationException(id, Reason.MALFORMED_REASON_TYPE,
+                    "has the outcome %s with a null reason type".formatted(outcome));
+        }
+        if (declared.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(reasonTypeOf(id, outcome, declared.get()));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Class<? extends OutcomeReason> reasonTypeOf(String id, PrimitiveOutcome outcome, Object payload) {
+        if (!(payload instanceof Class<?> type)) {
+            throw new PrimitiveRegistrationException(id, Reason.MALFORMED_REASON_TYPE,
+                    "has the outcome %s with a reason type that is no class".formatted(outcome));
+        }
+        return (Class<? extends OutcomeReason>) type;
+    }
+
+    private static void checkReasonType(String id, PrimitiveOutcome outcome, Class<? extends OutcomeReason> type) {
+        if (!type.isEnum() || !OutcomeReason.class.isAssignableFrom(type) || type.getEnumConstants().length == 0) {
+            throw new PrimitiveRegistrationException(id, Reason.MALFORMED_REASON_TYPE,
+                    "has the outcome %s with the reason type %s, which is not an enum of reasons with a constant"
+                            .formatted(outcome, nameOf(type)));
+        }
+    }
+
+    private static void checkReasonClass(String id, PrimitiveOutcome outcome) {
+        if (!ADMITTING_REASON_CLASSES.contains(outcome.outcomeClass())) {
+            throw new PrimitiveRegistrationException(id, Reason.REASON_ON_UNADMITTING_CLASS,
+                    "has the outcome %s of class %s, which admits no reason"
+                            .formatted(outcome, outcome.outcomeClass()));
+        }
+    }
+
+    private static void checkReasonWireNames(String id, List<OutcomeReason> reasons) {
+        var seen = new LinkedHashMap<String, OutcomeReason>();
+        for (OutcomeReason reason : reasons) {
+            var wireName = reason.wireName();
+            if (!isReasonWireName(wireName)) {
+                throw new PrimitiveRegistrationException(id, Reason.MALFORMED_REASON_WIRE_NAME,
+                        "has the reason %s with the wire name '%s', which is not a lower-case identifier"
+                                .formatted(reason, wireName));
+            }
+            var first = seen.putIfAbsent(wireName, reason);
+            if (first != null) {
+                throw new PrimitiveRegistrationException(id, Reason.DUPLICATE_REASON_WIRE_NAME,
+                        "has the reasons %s and %s with the same wire name '%s'"
+                                .formatted(first, reason, wireName));
+            }
+        }
+    }
+
+    @SuppressWarnings("java:S2589")
+    private static boolean isReasonWireName(String wireName) {
+        // A primitive compiled against a raw PrimitiveOutcome can answer a null wire name, which is refused here.
+        return wireName != null && WIRE_NAME.matcher(wireName).matches();
+    }
+
+    private static void checkReasonConditions(String id, List<OutcomeReason> reasons) {
+        for (OutcomeReason reason : reasons) {
+            var conditionKind = conditionKindOf(id, reason);
+            if (conditionKind.isPresent() && !OutcomeReason.MAPPABLE_CONDITION_KINDS.contains(conditionKind.get())) {
+                throw new PrimitiveRegistrationException(id, Reason.UNMAPPABLE_REASON_CONDITION,
+                        "has the reason %s with the condition kind '%s', which no primitive can originate"
+                                .formatted(reason, conditionKind.get()));
+            }
+        }
+    }
+
+    @SuppressWarnings({"java:S2583", "java:S2789"})
+    private static Optional<String> conditionKindOf(String id, OutcomeReason reason) {
+        // A primitive compiled against a raw PrimitiveOutcome can answer a null Optional, which is refused here.
+        var conditionKind = reason.conditionKind();
+        if (conditionKind == null) {
+            throw new PrimitiveRegistrationException(id, Reason.UNMAPPABLE_REASON_CONDITION,
+                    "has the reason %s with a null condition kind".formatted(reason));
+        }
+        return conditionKind;
     }
 
     private static void checkJobSideEffect(String id, Primitive<?, ?> primitive, List<PrimitiveOutcome> outcomes) {
@@ -200,9 +313,7 @@ public final class PrimitiveRegistry {
 
     private static void checkCycle(String id, Primitive<?, ?> primitive, List<PrimitiveOutcome> outcomes) {
         var measure = primitive.cycleMeasure();
-        if (measure == null) {
-            throw new PrimitiveRegistrationException(id, Reason.MISSING_CYCLE_MEASURE, "declares no cycle measure");
-        }
+        requirePresent(id, measure, Reason.MISSING_CYCLE_MEASURE, "declares no cycle measure");
         var exhaustions = declaredExhaustions(primitive);
         if (measure != CycleMeasure.ATTEMPT_CAP) {
             if (!exhaustions.isEmpty()) {
@@ -229,7 +340,17 @@ public final class PrimitiveRegistry {
         return Stream.ofNullable(primitive.exhaustionOutcome()).flatMap(Optional::stream).toList();
     }
 
-    private static String nameOf(Class<?> type) {
-        return type == null ? "null" : type.getName();
+    private static String nameOf(@Nullable Class<?> type) {
+        return present(type).map(Class::getName).orElse("null");
+    }
+
+    private static <T> Optional<T> present(@Nullable T value) {
+        return Optional.ofNullable(value);
+    }
+
+    private static void requirePresent(String id, @Nullable Object value, Reason reason, String detail) {
+        if (value == null) {
+            throw new PrimitiveRegistrationException(id, reason, detail);
+        }
     }
 }

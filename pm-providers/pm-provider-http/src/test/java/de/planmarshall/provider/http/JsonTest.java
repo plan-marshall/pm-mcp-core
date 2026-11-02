@@ -46,7 +46,7 @@ class JsonTest {
         tree.put("o", Duration.ofSeconds(1));
 
         String json = Json.write(tree);
-        Object parsed = Json.parse(json);
+        Object parsed = Json.parse(json).orElseThrow();
 
         assertEquals("{\"s\":\"line1\\nline2 \\\"q\\\"\",\"n\":3,\"i\":4,\"d\":1.5,\"b\":true,\"z\":null,"
                 + "\"l\":[\"a\",null,{\"k\":false}],\"o\":\"PT1S\"}", json);
@@ -68,6 +68,12 @@ class JsonTest {
         assertThrows(Json.JsonFormatException.class, () -> Json.parse("{\"a\":"));
         assertTrue(Json.parseOrNull("<html>").isEmpty(), "Text that is not JSON yields no tree");
         assertTrue(Json.parseOrNull("null").isEmpty(), "The JSON null literal yields no tree");
+    }
+
+    @Test
+    @DisplayName("returns no tree for the JSON null literal")
+    void parsesNullLiteralAsEmpty() {
+        assertEquals(Optional.empty(), Json.parse("null"));
     }
 
     @Test

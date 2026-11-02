@@ -48,6 +48,9 @@ public class RefusingFS extends FS_POSIX {
     }
 
     @Override
+    // JGit's FS.discoverGitExe answers null for a file system that discovers no executable; this one refuses the
+    // discovery, so the null is the library contract's own absence and not a @NullMarked violation.
+    @SuppressWarnings("java:S2637")
     protected File discoverGitExe() {
         return null;
     }

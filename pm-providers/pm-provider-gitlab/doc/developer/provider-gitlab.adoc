@@ -17,7 +17,8 @@ the argument vectors of the `glab` CLI variant. Both cover the same merge path a
 one by the enrolment's provider configuration.
 
 The package is a client, not a CI workflow: it returns typed results and closed outcomes, and the engine's `ci` contract
-is built on top of them elsewhere.
+(`CiProvider`, link:../../../pm-provider-ci/doc/developer/provider-ci.adoc[`provider.ci`]) is built on top of them by
+`GitLabCiProvider`.
 
 == Main Types
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]_
@@ -36,6 +37,10 @@ page cap of 50.
 |The argument vectors of the `glab` variant, composed server-side from the same closed set of operations, each an
 `Invocation(argv, stdin)`: merge, merge-train add, discussions, reply, resolve, job trace, token identity and the creation
 of a merge request. Every operation goes through `glab api`, which answers with the REST JSON.
+
+|link:{src}/GitLabCiProvider.java[`GitLabCiProvider`]
+|The adapter of the CI contract: `ci.whoami` (the token identity the client reads, the kind from the bot user, the
+permissions from the project read), `ci.issue-view` and `ci.issue-comment`.
 |===
 
 == The Native Client
@@ -51,6 +56,18 @@ count either way.
 `tokenIdentity()` answers through `GET personal_access_tokens/self`; when GitLab refuses that with `400` because the token
 is of another type, the client reads `GET /user` instead and still answers a `TokenIdentity`. Only a failed read is an
 outcome, not a `TokenIdentity` with missing scopes.
+
+== The CI Adapter
+
+`GitLabCiProvider` implements the CI contract on the native variant. A provider is bound to one web origin and one
+credential. `whoami` maps `GitLabClient.tokenIdentity()` (the `personal_access_tokens/self` record, with the `GET /user`
+fallback for a token that is no personal access token) to the contract's `Identity`: the login and bot flag come from
+`GET /user`, the kind from the bot user (`project_<id>_bot_…` a project token, `group_<id>_bot_…` a group token, a token
+without a record an OAuth token, everything else a personal token), the scopes and expiry from the token record, and the
+permissions from the `permissions` object of `GET /projects/{path}`. `issueView` reads
+`GET /projects/{id}/issues/{iid}` and `issueComment` posts to `POST /projects/{id}/issues/{iid}/notes`, each with the
+project path URL-encoded as the client does. An issue on another origin or of another forge is refused before a request
+is sent.
 
 == The `glab` Variant
 
@@ -94,6 +111,9 @@ Both tests run without a network.
 link:{test}/GitLabClientTest.java[`GitLabClientTest`]:: every operation against the mock web server, the head-bound
 merge and train add, the discussion and note reading with its resolved rule, the page cap, a reply and a resolve, the job
 trace, the token identity with its `400` case, and the outcome mapping of an error status and a transport failure.
+link:{test}/GitLabCiProviderTest.java[`GitLabCiProviderTest`]:: a personal, project, group and OAuth token identity, an
+issue of a nested group project with its structured fields, a rate limit, a `403`, a `404`, a malformed body, an issue on
+another origin and a comment with its derived URL.
 link:{test}/GlabCommandsTest.java[`GlabCommandsTest`]:: the vector of every operation, the body on standard input and
 never in the vector, the validated identifiers, the refusal of a value that would read as a flag, and the closed
 operation set.
@@ -114,5 +134,8 @@ operation set.
   & Enrolment § Agent Credentials of the Native Variant],
   link:{spec}/phase-workflows/06-finalize-re-entry-and-merge.adoc[Phase Workflows § Finalize Re-Entry and Merge]
 * The shared base: link:../../../pm-provider-http/doc/developer/provider-http.adoc[`provider.http`]
+* The CI contract: link:../../../pm-provider-ci/doc/developer/provider-ci.adoc[`provider.ci`]
 * Decisions: link:../../../pm-provider-http/doc/adr/provider-http/001-neutral-class-names.adoc[`provider.http` ADR 001],
-  link:../../../../doc/adr/002-cui-http-and-the-mock-web-server-for-http.adoc[repository ADR 002]
+  link:../../../pm-provider-ci/doc/adr/provider-ci/001-contract-returns-the-closed-result.adoc[`provider.ci` ADR 001],
+  link:../../../../doc/adr/002-cui-http-and-the-mock-web-server-for-http.adoc[repository ADR 002],
+  link:../../../../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[repository ADR 014]

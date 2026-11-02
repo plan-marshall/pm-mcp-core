@@ -16,7 +16,9 @@
  * The contract: a {@link de.planmarshall.core.spi.Primitive} has a canonical name, a parameter record whose free
  * components carry {@link de.planmarshall.core.spi.FreeParam}, and a closed enum of
  * {@link de.planmarshall.core.spi.PrimitiveOutcome outcomes}, each of one
- * {@link de.planmarshall.core.spi.OutcomeClass}. It runs for a
+ * {@link de.planmarshall.core.spi.OutcomeClass}; an outcome that explains a failure, a skip or an indeterminacy may
+ * declare a closed enum of {@link de.planmarshall.core.spi.OutcomeReason reasons}, carried as data in the
+ * {@link de.planmarshall.core.spi.PrimitiveResult}. It runs for a
  * {@link de.planmarshall.core.spi.WorkflowExecutionContext} and returns a
  * {@link de.planmarshall.core.spi.PrimitiveResult}. It declares the event it waits for
  * ({@link de.planmarshall.core.spi.AwaitedEvent}) and the measure that ends a cycle through its state

@@ -1,0 +1,61 @@
+= ADR 061: The Lesson Front Matter Is Read Through a YAML Library and Written as a JSON Object
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-01
+
+== Context
+
+A lesson file is the line `---`, the front matter, the line `---` and the Markdown body (Store Schemas § Lesson Record).
+The specification restricts the front matter to the JSON data model and refuses anchors, aliases, tags and multiple
+documents, so a JSON-only reader would satisfy it: a JSON object is a YAML 1.2 flow mapping. The plan's default was
+that reader, with no YAML dependency. The operator decided on 2026-11-01 to add a YAML library now instead, because
+YAML is needed elsewhere later, and the format is YAML front matter in the sense of the specification.
+
+Two constraints follow. The writer must produce one canonical shape, so that what is read is written again byte for
+byte. The reader must accept the written shape and a hand-edited YAML file, and must still refuse what the
+specification refuses.
+
+== Decision
+
+The front matter is written by the JSON generator as one object in the order of the schema — a YAML 1.2 flow mapping —
+and read through SnakeYAML with the YAML 1.2 core schema: duplicate keys are refused, a token scan refuses every anchor,
+alias and tag, and a front matter of more than one document is refused. The loaded mapping is then validated against the
+`LessonFrontMatter` schema and the rules of its record, member by member and strictly.
+
+== Alternatives Considered
+
+* A JSON-only reader (`StrictJson.read`): no dependency, and the writer's bytes are the canonical form either way. It
+  makes a hand-edited block-style file `present_unreadable`, which the specification does not require, and it leaves
+  YAML unavailable to the parts of the store that follow.
+* A hand-written reader of block YAML: a new class and a new surface, and the subset reader of
+  `UnitFrontmatterReader` has no nested objects, which the lesson front matter needs.
+* A YAML library only for writing: the reader is where the strictness lives, so this splits one format across two
+  readers.
+
+== Consequences
+
+* A hand-edited block-style front matter is readable, not `present_unreadable`. The file without parseable front matter
+  stays `present_unreadable` in the resolver, and an anchor, an alias, a tag or a second document is one of the reasons.
+* The writer's canonical bytes are a JSON object, so `encode(decode(b))` is `b` for canonical bytes and a block-style
+  file is normalized once when it is written again.
+* `pm-core` depends on `org.yaml:snakeyaml` at compile scope; the version is managed by the parent POM.
+* The refusal of anchors, aliases and tags is a token scan over the library's scanner, which is internal rather than
+  public API (`ScannerImpl`, `StreamReader`, the token types). A SnakeYAML upgrade is therefore a breaking risk for
+  that pre-scan, and the reader's tests are what detect it. A later version may move the check to the public node
+  composer (`Node.getAnchor()` and `Node.getTag()`).
+* The reader resolves scalars by the YAML 1.2 core schema, without its `.inf` and `.nan` spellings: they have no value
+  in the JSON data model and resolve as strings, which the record then refuses for a numeric member.
+* A CRLF file is decoded; its front matter is normalized and its body keeps its line endings.
+
+== Source
+
+* Operator decision of 2026-11-01: the front matter is read through a YAML library, added now because YAML is needed
+  later as well (the plan's default had been a JSON-only reader)
+* link:../../../../doc/specification/store-schemas/10-job-and-lesson-records.adoc#lesson-record[Store Schemas § Lesson Record]
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]

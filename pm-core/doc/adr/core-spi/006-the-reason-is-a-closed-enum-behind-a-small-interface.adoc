@@ -1,0 +1,45 @@
+= ADR 006: The Reason Is a Closed Enum Behind a Small Interface
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-31
+
+== Context
+
+A reason needs a typed home that a primitive author declares once and the registry can check. A string fact is
+untyped and unchecked; a sealed hierarchy would be a second way to declare a closed set beside the enums the SPI
+already uses.
+
+== Decision
+
+A reason is a constant of a closed enum implementing `OutcomeReason` in `de.planmarshall.core.spi`. The interface has
+`String wireName()` and `default Optional<String> conditionKind()`, empty by default, and the public constant
+`MAPPABLE_CONDITION_KINDS`. The set of reasons is closed by the enum, and the wire name lets a later log, a diagnostic
+and a diagram print the reason. The interface is named `OutcomeReason` because `Reason` is already the name of several
+nested enums of the repository, among them `PrimitiveRegistrationException.Reason` and `InternalFaultException.Reason`.
+
+== Alternatives Considered
+
+1. **A string fact in `updatedFacts`**: *Rejected*: it is untyped, unchecked, and invisible to the SPI and the
+   documentation.
+2. **A sealed type**: *Rejected*: the SPI already closes sets with enums (`PrimitiveOutcome`, `OutcomeClass`), and a
+   second idiom would split the contract for no gain.
+3. **Name the interface `Reason`**: *Rejected*: the name is taken by several nested enums, so every use would need a
+   qualified name.
+
+== Consequences
+
+* A reason is declared once, in the module that owns the primitive, and checked at registration.
+* A log, a diagnostic or a diagram can print the wire name without reflecting on the type.
+* The interface is additive: no existing declaration changes.
+
+== Source
+
+* Pull request of `PLAN-V2-01` (`primitive-failure-reasons`)
+* link:../../../../doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons]
+* PM-IMPL-5

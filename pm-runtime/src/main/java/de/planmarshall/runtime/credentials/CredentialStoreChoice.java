@@ -1023,7 +1023,8 @@ public final class CredentialStoreChoice {
         });
     }
 
-    private static void writeCredentials(JsonGenerator generator, JsonParser parser, Store store) throws IOException {
+    private static void writeCredentials(JsonGenerator generator, @Nullable JsonParser parser, Store store)
+            throws IOException {
         generator.writeObjectFieldStart(CREDENTIALS);
         generator.writeStringField(STORE, store.value());
         if (parser != null) {

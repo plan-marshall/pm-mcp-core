@@ -1,7 +1,7 @@
 # Plan Marshall standing rules (OpenCode bridge bridge-version: 1)
 
 source: CLAUDE.md
-source-sha256: f9823227485f303aaf88f0ba10b6a2357ddda54222605aef6a48e85f4b066dab
+source-sha256: 77ae2dd4acfc41f8e1e5e311f3d05d6af051dbaec6dd7b1846e94da7f03c6357
 
 <!-- Generated from CLAUDE.md; edit the baseline, not this file. -->
 
@@ -71,7 +71,8 @@ its own pull request.
   (minimum 80% instruction and branch coverage per module)
 - Tests (`{module}`): `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "test -pl {path} -am"`
   — only on the modules with tests: `pm-core`, `pm-workflow`, `pm-runtime`, and below `pm-providers/` each of
-  `pm-provider-http`, `pm-provider-git`, `pm-provider-github`, `pm-provider-gitlab`, `pm-provider-sonar`
+  `pm-provider-http`, `pm-provider-ci`, `pm-provider-git`, `pm-provider-github`, `pm-provider-gitlab`,
+  `pm-provider-sonar`
 - Integration tests (`pm-core`): `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "verify -Pintegration-tests -pl pm-core -am"`
   — only on `pm-core`
 - Integration tests (`pm-runtime`): `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "verify -Pintegration-tests -pl pm-runtime -am"`
@@ -88,6 +89,24 @@ its own pull request.
 - The compiler runs with `failOnWarning`: fix deprecations and warnings, don't suppress them.
 - `.mvn/maven.config` passes `.mvn/settings.xml` (the organisation's package registry, no token) as global
   settings; the token is the server `plan-marshall` of `~/.m2/settings.xml`.
+
+### Generator Artifacts
+
+Four modules publish their test scope as a `tests`-classified test JAR, built by `verify` and deployed with the
+`SNAPSHOT` like every other artifact of the repository. The three new generator artifacts carry only their generator
+package; `pm-runtime:tests` carries its whole test scope, because the assembly already consumes `TestBases` and the
+fakes there:
+
+- `pm-core:tests` — consumable by `pm-workflow`, `pm-runtime` and every provider module.
+- `pm-provider-http:tests` — consumable by `pm-provider-github`, `pm-provider-gitlab` and `pm-provider-sonar`.
+- `pm-workflow:tests` and `pm-runtime:tests` — consumable by the assembly `plan-marshall-mcp` only, because neither
+  may depend on the other and the rules forbid `pm-runtime` and the providers to depend on the engine.
+
+A consumer declares the artifact as a test-scope dependency of type `test-jar`; its version comes from the root
+POM's `dependencyManagement`, never from a literal. The generators live in
+`de.planmarshall.<module>.testing.generators`, one `TypedGenerator<T>` per type, registered by the module's factory
+(`CoreGenerators`, `WorkflowGenerators`, `RuntimeGenerators`, `HttpGenerators`). The convention is recorded in
+`doc/adr/012-generator-artifacts.adoc`.
 
 ## Dependencies and Versions
 
@@ -114,8 +133,10 @@ them with a fixture project below `src/guard-controls`:
 - No module depends on Quarkus, CDI, Vert.x or an MCP library, nor on `pm-mcp-server` or a client binary module.
 - `pm-core` depends on `pm-api` alone among the modules of the product, and never on JGit or `cui-http`.
 - `pm-workflow` depends on `pm-core` alone among the modules of the product, and never on JGit or `cui-http`.
-- A provider module depends on `pm-core` and, for the shared HTTP base, on `pm-provider-http`; the contract modules
-  `pm-provider-git` and `pm-provider-http` on no other provider module.
+- A provider module depends on `pm-core`, on `pm-provider-http` for the shared HTTP base and on `pm-provider-ci` for
+  the CI contract; the contract modules `pm-provider-git` and `pm-provider-http` on no other provider module; a code
+  analysis adapter (`pm-provider-sonar`) on the shared HTTP base alone among the provider modules, because Sonar is no
+  CI provider and depends on no CI module.
 - `pm-runtime` depends on `pm-core` and `pm-api` alone among the modules of the product, and it is the only module
   that depends on `commonmark` and LSP4J.
 - The coordinates of the product come from the organisation registry: `.mvn/settings.xml` lists it before Maven

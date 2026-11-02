@@ -11,6 +11,7 @@ package de.planmarshall.runtime.credentials;
 
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The account of a credential entry (PM-CRED-2): {@code <credential_key>} for a global entry,
@@ -71,7 +72,7 @@ public record CredentialAccount(Optional<String> project, String key) {
         return project.map(p -> p + "/" + key).orElse(key);
     }
 
-    private static void check(String name) {
+    private static void check(@Nullable String name) {
         if (name == null || !NAME.matcher(name).matches() || ".".equals(name) || "..".equals(name)) {
             throw new InvalidCredentialNameException(name);
         }

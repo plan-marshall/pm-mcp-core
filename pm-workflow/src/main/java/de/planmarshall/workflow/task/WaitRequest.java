@@ -13,6 +13,7 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 import de.planmarshall.core.queue.QueueTaskRecord;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What a worker's {@code pm_wait} asks the task protocol: a task of the caller's role, for the caller's generation.
@@ -52,7 +53,7 @@ int reOfferBudget) {
         }
     }
 
-    private static void requireDigest(String digest, String name) {
+    private static void requireDigest(@Nullable String digest, String name) {
         if (digest == null || !digest.matches("[0-9a-f]{64}")) {
             throw new IllegalArgumentException("Not a SHA-256 digest for " + name + ": " + digest);
         }

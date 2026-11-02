@@ -36,10 +36,11 @@ no concrete kind is registered in production code or in a default registry.
 * A new kind is a specification change, an enum constant and a registration.
 * A consumer registers its kind with the value schema of the specification part that defines it; until it does, the
   kind has no default schema and `DerivedFactKinds.validate` refuses it.
-* The store's operations, which read the registry, are the second plan (`derived-facts-store-operations`).
+* The store's operations read the registry; a refresh whose kind has no registration is a failed derivation
+  (ADRs `core-store/056` to `060`).
 
 == Source
 
-* Pull request of this work package, work package link:../../../../doc/plans/derived-facts-store.adoc[`derived-facts-store`]
+* Pull request of the work package `derived-facts-store` (closed in this pull request)
 * link:../../../../doc/specification/store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas § Derived Facts Store]
 * link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-6[PM-EXT-6]

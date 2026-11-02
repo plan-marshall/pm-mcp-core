@@ -230,7 +230,7 @@ public class ConsentCodec {
      * The schema requires {@code scripts} for {@code run_checkout_scripts} and forbids it for every other kind, which the
      * typed entry cannot express (an empty list and an absent member read alike).
      */
-    private static void requireOptionalMember(ConsentKind kind, HashSet<String> seen) {
+    private static void requireOptionalMember(@Nullable ConsentKind kind, HashSet<String> seen) {
         if (kind == null) {
             return;
         }

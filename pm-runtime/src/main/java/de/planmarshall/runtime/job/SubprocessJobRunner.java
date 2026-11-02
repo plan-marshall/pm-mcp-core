@@ -1654,7 +1654,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         // safely between the starting thread and the virtual thread that settles the job; Process is a thread-safe
         // handle that only launched() assigns, once.
         @SuppressWarnings("java:S3077")
-        private volatile JobRecord latest;
+        private volatile @Nullable JobRecord latest;
         @SuppressWarnings("java:S3077")
         private volatile @Nullable Process process;
 
@@ -1685,7 +1685,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         /**
          * @param successExitCodes the exit codes a probe declares as its success; empty for every other job
          */
-        RunningJob(JobRecord latest, JobRecordStore store, JobBudget budget, Set<Integer> successExitCodes) {
+        RunningJob(@Nullable JobRecord latest, JobRecordStore store, JobBudget budget,
+                Set<Integer> successExitCodes) {
             this.latest = latest;
             this.store = store;
             this.budget = budget;

@@ -361,8 +361,18 @@ Verified by (the domain validators): link:../pm-core/src/test/java/de/planmarsha
 link:../pm-core/src/test/java/de/planmarshall/core/spi/validation/AsciiDocValidatorTest.java[AsciiDocValidatorTest],
 link:../pm-core/src/test/java/de/planmarshall/core/spi/validation/OutlineValidatorTest.java[OutlineValidatorTest]
 
+Implementation (the reason of an outcome, declared as a closed enum and refused at registration when malformed; the outcome set stays closed because a reason is not an outcome):
+link:../pm-core/src/main/java/de/planmarshall/core/spi/OutcomeReason.java[OutcomeReason],
+link:../pm-core/src/main/java/de/planmarshall/core/spi/PrimitiveRegistry.java[PrimitiveRegistry]
+
+Verified by (the reason of an outcome): link:../pm-core/src/test/java/de/planmarshall/core/spi/ReasonPrimitives.java[ReasonPrimitives],
+link:../pm-core/src/test/java/de/planmarshall/core/spi/PrimitiveRegistryTest.java[PrimitiveRegistryTest],
+link:../pm-core/src/test/java/de/planmarshall/core/spi/OutcomeReasonTest.java[OutcomeReasonTest],
+link:../pm-core/src/test/java/de/planmarshall/core/spi/PrimitiveResultTest.java[PrimitiveResultTest]
+
 Documentation: link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer Guide],
-link:../pm-core/doc/developer/core-spi.adoc#_the_content_validators[Developer Guide § The Content Validators]
+link:../pm-core/doc/developer/core-spi.adoc#_the_content_validators[Developer Guide § The Content Validators],
+link:../pm-core/doc/developer/core-spi.adoc#outcomes-and-reasons[Developer Guide § Outcomes and Reasons]
 
 [#PM-WF-7]
 === PM-WF-7: Remediation Policies, Loop-Back & Iteration Bounds
@@ -960,12 +970,24 @@ link:../pm-runtime/doc/developer/runtime-start.adoc#_job_drain_participant[§ Th
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-5[PM-EXEC-5]
 
-Implementation (in part: the cache repository operations of the git contract that the corpus sources use, served natively in process on JGit with typed inputs and closed outcomes; the operations on a project repository, the CLI variants, the provider operations and the integration variants are not traced here): link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/GitOperations.java[GitOperations],
+Implementation (in part: the cache repository operations of the git contract that the corpus sources use, served natively in process on JGit with typed inputs and closed outcomes; the CLI variants and the integration variants are not traced here, and the provider operations are traced by the paragraph below): link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/GitOperations.java[GitOperations],
 link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/JGitOperations.java[JGitOperations]
 
-Verified by: link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/JGitCacheRepositoryTest.java[JGitCacheRepositoryTest] (every outcome of the three operations against a fixture repository on disk, except `capability_missing` of the commit fetch, which no `file://` fixture reaches since its in-process transport runs no hook and no process)
+Implementation (the CI contract's provider operations on the native variant: `ci.whoami`, `ci.issue-view` and
+`ci.issue-comment`, each returning the closed outcome; the CLI variant, the four cross-repository reads, the grant check
+and the pull-request read are not implemented yet): module link:../pm-providers/pm-provider-ci/pom.xml[pm-provider-ci] with
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProvider.java[CiProvider],
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProviders.java[CiProviders],
+link:../pm-providers/pm-provider-github/src/main/java/de/planmarshall/provider/github/GitHubCiProvider.java[GitHubCiProvider],
+link:../pm-providers/pm-provider-gitlab/src/main/java/de/planmarshall/provider/gitlab/GitLabCiProvider.java[GitLabCiProvider]
 
-Documentation: link:../pm-providers/pm-provider-git/doc/developer/provider-git.adoc[Cache Repository Operations Developer Guide]
+Verified by: link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/JGitCacheRepositoryTest.java[JGitCacheRepositoryTest] (every outcome of the three operations against a fixture repository on disk, except `capability_missing` of the commit fetch, which no `file://` fixture reaches since its in-process transport runs no hook and no process),
+link:../pm-providers/pm-provider-github/src/test/java/de/planmarshall/provider/github/GitHubCiProviderTest.java[GitHubCiProviderTest],
+link:../pm-providers/pm-provider-gitlab/src/test/java/de/planmarshall/provider/gitlab/GitLabCiProviderTest.java[GitLabCiProviderTest]
+
+Documentation: link:../pm-providers/pm-provider-git/doc/developer/provider-git.adoc[Cache Repository Operations Developer Guide],
+link:../pm-providers/pm-provider-ci/doc/developer/provider-ci.adoc[CI Provider Contract Developer Guide],
+link:../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[ADR 014]
 
 == link:../../plan-marshall-documentation/doc/requirements/07-credentials.adoc[Credentials]
 
@@ -1062,10 +1084,17 @@ write boundary, and the activity is served as plain entries that no model reads 
 link:../pm-core/src/main/java/de/planmarshall/core/queue/ActivityJournal.java[ActivityJournal],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/web/ActivityService.java[ActivityService]
 
-Verified by: link:../pm-core/src/test/java/de/planmarshall/core/queue/SecretRedactorTest.java[SecretRedactorTest] (a credential-shaped assignment, a bearer value and a provider token masked; prose, a path and a commit id kept)
+Implementation (the CI contract's share: the title, body and comment text a provider returns travel unvalidated and are
+cleaned by the consumer's level-1 validator before a model sees them; the contract says so and validates nothing):
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/Issue.java[Issue],
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProvider.java[CiProvider]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/queue/SecretRedactorTest.java[SecretRedactorTest] (a credential-shaped assignment, a bearer value and a provider token masked; prose, a path and a commit id kept),
+link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/ValueTypesTest.java[ValueTypesTest] (the title and a non-empty body are carried unchanged)
 
 Documentation: link:../pm-core/doc/developer/core-queue.adoc[Task Queue Developer Guide] (§ Invariants and failure modes),
-link:../pm-core/doc/adr/core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR core-queue/008]
+link:../pm-core/doc/adr/core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR core-queue/008],
+link:../pm-providers/pm-provider-ci/doc/developer/provider-ci.adoc[CI Provider Contract Developer Guide] (§ Invariants and Failure Modes)
 
 [#PM-SEC-2]
 === PM-SEC-2: Workspace Confinement & Path Traversal Prevention
@@ -1260,10 +1289,11 @@ link:../pm-core/doc/adr/core-config/003-the-consent-record-is-handed-over-before
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-TECH-2[PM-TECH-2]
 
-Implementation (the outbound HTTPS client of the provider adapters over `cui-http`: the origin-pinned client with pagination, conditional requests and rate-limit outcomes, its endpoint, the closed outcomes of one request and of an operation, its token seam and the JSON tree of a provider body; the LSP client and the McpAssured test libraries are traced with the other requirements, not here): module link:../pm-providers/pm-provider-http/pom.xml[pm-provider-http] with
+Implementation (the outbound HTTPS client of the provider adapters over `cui-http`: the origin-pinned client with pagination, conditional requests and rate-limit outcomes, its endpoint, the closed outcomes of one request and of an operation, its token seam, the JSON tree of a provider body, and the response-with-headers read the CI identity needs; the LSP client and the McpAssured test libraries are traced with the other requirements, not here): module link:../pm-providers/pm-provider-http/pom.xml[pm-provider-http] with
 link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/HttpClient.java[HttpClient],
 link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/Endpoint.java[Endpoint],
 link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/Response.java[Response],
+link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/ResponseWithHeaders.java[ResponseWithHeaders],
 link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/Result.java[Result],
 link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/PagedResult.java[PagedResult],
 link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http/TokenSource.java[TokenSource],
@@ -1272,6 +1302,7 @@ link:../pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/htt
 Verified by: link:../pm-providers/pm-provider-http/src/test/java/de/planmarshall/provider/http/HttpClientTest.java[HttpClientTest],
 link:../pm-providers/pm-provider-http/src/test/java/de/planmarshall/provider/http/EndpointTest.java[EndpointTest],
 link:../pm-providers/pm-provider-http/src/test/java/de/planmarshall/provider/http/JsonTest.java[JsonTest],
+link:../pm-providers/pm-provider-github/src/test/java/de/planmarshall/provider/github/GitHubCiProviderTest.java[GitHubCiProviderTest] (the scopes and expiry read from the response headers),
 link:../pm-core/src/test/java/de/planmarshall/core/BuildGuardsIT.java[BuildGuardsIT]
 
 Documentation: link:../pm-providers/pm-provider-http/doc/developer/provider-http.adoc[Developer Guide § The Shared HTTP Base (`provider.http`)], link:../pm-providers/pm-provider-http/doc/adr/provider-http/001-neutral-class-names.adoc[ADR provider-http/001], link:../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-provider-http[Module Structure § `pm-provider-http`]
@@ -1598,6 +1629,18 @@ link:../pm-core/src/main/java/de/planmarshall/core/analysis/AnalysisOutcome.java
 link:../pm-core/src/main/java/de/planmarshall/core/analysis/Completeness.java[Completeness],
 link:../pm-core/src/main/java/de/planmarshall/core/analysis/CodeAnalysisProviderRegistry.java[CodeAnalysisProviderRegistry]
 
+Implementation (the CI provider contract of `pm-provider-ci` with its explicit registry and the guards that keep the contract modules, the provider adapters and the analysis adapter apart; the adapters and the assembly wiring are traced with PM-EXEC-5 and with the assembly): module link:../pm-providers/pm-provider-ci/pom.xml[pm-provider-ci] with
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProvider.java[CiProvider],
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProviders.java[CiProviders],
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/ForgeUrl.java[ForgeUrl]
+
+Verified by (the CI contract's registry and URL grammar, and the three dependency rules):
+link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/CiProvidersTest.java[CiProvidersTest],
+link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/ForgeUrlTest.java[ForgeUrlTest],
+link:../pm-core/src/test/java/de/planmarshall/core/BuildGuardsIT.java[BuildGuardsIT]
+
+Documentation (the CI contract): link:../pm-providers/pm-provider-ci/doc/developer/provider-ci.adoc[CI Provider Contract Developer Guide], link:../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[ADR 014]
+
 Verified by (the findings and code-analysis contracts): link:../pm-core/src/test/java/de/planmarshall/core/findings/FindingTest.java[FindingTest],
 link:../pm-core/src/test/java/de/planmarshall/core/findings/FindingScopeTest.java[FindingScopeTest],
 link:../pm-core/src/test/java/de/planmarshall/core/findings/FindingSourceKeyTest.java[FindingSourceKeyTest],
@@ -1665,13 +1708,31 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreIdentityCod
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_operator_and_question_stores[Scope Stores Developer Guide § Operator and Question Stores, the Project Store and the Project Resolution],
 link:../../plan-marshall-documentation/doc/concepts/store-integrity.adoc#format-versions[Concepts § Store Integrity, Format Versions], link:../pm-core/doc/developer/core-store.adoc#_format_versions[Developer Guide § Store Substrate, Format Versions and Refusals], link:../pm-core/doc/developer/core-analysis.adoc[Developer Guide § Code Analysis, The Analysis Result and Its Codec], link:../pm-core/doc/developer/core-store.adoc#_the_enrolment_store[Developer Guide § Enrolment Store, Schema and Codec]
 
-Implementation (the derived facts store `derived-facts.json` of a project at `format_version` 1, read strictly over `StrictJson` with every other version refused naming the file, never as an empty store): link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFacts.java[DerivedFacts],
-link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactsCodec.java[DerivedFactsCodec]
+Implementation (the derived facts store `derived-facts.json` of a project at `format_version` 1, read strictly over `StrictJson` with every other version refused naming the file, never as an empty store; the store reads and writes the document under its own lock and a read is a lock-free snapshot): link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFacts.java[DerivedFacts],
+link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactsCodec.java[DerivedFactsCodec],
+link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactStore.java[DerivedFactStore],
+link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactReading.java[DerivedFactReading]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactsCodecTest.java[DerivedFactsCodecTest],
-link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactsSchemaParityTest.java[DerivedFactsSchemaParityTest]
+link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactsSchemaParityTest.java[DerivedFactsSchemaParityTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactStoreTest.java[DerivedFactStoreTest]
 
-Documentation: link:../pm-core/doc/developer/core-store.adoc#_derived_facts_store[Developer Guide § Derived Facts Store]
+Documentation: link:../pm-core/doc/developer/core-store.adoc#_derived_facts_store[Developer Guide § Derived Facts Store],
+link:../pm-core/doc/adr/core-store/059-an-unreadable-store-is-a-refusal.adoc[ADR core-store/059]
+
+Implementation (the lesson record and the file format of the project lesson store, `format_version` 1, read strictly with the front matter as YAML restricted to the JSON data model and written as one canonical JSON object; the lesson id grammar, the closed enumerations and the rules of the record; a file that does not decode as a value, never as an exception): link:../pm-core/src/main/java/de/planmarshall/core/store/LessonId.java[LessonId],
+link:../pm-core/src/main/java/de/planmarshall/core/store/LessonFrontMatter.java[LessonFrontMatter],
+link:../pm-core/src/main/java/de/planmarshall/core/store/Lesson.java[Lesson],
+link:../pm-core/src/main/java/de/planmarshall/core/store/LessonCodec.java[LessonCodec]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/LessonIdTest.java[LessonIdTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonFrontMatterTest.java[LessonFrontMatterTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonCodecTest.java[LessonCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonFrontMatterSchemaParityTest.java[LessonFrontMatterSchemaParityTest]
+
+Documentation: link:../pm-core/doc/developer/core-store.adoc#_lesson_record_and_file_format[Developer Guide § Lesson Record and File Format],
+link:../pm-core/doc/adr/core-store/061-the-lesson-front-matter-is-yaml-read-through-a-library.adoc[ADR core-store/061],
+link:../pm-core/doc/adr/core-store/062-the-lesson-classes-live-in-core-store.adoc[ADR core-store/062]
 
 [#PM-IMPL-4]
 === PM-IMPL-4: Bounded Long-Poll & Progress-Reset Waiting Primitives
@@ -1708,6 +1769,7 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/TransitionFuzz
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WorkflowEngine.java[WorkflowEngine],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/EngineStep.java[EngineStep],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/GuardEvaluator.java[GuardEvaluator],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/DerivedFactGuards.java[DerivedFactGuards],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/LoopBackBudget.java[LoopBackBudget],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/diagram/WorkflowDiagramGenerator.java[WorkflowDiagramGenerator],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java[PlanInstanceComposer],
@@ -1723,6 +1785,7 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/WorkflowValida
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/TransitionFuzzerTest.java[TransitionFuzzerTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/WorkflowEngineTest.java[WorkflowEngineTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/GuardEvaluatorTest.java[GuardEvaluatorTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/DerivedFactGuardsTest.java[DerivedFactGuardsTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineEventTest.java[EngineEventTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/LoopBackBudgetTest.java[LoopBackBudgetTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/diagram/WorkflowDiagramGeneratorTest.java[WorkflowDiagramGeneratorTest],
@@ -1822,6 +1885,7 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/LaneEntryIdsTe
 Implementation (the primitive as a typed contract and the registry that refuses a malformed one; the first statement of this requirement):
 link:../pm-core/src/main/java/de/planmarshall/core/spi/Primitive.java[Primitive],
 link:../pm-core/src/main/java/de/planmarshall/core/spi/PrimitiveOutcome.java[PrimitiveOutcome],
+link:../pm-core/src/main/java/de/planmarshall/core/spi/OutcomeReason.java[OutcomeReason],
 link:../pm-core/src/main/java/de/planmarshall/core/spi/OutcomeClass.java[OutcomeClass],
 link:../pm-core/src/main/java/de/planmarshall/core/spi/PrimitiveResult.java[PrimitiveResult],
 link:../pm-core/src/main/java/de/planmarshall/core/spi/AwaitedEvent.java[AwaitedEvent],
@@ -1832,6 +1896,8 @@ link:../pm-core/src/main/java/de/planmarshall/core/spi/PrimitiveRegistrationExce
 
 Verified by (the primitive contract and the registry): link:../pm-core/src/test/java/de/planmarshall/core/spi/PrimitiveContractTest.java[PrimitiveContractTest],
 link:../pm-core/src/test/java/de/planmarshall/core/spi/PrimitiveRegistryTest.java[PrimitiveRegistryTest],
+link:../pm-core/src/test/java/de/planmarshall/core/spi/OutcomeReasonTest.java[OutcomeReasonTest],
+link:../pm-core/src/test/java/de/planmarshall/core/spi/PrimitiveResultTest.java[PrimitiveResultTest],
 link:../pm-core/src/test/java/de/planmarshall/core/spi/SpiVocabularyTest.java[SpiVocabularyTest]
 
 Implementation (the unit frontmatter, the unit types and the interface of a unit, as far as the library module `pm-workflow` carries them: the frontmatter read by its own parser of the closed line subset, from the head of the source and without the body, refusing a control character, a format character, a line separator or a paragraph separator with its code point and line, bounded at 200 lines and 80 echoed characters, every refusal a value with file, line and column, and printed in the order of its field table so the round trip holds; the six unit types; a unit with entries binds them and declares no start state; the verifier's interface rules and the check of the type against the scope and the interface; `INV-GEN-1` over the type, the entries, the exits and the entry bindings; the refusal of a project unit larger than 1048576 bytes and of one whose author equals `plan-marshall` after NFKC normalisation, removal of its format characters, stripping and case folding. Not implemented yet: the machine unit's type row and its residence, the machine level's author check and `INV-GEN-1`, and the frontmatter written by the designer): link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/UnitFrontmatterReader.java[UnitFrontmatterReader],
@@ -1860,6 +1926,15 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/SubWorkflowExe
 link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java[WorkflowStatusCodecTest]
 
 Documentation: link:../pm-workflow/doc/developer/workflow-dsl.adoc[Developer Guide § Workflow DSL], link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide],
+link:../pm-core/doc/developer/core-spi.adoc#outcomes-and-reasons[Developer Guide § Outcomes and Reasons],
+link:../pm-core/doc/adr/core-spi/005-a-name-is-an-outcome-only-where-the-graph-continues-differently.adoc[ADR core-spi/005],
+link:../pm-core/doc/adr/core-spi/006-the-reason-is-a-closed-enum-behind-a-small-interface.adoc[ADR core-spi/006],
+link:../pm-core/doc/adr/core-spi/007-the-reason-type-belongs-to-the-outcome.adoc[ADR core-spi/007],
+link:../pm-core/doc/adr/core-spi/008-the-result-carries-an-optional-reason-as-its-fourth-component.adoc[ADR core-spi/008],
+link:../pm-core/doc/adr/core-spi/009-only-failure-indeterminate-and-skip-admit-a-reason.adoc[ADR core-spi/009],
+link:../pm-core/doc/adr/core-spi/010-the-reason-to-condition-table-is-total-and-closed.adoc[ADR core-spi/010],
+link:../pm-core/doc/adr/core-spi/011-reasons-are-data-only-and-never-routable.adoc[ADR core-spi/011],
+link:../pm-core/doc/adr/core-spi/012-a-skip-with-an-optional-input-is-skipped-plus-a-reason.adoc[ADR core-spi/012],
 link:../pm-workflow/doc/developer/workflow-dsl.adoc#unit-frontmatter[Workflow DSL Developer Guide § The Unit Frontmatter],
 link:../pm-workflow/doc/developer/workflow-ast.adoc#unit-types[Workflow AST Developer Guide § Unit Types],
 link:../pm-workflow/doc/developer/workflow-verify.adoc#interface-rules[Workflow Verification Developer Guide § Interface Rules and Unit Types],
@@ -1988,10 +2063,17 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreTest.java[P
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_operator_and_question_stores[Scope Stores Developer Guide § Operator and Question Stores, the Project Store and the Project Resolution],
 link:../../plan-marshall-documentation/doc/concepts/locks-and-leases.adoc[Concepts § Locks and Leases], link:../../plan-marshall-documentation/doc/concepts/store-integrity.adoc[Concepts § Store Integrity], link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#rebaseline[Concepts § Enrolment, Re-Baseline], link:../pm-runtime/doc/developer/runtime-lock.adoc[Developer Guide § The Lock Manager], link:../pm-core/doc/developer/core-store.adoc#_the_store_substrate[Developer Guide § Store Substrate], link:../pm-core/doc/developer/core-store.adoc#_the_enrolment_store[Developer Guide § Enrolment Store, The Store]
 
-Implementation (the derived-facts lock key and its level in the total order, after the local configuration lock and before the build-timings lock; the store that takes the lock is the second plan, `derived-facts-store-operations`): link:../pm-core/src/main/java/de/planmarshall/core/store/LockKey.java[LockKey],
-link:../pm-core/src/main/java/de/planmarshall/core/store/LockLevel.java[LockLevel]
+Implementation (the derived-facts lock key and its level in the total order, after the local configuration lock and before the build-timings lock; the derived-facts store takes it for the re-read and the write of one entry, after every scope lock a caller may hold): link:../pm-core/src/main/java/de/planmarshall/core/store/LockKey.java[LockKey],
+link:../pm-core/src/main/java/de/planmarshall/core/store/LockLevel.java[LockLevel],
+link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactStore.java[DerivedFactStore]
 
-Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/LockKeyTest.java[LockKeyTest]
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/LockKeyTest.java[LockKeyTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LockOrderTest.java[LockOrderTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactStoreConcurrencyTest.java[DerivedFactStoreConcurrencyTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/lock/DerivedFactStoreLockTest.java[DerivedFactStoreLockTest]
+
+Documentation: link:../pm-core/doc/developer/core-store.adoc#_derived_facts_store[Developer Guide § Derived Facts Store],
+link:../pm-core/doc/adr/core-store/056-the-derivation-runs-outside-the-lock.adoc[ADR core-store/056]
 
 == link:../../plan-marshall-documentation/doc/requirements/15-extensions-and-recipes.adoc[Extensions and Recipes]
 
@@ -2000,25 +2082,41 @@ Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/LockKeyTes
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-6[PM-EXT-6]
 
-Implementation (the Server State bullet for the derived facts of a project: the cache `derived-facts.json`, its entry records with their kind, value, source, input digest, instant, state and failure, the strict codec, the closed kind enumeration and the registry that binds a kind to its value schema; the recompute rule, the network validity period, the store's operations and the model-facing exclusion of `agent_identity` are the second plan, `derived-facts-store-operations`; every other bullet is not implemented here): link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFacts.java[DerivedFacts],
+Implementation (the Server State bullet for the derived facts of a project: the cache `derived-facts.json`, its entry records with their kind, value, source, input digest, instant, state and failure, the strict codec, the closed kind enumeration and the registry that binds a kind to its value schema; the store with the input-digest recompute rule, the fixed network validity period, the `stale` and `failed` operations, the readings that fail closed and the model-facing exclusion of `agent_identity`; every other bullet is not implemented here): link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFacts.java[DerivedFacts],
 link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFact.java[DerivedFact],
 link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactKey.java[DerivedFactKey],
 link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactKind.java[DerivedFactKind],
 link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactsCodec.java[DerivedFactsCodec],
 link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactKindSpec.java[DerivedFactKindSpec],
-link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactKinds.java[DerivedFactKinds]
+link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactKinds.java[DerivedFactKinds],
+link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactStore.java[DerivedFactStore],
+link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactReading.java[DerivedFactReading],
+link:../pm-core/src/main/java/de/planmarshall/core/store/DerivedFactDerivation.java[DerivedFactDerivation],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/DerivedFactGuards.java[DerivedFactGuards]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactKindTest.java[DerivedFactKindTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactKeyTest.java[DerivedFactKeyTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactTest.java[DerivedFactTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactsCodecTest.java[DerivedFactsCodecTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactsSchemaParityTest.java[DerivedFactsSchemaParityTest],
-link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactKindsTest.java[DerivedFactKindsTest]
+link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactKindsTest.java[DerivedFactKindsTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactStoreTest.java[DerivedFactStoreTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactRefreshTest.java[DerivedFactRefreshTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactFailureTest.java[DerivedFactFailureTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactStoreConcurrencyTest.java[DerivedFactStoreConcurrencyTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/DerivedFactModelFacingTest.java[DerivedFactModelFacingTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/lock/DerivedFactStoreLockTest.java[DerivedFactStoreLockTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/DerivedFactGuardsTest.java[DerivedFactGuardsTest]
 
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_derived_facts_store[Developer Guide § Derived Facts Store],
 link:../pm-core/doc/adr/core-store/053-the-fact-kinds-are-an-enumeration-bound-by-a-registry.adoc[ADR core-store/053],
 link:../pm-core/doc/adr/core-store/054-the-fact-value-is-the-jsonvalue-tree.adoc[ADR core-store/054],
-link:../pm-core/doc/adr/core-store/055-the-writer-emits-a-null-failure-for-a-current-entry.adoc[ADR core-store/055]
+link:../pm-core/doc/adr/core-store/055-the-writer-emits-a-null-failure-for-a-current-entry.adoc[ADR core-store/055],
+link:../pm-core/doc/adr/core-store/056-the-derivation-runs-outside-the-lock.adoc[ADR core-store/056],
+link:../pm-core/doc/adr/core-store/057-a-stale-entry-keeps-its-last-good-digest.adoc[ADR core-store/057],
+link:../pm-core/doc/adr/core-store/058-the-reading-fails-closed.adoc[ADR core-store/058],
+link:../pm-core/doc/adr/core-store/059-an-unreadable-store-is-a-refusal.adoc[ADR core-store/059],
+link:../pm-core/doc/adr/core-store/060-the-operator-only-exclusion-is-a-property-of-the-kind.adoc[ADR core-store/060]
 
 == link:../../plan-marshall-documentation/doc/requirements/16-model-work.adoc[Model Work]
 

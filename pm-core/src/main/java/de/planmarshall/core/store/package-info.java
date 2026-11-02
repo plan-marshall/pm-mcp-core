@@ -109,7 +109,10 @@
  * {@link de.planmarshall.core.role.corpus.JsonValue} tree, its derivation, its input digest, its instant, its state
  * and its failure record; the closed {@link de.planmarshall.core.store.DerivedFactKind} enumeration and the
  * {@link de.planmarshall.core.store.DerivedFactKinds} registry through which a consumer binds a kind to its value
- * schema. No concrete kind is registered here, and the store's operations are the second plan.</li>
+ * schema; and the store {@link de.planmarshall.core.store.DerivedFactStore} with the input-digest recompute rule, the
+ * fixed network validity period, the {@code stale} and {@code failed} operations, the readings of
+ * {@link de.planmarshall.core.store.DerivedFactReading} and the operator-only projection. No concrete kind is
+ * registered here.</li>
  * </ul>
  * <p>
  * The package also holds the path confinement to the workspace root and its worktrees (PM-SEC-2): a project path is

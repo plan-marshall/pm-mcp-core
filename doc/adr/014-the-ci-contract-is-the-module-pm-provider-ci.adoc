@@ -1,0 +1,67 @@
+= ADR 014: The CI Contract Is the Module `pm-provider-ci`, With Three Dependency Rules
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-01.
+
+== Context
+
+The operator decided on 2026-10-29 (decision 2 of 18) that the CI provider contract is the module `pm-provider-ci` and not
+a port in `pm-core`. The Module Structure Specification lists the module, its dependencies (`pm-core` and
+`pm-provider-http`) and the rule that the provider adapters may depend on it, while Sonar does not (Module Structure §
+`pm-provider-ci`, § Dependency Rules, § rationale). Before this change the module existed only as a name: #156 (PLAN-86)
+moved the shared HTTP base into `pm-provider-http` and removed the then-empty module, and the contract was never built.
+
+Two accidents followed from the missing module. The `provider` enforcer execution of the root POM admits `pm-core`,
+`pm-api` and `pm-provider-http` to a provider module, so once `pm-provider-ci` joins the include list every provider module
+could depend on it, including `pm-provider-sonar`, which must not. And a consumer in `pm-runtime` or `pm-workflow` cannot
+depend on a provider module at all, because their rules allow `pm-core` (and `pm-api`) alone.
+
+== Decision
+
+The contract is the module `pm-providers/pm-provider-ci` (the contract types and its guide), implemented by
+`pm-provider-github` and `pm-provider-gitlab`. Three dependency rules carry it, each proved by a fixture below
+`src/guard-controls/` and by `BuildGuardsIT` of `pm-core`:
+
+. The `provider` execution of the root POM admits `de.planmarshall:pm-provider-ci` beside `pm-core`, `pm-api` and
+  `pm-provider-http`, so the forge adapters (and the later `pm-provider-forgejo`) may depend on the contract and no provider
+  module on a sibling implementation.
+. `pm-provider-git` and `pm-provider-http` stay under `provider-contract` and so cannot depend on the new module.
+. A new execution `provider-analysis`, switched on in `pm-provider-sonar`, bans every `de.planmarshall:pm-provider-*` other
+  than `pm-provider-http` there, because Sonar is no CI provider and depends on no CI module.
+
+A consumer in `pm-runtime` or `pm-workflow` does not depend on the module. It reaches the contract through the assembly's
+primitives (`pm-mcp-server`), or it declares its own port in `pm-core` in its own plan. No port is added by this change.
+
+== Alternatives Considered
+
+* *A port in `pm-core`.* It would let `pm-runtime` and `pm-workflow` depend on the contract directly, but it moves a
+  provider's vocabulary into the foundation and contradicts the Module Structure Specification's module tree and
+  dependency rules; the operator chose the module.
+* *Leave `pm-provider-sonar` under the plain `provider` rule.* It would admit the CI contract to Sonar, and the reason
+  #156 removed the module was that Sonar depends on no CI module.
+* *Let the consumers in `pm-runtime` and `pm-workflow` depend on the module.* Their guarded rule forbids it, and relaxing
+  it turns the dependency direction the repository enforces.
+
+== Consequences
+
+* `pm-provider-ci` is a module of `pm-providers` and of the root `dependencyManagement`, with its own build, tests and
+  documentation.
+* A provider adapter may depend on it; a contract module may not; a code analysis adapter may not.
+* A consumer outside the provider modules uses a primitive or its own `pm-core` port, never a direct dependency.
+* `BuildGuardsIT` has three more controls (`provider-ci-allowed`, `provider-contract-ci-module`,
+  `provider-analysis-ci-module`); a later change to the executions keeps them.
+
+== Source
+
+* Operator decision 2026-10-29, decision 2 of 18 (epic `pm-mcp-core-m2-m4-v2`).
+* Work package: PLAN-V2-12 `ci-contract-module`; #156 (PLAN-86) removed the then-empty module.
+* Specification: Module Structure § `pm-provider-ci`, § Dependency Rules, § Provider registries; CLAUDE.md § Dependency
+  Rules.
+* ADRs: link:../../pm-providers/pm-provider-ci/doc/adr/provider-ci/001-contract-returns-the-closed-result.adoc[`provider.ci`
+  ADR 001], link:../../pm-providers/pm-provider-ci/doc/adr/provider-ci/002-the-contract-is-the-operations-with-a-stated-shape.adoc[ADR 002].

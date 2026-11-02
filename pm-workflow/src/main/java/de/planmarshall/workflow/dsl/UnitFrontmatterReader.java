@@ -29,6 +29,7 @@ import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.UnitFrontmatter;
 import de.planmarshall.workflow.ast.UnitFrontmatter.InterfaceElement;
 import de.planmarshall.workflow.ast.UnitType;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Reads the frontmatter a unit opens with into a {@link UnitFrontmatter} (PM-IMPL-5): the closed, line-oriented
@@ -183,7 +184,7 @@ public final class UnitFrontmatterReader {
         private final List<Element> exits = new ArrayList<>();
         private final Set<String> entryNames = new HashSet<>();
         private final Set<String> exitNames = new HashSet<>();
-        private UnitType type;
+        private @Nullable UnitType type;
         private LocalDate modificationDate;
         private String previousKey;
 
@@ -464,9 +465,9 @@ public final class UnitFrontmatterReader {
             for (var index = 0; index < text.length(); index++) {
                 var codePoint = text.codePointAt(index);
                 var category = category(codePoint);
-                if (category != null) {
+                if (category.isPresent()) {
                     throw new Refusal(number, index + 1,
-                            "the %s U+%04X in the frontmatter".formatted(category, codePoint));
+                            "the %s U+%04X in the frontmatter".formatted(category.get(), codePoint));
                 }
             }
         }
@@ -476,15 +477,15 @@ public final class UnitFrontmatterReader {
          *         is admitted: an ISO control character, a format character (Cf, such as a bidi override or a
          *         zero-width space), a line separator (Zl) or a paragraph separator (Zp)
          */
-        private static String category(int codePoint) {
+        private static Optional<String> category(int codePoint) {
             if (Character.isISOControl(codePoint)) {
-                return "control character";
+                return Optional.of("control character");
             }
             return switch (Character.getType(codePoint)) {
-                case Character.FORMAT -> "format character";
-                case Character.LINE_SEPARATOR -> "line separator";
-                case Character.PARAGRAPH_SEPARATOR -> "paragraph separator";
-                default -> null;
+                case Character.FORMAT -> Optional.of("format character");
+                case Character.LINE_SEPARATOR -> Optional.of("line separator");
+                case Character.PARAGRAPH_SEPARATOR -> Optional.of("paragraph separator");
+                default -> Optional.empty();
             };
         }
 
@@ -518,7 +519,7 @@ public final class UnitFrontmatterReader {
     private static final class Element {
 
         private final String name;
-        private String description;
+        private @Nullable String description;
 
         private Element(String name) {
             this.name = name;

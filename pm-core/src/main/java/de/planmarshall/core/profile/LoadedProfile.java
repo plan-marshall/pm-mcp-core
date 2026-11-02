@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.profile;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
@@ -31,7 +33,7 @@ import java.util.Optional;
  * @since 0.1
  */
 public record LoadedProfile(String clientId, ProfileSetKind kind, JsonNode document, byte[] bytes, State state,
-VerificationRecord verificationRecord) {
+@Nullable VerificationRecord verificationRecord) {
 
     @Override
     public boolean equals(Object other) {

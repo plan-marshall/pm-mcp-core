@@ -85,8 +85,8 @@ class CorpusJson {
      * @return the date; {@code null} for a JSON {@code null}
      * @throws IOException if the document does not parse as JSON
      */
-    static LocalDate nullableDate(JsonParser parser, String field) throws IOException {
-        return parser.currentToken() == JsonToken.VALUE_NULL ? null : date(parser, field);
+    static Optional<LocalDate> nullableDate(JsonParser parser, String field) throws IOException {
+        return parser.currentToken() == JsonToken.VALUE_NULL ? Optional.empty() : Optional.of(date(parser, field));
     }
 
     /**
@@ -95,8 +95,9 @@ class CorpusJson {
      * @return the strings of the array; {@code null} for a JSON {@code null}
      * @throws IOException if the document does not parse as JSON
      */
-    static List<String> nullableStringList(JsonParser parser, String field) throws IOException {
-        return parser.currentToken() == JsonToken.VALUE_NULL ? null : StrictJson.stringList(parser, field);
+    static Optional<List<String>> nullableStringList(JsonParser parser, String field) throws IOException {
+        return parser.currentToken() == JsonToken.VALUE_NULL ? Optional.empty()
+                : Optional.of(StrictJson.stringList(parser, field));
     }
 
     /**
@@ -119,8 +120,8 @@ class CorpusJson {
      * @return the number; {@code null} for a JSON {@code null}
      * @throws IOException if the document does not parse as JSON
      */
-    static BigDecimal nullableNumber(JsonParser parser, String field) throws IOException {
-        return parser.currentToken() == JsonToken.VALUE_NULL ? null : number(parser, field);
+    static Optional<BigDecimal> nullableNumber(JsonParser parser, String field) throws IOException {
+        return parser.currentToken() == JsonToken.VALUE_NULL ? Optional.empty() : Optional.of(number(parser, field));
     }
 
     /**

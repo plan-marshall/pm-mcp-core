@@ -193,13 +193,9 @@ public class RoleAssignmentsCodec {
                 case FIELD_HARNESS -> harness = string(parser, field);
                 case FIELD_MODEL -> model = string(parser, field);
                 case FIELD_EFFORT -> {
-                    var value = nullableString(parser, field).orElse(null);
-                    if (value == null) {
-                        effort = EffortSetting.DEFAULT;
-                    } else {
-                        effort = EffortSetting.VALUE;
-                        effortValue = Optional.of(new EffortValue(value));
-                    }
+                    var value = nullableString(parser, field);
+                    effort = value.isPresent() ? EffortSetting.VALUE : EffortSetting.DEFAULT;
+                    effortValue = value.map(EffortValue::new);
                 }
                 case FIELD_ESCALATION -> escalation = escalation(parser);
                 default -> throw undeclared(field);
@@ -227,10 +223,7 @@ public class RoleAssignmentsCodec {
             switch (field) {
                 case FIELD_HARNESS -> harness = string(parser, field);
                 case FIELD_MODEL -> model = string(parser, field);
-                case FIELD_EFFORT -> {
-                    var value = nullableString(parser, field).orElse(null);
-                    effort = value == null ? Optional.empty() : Optional.of(new EffortValue(value));
-                }
+                case FIELD_EFFORT -> effort = nullableString(parser, field).map(EffortValue::new);
                 default -> throw undeclared(field);
             }
         }

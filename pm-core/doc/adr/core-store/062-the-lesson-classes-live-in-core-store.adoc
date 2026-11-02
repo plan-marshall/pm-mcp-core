@@ -1,0 +1,48 @@
+= ADR 062: The Lesson Classes Live in `core.store`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-01
+
+== Context
+
+A lesson is one record of the per-project machine store, and the second work package of the package
+(`lesson-store-operations`) writes it under the lesson store lock, as one journaled transaction, with the digest
+sidecar. Its tests are the crash tests of the substrate: they stop a transaction at a step through
+`ScopeTransaction.StepHook` and resolve a scope through `JournalScope.resolveWithoutLinks`, and both seams are
+package-private in `de.planmarshall.core.store` by design — they are not part of the store's public API.
+
+The record, its enumerations, the codec and the parity test are new types; nothing at HEAD names a lesson class.
+
+== Decision
+
+`LessonId`, `LessonFrontMatter`, `Lesson` and `LessonCodec` live in `de.planmarshall.core.store`, beside the other
+store records and their codecs. The `package-info.java` of the package already lists the specification part, so it is not
+edited.
+
+== Alternatives Considered
+
+* A new package `de.planmarshall.core.store.lesson`: a cleaner separation, but the crash tests of the second work
+  package would need the two package-private seams to become public, or a test seam of their own — an API change made
+  only to keep a directory boundary.
+* The classes in `pm-runtime`, where the store is used: the record is a store document of the foundation, and `pm-core`
+  is the module every consumer of the store already depends on; `pm-runtime` would push the record behind a module the
+  codec does not need.
+
+== Consequences
+
+* `core.store` grows by four types; the second work package's crash tests reach the package-private seams without an API
+  change.
+* The schema-parity test sits beside `JobRecordSchemaParityTest`, which is the pattern it follows.
+* A consumer that only reads a lesson depends on `pm-core`, as it does for every other store document.
+
+== Source
+
+* link:../../../../doc/specification/store-schemas/10-job-and-lesson-records.adoc#lesson-record[Store Schemas § Lesson Record]
+* link:../../../../doc/specification/store-schemas/13-leases-integrity-testing.adoc[Store Schemas § Leases, Integrity & Testing]
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]

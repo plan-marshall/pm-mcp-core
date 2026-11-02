@@ -48,7 +48,7 @@ import de.planmarshall.core.profile.ProfileValidator;
 public record HarnessProfile(String clientId, boolean eligible, boolean restrictedModelsDeclared,
 Set<String> restrictedModels, Map<RoleClass, ToolSet> classes, Map<String, List<String>> modelEfforts,
 Map<String, String> modelTiers, @Nullable Integer contextBudgetTokens, @Nullable Integer idleWakeups,
-Resumability resumability, String askUserTool) {
+Resumability resumability, @Nullable String askUserTool) {
 
     /** Copies the collections. */
     public HarnessProfile {
@@ -156,7 +156,7 @@ Resumability resumability, String askUserTool) {
         return new HarnessProfile(profile.clientId(),
                 worker.member("eligible").flatMap(JsonNode::booleanValue).orElse(false),
                 declared, restrictedModels, classes, efforts(headless), tiers(headless),
-                headless.isNull() ? null : integer(headless, "context_budget_tokens"),
+                headless.isNull() ? null : integer(headless, "context_budget_tokens").orElse(null),
                 worker.member("idle_wakeups").filter(JsonNode::isInteger).map(value -> (int) value
                         .integerValue().orElse(0)).orElse(null),
                 resumability(headless),
@@ -233,15 +233,14 @@ Resumability resumability, String askUserTool) {
         }
         var declared = headless.member("resumability").orElse(JsonNode.nullValue());
         var hold = declared.member("hold").flatMap(JsonNode::booleanValue).orElse(false);
-        var maxHold = integer(declared, "max_hold_seconds");
+        var maxHold = integer(declared, "max_hold_seconds").orElse(null);
         var resume = declared.member("resume").orElse(JsonNode.nullValue());
         var canResume = !resume.isNull();
-        var maxResume = canResume ? integer(resume, "max_age_seconds") : null;
+        var maxResume = canResume ? integer(resume, "max_age_seconds").orElse(null) : null;
         return new Resumability(hold, maxHold, canResume, maxResume);
     }
 
-    private static Integer integer(JsonNode node, String member) {
-        return node.member(member).filter(JsonNode::isInteger).map(value -> (int) value.integerValue()
-                .orElse(0)).orElse(null);
+    private static Optional<Integer> integer(JsonNode node, String member) {
+        return node.member(member).filter(JsonNode::isInteger).map(value -> (int) value.integerValue().orElse(0));
     }
 }

@@ -298,7 +298,8 @@ state adjudicate.check
                                             #   listed roles available and qualified, a listed asker at the score
     eligible        -> adjudicate.vote
     ineligible      -> adjudicate.escalated # reason kind_ask, quorum_invalid, calibration_failed,
-                                            #   role_unavailable, role_unqualified, below_score
+                                            #   live_corrections, role_unavailable, role_unqualified,
+                                            #   below_score
 
 state adjudicate.vote
   job llm vote role each adjudicate.vote-roles  # one blind vote task per listed role other than the asker
@@ -312,7 +313,7 @@ state adjudicate.decide
 
 state adjudicate.decided terminal decided success
 
-state adjudicate.escalated terminal escalated success
+state adjudicate.escalated terminal escalated success   # queues the shadow vote tasks of a shadow quorum
 ----
 
 The state `adjudicate.vote` is the one task state whose roles come from the unit's configuration (`role each <primitive_id>`, xref:01-grammar.adoc#_formal_ebnf_grammar_for_the_workflow_dsl[Formal EBNF Grammar]): the read-only primitive `adjudicate.vote-roles` returns the listed roles of the set's quorum declarations other than the asking role, and the state creates one task per role, each with its own entity of the kind `vote` covering the questions whose declaration lists the role, which a worker of that role does through `worker-task` in the form of the role's artifact, and which a judgment role answers with two requests and no worker (link:../model-work/10-decision-quorum.adoc#judgment-vote[Ask or Quorum, Judgment Votes]). The return evaluation of the kind records each vote, per option of every part, and settles `collected` once every task has ended. The declared vote wait is the deadline of the vote tasks, a bound on model work and never on the operator (link:../timeouts/01-job-budgets-and-waits.adoc#vote-wait[Timeouts & Budgets Specification, Vote Wait]): a vote task still open when it passes closes `lost`, so the state awaits only `TASK_SETTLED` (Rule 11b); a task without a valid vote is passed to `adjudicate.decide` as a missing vote, and the state settles `lost` only when no task of the list was served. When the asking role is the only listed role, the list is empty and the state settles `collected` at once. The transaction of each terminal writes the set's decision records and `adjudicated` lines with the outcome and its reason and, for `decided`, the answers. The unit never asks anyone: every path ends in a terminal without a link, a question, or a waiver, and an `escalated` set is delivered to the operator through the decision unit (<<question-states>>).

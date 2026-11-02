@@ -157,16 +157,17 @@ public final class ConsultationService {
         var recorded = new AtomicReference<QueueTaskRecord>();
         var outcome = new AtomicReference<ConsultationOutcome>();
         queue.updateAll(records -> {
-            var asker = find(records, request.askingTaskId());
-            if (asker == null) {
+            var askerFound = find(records, request.askingTaskId());
+            if (askerFound.isEmpty()) {
                 outcome.set(refused(ConsultationRefusal.JOB_SCOPE_MISMATCH, noTask(request.askingTaskId())));
                 return records;
             }
-            var refusal = openRefusal(asker, request);
+            var refusal = openRefusal(askerFound.get(), request);
             if (refusal.isPresent()) {
                 outcome.set(refusal.get());
                 return records;
             }
+            var asker = askerFound.get();
             var consultations = new ArrayList<>(asker.consultations());
             consultations.add(new Consultation(consultationId, request.role(), request.generationId(),
                     request.at(), ConsultationStatus.OPEN, null, null, null, null));
@@ -393,11 +394,12 @@ public final class ConsultationService {
             @Nullable String answer, @Nullable LostReason reason, Instant at) {
         var outcome = new AtomicReference<ConsultationOutcome>();
         queue.updateAll(records -> {
-            var consultation = find(records, consultationId);
-            if (consultation == null) {
+            var foundConsultation = find(records, consultationId);
+            if (foundConsultation.isEmpty()) {
                 outcome.set(refused(ConsultationRefusal.JOB_SCOPE_MISMATCH, noTask(consultationId)));
                 return records;
             }
+            var consultation = foundConsultation.get();
             if (consultation.kind() != Kind.CONSULTATION) {
                 outcome.set(refused(ConsultationRefusal.LINK_NOT_AVAILABLE,
                         "the task '%s' is no consultation".formatted(consultationId)));
@@ -414,13 +416,13 @@ public final class ConsultationService {
                 return records;
             }
             var asker = find(records, consultation.consultationOf());
-            if (asker == null || !hasOpenEntry(asker, consultationId)) {
+            if (asker.isEmpty() || !hasOpenEntry(asker.get(), consultationId)) {
                 outcome.set(refused(ConsultationRefusal.JOB_SCOPE_MISMATCH,
                         "the asking task '%s' does not carry the consultation".formatted(consultation.consultationOf())));
                 return records;
             }
             var closed = closeTask(consultation, reason, at);
-            var settled = settleAsker(asker, consultationId, status, answer, at);
+            var settled = settleAsker(asker.get(), consultationId, status, answer, at);
             outcome.set(new ConsultationOutcome.Answered(settled, factsOf(settled)));
             return replace(replace(records, closed), settled);
         });
@@ -607,8 +609,8 @@ public final class ConsultationService {
         return NO_TASK + " '%s'".formatted(queueTaskId);
     }
 
-    private static QueueTaskRecord find(List<QueueTaskRecord> records, String queueTaskId) {
-        return records.stream().filter(task -> task.queueTaskId().equals(queueTaskId)).findFirst().orElse(null);
+    private static Optional<QueueTaskRecord> find(List<QueueTaskRecord> records, String queueTaskId) {
+        return records.stream().filter(task -> task.queueTaskId().equals(queueTaskId)).findFirst();
     }
 
     private static List<QueueTaskRecord> replace(List<QueueTaskRecord> records, QueueTaskRecord replacement) {

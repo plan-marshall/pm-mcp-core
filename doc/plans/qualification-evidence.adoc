@@ -1,0 +1,34 @@
+= Qualification evidence
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `qualification-evidence`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 4 (the item _Grade a role with the evidence of its figures_)
+Where:: pm-core packages `core.role.qualification` (the topics, the scoring, the record and its codec) and `core.role.corpus` (the item members `target.costly_answers` and the tags `decided-by:<role>` and `derived:<skill>` of the imported item)
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* *Items left out of a grading.* A `draft` item tagged `decided-by:<role>` grades none of the roles it names until it is `confirmed`, and grades every other role; an item tagged `derived:<skill>` grades no configuration whose skill digests include the skill and is recorded apart as `derived`. Both are left out of `items`, the agreement and the constant baseline of the configurations they concern, never scored `0` (link:../specification/model-work/01-roles-and-configuration.adoc#qualification-topics[Model Work § Corpus Topics of a Role], Items Left Out of a Grading).
+* *Costly answers.* The costly subset of a topic (its `exact_choice` and `label` items with a non-empty `target.costly_answers`), its agreement as a second condition of validity in each form, the confusion matrix per reference answer with `none` for an item without an answer, and the count of costly answers given (link:../specification/model-work/01-roles-and-configuration.adoc#costly-answers[Model Work § Costly Answers]).
+* *How far a figure reaches.* Per topic the Wilson 95 % interval of the agreement, the mark `thin` below a compiled `20` graded items, and the agreement on `confirmed` items alone; none of them a condition of validity (link:../specification/model-work/01-roles-and-configuration.adoc#qualification-records[Model Work § Qualification Records]).
+* *The imported item.* `target.costly_answers` read into the imported item, and the Java validation's refusal of a costly answer that the item accepts or does not offer (link:../specification/model-work/01-roles-and-configuration.adoc#costly-answers[Model Work § Costly Answers]).
+* *The record.* The members `interval`, `thin`, `confirmed`, `costly`, `costly_answers`, `confusion`, and `derived` of every topic result, written and read by the codec (link:../specification/store-schemas/16-task-queue.adoc#qualification-record[Store Schemas § Role Qualification Record]).
+* *Kept, or owned elsewhere.* The corpus item schema with `target.costly_answers`, its validation, and the review of the corpus items that list costly answers are link:../../../plan-marshall-mcp/doc/plans/corpus-costly-answers-and-tags.adoc[`plan-marshall-mcp` / `corpus-costly-answers-and-tags`]'s; this package tests with fixture corpora. The tag `decided-by:<role>` written by the export and the exclusion in the quorum calibration are link:decision-quorum-and-calibration.adoc[`decision-quorum-and-calibration`]'s. The rendering of the figures in both clients is `pm-mcp-clients`'s.
+
+== Trace
+
+Requirements stay in `plan-marshall-documentation`; the specification sections and watch documents are those of this repository. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-6[PM-TEST-6]
+* Specification: link:../specification/model-work/01-roles-and-configuration.adoc#qualification-records[Model Work § Qualification Records], link:../specification/model-work/01-roles-and-configuration.adoc#costly-answers[§ Costly Answers], link:../specification/model-work/01-roles-and-configuration.adoc#qualification-topics[§ Corpus Topics of a Role]; link:../specification/store-schemas/16-task-queue.adoc#qualification-record[Store Schemas § Role Qualification Record]
+* Watch: link:../implementation-watch/model-work.adoc#PM-WATCH-DISP-70[PM-WATCH-DISP-70]
+
+== Done When
+
+A fixture corpus grades a role: a `draft` item `decided-by` the role is absent from its topics and present in another role's, and present in both once `confirmed`; a `derived:<skill>` item is recorded under `derived` only for a configuration bound to the skill and changes neither `items` nor the agreement.
+
+A topic of eight items, two of them listing costly answers, records `costly.items: 2`; a configuration right on the six others and wrong on both costly items does not qualify at a level of `80`, and one right on both costly items and wrong on one other does; a topic without costly items has `costly.items: 0` and no second condition; the confusion matrix counts every answer per reference with `none` for a lost answer.
+
+Seven of eight records `interval` 52.9 to 97.8 (one decimal) and `thin: true`; twenty items are not thin; the confirmed-only agreement counts only `confirmed` items and is `null` without them; a record round-trips through the codec with every new member.

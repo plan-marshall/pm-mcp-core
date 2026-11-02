@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.spi;
 
+import java.util.Optional;
+
 /**
  * One outcome of a primitive (PM-IMPL-5). The outcomes of a primitive are the constants of one enum that implements
  * this interface, so the set is closed: a workflow routes every constant, and nothing but a constant can be returned.
@@ -35,5 +37,16 @@ public interface PrimitiveOutcome {
      */
     default boolean startsJob() {
         return false;
+    }
+
+    /**
+     * @return the closed enum of reasons an outcome of this primitive may carry; empty when it carries none. Only an
+     *         outcome of class {@link OutcomeClass#FAILURE}, {@link OutcomeClass#INDETERMINATE} or
+     *         {@link OutcomeClass#SKIP} may declare one, and the registry refuses any other (PM-IMPL-5). The rule and
+     *         the closed table to conditions are stated in
+     *         {@code doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons}.
+     */
+    default Optional<Class<? extends OutcomeReason>> reasonType() {
+        return Optional.empty();
     }
 }

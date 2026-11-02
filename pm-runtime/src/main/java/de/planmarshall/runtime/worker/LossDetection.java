@@ -46,7 +46,7 @@ public final class LossDetection {
     private final WorkerTimers timers;
     private final Consumer<LossSignal> onLost;
     private @Nullable Instant lastCall;
-    private Instant ackFrom;
+    private Instant ackFrom = Instant.EPOCH;
     private boolean ackArmed;
     private boolean waitOpen;
     private boolean firstCallMade;

@@ -51,7 +51,7 @@ public final class PromptComposer {
     public LaunchPrompt compose(PromptRequest request) {
         Objects.requireNonNull(request, "request");
         if (request.zeroTool()) {
-            if (request.zeroToolPrompt() == null || request.zeroToolPrompt().isEmpty()) {
+            if (request.zeroToolPrompt().isEmpty()) {
                 throw new CompositionException("the zero_tool prompt of the role is empty");
             }
             return new LaunchPrompt(request.zeroToolPrompt(), ResolvedSkill.sha256(request.zeroToolPrompt()), List.of(),
