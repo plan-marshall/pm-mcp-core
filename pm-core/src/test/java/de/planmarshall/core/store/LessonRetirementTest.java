@@ -145,41 +145,41 @@ class LessonRetirementTest {
         @DisplayName("a completely_covered retirement needs a non-blank clause and input")
         void completelyCoveredMembers() {
             create();
+            var withoutClause = LessonFixtures.retirement(Verdict.COMPLETELY_COVERED).coveringClause(null).build();
+            var withoutInput = LessonFixtures.retirement(Verdict.COMPLETELY_COVERED).coveringInput(null).build();
+            var blankClause = LessonFixtures.retirement(Verdict.COMPLETELY_COVERED).coveringClause("  ").build();
+            var blankInput = LessonFixtures.retirement(Verdict.COMPLETELY_COVERED).coveringInput("\t").build();
 
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> retire(LessonFixtures
-                            .retirement(Verdict.COMPLETELY_COVERED).coveringClause(null).build())),
-                    () -> assertThrows(IllegalArgumentException.class, () -> retire(LessonFixtures
-                            .retirement(Verdict.COMPLETELY_COVERED).coveringInput(null).build())),
-                    () -> assertThrows(IllegalArgumentException.class, () -> retire(LessonFixtures
-                            .retirement(Verdict.COMPLETELY_COVERED).coveringClause("  ").build())),
-                    () -> assertThrows(IllegalArgumentException.class, () -> retire(LessonFixtures
-                            .retirement(Verdict.COMPLETELY_COVERED).coveringInput("\t").build())));
+                    () -> assertThrows(IllegalArgumentException.class, () -> retire(withoutClause)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> retire(withoutInput)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> retire(blankClause)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> retire(blankInput)));
         }
 
         @Test
         @DisplayName("into is set exactly for merged and superseded")
         void intoMembers() {
             create();
+            var mergedWithoutInto = LessonFixtures.retirement(Verdict.MERGED).into(null).build();
+            var supersededWithoutInto = LessonFixtures.retirement(Verdict.SUPERSEDED).into(null).build();
+            var appliedWithInto = LessonFixtures.retirement(Verdict.APPLIED)
+                    .into(new LessonId(LessonFixtures.WATCH_ID_NO_HEADER)).build();
 
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> retire(LessonFixtures.retirement(Verdict.MERGED).into(null).build())),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> retire(LessonFixtures.retirement(Verdict.SUPERSEDED).into(null).build())),
-                    () -> assertThrows(IllegalArgumentException.class, () -> retire(LessonFixtures
-                            .retirement(Verdict.APPLIED).into(new LessonId(LessonFixtures.WATCH_ID_NO_HEADER))
-                            .build())));
+                    () -> assertThrows(IllegalArgumentException.class, () -> retire(mergedWithoutInto)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> retire(supersededWithoutInto)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> retire(appliedWithInto)));
         }
 
         @Test
         @DisplayName("a retirement cannot record a presentation state the store does not retire")
         void presentUnreadableNeedsTheOperatorAct() {
             create();
+            var operatorOnly = LessonFixtures.retirement(Verdict.OBSOLETE)
+                    .lessonState(LessonState.PRESENT_UNREADABLE).build();
 
-            assertThrows(IllegalArgumentException.class,
-                    () -> retire(LessonFixtures.retirement(Verdict.OBSOLETE)
-                            .lessonState(LessonState.PRESENT_UNREADABLE).build()));
+            assertThrows(IllegalArgumentException.class, () -> retire(operatorOnly));
         }
 
         @Test

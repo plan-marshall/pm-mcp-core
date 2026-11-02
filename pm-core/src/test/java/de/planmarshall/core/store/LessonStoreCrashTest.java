@@ -13,6 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -408,7 +410,7 @@ class LessonStoreCrashTest {
                     () -> assertEquals(1, outcomes.stream()
                                     .filter(outcome -> outcome instanceof LessonResolution.Unavailable).count(),
                             "exactly one claim was refused"),
-                    () -> assertTrue(read(lessonId).orElseThrow().frontMatter().claim() != null,
+                    () -> assertNotNull(read(lessonId).orElseThrow().frontMatter().claim(),
                             "the lesson carries exactly one claim"));
         }
 
@@ -426,7 +428,7 @@ class LessonStoreCrashTest {
             var claimed = claim instanceof LessonResolution.Claimed;
             var retired = retirement instanceof LessonResolution.Retired;
             assertAll(
-                    () -> assertTrue(claimed != retired, "one transition won and one was refused"),
+                    () -> assertNotEquals(claimed, retired, "one transition won and one was refused"),
                     () -> assertTrue(claimed
                                     ? retirement instanceof LessonResolution.Unavailable claimRefused
                                     && claimRefused.refusal() == LessonResolution.Refusal.CLAIMED
@@ -489,7 +491,7 @@ class LessonStoreCrashTest {
                     store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK);
                     write.commit();
                     return true;
-                } catch (IllegalArgumentException | IllegalStateException refused) {
+                } catch (IllegalArgumentException | IllegalStateException _) {
                     return false;
                 }
             };
@@ -541,7 +543,7 @@ class LessonStoreCrashTest {
                     () -> assertEquals(1, outcomes.stream()
                                     .filter(outcome -> outcome instanceof LessonResolution.Unavailable).count(),
                             "exactly one retirement found the lesson retired"),
-                    () -> assertTrue(read(lessonId).orElseThrow().frontMatter().retired() != null,
+                    () -> assertNotNull(read(lessonId).orElseThrow().frontMatter().retired(),
                             "the lesson carries one retirement"));
         }
 

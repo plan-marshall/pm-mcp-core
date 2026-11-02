@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -118,7 +119,7 @@ class LessonResolverTest {
         var target = expectedPath(new LessonId(lessonId));
         try (InputStream resource = getClass().getResourceAsStream(
                      "/" + LessonFixtures.PORTED_DIRECTORY + "/" + lessonId + ".md")) {
-            assertTrue(resource != null, "the fixture " + lessonId + " is committed");
+            assertNotNull(resource, "the fixture " + lessonId + " is committed");
             Files.write(target, resource.readAllBytes());
         }
         return target;
@@ -377,8 +378,8 @@ class LessonResolverTest {
         @Test
         @DisplayName("unclaimed lists active, unclaimed lessons newest first and carries the untrusted mark")
         void unclaimed() {
-            var active = create(new LessonId("2026-11-02-09-001"));
-            var marked = inTransaction(write -> store.create(write, new LessonId("2026-11-02-09-002"),
+            create(new LessonId("2026-11-02-09-001"));
+            inTransaction(write -> store.create(write, new LessonId("2026-11-02-09-002"),
                     LessonFixtures.newLesson().derivedFromUntrusted(true).build(), CLOCK));
             var claimed = create(new LessonId("2026-11-02-09-003"));
             run(write -> store.claim(write, claimed.frontMatter().lessonId(), "a-plan", CLOCK.instant()));

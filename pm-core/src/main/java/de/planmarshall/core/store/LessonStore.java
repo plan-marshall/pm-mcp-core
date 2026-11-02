@@ -75,6 +75,8 @@ public final class LessonStore {
 
     private static final DateTimeFormatter HOUR = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH").withZone(ZoneOffset.UTC);
     private static final String FIRST_SEQUENCE = "001";
+    private static final String LESSON_ID = "lessonId";
+    private static final String PLAN_ID = "planId";
     private static final Comparator<LessonId> BY_VALUE = Comparator.comparing(LessonId::value);
 
     private final JournalScope scope;
@@ -157,7 +159,7 @@ public final class LessonStore {
      */
     public Lesson create(ScopeTransaction transaction, LessonId lessonId, NewLesson newLesson, Clock clock) {
         requireOwnScope(transaction);
-        Objects.requireNonNull(lessonId, "lessonId");
+        Objects.requireNonNull(lessonId, LESSON_ID);
         Objects.requireNonNull(newLesson, "newLesson");
         if (recordedEntry(storePath(lessonId))) {
             throw new IllegalArgumentException("The lesson %s was recorded already and is never created again"
@@ -209,7 +211,7 @@ public final class LessonStore {
      * @throws UncheckedIOException if a file of the store exists and cannot be read
      */
     public LessonResolution get(LessonId lessonId) {
-        Objects.requireNonNull(lessonId, "lessonId");
+        Objects.requireNonNull(lessonId, LESSON_ID);
         var relative = storePath(lessonId);
         var file = store(lessonId);
         var snapshot = ScopeIntegrity.snapshot(scope, relative);
@@ -238,15 +240,16 @@ public final class LessonStore {
      */
     public LessonResolution get(ScopeTransaction transaction, LessonId lessonId) {
         requireOwnScope(transaction);
-        Objects.requireNonNull(lessonId, "lessonId");
+        Objects.requireNonNull(lessonId, LESSON_ID);
         var file = store(lessonId);
         var verification = ScopeIntegrity.verify(transaction.lockTransaction(), scope, storePath(lessonId),
                 transaction.auditSink());
         return switch (verification) {
             case ScopeIntegrity.Verified verified -> verified(lessonId, file, verified);
             case ScopeIntegrity.Absent _ -> new LessonResolution.Absent(lessonId);
-            case ScopeIntegrity.Mismatch mismatch -> mismatch.current().isPresent()
-                    ? new LessonResolution.StoreTampered(lessonId, file, mismatch.recorded(), mismatch.current())
+            case ScopeIntegrity.Mismatch(String store, StoreDigest recorded, Optional<StoreDigest> current)
+                -> current.isPresent()
+                    ? new LessonResolution.StoreTampered(lessonId, file, recorded, current)
                     : new LessonResolution.DeletedOutOfBand(lessonId);
             case ScopeIntegrity.Untracked _ -> new LessonResolution.Untracked(lessonId, file);
             case JournalRecovery.InvariantViolation violation -> throw StoreRefusal.unreadable(scope.journalFile(),
@@ -310,7 +313,7 @@ public final class LessonStore {
      * @see #claims()
      */
     public List<LessonResolution.Found> claimedBy(String planId) {
-        Objects.requireNonNull(planId, "planId");
+        Objects.requireNonNull(planId, PLAN_ID);
         return claims().claimed().stream()
                 .filter(found -> planId.equals(found.lesson().frontMatter().claim().planId()))
                 .toList();
@@ -444,7 +447,7 @@ public final class LessonStore {
     public LessonResolution.Outcome claim(ScopeTransaction transaction, LessonId lessonId, String planId,
             Instant now) {
         requireOwnScope(transaction);
-        Objects.requireNonNull(planId, "planId");
+        Objects.requireNonNull(planId, PLAN_ID);
         Objects.requireNonNull(now, "now");
         var resolution = get(transaction, lessonId);
         if (!(resolution instanceof LessonResolution.Found found)) {
@@ -478,7 +481,7 @@ public final class LessonStore {
      */
     public LessonResolution.Outcome release(ScopeTransaction transaction, LessonId lessonId, String planId) {
         requireOwnScope(transaction);
-        Objects.requireNonNull(planId, "planId");
+        Objects.requireNonNull(planId, PLAN_ID);
         var resolution = get(transaction, lessonId);
         if (!(resolution instanceof LessonResolution.Found found)) {
             return unavailable(resolution);
@@ -517,7 +520,7 @@ public final class LessonStore {
     public LessonResolution.Outcome endClaimApplied(ScopeTransaction transaction, LessonId lessonId, String planId,
             Instant now) {
         requireOwnScope(transaction);
-        Objects.requireNonNull(planId, "planId");
+        Objects.requireNonNull(planId, PLAN_ID);
         Objects.requireNonNull(now, "now");
         var resolution = get(transaction, lessonId);
         if (!(resolution instanceof LessonResolution.Found found)) {
@@ -667,8 +670,8 @@ public final class LessonStore {
      * @return whether the candidate is higher: a longer digit string is a higher number, then the digits compare
      */
     private static boolean isHigher(String candidate, String current) {
-        return candidate.length() != current.length() ? candidate.length() > current.length()
-                : candidate.compareTo(current) > 0;
+        return candidate.length() == current.length() ? candidate.compareTo(current) > 0
+                : candidate.length() > current.length();
     }
 
     /** @param sequence a sequence of the hour; @return the next one, a digit longer when every digit was a nine */

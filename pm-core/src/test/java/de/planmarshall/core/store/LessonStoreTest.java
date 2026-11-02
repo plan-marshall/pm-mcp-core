@@ -100,6 +100,11 @@ class LessonStoreTest {
         });
     }
 
+    /** Creates a lesson in its own transaction, as a start does; asserted refusals call this in one invocation. */
+    private void createInTransaction(LessonId lessonId, LessonStore.NewLesson newLesson) {
+        run(write -> store.create(write, lessonId, newLesson, CLOCK));
+    }
+
     /**
      * Runs work in a transaction of its own and does NOT commit it: a transition that changes nothing adds no target,
      * so a commit would be refused. The transaction is closed without writing, which is what the store leaves behind
@@ -125,20 +130,13 @@ class LessonStoreTest {
         return LockKey.projectStore(base, PROJECT).resolve("lessons").resolve(lessonId.fileName());
     }
 
-    private void recover() {
-        try (var transaction = locks.openTransaction()) {
-            transaction.acquire(lessons.lockKey());
-            JournalRecovery.recover(transaction, lessons, audit);
-        }
-    }
-
     @Nested
     @DisplayName("creation")
     class Creation {
 
         @Test
         @DisplayName("writes the lesson as the codec's bytes, with its sidecar entry and no journal left")
-        void created() throws Exception {
+        void created() {
             var lessonId = new LessonId(CREATED_ID);
 
             var created = inTransaction(write -> store.create(write, lessonId,
@@ -205,9 +203,10 @@ class LessonStoreTest {
             var lessonId = new LessonId(CREATED_ID);
             run(write -> store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK));
             var existing = Files.readAllBytes(expectedPath(lessonId));
+            var replacement = LessonFixtures.newLesson().build();
 
             var refusal = assertThrows(IllegalArgumentException.class,
-                    () -> run(write -> store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK)));
+                    () -> createInTransaction(lessonId, replacement));
 
             assertAll(
                     () -> assertTrue(refusal.getMessage().contains(lessonId.value()), refusal::getMessage),
@@ -219,14 +218,14 @@ class LessonStoreTest {
         @DisplayName("of a lesson the same transaction holds already is refused while it is collected")
         void sameTransactionTwice() {
             var lessonId = new LessonId(CREATED_ID);
+            var twice = LessonFixtures.newLesson().build();
 
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(lessons.lockKey());
                 var write = ScopeTransaction.open(transaction, lessons, audit, CLOCK);
-                store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK);
+                store.create(write, lessonId, twice, CLOCK);
 
-                assertThrows(IllegalArgumentException.class,
-                        () -> store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK));
+                assertThrows(IllegalArgumentException.class, () -> store.create(write, lessonId, twice, CLOCK));
             }
         }
 
@@ -235,18 +234,19 @@ class LessonStoreTest {
         void otherScope() throws Exception {
             var plan = JournalScope.plan(base, PROJECT, "a-plan");
             Files.createDirectories(plan.journalFile().getParent());
+            var lessonId = new LessonId(CREATED_ID);
+            var newLesson = LessonFixtures.newLesson().build();
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(plan.lockKey());
                 var write = ScopeTransaction.open(transaction, plan, audit, CLOCK);
 
                 assertAll(
-                        () -> assertThrows(IllegalArgumentException.class, () -> store.create(write,
-                                new LessonId(CREATED_ID), LessonFixtures.newLesson().build(), CLOCK)),
+                        () -> assertThrows(IllegalArgumentException.class,
+                                () -> store.create(write, lessonId, newLesson, CLOCK)),
                         () -> assertThrows(IllegalArgumentException.class, () -> store.allocate(write, CLOCK)),
+                        () -> assertThrows(IllegalArgumentException.class, () -> store.get(write, lessonId)),
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> store.get(write, new LessonId(CREATED_ID))),
-                        () -> assertThrows(IllegalArgumentException.class,
-                                () -> store.claim(write, new LessonId(CREATED_ID), "a-plan", NOW)));
+                                () -> store.claim(write, lessonId, "a-plan", NOW)));
             }
         }
 
@@ -605,15 +605,14 @@ class LessonStoreTest {
         @DisplayName("a create writes an absent id and is refused over every state that has a file")
         void createEveryCell(Cell cell) throws Exception {
             arrange(cell);
+            var replacement = LessonFixtures.newLesson().build();
 
             if (cell == Cell.ABSENT) {
-                var created = inTransaction(write -> store.create(write, TABLE_ID,
-                        LessonFixtures.newLesson().build(), CLOCK));
+                var created = inTransaction(write -> store.create(write, TABLE_ID, replacement, CLOCK));
                 assertEquals(TABLE_ID, created.frontMatter().lessonId(), "an absent id is created");
                 return;
             }
-            assertThrows(RuntimeException.class, () -> run(write -> store.create(write, TABLE_ID,
-                    LessonFixtures.newLesson().build(), CLOCK)));
+            assertThrows(RuntimeException.class, () -> createInTransaction(TABLE_ID, replacement));
             assertEquals(1, store.list().size(), "the refused create wrote no second lesson");
         }
 
@@ -623,9 +622,10 @@ class LessonStoreTest {
             var lessonId = new LessonId("2026-10-13-09-510");
             inTransaction(write -> store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK));
             Files.delete(expectedPath(lessonId));
+            var replacement = LessonFixtures.newLesson().build();
 
-            var refusal = assertThrows(IllegalArgumentException.class, () -> run(write -> store.create(write, lessonId,
-                    LessonFixtures.newLesson().build(), CLOCK)));
+            var refusal = assertThrows(IllegalArgumentException.class,
+                    () -> createInTransaction(lessonId, replacement));
             assertAll(
                     () -> assertTrue(refusal.getMessage().contains(lessonId.value()), refusal::getMessage),
                     () -> assertEquals(LessonResolution.State.DELETED_OUT_OF_BAND, store.get(lessonId).state(),

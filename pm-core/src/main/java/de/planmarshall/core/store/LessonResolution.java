@@ -43,6 +43,12 @@ import lombok.Builder;
  */
 public sealed interface LessonResolution {
 
+    /** The name of the id component in the refusal messages of the records of this type. */
+    String LESSON_ID = "lessonId";
+
+    /** The name of the lesson component in the refusal messages of the records of this type. */
+    String LESSON = "lesson";
+
     /** @return the lesson this resolution is about, the id it is listed under */
     LessonId lessonId();
 
@@ -98,8 +104,8 @@ public sealed interface LessonResolution {
 
         /** @throws NullPointerException if a component is {@code null} */
         public Found {
-            Objects.requireNonNull(lessonId, "lessonId");
-            Objects.requireNonNull(lesson, "lesson");
+            Objects.requireNonNull(lessonId, LESSON_ID);
+            Objects.requireNonNull(lesson, LESSON);
             Objects.requireNonNull(path, "path");
             Objects.requireNonNull(integrity, "integrity");
         }
@@ -120,7 +126,7 @@ public sealed interface LessonResolution {
 
         /** @throws NullPointerException if the id is {@code null} */
         public Absent {
-            Objects.requireNonNull(lessonId, "lessonId");
+            Objects.requireNonNull(lessonId, LESSON_ID);
         }
 
         @Override
@@ -145,7 +151,7 @@ public sealed interface LessonResolution {
 
         /** @throws NullPointerException if a component is {@code null} */
         public PresentUnreadable {
-            Objects.requireNonNull(lessonId, "lessonId");
+            Objects.requireNonNull(lessonId, LESSON_ID);
             Objects.requireNonNull(path, "path");
             Objects.requireNonNull(reason, "reason");
             Objects.requireNonNull(detail, "detail");
@@ -170,8 +176,8 @@ public sealed interface LessonResolution {
 
         /** @throws NullPointerException if a component is {@code null} */
         public EmptyShell {
-            Objects.requireNonNull(lessonId, "lessonId");
-            Objects.requireNonNull(lesson, "lesson");
+            Objects.requireNonNull(lessonId, LESSON_ID);
+            Objects.requireNonNull(lesson, LESSON);
             Objects.requireNonNull(path, "path");
         }
 
@@ -198,7 +204,7 @@ public sealed interface LessonResolution {
 
         /** @throws NullPointerException if a component is {@code null} */
         public StoreTampered {
-            Objects.requireNonNull(lessonId, "lessonId");
+            Objects.requireNonNull(lessonId, LESSON_ID);
             Objects.requireNonNull(path, "path");
             Objects.requireNonNull(recorded, "recorded");
             Objects.requireNonNull(current, "current");
@@ -221,7 +227,7 @@ public sealed interface LessonResolution {
 
         /** @throws NullPointerException if the id is {@code null} */
         public DeletedOutOfBand {
-            Objects.requireNonNull(lessonId, "lessonId");
+            Objects.requireNonNull(lessonId, LESSON_ID);
         }
 
         @Override
@@ -241,7 +247,7 @@ public sealed interface LessonResolution {
 
         /** @throws NullPointerException if a component is {@code null} */
         public Untracked {
-            Objects.requireNonNull(lessonId, "lessonId");
+            Objects.requireNonNull(lessonId, LESSON_ID);
             Objects.requireNonNull(path, "path");
         }
 
@@ -274,7 +280,7 @@ public sealed interface LessonResolution {
 
         /** @throws NullPointerException if the lesson is {@code null} */
         public Claimed {
-            Objects.requireNonNull(lesson, "lesson");
+            Objects.requireNonNull(lesson, LESSON);
         }
 
         @Override
@@ -293,7 +299,7 @@ public sealed interface LessonResolution {
 
         /** @throws NullPointerException if the lesson is {@code null} */
         public Released {
-            Objects.requireNonNull(lesson, "lesson");
+            Objects.requireNonNull(lesson, LESSON);
         }
 
         @Override
@@ -313,7 +319,7 @@ public sealed interface LessonResolution {
 
         /** @throws NullPointerException if the lesson is {@code null} */
         public Retired {
-            Objects.requireNonNull(lesson, "lesson");
+            Objects.requireNonNull(lesson, LESSON);
         }
 
         @Override
@@ -332,7 +338,7 @@ public sealed interface LessonResolution {
 
         /** @throws NullPointerException if the lesson is {@code null} */
         public Revised {
-            Objects.requireNonNull(lesson, "lesson");
+            Objects.requireNonNull(lesson, LESSON);
         }
 
         @Override
@@ -359,7 +365,7 @@ public sealed interface LessonResolution {
          *                                  {@link Refusal#CLAIMED}, or none for {@link Refusal#CLAIMED}
          */
         public Unavailable {
-            Objects.requireNonNull(lessonId, "lessonId");
+            Objects.requireNonNull(lessonId, LESSON_ID);
             Objects.requireNonNull(refusal, "refusal");
             if ((refusal == Refusal.CLAIMED) != (claimingPlan != null)) {
                 throw new IllegalArgumentException(
@@ -395,6 +401,7 @@ public sealed interface LessonResolution {
         /** The transition needs the caller's claim and the lesson carries none. */
         UNCLAIMED(null);
 
+        @Nullable
         private final State state;
 
         Refusal(@Nullable State state) {
