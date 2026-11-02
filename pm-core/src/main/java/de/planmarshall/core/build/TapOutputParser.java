@@ -111,10 +111,10 @@ public class TapOutputParser {
             var cursor = new Cursor(index + 1);
             var block = yamlBlock(lines, cursor);
             index = cursor.index;
-            if (testName.isBlank()) {
+            String message = block.errorMessage().isEmpty() ? testName : block.errorMessage();
+            if (message.isBlank()) {
                 continue;
             }
-            String message = block.errorMessage().isEmpty() ? testName : block.errorMessage();
             Location location = location(block.location());
             var diagnostic = new Diagnostic(location.file(), location.line(), null,
                     DiagnosticCollector.stored(message), Category.TEST_FAILURE, Severity.ERROR,

@@ -66,14 +66,30 @@ class TapOutputParserTest extends ParsedBuildPortedTest {
     }
 
     @Test
-    @DisplayName("ignores a not-ok line that names no test")
+    @DisplayName("ignores a not-ok line that carries no message at all")
     void ignoresABlankTestName() {
         ParsedBuild build = TapOutputParser.parse(
                 "not ok 1 -   \n# tests 1\n# pass 0\n# fail 1\n# skipped 0\n");
 
         assertAll(
-                () -> assertEquals(0, build.diagnostics().size(), "A line with no test identity files nothing"),
+                () -> assertEquals(0, build.diagnostics().size(), "A line with no identity and no message files nothing"),
                 () -> assertEquals(BuildStatus.SUCCESS, build.status(), "No filed diagnostic means no red status"));
+    }
+
+    @Test
+    @DisplayName("files a nameless not-ok block that carries its own error")
+    void filesANamelessBlockWithAnError() {
+        ParsedBuild build = TapOutputParser.parse("not ok 1 -  \n"
+                + "  ---\n"
+                + "  location: '/p/a.js:4:2'\n"
+                + "  error: 'boom'\n"
+                + "  ...\n"
+                + "# tests 1\n# pass 0\n# fail 1\n# skipped 0\n");
+
+        assertAll(
+                () -> assertEquals(1, build.diagnostics().size(), "The block's own error is filed"),
+                () -> assertEquals("boom", build.diagnostics().getFirst().message(), "The YAML error is the message"),
+                () -> assertEquals("/p/a.js", build.diagnostics().getFirst().file(), "The location names the file"));
     }
 
     @Override
