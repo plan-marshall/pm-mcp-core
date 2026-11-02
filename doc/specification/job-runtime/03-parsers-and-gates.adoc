@@ -9,46 +9,11 @@
 link:../../Specification.adoc[Specification] » link:../job-runtime.adoc[Job Runtime Specification] » Build Output Parsers, Timeouts, Gate Honesty & Ingestion Validator
 
 == Native Build Output Parsers
-_Implementation watch: link:../../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-11[PM-WATCH-JOB-11], link:../../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-12[PM-WATCH-JOB-12]_
-
-When a build completes with a non-zero exit code or compiler warnings, the runtime extracts structured diagnostics without calling external Python scripts (`PM-IMPL-6`). Each compiled parser ports one `plan-marshall` parser module (`marketplace/bundles/plan-marshall/skills/build-*/scripts/`, plus the domain-owned OpenRewrite parser) and is verified by Java tests whose test data and expected values are derived from that module and its pytest suite (`PM-TEST-2`):
-
-[cols="2,2,3,3"]
-|===
-|Parser |`plan-marshall` Module |Parser Strategy |Diagnostic Extractions
-
-|*npm errors*
-|`build-npm/_npm_parse_errors.py`
-|Scanner over `npm ERR!` lines, classifying error codes (`ERESOLVE`, `E404`, and others).
-|Error code, conflicting package / peer dependency, message.
-
-|*TypeScript*
-|`build-npm/_npm_parse_typescript.py`
-|Scanner over `tsc` diagnostics in both `path(line,col): error TSnnnn: message` and `path:line:col - error TSnnnn: message` forms.
-|File path, line, column, `TS` code, message.
-
-|*ESLint*
-|`build-npm/_npm_parse_eslint.py`
-|Scanner over the stylish formatter output (file header lines followed by `line:col severity message rule` rows) and the problem summary.
-|File path, line, column, severity, rule ID, message; error and warning counts.
-
-|*Jest*
-|`build-npm/_npm_parse_jest.py`
-|Scanner over `FAIL <suite>` blocks and the `Tests:` summary line.
-|Failing test file and test name, failure message; test counts.
-
-|*TAP*
-|`build-npm/_npm_parse_tap.py`
-|Scanner over `not ok N - <name>` lines and the `# tests` / `# pass` / `# fail` / `# skipped` summary.
-|Failing test name; test counts.
-
-|*Python (pyproject)*
-|`build-pyproject/_pyproject_cmd_parse.py`
-|Tool-detecting scanner for pytest (`FAILED` and collection/setup `ERROR` short-summary lines, with the deepest traceback frame for the location), ruff (`path:line:col: CODE message`), and mypy (`path:line: error: message`).
-|File path, line, rule code or test node ID, message; test counts.
-|===
+When a build completes with a non-zero exit code or compiler warnings, the runtime extracts structured diagnostics without calling external Python scripts (`PM-IMPL-6`). Each compiled parser ports one `plan-marshall` parser module (`marketplace/bundles/plan-marshall/skills/build-*/scripts/`, plus the domain-owned OpenRewrite parser) and is verified by Java tests whose test data and expected values are derived from that module and its pytest suite (`PM-TEST-2`).
 
 These rules bind every parser of this section: test counts are aggregated over every summary block of a multi-module run; a successful build whose summaries cannot be aggregated reports `tests_population: unmeasured` and no test count, never `tests_run: 0`; a `no_tests_ran` verdict requires the tool's positive marker, never a zero count; failure-trailer advice lines (`Re-run Maven using the -X switch…`, `[Help 1] http…`, `After correcting the problems, you can resume the build…`, `mvn <args> -rf :<module>`) are dropped, each matched whole against a compiled pattern table, so a reworded line is filed again rather than a genuine diagnostic being dropped silently; and an unrecognised `[ERROR]` line is categorised `unrecognized`, never assigned a real category. The trailer drop and the passing-count skip are the `plan-marshall` parsers' own behaviour, held by the port rather than changed. Five behaviours are deliberate changes against those parsers, each verified by its own fixture and listed in link:../../../pm-core/doc/adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR `core-build/002`]: `unrecognized` for an unmatched `[ERROR]` line, an unmeasured test population that carries no number, a `no_tests_ran` verdict only from the tool's positive marker, the Gradle counts summed over every block, and an OpenRewrite format drift reported as `parse_error` rather than as zero findings.
+
+The npm, TypeScript, ESLint, Jest, TAP and pyproject parsers (pytest, ruff and mypy) hold these rules and add the changes link:../../../pm-core/doc/adr/core-build/003-the-six-remaining-parsers-and-their-deliberate-changes.adoc[ADR `core-build/003`] records, each with its own fixture: one npm diagnostic per error block; both `tsc` forms scanned over every line; the ESLint problem summary reported beside the rows it cannot place; every Jest, TAP and pytest summary block summed; a contradictory summary reported `unmeasured`; and for pytest the location taken from the deepest traceback frame, the xdist `@<group>` suffix stripped before the block lookup, and no test count for a filter that matched nothing. The developer guide carries the parser-by-parser detail (link:../../../pm-core/doc/developer/core-build.adoc[`core.build` Developer Guide]).
 
 Coverage reports are parsed separately (<<Native Coverage Report Parsers>>).
 

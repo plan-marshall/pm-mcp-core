@@ -1,0 +1,123 @@
+= ADR 003: The Six Remaining Parsers and Their Deliberate Changes
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-02
+
+== Context
+
+The second half of package `build-parsers-and-gate-honesty` ports the six remaining `plan-marshall` parser modules:
+npm errors, TypeScript, ESLint, Jest, TAP and the pyproject log of pytest, ruff and mypy. The result model
+(`ParsedBuild`, `Diagnostic`, `TestCounts`, `TestsPopulation`), the counts rules and the `no_tests_ran` rule were
+delivered by PLAN-V2-08 and bind these six as the specification states; ADR `core-build/002` records the deliberate
+changes of the JVM parsers.
+
+Reading the six originals against the model surfaced a second set of choices. Some are defects the model's rules
+already forbid — an unmeasured population that still carries numbers, a summary line read first or last rather than
+aggregated, a test identity lost to a transport suffix. One is a form the original silently drops. One is a fact the
+original defines a pattern for and never reads.
+
+== Decision
+
+The port reproduces each original's parsing and changes twelve behaviours on purpose, one per `deliberate:` fixture:
+
+[cols="2,3",options="header"]
+|===
+|Change |Asserted by
+
+|One npm diagnostic per `npm ERR! code` block. The original reads the first code line only and files at most one
+diagnostic, so every later block of a log is lost.
+|`ported/build/npm-errors/deliberate-npm-second-error-block.txt`
+
+|Both `tsc` diagnostic forms are scanned over every line. The original scans the `path:line:col - error ...` form only
+when the parenthesized form yielded nothing, so a log that mixes the forms loses every colon-separated diagnostic.
+|`ported/build/npm-typescript/deliberate-npm-typescript-both-forms.txt`
+
+|The ESLint problem summary is parsed and reported as `EslintResult.ProblemCounts`. The original defines the pattern and
+never reads it, so the counts the formatter printed are lost — including the problems its row pattern cannot place.
+|`ported/build/npm-eslint/deliberate-eslint-summary-beside-rows.txt`
+
+|Every Jest `Tests:` block is summed. The original reads the first block, so a monorepo run that prints one block per
+package reports the first package's counts.
+|`ported/build/npm-jest/deliberate-jest-two-test-blocks.txt`
+
+|A `Tests:` block whose total is not the sum of its parts is `TestCounts.Unmeasured`. The original publishes the block's
+`total` beside zero parts.
+|`ported/build/npm-jest/deliberate-jest-unmeasured-tests.txt`
+
+|Every TAP summary block is summed. The original reads the first occurrence of each summary line.
+|`ported/build/npm-tap/deliberate-tap-two-blocks.txt`
+
+|A measured zero is a measurement. TAP prints no positive "no tests" marker, so a filter that matched nothing reports
+`# tests 0` as a measured zero and never a `no_tests_ran` verdict (PM-WATCH-JOB-11).
+|`ported/build/npm-tap/deliberate-tap-zero-tests.txt`
+
+|A pytest diagnostic's location is the deepest traceback frame of its block — where the failure originated — rather
+than the test file's own frame. The block's captured-output sections are excluded from the search.
+|`ported/build/pyproject/deliberate-pyproject-deepest-frame.txt`
+
+|A pytest-xdist `@<group>` suffix is stripped from a node id before the block is looked up. The original matches the raw
+summary id against a header that does not carry the suffix, so the block is never found and the record degrades to a terse
+message with no line (PM-WATCH-JOB-12).
+|`ported/build/pyproject/deliberate-pyproject-xdist-group.txt`
+
+|Every pytest summary line is summed rather than the last one read, so a matrix run reports the sum of its runs.
+|`ported/build/pyproject/deliberate-pyproject-multi-summary.txt`
+
+|A filter that matched nothing reports no test count at all: pytest's `no tests ran` summary carries none, and the port
+never substitutes a zero.
+|`ported/build/pyproject/deliberate-pyproject-no-tests.txt`
+
+|The ESLint row is placed without the original's backtracking expression: the rule is the last token of the line and the
+message the text before its whitespace run, so a hostile line cannot make the parse polynomial.
+|`ported/build/npm-eslint/npm-eslint-errors.txt` (the two rows the rule cannot place), `deliberate-eslint-summary-beside-rows.txt`
+|===
+
+Everything else is held as in the original, including the behaviours that look surprising:
+
+* An npm generic error's message is the block's first reportable line, and that line is the `npm ERR! code` line itself,
+  so the message reads `CODE: code CODE`. The original does the same, because its first-line scan starts at the code line.
+* The npm peer-conflict trailer is only named when the version range carries no space, because the original's
+  `peer (\S+) from (\S+)` capture cannot take one. A range such as `^16.8.0 || ^17.0.0` therefore falls back to the
+  tree-level message.
+* ESLint's file-header pattern accepts an absolute path, a Windows drive path and a `./`, `../` or `/`-prefixed path. A
+  bare relative path such as `src/file.ts` is no header, as in the original.
+* TAP's `.strip('\'"')` removes every quote character from both ends of a YAML value, so an `error` value that itself
+  ends in a double quote loses it.
+* A pytest `FAILED` line's node-id capture stops at the first space, so a parametrized id containing one is reported
+  truncated on a `FAILED` line. The `ERROR` line's node id is split outside brackets and keeps its spaces.
+* The pytest `ERROR` message precedence is the summary tail, then the block's `E` gutter, then a terse restatement of the
+  test name or the file.
+
+== Alternatives Considered
+
+1. *Port every behaviour unchanged.* Not taken: it would leave the model's aggregation and unmeasured rules violated in
+   half the package, and the specification names the corrected behaviour as the requirement.
+2. *Fix the quote stripping, the spaced-node-id `FAILED` capture and the ESLint file-header strictness as well.* Not
+   taken in this plan: none is a defect the specification or the watch names, and each would make the port's expected
+   values disagree with the original's for no recorded benefit. They are named above so a later change can take them
+   deliberately.
+3. *Model the ESLint summary as a field of `ParsedBuild`.* Not taken: the summary is a fact about the formatter's report,
+   not about the build's test population, and adding a component to the shared record would split every other parser's
+   contract for one tool. `EslintResult` carries it beside the parsed build instead.
+
+== Consequences
+
+A consumer that compares a `plan-marshall` result with this one sees the twelve differences of the table plus the six
+held surprises, and no others. A change of any ported behaviour must now either keep its fixture green or change the
+fixture and this record with it.
+
+The counts rules are now implemented for all nine parsers, so PM-WATCH-JOB-11 and PM-WATCH-JOB-12 have a named test each
+and are deleted from the implementation watch; the specification's table of the six parsers is replaced by the
+"Implemented by" paragraph that points at the developer guide.
+
+== Source
+
+Work package `doc/plans/build-parsers-and-gate-honesty.adoc`; plan `PLAN-V2-28-native-build-parsers-npm-and-python`;
+specification `doc/specification/job-runtime/03-parsers-and-gates.adoc` § Native Build Output Parsers; watch items
+PM-WATCH-JOB-11 and PM-WATCH-JOB-12 (closed here and deleted from the watch document); requirement `PM-TEST-2`.

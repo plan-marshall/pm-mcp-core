@@ -16,17 +16,20 @@
  * aggregation the parser cannot make is {@link de.planmarshall.core.build.TestCounts.Unmeasured} and carries no number,
  * and a {@code no_tests_ran} verdict needs the tool's own positive marker.
  * <p>
- * The parsers delivered so far are {@link de.planmarshall.core.build.MavenOutputParser}, {@link
- * de.planmarshall.core.build.GradleOutputParser} and {@link de.planmarshall.core.build.OpenRewriteLogParser}; each is
+ * The parsers of the package are {@link de.planmarshall.core.build.MavenOutputParser}, {@link
+ * de.planmarshall.core.build.GradleOutputParser}, {@link de.planmarshall.core.build.OpenRewriteLogParser}, {@link
+ * de.planmarshall.core.build.NpmErrorParser}, {@link de.planmarshall.core.build.TypeScriptOutputParser}, {@link
+ * de.planmarshall.core.build.EslintOutputParser}, {@link de.planmarshall.core.build.JestOutputParser}, {@link
+ * de.planmarshall.core.build.TapOutputParser} and {@link de.planmarshall.core.build.PyprojectOutputParser}; each is
  * ported from the {@code plan-marshall} parser module of the same tool, and its tests are ported from that module's
- * pytest suite. The npm, TypeScript, ESLint, Jest, TAP and Python parsers are not implemented yet.
+ * pytest suite.
  * <p>
  * The category table of the JVM parsers is compiled once, in {@link de.planmarshall.core.build.JvmCategoryPatterns}, and
  * shared by Maven and Gradle. The port reproduces the originals' parsing, and every behaviour it changes on purpose — an
  * {@code [ERROR]} line no pattern recognises is {@link de.planmarshall.core.build.Category#UNRECOGNIZED}, an unmeasured
- * population carries no number, a {@code no_tests_ran} verdict needs the tool's own marker, the Gradle counts sum every
- * test-task block, and a format drift is never read as zero findings — has a fixture of its own and is listed in
- * {@code pm-core/doc/adr/core-build/002}.
+ * population carries no number, a {@code no_tests_ran} verdict needs the tool's own marker, every test summary block is
+ * summed, and a format drift is never read as zero findings — has a fixture of its own and is listed in
+ * {@code pm-core/doc/adr/core-build/002} and {@code pm-core/doc/adr/core-build/003}.
  * <p>
  * Specification: {@code doc/specification/job-runtime/03-parsers-and-gates.adoc}. Developer guide:
  * {@code pm-core/doc/developer/core-build.adoc}. The decisions of the package are recorded in

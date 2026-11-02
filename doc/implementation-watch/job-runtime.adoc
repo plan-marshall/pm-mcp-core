@@ -84,7 +84,7 @@ link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-5[PM-ARC
 Hazard:: A forked finalize agent inherited the worktree as its working directory and could not finish
 branch-cleanup.
 Guard:: The branch-cleanup job spec runs `git worktree remove` with the main checkout as working directory; a test
-asserts it, and a relay or harness started inside the worktree does not affect it (jobs never inherit the harness's
+asserts it, and a relay or host started inside the worktree does not affect it (jobs never inherit the host's
 working directory).
 Fixture:: forked finalize agent with its working directory inside `.plan/local/worktrees/<plan_id>/` (lesson
 `2026-09-20-08-010`).
@@ -101,7 +101,7 @@ Hazard:: A wait budget passed as an iteration count expired in seconds and repor
 running; a wait at its ceiling could not tell waiting from re-polling finished work; wait cost was invisible.
 Guard:: Engine waits use monotonic wall-clock deadlines (test with fast pollers); an exhausted poll is `unproven`,
 not absent; the only calls a model holds open are a worker's `pm_wait` and a running `pm_build`: a `pm_wait` returns
-an offer, `wait_again`, or `end` within its harness's bounded window and never fails with a transport timeout, a
+an offer, `wait_again`, or `end` within its host's bounded window and never fails with a transport timeout, a
 `pm_build` whose window ends with the build still running returns `status: running` with its `job_id`, and a
 `pm_build` continuing on an unknown or finished `job_id`, or one of another scope, is refused `invalid_arguments`;
 time deferred by a provider rate limit is attributed
@@ -170,7 +170,7 @@ Hazard:: A wait without a reason is reported under a catch-all or not at all, an
 hides that its wait was renamed or removed, so the wait figures of `record-metrics` no longer say where a plan's
 time went.
 Guard:: Coverage test over the compiled units: every waiting state and waiting primitive (job states, model slot
-wait, operator waits (decisions and waiver requests), the pause, the integrity hold, review-bot windows, merge-queue wait, merge-mutex admission, server retry backoff,
+wait, operator waits (decisions and waiver requests), the pause, the integrity pause, review-bot windows, merge-queue wait, merge-mutex admission, server retry backoff,
 provider rate-limit deferral, prerequisite wait) maps to exactly one value of the closed enum, and every enum value
 is the reason of at least one of them; `deliberate` is `true` exactly for the operator wait, the pause, the
 prerequisite wait, and the rate-window waits. Matched control: a fixture state that waits without a mapped reason fails the test.
@@ -208,7 +208,7 @@ Guard:: On Linux with Landlock, a job fixture of project A writes into the enrol
 `<PM_MCP_BASE>` (an enrolment file and a machine-store file), and each write fails with a permission error; positive
 control: the same job writes into its own project root, one of its worktrees, `.marshall/local/temp/`, a declared
 toolchain cache, and `/tmp`, and each write succeeds; for a worker (kind `llm`) additionally the harness sub-paths
-its harness profile declares (`headless.writable_paths`: login or credential file, caches, session directory)
+its client profile declares (`headless.writable_paths`: login or credential file, caches, session directory)
 succeed, while its own job-private directory `<PM_MCP_BASE>/run/jobs/<job_id>/` (which it can only read, apart from
 its `data/` subdirectory where its harness declares a per-worker data home), a settings, command, or skill file of
 its harness, the home of another harness, the data directory of another worker, and the rest of `<PM_MCP_BASE>`
@@ -219,7 +219,7 @@ Source:: design review.
 === PM-WATCH-JOB-38: A worker reads only its listed read set
 
 Anchor:: link:../specification/job-runtime/02-confinement-and-environment.adoc#worker-read-set[Job Runtime § Worker Read Set],
-link:../specification/harness-profiles/01-profile-schema.adoc#headless-readable-paths[Harness Profiles § Readable Paths],
+link:../specification/client-profiles/01-profile-schema.adoc#headless-readable-paths[Client Profiles § Readable Paths],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-5[PM-SEC-5]
 Hazard:: Two ways round. A read set that still holds a rule on `/`, the home directory, or a grant that contains a
 credential location (an installation prefix that resolves to the home directory, a toolchain cache such as `~/.gradle`
@@ -443,29 +443,6 @@ connect.
 Source:: link:../../../plan-marshall-documentation/doc/specification/evaluation.adoc#results[Evaluation Reference], Gate 3.
 
 == Native Build Output Parsers
-
-[#PM-WATCH-JOB-11]
-=== PM-WATCH-JOB-11: A test filter matching nothing reports zero tests
-
-Anchor:: link:../specification/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime § Native Build Output Parsers],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TOOL-2[PM-TOOL-2]
-Hazard:: A scoped Maven test filter (`-Dtest=<package>.*`) matching zero classes failed the surefire build instead of
-reporting zero tests.
-Guard:: A `no_tests_ran` verdict requires the build tool's positive marker, never a zero count, and a successful
-build whose summaries cannot be aggregated reports `tests_population: unmeasured`, never `tests_run: 0`; fixtures
-with a non-matching filter (positive marker present) and with unaggregatable summaries.
-Fixture:: cui-jsf lesson `2026-06-16-09-001`.
-Source:: plan-marshall repository cui-jsf-test-basic, `.plan/local/lessons-learned/2026-06-16-09-001.md` (git-ignored consumer lesson store); lessons-routing PLAN-LR-01 D3.
-
-[#PM-WATCH-JOB-12]
-=== PM-WATCH-JOB-12: pytest-xdist group suffixes are normalised
-
-Anchor:: link:../specification/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime § Native Build Output Parsers]
-Hazard:: pytest-xdist appends `@<group>` to the node ids of `xdist_group` tests, so a passing test was reported
-missing.
-Guard:: The pytest parser strips `@<group>` before test identity matching.
-Fixture:: `…::test_concurrent_appends_both_survive@orchestrator_add_row_contention` passed but was reported missing.
-Source:: plan-marshall lesson 2026-09-24-09-007.
 
 [#PM-WATCH-JOB-13]
 === PM-WATCH-JOB-13: Every build is a change-ledger row

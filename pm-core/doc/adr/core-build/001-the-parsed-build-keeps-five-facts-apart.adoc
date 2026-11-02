@@ -15,7 +15,7 @@ A build log answers several questions at once, and the answers disagree in exact
 `testFailureIgnore` run prints `BUILD SUCCESS` while two tests errored; a 15-module `verify` printed 3,083 tests and was
 reported as `tests_run: 0` (the defect PM-WATCH-JOB-10 recorded, closed and deleted from the watch document by this
 package); a `-Dtest=<package>.*` filter that matched no class failed the build instead of reporting that it ran nothing
-(the defect PM-WATCH-JOB-11 records); a quiet (`-q`) log drops the `[INFO] Results:` marker that tells a summary line
+(the defect PM-WATCH-JOB-11 recorded); a quiet (`-q`) log drops the `[INFO] Results:` marker that tells a summary line
 from a per-class line.
 
 The ported `plan-marshall` parsers answer with one `UnitTestSummary` that carries counts *and* a `population` string, so
@@ -74,5 +74,6 @@ in this package reaches it through `noTestsRanFrom`.
 
 Work package `doc/plans/build-parsers-and-gate-honesty.adoc`; plan `PLAN-V2-08-native-build-parsers-jvm`; specification
 `doc/specification/job-runtime/03-parsers-and-gates.adoc` § Native Build Output Parsers; the watch items this package
-closed (PM-WATCH-JOB-10, whose item was deleted, and PM-WATCH-JOB-11, which stays for the npm and pyproject parsers);
+closed (PM-WATCH-JOB-10, whose item was deleted; the test-filter and pytest-xdist defects that PLAN-V2-28 closes are
+recorded in ADR `core-build/003`);
 requirements `PM-IMPL-6` and `PM-TEST-2`.
