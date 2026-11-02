@@ -1,0 +1,12 @@
+deliberate: deliberate-jest-two-test-blocks
+# The original reads the first `Tests:` block only, so a monorepo run that prints one block per
+# package reports the counts of the first package. This port sums every block.
+log PASS src/a.test.ts
+log Tests:       0 failed, 2 passed, 2 total
+log PASS src/b.test.ts
+log Tests:       0 failed, 4 passed, 4 total
+status SUCCESS
+success-marker false
+tests measured 6 0 0 6
+no-tests-ran false
+diagnostic-count 0

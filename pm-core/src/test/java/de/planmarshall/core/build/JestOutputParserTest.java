@@ -1,0 +1,84 @@
+/*
+ * Copyright © 2026-present Oliver Wolff
+ *
+ * SPDX-License-Identifier: LicenseRef-Proprietary
+ *
+ * All rights reserved. This file is part of plan-marshall-mcp, which is proprietary software.
+ * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
+ * the root of this repository.
+ */
+package de.planmarshall.core.build;
+
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+/**
+ * The ported tests of {@link JestOutputParser} (PM-TEST-2): one case per plain-file fixture below
+ * {@code ported/build/npm-jest}, derived by hand from the original's log and its pytest case.
+ *
+ * @since 0.1
+ */
+@EnableGeneratorController
+@DisplayName("JestOutputParser")
+class JestOutputParserTest extends ParsedBuildPortedTest {
+
+    private static final String DIRECTORY = "ported/build/npm-jest";
+
+    private static final int FIXTURE_FLOOR = 3;
+
+    private static final int ROSTER_CASES = 31;
+
+    static List<BuildLogFixtures.Case> fixtures() {
+        return BuildLogFixtures.load(DIRECTORY);
+    }
+
+    @Test
+    @DisplayName("closes a failure block at the blank line after its stack")
+    void closesTheFailureBlock() {
+        String logText = "FAIL  src/a.test.ts\n"
+                + "  ● a › fails\n"
+                + "\n"
+                + "    Expected: true\n"
+                + "    Received: false\n"
+                + "\n"
+                + "      at Object.<anonymous> (src/a.test.ts:7:9)\n"
+                + "\n"
+                + "Tests:       1 failed, 2 passed, 3 total\n";
+
+        ParsedBuild build = JestOutputParser.parse(logText);
+
+        assertAll(
+                () -> assertEquals(1, build.diagnostics().size(), "One block is filed as one diagnostic"),
+                () -> assertEquals("src/a.test.ts", build.diagnostics().getFirst().file(),
+                        "The suite header names the reported file"),
+                () -> assertEquals(Integer.valueOf(7), build.diagnostics().getFirst().line(),
+                        "The first stack frame supplies the line"),
+                () -> assertEquals("a › fails", build.diagnostics().getFirst().message(),
+                        "The test marker supplies the message"));
+    }
+
+    @Override
+    ParsedBuild parse(String logText) {
+        return JestOutputParser.parse(logText);
+    }
+
+    @Override
+    String directory() {
+        return DIRECTORY;
+    }
+
+    @Override
+    int fixtureFloor() {
+        return FIXTURE_FLOOR;
+    }
+
+    @Override
+    int rosterCases() {
+        return ROSTER_CASES;
+    }
+}
