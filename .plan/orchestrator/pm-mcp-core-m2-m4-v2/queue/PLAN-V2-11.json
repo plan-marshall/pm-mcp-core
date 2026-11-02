@@ -2,10 +2,10 @@
   "id": "PLAN-V2-11",
   "slug": "lesson-record-and-codec",
   "workstream": "WS-05",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-11-lesson-record-and-codec",
+  "pr": "279",
+  "landing": "landings/PLAN-V2-11.md",
   "seq": 11
 }
