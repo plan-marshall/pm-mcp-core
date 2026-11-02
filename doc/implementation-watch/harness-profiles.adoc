@@ -20,7 +20,7 @@ specification. Item format and lifecycle: link:../ImplementationWatch.adoc[Imple
 Anchor:: link:../specification/harness-profiles/01-profile-schema.adoc#_normative_harness_profile_json_schema[Harness Profiles § Normative Harness Profile JSON Schema] (Writable paths)
 Hazard:: A `headless.writable_paths` entry that names a harness home as a whole, or a directory holding the settings,
 command, or skill file the bundle installed, puts that file into the Landlock write set of every worker: a worker
-rewrites the host's deny rules or shim skill, and the host runs without them from then on.
+rewrites the harness's deny rules or shim skill, and the harness runs without them from then on.
 Guard:: Profile validation refuses a `headless.writable_paths` entry that equals, contains, or lies under a settings,
 command, or skill file the client's bundle manifest manages, or a shared configuration file in which the bundle owns
 an `enforcement` element; a build-time test runs the rule over every shipped profile against its own bundle
@@ -29,7 +29,7 @@ are each refused naming the entry and the managed file; runtime control: a worke
 file fails.
 Hazard:: The `claude` harness cannot run headless without rewriting `~/.claude.json`, the harness's
 own state file; were an element the bundle owns held there, a worker with the file in its write set could change or
-remove it, and the host's enforcement would change without the operator.
+remove it, and the harness's enforcement would change without the operator.
 Guard:: The bundle owns nothing in a writable shared configuration file, `~/.claude.json` included (build-time test over
 every shipped profile and manifest); a fixture worker that rewrites a recorded owned element elsewhere is reported `bundle_modified`
 with that element by `pm-operator harness status`; a confined `claude` writer worker
@@ -46,14 +46,14 @@ Source:: design review; link:../../../plan-marshall-documentation/doc/specificat
 Anchor:: link:../specification/harness-profiles/01-profile-schema.adoc#role-classes[Harness Profiles § Role Classes of a Harness],
 link:../specification/harness-profiles/01-profile-schema.adoc#worker-block[Harness Profiles § Worker Block] (`worker.eligible`),
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]
-Hazard:: Antigravity runs every worker with all its host tools and beside the MCP servers of the operator's own
+Hazard:: Antigravity runs every worker with all its harness tools and beside the MCP servers of the operator's own
 configuration (`tool_set: advisory`, `mcp_config.exclusive: false`). That is accepted for `writer` and `read_only`
 roles and fatal for the screener: a profile that declared `zero_tool` for it would hand untrusted text to a model
 with a shell. Beside that, three things were seen in its measurement and not yet tested under target conditions:
 the operator's global configuration may hold an MCP entry named `plan-marshall`, so a worker would start it beside
 its job relay under the same server name; all `agy` processes share a tool schema cache per
 server name, while the tool list differs per role; and task inputs of 8,000 characters and more were read back with
-the host's `view_file` from its own step output, outside the server's resource tools. Its fault matrix passed only as
+the harness's `view_file` from its own step output, outside the server's resource tools. Its fault matrix passed only as
 a three-trial smoke run with unconfined workers on macOS.
 Guard:: Profile validation refuses a non-null `zero_tool` on a profile whose `mcp_config.exclusive` is `false`, and
 a fixture profile proves it. `worker.eligible` of `antigravity` becomes `true` only after: the ten-trial fault matrix
@@ -140,7 +140,7 @@ Source:: plan-marshall defect instrumentation-substrate PLAN-03 § Claim Labels,
 [#PM-WATCH-CLIENT-3]
 === PM-WATCH-CLIENT-3: The `plan-marshall` description surface is a re-derivable baseline
 
-Anchor:: link:../specification/harness-profiles/02-placeholders.adoc#host-resident-surface-inventory[Harness Profiles § Host-Resident Surface Inventory],
+Anchor:: link:../specification/harness-profiles/02-placeholders.adoc#harness-resident-surface-inventory[Harness Profiles § Harness-Resident Surface Inventory],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-MIG-5[PM-MIG-5]
 Hazard:: The `plan-marshall` always-resident description surface drifted by +660 bytes between staging and re-grounding; the
 measuring script was git-ignored and lost, so the figure could not be re-derived; the 500-character description

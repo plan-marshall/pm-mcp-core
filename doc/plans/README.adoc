@@ -33,6 +33,12 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |nothing
 |Milestone 4 (rename of code already built)
 
+|link:harness-names-in-code.adoc[`harness-names-in-code`]
+|The harness named harness in the engine's refusal messages, Javadoc and tests; no stored or wire name changes (the harness detection and the wire names are renamed in `pm-mcp-clients` and `plan-marshall-mcp`)
+|`open`
+|nothing
+|Milestone 4 (rename of code already built)
+
 |link:decision-log-renames.adoc[`decision-log-renames`]
 |The intent record's `decisions[]` becomes `choices[]`, one enum of decider kinds for choices and amendment sources; records with the old names stay readable
 |`open`
@@ -58,7 +64,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 4
 
 |link:client-profile-measured-values.adoc[`client-profile-measured-values`]
-|The harness-profile values the question-loop follow-up measures: the `headless.resumability` values of the shipped profiles, the `headless.inline_settings` member and its provisional values, and the stage `resumability` checked against the measured hosts
+|The harness-profile values the question-loop follow-up measures: the `headless.resumability` values of the shipped profiles, the `headless.inline_settings` member and its provisional values, and the stage `resumability` checked against the measured harnesses
 |`open`
 |`plan-marshall-mcp` / `question-loop-follow-up`
 |Milestones 4 and 14
@@ -226,7 +232,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 6
 
 |link:client-profile-rendering.adoc[`client-profile-rendering`]
-|The on-the-fly placeholder rendering of the harness profiles: the placeholder table, the rendering invariants and the per-variant digest, the calibration axis, the host-resident surface inventory
+|The on-the-fly placeholder rendering of the harness profiles: the placeholder table, the rendering invariants and the per-variant digest, the calibration axis, the harness-resident surface inventory
 |`open`
 |nothing
 |Milestone 14

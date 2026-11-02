@@ -503,7 +503,7 @@ Each plan keeps an append-only history of its process in `plans/<plan_id>/mcp/hi
 
 * *Written with the transition*: every line is a target of the transaction of the transition it records (xref:01-format-and-session-log.adoc#transaction-journal[Transaction Journal]), under the plan lock, following the JSONL append discipline (xref:01-format-and-session-log.adoc#format-versioning[Format Versioning & Atomic Write Discipline], item 6), and covered by the plan's digest sidecar. A transition that leaves a state and enters the next writes both lines in one transaction; a call writes `called` and the callee's first `entered`, a return the callee's last `left` and `returned`. A condition overlay, which changes neither state nor call stack, writes no line.
 * *Never rewritten, never derived elsewhere*: no line is changed or removed. The step records of `mcp/status.json` (`steps.<step_id>.firings`) stay the record of a step's firings; the history names the states, never the steps.
-* *Retained and archived with the plan*: the history moves with the plan into its archive and is deleted only with it, by `delete-plan` or by the cleanup (link:../timeouts/03-retention-host-config.adoc#cleanup[Timeouts & Budgets Specification, One Cleanup]); the process of an ended plan is read from it.
+* *Retained and archived with the plan*: the history moves with the plan into its archive and is deleted only with it, by `delete-plan` or by the cleanup (link:../timeouts/03-retention-harness-config.adoc#cleanup[Timeouts & Budgets Specification, One Cleanup]); the process of an ended plan is read from it.
 
 [source,json]
 ----

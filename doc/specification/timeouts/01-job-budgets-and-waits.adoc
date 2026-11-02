@@ -196,8 +196,8 @@ _Implementation watch: link:../../implementation-watch/job-runtime.adoc#PM-WATCH
 |[[bounded-wait]]Bounded wait window
 |Compiled default `240` per harness profile.
 |`connection.bounded_wait_seconds` of the harness profile; operator override in `machine-config.json` (`harness_profiles.<harness_id>.connection`, link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas, Machine Configuration Store])
-|`15`..`3600`; for a host whose `connection.progress_resets_timeout` is false, profile validation also rejects a value above `connection.idle_timeout_seconds − 30`
-|`pm_wait` of a worker (consultation answers included; where the host's `progress_resets_timeout` is set, progress frames hold it through the window); a `pm_build` call and its `job_id` continuation when the connection does not qualify for a progress wait
+|`15`..`3600`; for a harness whose `connection.progress_resets_timeout` is false, profile validation also rejects a value above `connection.idle_timeout_seconds − 30`
+|`pm_wait` of a worker (consultation answers included; where the harness's `progress_resets_timeout` is set, progress frames hold it through the window); a `pm_build` call and its `job_id` continuation when the connection does not qualify for a progress wait
 |`pm_wait` answers `wait_again` (or `end`, link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/01-core-workflow-tools.adoc[MCP Tools, `pm_wait`]); `pm_build` returns the running result with its `job_id` continuation; never an MCP transport timeout.
 |link:../job-runtime/01-pipeline-and-subprocesses.adoc#_bounded_long_poll_progress_reset_waiting_primitives_pm_wf_8_pm_impl_4[Job Runtime, Bounded Long-Poll]; link:../model-work/02-task-protocol.adoc[Model Work, Task Protocol]; link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/02-service-and-skill-tools.adoc#_pm_build_enrolled_build_execution[MCP Tools, `pm_build`]
 
@@ -275,7 +275,7 @@ a|* *Rate window*: `reset_at` is the bot-stated reset ETA when one is published 
 |The release is refused (`release_landing_pending`) and ends nothing; the landing runs on.
 |link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-release[Credentials & Enrolment, Releasing Ends Work as the Operator Ends It]
 
-|[[host-cancellation]]Host cancellation of a wait
+|[[harness-cancellation]]Harness cancellation of a wait
 |Immediate: a harness's `notifications/cancelled` ends the pending call only; the relay ignores a cancel of an already answered request (link:../../../../plan-marshall-documentation/doc/specification/runtime-model.adoc[Runtime Model], relay).
 |fixed
 |—
@@ -288,7 +288,7 @@ a|* *Rate window*: `reset_at` is the bot-stated reset ETA when one is published 
 == Worker Supervision & Recycling
 _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-2[PM-WORK-2: Task Protocol], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3: Supervision & Recycling]_
 
-The supervisor ends, recycles, and replaces workers by these values (link:../model-work/03-supervision-and-recycling.adoc[Model Work Specification, Supervision & Recycling]). The per-host values live in the `worker` block of the harness profile of the worker's harness (link:../harness-profiles/01-profile-schema.adoc[Harness Profiles Specification, Profile Schema]), the per-role values in the role artifact (link:../model-work/01-roles-and-configuration.adoc[Model Work Specification, Roles & Configuration]); this table names each value, its source, and its effect, and the measured basis is recorded in the link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#parameters[Evaluation Reference, Substantiated Values].
+The supervisor ends, recycles, and replaces workers by these values (link:../model-work/03-supervision-and-recycling.adoc[Model Work Specification, Supervision & Recycling]). The per-harness values live in the `worker` block of the harness profile of the worker's harness (link:../harness-profiles/01-profile-schema.adoc[Harness Profiles Specification, Profile Schema]), the per-role values in the role artifact (link:../model-work/01-roles-and-configuration.adoc[Model Work Specification, Roles & Configuration]); this table names each value, its source, and its effect, and the measured basis is recorded in the link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#parameters[Evaluation Reference, Substantiated Values].
 
 [cols="2,3,2,2,2,3,2"]
 |===
@@ -315,7 +315,7 @@ The supervisor ends, recycles, and replaces workers by these values (link:../mod
 |fixed
 |—
 |every running worker
-|Not an expiry: a detection above the bound fails the fault-matrix test of the harness, which is then not eligible as a worker host (link:../harness-profiles/01-profile-schema.adoc#worker-block[Harness Profiles, Worker Block]).
+|Not an expiry: a detection above the bound fails the fault-matrix test of the harness, which is then not eligible for workers (link:../harness-profiles/01-profile-schema.adoc#worker-block[Harness Profiles, Worker Block]).
 |link:../model-work/03-supervision-and-recycling.adoc#detection[Model Work, Detection]
 
 |[[idle-recycle]]Idle recycle

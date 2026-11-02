@@ -127,10 +127,10 @@ Its `leasedTask()` answers `Optional<String>`: the task is absent while the gene
   `LossReason.EXIT`; an exit before the first call is a start failure, not a loss, and `exit(Instant)` answers empty so
   the start-failure guard counts it (<<_the_start_failure_guard_and_the_start_spacing>>).
 * *Acknowledgement missed* — an offer (or a fresh worker's first call), or an answer delivered to a holding generation,
-  was not acknowledged within the host's acknowledgement deadline, where the acknowledgement is not marked
+  was not acknowledged within the harness's acknowledgement deadline, where the acknowledgement is not marked
   informational and the role has a connection. `LossDetection.answerDelivered` arms the answer's deadline from the
   delivery; the transport owes that call when it hands an answer to a worker (Model Work § Answer acknowledgement).
-* *Silence* — the worker made no call and holds no open bounded wait for longer than the host's silence limit. A held
+* *Silence* — the worker made no call and holds no open bounded wait for longer than the harness's silence limit. A held
   wait is an open call and suppresses the signal; the answer re-arms it.
 
 The detector is armed from the spawn, so a worker that never makes its first call counts as silent from there. Every
@@ -207,7 +207,7 @@ fences, revokes, releases the slot, writes the terminal state and starts a succe
 logs `WORKER_GENERATION_RECYCLED` exactly once with its link:{src}/RecycleCause.java[`RecycleCause`].
 
 * *Idle* (`IDLE`) — a warm generation that ended its bounded waits without a task `min(host.worker.idle_wakeups,
-  role.recycling.idle_wakeups)` times in a row. The role can only lower the host's bound. A generation holding a lease
+  role.recycling.idle_wakeups)` times in a row. The role can only lower the harness's bound. A generation holding a lease
   (a consulting worker or one holding for an answer) is not idle: its `wait_again` counts no wake-up.
 * *Token budget* (`TOKEN_BUDGET`) — the context of the generation's latest turn reached the role's token budget. Only
   the latest turn's context is read, never a run total; an unmeasured context is ignored. A generation that still leases

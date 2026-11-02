@@ -104,7 +104,7 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |server (store-assigned on the `job` event of `state/cleanup.jsonl`)
 |Machine
 |Monotonic; never reused
-|link:../timeouts/03-retention-host-config.adoc#cleanup[Timeouts & Budgets, One Cleanup]; the audit record `cleanup_deleted` and a tombstone's `job_id`
+|link:../timeouts/03-retention-harness-config.adoc#cleanup[Timeouts & Budgets, One Cleanup]; the audit record `cleanup_deleted` and a tombstone's `job_id`
 
 |[[id-audit-id]]`audit_id` / `event_id`
 |UUIDv7 in lowercase canonical form: `^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`, 36. An `audit_id` is the `event_id` of the audit record that holds the diagnostics.

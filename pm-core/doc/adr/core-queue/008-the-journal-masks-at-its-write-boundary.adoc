@@ -47,5 +47,5 @@ plan-directory archive carries it; the two methods give the cleanup an explicit 
 == Source
 
 Work package `worker-activity`; link:../../../../doc/specification/store-schemas/16-task-queue.adoc#activity-journal[Store
-Schemas § Activity Journal], link:../../../../doc/specification/timeouts/03-retention-host-config.adoc#cleanup[Timeouts &
+Schemas § Activity Journal], link:../../../../doc/specification/timeouts/03-retention-harness-config.adoc#cleanup[Timeouts &
 Budgets § One Cleanup].

@@ -124,9 +124,9 @@ States of `onboarding.pmwf`, reached from `onboard.completed` once the onboardin
 |`machine`
 |`operator_wait`
 |`settings.choose` (`cleanup_durations`).
-|`set` of the machine's `cleanup.*` durations, one per kind, and the reminder's days (link:../timeouts/03-retention-host-config.adoc#cleanup[Timeouts & Budgets Specification, One Cleanup]).
+|`set` of the machine's `cleanup.*` durations, one per kind, and the reminder's days (link:../timeouts/03-retention-harness-config.adoc#cleanup[Timeouts & Budgets Specification, One Cleanup]).
 |`set` -> `settings.record`.
-|link:../timeouts/03-retention-host-config.adoc#cleanup[Timeouts & Budgets Specification, One Cleanup]
+|link:../timeouts/03-retention-harness-config.adoc#cleanup[Timeouts & Budgets Specification, One Cleanup]
 
 |[[state-settings.record]]`settings.record`
 |`machine`

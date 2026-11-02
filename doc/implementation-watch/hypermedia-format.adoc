@@ -21,7 +21,7 @@ link:../ImplementationWatch.adoc[Implementation Watch].
 
 Anchor:: link:../specification/hypermedia-format/01-representation-and-link-forms.adoc#_normative_toon_representation_structure[Hypermedia Format § Normative TOON Representation Structure],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-3[PM-IMPL-3], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SKILL-2[PM-SKILL-2]
-Hazard:: Bytes that enter a worker's context early and stay resident dominate cost; rewriting them invalidates the host's
+Hazard:: Bytes that enter a worker's context early and stay resident dominate cost; rewriting them invalidates the harness's
 cached prefix.
 Guard:: The tool list, skill catalogue and representation prelude render byte-identically for identical state; a test
 asserts byte stability across calls. Shrink only early-entering long-lived bytes; never rewrite the cached prefix.

@@ -127,7 +127,7 @@ Declared in `worker-task.pmwf` (`scope subworkflow`, compiled only, start `task.
 |the caller's phase value
 |`composite_job`
 |`task.waiting` (`offered`).
-|`task.await-ack`: the implicit `ack` (rel `next`, form `noop`) of the generation that holds the lease, within the host's acknowledgement deadline.
+|`task.await-ack`: the implicit `ack` (rel `next`, form `noop`) of the generation that holds the lease, within the harness's acknowledgement deadline.
 |`acknowledged` -> `task.executing`; `released` (worker lost, deadline missed, or offer withdrawn) -> `task.queued`; `cancelled` -> `task.lost`.
 |link:../model-work/02-task-protocol.adoc[Model Work Specification, Task Protocol]
 

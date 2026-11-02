@@ -227,8 +227,8 @@ Every step of the `plan-marshall` first-run wizard and every stage sub-step and 
 |*Retired*: there is no executor or script-call convention to document; agent-facing guidance ships with the harness bundle (`pm-operator harness install`) and the `skill://` resources.
 
 |Step 3: Ensure Executor Permission
-|Consults, then widens the host allow-list for `execute-script.py`.
-|*Retired*: there is no executor. Host permissions for the MCP server are written by `pm-operator harness install`.
+|Consults, then widens the harness allow-list for `execute-script.py`.
+|*Retired*: there is no executor. Harness permissions for the MCP server are written by `pm-operator harness install`.
 
 |Step 4: Generate Executor
 |Generates `.plan/execute-script.py`.
@@ -291,12 +291,12 @@ Every step of the `plan-marshall` first-run wizard and every stage sub-step and 
 |`setup.probe-merge-queue` reads the derived fact `merge_queue_enforced`; where a queue is available but not enforced, `setup.merge-queue` asks the operator (a decision of the workspace scope, `recheck` / `skip`) and names the provider setting that enables a queue; it never provisions one (<<setup-merge-queue>>). No opt-in is persisted, because whether a queue is enforced is derived from the provider and an enforced queue is never bypassed.
 
 |Step 14: Permission Setup
-|Grants standing host permissions for routine commands.
+|Grants standing harness permissions for routine commands.
 |*Retired*: replaced by `pm-operator harness install`; the MCP tool surface needs no per-command approvals.
 
 |Step 14b: OpenCode Enforcement Apply
 |Copies the permission block into `opencode.json` and places the guard plugin.
-|*Retired*: script-call enforcement is moot without an executor; the OpenCode host configuration is written by `pm-operator harness install opencode`.
+|*Retired*: script-call enforcement is moot without an executor; the OpenCode harness configuration is written by `pm-operator harness install opencode`.
 
 |Step 15: Summary
 |Prints the wizard summary.

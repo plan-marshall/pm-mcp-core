@@ -1,4 +1,4 @@
-= Timeouts & Budgets Specification: Retention, Host Integration & Configuration
+= Timeouts & Budgets Specification: Retention, Harness Integration & Configuration
 :toc: left
 :toclevels: 3
 :toc-title: Table of Contents
@@ -6,7 +6,7 @@
 :source-highlighter: highlight.js
 :nofooter:
 
-link:../../Specification.adoc[Specification] » link:../timeouts.adoc[Timeouts & Budgets Specification] » Retention, Host Integration & Configuration
+link:../../Specification.adoc[Specification] » link:../timeouts.adoc[Timeouts & Budgets Specification] » Retention, Harness Integration & Configuration
 
 [#retention]
 == Retention & Rotation
@@ -78,14 +78,14 @@ Work history is the operator's and goes only on the operator's word, through one
 * *Local API*: `GET /api/v1/system/cleanup` answers the open or postponed job (its summary with the counts per kind and the space it frees, its items by project, each linked read-only to its ended view), the durations with their sources, the count of kept items, and what the automatic pass of the periodic sweep removed and when; `POST /api/v1/system/cleanup/{job_id}/delete` with the unchecked items, `…/remind`, and `…/ignore` decide the job; `GET /api/v1/system/cleanup/kept` lists the kept items and `PUT /api/v1/system/cleanup/kept` writes the list, an item left out being released. Each write is privileged (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-channel-isolation[CLI & Security, Operator Channel Isolation]), accepted from `pm-operator` (`pm-operator cleanup [--delete|--remind|--ignore] [--yes]`) and from a paired device, and audited with its channel. The runtime-wide stream announces `cleanup.job_opened`, `cleanup.decided`, `cleanup.progress`, and `cleanup.done` (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/06-event-catalogue.adoc[Runtime Model, Event Catalogue]).
 * *Recurring waivers* are counted over the `waiver_waived` records of the audit log of the last 90 days, whatever has been deleted since (link:../phase-workflows/02-planning-lanes-phases-3-4.adoc[Phase Workflows, Planning Lanes & Phases 3–4], Recurring Waivers).
 
-[#host-integration]
-== Host Integration
+[#harness-integration]
+== Harness Integration
 
 [cols="2,3,2,2,2,3,2"]
 |===
 |Name |Value / derivation |Configurable? |Floor / cap |Applies to |Behaviour on expiry |Defined for
 
-|[[host-idle-timeout]]Host tool-call idle timeout
+|[[harness-idle-timeout]]Harness tool-call idle timeout
 |Per harness, compiled into its harness profile: the harness's tool-call timeout threshold and whether `notifications/progress` resets it (`PM-IMPL-4`), measured for `claude`, `opencode`, and `antigravity` (link:../harness-profiles/01-profile-schema.adoc#worker-block[Harness Profiles Specification, Worker Block]; link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#worker-parameters[Evaluation Reference]) and _provisional_ for `codex` until it is measured.
 |`connection.idle_timeout_seconds` of the harness profile; operator override in `machine-config.json` (`harness_profiles.<harness_id>.connection`, link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas, Machine Configuration Store])
 |`45`..`7200`
@@ -93,7 +93,7 @@ Work history is the operator's and goes only on the operator's word, through one
 |Harness-side: the harness abandons the call; the runtime completes and persists the transition anyway (only the response is lost).
 |link:../harness-profiles/01-profile-schema.adoc#_normative_harness_profile_json_schema[Harness Profiles, Normative Schema]; link:../../../../plan-marshall-documentation/doc/specification/runtime-model/04-sessions-and-workers.adoc#_failure_semantics[Runtime Model, Failure Semantics]
 
-|[[progress-resets-timer]]Progress resets the host timer
+|[[progress-resets-timer]]Progress resets the harness timer
 |Capability flag per harness, not a duration; selects xref:01-job-budgets-and-waits.adoc#progress-wait[Progress wait] over xref:01-job-budgets-and-waits.adoc#bounded-wait[Bounded wait] for a `pm_build`, holds a `pm_wait` through its bounded window with progress frames, and exempts the bounded wait from the bound `connection.idle_timeout_seconds − 30`, which applies only where it is false.
 |`connection.progress_resets_timeout` of the harness profile; operator override in `machine-config.json` (`harness_profiles.<harness_id>.connection`)
 |—
@@ -232,7 +232,7 @@ Compiled bounds of what the runtime records for the operator's views. None is co
 The configurable values above, by store:
 
 * `machine-config.json` (the operator's acts in either client, link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas, Machine Configuration Store]): `drain_timeout_seconds`, `escalation_cap_seconds`, `model_slots`, `progress_wait_max_seconds`, `lsp_idle_timeout_seconds`, `lsp_start_timeout_seconds`, `lsp_request_timeout_seconds`, `audit_rotation.max_days`, `audit_rotation.retain_days`, `harness_profiles.<harness_id>.connection.{bounded_wait_seconds, idle_timeout_seconds, progress_resets_timeout}` (machine-wide overrides of the compiled harness profile values), `project_defaults.retention.*` (machine-wide defaults of the per-project retention keys), and `cleanup.*` (the cleanup durations and the reminder, <<cleanup>>). The `proxy` and `web` objects of the same file hold no timeout.
-* `<PM_MCP_BASE>/projects/<project_id>/local-config.json` (the operator's acts in either client, link:../store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas, Operator Local Configuration]): `retention.*`, the project's own `cleanup.plans_after_days`, `cleanup.epics_after_days`, and `cleanup.logs_after_days`, and, per upstream server, `upstream_mcp.servers.<server_id>.connect_timeout_seconds` and `read_timeout_seconds` (written by the operator's act `pm-operator upstream allow` or its form in the web app, link:../../../../plan-marshall-documentation/doc/specification/mcp-tools.adoc[MCP Tools Specification, Upstream MCP Proxy]; <<host-integration>>, Outbound HTTPS and upstream MCP call timeouts).
+* `<PM_MCP_BASE>/projects/<project_id>/local-config.json` (the operator's acts in either client, link:../store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas, Operator Local Configuration]): `retention.*`, the project's own `cleanup.plans_after_days`, `cleanup.epics_after_days`, and `cleanup.logs_after_days`, and, per upstream server, `upstream_mcp.servers.<server_id>.connect_timeout_seconds` and `read_timeout_seconds` (written by the operator's act `pm-operator upstream allow` or its form in the web app, link:../../../../plan-marshall-documentation/doc/specification/mcp-tools.adoc[MCP Tools Specification, Upstream MCP Proxy]; <<harness-integration>>, Outbound HTTPS and upstream MCP call timeouts).
 * Project-owned phase units `.marshall/config/*.pmwf` (team, link:../workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL Specification, Project-Owned Units]): the remediation call arguments `retry_budget` and `fix_budget`, within the compiled hard caps (xref:01-job-budgets-and-waits.adoc#remediation-budgets[Remediation Budgets]); a plan's effective ceiling is raised only by a `raise` waiver. The declarations of `replan.pmwf` (re-planning thresholds, budget, prerequisite wait) and `adjudicate-decisions.pmwf` (the decision declarations, `ask` or a quorum per decision kind, the vote wait, and the calibration level), within their compiled bounds (link:../workflow-dsl/02-units-jobs-decisions.adoc#unit-declarations[Workflow DSL Specification, Unit Declarations]).
 * `enrolments/<project_id>.json` (the operator's acts, link:../store-schemas/11-enrolment-store.adoc#enrolment-store[Store Schemas, Project Enrolment Store]): `command_budgets` (operator budgets per budget key, `llm:<role>` of workers included), `project_scripts.<project_script_id>.max_timeout_seconds`.
 * Harness profile (compiled; the operator override is the `harness_profiles` object of `machine-config.json` above, for the `connection` keys only): `connection.bounded_wait_seconds`, `connection.idle_timeout_seconds`, `connection.progress_resets_timeout`, and the worker values `worker.ack_deadline_seconds`, `worker.ack_informational`, `worker.silence_grace_seconds`, `worker.idle_wakeups` (xref:01-job-budgets-and-waits.adoc#worker-supervision[Worker Supervision & Recycling]).
