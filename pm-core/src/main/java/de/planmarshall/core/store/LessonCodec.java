@@ -14,7 +14,9 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import org.jspecify.annotations.Nullable;
 
 import com.fasterxml.jackson.core.JsonEncoding;
+import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.json.JsonWriteFeature;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -79,6 +81,10 @@ import de.planmarshall.core.store.LessonFrontMatter.Status;
  * matter lists as {@code present_unreadable} and is never {@code absent}. A write with missing or invalid front matter
  * is rejected: a {@link Lesson} cannot be constructed without a front matter, and every rule of the record is refused
  * by its constructor before the codec sees it.
+ * <p>
+ * The writer escapes every non-ASCII character of the front matter, so a title, a statement or a source that carries a
+ * YAML line break (U+0085, U+2028, U+2029), a C1 control or a noncharacter reads back unchanged instead of being folded
+ * or refused by the YAML reader (the landing analysis of PLAN-V2-11, claims C1 and I1).
  * <p>
  * The member lists are published as package-private constants in the order of the schema, so the parity test of the
  * schema block of the specification pins them (the pattern of {@link JobRecordCodec#MEMBERS}).
@@ -195,6 +201,17 @@ public class LessonCodec {
     private static final byte[] OPENING_FENCE = (FENCE + "\n").getBytes(UTF_8);
     private static final byte[] CLOSING_FENCE = ("\n" + FENCE + "\n").getBytes(UTF_8);
     private static final int CODE_POINT_LIMIT = 1_000_000;
+
+    /**
+     * The writer of the front matter escapes every non-ASCII character as a {@code \\}{@code uXXXX} sequence: the
+     * front matter is read as YAML, whose line breaks (U+0085, U+2028, U+2029), control characters of the C1 range and
+     * noncharacters (U+FFFE, U+FFFF) are not all printable data there, so a value written literally could read back
+     * folded or not at all. An ASCII document is read by the YAML reader as the JSON object it is (the landing analysis
+     * of PLAN-V2-11, claims C1 and I1; ADR core-store/061).
+     */
+    private static final JsonFactory FRONT_MATTER_WRITER = JsonFactory.builder()
+            .enable(JsonWriteFeature.ESCAPE_NON_ASCII)
+            .build();
 
     /**
      * The result of reading one lesson file: the lesson, or the reason the file is unreadable.
@@ -632,7 +649,7 @@ public class LessonCodec {
 
     private static byte[] writeFrontMatter(LessonFrontMatter frontMatter) {
         var out = new ByteArrayOutputStream();
-        try (var generator = StrictJson.factory().createGenerator(out, JsonEncoding.UTF8)) {
+        try (var generator = FRONT_MATTER_WRITER.createGenerator(out, JsonEncoding.UTF8)) {
             generator.writeStartObject();
             generator.writeNumberField(FIELD_FORMAT_VERSION, frontMatter.formatVersion());
             generator.writeStringField(FIELD_LESSON_ID, frontMatter.lessonId().value());

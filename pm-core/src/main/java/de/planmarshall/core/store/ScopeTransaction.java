@@ -184,6 +184,22 @@ public final class ScopeTransaction {
     }
 
     /**
+     * @return the lock transaction whose key the transaction holds; a store of this package hands it to
+     *         {@link ScopeIntegrity#verify} for a locked read
+     */
+    LockTransaction lockTransaction() {
+        return transaction;
+    }
+
+    /**
+     * @return where the records of the recovery and of the transaction are handed over; a store of this package hands
+     *         it to {@link ScopeIntegrity#verify} for a locked read
+     */
+    AuditSink auditSink() {
+        return auditSink;
+    }
+
+    /**
      * @param store a store of the scope, absolute and normalized
      * @return whether the store is a target of this transaction already
      */
