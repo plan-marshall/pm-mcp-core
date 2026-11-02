@@ -1,0 +1,7 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_rewrite_log.py::TestNotObservedVerdict::test_not_observed_verdict test/plan-marshall/build-maven/test_maven_rewrite_log.py::TestNotObservedVerdict::test_not_observed_is_never_clean test/plan-marshall/build-maven/test_maven_rewrite_log.py::TestNotObservedVerdict::test_not_observed_short_circuits_before_resolution test/plan-marshall/build-maven/test_maven_rewrite_log.py::TestReachedRewriteRun::test_not_observed_log_did_not_reach_rewrite_run
+# A build that never reached `rewrite:run` (it failed in the compiler plugin): absence of evidence is its own third state,
+# never a vacuous clean, and the project's domain state is not even consulted.
+log-file rewrite-run-not-observed.log
+domain inactive
+verdict NOT_OBSERVED
+finding-count 0

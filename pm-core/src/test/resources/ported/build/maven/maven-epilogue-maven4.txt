@@ -1,0 +1,25 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_failure_epilogue_is_not_filed_and_real_diagnostics_are
+# The same three-module run on Maven 4.0.0-rc-7, which prints the failing reactor rows and the BUILD FAILURE banner at
+# [ERROR] level and writes the trailer in its own wording. Neither the rows nor the banner is a diagnostic.
+log-file maven4-failure-epilogue.log
+status FAILURE
+success-marker false
+tests measured 1 1 1 3
+by-runner surefire 2
+no-tests-ran false
+diagnostic ERROR TEST_FAILURE - - - Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.029 s <<< FAILURE! -- in probe.b.BTest
+diagnostic ERROR TEST_FAILURE - - - probe.b.BTest.fails -- Time elapsed: 0.011 s  <<< FAILURE!
+diagnostic ERROR UNRECOGNIZED - - - Failures:
+diagnostic ERROR TEST_FAILURE BTest.java 10 - BTest.fails:10 expected: <1> but was: <2>
+diagnostic ERROR TEST_FAILURE - - - Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+diagnostic ERROR UNRECOGNIZED - - - COMPILATION ERROR :
+diagnostic ERROR COMPILATION_ERROR /home/dev/probe/c/src/main/java/probe/c/Broken.java 5 9 /home/dev/probe/c/src/main/java/probe/c/Broken.java:[5,9] cannot find symbol
+diagnostic ERROR TEST_FAILURE - - - Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin:3.5.2:test (default-test) on project b: There are test failures.
+diagnostic ERROR UNRECOGNIZED - - - Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.13.0:compile (default-compile) on project c: Compilation failure
+diagnostic ERROR UNRECOGNIZED - - - symbol:   class Missing
+diagnostic ERROR UNRECOGNIZED - - - location: class probe.c.Broken
+no-diagnostic b .................................................. FAILURE [  0.953 s]
+no-diagnostic c .................................................. FAILURE [  0.388 s]
+no-diagnostic BUILD FAILURE
+no-diagnostic Re-run Maven using the '-X' switch to enable verbose output
+no-diagnostic [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException

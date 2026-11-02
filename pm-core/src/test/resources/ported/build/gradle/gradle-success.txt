@@ -1,0 +1,9 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-gradle/test_gradle_cmd_parse.py::test_parse_log_success_returns_tuple test/plan-marshall/build-gradle/test_gradle_cmd_parse.py::test_parse_log_success_build_status test/plan-marshall/build-gradle/test_gradle_cmd_parse.py::test_parse_log_success_no_errors test/plan-marshall/build-gradle/test_gradle_cmd_parse.py::test_parse_log_success_issues_are_issue_objects
+# A real successful multi-project Gradle build: green, and with no count line at all — Gradle prints test counts only
+# when a test fails or is skipped. The absence of a count is therefore not a verdict: no_tests_ran stays false.
+log-file gradle-success-real.log
+status SUCCESS
+success-marker true
+tests none
+no-tests-ran false
+diagnostic-count 0

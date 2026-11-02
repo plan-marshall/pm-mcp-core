@@ -1,0 +1,14 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_rewrite_log.py::TestObservedVerdict::test_observed_yields_structured_findings test/plan-marshall/build-maven/test_maven_rewrite_log.py::TestObservedVerdict::test_observed_findings_carry_all_fields test/plan-marshall/build-maven/test_maven_rewrite_log.py::TestObservedVerdict::test_observed_classifies_newly_detected_and_pre_existing test/plan-marshall/build-maven/test_maven_rewrite_log.py::TestReachedRewriteRun::test_observed_log_reached_rewrite_run
+# A real Maven log that reached `rewrite:run` in an active java-cui project: the five corpus findings are folded in with
+# their structured fields, classified by their identifier.
+log-file rewrite-run-observed.log
+domain active
+verdict OBSERVED
+finding-count 5
+newly-detected 3
+pre-existing 2
+finding NEWLY_DETECTED src/main/java/de/cuioss/example/PaymentService.java 3 9 TestRecipe TODO: Throw specific not RuntimeException
+finding PRE_EXISTING src/main/java/de/cuioss/example/PaymentService.java 3 9 TestRecipe TODO: Throw specific not RuntimeException
+finding NEWLY_DETECTED src/main/java/de/cuioss/example/OrderValidator.java 42 5 InvalidExceptionUsageRecipe Replace RuntimeException with a specific exception type
+finding PRE_EXISTING src/main/java/de/cuioss/example/AuditLogger.java 88 13 CuiLogRecordPatternRecipe Wrap log statement in a LogRecord constant
+finding NEWLY_DETECTED src/main/java/de/cuioss/example/ReportGenerator.java 120 17 CuiLoggerStandardsRecipe Use CuiLogger instead of java.util.logging directly

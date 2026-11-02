@@ -1,0 +1,11 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_parse_log_no_tests
+# A successful build that runs no test plugin at all: no count line, and no positive "no tests" marker either, so the
+# population is absent and no verdict is claimed.
+log [INFO] Scanning for projects...
+log [INFO] BUILD SUCCESS
+log [INFO] Total time: 1.234 s
+status SUCCESS
+success-marker true
+tests none
+no-tests-ran false
+diagnostic-count 0

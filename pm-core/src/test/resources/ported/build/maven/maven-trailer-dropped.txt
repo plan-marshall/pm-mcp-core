@@ -1,0 +1,21 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_failure_epilogue_is_not_filed_and_real_diagnostics_are
+# The six trailer advice lines of a failing Maven build are dropped whole against the compiled table; the one real
+# diagnostic of the same log stays. This is the original's behaviour, held by the port: `_MAVEN_EPILOGUE_PATTERNS` is
+# matched with `fullmatch` there too, so a genuine diagnostic is never dropped by a prefix match either.
+log [INFO] BUILD FAILURE
+log [ERROR] /home/dev/probe/Foo.java:[7,3] cannot find symbol
+log [ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+log [ERROR] Re-run Maven using the -X switch to enable full debug logging.
+log [ERROR] For more information about the errors and possible solutions, please read the following articles:
+log [ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
+log [ERROR] After correcting the problems, you can resume the build with the command
+log [ERROR]   mvn <args> -rf :mod
+status FAILURE
+success-marker false
+tests none
+no-tests-ran false
+diagnostic ERROR COMPILATION_ERROR /home/dev/probe/Foo.java 7 3 /home/dev/probe/Foo.java:[7,3] cannot find symbol
+no-diagnostic Re-run Maven using the -X switch to enable full debug logging.
+no-diagnostic [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
+no-diagnostic After correcting the problems, you can resume the build with the command
+no-diagnostic mvn <args> -rf :mod

@@ -1,0 +1,10 @@
+# Roster of the pytest cases of test/plan-marshall/build-maven/test_maven_cmd_parse.py whose subject is the shared JVM
+# category table rather than the Maven parser. They are carried here, one fixture of the table, because the table is one
+# compiled artifact of this package and the Maven suite is where the original exercises it.
+
+suite: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_cmd_parse.py
+
+case test_surefire_goal_failure_is_not_a_deprecation_warning -> maven-categories
+case test_genuine_javac_tag_lines_keep_their_category -> maven-categories
+case test_control_unescaped_bracket_detector_flags_a_bare_tag -> maven-categories
+case test_no_maven_pattern_carries_an_unescaped_bracket excluded: a lint of the Python pattern strings; the Java table is compiled from code and its bracketed tags are escaped literals, guarded here by the single-letter case

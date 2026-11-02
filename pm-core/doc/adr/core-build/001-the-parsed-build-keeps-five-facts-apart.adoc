@@ -1,0 +1,78 @@
+= ADR 001: The Parsed Build's Five Components Are Kept Apart, and an Unmeasured Population Carries No Number
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-01
+
+== Context
+
+A build log answers several questions at once, and the answers disagree in exactly the cases that matter. A
+`testFailureIgnore` run prints `BUILD SUCCESS` while two tests errored; a 15-module `verify` printed 3,083 tests and was
+reported as `tests_run: 0` (the defect PM-WATCH-JOB-10 recorded, closed and deleted from the watch document by this
+package); a `-Dtest=<package>.*` filter that matched no class failed the build instead of reporting that it ran nothing
+(the defect PM-WATCH-JOB-11 records); a quiet (`-q`) log drops the `[INFO] Results:` marker that tells a summary line
+from a per-class line.
+
+The ported `plan-marshall` parsers answer with one `UnitTestSummary` that carries counts *and* a `population` string, so
+an unmeasured population still carries `tests_run: 0`-shaped numbers, and the status is resolved at the CLI layer from
+facts the parser no longer carries. A Java model has to make the distinction a consumer cannot get wrong.
+
+== Decision
+
+`de.planmarshall.core.build` models a parse as a `ParsedBuild` of five components, none derived from another:
+
+* `diagnostics` — the located findings, in log order, each a `Diagnostic`;
+* `status` — what the tool printed, `SUCCESS` or `FAILURE`, derived from its own markers;
+* `successMarker` — whether the positive success banner was seen, so a green banner over a failing test stays visible
+  instead of being resolved in the parser;
+* `testCounts` — `null` when the log carried no count line, `TestCounts.Unmeasured` when it carried counts that could not
+  be aggregated, `TestCounts.Measured` otherwise;
+* `noTestsRan` — a verdict that holds only when the build reported success, printed its success marker, printed its own
+  positive "no tests" marker, and carried no count line.
+
+`status` and `successMarker` are two components of one fact — what the tool printed — because a consumer that resolves
+the contradiction needs both halves; the other three are facts of their own.
+
+`TestCounts` is a sealed interface of two types, so *unmeasured* has no count accessor at all: the state cannot be read
+as a zero. `Measured` is a record whose compact constructor refuses a total that is not `passed + failed + skipped`, and
+`ParsedBuild`'s compact constructor refuses a `noTestsRan` verdict that its other three components do not support.
+
+The null contract of the package holds: an absent location is a `@Nullable` component of `Diagnostic`, never an
+`Optional`; absence as a whole (`testCounts`) is a `@Nullable` component of the record.
+
+== Alternatives Considered
+
+1. *One flat result record with a `population` enum.* Not taken: it reproduces the hazard the model exists to remove — an
+   unmeasured population would still expose `testsRun` and a consumer would publish it.
+2. *`Optional` components.* Not taken: the repository's null contract keeps `Optional` for return values only and models
+   an absent field or record component as `@Nullable`.
+3. *Resolving the truthful status in the parser* (a `BUILD SUCCESS` with failing tests reported as `FAILURE`). Not taken:
+   the parser is a pure function of the log, and the decision which failures a run may ignore belongs to the gate, which
+   is the consumer the parser serves. Keeping both facts lets that consumer decide and keeps the parser's expected values
+   equal to the original's.
+4. *Collapsing `status` and `successMarker` into one component.* Not taken: the marker is what the status was derived from,
+   and a consumer that reports why a build looked green needs the marker even for a case where the status differs.
+
+== Consequences
+
+A consumer cannot mistake an unreadable test population for a passing one, and cannot report a green build as having run
+tests it did not run. The cost is that the consumer must read three facts to answer "did this build test anything", and
+that a future parser must feed `noTestsRan` explicitly rather than inferring it.
+
+A change of the verdict rule is a change of this model, not of a parser: `ParsedBuild.noTestsRanFrom` states the rule once,
+and the compact constructor of `ParsedBuild` refuses a verdict the other components contradict (a failed build, a missing
+success marker, a count that exists). The positive "no tests" marker itself is an input of the parse rather than a
+component of the result, so a caller that constructs the record directly supplies the verdict it has decided; every parser
+in this package reaches it through `noTestsRanFrom`.
+
+== Source
+
+Work package `doc/plans/build-parsers-and-gate-honesty.adoc`; plan `PLAN-V2-08-native-build-parsers-jvm`; specification
+`doc/specification/job-runtime/03-parsers-and-gates.adoc` § Native Build Output Parsers; the watch items this package
+closed (PM-WATCH-JOB-10, whose item was deleted, and PM-WATCH-JOB-11, which stays for the npm and pyproject parsers);
+requirements `PM-IMPL-6` and `PM-TEST-2`.

@@ -1,0 +1,15 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/pm-dev-java-cui/parse-rewrite-log/test_parse_rewrite_log.py::TestCrlfRobustness::test_crlf_terminated_line_message_has_no_trailing_cr test/pm-dev-java-cui/parse-rewrite-log/test_parse_rewrite_log.py::TestCrlfRobustness::test_crlf_and_lf_yield_identical_findings
+# The same corpus with CRLF line endings: the greedy end-of-line message capture must not swallow the carriage return, so
+# the findings are byte-identical to the LF corpus.
+log-file rewrite-run-warnings.log
+crlf
+domain active
+verdict OBSERVED
+finding-count 5
+newly-detected 3
+pre-existing 2
+finding NEWLY_DETECTED src/main/java/de/cuioss/example/PaymentService.java 3 9 TestRecipe TODO: Throw specific not RuntimeException
+finding PRE_EXISTING src/main/java/de/cuioss/example/PaymentService.java 3 9 TestRecipe TODO: Throw specific not RuntimeException
+finding NEWLY_DETECTED src/main/java/de/cuioss/example/OrderValidator.java 42 5 InvalidExceptionUsageRecipe Replace RuntimeException with a specific exception type
+finding PRE_EXISTING src/main/java/de/cuioss/example/AuditLogger.java 88 13 CuiLogRecordPatternRecipe Wrap log statement in a LogRecord constant
+finding NEWLY_DETECTED src/main/java/de/cuioss/example/ReportGenerator.java 120 17 CuiLoggerStandardsRecipe Use CuiLogger instead of java.util.logging directly

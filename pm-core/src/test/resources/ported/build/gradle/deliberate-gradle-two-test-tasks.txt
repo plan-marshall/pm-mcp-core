@@ -1,0 +1,15 @@
+deliberate: deliberate-gradle-two-test-tasks
+# Deliberate change: the counts follow the Maven rule, so every test-task summary contributes instead of only the last
+# match the original keeps. Two test tasks of 12 and 8 tests are summed to 20 (3 failed, 1 skipped, 16 passed).
+# Gradle files each `N tests completed` line as a test failure because its table carries the word `failed`.
+log > Task :core:test
+log 12 tests completed, 1 failed
+log > Task :client:test
+log 8 tests completed, 2 failed, 1 skipped
+log BUILD SUCCESSFUL in 12s
+status SUCCESS
+success-marker true
+tests measured 16 3 1 20
+no-tests-ran false
+diagnostic ERROR TEST_FAILURE - - - 12 tests completed, 1 failed
+diagnostic ERROR TEST_FAILURE - - - 8 tests completed, 2 failed, 1 skipped

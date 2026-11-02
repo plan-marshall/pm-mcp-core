@@ -1,0 +1,15 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-gradle/test_gradle_cmd_parse.py::test_parse_log_failure_build_status test/plan-marshall/build-gradle/test_gradle_cmd_parse.py::test_parse_log_failure_has_errors test/plan-marshall/build-gradle/test_gradle_cmd_parse.py::test_parse_log_failure_error_fields test/plan-marshall/build-gradle/test_gradle_cmd_parse.py::test_parse_log_failure_has_warnings test/plan-marshall/build-gradle/test_gradle_cmd_parse.py::test_parse_log_failure_warning_category test/plan-marshall/build-gradle/test_gradle_cmd_parse.py::test_issue_to_dict
+# A compile failure: two compiler errors with their locations, one deprecation warning, the failing task and the
+# BUILD FAILED banner. The continuation lines (`symbol:`, `location:`, `required:`, `found:`, the caret) are not filed,
+# and a line whose text matches no category is skipped entirely, as in the original.
+log-file gradle-failure-real.log
+status FAILURE
+success-marker false
+tests none
+no-tests-ran false
+diagnostic ERROR COMPILATION_ERROR /Users/dev/project/src/main/java/com/example/api/GenshinService.java 45 - /Users/dev/project/src/main/java/com/example/api/GenshinService.java:45: error: cannot find symbol
+diagnostic ERROR COMPILATION_ERROR /Users/dev/project/src/main/java/com/example/api/GenshinService.java 50 - /Users/dev/project/src/main/java/com/example/api/GenshinService.java:50: error: incompatible types: String cannot be converted to int
+diagnostic WARNING DEPRECATION_WARNING /Users/dev/project/src/main/java/com/example/api/Repository.java 78 - /Users/dev/project/src/main/java/com/example/api/Repository.java:78: warning: [deprecation] oldMethod() in BaseRepository has been deprecated
+diagnostic ERROR TEST_FAILURE - - - FAILURE: Build failed with an exception.
+diagnostic ERROR TEST_FAILURE - - - Execution failed for task ':compileJava'.
+diagnostic ERROR TEST_FAILURE - - - BUILD FAILED in 5s

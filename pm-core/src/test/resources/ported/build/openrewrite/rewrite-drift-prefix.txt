@@ -1,0 +1,11 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/pm-dev-java-cui/parse-rewrite-log/test_parse_rewrite_log.py::TestFormatDriftRegression::test_altered_prefix_no_longer_matches
+# The recipe prefix altered to CUI_LEGACY no longer matches, so that line is no finding — and no parse error either: a
+# line without the prefix is ordinary log text. The other four findings are observed.
+log-file rewrite-run-warnings.log
+filter-out CUI_REWRITE-100: Finding detected at src/main/java/de/cuioss/example/PaymentService
+log CUI_LEGACY-100: Finding detected at src/main/java/de/cuioss/example/PaymentService.java:3:9 by TestRecipe: TODO: Throw specific not RuntimeException
+domain active
+verdict OBSERVED
+finding-count 4
+newly-detected 2
+pre-existing 2
