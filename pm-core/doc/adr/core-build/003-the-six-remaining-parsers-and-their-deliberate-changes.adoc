@@ -119,8 +119,8 @@ fixture and this record with it.
 
 The counts rules are now implemented for all nine parsers, so PM-WATCH-JOB-11's guard is carried by fixtures of every
 parser (the item is kept, because the requirement documentation links to it) and PM-WATCH-JOB-12 has a named test and is
-deleted from the implementation watch; the specification's table of the six parsers is replaced by a
-paragraph that names their deliberate changes and points at the developer guide.
+deleted from the implementation watch; the specification's table of the six parsers is replaced by the
+"Implemented by" paragraph that points at the developer guide.
 
 == Source
 

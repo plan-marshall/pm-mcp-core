@@ -10,7 +10,7 @@ Status, milestone and dependencies:: in the link:README.adoc#packages[index], th
 
 == Tasks
 
-The specification sections named are the single statement of what each task builds. `worktree_sha` and the ingestion validator stay as they are.
+The specification sections named are the single statement of what each task builds. The parsers build on the result model and the JVM parsers of `core.build` (link:../../pm-core/doc/developer/core-build.adoc[`core.build` Developer Guide]); `worktree_sha` and the ingestion validator stay as they are.
 
 . *`failed_unparsed`*: link:../specification/job-runtime/03-parsers-and-gates.adoc#_unparseable_output_fallback_failed_unparsed[Job Runtime § Unparseable Output Fallback].
 . *The coverage report parsers* (JaCoCo, Cobertura, LCOV, Istanbul): link:../specification/job-runtime/03-parsers-and-gates.adoc#_native_coverage_report_parsers[Job Runtime § Native Coverage Report Parsers].

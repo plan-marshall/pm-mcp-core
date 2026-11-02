@@ -453,7 +453,12 @@ Hazard:: A scoped Maven test filter (`-Dtest=<package>.*`) matching zero classes
 reporting zero tests.
 Guard:: A `no_tests_ran` verdict requires the build tool's positive marker, never a zero count, and a successful
 build whose summaries cannot be aggregated reports `tests_population: unmeasured`, never `tests_run: 0`; fixtures
-with a non-matching filter (positive marker present) and with unaggregatable summaries.
+with a non-matching filter (positive marker present) and with unaggregatable summaries. Implemented for all nine parsers
+by `pm-core` package `core.build` (link:../../pm-core/doc/developer/core-build.adoc[`core.build` Developer
+Guide]); the `deliberate-no-tests-ran-positive-marker`, `deliberate-zero-count-is-no-no-tests-ran`,
+`deliberate-gradle-no-tests-marker`, `deliberate-jest-unmeasured-tests`, `deliberate-tap-zero-tests` and
+`deliberate-tap-unmeasured-tests` fixtures and the `PyprojectOutputParserTest` case that reports no count for a filter
+matching nothing carry the guard.
 Fixture:: cui-jsf lesson `2026-06-16-09-001`.
 Source:: plan-marshall repository cui-jsf-test-basic, `.plan/local/lessons-learned/2026-06-16-09-001.md` (git-ignored consumer lesson store); lessons-routing PLAN-LR-01 D3.
 
