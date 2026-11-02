@@ -1,0 +1,8 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_rewrite_log.py::TestReachedRewriteRun::test_short_prefix_banner_form_matches
+# The older prefix banner form `--- rewrite:run (default-cli) @ app ---` is a real goal execution, and a run without a
+# finding line is observed with zero findings — not a non-observed state.
+log [INFO] --- rewrite:run (default-cli) @ my-app ---
+log [INFO] No recipes matched.
+domain active
+verdict OBSERVED
+finding-count 0

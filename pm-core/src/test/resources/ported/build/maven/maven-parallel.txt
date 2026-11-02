@@ -1,0 +1,10 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_parse_log_parallel_build_keeps_the_sum_and_omits_by_runner
+# A parallel (`-T4`) build: the two summary blocks (83 and 30) are still summed, but the MultiThreadedBuilder banner
+# withholds by_runner, because an interleaved module's header no longer names the summary's runner reliably.
+log-file maven-parallel-verify.log
+status SUCCESS
+success-marker true
+tests measured 112 0 1 113
+no-by-runner
+no-tests-ran false
+diagnostic-count 0

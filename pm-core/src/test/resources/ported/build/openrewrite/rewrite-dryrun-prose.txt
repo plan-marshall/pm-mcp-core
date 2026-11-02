@@ -1,0 +1,8 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_rewrite_log.py::TestReachedRewriteRun::test_dryrun_advisory_prose_does_not_match
+# The advisory prose alone carries the literal `rewrite:run` and must not be mistaken for the goal's execution banner:
+# neither the backtick-quoted `mvn rewrite:run` nor the "Run 'mvn rewrite:run'" sentence opens an execution.
+log [INFO] Please review and commit the results, or run `mvn rewrite:run` again.
+log [INFO] Run 'mvn rewrite:run' to apply the fixes.
+domain active
+verdict NOT_OBSERVED
+finding-count 0

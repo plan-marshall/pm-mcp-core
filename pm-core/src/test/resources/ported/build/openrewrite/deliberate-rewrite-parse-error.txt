@@ -1,0 +1,10 @@
+deliberate: deliberate-rewrite-parse-error
+# Deliberate change: a line that carries a finding identifier but no longer matches the pinned template is a parse error,
+# never silently ignored. The original drops such a line and would then report zero findings, turning a format drift into
+# a false clean; this port refuses to report an observation it could not make.
+log [INFO] --- rewrite-maven-plugin:5.42.0:run (default-cli) @ example-app ---
+log CUI_REWRITE-100: Finding located near src/main/java/de/cuioss/example/PaymentService.java:3:9 by TestRecipe: TODO
+log [INFO] BUILD SUCCESS
+domain active
+verdict PARSE_ERROR
+finding-count 0

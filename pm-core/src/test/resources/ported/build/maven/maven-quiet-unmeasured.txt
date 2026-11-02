@@ -1,0 +1,15 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_parse_log_quiet_log_without_results_marker_is_unmeasured
+# A quiet (`-q`) log drops the `[INFO] Results:` marker, so its one count line cannot be told from a per-class line.
+# The population is unmeasured and carries no number; a zero would turn an unreadable run into evidence that it passed.
+log-file maven-quiet-unmeasured.log
+status FAILURE
+success-marker false
+tests unmeasured
+no-tests-ran false
+diagnostic ERROR TEST_FAILURE - - - Tests run: 14, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.318 s <<< FAILURE! -- in de.cuioss.sample.core.OrderServiceTest
+diagnostic ERROR TEST_FAILURE - - - de.cuioss.sample.core.OrderServiceTest.shouldRejectNegativeQuantity -- Time elapsed: 0.021 s <<< FAILURE!
+diagnostic ERROR UNRECOGNIZED - - - Failures:
+diagnostic ERROR UNRECOGNIZED OrderServiceTest.java 87 - OrderServiceTest.shouldRejectNegativeQuantity:87 Expected java.lang.IllegalArgumentException to be thrown, but nothing was thrown.
+diagnostic ERROR TEST_FAILURE - - - Tests run: 340, Failures: 1, Errors: 0, Skipped: 0
+diagnostic ERROR TEST_FAILURE - - - Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin:3.5.2:test (default-test) on project sample-core: There are test failures.
+no-diagnostic Please refer to dump files (if any exist) [date].dump, [date]-jvmRun[N].dump and [date].dumpstream.

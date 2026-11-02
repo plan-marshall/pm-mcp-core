@@ -1,0 +1,13 @@
+deliberate: deliberate-zero-count-is-no-no-tests-ran
+# Deliberate change: a measured count of zero never produces the `no_tests_ran` verdict, not even over a successful
+# build. The verdict needs the tool's own positive marker (PM-WATCH-JOB-11).
+log [INFO] --- surefire:3.5.2:test (default-test) @ core ---
+log [INFO] Results:
+log [INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0
+log [INFO] BUILD SUCCESS
+status SUCCESS
+success-marker true
+tests measured 0 0 0 0
+by-runner surefire 0
+no-tests-ran false
+diagnostic-count 0

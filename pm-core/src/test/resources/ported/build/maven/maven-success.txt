@@ -1,0 +1,10 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_parse_log_success_returns_tuple test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_parse_log_success_build_status test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_parse_log_success_test_summary test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_parse_log_success_issues_are_issue_objects test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_parse_log_success_no_errors test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_test_summary_to_dict
+# A real successful `verify` of one module: 4892 tests, no diagnostic at any filing level, and a Failsafe execution that
+# printed "No tests to run." after the Surefire summary — the counts are the one summary block, so the verdict stays false.
+log-file maven-success-real.log
+status SUCCESS
+success-marker true
+tests measured 4892 0 0 4892
+by-runner surefire 4892
+no-tests-ran false
+diagnostic-count 0

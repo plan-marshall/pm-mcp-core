@@ -1,0 +1,12 @@
+deliberate: deliberate-no-tests-ran-positive-marker
+# Deliberate change: `no_tests_ran` exists only with the tool's positive marker — here Surefire's `No tests to run.` —
+# over a successful build that reported no count. This is the `-Dtest=<package>.*` run that matched no class
+# (PM-WATCH-JOB-11): it is green, and it ran nothing.
+log [INFO] --- surefire:3.5.2:test (default-test) @ core ---
+log [INFO] No tests to run.
+log [INFO] BUILD SUCCESS
+status SUCCESS
+success-marker true
+tests none
+no-tests-ran true
+diagnostic-count 0

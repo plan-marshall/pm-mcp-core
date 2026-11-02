@@ -1,0 +1,9 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_passing_test_count_line_is_not_a_test_failure
+# A `Tests run:` line with zero failures and zero errors is not a diagnostic. Without a `Results:` marker the line is
+# still a count line the parser cannot classify, so the population is unmeasured.
+log [WARNING] Tests run: 27, Failures: 0, Errors: 0, Skipped: 1
+status FAILURE
+success-marker false
+tests unmeasured
+no-tests-ran false
+diagnostic-count 0

@@ -1,0 +1,16 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/pm-dev-java-cui/parse-rewrite-log/test_parse_rewrite_log.py::TestFieldExtraction::test_total_findings_matches_corpus test/pm-dev-java-cui/parse-rewrite-log/test_parse_rewrite_log.py::TestFieldExtraction::test_non_finding_lines_are_ignored test/pm-dev-java-cui/parse-rewrite-log/test_parse_rewrite_log.py::TestFieldExtraction::test_each_finding_matches_independent_extraction test/pm-dev-java-cui/parse-rewrite-log/test_parse_rewrite_log.py::TestClassification::test_classification_counts_match_corpus test/pm-dev-java-cui/parse-rewrite-log/test_parse_rewrite_log.py::TestClassification::test_identifier_100_is_newly_detected test/pm-dev-java-cui/parse-rewrite-log/test_parse_rewrite_log.py::TestClassification::test_identifier_101_is_pre_existing test/pm-dev-java-cui/parse-rewrite-log/test_parse_rewrite_log.py::TestGreedyMessageCapture::test_message_with_internal_separator_is_not_truncated test/pm-dev-java-cui/parse-rewrite-log/test_parse_rewrite_log.py::TestSubstringMatch::test_layout_prefixed_line_still_parses test/pm-dev-java-cui/parse-rewrite-log/test_parse_rewrite_log.py::TestFormatDriftRegression::test_every_corpus_finding_line_matches_the_parser test/pm-dev-java-cui/parse-rewrite-log/test_parse_rewrite_log.py::TestCorpusDerivation::test_corpus_has_finding_lines test/pm-dev-java-cui/parse-rewrite-log/test_parse_rewrite_log.py::TestCorpusDerivation::test_corpus_covers_both_classifications test/pm-dev-java-cui/parse-rewrite-log/test_parse_rewrite_log.py::TestCorpusDerivation::test_corpus_has_a_layout_prefixed_line test/pm-dev-java-cui/parse-rewrite-log/test_parse_rewrite_log.py::TestCorpusDerivation::test_corpus_has_a_message_with_internal_separator
+# The checked-in provenance corpus of the upstream recipe project, verbatim. One finding per structured WARN line: the
+# identifier decides newly detected or pre-existing, the path and recipe are non-greedy so the separators anchor them, and
+# the message is captured to end of line with its internal ": " intact. The layout-prefixed line (a timestamp, level tag
+# and logger name before the prefix) proves the substring match, and the [INFO]/BUILD lines are no finding.
+log-file rewrite-run-warnings.log
+domain active
+verdict OBSERVED
+finding-count 5
+newly-detected 3
+pre-existing 2
+finding NEWLY_DETECTED src/main/java/de/cuioss/example/PaymentService.java 3 9 TestRecipe TODO: Throw specific not RuntimeException
+finding PRE_EXISTING src/main/java/de/cuioss/example/PaymentService.java 3 9 TestRecipe TODO: Throw specific not RuntimeException
+finding NEWLY_DETECTED src/main/java/de/cuioss/example/OrderValidator.java 42 5 InvalidExceptionUsageRecipe Replace RuntimeException with a specific exception type
+finding PRE_EXISTING src/main/java/de/cuioss/example/AuditLogger.java 88 13 CuiLogRecordPatternRecipe Wrap log statement in a LogRecord constant
+finding NEWLY_DETECTED src/main/java/de/cuioss/example/ReportGenerator.java 120 17 CuiLoggerStandardsRecipe Use CuiLogger instead of java.util.logging directly

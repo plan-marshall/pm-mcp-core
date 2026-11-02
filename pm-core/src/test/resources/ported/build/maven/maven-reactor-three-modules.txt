@@ -1,0 +1,10 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_parse_log_sums_every_summary_block
+# Three modules under one reactor, each with its own Surefire summary block. The counts are the sum of the three blocks
+# (112 + 1034 + 57), never the last block's 57 — the fixture could not tell the two apart otherwise.
+log-file maven-reactor-three-modules.log
+status SUCCESS
+success-marker true
+tests measured 1201 0 2 1203
+by-runner surefire 1201
+no-tests-ran false
+diagnostic-count 0

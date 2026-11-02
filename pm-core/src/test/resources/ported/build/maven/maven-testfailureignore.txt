@@ -1,0 +1,10 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_parse_log_testfailureignore_raw_build_status_and_failures
+# A `testFailureIgnore` run: the tool printed BUILD SUCCESS while two tests errored. The raw parse keeps both facts —
+# the status is the marker's, the failure count is the summary's — and resolving them is the consumer's decision.
+log-file maven-testfailureignore-green.log
+status SUCCESS
+success-marker true
+tests measured 3 2 0 5
+by-runner surefire 5
+no-tests-ran false
+diagnostic-count 0

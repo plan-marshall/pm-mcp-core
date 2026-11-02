@@ -61,6 +61,7 @@ resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshal
 == Developer Documentation
 
 * link:doc/developer/core-analysis.adoc[Code Analysis (`core.analysis`)]
+* link:doc/developer/core-build.adoc[Build Output Parsers (`core.build`)]
 * link:doc/developer/core-config.adoc[Consents, Model Catalogue and Role Assignments (`core.config`)]
 * link:doc/developer/core-findings.adoc[Findings (`core.findings`)]
 * link:doc/developer/core-log.adoc[Log Messages (`core.log`)]

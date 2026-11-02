@@ -1,0 +1,12 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_control_parallel_log_without_the_banner_reports_by_runner
+# CONTROL of the banner rule: the same interleaved log with the banner removed is attributed by the nearest preceding
+# execution header, and the attribution under-counts (29 of the 112 executed) because a compiler header of the other
+# module sits between sample-api's Surefire header and its summary. That under-count is why a parallel build omits it.
+log-file maven-parallel-verify.log
+filter-out MultiThreadedBuilder
+status SUCCESS
+success-marker true
+tests measured 112 0 1 113
+by-runner surefire 29
+no-tests-ran false
+diagnostic-count 0
