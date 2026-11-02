@@ -1294,9 +1294,11 @@ make every writer of the file wait behind a provider. The lock is held for the r
 only. `refresh` opens one transaction on the store's key `LockKey.derivedFacts(base, projectId)`, re-reads the file
 under the lock, changes the one entry and writes the whole document through `AtomicStoreFile`.
 
-A refresh made inside a scope transaction therefore takes `locks/derived-facts.lock` after the scope lock the caller
-holds, which is the place of `LockLevel.DERIVED_FACTS` in the total order. An acquisition of a scope lock while the
-derived-facts lock is held is a violation the lock manager refuses.
+A refresh made inside a scope transaction therefore takes `locks/derived-facts.lock` in its own transaction after the
+caller's lock is held, which is the place of `LockLevel.DERIVED_FACTS` in the total order. The lock manager asserts the
+order within one transaction only and does not see the caller's keys, so the order of a caller's transaction relative
+to the store's is a convention of the callers. An acquisition of a scope lock while the derived-facts lock is held,
+inside one transaction, is a violation the lock manager refuses.
 
 Two refreshers of the same fact do not overwrite a newer result with an older one: the write re-reads the entry and,
 when the stored entry carries the same digest with a later `derived_at`, keeps it and returns it
@@ -1332,8 +1334,9 @@ reader sees the old or the new document and nothing in between.
 
 A `Failed` outcome for a key whose entry carries a value rewrites the entry as `state: stale`; it keeps the value, the
 source, the `input_digest` and the `derived_at` of the last good derivation and sets `failure` to the reason and the
-instant of the attempt. The last good digest is kept on purpose: the next call with the attempted digest still sees a
-digest mismatch and retries without a back-off
+instant of the attempt. The last good digest is kept because the kept value was derived from it; the next call derives
+again because the state is not `current`, whatever the digest (the decision table retries `stale` and `failed` entries
+without a back-off;
 (link:../adr/core-store/057-a-stale-entry-keeps-its-last-good-digest.adoc[ADR 057]).
 
 A `Failed` outcome for a key with no entry, or with only a `failed` one, writes `state: failed`, no value, the digest

@@ -1,0 +1,58 @@
+= ADR 063: The Store's Transaction Is Its Own and the Order Across Transactions Is by Convention
+
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-02
+
+== Context
+
+`FileLockManager` asserts the total lock order within one transaction only: `Transaction.acquire` checks
+`LockOrder.check(held, key)` against the keys of that one transaction. `DerivedFactStore.refresh` opens its own
+transaction and takes `locks/derived-facts.lock` there, after the derivation has run. A caller that already holds a
+plan, epic or workspace lock in its own transaction is therefore outside what the manager checks when the store's
+transaction asks for the derived-facts lock. PLAN-V2-05 deleted PM-WATCH-STORE-43 on the claim that
+`DerivedFactStoreLockTest` covered the order; the analysis of that landing found that the test called the pure
+`LockOrder.check` on a hand-built list and that its `planLockThenRefresh` case is single-threaded.
+
+== Decision
+
+The store keeps opening its own transaction. The derived-facts lock is held for the re-read and the write of the one
+entry only, the store takes no other lock and calls no foreign code under it, and the derivation runs outside it, so
+the store's transaction cannot take part in a lock cycle. The order of a caller's transaction relative to the store's
+is a convention of the callers: a caller takes the scope locks first and refreshes afterwards. No test of the store can
+enforce that convention, because the manager does not see the caller's keys.
+
+The guard of PM-WATCH-STORE-43 is stated as that convention plus the store's own shape, and the item stays restored
+under its id with that narrowed wording (R05: kept with a reason).
+
+== Alternatives Considered
+
+* A `refresh` overload that takes the caller's `LockTransaction`, so the manager checks the acquisition against the
+  keys the caller already holds. It would turn the convention into an assertion for every caller that adopts the
+  overload. Its cost is a second public signature on `DerivedFactStore` and on every consumer, and a caller that keeps
+  the old signature is still unchecked, so the store would have two ways to refresh a fact and no way to require the
+  checked one. It is not chosen.
+* Moving the derived-facts lock into the caller's transaction always: the store cannot reach a caller's transaction
+  that does not exist, and `refresh` is also called without a scope (the setup reconcile).
+
+== Consequences
+
+* The order of a scope lock and a refresh stays a convention that review and the caller's tests enforce, not the lock
+  manager.
+* The store's transaction stays short and free of foreign calls, which is what keeps it out of a lock cycle.
+* `DerivedFactStoreConcurrencyTest`, `DerivedFactStoreLockTest` and `LockOrderTest` state the store's shape and the
+  place of `LockLevel.DERIVED_FACTS` in the order; no test claims that a refresh proves the order.
+* PM-WATCH-STORE-43 is restored under its id and anchor, narrowed to this hazard and this guard.
+
+== Source
+
+* link:../../../../doc/implementation-watch/store-schemas.adoc#PM-WATCH-STORE-43[Implementation Watch § PM-WATCH-STORE-43]
+* link:../../../../doc/specification/store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[Store Schemas § Lock-Free Snapshot Reads, Transaction Locks & Leases]
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]
+* Analysis of the landing of PLAN-V2-05 (`landings/PLAN-V2-05.md`, 2026-11-01)

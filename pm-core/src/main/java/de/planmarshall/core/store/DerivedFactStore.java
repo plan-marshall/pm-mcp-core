@@ -50,8 +50,9 @@ import de.planmarshall.core.store.DerivedFactDerivation.DerivationOutcome.Failed
  * that rule: it keeps the last good value and digest, as the failure rule below states (ADR {@code core-store/056}).
  * <p>
  * <em>Failure.</em> A failed derivation keeps the last value with {@code state: stale} and records the failure, or
- * writes {@code failed} when no value was ever derived. The last good {@code input_digest} is kept on {@code stale}, so
- * the next call still sees the digest mismatch and retries without a back-off (ADR {@code core-store/057}). A
+ * writes {@code failed} when no value was ever derived. The last good {@code input_digest} is kept on {@code stale}
+ * because the kept value was derived from it; the next call derives again because the state is not {@code current},
+ * whatever the digest, without a back-off (ADR {@code core-store/057}). A
  * {@code failed} entry names the placeholder derivation {@code unknown} and the first class its kind admits, because
  * the schema requires a source on every entry and no derivation produced a value.
  * <p>

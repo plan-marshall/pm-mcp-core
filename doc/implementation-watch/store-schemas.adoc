@@ -745,6 +745,20 @@ silently because it is absent from the home write set.
 Fixture:: review-apparatus epic 028 D6 (foreign write declared only in `survey_scope`; fixtures carry `intent`).
 Source:: plan-marshall defects review-apparatus PLAN-PR-028 D6; truthful-signals PLAN-TRUTH-145 item B-001.
 
+[#PM-WATCH-STORE-43]
+=== PM-WATCH-STORE-43: The derived-facts store has its own lock in the total order
+
+Anchor:: link:../specification/store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[Store Schemas § Lock-Free Snapshot Reads, Transaction Locks & Leases],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]
+Hazard:: A refresh that runs inside a scope transaction is not order-checked, because the lock manager asserts the
+order within one transaction and the store opens its own.
+Guard:: The store holds the derived-facts lock for the re-read and the write only, takes no other lock and calls no
+foreign code under it, and the derivation runs outside it, so it cannot take part in a lock cycle; proved by
+`DerivedFactStoreConcurrencyTest`, `DerivedFactStoreLockTest` and `LockOrderTest`. The order of a caller's transaction
+relative to the store's is a convention of the callers that no test of the store can enforce, which is why the item
+stays (R05: kept with a reason).
+Source:: design review; restored and narrowed by PLAN-V2-111 after the analysis of the `derived-facts-store` landing.
+
 [#PM-WATCH-STORE-46]
 === PM-WATCH-STORE-46: A sweep never removes a row something still references, nor work history
 

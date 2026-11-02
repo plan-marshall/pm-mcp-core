@@ -1,0 +1,49 @@
+= ADR 064: The Operator-Only Value Never Enters a Reason
+
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-02
+
+== Context
+
+`agent_identity` is operator-only: it is shown to the operator and used server-side, and it never appears in a
+model-facing representation, resource or tool result. `DerivedFactStore.validated` turns a schema violation into
+`Failed("The value violates its schema: " + join(violations))`, and `SchemaSubset` writes the offending value into the
+violations of `enum` (line 106) and `const` (line 103). For an operator-only kind the joined reason would therefore
+contain the value, and the reason travels through `DerivedFactReading.couldNotEvaluate()` into
+`DerivedFactGuards.evaluate` and a model-facing guard result.
+
+== Decision
+
+For a kind whose `operatorOnly()` is true, a schema violation becomes a reason that names the kind and the number of
+violations and never a violation text, so the value cannot reach the reason. Every other kind keeps the unchanged
+reason with its violations. A consumer's own `Failed` reason is the consumer's text: the store carries it unchanged,
+and the contract says it must not carry an operator-only value. The guide and the Javadoc of `refresh` state the rule.
+
+== Alternatives Considered
+
+* `SchemaSubset` never echoes a value in any violation. It is the more general fix and removes the hazard at its source,
+  but it changes the messages of every schema consumer in `core.role.corpus` and elsewhere, and that surface belongs to
+  PLAN-V2-65. It is not chosen here.
+
+== Consequences
+
+* An operator-only value cannot enter a reason through the store's own validation; a consumer that writes such a value
+  into its own `Failed` text is a defect of that consumer, stated in the Javadoc.
+* The reason of an operator-only violation is less specific: it names the kind and the count, not the violation.
+* `DerivedFactRefreshTest` states both halves: an `agent_identity` value is absent from the reason and from the guard
+  input, and a non-operator kind still names its violation.
+* The general fix stays owed to PLAN-V2-65.
+
+== Source
+
+* link:../../../../doc/specification/store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas § Derived Facts Store]
+* link:../../../../doc/specification/hypermedia-format/01-representation-and-link-forms.adoc#model-facing-minimality[Hypermedia Format § Model-Facing Minimality]
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-6[PM-EXT-6]
+* Analysis of the landing of PLAN-V2-05 (`landings/PLAN-V2-05.md`, 2026-11-01)
