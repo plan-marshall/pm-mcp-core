@@ -3,14 +3,14 @@
 :toclevels: 2
 :nofooter:
 
-One plan file per work package. A work package is what one session takes up and lands as one pull request here, with the specification, the implementation watch and the traceability of this repository (link:../Specification.adoc[Specification], link:../ImplementationWatch.adoc[Implementation Watch], link:../Traceability.adoc[Traceability]) as part of the same work. The files hold the tasks; what the tasks mean and require is stated in those documents and in the requirements, use cases and roadmap of `plan-marshall-documentation`, and linked by relative paths. The links assume the repositories checked out beside each other (`../plan-marshall-documentation`, `../pm-mcp-clients`, `../pm-mcp-core`, `../plan-marshall-mcp`); they do not resolve in the web view of a single repository.
+One file per work package and this index. How the work is planned, what a package file holds, when a package is ready, and what happens to a package when it is done are stated only in link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Project Setup § Planning the Work]. The links assume the repositories checked out beside each other; they do not resolve in the web view of a single repository.
 
-The modules of this repository, their packages and their dependency rules are listed only in the link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc[Module Structure Specification]; each package file names where it lands.
+The modules of this repository are listed only in the link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc[Module Structure Specification]; each package file names where it lands.
 
 [#packages]
 == Packages
 
-The packages listed serve roadmap Milestones 2 to 4, the packages the client work of `pm-mcp-clients` needs, and the engine packages of Milestones 6, 8, 9, 10, and 14, each serving the items named in its _Serves_ column; the rest of the later milestones is not cut into packages yet, and a package that names one of them as the home of something says what is left out here. This table is the only place that states the status of a package and what it depends on; the package files do not repeat either. The table lists the packages not yet done: a done package leaves the table and its file is deleted, so its implementation, its developer documentation and its ADRs are what remain of it. A package is *ready* when its status is `open` and its _Depends on_ column names no package of this table (a dependency in another repository is done when its row there says so). Ready packages can be worked in parallel, also across the repositories. A dependency that has no work package yet keeps a package `blocked`; it is replaced by the package when that is planned. A package that depends on a `blocked` package is `blocked` too.
+The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` row names its reason. Dependencies are named by package id, a package of another repository as `<repository>` / `<id>`. The work packages of the other repositories: link:../../../pm-mcp-clients/doc/plans/README.adoc[`pm-mcp-clients`] and link:../../../plan-marshall-mcp/doc/plans/README.adoc[`plan-marshall-mcp`].
 
 [cols="3,4,1,3,2",options="header"]
 |===
@@ -24,11 +24,11 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:job-confinement-and-environment.adoc[`job-confinement-and-environment`]
 |Job confinement and job environment in the daemon
 |`open`
-|link:../../../pm-mcp-clients/doc/plans/exec-read-denied-paths.adoc[`pm-mcp-clients` / `exec-read-denied-paths`]; link:../../../pm-mcp-clients/doc/plans/exec-listed-read-set.adoc[`pm-mcp-clients` / `exec-listed-read-set`]; link:../../../pm-mcp-clients/doc/plans/exec-hardening.adoc[`pm-mcp-clients` / `exec-hardening`]
+|`pm-mcp-clients` / `exec-read-denied-paths`; `pm-mcp-clients` / `exec-listed-read-set`; `pm-mcp-clients` / `exec-hardening`
 |Milestone 4
 
 |link:worker-activity.adoc[`worker-activity`]
-|What a worker does: the activity of a task mapped per harness, the activity journal, the off-track signals and their actions
+|What a worker does: the activity of a task mapped per harness, the activity journal, the off-track signals and their actions (without the navigation figures, link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-40[L-40])
 |`open`
 |nothing
 |Milestone 4
@@ -36,23 +36,23 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:question-continuation.adoc[`question-continuation`]
 |Continuation after a question: hold, suspend and resume, the answer acknowledgement, the answer in the next task, the question bound, the stage `resumability` of the profile verification
 |`open`
-|link:client-profile-measured-values.adoc[`client-profile-measured-values`]
+|`client-profile-measured-values`
 |Milestone 4
 
 |link:client-profile-measured-values.adoc[`client-profile-measured-values`]
 |The client-profile values the question-loop follow-up measures: the `headless.resumability` values of the shipped profiles, the `headless.inline_settings` member and its provisional values, and the stage `resumability` checked against the measured hosts
 |`open`
-|link:../../../plan-marshall-mcp/doc/plans/question-loop-follow-up.adoc[`plan-marshall-mcp` / `question-loop-follow-up`]
+|`plan-marshall-mcp` / `question-loop-follow-up`
 |Milestones 4 and 14
 
 |link:supervision-scenarios.adoc[`supervision-scenarios`]
 |Deterministic supervision scenarios
 |`open`
-|link:worker-activity.adoc[`worker-activity`]; link:question-continuation.adoc[`question-continuation`]
+|`worker-activity`; `question-continuation`
 |Milestone 4
 
 |link:qualification-evidence.adoc[`qualification-evidence`]
-|What a role's qualification figures rest on: the items left out of a grading (an unconfirmed decision of its own, a derived item), the costly answers with their subset and confusion matrix, the interval, the `thin` mark and the confirmed-only agreement
+|What a role's qualification figures rest on: the `thin` mark of a topic and its record member (the rest is deferred, link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-37[L-37])
 |`open`
 |nothing
 |Milestone 4
@@ -66,7 +66,7 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:decision-engine.adoc[`decision-engine`]
 |Decisions as the operator meets them: structure, interpretation, support, channels
 |`open`
-|link:start-source-intake.adoc[`start-source-intake`] (the entry's decision stores and their move)
+|`start-source-intake` (the entry's decision stores and their move)
 |Milestone 7; the client work of `pm-mcp-clients`
 
 |link:phase-sub-workflows.adoc[`phase-sub-workflows`]
@@ -78,25 +78,25 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:process-and-overview.adoc[`process-and-overview`]
 |The plan's process, what needs the operator, running work and the overview, the events per scope, and ended work as resources
 |`open`
-|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (the activity, the holds)
+|`phase-sub-workflows`; `plan-and-epic-control` (the activity, the holds)
 |Milestones 7 and 10; the client work of `pm-mcp-clients`
 
 |link:project-onboarding-unit.adoc[`project-onboarding-unit`]
 |The onboarding of a project as one process, the project's values over the machine's, and the projects of the machine
 |`open`
-|link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]
+|`machine-onboarding-unit`
 |Milestone 7; the client work of `pm-mcp-clients`
 
 |link:start-source-intake.adoc[`start-source-intake`]
 |The entry as a directory with its decision stores and transcript, the source directory and the move at creation, screened once stored and failing closed, rate limits, documents copied or moved, a claimed lesson ending with the landing
 |`open`
-|link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]; link:project-onboarding-unit.adoc[`project-onboarding-unit`]; link:lesson-store.adoc[`lesson-store`]
+|`machine-onboarding-unit`; `project-onboarding-unit`; `lesson-store`
 |Milestones 3, 10, and 12; the client work of `pm-mcp-clients`
 
 |link:start-from-clients.adoc[`start-from-clients`]
 |Starting work from the clients: the bootstraps of a plan and an epic driven by the clients, the setup gate, sources as a list and the other sources, options asked when needed
 |`open`
-|link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]; link:project-onboarding-unit.adoc[`project-onboarding-unit`]; link:start-source-intake.adoc[`start-source-intake`] (coupling: its rate limits, documents copy or move, source directory and move at creation, screening, failing closed, and claimed lesson build on the setup gate, the sources as a list, and the other sources built here; recorded on this edge, not as a reverse dependency); link:lesson-store.adoc[`lesson-store`]
+|`machine-onboarding-unit`; `project-onboarding-unit`; `start-source-intake` (coupling: its rate limits, documents copy or move, source directory and move at creation, screening, failing closed, and claimed lesson build on the setup gate, the sources as a list, and the other sources built here; recorded on this edge, not as a reverse dependency); `lesson-store`
 |Milestones 7, 10, and 12; the client work of `pm-mcp-clients`
 
 |link:forgejo-provider.adoc[`forgejo-provider`]
@@ -108,97 +108,97 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |link:recipe-workflows.adoc[`recipe-workflows`]
 |A recipe is a workflow
 |`open`
-|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:start-from-clients.adoc[`start-from-clients`]
+|`phase-sub-workflows`; `start-from-clients`
 |Milestone 7; the client work of `pm-mcp-clients`
 
 |link:chat.adoc[`chat`]
 |Chatting with the planning role: one sub-workflow for a plan, an epic, a decision, a start, and ended work, routed to its role, every change through read-back
 |`open`
-|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:decision-engine.adoc[`decision-engine`]; link:start-from-clients.adoc[`start-from-clients`] (chat while starting); link:start-source-intake.adoc[`start-source-intake`] (the entry's `chat/` and its move); link:process-and-overview.adoc[`process-and-overview`] (ended work)
+|`phase-sub-workflows`; `decision-engine`; `start-from-clients` (chat while starting); `start-source-intake` (the entry's `chat/` and its move); `process-and-overview` (ended work)
 |Milestone 8; the client work of `pm-mcp-clients`
 
 |link:chat-plan-revision.adoc[`chat-plan-revision`]
 |A plan's revision from a chat, applied through the re-planning path
 |`open`
-|link:chat.adoc[`chat`]; link:re-planning.adoc[`re-planning`] (the re-planning of a running plan, its unit `replan` and its guards)
+|`chat`; `re-planning` (the re-planning of a running plan, its unit `replan` and its guards)
 |Milestone 9; the client work of `pm-mcp-clients`
 
 |link:plan-and-epic-control.adoc[`plan-and-epic-control`]
 |Controlling plans: a plan's acts (pause, start, cancel, abandon), a plan's settings, the epic told, holds and their acts
 |`open`
-|link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]; link:project-onboarding-unit.adoc[`project-onboarding-unit`]; link:lesson-store.adoc[`lesson-store`]
+|`machine-onboarding-unit`; `project-onboarding-unit`; `lesson-store`
 |Milestones 10 and 12; the client work of `pm-mcp-clients`
 
 |link:epic-resource-and-release.adoc[`epic-resource-and-release`]
 |The epic as a resource and its actions: next plan, archive check, cancel; the release of a project
 |`open`
-|link:plan-and-epic-control.adoc[`plan-and-epic-control`] (coupling: the bullet _Holds and their acts_ there offers the epic cancel built here as an integrity pause's resolution _abort_; recorded on this edge, not as a reverse dependency)
+|`plan-and-epic-control` (coupling: the bullet _Holds and their acts_ there offers the epic cancel built here as an integrity pause's resolution _abort_; recorded on this edge, not as a reverse dependency)
 |Milestones 6 and 12; the client work of `pm-mcp-clients`
 
 |link:epic-decomposition.adoc[`epic-decomposition`]
 |The decomposition of an epic, reviewed by the operator; the epic's intent
 |`open`
-|link:chat.adoc[`chat`]; link:epic-resource-and-release.adoc[`epic-resource-and-release`] (the archive check, next plan)
+|`chat`; `epic-resource-and-release` (the archive check, next plan)
 |Milestone 12; the client work of `pm-mcp-clients`
 
 |link:epic-review.adoc[`epic-review`]
 |An epic's findings and watches, and their review
 |`open`
-|link:chat.adoc[`chat`]; link:epic-resource-and-release.adoc[`epic-resource-and-release`] (the archive check reads its registers)
+|`chat`; `epic-resource-and-release` (the archive check reads its registers)
 |Milestone 12; the client work of `pm-mcp-clients`
 
 |link:epic-auto.adoc[`epic-auto`]
 |An epic runs by itself: its automatic mode, the overlap wait, its reactions on a finished plan
 |`open`
-|link:plan-and-epic-control.adoc[`plan-and-epic-control`] (the operator's acts on a plan); link:epic-resource-and-release.adoc[`epic-resource-and-release`] (next plan, the toggle among the epic's actions, archive, the release); link:epic-decomposition.adoc[`epic-decomposition`]
+|`plan-and-epic-control` (the operator's acts on a plan); `epic-resource-and-release` (next plan, the toggle among the epic's actions, archive, the release); `epic-decomposition`
 |Milestone 12; the client work of `pm-mcp-clients`
 
 |link:operator-reports.adoc[`operator-reports`]
-|Reports to the operator: the record, its catalogue and store, read per machine, the endpoints, a plan's completion report with its Tokens section
+|Reports to the operator: the record, its catalogue and store, read per machine, the endpoints, a plan's completion report with its Tokens section (without the navigation figures, link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-40[L-40])
 |`open`
-|link:plan-and-epic-control.adoc[`plan-and-epic-control`] (the plan's outcomes, its end, and its holds); link:epic-resource-and-release.adoc[`epic-resource-and-release`] (the end of an epic, the release of a project); link:epic-auto.adoc[`epic-auto`]; link:decision-engine.adoc[`decision-engine`]; link:start-source-intake.adoc[`start-source-intake`] (a screened source flagged); link:worker-activity.adoc[`worker-activity`] (`task.off_track`)
+|`plan-and-epic-control` (the plan's outcomes, its end, and its holds); `epic-resource-and-release` (the end of an epic, the release of a project); `epic-auto`; `decision-engine`; `start-source-intake` (a screened source flagged); `worker-activity` (`task.off_track`)
 |Milestone 7; the client work of `pm-mcp-clients`
 
 |link:runtime-control.adoc[`runtime-control`]
 |Controlling the runtime from the clients: stop now or after a drain, the withdrawable drain, restart, the update check, the upgrade
 |`blocked`
-|link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the consent store); the operator's answer to the open question of the registry credential, for the update check and the fetch (no work package)
+|`machine-onboarding-unit` (the consent store); the operator's answer to the open question of the registry credential, for the update check and the fetch (no work package)
 |Milestone 2; the client work of `pm-mcp-clients`
 
 |link:runtime-metrics.adoc[`runtime-metrics`]
 |What the runtime is doing: the metrics registry maintained where things happen, the closed catalogue, the snapshot endpoints and the stream
 |`open`
-|link:plan-and-epic-control.adoc[`plan-and-epic-control`] (held and paused)
+|`plan-and-epic-control` (held and paused)
 |Milestone 2; the client work of `pm-mcp-clients`
 
 |link:process-designer.adoc[`process-designer`]
 |Designing a plan's process: the machine level of workflow units and its precedence, the validation with its composition dry-run, placing and removing at machine and project level (the project's as a short landing) with their audit, the catalogue of building blocks
 |`open`
-|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:recipe-workflows.adoc[`recipe-workflows`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the plan axes and their variants); link:start-source-intake.adoc[`start-source-intake`] (the short landings)
+|`phase-sub-workflows`; `recipe-workflows`; `machine-onboarding-unit` (the plan axes and their variants); `start-source-intake` (the short landings)
 |Milestone 11; the client work of `pm-mcp-clients`
 
 |link:cleanup.adoc[`cleanup`]
 |One cleanup of the machine: the durations per kind of work history, the daily check with its report, the cleanup job with its summary and details, delete with its audit, remind, and the kept list; the retention of work history replaced, the technical residue left to the sweeps with its figures shown
 |`blocked`
-|link:operator-reports.adoc[`operator-reports`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (the archives of plans); link:epic-resource-and-release.adoc[`epic-resource-and-release`] (the archives of epics, the release; the unenrolment); link:chat.adoc[`chat`] (ended work, read-only); link:runtime-metrics.adoc[`runtime-metrics`] (the token figures kept); link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the machine's settings); link:project-onboarding-unit.adoc[`project-onboarding-unit`] (the project's values)
+|`operator-reports`; `plan-and-epic-control` (the archives of plans); `epic-resource-and-release` (the archives of epics, the release; the unenrolment); `chat` (ended work, read-only); `runtime-metrics` (the token figures kept); `machine-onboarding-unit` (the machine's settings); `project-onboarding-unit` (the project's values)
 |Milestone 10; the client work of `pm-mcp-clients`
 
-|link:judgment-votes.adoc[`judgment-votes`]
-|A judgment role votes: two requests, the confidence from the lower probability, a rationale composed by the server, the class rule, and the calibration form
-|`open`
-|link:decision-engine.adoc[`decision-engine`] (the vote members of the decision record); link:decision-quorum-and-calibration.adoc[`decision-quorum-and-calibration`] (the decision declarations, the adjudication unit, and the calibration)
+|`judgment-votes`
+|A judgment role votes: two requests, the confidence from the lower probability, a rationale composed by the server, the class rule, and the calibration form; dropped: the judgment vote is deferred (link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-39[Later Improvements, L-39])
+|`dropped`
+|`decision-engine` (the vote members of the decision record); `decision-quorum-and-calibration` (the decision declarations, the adjudication unit, and the calibration)
 |Milestone 14
 
 |link:own-calls.adoc[`own-calls`]
 |Own calls of a writer: the choices a task settled that the plan left open, submitted with the task, checked by the server, and recorded as decisions
 |`blocked`
-|link:decision-engine.adoc[`decision-engine`] (the decision records); link:phase-sub-workflows.adoc[`phase-sub-workflows`]; the task envelope with its `submit` link and the Task Diff Record (no work package)
+|`decision-engine` (the decision records); `phase-sub-workflows`; the task envelope with its `submit` link and the Task Diff Record (no work package)
 |Milestone 9
 
 |link:change-map.adoc[`change-map`]
 |The change map: which modules a change adds or removes, which dependencies between modules it adds or removes, and which third-party dependencies it adds, removes, or replaces
 |`blocked`
-|link:own-calls.adoc[`own-calls`]; link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:domain-extensions-and-architecture.adoc[`domain-extensions-and-architecture`] (the module discovery and the build-file dependency parser); link:finalize-pipeline-and-merge.adoc[`finalize-pipeline-and-merge`] (the Dependency Delta Check and the finalize pipeline of Milestone 10)
+|`own-calls`; `phase-sub-workflows`; `domain-extensions-and-architecture` (the module discovery and the build-file dependency parser); `finalize-pipeline-and-merge` (the Dependency Delta Check and the finalize pipeline of Milestone 10)
 |Milestone 10
 
 |link:domain-extensions-and-architecture.adoc[`domain-extensions-and-architecture`]
@@ -220,57 +220,49 @@ The packages listed serve roadmap Milestones 2 to 4, the packages the client wor
 |Milestone 6
 
 |link:decision-quorum-and-calibration.adoc[`decision-quorum-and-calibration`]
-|The decision declarations and the adjudication unit `adjudicate.decisions` with the shipped quorum roles, the decision rule and its record, and the quorum calibration with its records and shipped calibration
+|The decision declarations and the adjudication unit `adjudicate.decisions` with the shipped quorum roles, the decision rule and its record, and the quorum calibration with its records and shipped calibration (without shadow votes, link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-38[L-38])
 |`open`
-|link:decision-engine.adoc[`decision-engine`]
+|`decision-engine`
 |Milestone 8
 
 |link:remediation-units.adoc[`remediation-units`]
 |The six remediation policy units with their evidence, their closed action set, the shared template and the call-site budgets, and the compiled invariants
 |`open`
-|link:decision-engine.adoc[`decision-engine`]; link:phase-sub-workflows.adoc[`phase-sub-workflows`]
+|`decision-engine`; `phase-sub-workflows`
 |Milestones 8 and 10
 
 |link:re-planning.adoc[`re-planning`]
-|The re-planning of a running plan: the record, the server-detected triggers, the unit `replan` with its actions and guards, and the budgets and fallback
+|The re-planning of a running plan: the record, the server-detected triggers (without `capability_conflict` and `intent_amended`, link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-36[L-36]), the unit `replan` with its actions and guards, and the budgets and fallback
 |`open`
-|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:plan-instance-versions.adoc[`plan-instance-versions`]
+|`phase-sub-workflows`; `plan-instance-versions`
 |Milestones 9 and 10
 
 |link:access-grants.adoc[`access-grants`]
 |The cross-project and cross-repository access grant: its record and three stores, the operator's act and its audit, and the check that holds an access without a grant
 |`open`
-|link:start-source-intake.adoc[`start-source-intake`]
+|`start-source-intake`
 |Milestone 9
 
 |link:finalize-pipeline-and-merge.adoc[`finalize-pipeline-and-merge`]
 |The finalize pipeline from re-entry to merge: verdict currency and the step records of a firing, the merge path's states, the Pre-Merge Review Barrier and its waivable gates, the composite wait, and the pre-merge Dependency Delta Check
 |`open`
-|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:domain-extensions-and-architecture.adoc[`domain-extensions-and-architecture`]; link:re-planning.adoc[`re-planning`] (the `finalize.replan` call and the triggers it consumes)
+|`phase-sub-workflows`; `domain-extensions-and-architecture`; `re-planning` (the `finalize.replan` call and the triggers it consumes)
 |Milestone 10
 
 |link:security-audit-and-code-scanning.adoc[`security-audit-and-code-scanning`]
 |The security audit's calibration (ingress, calibration facts, severity cap, threat model, security history, removed security guards), the grounding of a located finding at filing, and the code analysis provider `github-code-scanning`
 |`open`
-|link:finalize-pipeline-and-merge.adoc[`finalize-pipeline-and-merge`]
+|`finalize-pipeline-and-merge`
 |Milestone 10
 
 |link:lesson-store.adoc[`lesson-store`]
-|The project's lesson store: the lesson record and its file format, the store with its id allocation, resolver, revision, retirement and claim under the lesson store lock
+|The project's lesson store around the lesson record: its id allocation, resolver, revision, retirement and claim under the lesson store lock
 |`open`
 |nothing
 |Milestones 5 and 7
 |===
 
-The work packages of the other repositories: link:../../../pm-mcp-clients/doc/plans/README.adoc[`pm-mcp-clients`] and link:../../../plan-marshall-mcp/doc/plans/README.adoc[`plan-marshall-mcp`].
-
 [#how]
 == How to Work a Package
 
-* *Take it.* A package is worked in the usual plan-marshall flow: a branch, the commits of the plan, and a pull request opened at finalize. The pull request of the package removes its row from the table above and deletes its package file, within its commits, and drops the package from the _Depends on_ column of every row that names it. Nothing marks a package as taken before that pull request is open, so list the open pull requests of this repository for one that names the package before starting. A package whose dependency lies in another repository is ready when that dependency is merged there and its `SNAPSHOT` is deployed.
-* *Trace first.* The packages are cut from the roadmap items, with the requirements, sections, and watch documents the roadmap names. Before code, build the trace matrix of the project skill `traced-implementation` (`../plan-marshall-documentation/.claude/skills/traced-implementation/SKILL.md`) for the package: every requirement bullet, every specification section, and every watch item anchored to them, each with its destinations. Split or extend the package where the matrix shows it; a row left out is recorded `out of slice` with its reason.
-* *Present and remaining.* The roadmap item a package serves states what the code already covers. Read it first: a package delivers the remainder, never a second form of what exists.
-* *Dependencies are the order.* The roadmap milestone a package serves says for which exit it is needed, not when it may start. Add a dependency you discover, and a new package, to the table above.
-* *Log messages.* A package adds a log record to the holder of the module it changes (`CoreLogMessages`, `RuntimeLogMessages`, `WorkflowLogMessages`, or the provider's `<X>LogMessages`, created with its first record), at the next free identifier of the level: INFO 001–099, WARN 100–199, ERROR 200–299. There are no identifier blocks per workstream, and no holder is declared as shared surface of a plan (link:../adr/005-one-log-message-holder-per-module.adoc[ADR 005]).
-* *Done.* A package is done with its guarding tests, `verify`, `verify -Ppre-commit` (its rewrites reviewed and committed), `verify -Pcoverage`, and `verify -Pintegration-tests` green, and the native build where it touches a binary.
-* *Documents.* The code documentation of a package (Javadoc and `package-info.java`), its work package file with the index, its developer documentation, and one architectural decision record (ADR) per design decision live here: `{module}/README.adoc` describes the module, `{module}/doc/developer/{package}.adoc` holds the developer documentation of a package, `{module}/doc/adr/{package}/NNN-{slug}.adoc` its ADRs, and `doc/adr/NNN-{slug}.adoc` the ADRs of the whole repository. The specification, the implementation watch and the traceability of this repository live here as well (link:../adr/007-specifications-of-the-engine-in-this-repository.adoc[ADR 007]): the pull request of the package deletes the implemented specification sections and watch items, corrects a specification statement it proves wrong (never working around it in code), and adds the `Implementation:`, `Verified by:` and `Documentation:` lines of the requirements it implements to link:../Traceability.adoc[Traceability]. The requirements, the roadmap, `implementation-watch/cross-cutting.adoc` and the specifications every repository shares live in `plan-marshall-documentation`: a package opens a pull request there only to correct a requirement or to change one of those; the concept and user documentation of the package and the check-off of its roadmap item are written there at the milestone exit, from the rows its pull request body lists as owed.
+As link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Project Setup § Planning the Work] states. A package adds its log records as link:../adr/005-one-log-message-holder-per-module.adoc[ADR 005] states, and keeps its documents where `CLAUDE.md` places them.

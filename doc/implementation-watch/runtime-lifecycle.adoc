@@ -28,11 +28,7 @@ worker are settled `killed`, the worker's generation is fenced and its job token
 and the build and model slots released; both provider leases are still recorded after exit, and the next start
 adopts or releases them by the recovery evidence rules exactly as after a crash; after the next start the released
 task is offered again exactly once without counting a re-offer, and a late call of the fenced generation is refused
-`generation_fenced`. Present in `pm-mcp-core`: the drain never touches a lease store; `RuntimeDrainTest` seeds a
-merge-queue and a review-bot lease store, each holding a lease, and finds both byte-identical after the drain, and
-`RuntimeDrainKilledRuntimeIT` after a runtime killed in the drain wait and the next start. The parts on workers,
-generations, task leases and slots stay for the packages of the job runner and the supervisor, which join the drain
-as participants.
+`generation_fenced`.
 Source:: design review.
 
 [#PM-WATCH-RUN-8]
@@ -95,6 +91,25 @@ successor is the new `pm-mcpd`; every worker launched after the upgrade starts t
 by absolute path; matched control: a successor that does not answer within the runtime start timeout switches the
 links and the unit back and starts the previous version, which records the upgrade failed.
 Source:: design review.
+
+[#PM-WATCH-LIFE-1]
+=== PM-WATCH-LIFE-1: Open: install and uninstall issued from a runtime the service started end that runtime
+
+Anchor:: link:../specification/runtime-lifecycle/01-startup-recovery-drain.adoc#service-unit[Runtime Lifecycle § Service Unit],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-7[PM-ARCH-7]
+Hazard:: Undecided: `pm-operator runtime install|uninstall` are API requests the runtime executes. When the per-user
+service started that runtime, the step that stops the service (`launchctl bootout`, `systemctl --user stop`) ends the
+runtime in the middle of the request: the client gets no answer, and on macOS a reinstall leaves the job unloaded,
+because the `bootstrap` after the `bootout` is never issued, until the next login or the next install. Options: (1)
+the runtime answers the request first and runs the steps of the service manager from a detached process that
+outlives it; (2) a runtime started by the service refuses both requests with a code that tells the operator to stop
+the service first; (3) accept and document. Recommendation: 1, the request is answered and the reinstall completes.
+Guard:: The file work comes before every step that can stop the service (install writes the unit before it loads it,
+uninstall removes the unit before it unloads it), so an ended runtime leaves neither a stale nor a missing unit; a
+test records whether the unit file exists at every command. The plan implementing the API request decides the point
+(with the operator where it changes scope), records the result in Service Unit and `PM-ARCH-7`, and deletes this
+item.
+Source:: `pm-mcp-core` work package `service-unit` (review of the install and uninstall order).
 
 == Server-Driven Scopes
 

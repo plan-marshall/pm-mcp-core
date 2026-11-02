@@ -376,7 +376,7 @@ A client profile is the one configuration document of a harness: `classpath:/pro
         "tool_result_limit_chars": {
           "type": ["integer", "null"],
           "minimum": 4000,
-          "description": "The largest tool result, in characters, the harness passes to its model whole; null: no limit known. The server returns no larger tool result to a worker of this harness: it sends identifiers and links first and the rest as parts read as resources (model-work, Offer). A non-null value requires a non-empty resource_tools."
+          "description": "The largest tool result, in characters, the harness passes to its model whole; null: the harness passed every size the stage limits offered whole, and the server applies no limit. The server returns no larger tool result to a worker of this harness: it sends identifiers and links first and the rest as parts read as resources (model-work, Offer). A non-null value requires a non-empty resource_tools."
         },
         "resource_tools": {
           "type": "array",
@@ -579,11 +579,11 @@ A client profile is the one configuration document of a harness: `classpath:/pro
 
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation]_
 
-Implemented by the profile reader of `pm-api` and by `ProfileLoader` and `ProfileValidator` of `pm-core`; see
-link:../../../pm-core/doc/developer/core-profile.adoc[Client Profiles Developer Guide].
+A harness is its profile: every fact about a harness that the runtime acts on (how it is found, launched, confined, read, and supervised) is a value of its profile document, never code, so a new harness or a new version of one is a new profile (link:../../../pm-core/doc/developer/core-profile.adoc[Client Profiles Developer Guide]).
 
 [#role-classes]
 === Role Classes of a Harness
+_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-11[PM-WATCH-CLIENT-11]_
 
 `headless.classes` states, per role class, whether the harness can run it and how far it holds a worker to the tools of its role.
 
@@ -624,15 +624,11 @@ link:../../../pm-core/doc/developer/core-profile.adoc[Client Profiles Developer 
 
 A model served on this machine over HTTP runs `zero_tool` only, as an endpoint harness with a profile of its own kind (link:03-endpoint-harness.adoc#endpoint-harness[Endpoint Harness]).
 
-`antigravity` declares its `headless` block with these values and stays `worker.eligible: false` until its fault matrix has passed with confined workers (link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-11[PM-WATCH-CLIENT-11]).
-
 [#headless-block]
 `headless` is the harness's launch contract for workers; the host never starts a sub-agent. How the server composes a
 worker's launch from the role artifact and this block, the tool sets of the role classes (`writer`, `read_only`,
 `zero_tool`), the composition per `agent_mode`, the harness enrolment, and the working directory are specified in
-link:../model-work/04-worker-launch.adoc[Model Work Specification, Worker Launch]. The projection of this block and the
-composition are implemented by `runtime.launch` (link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch
-Developer Guide]). A role artifact of a class its harness cannot run (<<role-classes>>) is invalid on load and counts as
+link:../model-work/04-worker-launch.adoc[Model Work Specification, Worker Launch]. A role artifact of a class its harness cannot run (<<role-classes>>) is invalid on load and counts as
 undefined (link:../model-work/01-roles-and-configuration.adoc[Model Work Specification, Roles & Configuration]). A
 profile with `headless: null` is shown in the harness lists, marked, and never offered as a worker host or as the default
 harness (<<harness-scan>>). Values the evaluation did not measure stay _(provisional)_ like the other host facts.
@@ -772,7 +768,7 @@ The `worker` block holds the per-host values of the task protocol and of supervi
 
 Rules of the block, checked by profile validation:
 
-* *Eligibility*: `eligible: true` requires a non-null `headless` block. A host is eligible only after its worker behaviour has been measured on it under the target conditions (the real relay, confined writer workers) and every fault of the fault matrix passed (link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4]; exit detection within the link:../timeouts/01-job-budgets-and-waits.adoc#exit-detection-bound[exit detection bound]). `claude` is eligible. `opencode` is eligible with its per-worker data home (<<headless-data-home>>), without which a stalled worker blocks every other process of the harness, and with its tool-result limit (<<headless-tool-result-limit>>); Antigravity (its fault matrix passed only as a smoke run with unconfined workers) and Codex (not measured) are not eligible. The operator assigns the roles of an ineligible host to an eligible harness. A role whose effective configuration names a harness that is not eligible is invalid (link:../model-work/01-roles-and-configuration.adoc[Model Work Specification, Roles & Configuration]).
+* *Eligibility*: `eligible: true` requires a non-null `headless` block. A host is eligible only after its worker behaviour has been measured on it under the target conditions (the real relay, confined writer workers) and every fault of the fault matrix passed (link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4]; exit detection within the link:../timeouts/01-job-budgets-and-waits.adoc#exit-detection-bound[exit detection bound]). Which host is eligible is stated only by the value table above. The operator assigns the roles of an ineligible host to an eligible harness. A role whose effective configuration names a harness that is not eligible is invalid (link:../model-work/01-roles-and-configuration.adoc[Model Work Specification, Roles & Configuration]).
 * *Restricted models*: a worker of a class whose `tool_set` is `enforced` runs with a restricted tool set, so a model that refuses a restricted agent cannot host one. An entry `*` stands for every model of the harness, an entry `<provider>/*` for every model of that provider. The free OpenCode models refuse a restricted agent and are not listed; of the OpenCode Go models only the measured `opencode-go/muse-spark-1.3-contributor` is listed (link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc[Evaluation Reference]), and another one is listed once it is measured.
 * *Informational acknowledgement*: with `ack_informational: true`, `ack_deadline_seconds` equals the silence limit, `connection.bounded_wait_seconds` plus `silence_grace_seconds` (`240 + 30 = 270` measured on `opencode`, where a provider stall of 120.8 s left a live worker's task unacknowledged), and a missing acknowledgement ends no worker: silence alone decides. The supervisor applies the silence limit of the effective connection values, so an operator override of the bounded wait moves both.
 * *Bounded wait and idle timeout*: on a host whose progress resets its timeout, a worker's `pm_wait` is always held with progress frames, so its bounded wait may exceed the host idle timeout (`opencode`: `240` against `60`); on any other host the bounded wait stays below the idle timeout by the margin of link:../timeouts/01-job-budgets-and-waits.adoc#bounded-wait[Timeouts & Budgets Specification, Bounded Wait Window].
@@ -789,7 +785,6 @@ _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.
 * *Models probe*: `headless.models_probe` is an argument vector whose output lists the models the harness offers (one id per line, or a JSON array at its pointer), run without a shell, as a probe job (link:../job-runtime/02-confinement-and-environment.adoc#probe-jobs[Job Runtime Specification, Probe Jobs]) of the onboarding's `catalogue` sub-workflow on the operator's consent (link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent]); its result fills the models the operator chooses from in `catalogue.select`, each recorded with the source `probe` in the model catalogue (link:../store-schemas/12-machine-stores.adoc#model-catalogue[Store Schemas Specification, Model Catalogue]). A harness that cannot list its models declares `null`, and the operator enters the model ids, recorded with the source `operator`.
 * *Weights probe*: `headless.weights_probe` reads the identity of a model's weights where the harness reports one, which binds the model's qualification to those weights (link:03-endpoint-harness.adoc#weights-identity[Endpoint Harness, Weights Identity]). The shipped profiles declare `null`.
 * [[long-context-thresholds]]*Long-context price tier*: some providers bill every request whose input exceeds a threshold at a higher price per token. `headless.long_context_thresholds` names that threshold per model id, and a shipped profile holds an entry only where the provider documents the price, with the documented value, checked for every release. A context budget that the system falls back to (the profile's `headless.context_budget_tokens`, the compiled `400K`) is capped at the threshold of the worker's model, so an envelope packed to a fallback never runs its turns above the tier (link:../model-work/06-envelopes-questions-deadlines.adoc[Model Work Specification, Envelopes]). A `context_budget_tokens` the role artifact sets, and the operator's `envelope_budget_tokens`, are taken as set: the tier is then the operator's choice, and the role view shows a budget above the threshold beside the role's model.
-* *Implemented*: the tier of the default assignment is rendered into the model of this block by `LaunchComposer.renderModel`, before the effort is narrowed (link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide]).
 
 [#harness-scan]
 === Harness Scan
@@ -826,7 +821,7 @@ Harnesses update themselves, so the digest of an enrolled harness executable cha
 * *Validation*: profile validation refuses `code_signature` or `package_provenance` without a `signer`, and `none` with one (the schema's `if`/`then`/`else`), so no profile declares a method that checks against nothing.
 * *Outcome*: passed evidence lets the version probe run, and a version inside `supported_versions` is accepted and audited (`harness_updated`, naming the evidence); failed or missing evidence refuses the launch before spawn with `harness_update_unverified`, never running the changed file, and the act that resolves it is the operator's enrolment of the harness, which shows the recorded and the new version and digest (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-enrol-harness[CLI, Coordination & Security Specification, Harness Enrolment]).
 * *Shipped values*: a shipped profile declares a method only where the release has checked it on that harness; every other profile ships `none`.
-* *Implemented*: the re-digest, the evidence check before the version probe, the accepted self-update and the refusals are implemented by `runtime.launch` (`HarnessVerifier`, `HarnessEnrolmentStore`; link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide]): an accepted update rewrites `harnesses.json` with the new version and digest and is audited `harness_updated`; a changed executable without evidence is refused `harness_update_unverified`, one outside the range `harness_version_unsupported`, and an unenrolled harness `harness_not_enrolled`. The platform checks themselves (`code_signature`, `package_provenance`) are the `EvidenceCheck` seam of the verifier; the default refuses every change, the fail-closed direction.
+* *Recorded*: an accepted update rewrites `harnesses.json` with the new version and digest and is audited `harness_updated`; a changed executable without evidence is refused `harness_update_unverified`, one outside the range `harness_version_unsupported`, and an unenrolled harness `harness_not_enrolled`. A platform check that cannot run refuses the change, the fail-closed direction (link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide]).
 
 [#harness-icons]
 === Harness Icons
@@ -842,9 +837,9 @@ A harness is shown where the harness itself is shown (the harness lists, a role'
 === Tokens, Not Money
 _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-14[PM-WF-14: Task Envelopes, Model Slots & Usage per Task]_
 
-Usage is read from the harness output through `headless.usage`, never asked from a model. The pointers and the recording are implemented; what remains of this part is the handoff a verified profile makes to its enrolment and the fixtures and the evaluation that judge a harness version.
+Usage is read from the harness output through `headless.usage`, never asked from a model.
 
-* *Usage report of a harness*: the harness lists of the onboarding and of the machine's settings show per enrolled harness and version what it reports of its usage: `complete` (every token figure reported or not applicable), `partial` (naming what is missing), or `not_reported`, from the profile's declaration and, for a verified profile, from the `usage_report` the owed install path writes into the enrolment (link:../store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas Specification, Harness Enrolment Store]). The install path that hands the verification stage's `UsageResult` to the enrolment's `UsageReport` (`UsageReport.of` is the mapping boundary) is owed to `machine-onboarding-unit`.
+* *Usage report of a harness*: the harness lists of the onboarding and of the machine's settings show per enrolled harness and version what it reports of its usage: `complete` (every token figure reported or not applicable), `partial` (naming what is missing), or `not_reported`, from the profile's declaration and, for a verified profile, from the `usage_report` the owed install path writes into the enrolment (link:../store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas Specification, Harness Enrolment Store]). The installation of a verified profile hands the result of its verification stage `usage` (<<profile-verification>>) to the enrolment's `usage_report`.
 * [[start-context]]*Start context*: what a worker costs before it does anything is recorded per class and model in the `usage_report` as `start_context`, the input of the first model turn with the cache read and the cache creation; it is the basis on which the operator and the evaluation compare harnesses and judge a token budget, and no rule reads it.
 * *Measured per version*: recorded outputs of each harness and version are parsing fixtures, so a changed output format fails a test; the usage measurement of the evaluation is repeated for every new harness and harness version before its figures are trusted (link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#host-values[Evaluation Reference, Hosts as Relay Starters and Workers]).
 
@@ -867,9 +862,7 @@ The shipped declarations: `claude` maps its `stream-json` events (`assistant` te
 
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy]_
 
-Implemented by `ProfileLoader`, `ProfileSet` and `VerificationRecord` of `pm-core`; the sets are written by the
-onboarding (`machine-onboarding-unit`) and read by `pm-operator` there. See
-link:../../../pm-core/doc/developer/core-profile.adoc[Client Profiles Developer Guide].
+The effective profile set is the compiled profiles, each replaced as a whole by the machine profile of its `client_id` and that by the project profile (<<profile-override-hierarchy>>); every installed profile is valid only with the verification record bound to its content. The onboarding writes the machine and project sets (link:../../../pm-core/doc/developer/core-profile.adoc[Client Profiles Developer Guide]).
 
 [#profile-verification]
 === Profile Verification
@@ -912,6 +905,14 @@ pm-operator profile remove <client_id> [--project]                              
 |`events`
 |Only for a draft whose `headless.events` is not `null`. Runs the base task and a task that calls a tool, fails one call, changes a file, and asks, and checks that every mapping of `headless.events` resolves on the real output and every expected activity kind appears (<<worker-activity>>).
 |`headless.events`, recorded per activity kind as `reported` or `missing`
+
+|`usage`
+|Runs the base task and a task of several model turns, reads every figure through the draft's `headless.usage`, and checks it field by field against the harness's own record of the same turns (its session log where the harness keeps one) over a fully covered window; a declared pointer that does not resolve, or a figure that differs from the harness's record, fails the stage. Measures per class and model it ran with the start context (<<start-context>>).
+|`headless.usage`, recorded per token figure as `reported`, `not_applicable`, or `missing`; the harness's usage report with its `start_context`
+
+|`settings`
+|Only for a draft whose `headless.inline_settings` is not `null`. Checks the effect of every key, never its acceptance: per key a probe task that reaches the mechanism the key bounds (a call of a server tool, a context past the harness's compaction point, a result above the harness's default cut, a model request that sends no headers or no chunk), with a matched control without the setting that shows the harness's default. A key whose effect does not appear fails the stage and names the key (<<headless-inline-settings>>).
+|`headless.inline_settings`, the timeout values measured
 
 |`egress`
 |Starts the `launch` base task with the worker's egress proxy admitting only the draft's `headless.endpoints`, then a task that asks the worker to fetch a decoy host through its shell, once through the configured proxy and once directly (proxy variables unset). Checks that the base task passes through the proxy without a name lookup of its own (link:../job-runtime/02-confinement-and-environment.adoc#worker-name-resolution[Job Runtime Specification, Name Resolution]), that the proxied decoy request reached the proxy and was refused, and that the direct request found no route (on a platform with enforced egress; with unenforced egress the stage records `unenforced` and the direct request is not scored).
@@ -971,6 +972,7 @@ apart (link:03-endpoint-harness.adoc#endpoint-profile-schema[Endpoint Harness §
     "detection": { "status": "passed" },
     "launch":    { "status": "passed" },
     "events":    { "status": "passed", "results": { "text": "reported", "tool_call": "reported", "tool_result": "reported", "file_changed": "missing", "turn": "reported" } },
+    "usage":     { "status": "passed", "results": { "input_tokens": "reported", "output_tokens": "reported", "cache_read": "not_applicable", "cache_creation": "not_applicable", "reasoning": "missing", "tool_uses": "reported" } },
     "egress":    { "status": "passed" },
     "isolation": { "status": "passed" },
     "classes":   { "status": "passed" },
@@ -988,14 +990,14 @@ apart (link:03-endpoint-harness.adoc#endpoint-profile-schema[Endpoint Harness §
 ----
 
 * `stages.<stage>.status` is `passed`, `failed`, or `not_run`. `values` holds one entry per profile value a stage settles, with `status` `measured` (the tool determined it), `confirmed` (a proposal of the tool the operator confirmed at install), `declared` (taken from the draft, because the tool cannot test it), or `not_measured` (its stage failed or did not run).
-* *Kept with the enrolment*: the per-kind result of `events` is kept with the harness's enrolment when the verified profile is installed for an enrolled harness (link:../store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas Specification, Harness Enrolment Store]) and shown wherever the enrolled harnesses are listed; the per-figure result of the verification stage `usage`, with its `start_context`, reaches the enrolment's `usage_report` through the install path owed to `machine-onboarding-unit`. Recorded outputs of each harness and version, taken by these stages, are parsing fixtures of the build, so that a changed output format fails a test.
+* *Kept with the enrolment*: the per-kind result of `events` is kept with the harness's enrolment when the verified profile is installed for an enrolled harness (link:../store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas Specification, Harness Enrolment Store]) and shown wherever the enrolled harnesses are listed; the per-figure result of the stage `usage`, with its `start_context`, is kept as the enrolment's `usage_report`. Recorded outputs of each harness and version, taken by these stages, are parsing fixtures of the build, so that a changed output format fails a test.
 * *What ran is tracked exactly*: `tool` names the release and the commit of the `pm-mcpd` that ran the verification, taken from the binary and never from an argument; `harness` names the executable by its name, the exact version its version probe printed, the SHA-256 of the executable file the run started, and every model a stage ran with; `platform` names operating system, architecture, and confinement. The record holds no path, no host name, no user name, no environment value, and no model output.
-* *The record is closed data*: its schema admits no free text. `code` is a value of the closed list of outcome codes of its stage, `figures` holds integers under a closed set of keys (`min_ms`, `max_ms`, `trials`, `chars`, `count`), and the `results` of the stage `events` hold, under the closed activity kinds, one of `reported` and `missing`. A record with an unknown member, an unknown code, or a string that is not one of its closed forms is refused.
+* *The record is closed data*: its schema admits no free text. `code` is a value of the closed list of outcome codes of its stage, `figures` holds integers under a closed set of keys (`min_ms`, `max_ms`, `trials`, `chars`, `count`), the `results` of the stage `events` hold, under the closed activity kinds, one of `reported` and `missing`, and those of the stage `usage`, under the closed token figures, one of `reported`, `not_applicable`, and `missing`. A record with an unknown member, an unknown code, or a string that is not one of its closed forms is refused.
 * *The candidate claims only what was measured*:
 ** `worker.eligible` is `true` only when `faults` passed every fault with at least 10 trials on a platform with a confinement (Landlock on Linux, the sandbox profile on macOS), `paths` passed, and `egress` passed or recorded `unenforced`; otherwise it is `false`, whatever the draft says. A record with `egress: unenforced` makes the harness eligible only while the operator's acceptance of unenforced egress holds for the machine (see *Runtime check on load* below).
 ** `headless.classes.zero_tool` is non-null only when the `classes` stage passed it and `isolation` measured an exclusive configuration with settings control; otherwise `null`.
 ** A `writer` or `read_only` class is non-null when its base task passed and `isolation` measured an exclusive configuration with extension isolation for its launch, with the `tool_set` the stage measured.
-** `tool_result_limit_chars` is the largest size that passed when a larger one failed, else `null`.
+** `tool_result_limit_chars` is the largest offered size that passed when a larger one failed, and `null` only when every offered size passed; when the smallest one fails, the stage `limits` fails.
 ** A value whose stage did not run keeps the draft's value with `status: declared` where the schema requires one, and the three claims above fall back to their closed side.
 * *Install*: `pm-operator profile install <client_id>` shows the candidate against the effective profile value by value, lists every value that is `declared` or `not_measured`, asks the operator to confirm the proposed detection signals, and on confirmation moves candidate and record into the machine set (<<profile-sets>>) under the lock of the machine store. The runtime loads it for workers started afterwards; running workers keep the profile of their job record.
 * *Runtime check on load*: the runtime honours a machine profile's `worker.eligible: true` and a non-null `zero_tool` only when its record shows the stages above as `passed` for the platform the runtime runs on, the `egress` stage as `passed` or as `unenforced` while the operator's acceptance of unenforced egress holds for the machine (link:../job-runtime/02-confinement-and-environment.adoc#worker-egress[Job Runtime Specification, Worker Egress Proxy]; when the acceptance is withdrawn, no further worker of that harness starts); a record from another platform leaves the profile usable for detection and rendering and its harness ineligible for workers.
@@ -1014,14 +1016,14 @@ A machine whose harness has no shipped or installed profile can still be onboard
 [#profile-hardening]
 === A Profile Is Untrusted Input
 
-Implemented by `ProfileValidator` and the bounded reader of `pm-core`: closed shape, bounded strings, the
-model-readable character set, the launch and path rules, the one pattern, and the refusing fixture of each rule. See
-link:../../../pm-core/doc/developer/core-profile.adoc[Client Profiles Developer Guide].
+A profile, a draft, and a verification record are validated as untrusted input: a closed shape, bounded strings, the
+model-readable character set, the launch and path rules, and one pattern per string member, each rule with a refusing fixture
+(link:../../../pm-core/doc/developer/core-profile.adoc[Client Profiles Developer Guide]).
 
 *Claims.* No value of a profile is believed because the profile says so: `worker.eligible`, a runnable `zero_tool`
 class and an `enforced` tool set count only with the stages of the bound record `passed` on the runtime's platform
-(<<profile-verification>>). The profile loader carries the record, its platform and its stages with the loaded profile;
-`ProfileWorkerEligibility` in `runtime.worker` consults it before every start and refuses an ineligible profile
+(<<profile-verification>>). The profile loader carries the record, its platform and its stages with the loaded profile,
+and the runtime consults it before every start and refuses an ineligible profile
 (link:../../../pm-runtime/doc/developer/runtime-worker.adoc[runtime.worker Developer Guide]).
 
 [#profile-override-hierarchy]

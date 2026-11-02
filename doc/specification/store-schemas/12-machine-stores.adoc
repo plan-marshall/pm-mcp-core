@@ -919,7 +919,7 @@ The jobs of the one cleanup (link:../timeouts/03-retention-host-config.adoc#clea
 [#audit-log]
 === Security & Transition Audit Log (`<PM_MCP_BASE>/logs/audit.jsonl`, `PM-SEC-6`)
 
-The record, the head and the index entry with the closed schemas below and their strict codec, the hash chain with its predecessor rule across a rotation, the append under the audit lock, the record of a torn tail of the log written into the log itself, and the production audit sink are implemented in `pm-core` (`PM-SEC-6`, `PM-IMPL-7`, link:../../../pm-core/doc/developer/core-store.adoc[Scope Stores Developer Guide § The Audit Log]); the head under the HMAC of the enrolment integrity key, the rotation with its checkpoint record and the index, and the incremental and the full verification with the reasons below are implemented in `pm-runtime` (link:../../../pm-runtime/doc/developer/runtime-audit.adoc[Audit Trail Developer Guide]). Every record a scope transaction owes carries a `transaction_id` of its own, the key by which a reader drops a record handed over twice. Not implemented yet: the wiring of the sink and the verification into `pm-mcpd`, which today passes no verification and refuses every record, the verb `pm-operator audit verify`, the removal of rotated files by the periodic sweep, and the reading of the rotation limits from `machine-config.json`; until the last one the runtime rotates at the defaults.
+Every record a scope transaction owes carries a `transaction_id` of its own, the key by which a reader drops a record handed over twice.
 
 Every state transition, job execution, operator act (in either client), credential lookup, consent, and store deletion appends a structured JSONL record to `audit.jsonl` (with all Token-Lane secrets redacted):
 

@@ -11,29 +11,26 @@
 
 == Purpose
 
-_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1], link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/requirements/16-model-work.adoc#PM-WORK-5[PM-WORK-5], link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6], link:{req}/07-credentials.adoc#PM-CRED-2[PM-CRED-2]
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1], link:{req}/01-architecture.adoc#PM-ARCH-10[PM-ARCH-10], link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6], link:{req}/07-credentials.adoc#PM-CRED-2[PM-CRED-2]
 
 Package `de.planmarshall.runtime.start` of `pm-runtime` holds the start, the drain, the per-project recovery and the
-periodic sweep of the runtime (<<_start_drain_and_recovery>>). This guide covers what the work package
-`session-log-and-generations` added to it: the step of the
-periodic sweep, which removes what has aged out of the store the package added in `pm-core`. It also covers the
-stalled-scope detection of the work package `removed-concepts`. It further covers what the work package `audit-trail`
-changed in it: the audit chain seam of the bounded verification, whose broken outcome now carries a reason and the
-first broken line (<<_the_audit_chain_seam>>), and the one `transaction_id` per record the pending-record step owes. It
-also covers what the work package `credential-store-choice` added: the resume of a move between the credential stores
-that a stop cut (<<_store_move_resume>>), and what the work package `service-unit-restore` added: the previous service
-unit that a failed load restores (<<_the_previous_unit_of_a_failed_load>>).
+periodic sweep of the runtime (<<_start_drain_and_recovery>>). It holds no Quarkus type: the assembly `pm-mcp-server`
+constructs the types and calls them from its `StartupEvent` observer, its signal handlers and its requests. This guide
+also covers:
 
-* `PendingEntryRecordsSweep` removes the pending entry records of the workspace scope older than the pending entry
-  record maximum age.
+* the step of the periodic sweep, `PendingEntryRecordsSweep`, which removes the pending entry records of the workspace
+  scope older than the pending entry record maximum age (<<_the_pending_record_step>>);
+* the stalled-scope detection (<<_the_stalled_scope_detection>>);
+* the audit chain seam of the bounded verification, whose broken outcome carries a reason and the first broken line
+  (<<_the_audit_chain_seam>>);
+* the resume of a move between the credential stores that a stop cut (<<_store_move_resume>>);
+* the jobs part of recovery step 3, whose worker part is a seam (<<_jobs_recovery_step>>), and the drain participant of
+  the job runner (<<_job_drain_participant>>);
+* the previous service unit that a failed load restores (<<_the_previous_unit_of_a_failed_load>>).
 
-The periodic sweep has no seam factory any more: the steps are real classes, and the assembly `pm-mcp-server`
-must register `PendingEntryRecordsSweep` when it builds the `PeriodicSweep` — it still calls
-`SweepStep.notImplemented` and does not build against the current snapshot until its registration pull request lands
-(link:../adr/runtime-start/002-sweep-seam-factory-removed.adoc[ADR 002]).
-
-The work package `job-runner` added the jobs part of recovery step 3 (<<_jobs_recovery_step>>), whose worker part stays
-a seam, and the drain participant of the job runner (<<_job_drain_participant>>).
+The periodic sweep has no seam factory: the steps are real classes, and the caller registers `PendingEntryRecordsSweep`
+when it builds the `PeriodicSweep` (<<_registering_the_steps>>,
+link:../adr/runtime-start/002-sweep-seam-factory-removed.adoc[ADR 002]).
 
 == Core Types
 
@@ -68,6 +65,7 @@ PeriodicSweep.runOnce(now)            olderThan = now - PENDING_ENTRY_MAX_AGE
     └─ (the further steps the target adds, in their order)
 ----
 
+[#_the_pending_record_step]
 == The Pending-Record Step
 
 _Requirements:_ link:{req}/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1], link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
@@ -97,7 +95,7 @@ A run that removed records logs `PM_RUNTIME-23` (`PENDING_ENTRY_RECORDS_SWEPT`) 
 [#_the_stalled_scope_detection]
 == The Stalled-Scope Detection
 
-_Requirements:_ link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/requirements/01-architecture.adoc#PM-ARCH-8[PM-ARCH-8]
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
 
 `StalledScopeDetector` decides on read whether a plan or an epic is held `stalled`
 (link:../../../doc/specification/runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime
@@ -134,8 +132,8 @@ _Requirements:_ link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6], link:{req}/01-ar
 
 Step 4 of `StartupSequence`, the bounded verification, verifies the audit chain through the seam
 `AuditChainVerification`. Its implementation is `AuditVerification` of `runtime.audit`
-(link:runtime-audit.adoc[Audit Trail (`runtime.audit`)]); the assembly passes `AuditChainVerification.NONE`, which
-answers `NotVerified` for every start, until it wires that one.
+(link:runtime-audit.adoc[Audit Trail (`runtime.audit`)]); `AuditChainVerification.NONE` answers `NotVerified` for every start; which of the two a start uses is the assembly's
+choice.
 
 [horizontal]
 `Outcome.Intact`:: The chain is intact from its last checkpoint.
@@ -158,8 +156,8 @@ specification gives the record no detail for the file, so a recorded `first_brok
 counts in; only the log does. The outcome is carried in `Outcome.Ready`, and the status text of the verification
 (`PM_RUNTIME-14`) names the reason, the line and the diagnostic. A sink that refuses the record never stops the start.
 
-`Outcome.Broken` was changed in place from a record with one diagnostic, without a compatibility constructor
-(link:../adr/runtime-start/011-broken-chain-outcome-carries-reason-and-line.adoc[ADR 011]).
+`Outcome.Broken` carries the reason, the first broken line and the OS principal, and has no constructor with a
+single diagnostic (link:../adr/runtime-start/011-broken-chain-outcome-carries-reason-and-line.adoc[ADR 011]).
 
 [#_store_move_resume]
 == Store Move Resume
@@ -315,8 +313,7 @@ install path (link:../adr/runtime-start/014-previous-service-unit-kept-and-resto
 (or removes the new file), drops the pair, loads the unit and answers `true`; without a marker it answers `false` and
 issues no command. A load that fails after the drop is reported and not retried. On macOS a reinstall issued from the
 runtime the unit started ends that runtime inside the load, so this step is what restores the unit
-(link:../adr/runtime-start/014-previous-service-unit-kept-and-restored.adoc[ADR 014]). The assembly does not wire the
-step yet.
+(link:../adr/runtime-start/014-previous-service-unit-kept-and-restored.adoc[ADR 014]).
 
 === Crash Windows
 
@@ -346,6 +343,7 @@ needs a `SIGKILL` of the caller between the load and the drop. The sixth row is 
 its load: the load can end the caller too, and a marker left behind would make every later start restore and boot
 itself out.
 
+[#_registering_the_steps]
 == Registering the Steps
 
 _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
@@ -362,8 +360,8 @@ var sweep = new PeriodicSweep(enrolledProjects, projectRecovery::isRecovered, st
 sweep.start(executor);     // first run one INTERVAL from now; stop() for the drain
 ----
 
-`RecoveryStep.notImplemented` stays: the per-project recovery still has steps that are named seams. Only the sweep side
-lost its factory.
+The per-project recovery, unlike the sweep, has steps that are named seams: `RecoveryStep.notImplemented`
+(<<_the_seams>>).
 
 [#_start_drain_and_recovery]
 == The Start Sequence, the Drain and the Recovery
@@ -380,9 +378,10 @@ the directory check (`BaseDirectoryCheck`), the bounded verification, and a fres
 is `Ready` (the held lock and the outcome of the audit chain verification), `LockHeld` or `Refused` (exit code `77`).
 
 |`AuditChainVerification`
-|The seam of the bounded verification (step 4): `verify()` answers `Intact`, `Broken(diagnostic)` or
-`NotVerified(reason)`. `NONE` answers `NotVerified("no audit chain")`; on `Broken` the sequence logs `PM_RUNTIME-108`,
-hands an `audit_chain_broken` record to its `AuditSink` and goes on.
+|The seam of the bounded verification (step 4): `verify()` answers `Intact`, `Broken(reason, firstBrokenLine, diagnostic)`
+or `NotVerified(reason)`. `NONE` answers `NotVerified("no audit chain")`. On `Broken` the sequence logs `PM_RUNTIME-108`,
+hands an `audit_chain_broken` record (`category: security`, `outcome: failed`, details `reason`, `first_broken_line` for
+`link_broken` only and `os_principal`, never the diagnostic) to its `AuditSink` and goes on (<<_the_audit_chain_seam>>).
 
 |`RuntimeDrain`
 |`drain()` runs once; every further call waits for the first and gets its `Outcome` (exit code `0`, the participants that
@@ -394,18 +393,53 @@ got quiet, what was terminated, the failures). `isDraining()` is `true` from the
 called in that order on every participant.
 
 |`DrainTimeout`
-|Reads `drain_timeout_seconds` of `<PM_MCP_BASE>/machine-config.json`: `600` when the file or the key is absent, `0` up to
-`MAX_SECONDS` (3,153,600,000) as given, and `600` with `PM_RUNTIME-110` for a negative, non-integer or above-maximum
-value or an unreadable file.
+|Reads `drain_timeout_seconds` of `<PM_MCP_BASE>/machine-config.json` with `jackson-core`: `600` when the file or the key
+is absent, `0` up to `MAX_SECONDS` (3,153,600,000) as given, and `600` with `PM_RUNTIME-110` for a negative, non-integer
+or above-maximum value, and for a file that cannot be read, does not parse as JSON, is not one JSON object or has
+content after it. The whole document is parsed before the value counts, so a truncated file is invalid, not a short
+timeout (link:{docs}/user/operator.adoc#drain-timeout-seconds[User Guide § drain_timeout_seconds]).
 
 |`ProjectRecovery`
 |The per-project recovery: `startBackgroundPass()` after the bind, `awaitRecovered(projectId)` for the first call
 addressing a project, answering `Recovered(outcome)`, `Recovering` after `RECOVERY_WAIT` (10 seconds) or `NotEnrolled`,
-and `isRecovered(projectId)` for the periodic sweep. The recoveries run on the `Executor` it is given.
+and `isRecovered(projectId)` for the periodic sweep, `true` only for a finished recovery without a failed step. The
+recoveries run on the `Executor` it is given. The constructor with a `backgroundPassTask` submits that task once to the
+executor after the background pass started the recoveries; the three-argument constructor submits none.
+`withEnrolment(store, check, enrolments, lockManager, steps, executor)` builds the recovery with the two enrolment steps,
+`EnrolledProjects.of(store)` and the background task `OwedEnrolmentAuditStep.unenrolledPass()`
+(link:runtime-enrolment.adoc#_the_enrolment_steps_of_the_recovery[`runtime.enrolment`]); its overload with a
+`JobRecoveryStep` places that step as step 3 (<<_jobs_recovery_step>>).
+
+|`EnrolledProjects`
+|The seam that lists the enrolled project ids, the population of the recovery and of the sweep. `of(store)` fills it from
+the enrolment store, a copy of `store.projectIds()` at each call; `NONE` lists none.
 
 |`RecoveryStep`
-|The seam of one recovery step: a `Name` (the eleven steps in their order) and `run(projectId)` answering `Done(report)` or
-`Failed(reason)`. `notImplemented(name)` is the no-op step that reports `not implemented in this runtime`.
+|The seam of one recovery step: a `Name` (the eleven steps in their order, `ENROLMENT_INTEGRITY` and
+`OWED_ENROLMENT_AUDIT` first) and `run(projectId)` answering `Done(report)` or `Failed(reason)`. `notImplemented(name)` is
+the no-op step that reports `not implemented in this runtime`.
+
+|`EnrolmentIntegrityStep`, `OwedEnrolmentAuditStep`
+|Steps 1 and 2, the enrolment steps of the recovery
+(link:runtime-enrolment.adoc#_the_enrolment_steps_of_the_recovery[`runtime.enrolment`]).
+
+|`LeaseRecoveryStep`
+|Step `LEASES`: the project-selecting stale lease sweep over every lease store it is given
+(link:runtime-lock.adoc[`runtime.lock`]), with the caller's `AbandonmentEvidence`; `AbandonmentEvidence.NONE` finds
+none, so nothing is released. A store that cannot be read or written, or is refused, fails the step, and the remaining
+stores are not swept.
+
+|`JournalRollForwardStep`
+|Step `JOURNAL_ROLL_FORWARD`: for each scope of `ProjectScopes`, a transaction on the `LockManager` that acquires the scope
+key and calls `JournalRecovery.recover` (link:../../../pm-core/doc/developer/core-store.adoc[`core.store`]). An
+invariant violation, a refused store or an I/O failure is a failure of its scope and modifies no store; the step goes on
+with the next scope and then fails, listing every failed scope before the reports of the others, which stops the
+recovery of the project before the cross-scope reconciliation.
+
+|`CrossScopeReconciliationStep`
+|Step `CROSS_SCOPE_RECONCILIATION`: every `CrossScopeReconciler` of `ProjectReconcilers`, in the order given, with the
+`LockManager` and the `AuditSink`, reporting the reconciliations applied. A refused or unreadable store fails the step
+with what was applied so far, and the remaining reconcilers do not run.
 
 |`PeriodicSweep`
 |The periodic sweep: `start(executor)` schedules a run every `INTERVAL` (3600 seconds), `runOnce(now)` runs every
@@ -413,34 +447,44 @@ and `isRecovered(projectId)` for the periodic sweep. The recoveries run on the `
 seconds) and answers a `Summary` (swept, skipped, failed), and `stop()` cancels the schedule for the drain.
 
 |`RelayVersionCheck`
-|`observe(relayVersion)` with the value of the `PM-MCP-Relay-Version` header of every relayed request, and `mismatch()` with
-the latest `Mismatch` (relay version, runtime version, `pm-operator drain`) for `pm-operator status` alone.
+|`observe(relayVersion)` with the value of the `PM-MCP-Relay-Version` header (`HEADER`) of every relayed request, and
+`mismatch()` with the latest `Mismatch` (relay version, runtime version, `pm-operator drain`) for `pm-operator status`
+alone (link:{docs}/user/operator.adoc#relay-version-mismatch[User Guide § Relay Version Mismatch]).
 |===
+
+Every log message of the package is a `LogRecord` of `RuntimeLogMessages` (prefix `PM_RUNTIME`): `PM_RUNTIME-12` to
+`PM_RUNTIME-18`, `PM_RUNTIME-23`, `PM_RUNTIME-29`, `PM_RUNTIME-32` to `PM_RUNTIME-34`, `PM_RUNTIME-108` to
+`PM_RUNTIME-115`, `PM_RUNTIME-121`, `PM_RUNTIME-135`, `PM_RUNTIME-136` and `PM_RUNTIME-203` to `PM_RUNTIME-205`
+(link:../../../doc/LogMessages.adoc[Log Messages]). The one exception is the DEBUG line of `PeriodicSweep` for a
+skipped project.
 
 The closed set and order of the eleven recovery steps are `RecoveryStep.Name`'s; this guide does not repeat them. The two
 enrolment steps come first (link:runtime-enrolment.adoc#_the_enrolment_steps_of_the_recovery[`runtime.enrolment`]) and
-`LEASES` is the stale lease sweep (link:runtime-lock.adoc[`runtime.lock`]). `ProjectRecovery` takes one step per `Name`,
-refuses two steps with the same name, fills a missing name with `notImplemented` (the two enrolment names with their seam)
-and sorts the steps by `Name`, so the order they are passed in does not matter. A step reports a failure as `Failed`, never
-as an exception; one that throws anyway is recorded as the failed step of its project, so a broken step cannot leave
-callers waiting.
+`LEASES` is the stale lease sweep (link:runtime-lock.adoc[`runtime.lock`]). `ProjectRecovery` takes one step per `Name`
+and refuses two steps with the same name. A missing `ENROLMENT_INTEGRITY` or `OWED_ENROLMENT_AUDIT` is filled with the
+`notImplemented` seam, and the enrolment check then does not run; any other missing name is an
+`IllegalArgumentException` naming the missing names. It sorts the steps by `Name`, so the order they are passed in does
+not matter: a new step is a new `Name` constant at its place in the order of the specification, not a new list
+position. A step reports a failure as `Failed`, never as an exception; one that throws anyway is recorded as the failed
+step of its project, and so is a recovery the executor rejects, so a broken step cannot leave callers waiting.
 
+[#_the_seams]
 === The Seams
 
-Much of what the lifecycle drives does not exist yet: the audit trail, jobs and workers. Each is a seam with a default
-that does nothing harmful, so the lifecycle runs today and a later package fills its part without touching the
-orchestration:
+Each part the lifecycle drives from outside the package is a seam with a default that does nothing harmful; the caller
+passes the filled seam, and the orchestration does not change:
 
 [cols="1,2,2",options="header"]
 |===
 |Seam |Default |Filled by
 
-|`AuditChainVerification` |`NONE`: no chain to verify |the audit trail, with the incremental verification of
-`logs/audit.head`, the rotation index and the `prev_hash` chain
-|`DrainParticipant` |no participant |jobs, workers, the LSP pool and the web listener, each a participant; the web listener
-is passed last, so it closes last
+|`AuditChainVerification` |`NONE`: no chain to verify |`AuditVerification` of link:runtime-audit.adoc[`runtime.audit`],
+with the incremental verification of `logs/audit.head`, the rotation index and the `prev_hash` chain
+|`DrainParticipant` |no participant |jobs (`JobDrainParticipant`, <<_job_drain_participant>>), workers, the LSP pool
+and the web listener, each a participant; the web listener is passed last, so it closes last
 |`EnrolledProjects` |`NONE`: no project |the enrolment store, through `EnrolledProjects.of(store)`
-|`RecoveryStep` |`notImplemented(name)` |the package that owns the step's store or component
+|`RecoveryStep` |`notImplemented(name)` for the steps that have no step of their own (steps 7 to 11) |the package that
+owns the step's store or component: one `RecoveryStep` with that `Name`
 |`LeaseRecoveryStep.AbandonmentEvidence` |`NONE`: never abandoned |the stores that know a scope is terminal, archived or
 gone, a lease expired without adoption, or a slot's job was recorded `killed`
 |`JournalRollForwardStep.ProjectScopes` |`NONE`: no scope |the per-project machine store: the plan, epic and workspace
@@ -449,27 +493,41 @@ scopes and the lesson store
 its reconciler
 |===
 
-The one `SweepStep` name is no seam any more: `PendingEntryRecordsSweep` is a real class, and the caller passes it to
-`PeriodicSweep`.
+`SweepStep.Name` is no seam: `PendingEntryRecordsSweep` is a real class, and the caller passes it to `PeriodicSweep`.
 
 === Tests
 
-`StartupSequenceTest`, `RuntimeDrainTest`, `DrainTimeoutTest`, `ProjectRecoveryTest` (the eleven names in order, a step
-list without the enrolment steps, the background task, end to end over a real enrolment store),
-`EnrolmentIntegrityStepTest`, `OwedEnrolmentAuditStepTest`, `EnrolledProjectsTest`, `LeaseRecoveryStepTest`,
+The unit tests run on the JVM with fakes and a test clock: `StartupSequenceTest`, `AuditChainVerificationTest`,
+`RuntimeDrainTest`, `DrainTimeoutTest`, `ProjectRecoveryTest` (the eleven names in order, a step list without the
+enrolment steps, a missing name refused, a throwing step, the background task, and end to end over a real enrolment
+store), `EnrolmentIntegrityStepTest`, `OwedEnrolmentAuditStepTest`, `EnrolledProjectsTest`, `LeaseRecoveryStepTest`,
 `JournalRollForwardStepTest`, `CrossScopeReconciliationStepTest`, `PeriodicSweepTest`, `PendingEntryRecordsSweepTest` and
-`RelayVersionCheckTest`.
+`RelayVersionCheckTest`. The fixtures `ProviderLeaseStores` (a merge-queue and a review-bot lease store, each with one
+lease of a live holder, and the assertion that both are byte-identical after a drain) and `RecoveryStepFixtures` are
+shared by them; `RuntimeDrainTest` and `RuntimeDrainKilledRuntimeIT` use `ProviderLeaseStores`.
 
-*The killed-runtime fixture.* `KilledRuntimeFixture` starts `RuntimeChildProcess` in a JVM of its own, waits for a named
-marker line on standard output and kills it with `SIGKILL` in the middle of a lifecycle step; the next instance then runs
-in the test JVM against the same base. Every wait is bounded (`PROCESS_BOUND`, 30 seconds), and the fixture is closed after
-every test. The killed-runtime tests run under `-Pintegration-tests`: `BoundedVerificationKilledRuntimeIT`,
-`RuntimeDrainKilledRuntimeIT`, `ProjectRecoveryKilledRuntimeIT`, `RecoveryStepsKilledRuntimeIT`,
-`PeriodicSweepKilledRuntimeIT` and `RelayVersionCheckKilledRuntimeIT`.
+*The killed-runtime fixture.* A crash cannot be simulated in the test JVM, because a killed process must really lose its
+locks and its memory. `KilledRuntimeFixture` starts `RuntimeChildProcess` in a JVM of its own with the `java` and the
+class path of the test JVM, waits for a named marker line on its standard output, and kills it with `SIGKILL`
+(`Process.destroyForcibly()`) in the middle of a lifecycle step; the next instance then runs in the test JVM against the
+same base. Every wait is bounded (`PROCESS_BOUND`, 30 seconds), and the fixture is closed after every test, also a
+failed one, which kills a child still alive. The child has one mode per step (`startup`, `startup-ready`, `drain`,
+`recovery`, `leases`, `rollforward`, `ordered-write`, `sweep`, `version`, and `job-write-ahead`, `job-spawned`,
+`job-running`, `job-fate`); a new lifecycle step adds its mode there. The killed-runtime tests run under
+`-Pintegration-tests`: `BoundedVerificationKilledRuntimeIT`, `RuntimeDrainKilledRuntimeIT`,
+`ProjectRecoveryKilledRuntimeIT`, `RecoveryStepsKilledRuntimeIT`, `PeriodicSweepKilledRuntimeIT`,
+`RelayVersionCheckKilledRuntimeIT` and `JobRecoveryKilledRuntimeIT`. Each test uses its own base from `TestBases`.
 
-*The cold-start guard.* `StartupColdStartIT` runs steps 1 to 5 on fresh bases with 0 and with 300 enrolled projects and
-compares the lower quartiles of the two populations through `ColdStartComparison`; a control proves that a start on a
-seeded base reads no seeded file.
+*The cold-start guard.* `StartupColdStartIT` runs steps 1 to 5 with the `NONE` audit chain on fresh bases with 0 and
+with 300 (`SEEDED_PROJECTS`) enrolled projects, an enrolment file and a store directory each, written by the test. After
+five (`WARM_UP_RUNS`) warm-up runs of each population it measures fifteen (`MEASURED_RUNS`) runs each, alternating, every
+run on a clean base. The seeded files and directories are forced to disk before the timed region, because step 5 ends in
+an `fsync` that would otherwise also pay for the seeding's write backlog. The comparison (`ColdStartComparison`)
+requires the lower quartiles of the two populations to agree within half the larger one (`RELATIVE_TOLERANCE`) plus 5 ms
+(`ABSOLUTE_TOLERANCE`): noise on a shared machine only adds time, so the fast end of each population is the robust
+measure (link:../adr/runtime-start/009-cold-start-guard-on-lower-quartiles.adoc[ADR 009]). A control makes the pass
+non-vacuous: after a start on a seeded base no seeded file has a new access time, while a file read on purpose has one.
+The test logs the medians beside the asserted quartiles.
 
 === Pitfalls of the Lifecycle
 
@@ -482,14 +540,16 @@ seeded base reads no seeded file.
   it calls any participant; a participant that checks the flag outside its admission lock can admit a job between the
   check and the flag, which then outlives the drain unsupervised.
 * *Never release a merge-queue or review-bot lease in a drain participant.* A participant releases only its build and
-  model slots and task leases, in `terminateRemaining()`.
+  model slots and task leases, in `terminateRemaining()`. `RuntimeDrainTest` asserts the provider lease stores
+  byte-identical after a drain.
 * *Claim a recovery with `computeIfAbsent`, never with `containsKey` and `put`.* "Recover once, whichever trigger comes
   first" is a claim on a shared slot; a separate check and act lets the lazy trigger and the background pass both run the
-  steps. The bounded wait never cancels the installer of the future.
+  steps. Only the installer of the future runs it, and the bounded wait (`Future.get` with a timeout) never cancels it.
+  Across processes the singleton lock rules out two runtimes recovering one base.
 * *Decide "record once" by the result of one `Set.add`.* `RelayVersionCheck` writes the audit record of a relay version
   only from the request whose insert into its concurrent set succeeded; a refused record removes the version again.
-* *A recovery or sweep step reports, it does not throw.* `StoreRefusal` or `UncheckedIOException` that escapes is still
-  caught, but loses the report of the step.
+* *A recovery or sweep step reports, it does not throw.* Return `Failed` with a reason; a `StoreRefusal` or
+  `UncheckedIOException` that escapes is still caught, but loses the report of the step.
 * *Select only on positive evidence.* A recovery or sweep step never removes or releases on a name that fails to parse,
   and excludes the reserved entries of its directory by construction.
 
@@ -577,7 +637,7 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
 
 == Specification Tracing
 
-_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/01-architecture.adoc#PM-ARCH-8[PM-ARCH-8], link:{req}/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1]
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/01-architecture.adoc#PM-ARCH-10[PM-ARCH-10], link:{req}/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1]
 
 * Specification: link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Model § Periodic
   Sweep], link:{spec}/timeouts/02-runtime-leases-operator-web.adoc#pending-entry-max-age[Timeouts § Pending Entry Record

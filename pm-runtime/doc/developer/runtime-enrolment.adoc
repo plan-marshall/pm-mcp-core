@@ -69,6 +69,43 @@ replacing what it holds, or creates the key file atomically and keeps a key file
 reads the key back and compares it before it relies on the copy. `delete` removes the keyring entry or the key file.
 The caller of both holds the credentials lock (`EnrolmentKey.creationLock`).
 
+== Reading and Creating the Integrity Key
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2], link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5]
+
+The key is 32 random bytes (`HmacSHA256`), kept base64url without padding. The key file is read only after the
+path-based `EnrolmentFileCheck.violation` passed it.
+
+* `read()` has three outcomes: the key, empty when it does not exist, or a `SecretStoreException` when it exists and
+  cannot be read (an insecure or malformed key file, a failing keyring). Never treat the exception as an absent key.
+* `readOrCreate()` is the path of a write: it reads first, and creates the key only where none exists. A key that exists
+  but cannot be read (an insecure, partial or malformed key file) is the `SecretStoreException` of the read and is never
+  replaced; no path of `readOrCreate()` deletes or overwrites an existing key file. A keyring write replaces an existing
+  secret, so after writing the keyring entry `readOrCreate()` reads it back and returns the key it holds: a writer that
+  bypassed the lock and wrote between the read and the write wins, and its key is adopted. A key that vanished after
+  the write is a `SecretStoreException` with `FAILED`.
+* `creationLock(base)` is `LockKey.credentials(base)`, the lock file `locks/credentials.lock`: the machine-level lock of
+  credential writes, because the key is a credential. The caller of `readOrCreate()` holds it. Its id `credentials`
+  sorts before every enrolment lock id `enrolments/<project_id>`, so a transaction takes it first and never after a
+  project's lock; asking for it while a project's lock is held is a lock order violation.
+* The key file is created atomically. The key is written to the temporary file `enrolment-hmac.key.tmp.<uuid>` in the
+  state directory, opened with `CREATE_NEW` and mode `0600`, written completely and forced to disk; `Files.createLink`
+  then publishes it as `enrolment-hmac.key`, and the state directory is forced to disk. The temporary file is deleted in
+  a `finally` block on success and on failure. A hard link, not an atomic move, publishes the key because a rename on
+  POSIX silently replaces an existing file: of two writers that race for the first key, the second would replace the
+  key the first created, and every HMAC written under it would be stranded. The link fails with
+  `FileAlreadyExistsException` instead, and the losing writer reads the winner's key. Any other failure, a file system
+  without hard links included, is a `SecretStoreException` with `FAILED`; there is no non-atomic fallback. A crash
+  leaves the complete key or no key file; a temporary file it leaves holds only key material at mode `0600` and is read
+  by no path.
+* A failure is logged as `PM_RUNTIME-206` naming the source and the reason code; the key itself is never in a record or
+  a message.
+
+Within one instance the methods are synchronized. Across runtime instances `Enrolments.enrol` and the re-baseline
+acquire `creationLock` before the project's lock, so two first writes never create two keys in a keyring; the read-back
+after the write adopts a key another writer won. The key file is safe without the lock as well: its hard link never
+replaces an existing file.
+
 == The Harness Enrolment Sidecar
 
 _Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5], link:{req}/07-credentials.adoc#PM-CRED-2[PM-CRED-2]
@@ -131,16 +168,20 @@ only:
 . It applies the per-use checks to those attributes — no symbolic link, the running user as owner, no permission bit
    outside `0600` — and refuses a file that fails one without opening it, so the bytes of a link target or of an insecure
    file are never read.
-3. It opens the file with `Files.newInputStream(file, NOFOLLOW_LINKS)` and reads every byte from that stream.
-4. It reads the attributes again and refuses the snapshot as `file replaced or changed while it was read` unless the file
-   key, the size (against the bytes read) and the last-modified time are those of the first read; then it applies the
-   per-use checks to the second attributes too.
-5. Otherwise the snapshot holds the bytes read.
+. It opens the file with `Files.newInputStream(file, NOFOLLOW_LINKS)` and reads every byte from that stream. When the
+   open or the read fails, it reads the attributes again: a symbolic link there is refused as `symbolic link`, a file
+   that is gone as `file replaced or changed while it was read`, anything else is an `UncheckedIOException`.
+. It reads the attributes again with `NOFOLLOW_LINKS` and refuses the snapshot as `file replaced or changed while it was
+   read` (the constant `EnrolmentFileCheck.CHANGED_WHILE_READ`) unless the file key, the size (against the bytes read)
+   and the last-modified time are those of the first read; then it applies the per-use checks to the second attributes
+   too, so a mode or owner changed during the read is refused with the ordinary reason.
+. Otherwise the snapshot holds the bytes read.
 
 The JDK has no `fstat` on an open handle, so the identity of the opened file is inferred from the attributes read before
 the open and after the read. This narrows the window between check and read; it does not close it, and the mode of the
 operator-owned `enrolments/` directory stays the outer boundary. The path-based `EnrolmentFileCheck.violation(file)`
-remains the check of the integrity key file.
+remains the check of the integrity key file, and the public `check(file)` has no caller in the main code; no read of an
+enrolment file or sidecar calls either.
 
 == The Enrolment Check
 
@@ -148,7 +189,8 @@ _Requirements: link:{req}/08-security.adoc#PM-SEC-4[PM-SEC-4], link:{req}/08-sec
 
 `EnrolmentCheck.verify(transaction, projectId)` acquires the project's lock in the caller's transaction (it may hold it
 already) and returns the verified `ProjectEnrolment`. The project's recovery runs it as its first step before the project
-is first served.
+is first served, and the verify-not-resolve pipeline of the project's jobs (`VerifyNotResolvePipeline` of `runtime.job`)
+as its first stage.
 
 The order is the one of the specification: the no-follow snapshot of the file, then of the sidecar, with their per-use
 checks; the pair, the sidecar record, size and SHA-256, the HMAC, the enrolment. Every later step uses the bytes of the
@@ -168,8 +210,21 @@ two snapshots; nothing reads the files again.
 * `SecretStoreException` when the key exists and cannot be read.
 
 The two integrity refusals are logged (`PM_RUNTIME-116`, `PM_RUNTIME-117`) and handed to the `AuditSink`; when the sink
-fails, its exception is added to the refusal as suppressed and the refusal is thrown all the same. A refused strict read
-is logged as `PM_RUNTIME-120` and audited as `enrolment_invalid`, and thrown with its own outcome and message unchanged.
+fails, its exception is added to the refusal as suppressed and the refusal is thrown all the same. A refusal of the
+strict read of the sidecar or the file (`unreadable`, `format_outdated`, `format_newer`) is logged as `PM_RUNTIME-120`
+and audited as `enrolment_invalid` with the reason `<outcome code> in <file name>`, and thrown with its own outcome and
+message unchanged. Four package-private static helpers of `EnrolmentCheck` carry this, and `Enrolments` refuses through
+them too, so a refusal reads and is recorded the same wherever it arises:
+
+* `tampered(auditSink, file, projectId, reason)` builds, logs (`PM_RUNTIME-116`) and audits an `enrolment_tampered`
+  refusal;
+* `insecure(auditSink, file, projectId, reason)` builds, logs (`PM_RUNTIME-117`) and audits an `enrolment_insecure`
+  refusal;
+* `invalid(auditSink, file, projectId, reason)` builds, logs (`PM_RUNTIME-120`) and audits an `enrolment_invalid`
+  refusal: the refusal of an enrolment that violates the enrolment policy;
+* `recorded(auditSink, refusal, event)` appends the audit event of any refusal directly, adds an `UncheckedIOException`
+  of the sink to the refusal as suppressed, and returns the refusal for the caller to throw; the three above, the
+  strict-read refusals and `unenrol`'s `scope_active` refusal use it.
 
 == The Enrolment Policy
 
@@ -195,6 +250,12 @@ deterministic order, before a write is signed:
 What the policy does not check — shell metacharacters, the full credential-variable list, the uniqueness of the project
 root — is a known limit below.
 
+`enrol` checks the enrolment as written, before the key is resolved, a record is owed or anything is written; the
+re-baseline checks the enrolment decoded from its snapshot, before the key and before anything is owed, so it never
+blesses a file that violates the rules. A violation is refused through `EnrolmentCheck.invalid` as
+`enrolment_invalid`, its reasons joined with `; ` (logged `PM_RUNTIME-120`, audited, nothing owed, nothing written, no
+key created).
+
 == The Operator Writes
 
 _Requirements: link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2], link:{req}/11-migration.adoc#PM-MIG-1[PM-MIG-1]_
@@ -202,30 +263,89 @@ _Requirements: link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2], link:{req}/11-
 `Enrolments` opens its own transaction per write and acquires the project's lock in it. `enrol` and the re-baseline
 acquire the credentials lock first and the project's lock second, because either may create the integrity key.
 `unenrol` and the replays take neither the key nor the credentials lock. Each write owes its audit record and runs in the
-order owe, mutate, confirm, hand over:
+order owe, mutate, confirm, hand over, all four inside its transaction: `store.oweAudit` writes the unconfirmed record,
+with a new transaction id of the write (`TransactionId.generate`), to the project's intent before the mutation,
+`store.confirmAudit` replaces it after the mutation by the record of the success, and `store.deliverOwedAudit` hands it
+over. Each write is logged after the transaction closed.
 
-* `enrol(enrolment, pilot)` checks the policy, chooses the key under both locks, owes `enrolment_written` unconfirmed,
-  writes the pair atomically, confirms the record and logs `PM_RUNTIME-19`. A key that exists but cannot be read is never
-  replaced; an absent key with an enrolled project is `ENROLMENT_TAMPERED`, never a second key.
-* `unenrol(projectId)` asks `LiveWork` while it holds the lock. Live work throws `Enrolments.ScopeActiveException` (code
-  `scope_active`) naming each item, after logging `PM_RUNTIME-118` and auditing `unenrol_refused`; nothing is removed.
-  Otherwise it owes `enrolment_removed`, removes the staged files first and then the file and the sidecar, confirms and
-  logs `PM_RUNTIME-20`. A first enrolment that was staged and stopped is cancelled this way and cannot be rolled forward
-  later.
-* `rebaseline(projectId)` settles a stopped pair, takes one no-follow snapshot, decodes it strictly, checks the policy,
-  owes `enrolment_rebaselined`, writes a new sidecar over the same bytes, confirms and logs `PM_RUNTIME-21`. The checks
-  and the signature cover one read of the file.
-* `replayOwedAudit(projectId)` hands over what one project owes and returns the count; `replayOwedAuditOfUnenrolledProjects()`
-  does it for projects without an enrolment file and then removes the orphan sidecar of an interrupted unenrol;
-  `replayOwedAudit()` sweeps every project, logging each record `PM_RUNTIME-22` and keeping a failing intent for the next
-  pass.
+* `enrol(enrolment, pilot)` writes the enrolment with `pilot` taken from the argument alone and `released_at` cleared,
+  so enrolling a released project again clears its release, with the sidecar
+  `EnrolmentHmac.sidecar(key, EnrolmentCodec.write(written))`, after the policy admitted it. The key is chosen under the
+  credentials lock and the project's lock: `key.read()` first; if the key is absent and `store.projectIds()` is not
+  empty, the write is refused through `EnrolmentCheck.tampered` as `ENROLMENT_TAMPERED` for the first enrolled project
+  (its file, reason `EnrolmentCheck.KEY_ABSENT`); only when the key is absent and no enrolment file exists does
+  `key.readOrCreate()` create it. A sidecar without any enrolment file does not count. When the key cannot be read or
+  created, or the write is refused, nothing is written and nothing is owed. Otherwise it owes `enrolment_written`
+  unconfirmed, writes the pair through the atomic pair write of the store, confirms the record and hands it over; logs
+  `PM_RUNTIME-19`. A stopped write is settled by the project's recovery (`EnrolmentIntegrityStep`) or by the next write
+  of the project; the check refuses a mismatched pair.
+* `unenrol(projectId)` asks `LiveWork.of(projectId)` while it holds the lock. Live work throws
+  `Enrolments.ScopeActiveException` (`CODE` `scope_active`), naming each item, after logging `PM_RUNTIME-118` and
+  auditing `unenrol_refused` through `EnrolmentCheck.recorded`; nothing is removed and nothing is owed. When the audit
+  append fails, the caller still gets the `ScopeActiveException` with its live work items; the sink's
+  `UncheckedIOException` is its suppressed exception. Otherwise, if the file, its sidecar or a staged name of a stopped
+  write exists (`store.exists` or `store.hasStagedWrite`), it owes `enrolment_removed` unconfirmed, removes them
+  (`store.remove` deletes the staged files first, then the file and the sidecar), confirms the record and logs
+  `PM_RUNTIME-20`; a first enrolment that was staged and stopped is thus cancelled and audited and cannot be rolled
+  forward later by a recovery or a write. The project's machine store below `projects/<project_id>/` is not touched. In
+  every case it hands over what the project owes, so a record an earlier write still owes is flushed. It returns `true`
+  when the file, the sidecar or a staged name existed, and `false` without a record when nothing of the enrolment
+  existed.
+* `rebaseline(projectId)` first settles a stopped write of the pair with `store.recoverPair` once both locks are held: a
+  completely staged pair is rolled forward, an incomplete one discarded, so a staged pair of an earlier stopped `enrol`
+  can never replace the re-baselined pair later, unreported. A staged file that cannot be listed, read, moved or deleted
+  fails it with an `UncheckedIOException` and nothing signed. It then takes one no-follow snapshot of the settled file
+  inside its transaction: a refused snapshot throws `EnrolmentCheck.insecure` (`ENROLMENT_INSECURE`, nothing owed,
+  nothing written; a symbolic link is refused, never followed), an absent one `absent`. It decodes the bytes of that
+  snapshot strictly, checks the decoded enrolment against the policy, reads the old sidecar record where one is
+  readable (for the display only), owes `enrolment_rebaselined` unconfirmed, writes a new sidecar over the same bytes
+  (`store.writeSidecar`), confirms the record and hands it over; logs `PM_RUNTIME-21`. The checks, the strict read and
+  the signature cover one read of the file. A refusal (absent, insecure, unreadable, invalid) owes nothing.
+* `replayOwedAudit(projectId)` hands over what one project owes, in a transaction of its own under the project's lock,
+  and returns the number of records handed over; a record the sink refuses again stays owed and is not counted, a
+  refused or failing intent file propagates as it is.
+* `replayOwedAuditOfUnenrolledProjects()` is the sweep below for the projects no longer enrolled: a project whose
+  enrolment file exists (`store.hasEnrolmentFile`) is skipped, because its recovery hands its own records over; a file
+  without a sidecar is such a project, which the check refuses. Every other project gets its owed records handed over
+  (an unconfirmed `enrolment_removed` as `failed`/`not_confirmed`, logged `PM_RUNTIME-119`) and then the orphan sidecar
+  an interrupted unenrol left removed (`store.removeOrphanSidecar`); when the hand-over throws, the sidecar is left for
+  the next pass. A record the sink refuses stays owed in the intent either way.
+* `replayOwedAudit()` is the sweep of the owed records of every project: for every project of
+  `store.auditOwingProjectIds()`, in the order of the ids, it opens a transaction of its own, acquires the project's lock
+  and hands over what the project owes. It returns the number of records handed over, reads no enrolment, creates no
+  key and removes nothing. An intent file of one project that is unreadable or of another format version
+  (`StoreRefusal`), or that cannot be read, rewritten or removed (`UncheckedIOException`), does not stop the replay for
+  the projects after it: the file is kept, the replay goes on, and after the last project the first failure in the
+  order of the project ids is thrown as its own type, every later failure of either type added to it as a suppressed
+  exception; the records of the other projects have been handed over by then and are logged, but the count of a replay
+  that threw is not returned. Any other failure, a stopped process for one, ends the replay at once.
+  `replayOwedAuditOfUnenrolledProjects()` shares this loop and its failure handling. Nothing in `pm-mcp-core` calls the
+  sweep of every project; it is the operator verbs' replay.
 
-A sink that refuses a record does not fail the write: the record stays owed in
-`enrolments/<project_id>.json.audit-intent` and is logged `PM_CORE-100`. The owed form is `AuditEvent.notConfirmed()`:
-the same event and transaction id, outcome `failed`, reason `not_confirmed`. The mutation and the confirmation are not
-atomic, so a stop before the confirmation leaves the unconfirmed record, which is true — its completion was not recorded.
-Delivery is at least once, and a record handed over again carries the same `transaction_id`, by which the audit store
-drops the duplicate.
+`rebaseline` returns `Enrolments.Rebaseline(file, recorded, current, settled)`, the values the operator's display shows,
+which describe the settled file. `recorded` is empty without a readable old record. `settled` is the list `recoverPair`
+returned before the signing, copied and never `null`: one `PairRecovery.Completed` or `PairRecovery.Discarded` per
+stopped write, in the order of the transaction ids, empty when nothing was staged, the normal case. A `Completed` entry
+means the signed file is the recovered write, whose bytes may differ from the bytes the operator reviewed in place; the
+operator verb, outside `pm-mcp-core`, shows it as a warning. The re-baseline keeps `key.readOrCreate()`: it is the
+operator's explicit act and the one write that creates the key over existing enrolments, the way out of the `enrol`
+refusal after a key-source switch. The other enrolments, written under the old key, then fail their own check with
+`HMAC differs from the sidecar record`, naming `accept-edit` for their project, and are re-baselined one by one.
+
+A sink that refuses a record (`UncheckedIOException`, the declared failure of `AuditSink.append`) does not fail the
+write: the record stays owed in `enrolments/<project_id>.json.audit-intent` and is logged `PM_CORE-100`. The owed form
+is `AuditEvent.notConfirmed()`: the same event, category, `project_id` and `transaction_id`, outcome `failed`, reason
+`not_confirmed`. The mutation of an operator write is not redone by a recovery, so the record may claim `succeeded`
+only after the mutation completed. The mutation and the confirmation are not atomic: a mutation that fails, or a stop
+before the confirmation, leaves the unconfirmed record, which is handed over as `failed`/`not_confirmed` (logged
+`PM_RUNTIME-119`); a stop after the confirmation leaves the succeeded record owed. A stop between the end of the
+mutation and the confirmation leaves a write that took effect with a record that says `not_confirmed`, which is true
+(its completion was not recorded) and is resolved by the enrolment file and its sidecar. The next write of the project
+and the replays hand an owed record over; a record handed over of another transaction than the current write's is
+logged as `PM_RUNTIME-22`. Delivery is at least once, and a record handed over again carries the same
+`transaction_id`, by which the audit store drops the duplicate. The refusals (`enrolment_tampered`,
+`enrolment_insecure`, `enrolment_invalid`, `unenrol_refused`) changed nothing and recur with the next attempt; they are
+appended to the sink directly and are never owed.
 
 [cols="1,1,1,2",options="header"]
 |===
@@ -250,20 +370,41 @@ _Requirements: link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5], link:{req}/01-arc
 
 The project's recovery has eleven steps, in the order of `RecoveryStep.Name`; the two enrolment steps come first:
 
-. `EnrolmentIntegrityStep` opens a transaction, acquires the project's enrolment lock, settles a stopped write of the pair
-  with `store.recoverPair` and then runs `check.verify` in the same transaction. A `StoreRefusal` is a `Failed` with its
-  message; a `SecretStoreException` is `Failed("integrity key unavailable: <reason code>")`, never with the key. The step
-  never signs anything and never creates a key.
-. `OwedEnrolmentAuditStep` calls `enrolments.replayOwedAudit(projectId)` and reports the count. `unenrolledPass()` is the
-  background task for the projects no longer enrolled: it hands over what every project without its enrolment file owes
-  and removes the orphan sidecar of an interrupted unenrol, logging a failure `PM_RUNTIME-121` and leaving that project's
-  files for the next pass.
+. `EnrolmentIntegrityStep` (`ENROLMENT_INTEGRITY`, constructor `(EnrolmentStore, EnrolmentCheck, LockManager)`) opens a
+  transaction, acquires the project's enrolment lock, settles a stopped write of the pair with `store.recoverPair` and
+  then runs `check.verify` in the same transaction. It reports `Done("enrolment verified")`, with
+  `, a stopped write was settled (<n>)` appended when `recoverPair` reported stopped writes. A `StoreRefusal` is a
+  `Failed` with the message of the refusal, which names the file and the code (the check already logged and audited a
+  tampered, insecure or invalid enrolment; `absent` means the project vanished from the store, a failure too, because
+  only enrolled projects are recovered); a `SecretStoreException` is `Failed("integrity key unavailable: <reason
+  code>")`, never with the key; an `UncheckedIOException` is `Failed("enrolment cannot be read: …")`. An invalid project
+  id and an internal fault propagate, and the recovery records them as a failed step. The step never signs anything and
+  never creates a key. A failed step stops the recovery of that project only.
+. `OwedEnrolmentAuditStep` (`OWED_ENROLMENT_AUDIT`, constructor `(Enrolments)`) calls
+  `enrolments.replayOwedAudit(projectId)` and reports `Done("<n> owed audit records handed over")`. A record the sink
+  refuses again stays owed and is not a failure; an intent file that is unreadable, of another format version or cannot
+  be read, rewritten or removed is a `Failed` naming the failure, and the intent is kept.
+
+`OwedEnrolmentAuditStep.unenrolledPass()` is the background pass for an intent whose project is no longer enrolled: a
+`Runnable` that calls `Enrolments.replayOwedAuditOfUnenrolledProjects()`; it catches exactly `StoreRefusal` and
+`UncheckedIOException` and logs them as `PM_RUNTIME-121` with the exception first; the intent, or the sidecar, of the
+failing project stays in place, and the other projects are settled all the same. Any other failure, a stop of the sink
+for one, propagates. The project's recovery does not see a project without its enrolment file, because
+`EnrolledProjects` lists enrolment files only; the background pass is its route.
 
 `EnrolledProjects.of(store)` is the population of the recovery and the periodic sweep: the ids `store.projectIds()` lists
-at each call, as a copy. `ProjectRecovery.withEnrolment(store, check, enrolments, lockManager, steps, executor)` builds the
-recovery with the two steps, that population and `unenrolledPass()` as the background task. A step list written before the
-enrolment store keeps working: every constructor fills a missing `ENROLMENT_INTEGRITY` or `OWED_ENROLMENT_AUDIT` with a
-seam that does nothing, and the check then does not run.
+at each call, as a copy; `EnrolledProjects.NONE` names no project and is the population where no store is given.
+
+`ProjectRecovery.withEnrolment(store, check, enrolments, lockManager, steps, executor)` builds the recovery with the two
+enrolment steps, `EnrolledProjects.of(store)` and `unenrolledPass()` as the background task; a step of either enrolment
+name in the given list is replaced by the built one. The overload with a `JobRecoveryStep` places that step as step 3
+in place of any `JOBS_AND_WORKERS` step of the list. The constructor `ProjectRecovery(enrolled, steps, executor,
+backgroundPassTask)` takes a background task, which `startBackgroundPass()` submits once to the executor after it
+started the recoveries of the enrolled projects; the three-argument constructor submits no task. Every constructor
+fills a missing `ENROLMENT_INTEGRITY` or `OWED_ENROLMENT_AUDIT` with a seam that does nothing, and the enrolment check
+then does not run; any other missing name is an `IllegalArgumentException` naming it, and so are two steps of one name.
+
+The reporting of a project whose recovery failed, on stderr and in `pm-operator status`, is the assembly's.
 
 == Known Limits
 
@@ -276,20 +417,26 @@ seam that does nothing, and the check then does not run.
   `Enrolments`.
 * *`unenrol` needs every producer to ask it.* It asks `LiveWork` under the project's enrolment lock; that prevents
   stranding only if every path that creates live work reads the enrolment under the same lock.
-* *Recovery and job verification run the check.* The verify-not-resolve pipeline of a project's jobs runs
-  `EnrolmentCheck.verify` as its first stage. The `enter` request and the operator verbs do not yet have runtime paths; each
-  must run it when its path is built.
-* *The project root is not checked for uniqueness.* `enrolment_root_conflict` and `project_store_root_mismatch` are
-  refused nowhere yet; the operator verb and the recovery will own them.
+* *Recovery and job verification run the check.* The project's recovery runs `EnrolmentCheck.verify` as its first step,
+  and the verify-not-resolve pipeline of a project's jobs (`VerifyNotResolvePipeline` of `runtime.job`) as its first
+  stage. The runtime has no path for the `enter` request or the operator verbs; such a path must run the check too.
+* *The project root is not checked for uniqueness.* `enrolment_root_conflict` (two enrolments with one `project_root`)
+  and `project_store_root_mismatch` are refused nowhere in `pm-mcp-core`.
+* *An interrupted `unenrol` is settled later, not at once.* A stop between the removal of the file and of the sidecar
+  leaves an orphan sidecar and the owed record; the background pass of the recovery hands the record over and removes
+  the sidecar after the next start or the next pass, and running `unenrol` again settles it too. An orphan sidecar
+  without an owed record is not discovered; it strands nothing, because it is not an enrolment.
 * *The policy is not complete.* The shell-metacharacter set of an argument vector, whether the forbidden free flags apply
   to enrolled templates, the full credential-variable list and a non-absolute write path are open in the specification.
 * *The directories are not protected by the runtime.* `<PM_MCP_BASE>/enrolments/` and `<PM_MCP_BASE>/state/` must belong
-  to the operator and be closed to every other identity; the installer or assembly creates them, and the startup refuses
-  a wider mode or a foreign owner.
+  to the operator and be closed to every other identity: the HMAC proves that the runtime wrote a file, but nothing
+  prevents whoever can write the directory from deleting or replacing the pair or the key file. `EnrolmentStore` and
+  `EnrolmentKey` neither create these directories nor check their owner and mode; the per-use checks cover the files
+  only.
 * *The audit store must drop a replayed duplicate.* The `AuditSink` contract used here does not deduplicate; the audit
   store drops a record whose `transaction_id` it already holds.
-* *The assembly does not construct the recovery yet.* Without `ProjectRecovery.withEnrolment` or the two steps, the
-  recovery fills them with seams and runs no check.
+* *The check runs only in a recovery built with the enrolment steps.* Without `ProjectRecovery.withEnrolment` or the two
+  steps, the recovery fills them with seams and runs no check; the assembly must build it with them to run the check.
 
 == Testing
 
@@ -302,6 +449,11 @@ given store; before the choice the key created in the found OS store, else in th
 key file as the key of the choice; the first recording of `file` carrying the key the OS store held, with no second key
 created; the constructor with one store as before. `write` and `delete` are exercised by the move
 (`CredentialStoreMoveTest`) and the first recording (`CredentialStoreChoiceTest`).
+The groups `Keyring`, `AtomicKeyFile`, `KeyFile`, `CreationLock` and `CrossInstance`: the three read outcomes, logged
+without the key; the atomic creation leaves only the complete `0600` key file, a partial, malformed or insecure key file
+is never replaced, a racing writer's key is kept, a failed create leaves nothing behind; the creation lock and its place
+in the lock order, a foreign keyring entry adopted, a vanished one refused; two instances enrolling at once, one paused
+inside its create, write one keyring entry or one key file, also with a re-baseline racing an enrol.
 link:{test}/HarnessesSidecarCheckTest.java[`HarnessesSidecarCheckTest`]:: A file and sidecar passing under their key and
 failing under another; both absent passing; a missing half; a changed byte failing on the digest; the right digest
 with a wrong HMAC; mode `0644` and a symbolic link failing as insecure; an unreadable sidecar; the lock
@@ -311,16 +463,40 @@ with; a tampered enrolment file, `harnesses.json` and audit head each failing; n
 link:{test}/EnrolmentHmacTest.java[`EnrolmentHmacTest`]:: the signature of canonical bytes, a changed byte, a changed key
 and a malformed record, each refused.
 link:{test}/EnrolmentFileCheckTest.java[`EnrolmentFileCheckTest`]:: the per-use checks of a file and of a sidecar — owner,
-mode `0600`, no symbolic link — the absent file, the changed-while-read case and the one no-follow snapshot.
-link:{test}/EnrolmentCheckTest.java[`EnrolmentCheckTest`]:: every refusal of the check: an absent, tampered and insecure
-enrolment, a mismatched pair, a changed size or SHA-256, a wrong HMAC and an absent key, with the log and audit record of
-each.
-link:{test}/EnrolmentPolicyTest.java[`EnrolmentPolicyTest`]:: the placeholder, write-path and environment-name rules, each
-with its accepted control.
-link:{test}/EnrolmentsTest.java[`EnrolmentsTest`]:: `enrol`, `unenrol`, the re-baseline and the replays in order, the owed
-record confirmed or left unconfirmed, the `scope_active` refusal, the orphan sidecar and a sink that refuses a record.
-`EnrolmentIntegrityStepTest` and `OwedEnrolmentAuditStepTest` of `runtime.start`:: the two steps of the recovery, with a
-stopped pair, a refused enrolment and an owed record.
+mode `0600`, no symbolic link — and the snapshot: a passing file read in full, an absent file an absent snapshot, a link
+or dangling link refused without reading the target, a broader mode or foreign owner refused with the reason of the
+violation, a file replaced, swapped for a link or loosened while it was read refused, the seam run once per read file
+and never for an absent or refused one.
+link:{test}/EnrolmentCheckTest.java[`EnrolmentCheckTest`]:: every refusal of the check with its untouched control, logged
+and audited, another project unaffected; a key absent from the active key source after a switch; a symlinked enrolment
+file refused although its target is the recorded file; a failing sink suppressed; the group `Invalid`: the strict-read
+refusals of the sidecar and the file logged and audited as `enrolment_invalid` with their outcome unchanged.
+link:{test}/EnrolmentPolicyTest.java[`EnrolmentPolicyTest`]:: placeholders in each of the three places; write paths
+against the base by normalized and real path, and through their longest existing ancestor (a missing leaf below a link
+into the base or below it refused, below a link outside or to the parent of the base admitted, `..` resolved physically
+inside the existing part or refused below it, a dangling link refused, an ordinary missing path outside admitted);
+refused and admitted environment names; the order of the reasons.
+link:{test}/EnrolmentsTest.java[`EnrolmentsTest`]:: the groups `Enrol`, `KeySourceSwitch`, `Unenrol`, `Rebaseline`,
+`AuditIntent` and `Policy`: a violating enrolment refused at `enrol` and at the re-baseline before a key, an intent or a
+file exists, also against a failing sink; the re-baseline settling a stopped write first and reporting it in `settled`;
+an interrupted unenrol settled by the background pass and left in place by the sweep of every project, a sidecar that
+cannot be removed failing only its project; `unenrol` of a staged-only enrolment cancelled, audited and not rolled
+forward later; a permitted `unenrol` leaving `projects/<project_id>/` byte-identical and live work named in the
+refusal; the key-source switch in both directions refused without creating a key, the re-baseline as the way out; the
+audit intent of each write (a refused append kept owed and replayed once, a failed mutation kept unconfirmed, a stop
+kept for a restarted runtime, an accepted append that outlived its intent handed over again with the same transaction
+id, the next write flushing an earlier record, two projects replayed in the order of their ids, a refusal owing
+nothing); the replay past an intent that is refused or fails on I/O, the first failure thrown in either order and a
+stopped process still stopping it.
+`EnrolmentIntegrityStepTest` and `OwedEnrolmentAuditStepTest` of `runtime.start`:: a verified enrolment, every shape of a
+stopped pair write settled, every refusal a failed step with its log and audit record, another project unaffected; an
+owed record handed over once, a refused one kept, a bad intent a failed step, the background pass settling an
+interrupted unenrol and sparing an enrolled project, an orphan sidecar that cannot be removed logged once without
+throwing.
+`EnrolledProjectsTest` and `ProjectRecoveryTest` of `runtime.start`:: an orphan sidecar with an intent is not listed;
+the eleven names in order, a step list without the enrolment steps, the background task, and end to end over a real
+store: a clean project with eleven steps, a tampered one failing at step 1 only, an owing one handing its record over in
+step 2.
 
 `InMemoryKeyring` is the keyring of the tests of the package; it enumerates its entries like every store.
 
@@ -336,6 +512,55 @@ _Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5]
    harness enrolment store of the worker launch.
 4. **Audit leaf last**: no lock may be taken in the transaction after `EnrolmentSidecars.verify`.
 5. **The key never reaches a message**: no log record, exception message or failure reason names it.
+6. **Unenrol must not strand live work**: ask `LiveWork` under the project's enrolment lock, in the same transaction as
+   the removal, and remove only the file and its sidecar; the project's machine store stays byte for byte. Guarded by
+   `EnrolmentsTest`.
+7. **Compute the HMAC over the canonical bytes**: bytes re-serialized by another writer, or read and written through a
+   tolerant parser, differ from the canonical ones, and every check fails. Use `EnrolmentCodec.write` and
+   `EnrolmentHmac.sidecar` together, as `Enrolments.enrol` does.
+8. **Never read an absent key from an exception**: an insecure or malformed key file is a `SecretStoreException`; a
+   caller that turns it into "no key yet" creates a second key and makes every enrolment tampered.
+9. **Never create a key while enrolment files exist**: a key that is absent while enrolment files exist was lost or
+   lives in the other key source; a new key would strand every enrolment written under the old one and hide the cause.
+   `enrol` refuses instead; only the re-baseline creates the key then. Guarded by `EnrolmentsTest` (the key-source
+   switch in both directions) and `EnrolmentKeyTest` (two instances write one keyring entry).
+10. **Never publish a key file with a rename**: a rename replaces an existing key file a racing writer created. Publish
+    with a hard link from a synced temporary file; a keyring entry is read back after the write and the key it holds is
+    adopted. Guarded by `EnrolmentKeyTest`.
+11. **Never create the integrity key outside the credentials lock**: two runtime instances that both read "absent" would
+    each create a key. `enrol` and the re-baseline acquire `EnrolmentKey.creationLock` before the project's lock, never
+    after it. Guarded by `EnrolmentKeyTest` (`CreationLock`, `CrossInstance`) and `EnrolmentsTest`.
+12. **Sign only what the policy admits**: check the enrolment against `EnrolmentPolicy` before the key is resolved, at
+    `enrol` and at the re-baseline. Guarded by `EnrolmentPolicyTest` and `EnrolmentsTest` (`Policy`).
+13. **Settle a stopped pair before the check, and before you sign over it**: the check refuses a pair a stopped write
+    left half new, and a re-baseline that signs in place while a completely staged pair is on disk is undone by the
+    next recovery or write, unreported. `EnrolmentIntegrityStep` and the re-baseline call `recoverPair` first, and the
+    re-baseline reports what it settled (`Rebaseline.settled`). Guarded by `EnrolmentIntegrityStepTest` and
+    `EnrolmentsTest` (`Rebaseline`).
+14. **Discover recovery work apart from enrolment eligibility**: the orphan sidecar of an interrupted unenrol is not an
+    enrolment, so the project's recovery never sees it; skip a project in the background pass only when its enrolment
+    file exists (`hasEnrolmentFile`), never when any file of it exists. Guarded by `EnrolmentsTest` and
+    `OwedEnrolmentAuditStepTest`.
+15. **Resolve a write path through its longest existing ancestor**: a check of the whole path alone misses a missing
+    leaf below a symbolic link into the base. Guarded by `EnrolmentPolicyTest` and `EnrolmentsTest`.
+16. **Cancel staged state at unenrol too**: a first enrolment that was staged and stopped has neither file nor sidecar;
+    `unenrol` asks `hasStagedWrite` besides `exists`, so a later recovery or write cannot roll it forward. Guarded by
+    `EnrolmentsTest` and `EnrolmentStoreTest` of `pm-core`.
+17. **Owe the record before the mutation, and owe it unconfirmed**: a record appended only after the mutation is lost
+    when the audit log refuses it or the process stops in between, and a record owed as `succeeded` is handed over as a
+    success even when the mutation failed. Owe `AuditEvent.notConfirmed()` and confirm it with `store.confirmAudit` only
+    after the mutation completed; never catch a refused append and drop the record. Guarded by `EnrolmentsTest`
+    (`AuditIntent`), `EnrolmentStoreTest` and `AuditEventTest`.
+18. **One bad intent file must not stop the replay**: catch exactly `StoreRefusal` and `UncheckedIOException` per
+    project, keep the file and report after the last project, so a stop still ends the replay. Guarded by
+    `EnrolmentsTest`.
+19. **Never check a path and then read it**: read through `EnrolmentFileCheck.snapshot`, which checks the attributes,
+    reads from one no-follow open and compares the attributes after the read. Guarded by `EnrolmentFileCheckTest`,
+    `EnrolmentCheckTest` (a symlinked enrolment file refused) and `EnrolmentsTest` (the re-baseline refuses a symlinked
+    file and leaves the target and the sidecar byte-identical).
+20. **One audited path per refusal**: log and audit a refusal through `EnrolmentCheck.tampered`, `insecure`, `invalid`
+    or `recorded`, never by a direct `fileCheck.check` that throws past the log and the audit, or a direct
+    `auditSink.append` whose failure replaces the refusal. Guarded by `EnrolmentCheckTest` and `EnrolmentsTest`.
 
 == Specification Tracing
 

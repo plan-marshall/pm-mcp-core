@@ -40,13 +40,12 @@ A worker is a leaf (`PM-WF-5`): its connection never follows a link that starts 
 [#launch-contract]
 === Launch Contract
 
-Implemented by `runtime.launch` (`HeadlessBlock`, `LaunchComposer`) and `runtime.job.WorkerStart`, and recorded in the
-job record (`worker`, `argv_digest`): the server composes the launch of every worker from server-owned inputs only, and no
+Recorded in the job record (`worker`, `argv_digest`): the server composes the launch of every worker from server-owned inputs only, and no
 element is read from a file the model can write (link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch
 Developer Guide]; link:../store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas Specification, Job
 Record]). A change of the role's effective configuration applies to the next worker generation; a running generation
-keeps the contract it was launched with. Remaining: the verify-not-resolve argument-schema validation of the composed
-vector, which the worker start path does not run yet.
+keeps the contract it was launched with. The composed vector is validated against its argument schema without resolving
+(link:../job-runtime/01-pipeline-and-subprocesses.adoc#_verify_not_resolve_execution_pipeline[Job Runtime Specification, Verify-Not-Resolve Execution Pipeline]).
 
 [#harness-selection]
 === Harness Eligibility & Launch Refusals
@@ -104,8 +103,7 @@ Only the `zero_tool` class depends on the harness restricting the worker; for `w
 
 *Harness enrolment*: A harness executable is an enrolled host tool of the machine: the onboarding's `harness.enrol`, for a candidate its scan found (link:../client-profiles/01-profile-schema.adoc#harness-scan[Client Profiles Specification, Harness Scan]) or a harness verified from a draft (link:../client-profiles/01-profile-schema.adoc#unknown-harness[Unknown Harness]), and `pm-operator enrol-harness <client>` record its absolute path, the version its version probe reports, and its SHA-256 digest (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-enrol-harness[CLI, Coordination & Security Specification, Harness Enrolment]; store: link:../store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas Specification, Harness Enrolment Store]). Before every launch the runtime verifies it without resolving (link:../job-runtime/01-pipeline-and-subprocesses.adoc#_verify_not_resolve_execution_pipeline[Job Runtime Specification, Verify-Not-Resolve Execution Pipeline]). Because harnesses update themselves, a changed digest is accepted only on the profile's update evidence, checked before the changed file runs, and then only when its version probe reports a version within the profile's `headless.supported_versions`; it is audited and the new digest is recorded (link:../client-profiles/01-profile-schema.adoc#update-evidence[Client Profiles Specification, Update Evidence]). The enrolment records path, version, and digest only: `PM-MCP` never stores or exports a harness's authentication. The harness must already be logged in by its own login (cached under its home); the onboarding checks it with the profile's login probe before the first worker starts (link:../client-profiles/01-profile-schema.adoc#login-probe[Client Profiles Specification, Login Probe]).
 
-*Launch refusals*: Implemented by `HarnessVerifier`, `LaunchRefusal` and `SubprocessJobRunner.refuseWorker`
-(link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide]): a launch is refused before
+*Launch refusals* (link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide]): a launch is refused before
 spawn, with fate `refused` and a reason, when the harness is not enrolled (`harness_not_enrolled`), its executable changed
 without the update evidence of its profile (`harness_update_unverified`), its version lies outside the supported range
 (`harness_version_unsupported`), the harness enrolment store `harnesses.json` fails its HMAC check (`harness_tampered`,
@@ -120,8 +118,7 @@ composed (`prompt_composition_failed`,
 [#model-and-effort]
 === Model & Effort
 
-Implemented by `LaunchComposer` (link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer
-Guide]): the role's effective `model` and `effort` fill the `{{model}}` and `{{effort}}` slots of the harness's
+The role's effective `model` and `effort` fill the `{{model}}` and `{{effort}}` slots of the harness's
 template; a `null` value fills neither slot; a model tier of the default assignment is rendered into the model the
 harness's profile maps it to (`headless.model_tiers`); and an effort the harness does not accept for the model narrows
 to the nearest accepted lower value, recorded as `effort_narrowed_from` in the job record. No other configuration names
@@ -130,8 +127,7 @@ a model or an effort for a worker, and no agent file is installed per model or p
 [#agent-composition]
 === Agent Composition per Harness (`agent_mode`)
 
-Implemented by `HeadlessBlock` and `LaunchComposer` (link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker
-Launch Developer Guide]): the `headless` block declares `agent_mode: inline | flags`, the typed slots `{{prompt_file}}`,
+The `headless` block declares `agent_mode: inline | flags`, the typed slots `{{prompt_file}}`,
 `{{model}}`, `{{effort}}`, `{{mcp_config}}`, `{{result_schema}}`, `{{tools}}`, `{{cwd}}`, `{{agent}}` (the rendered
 inline agent definition) and, for a resumed generation only, `{{session_id}}`, the per-class entries `classes` with their
 argument templates, the delivery of the MCP configuration `mcp_config`, the launch environment `env`, and the
@@ -160,8 +156,7 @@ _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-
 
 A worker never receives the runtime token (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#runtime-token[Runtime & Interaction Model Specification, Runtime Token]). It connects back through a capability of its own:
 
-1. *Job token and generation*: Implemented by `JobTokens`, `LaunchComposer` and `JobTokenStore`
-(link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide]): at spawn the server mints a
+1. *Job token and generation*: At spawn the server mints a
 random 256-bit job token, stores only its SHA-256 in the job record (`job_token_sha256`), and revokes it with the job's
 fate (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#job-token[Runtime
 & Interaction Model Specification, Job Token]). The worker's MCP configuration starts the relay `pm-mcp serve --job` by the
@@ -182,13 +177,12 @@ Specification, Relay]), so the model never sees, passes, or invents them.
 [#job-working-directory]
 === Working Directory, Project Files & Zero-Tool Isolation
 
-Implemented by `LaunchComposer` and the confinement of every job
-(link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide]; link:../job-runtime/02-confinement-and-environment.adoc[Job Runtime Specification, Confinement and Environment]):
+The working directory and the confinement of every job (link:../job-runtime/02-confinement-and-environment.adoc[Job Runtime Specification, Confinement and Environment]):
 
 * *`writer` and `read_only` workers*: the process working directory is the plan worktree when the plan has one, else the enrolled project checkout; the confinement of the job grants the harness its declared `headless.writable_paths` and its own data directory and nothing of the runtime base beyond the worker's job-private directory, and lets it read only its listed read set, never the operator's credential locations (link:../job-runtime/02-confinement-and-environment.adoc#worker-read-set[Job Runtime Specification, Worker Read Set]). The harness loads the project's own instructions and skills natively from there and nothing else of its extension mechanisms: the class is runnable only where the profile declares the capability `extension_isolation`, so no plugin, hook, MCP server, endpoint or environment value of a settings file reaches the worker, and no instruction file or skill of the user (link:../client-profiles/01-profile-schema.adoc#user-level-files[Client Profiles Specification, Nothing of the Operator's Own]), and it connects to no MCP server but its job relay.
 * *`zero_tool` workers (the screener, the judge)*: run always in the empty `cwd/` subdirectory of their job-private directory, which they can read and never write, with project and user settings off where the harness offers it (`--setting-sources ""`), so no project file and no project skill reaches them; the prompt is the server-fixed prompt of the role only (xref:07-untrusted-text-screening.adoc#screener[Screener]; xref:01-roles-and-configuration.adoc#grading[Grading]).
 
-Remaining: the supervisor's choice of a working directory per warm worker (xref:03-supervision-and-recycling.adoc[Supervision & Recycling]).
+A warm worker's working directory is chosen by the supervisor (xref:03-supervision-and-recycling.adoc[Supervision & Recycling]).
 
 [#model-slots]
 === Model Slots & One Writer per Plan
@@ -203,8 +197,7 @@ _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-
 === Launch Prompt & Contract Envelope
 _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-9[PM-WATCH-DISP-9], link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-10[PM-WATCH-DISP-10], link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-24[PM-WATCH-DISP-24]_
 
-Implemented by `PromptComposer` and `LaunchComposer` (link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch
-Developer Guide]): the server hands a worker what it needs to start in one prompt file and decides exactly what the worker
+The server hands a worker what it needs to start in one prompt file and decides exactly what the worker
 knows. The runtime creates `<PM_MCP_BASE>/run/jobs/<job_id>/` (mode `0700`, files `0600`) before the spawn, and it holds
 the prompt file, the rendered result schema, the per-call MCP configuration (none for a `zero_tool` worker) and, for a
 `zero_tool` worker, the empty working directory `cwd/`; the prompt file's SHA-256 is the job record's `prompt_digest`. The
@@ -220,7 +213,7 @@ runs with a required skill missing. Project-level instructions and harness-nativ
 directory (<<job-working-directory>>), and the project's `PM-MCP` skills are the extension skills of `.marshall/skills/`,
 delivered like compiled skills.
 
-Remaining: the job-bound checks of the contract envelope in the relay's per-request binding (<<job-token>>).
+The per-request binding checks every call against the job-bound part of the contract envelope (<<job-token>>).
 
 [#skill-delivery]
 === Skill Delivery Record & Re-Delivery
@@ -228,13 +221,11 @@ _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-
 
 For every task the server computes the required skill set: core conduct, task protocol, the role's skills, the skills of the task's state, the writing skill when the task writes free text, and the project's domain skills with the extension skills whose `domains` name an active domain of the project, each identified by URI and digest (`PM-SKILL-4`).
 
-The launch-time part is implemented by `PromptComposer` and `FreeTextDerivation`
-(link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide]): the writing skill is derived
+At launch, the writing skill is derived
 from the schemas of the entity's links, never from the role artifact, and is delivered only where a task writes free text;
-the skills of the launch prompt are recorded per generation in the job record's `delivered_skills`. Remaining: the offer
-of a warm worker, the re-delivery to a generation whose record holds an older digest, the offer bound, host activation
-and the `skills_not_loaded` refusal at submit — all of them the task protocol's
-(xref:02-task-protocol.adoc[Task Protocol]).
+the skills of the launch prompt are recorded per generation in the job record's `delivered_skills`. The offer of a warm
+worker, the re-delivery to a generation whose record holds an older digest, the offer bound, host activation and the
+`skills_not_loaded` refusal at submit are the task protocol's (xref:02-task-protocol.adoc[Task Protocol]).
 
 * *Free text*: A task writes free text when a link of its entity carries a parameter of type `text` (link:../hypermedia-format/02-link-grammar.adoc[Hypermedia Format Specification, Link Grammar]) or a named parameter schema with a `string` field that has neither `enum` nor `pattern` (link:../hypermedia-format/02-link-grammar.adoc#named-parameter-schemas[Named Parameter Schemas]). The server derives this from the schemas of the links when it composes the offer or the launch, never from the role artifact, so no role can leave the writing skill out.
 * *Writing skill*: `skill://pm/writing/SKILL.md` (link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/02-service-and-skill-tools.adoc#writing-skill[MCP Tools Specification, Writing Vocabulary]) is rendered with the project's effective model language (link:../store-schemas/08-project-configuration-local.adoc#project-levels[Store Schemas Specification, Project Values over Machine Values]). It is the only place a worker is told the language to write in: a changed model language changes the skill's digest, and the skill is delivered again to every generation that received the old digest. Extension skills (link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/02-service-and-skill-tools.adoc#skill-extensions[MCP Tools Specification, Skill Extensions]) are read when the launch prompt or the offer is composed and carry the digest of that read; an extension skill that the role artifact or a state's `skill` clause names and that is refused at that read does not resolve, so the launch is refused with `prompt_composition_failed` and no offer is made, and a role that names it is invalid (`skill_unresolved`) and takes the path of an undefined role (xref:01-roles-and-configuration.adoc#role-composition[Composition Check]). A refused domain-bound skill is absent from the catalogue and is not required. The server delivers the set; it never waits for a model to fetch a skill.

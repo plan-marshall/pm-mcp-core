@@ -13,12 +13,13 @@ _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1], link:{docs}/R
 
 Package `de.planmarshall.core.analysis` of `pm-core` holds the provider-neutral contract of a code analysis: what a
 provider is asked, what one observation of it is, and how that observation is written and read. The provider modules are
-where the calls belong; no implementation of this contract exists in this repository yet, and this package makes none.
+where the calls belong; this package makes none, and no module of this repository implements the contract.
 `core.analysis` depends on `core.findings` for the scope of an observation and for the issues it reports, and never the
 other way round.
 
 The contract is a declaration, a serialization and a set of checks. No class here performs an HTTP call, writes a
-file or reads a store; the boundary is enforced by `AnalysisBoundaryArchTest` against control fixtures.
+file or reads a store; the boundary is enforced by `AnalysisBoundaryArchTest` against control fixtures (see
+<<boundary>>).
 
 == Main Types
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1], link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
@@ -74,8 +75,8 @@ A provider that also files its issues in the findings ledger implements a `Findi
 
 Nothing is discovered on the classpath: the registry is built from the constructor arguments, and a test builds it
 with fixtures. A second provider under one id, and an id outside the pattern, are refused with
-`IllegalArgumentException`. `find(id)` answers an empty `Optional` for an unregistered id, which is not a call
-outcome.
+`IllegalArgumentException`. The registry is immutable. `find(id)` answers an empty `Optional` for an unregistered id,
+which is not a call outcome. `ids()` answers the registered ids in the order the providers were passed.
 
 == The Analysis Result and Its Codec
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
@@ -99,7 +100,9 @@ and count:
 `AnalysisResultCodec.write(result)` produces exactly one shape: one JSON object, UTF-8, no trailing line break, every
 member present and in schema order, an absent value as `null`, `observed_at` as `Instant.toString()` writes it.
 `read(line)` accepts exactly that shape: declared members only, each once, all present, each with its one JSON type,
-`format_version` exactly 1, nothing after the object. A line that was read is written again byte for byte.
+`format_version` exactly 1, an instant only in that spelling, nothing after the object. A line that breaks a rule of the
+record is refused like a malformed one: every refusal is an `IllegalArgumentException` naming what is wrong. So a line
+that was read is written again byte for byte.
 
 The codec uses the streaming API of `jackson-core` without `jackson-databind` and with its own strict-reading helpers,
 not those of `core.store`, on which the package must not depend.
@@ -118,9 +121,29 @@ not those of `core.store`, on which the package must not depend.
 * *The list is copied.* `AnalysisCallResult.issues` copies the list it is given, so a later change by the provider
   cannot reach the result.
 * *Nothing in `pm-core` names a provider.* No class, package or member name of the package contains a provider name;
-  the provider identity travels in configuration and in the provider module.
+  the provider identity travels in configuration and in the provider module. The rule and its single exemption are
+  stated in link:core-findings.adoc[`core.findings`].
 * *The store is written elsewhere.* This package produces the line; writing `analysis.jsonl` belongs to the store and
-  the workflow, neither of which does it yet.
+  the workflow. No class of this repository writes it.
+
+[#boundary]
+=== The Boundary Rule
+
+`AnalysisBoundaryArchTest` applies one rule to the main classes of `core.analysis` and `core.findings`. It fails when a
+class of the two packages
+
+* depends on `java.net.http`, `javax.net`, `de.cuioss.http` or on a class of `java.net` other than `URI`;
+* uses a socket channel of NIO (`SocketChannel`, `ServerSocketChannel`, `DatagramChannel`, `AsynchronousSocketChannel`,
+  `AsynchronousServerSocketChannel`);
+* calls a writing, creating, moving, copying or deleting method of `java.nio.file.Files`, `newByteChannel` included, or
+  a mutating method of `java.io.File`;
+* constructs a `PrintWriter` or `PrintStream` on a file;
+* uses `FileOutputStream`, `FileWriter`, `RandomAccessFile`, `FileChannel`, `AsynchronousFileChannel` or
+  `FileSystemProvider`;
+* depends on `core.store`.
+
+Each control fixture of `de.planmarshall.core.guard.fixtures` the rule is applied to proves that the rule fails where it
+must, so a rule that matches nothing is noticed.
 
 == Adding a Provider Operation
 
@@ -148,10 +171,14 @@ link:{test}/CodeAnalysisProviderRegistryTest.java[`CodeAnalysisProviderRegistryT
 duplicate and the malformed id, and the empty lookup.
 link:{test}/AnalysisResultSchemaTest.java[`AnalysisResultSchemaTest`]:: every written fixture line validated against the
 JSON schema of the analysis result record.
+link:../../src/test/java/de/planmarshall/core/guard/AnalysisBoundaryArchTest.java[`AnalysisBoundaryArchTest`]:: the
+boundary rule of <<boundary>> on the main classes of both packages, and its control fixtures.
 
-The schema test reads the specification of this repository through `SpecificationDocument`; the checkout is named by
-the system property `pm.specification.root`, and a missing document or schema block is a failure. When the checkout is
-absent, the test is aborted through a JUnit assumption and shows as skipped, never as passed.
+The schema test reads the specification of this repository (`doc/specification`) through `SpecificationDocument`. The
+repository root is named by the system property `pm.specification.root`, which the surefire configuration passes from
+the Maven property of the same name (by default the root of the multi-module build; override it with
+`-Dpm.specification.root=<path>`). An unset property, a missing specification directory, a missing document and a
+missing schema block are each a failure, never a skipped test.
 
 == Pitfalls
 

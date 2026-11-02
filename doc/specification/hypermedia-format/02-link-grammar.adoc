@@ -118,7 +118,7 @@ A parameter of type `schema[<schema_name>]` takes a JSON object as its value; th
 |The `parts[]` of `decision-envelope`
 
 |`intent-record`
-|The intent record of a plan: `why`, `goal`, `criteria` (`AC-<n>` in EARS form with `kind` and `verified_by`), `current_behaviour`, `non_goals`, `constraints`, `decisions` (with `decider`), `assumptions`, `open_questions`, `deferred`, `source_claims`; definition in link:../store-schemas/06-task-and-references.adoc#intent-record-store[Store Schemas Specification, Intent Record]
+|The intent record of a plan: `why`, `goal`, `criteria` (`AC-<n>` with `kind`), `current_behaviour`, `non_goals`, `constraints`, `decisions` (with `decider`), `assumptions`, `open_questions`, `deferred`, `source_claims`; definition in link:../store-schemas/06-task-and-references.adoc#intent-record-store[Store Schemas Specification, Intent Record]
 |`submit:refine` and the light `submit:outline` (`intent:schema[intent-record]`), and the re-planning action that changes intent
 
 |`outline-record`

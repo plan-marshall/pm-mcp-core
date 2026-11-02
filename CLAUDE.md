@@ -27,7 +27,7 @@ only to correct a requirement or to change `cross-cutting.adoc` or a specificati
 implementation follows the project skill `traced-implementation`, which lives there with `doc-review`; the skills of
 the same names here only point to them. Links here are relative, also into the documentation (sibling paths); check
 them with `python3 ../plan-marshall-documentation/.claude/skills/doc-review/scripts/trace.py ../plan-marshall-documentation/doc .`
-(`BROKEN LINKS 0`); the workflow `links.yml` of the documentation runs it over both trees.
+(`BROKEN LINKS 0`); no workflow runs it, so it runs locally before every merge.
 
 ## Project Setup
 
@@ -199,13 +199,9 @@ add a deployment target, without the user's explicit decision.
 ## Work Packages
 
 The work of this repository is planned as work packages in `doc/plans/`, one file per package, with the index
-`doc/plans/README.adoc`, the only place that states the status of a package and what it depends on (also packages
-of the other repositories). A package is ready when it is open and depends on no package still listed (in another repository: on none not done); the roadmap milestone it serves says for which exit it
-is needed, not when it may start. The plan files hold the tasks only: requirements, specifications and watch
-items are linked, those of this repository by relative paths, those of `plan-marshall-documentation` by relative
-paths that assume the repositories checked out beside each other. A package is worked in the usual plan-marshall flow
-of Project Setup, _Planning the Work_ (branch, commits, pull request at finalize); within those commits its row leaves the
-index and its package file is deleted.
+`doc/plans/README.adoc`. How the work is planned, what a package file holds, when a package is ready, and what happens to
+a package when it is done are stated only in
+[Project Setup § Planning the Work](../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work).
 
 ## Git Workflow
 

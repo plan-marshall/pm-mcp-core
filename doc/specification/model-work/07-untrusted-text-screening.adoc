@@ -138,6 +138,7 @@ _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-
 
 [#batched-triage]
 === Batched Triage (`triage-groups`)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-27[PM-WF-27: Findings & Triage]_
 _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-36[PM-WATCH-DISP-36]_
 
 Model judgment of findings is batched like screening: one triage task per gather firing, never one per finding.

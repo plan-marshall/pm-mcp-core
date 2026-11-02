@@ -310,7 +310,7 @@ Every step of the `plan-marshall` first-run wizard and every stage sub-step and 
 
 |Stage top-level gates (suppressed by `--integrate true`)
 |Prompts before each of the four stages.
-|*Retired*: each reconcile-path question is asked only when its probe finds something to ask; there is no stage grouping to confirm. A project that holds no copy of a unit takes the binary's changed default at once; for a unit the project holds a copy of, the change (including a newly shipped finalize step) is found by `setup.probe-new-steps` and offered as a three-way diff in `setup.offer-new-steps`, one part per changed copy (§ Configuration Validation & Upgrades Before 1.0).
+|*Retired*: each reconcile-path question is asked only when its probe finds something to ask; there is no stage grouping to confirm. A project that holds no copy of a unit takes the binary's changed default at once; for a unit the project holds a copy of, the change (including a newly shipped finalize step) is found by `setup.probe-new-steps` and offered as a three-way diff in `setup.offer-new-steps`, one part per changed copy (§ Configuration Validation & Upgrades Before 1.0). A change the operator declined is not offered again; only a later change of that default unit is.
 
 |Stage 1 `regenerate-target-tree` (meta project)
 |Regenerates the generated target tree.

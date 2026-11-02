@@ -12,7 +12,7 @@ link:../../Specification.adoc[Specification] » link:../model-work.adoc[Model Wo
 == Supervisor
 _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3: Supervision & Recycling], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-14[PM-WF-14: Task Envelopes, Model Slots & Usage per Task]_
 
-The supervisor is implemented in `runtime.worker`: what it does is recorded in link:../../Traceability.adoc#PM-WORK-3[Traceability, PM-WORK-3] and described in the link:../../../pm-runtime/doc/developer/runtime-worker.adoc[runtime.worker developer guide].
+What the supervisor does is described in the link:../../../pm-runtime/doc/developer/runtime-worker.adoc[runtime.worker developer guide].
 
 [#host-values]
 === Values per Host and per Role
@@ -109,19 +109,19 @@ A model that watches the activity and judges whether a worker is on track is a l
 == Recycling Warm Workers
 _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3: Supervision & Recycling], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-14[PM-WF-14: Task Envelopes, Model Slots & Usage per Task]_
 
-Recycling is implemented in `runtime.worker`: what it does is recorded in link:../../Traceability.adoc#PM-WORK-3[Traceability, PM-WORK-3] and described in the link:../../../pm-runtime/doc/developer/runtime-worker.adoc[runtime.worker developer guide].
+How a warm worker is recycled is described in the link:../../../pm-runtime/doc/developer/runtime-worker.adoc[runtime.worker developer guide].
 
 [#ending]
 == Ending a Worker
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3: Supervision & Recycling]_
 
-Ending a worker is implemented in `runtime.worker`: what it does is recorded in link:../../Traceability.adoc#PM-WORK-3[Traceability, PM-WORK-3] and described in the link:../../../pm-runtime/doc/developer/runtime-worker.adoc[runtime.worker developer guide].
+How a worker is ended is described in the link:../../../pm-runtime/doc/developer/runtime-worker.adoc[runtime.worker developer guide].
 
 [#start-failure-guard]
 == Start-Failure Guard
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3: Supervision & Recycling]_
 
-The start-failure guard is implemented in `runtime.worker`: what it does is recorded in link:../../Traceability.adoc#PM-WORK-3[Traceability, PM-WORK-3] and described in the link:../../../pm-runtime/doc/developer/runtime-worker.adoc[runtime.worker developer guide].
+What the start-failure guard does is described in the link:../../../pm-runtime/doc/developer/runtime-worker.adoc[runtime.worker developer guide].
 
 [#start-collisions]
 === Starts of One Harness

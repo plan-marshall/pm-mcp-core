@@ -129,8 +129,8 @@ This part lists the start, the settle band (orders `3..10`), push and pull reque
 |`phase-6-finalize`
 |`composite_job`
 |`finalize.next-step` (step `default:architecture-refresh`, order `9`).
-|First the capability changes of the intent record, written into `.marshall/capabilities/` with their `verified_by` test files after their `base` fingerprints are checked against the worktree and no unfolded amendment may change a capability-bound criterion; then the module and dependency discovery job, compared with the recorded architecture; a constituent failure fate maps to `failed`.
-|`replan` (`capability_conflict` or `intent_amended` raised) -> `finalize.replan`; `unchanged` -> `finalize.next-step` (`done`, `work_performed=false`); `capabilities_only` -> `finalize.settle-commit` (`done`); `changed` -> `finalize.architecture-judgment`; `failed`, `cancelled` -> `finalize.step-failed` (`completes … as failed`).
+|The module and dependency discovery job, compared with the recorded architecture; a constituent failure fate maps to `failed`.
+|`unchanged` -> `finalize.next-step` (`done`, `work_performed=false`); `changed` -> `finalize.architecture-judgment`; `failed`, `cancelled` -> `finalize.step-failed` (`completes … as failed`).
 |link:../phase-workflows/04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Phase Workflows Specification, Step Catalogue row `9`]
 
 |[[state-finalize.architecture-judgment]]`finalize.architecture-judgment`
@@ -344,7 +344,7 @@ _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.a
 
 [[plan-end-acts]]A plan ends early only by an act of the operator or the release of its project, each through `plan.aborted` with its own outcome and reason (link:../../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-1[UC-CTL-1]):
 
-* *Cancel and abandon* are one end, named by the state the plan was in: a running or pausing plan, and one waiting for the operator or held, is *cancelled* (outcome `cancelled`), a paused one *abandoned* (outcome `abandoned`); the operator's reason is required. They are operator acts of both clients over the local API, confirmed with what they end (the running work, the open pull request, the reason); `pm-operator abort plan <plan_id> --reason` is their shell form, which takes the outcome by the plan's activity in the same way. Only the cancel of a plan held by an integrity pause is that pause's resolution _abort_, outcome `aborted`.
+* *Cancel and abandon* are one end, named by the state the plan was in: a running or pausing plan, and one waiting for the operator or held, is *cancelled* (outcome `cancelled`), a paused one *abandoned* (outcome `abandoned`); the operator's reason is required. They are operator acts of both clients over the local API, confirmed with what they end (the running work, the open pull request, the reason). Only the cancel of a plan held by an integrity pause is the integrity abort, outcome `aborted`.
 * *The pull request*: in the confirmation the operator chooses whether an open pull request of the plan is closed, with a comment naming the reason, or left open; its branch stays either way.
 * *Released*: the release of the project ends every plan of the project that has not ended, whatever its state, with the outcome `released`, never `cancelled` or `abandoned` (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-release[Credentials & Enrolment Specification, Releasing Ends Work as the Operator Ends It]).
 * *Deleted*: `delete-plan` ends the plan through `plan.aborted` with the outcome `cancelled` (reason `plan_deleted`) and then removes it; its id is never given again.

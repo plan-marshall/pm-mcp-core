@@ -189,13 +189,6 @@ A `timed_out` `git worktree remove` can leave a partially deleted tree. Before a
 == Waits & Long-Polls
 _Implementation watch: link:../../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-5[PM-WATCH-JOB-5]_
 
-The bounded wait window, the progress wait upper bound and the progress notification interval are implemented for the
-only calls a model holds, `pm_wait` and a running `pm_build`, by the wait value and the selection of
-`pm-workflow` package `workflow.engine`; see
-link:../../../pm-workflow/doc/developer/workflow-engine.adoc#_waits_held_by_a_model[Workflow Engine Developer Guide § Waits Held by a Model].
-The remaining rows of this section and the wait attribution of the job runtime are implemented elsewhere or remain open
-(for example <<ci-repoll-cadence>>, <<review-bot-windows>> and <<merge-queue-wait>>, and the item PM-WATCH-JOB-5).
-
 [cols="2,3,2,2,2,3,2"]
 |===
 |Name |Value / derivation |Configurable? |Floor / cap |Applies to |Behaviour on expiry |Defined for
@@ -434,6 +427,14 @@ Every blocking condition of a plan has a bounded server retry and then a defined
 |`fix` of a remediation unit's `decide`, including the `loop_back` form; charged when the fix's commit or artifact exists
 |As retry budget.
 |link:../workflow-dsl/08-remediation-units.adoc#remediation-units[Workflow DSL, Remediation Policy Units]
+
+|[[outline-review-revisions]]Outline review revisions of a light plan (`outline_review_revisions`)
+|The default of the `fix` budget of `qgate-findings` (`3`).
+|as the fix budget of `qgate-findings` (`fix_budget:qgate-findings`)
+|hard cap `5`
+|a `revise` answer of the outline review of a light plan, charged by `outline.route-review` on every path; never reset
+|The `revise` takes the fallback `returned` (`plan.return`).
+|link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-gate[Phase Workflows, Outline Review]
 
 |[[sweep-localisation-cap]]Sweep localisation builds
 |$\lceil \log_2 n \rceil + 1$ builds for $n$ plan commits after the merge base, capped.

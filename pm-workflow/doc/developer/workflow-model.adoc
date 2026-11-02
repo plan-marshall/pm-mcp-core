@@ -67,8 +67,8 @@ as the judge, and a `zero_tool` role cannot be consulted.
 The specification says every entity kind declares, with its registration, the class its tasks require. This package keeps
 that declaration with the *use* (`RoleUse`) rather than adding a member to `verify.EntityKind`, because one kind admits
 two classes: the vote kind is `read_only`, or `zero_tool` as a judgment role on a `system_one` endpoint of the protocol.
-The class set admits both; whether a `zero_tool` vote is permitted on the endpoint's protocol is checked by the
-judgment-vote package, which owns the endpoint profiles. A single class member on the kind could not express the two
+The class set admits both; whether a `zero_tool` vote is permitted on the endpoint's protocol is not checked
+here: the judgment role is deferred (link:https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/later-improvements.adoc#L-39[L-39]). A single class member on the kind could not express the two
 classes without a second registration; a set on the use can, and a unit that registers a new kind passes its own set. The
 compiled mapping in `RoleUse.classesOf` is the table for the shipped kinds. See
 link:../adr/workflow-model/001-model-caller-and-classes-at-use.adoc[ADR workflow-model/001].

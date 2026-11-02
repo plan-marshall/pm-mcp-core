@@ -37,7 +37,7 @@ link:../../Specification.adoc[Specification] » link:../timeouts.adoc[Timeouts &
 |—
 |every MCP call addressing a project (by the scope of the worker's leased task) after a runtime start, and every Local API request addressing a project
 |The call returns the retryable error `runtime_recovering` (`isError: true`; a Local API request: the same code of the `pm-api` error codes); the recovery continues, and a repeated call is served once it has finished. Nothing of the call is executed.
-|link:../runtime-lifecycle/01-startup-recovery-drain.adoc#per-project-recovery[Runtime Lifecycle, Per-Project Recovery]; link:../../../../plan-marshall-documentation/doc/specification/mcp-tools.adoc[MCP Tools] (closed error codes); link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#local-api[Runtime Model, Local API]; implemented: link:../../../pm-runtime/src/main/java/de/planmarshall/runtime/start/ProjectRecovery.java[ProjectRecovery] (`RECOVERY_WAIT`), link:../../../../plan-marshall-documentation/doc/concepts/runtime-lifecycle.adoc#per-project-recovery[Concepts § Per-Project Recovery]
+|link:../runtime-lifecycle/01-startup-recovery-drain.adoc#per-project-recovery[Runtime Lifecycle, Per-Project Recovery]; link:../../../../plan-marshall-documentation/doc/specification/mcp-tools.adoc[MCP Tools] (closed error codes); link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#local-api[Runtime Model, Local API]
 
 |[[drain-timeout]]Drain timeout
 |`600`
@@ -45,7 +45,7 @@ link:../../Specification.adoc[Specification] » link:../timeouts.adoc[Timeouts &
 |minimum `0` (`0` terminates running jobs at once), maximum `3153600000` (100 years of 365 days, so the deadline of the drain can always be represented); a negative, non-integer or larger value, and a `machine-config.json` that cannot be read or does not parse as one JSON object, is invalid: the default `600` applies and a warning names the file and the reason; the start and the drain never fail for it
 |running jobs at `SIGTERM`/`SIGINT` / `pm-operator drain` and at the operator's stop with `when: drain`, for which a stop with `when: now` cuts it to `0`; the wait of `pm-operator drain` for the runtime's exit
 |Remaining job groups are terminated (xref:01-job-budgets-and-waits.adoc#grace-period[Grace period]) and recorded `killed`, their build and model slots released, their job tokens revoked, the generations of workers fenced and their task leases released (the tasks stay `queued` for the next start), and `queued` jobs recorded `killed`; at the start of the drain no task is offered any more and every waiting worker is answered `end`, so only workers holding a task run into the drain timeout; warm language servers are shut down; merge-queue and review-bot leases are left in place and handled at the next start like those of a crash (<<leases>>); the runtime exits. `pm-operator drain` waits for the exit up to the drain timeout plus the xref:01-job-budgets-and-waits.adoc#grace-period[Grace period] plus a fixed `10`, then reports that the runtime is still draining.
-|link:../runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime Lifecycle, The Runtime's Lifecycle]; implemented on the runtime side: link:../../../pm-runtime/src/main/java/de/planmarshall/runtime/start/DrainTimeout.java[DrainTimeout], link:../../../../plan-marshall-documentation/doc/user/operator.adoc#drain-timeout-seconds[User Guide § drain_timeout_seconds]
+|link:../runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime Lifecycle, The Runtime's Lifecycle]
 
 |[[stalled-threshold]]Stalled threshold
 |`600` since the last transition or task progress of a non-terminal scope that is neither paused nor in an operator wait, has no pending condition, and awaits no event (the definition: link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime Lifecycle, Stalled Plans]).
@@ -69,7 +69,7 @@ link:../../Specification.adoc[Specification] » link:../timeouts.adoc[Timeouts &
 |—
 |the removal of technical residue, the measurement of the machine store's disk use, and the cleanup's check (its first pass after the start and the first of each new UTC day)
 |Each run removes the residue whose retention passed, one audit record each, under the evidence rules of the removal sweeps, records the disk use, and runs the cleanup's check where it is due (link:../runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Lifecycle, Periodic Sweep]).
-|link:../runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Lifecycle, Periodic Sweep]; implemented: link:../../../pm-runtime/src/main/java/de/planmarshall/runtime/start/PeriodicSweep.java[PeriodicSweep] (`INTERVAL`), link:../../../../plan-marshall-documentation/doc/concepts/runtime-lifecycle.adoc#periodic-sweep[Concepts § Periodic Sweep]
+|link:../runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Lifecycle, Periodic Sweep]
 
 |[[event-buffer]]Event buffer
 |The last `1000` events of each event stream are held for a reconnecting client.
