@@ -208,7 +208,7 @@ A deliverable may declare several verification command and criterion pairs; the 
 === Intent Record (`intent.json`)
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_
 
-Implemented in `pm-core`: `IntentRecord` (the `intent-record` schema and its EARS, fix-triple, decider, assumption, identifier and preservation checks), `IntentStore` (the revision and its `history[]`), `IntentCodec` (the strict reader and writer of this document) and `IntentStoreFile` (the accepting transaction on the plan lock), documented in link:../../../pm-core/doc/developer/core-store.adoc#_the_intent_record[Scope Stores Developer Guide § The Intent Record]. The schema below remains the normative shape for the assembly's submission endpoints.
+The schema below is the normative shape for the assembly's submission endpoints.
 
 The plan's intent record (link:../phase-workflows/01-planning-phases-1-2.adoc#intent-record[Phase Workflows Specification, The Intent Record]), written by the transaction that accepts a `submit:refine` or a light `submit:outline`, and by a re-planning that changes intent. `current` is the accepted record; every earlier revision moves to `history[]` in the same transaction and is never changed. The model-supplied record is the named parameter schema `intent-record`; the members around it are server-owned.
 
@@ -249,7 +249,7 @@ The plan's intent record (link:../phase-workflows/01-planning-phases-1-2.adoc#in
   "$id": "https://cuioss.de/plan-marshall-mcp/schemas/intent-record-v1.json",
   "title": "IntentRecord",
   "type": "object",
-  "required": ["why", "goal", "criteria", "current_behaviour", "repairs", "non_goals", "constraints", "decisions", "assumptions", "open_questions", "deferred", "source_claims"],
+  "required": ["why", "goal", "criteria", "current_behaviour", "repairs", "non_goals", "constraints", "choices", "assumptions", "open_questions", "deferred", "source_claims"],
   "additionalProperties": false,
   "properties": {
     "why": { "type": "string", "minLength": 20, "maxLength": 1000 },
@@ -258,32 +258,20 @@ The plan's intent record (link:../phase-workflows/01-planning-phases-1-2.adoc#in
       "type": "array", "minItems": 1, "maxItems": 30,
       "items": {
         "type": "object",
-        "required": ["id", "text", "kind", "verified_by", "capability"],
+        "required": ["id", "text", "kind"],
         "additionalProperties": false,
         "properties": {
           "id": { "type": "string", "pattern": "^AC-[0-9]{1,4}$" },
-          "text": { "type": "string", "minLength": 10, "maxLength": 500, "description": "EARS form; checked by the server beyond this schema." },
-          "kind": { "type": "string", "enum": ["new", "fix", "unchanged"] },
-          "verified_by": { "type": "string", "enum": ["test", "demonstration", "inspection"] },
-          "capability": {
-            "type": ["object", "null"],
-            "required": ["capability", "requirement", "change", "base"],
-            "additionalProperties": false,
-            "description": "The capability requirement the criterion changes (phase-workflows/01, Capability Specs); null for a criterion of the plan only.",
-            "properties": {
-              "capability": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}[a-z0-9](/[a-z0-9][a-z0-9-]{0,62}[a-z0-9]){0,3}$" },
-              "requirement": { "type": "string", "minLength": 3, "maxLength": 120 },
-              "change": { "type": "string", "enum": ["added", "modified", "removed"] },
-              "base": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$", "description": "For modified and removed: the fingerprint of the requirement at the plan's base; null for added." }
-            }
-          }
+          "text": { "type": "string", "minLength": 10, "maxLength": 500 },
+          "kind": { "type": "string", "enum": ["new", "fix", "unchanged"] }
         }
       }
     },
     "current_behaviour": { "type": ["string", "null"], "minLength": 10, "maxLength": 500 },
     "repairs": { "type": ["string", "null"], "description": "plan_id of the landed plan whose work this plan repairs; only on a record with a fix criterion (Phase Workflows, The Intent Record)." },
     "non_goals": {
-      "type": "array", "minItems": 1, "maxItems": 20,
+      "type": "array", "minItems": 0, "maxItems": 20,
+      "description": "At least one item on the deep lane (Phase Workflows, The Intent Record); none required on the light lane.",
       "items": {
         "type": "object",
         "required": ["id", "text"],
@@ -308,7 +296,7 @@ The plan's intent record (link:../phase-workflows/01-planning-phases-1-2.adoc#in
         }
       }
     },
-    "decisions": {
+    "choices": {
       "type": "array", "maxItems": 30,
       "items": {
         "type": "object",
@@ -318,7 +306,7 @@ The plan's intent record (link:../phase-workflows/01-planning-phases-1-2.adoc#in
           "id": { "type": "string", "pattern": "^DC-[0-9]{1,4}$" },
           "text": { "type": "string", "minLength": 5, "maxLength": 500 },
           "options_weighed": { "type": "array", "maxItems": 5, "items": { "type": "string", "minLength": 2, "maxLength": 200 } },
-          "decider": { "type": "string", "enum": ["operator", "quorum", "model", "fact"] },
+          "decider": { "type": "string", "enum": ["operator", "quorum", "role", "fact"], "description": "A decider kind (store-schemas/18, Decider Kind): role is the role's own call." },
           "question_id": { "type": ["string", "null"], "description": "The answered part, for decider operator or quorum; null otherwise." },
           "evidence": { "type": ["string", "null"], "maxLength": 512, "description": "A path or pm:// URI, for decider fact; null otherwise." },
           "adr": {
@@ -391,13 +379,13 @@ The plan's intent record (link:../phase-workflows/01-planning-phases-1-2.adoc#in
 }
 ----
 
-The server checks beyond the schema (EARS form, the fix triple, true deciders, the riskiest assumption, identifiers never reused, preservation) are those of the intent record's specification; the identifiers follow link:../identifiers/02-registry-stores-to-web.adoc#id-intent-item-id[Identifier Registry, intent item identifier].
+The server checks beyond the schema (the fix triple, true deciders, the riskiest assumption, identifiers never reused, preservation) are those of the intent record's specification; the identifiers follow link:../identifiers/02-registry-stores-to-web.adoc#id-intent-item-id[Identifier Registry, intent item identifier].
 
 [#outline-record-store]
 === Outline Record (`outline.json`)
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_
 
-Implemented in `pm-core`: `OutlineRecord` (the `outline-record` schema and its bounds, dependency and file-intent rules), `OutlineStore` (the revision, its `history[]` and the server-owned `deliverable_status`), `OutlineCodec`, `OutlineRenderer` (the `outline.md` form) and `OutlineStoreFile`, documented in link:../../../pm-core/doc/developer/core-store.adoc#_the_outline_record[Scope Stores Developer Guide § The Outline Record]. The schema below remains the normative shape for the assembly's submission endpoints.
+The schema below is the normative shape for the assembly's submission endpoints.
 
 The plan's solution outline (link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-validation-gate[Phase Workflows Specification, Phase 3 Validation]), written by the transaction that accepts a `submit:outline` and by `replan.apply`. `current` is the accepted record and every earlier revision moves to `history[]`; `deliverable_status` is server-owned. `outline.md` is rendered from `current` in the model language, deliverable by deliverable, in the section form of `plan-marshall`'s solution outline (`**Metadata:**`, `**Intent gloss:**`, `**Profiles:**`, ``- `<path>` (<intent>)`` under `**Affected files:**`, `**Change per file:**`, `**Verification:**`, `**Satisfies:**`, `**Added dependencies:**`, `**Interfaces:**`, `**Key links:**`); it is never read back. The model-supplied record is the named parameter schema `outline-record`.
 
@@ -788,125 +776,6 @@ The plan's solution outline (link:../phase-workflows/02-planning-lanes-phases-3-
                 }
               }
             }
-          }
-        }
-      }
-    }
-  }
-}
-----
-
-[#capability-spec]
-=== Capability Spec (`.marshall/capabilities/<capability>.json`)
-_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_
-
-Implemented in `pm-core`: `CapabilitySpec` (the spec, its requirements and scenarios, the EARS check and the RFC 8785 fingerprint over the requirement without `plan_id` and `verified_by`) and `CapabilityIndex` (the reader of a tree's specs, the `facts.capability_index` form and the `IntentAcceptance.CapabilityFacts` of an acceptance), documented in link:../../../pm-core/doc/developer/core-store.adoc#_capability_specs[Scope Stores Developer Guide § Capability Specs]. Not implemented yet: the `architecture-refresh` writer of the plan's changes, its re-planning triggers and the capability test guard. The schema below remains the normative shape.
-
-A git-tracked team file of the project (link:../phase-workflows/01-planning-phases-1-2.adoc#capability-specs[Phase Workflows Specification, Capability Specs]), written only by the finalize step `architecture-refresh` in a plan's worktree; a requirement's fingerprint is the SHA-256 of the RFC 8785 canonical JSON of its object without `plan_id` and `verified_by`, so that following a renamed test changes no fingerprint. A removed requirement leaves the file; a capability whose last requirement is removed is deleted.
-
-[source,json]
-----
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/capability-spec-v1.json",
-  "title": "CapabilitySpec",
-  "type": "object",
-  "required": [
-    "format_version",
-    "capability",
-    "purpose",
-    "requirements"
-  ],
-  "additionalProperties": false,
-  "properties": {
-    "format_version": {
-      "type": "integer",
-      "const": 1
-    },
-    "capability": {
-      "type": "string",
-      "description": "Equals the file's path below .marshall/capabilities/ without .json."
-    },
-    "purpose": {
-      "type": "string",
-      "minLength": 20,
-      "maxLength": 1000
-    },
-    "requirements": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": [
-          "name",
-          "text",
-          "scenarios",
-          "plan_id"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 3,
-            "maxLength": 120,
-            "description": "Unique within the capability; the key of a change."
-          },
-          "text": {
-            "type": "string",
-            "minLength": 10,
-            "maxLength": 500,
-            "description": "EARS form."
-          },
-          "scenarios": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-              "type": "object",
-              "required": [
-                "name",
-                "given",
-                "when",
-                "then"
-              ],
-              "additionalProperties": false,
-              "properties": {
-                "name": {
-                  "type": "string",
-                  "minLength": 3,
-                  "maxLength": 120
-                },
-                "given": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
-                  "maxLength": 500
-                },
-                "when": {
-                  "type": "string",
-                  "minLength": 3,
-                  "maxLength": 500
-                },
-                "then": {
-                  "type": "string",
-                  "minLength": 3,
-                  "maxLength": 500
-                }
-              }
-            }
-          },
-          "plan_id": {
-            "type": "string",
-            "description": "The plan whose merge last changed the requirement."
-          },
-          "verified_by": {
-            "type": "array",
-            "uniqueItems": true,
-            "items": {
-              "type": "string",
-              "minLength": 1,
-              "description": "A repository-relative path of a test file under a test source root of its module."
-            },
-            "description": "The test files the self-review named as evidence of the requirement's criterion met, written by architecture-refresh; empty for a criterion verified by demonstration or inspection. Guarded by the Capability Test Guard."
           }
         }
       }

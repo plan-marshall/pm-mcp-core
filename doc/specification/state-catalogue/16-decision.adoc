@@ -96,9 +96,9 @@ The decision is the question set of one creation: its id is the id of its first 
 |the caller's phase value
 |`auto`
 |`decision.answer` (`complete`, a single reversible part); `decision.confirm` (`confirm`).
-|Validates and records the answer with its channel, its device, and the revision it answers; records an answer that changes the plan's intent as an amendment, and the decision record (chosen, interpreted and confirmed, or delegated, and whether it followed a chat; link:../store-schemas/18-decision-records.adoc#decision-record[Store Schemas Specification, Decision Record]); the client that did not answer withdraws what it showed and says where and how it was answered.
+|Validates and records the answer with its channel, its device, and the revision it answers; records an answer that changes the plan's intent as an amendment, and the decision-log record (chosen, interpreted and confirmed, or delegated, and whether it followed a chat; link:../store-schemas/18-decision-records.adoc#decision-record[Store Schemas Specification, Decision-Log Record]); the client that did not answer withdraws what it showed and says where and how it was answered.
 |`recorded` -> `decision.closed`.
-|link:../store-schemas/18-decision-records.adoc#decision-record[Store Schemas Specification, Decision Record]
+|link:../store-schemas/18-decision-records.adoc#decision-record[Store Schemas Specification, Decision-Log Record]
 
 |[[state-decision.closed]][[state-decision.withdrawn]]`decision.closed`, `decision.withdrawn`
 |the caller's phase value

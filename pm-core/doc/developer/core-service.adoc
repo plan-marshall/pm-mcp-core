@@ -71,8 +71,8 @@ closed).
 
 * *The runner opens and closes the verification transaction itself.* A caller never passes a transaction in: the
   runner verifies a job in a transaction it opens and closes before the launch, so no caller holds the enrolment lock
-  while a job is launched or awaited, and a job that runs for its whole budget never holds a lock of its caller. This is
-  concern (a) left by PLAN-18, stated in the contract of the interface.
+  while a job is launched or awaited, and a job that runs for its whole budget never holds a lock of its caller. The
+  contract of the interface states it.
 * *A refusal is a value.* A start the runner declines answers `StartResult.Refused(reason)`, never an exception; the
   reason is a lower-case snake-case word (`[a-z][a-z0-9_]*`), for example `executable_digest_mismatch`, and anything
   else is refused at construction. Where a record was written, the refusal is recorded as the job's fate `refused`. A
@@ -126,7 +126,10 @@ lock would bypass the order.
 `acquire(key)`:: Asserts the total lock order and takes the lock in one call. A key the order refuses is logged, its
 audit record is handed to the `AuditSink`, nothing is acquired and no lock file is created, and the call throws
 `InternalFaultException` (the failure class `internal_fault`). Mapping the exception to a wire error is the assembly's
-job; `pm-core` names none.
+job; `pm-core` names none. The record is `AuditEvent.lockOrderViolation(held, requested)`: event
+`lock_order_violation`, category `store`, outcome `refused`, details exactly `held` and `requested` as lock paths. The
+exception (`InternalFaultException.lockOrderViolation`) carries the reason `lock_order_violation` and the same
+details, and its message names the requested and the held lock paths and no other path.
 `holds(key)`:: Answers whether this transaction holds the key. A store operation refuses a transaction that does not
 hold its store's key with `InternalFaultException` (reason `store_lock_not_held`), before it touches the file.
 `close()`:: Releases every held key, the last acquired first. A transaction is closed before the next one is opened; a
@@ -136,6 +139,11 @@ The implementation in `pm-runtime` keeps one in-process lock per key and at most
 file, counted by its holders (link:../../../pm-runtime/doc/developer/runtime-lock.adoc[`runtime.lock`]). The runtime has
 exactly one instance: a second manager in the same process meets the first one's OS lock, fails, and on closing the
 channel it opened releases the first one's lock.
+
+The keys and the order themselves are in
+link:core-store.adoc#_lock_keys_and_order[Scope Stores § Lock Keys and the Lock Order]. Tested by `LockContractTest`
+(the audit event `lock_order_violation` and its details, the internal fault with its reason, details and message, and
+the closed set of fault reasons).
 
 `LiveWork` is the runtime's answer to "does this project have live work?" — its non-terminal plans and epics and its
 running jobs. `unenrol` asks it while it holds the project's enrolment lock, and refuses with `scope_active` naming the

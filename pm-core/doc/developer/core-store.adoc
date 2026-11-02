@@ -11,29 +11,26 @@ _Requirements: link:{docs}/Requirements.adoc#PM-ARCH-6[PM-ARCH-6], link:{docs}/R
 
 This guide covers the stores of a scope that `pm-core` adds on top of the store substrate, and the engine ports:
 
-* the work package `workflow-engine` added the workflow state store `mcp/status.json` in `de.planmarshall.core.store`,
-  and the engine ports in `de.planmarshall.core.spi` through which the workflow engine of `pm-workflow` causes and
-  observes what lies outside that store. Every run state of a plan, an epic or the workspace lives in the status
-  document, so a killed run resumes where it stopped;
-* the work package `session-log-and-generations` added a third target mode to the transaction journal, the delete, and
-  on it the pending entry record `pending/<entry_id>.json` of the workspace scope; the work package
-  `removed-concepts` removed the records the specification no longer carries — a generation belongs to a worker and is
-  its job id, issued with its job token — and kept the pending entry record for the start;
-* the work package `audit-trail` added the machine's audit log `logs/audit.jsonl` as a hash chain, the formats of its
-  head and its index, the seam through which the runtime anchors it, and the production audit sink; and it gave every
-  audit record a scope transaction owes a `transaction_id` of its own (<<_audit_log>>). The keyed head, the rotation
-  and the verification live in `runtime.audit` of `pm-runtime`
+* the workflow state store `mcp/status.json` in `de.planmarshall.core.store`, and the engine ports in
+  `de.planmarshall.core.spi` through which the workflow engine of `pm-workflow` causes and observes what lies outside
+  that store. Every run state of a plan, an epic or the workspace lives in the status document, so a killed run resumes
+  where it stopped;
+* the delete mode of the transaction journal, and on it the pending entry record `pending/<entry_id>.json` of the
+  workspace scope, kept for the start; a generation belongs to a worker and is its job id, issued with its job token;
+* the machine's audit log `logs/audit.jsonl` as a hash chain, the formats of its head and its index, the seam through
+  which the runtime anchors it, and the production audit sink; every audit record a scope transaction owes carries a
+  `transaction_id` of its own (<<_audit_log>>). The keyed head, the rotation and the verification live in
+  `runtime.audit` of `pm-runtime`
   (link:../../../pm-runtime/doc/developer/runtime-audit.adoc[Audit Trail (`runtime.audit`)]);
-* the work package `job-runner` added the job record `jobs/<job_id>.json` of a project, of the machine scope and of an
-  onboarding entry, its identifier and its store, and the two lock keys of the machine queue and of an onboarding entry
-  (<<_job_records>>). The runner that writes the record and the recovery that reads it live in `runtime.job` and
-  `runtime.start` of `pm-runtime`;
-* the work package `operator-and-question-stores` added the waiver and waiver consumption logs of a plan, the typed
-  waiver requests of its status, the question log of every asking scope, the per-project machine store with its
-  identity record, and the Project Resolution Rule (<<_operator_and_question_stores>>);
-* the work package `slots-usage-and-budgets` added the store of the machine model slots, the rows of a `metrics.json`
-  with their three-valued usage figures, the learned budgets of a project, the change ledger and the writer of the
-  operator's qualification settings (<<_slots_metrics_budgets_ledger>>).
+* the job record `jobs/<job_id>.json` of a project, of the machine scope and of an onboarding entry, its identifier and
+  its store, and the two lock keys of the machine queue and of an onboarding entry (<<_job_records>>). The runner that
+  writes the record and the recovery that reads it live in `runtime.job` and `runtime.start` of `pm-runtime`;
+* the waiver and waiver consumption logs of a plan, the typed waiver requests of its status, the question log of every
+  asking scope, the per-project machine store with its identity record, and the Project Resolution Rule
+  (<<_operator_and_question_stores>>);
+* the store of the machine model slots, the rows of a `metrics.json` with their three-valued usage figures, the learned
+  budgets of a project, the change ledger and the writer of the operator's qualification settings
+  (<<_slots_metrics_budgets_ledger>>).
 
 The store substrate these types build on (transaction journal, `ScopeTransaction`, `StoreSnapshot`, `StrictJson`,
 digests, recovery) is described in <<_the_store_substrate>> below, together with the enrolment store and the confinement
@@ -584,7 +581,7 @@ _Requirements: link:{docs}/Requirements.adoc#PM-EXEC-4[PM-EXEC-4], link:{docs}/R
 The job record `jobs/<job_id>.json` is the write-ahead journal of one job: every job the runtime starts, a worker and a
 probe included, has one. The recovery after a runtime start reads the records of a project's store
 (`JobRecordStore.ofProject`) to settle what a previous instance left behind; the records of the machine store and of
-an onboarding entry, where probes are recorded, are not recovered yet. This package holds the identifier, the record, its codec and its store; the runner that writes the record and
+an onboarding entry, where probes are recorded, are not read by the recovery. This package holds the identifier, the record, its codec and its store; the runner that writes the record and
 the recovery that reads it live in `runtime.job` and `runtime.start` of `pm-runtime`.
 
 [horizontal]
@@ -707,11 +704,10 @@ range of `outcome_row`.
 == Lesson Record and File Format
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
 
-The work package `lesson-store` adds the record of a project lesson and the format of its file. The project lesson store
+This section covers the record of a project lesson and the format of its file. The project lesson store
 holds one Markdown file `<lesson_id>.md` per lesson; its front matter is structured and its body is the narrative
-(`PM-IMPL-2`: the narrative stays Markdown, only the front matter is structured). This work package builds the record and
-the file; the store itself — id allocation, resolver, revision, retirement and claim — is the second work package of the
-same name (`lesson-store-operations`).
+(`PM-IMPL-2`: the narrative stays Markdown, only the front matter is structured). The package holds the record and the file
+format; it holds no store operations (id allocation, resolver, revision, retirement, claim).
 
 `LessonId` is the identifier of a lesson: the UTC date and hour of creation plus a per-hour sequence, at least three
 digits (`{spec}/store-schemas/10-job-and-lesson-records.adoc#lesson-record`). The store holds `<lesson_id>.md` per
@@ -782,7 +778,7 @@ format version, the bounds and the absence of a dependent-required pair).
 == Operator and Question Stores, the Project Store and the Project Resolution
 _Requirements: link:{docs}/Requirements.adoc#PM-SEC-3[PM-SEC-3], link:{docs}/Requirements.adoc#PM-WF-12[PM-WF-12], link:{docs}/Requirements.adoc#PM-ARCH-1[PM-ARCH-1], link:{docs}/Requirements.adoc#PM-SEC-2[PM-SEC-2], link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2], link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]_
 
-The work package `operator-and-question-stores` added the stores in which the operator's acts and the questions of a
+This section covers the stores in which the operator's acts and the questions of a
 scope are kept, the per-project machine store with its identity record, and the rule that maps a checkout path to its
 enrolled project. Every store here is read and written strictly in `format_version` 1 over `StrictJson`, refuses what
 it cannot read as a `StoreRefusal` naming the file, and is written only as a target of the caller's `ScopeTransaction`
@@ -1056,7 +1052,7 @@ repository), and the eight classes of the resolution (`ProjectResolverMainChecko
 == The Model-Slot, Metrics, Learned-Budget and Ledger Stores
 _Requirements: link:{docs}/Requirements.adoc#PM-WF-14[PM-WF-14], link:{docs}/Requirements.adoc#PM-WORK-3[PM-WORK-3], link:{docs}/Requirements.adoc#PM-EXEC-3[PM-EXEC-3], link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2], link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]_
 
-The work package `slots-usage-and-budgets` added the stores of the machine model slots, of the metrics rows, of the
+This section covers the stores of the machine model slots, of the metrics rows, of the
 learned budgets and the change ledger, and the writer of the operator's qualification settings. Each is read and
 written strictly in `format_version` 1 over `StrictJson` and refuses what it cannot read as a `StoreRefusal` naming the
 file. A store that owns its write transaction writes in one short transaction on the lock of its store; `MetricsStore`
@@ -1172,7 +1168,7 @@ refused).
 == Derived Facts Store
 _Requirements: link:{docs}/Requirements.adoc#PM-EXT-6[PM-EXT-6], link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
 
-The work package `derived-facts-store` added the per-project cache `derived-facts.json`
+This section covers the per-project cache `derived-facts.json`
 (`<PM_MCP_BASE>/projects/<project_id>/derived-facts.json`,
 link:{spec}/store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas § Derived Facts Store]):
 the entry records, the strict codec, the registry through which a consumer binds a fact kind to its value schema, and
@@ -1508,16 +1504,26 @@ case per transition, the reason bound, the kept digest and value and the unchang
 
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7], link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
 
-The substrate is the part of `core.store` that every store of a scope is read and written through: the format refusal
-and the strict reading of a document, the append path of a JSONL store, the transaction journal of a scope with its
-recovery, the digest sidecar with its verification, and the ordered write across scopes. Why the stores work this way is
-explained in link:{docs}/concepts/store-integrity.adoc[Concepts § Store Integrity]; the locks it runs under are in
+The substrate is the part of `core.store` that every store is read and written through: the lock keys and their order,
+the atomic write and the lock-free read, the format refusal and the strict reading of a document, the append path of a
+JSONL store, the transaction journal of a scope with its recovery, the digest sidecar with its verification, the
+ordered write across scopes, and the lease store. Why the stores work this way is explained in
+link:{docs}/concepts/store-integrity.adoc[Concepts § Store Integrity] and
+link:{docs}/concepts/locks-and-leases.adoc[Concepts § Locks and Leases]; the locking interface the engine sees is in
 link:core-service.adoc#_the_lock_manager_interface_and_the_lock_order[`core.service` § The Lock Manager Interface and the
-Lock Order].
+Lock Order], and its implementation in
+link:../../../pm-runtime/doc/developer/runtime-lock.adoc[`runtime.lock`].
 
 [cols="1,3",options="header"]
 |===
 |Type |What it does
+
+|`LockLevel`, `LockKey`, `LockOrder`
+|The levels of the total lock order, the key of every lock, and the order assertion (<<_lock_keys_and_order>>).
+
+|`AtomicStoreFile`, `StoreSnapshot`, `StoreIntegrity`
+|The write of a store replaced by rename, and the lock-free read with what it can say about the content
+(<<_atomic_write_and_lock_free_read>>).
 
 |`StoreRefusal`, `StrictJson`
 |The refusal of a store document or record, and the strict reading every JSON store codec shares (<<_format_versions>>).
@@ -1532,14 +1538,80 @@ Lock Order].
 |A scope that writes through a journal, and one write to its stores (<<_scope_transaction>>).
 
 |`JournalRecovery`
-|The roll-forward of a stopped transaction (<<_recovery>>).
+|The roll-forward of a stopped transaction (<<_recovery_of_a_stopped_transaction>>).
 
 |`ScopeIntegrity`
 |The verification of the digests under the lock, the report without it, and the re-baseline (<<_digests>>).
 
 |`OrderedWrite`, `CrossScopeReconciler`
 |The write across scopes in its fixed order, and the seam of its reconciliation (<<_ordered_writes>>).
+
+|`AuditIntentFile`, `OwedAuditEvents`
+|The durable intent of the audit records a mutation owes, and their hand-over to the sink (<<_substrate_audit_records>>).
+
+|`LeaseOwner`, `HolderInstance`, `ScopeType`, `LeaseRecord`, `LeaseCodec`, `LeaseStore`
+|The lease record shared by the machine lease stores, and the store that claims, releases, adopts and orphans leases
+(<<_the_lease_store>>).
 |===
+
+[#_lock_keys_and_order]
+=== Lock Keys and the Lock Order
+
+`LockLevel` declares the eleven levels of the total lock order in acquisition order: workspace, plan, epic, epic
+worktree, lesson store, local configuration, derived facts, build timings, queue, machine store, leaf.
+
+`LockKey` is the canonical key of one lock: its level, the absolute and normalized lock file, and the id that orders it
+within its level. There is one factory per lock (`LockKey.plan(base, projectId, planId)`, `LockKey.mergeQueue(base)`,
+…), and the factories are the one list of the lock paths. A project, plan or epic id is checked against the identifier
+pattern before it becomes part of a path. The lock files of a project lie below `projects/<project_id>/locks/`, those of
+the machine stores below `locks/` (those of the machine scope below `machine/locks/`, the lock of an onboarding entry
+below `onboardings/locks/`), outside the directories they protect. Only the two leaf keys name the guarded file
+itself (`logs/audit.jsonl`, a plan's `mcp/mailbox.jsonl`). Keys are ordered by level, then by id, then by lock path; the
+id of a machine store lock is its lock name without the extension, so `ab.lock` sorts before `ab-c.lock`.
+
+`LockOrder` is the order assertion as a pure function of the held keys and the requested key; it opens no file. Its
+`Decision` is `Reentry` (the key is held already), `Permitted`, or `Violation(held, requested)`: nothing after a leaf,
+and every other key after every held key. The lock manager asks it on every acquisition and refuses a `Violation`
+(link:core-service.adoc#_the_lock_manager_interface_and_the_lock_order[`core.service` § The Lock Manager Interface and
+the Lock Order]).
+
+The process locks of the runtime, its singleton lock `locks/runtime.lock` and the start lock
+`locks/runtime-start.lock`, are held for a process, not a transaction. They have no `LockKey` and do not go through the
+lock manager.
+
+Adding a lock of an existing level is a factory in `LockKey` with its fixed path below `projects/<project_id>/locks/`
+or `locks/`, and a case in `LockKeyTest`. A new level is a constant in `LockLevel` at its place in the order, then its
+factory, and two new boundary cases in `LockOrderTest`; the order is stated in
+link:{docs}/requirements/14-implementation.adoc#PM-IMPL-7[PM-IMPL-7], which changes with it.
+
+Tests: `LockOrderTest` (a refused acquisition at every level boundary, re-entry, nothing after a leaf, the order within
+the plan, epic and machine store levels), `LockKeyTest` (the path of every factory and the identifier check).
+
+[#_atomic_write_and_lock_free_read]
+=== Atomic Write and Lock-Free Read
+
+`AtomicStoreFile` is the one write path of a store replaced by rename. It is bound to the key of its sibling lock file;
+a key whose lock file is the store itself is refused with `IllegalArgumentException`, because the rename replaces the
+inode and a lock on the old file excludes nobody. `read` and `write` must be called inside a transaction that holds the
+key; otherwise they throw `InternalFaultException` (reason `store_lock_not_held`) and nothing is written.
+
+`write` writes the content to a sibling temporary file `<store>.tmp.<uuid>`, readable and writable by its owner only,
+forces it to disk, renames it over the store (`ATOMIC_MOVE`), and then forces the directory of the store to disk, so
+that the rename itself survives a crash. A temporary file of a failed write is removed. If the directory cannot be
+forced, the store has already been replaced, and the `UncheckedIOException` says so. The journal of a scope transaction
+is written by the package-private variant whose temporary file is named after the transaction id and is left in place
+when the write fails, for the recovery.
+
+`StoreSnapshot.read(store)` reads without any lock. A rename replaces the file in one step, so the read sees the content
+before or after a write, never part of one. A store that does not exist is a snapshot without content, not a failure.
+Given a recorded size and SHA-256 (`read(store, recordedSize, recordedSha256)`), the snapshot reports the
+`StoreIntegrity` `VERIFIED` or `DIGEST_UNVERIFIED`; without them it is `UNCHECKED`. It never decides that a store was
+edited, because it may have seen a transaction in flight: only a reader holding the store's lock decides.
+
+Neither `AtomicStoreFile` nor `LeaseStore` creates the directory of a store; whoever creates the store's scope or
+starts the runtime does.
+
+Tests: `AtomicStoreFileTest`, `StoreSnapshotTest`.
 
 [#_format_versions]
 === Format Versions and Refusals
@@ -1548,7 +1620,7 @@ A reader of a store document or record accepts exactly the current `format_versi
 accept it throws as a `StoreRefusal`, an unchecked exception with:
 
 * `outcome()`: one of the closed `StoreRefusal.Outcome` values `ABSENT`, `UNREADABLE`, `FORMAT_OUTDATED` and
-  `FORMAT_NEWER`, each with its wire name in `code()`;
+  `FORMAT_NEWER`, each with its wire name in `code()` (`absent`, `unreadable`, `format_outdated`, `format_newer`);
 * `file()`: the refused file;
 * `found()`: the version the content declares, empty when the file is absent or unreadable;
 * `current()`: the current version of the file kind.
@@ -1557,16 +1629,16 @@ The message names the file and both versions. A refusal is never repaired: no re
 refuses. The factories are `absent(file, current)`, `unreadable(file, current, detail, cause)` and
 `ofVersion(file, found, current)`, which picks outdated or newer from the two versions.
 
-Every versioned artifact stays at `format_version` 1: nothing is released yet, so a format change replaces version 1 in
-place (epic standing rule R13). No reader carries a migration, and no constant is raised for a change.
+Every versioned artifact is at `format_version` 1. A format change replaces version 1 in place: no reader carries a
+migration, and no constant is raised for a change.
 
 `StrictJson` is the reading every JSON store codec of `pm-core` shares, built on the streaming API of `jackson-core`;
 the lesson codec is the one store codec of the package that reads YAML instead, with its own strict reader (see
 <<_lesson_record_and_file_format>>).
-`StrictJson.read(file, document, current, reader)` checks the version first (a JSON object with exactly one integer
-`format_version`, equal to the current one), then lets the codec's reader read the object, and refuses anything that
-follows it. Whatever the codec throws through the helpers, or the parser throws, becomes a `StoreRefusal` naming the
-file.
+`StrictJson.read(file, document, current, reader)` checks the version first (`requireCurrentVersion`: a JSON object
+with exactly one integer `format_version`, equal to the current one), then lets the codec's reader read the object, and
+refuses anything that follows it. Whatever the codec throws through the helpers, or the parser throws, becomes a
+`StoreRefusal` naming the file.
 
 A new codec follows the shape of `DigestSidecar`, the smallest one:
 
@@ -1574,35 +1646,53 @@ A new codec follows the shape of `DigestSidecar`, the smallest one:
   `generator.writeNumberField(FIELD_FORMAT_VERSION, FORMAT_VERSION)`, using `StrictJson.factory()`.
 . Read with `StrictJson.read(file, document, FORMAT_VERSION, Codec::readDocument)`. In `readDocument`, move from field to
   field with `nextField(parser, seen)`, which refuses a field that appears twice; skip `format_version`; read every value
-  with its typed helper; and throw `undeclared(field)` in the `default` branch.
+  with its typed helper (`string`, `nullableString`, `integer`, `instant`, `nullableInstant`, `requireObject`,
+  `requireArray`); and throw `undeclared(field)` in the `default` branch.
 . After the loop, call `requireFields(seen, "<object>", …)` for the required fields, and turn an
   `IllegalArgumentException` of the record's constructor into `unreadable(message, cause)`.
 . Write an instant with `writeInstant`, so it has the one shape `instant` reads: `Instant.toString()`, UTC with `Z`.
+  `instant` refuses another spelling of the same moment as unreadable instead of normalising it, so a document written
+  by one component and read by another round-trips byte-identical.
+
+Tests: `StoreRefusalTest` (all four outcomes with file, found and current version), and the refusal cases of
+`LeaseCodecTest`, `TransactionJournalTest` and `DigestSidecarTest`.
 
 [#_jsonl_stores]
 === JSONL Stores
 
 A `JsonlStoreFile` binds a JSONL store file to the `LockKey` that guards it. Every method that writes or reads under the
-lock refuses a transaction that does not hold the key with `InternalFaultException` (reason `store_lock_not_held`).
+lock refuses a transaction that does not hold the key with `InternalFaultException` (reason `store_lock_not_held`),
+before it touches the file.
 
-* `append(transaction, records, auditSink)`: refuses an empty block or one that does not end with a newline, repairs a
-  torn tail, then writes the whole block in one write on a channel opened with `StandardOpenOption.APPEND` and forces
-  the file to disk. The first append creates the file, readable and writable by its owner only.
+* `append(transaction, records, auditSink)`: refuses an empty block or one that does not end with a newline
+  (`IllegalArgumentException`), repairs a torn tail as `repairTail` does, then writes the whole block in one write on a
+  channel opened with `StandardOpenOption.APPEND` and forces the file to disk. The first append creates the file,
+  readable and writable by its owner only; the directory must exist.
 * `repairTail(transaction, auditSink)`: if the last line has no newline, cuts the file back to the end of the last
-  complete line, forces it to disk and hands `AuditEvent.jsonlTailRepaired` to the sink. Before the cut the record is
-  owed in the intent file `<store>.audit-intent` beside the store; the intent is deleted once the sink accepted every
-  record it owes, and every later `repairTail` hands what it still owes over again.
+  complete line, forces it to disk and hands `AuditEvent.jsonlTailRepaired` to the sink. A file that ends with a
+  newline, is empty or does not exist is left alone, and nothing new is recorded. Before the cut the record is owed in
+  the intent file `<store>.audit-intent` beside the store (`auditIntentFile()`), written by atomic rename and forced to
+  disk; an intent that already owes the record of this very tail (a repair stopped between its intent and its cut) is
+  completed and the record is not owed twice. The intent is deleted once the sink accepted every record it owes, and
+  every later `repairTail`, so every `append`, hands what it still owes over again. An intent file that is unreadable or
+  of another format version is a `StoreRefusal`, and nothing is cut.
 * `read(transaction)` reads under the lock, `snapshot()` without it. Neither repairs. Both return a `Content`: the
-  complete lines with their line numbers, counted from 1, and apart from them the byte offset of a torn tail.
-* `Content.decode(formatVersion, decoder)` checks each line for the current `format_version` and then hands it to the
-  decoder. A refused line does not stop the lines after it.
+  complete lines with their line numbers, counted from 1, and apart from them the byte offset of a torn tail, never a
+  record.
+* `Content.decode(formatVersion, decoder)` checks each line for the current `format_version`, so a record of another
+  version is refused as outdated or newer and not as unreadable, and then hands it to the decoder. It returns one
+  `Entry` per line: `Accepted(line, value)` or `Refused(line, refusal)`. A refused line does not stop the lines after
+  it.
 
-A JSONL store of a scope is appended to through its `ScopeTransaction`, not through `append` directly.
+A JSONL store of a scope is appended to through its `ScopeTransaction` (<<_scope_transaction>>), not through `append`
+directly; `append` is for the JSONL stores outside a scope, under their own key.
 
 *Known limitation, leaf keys:* a leaf key names the store file itself (`logs/audit.jsonl`, a plan's
 `mcp/mailbox.jsonl`), and on POSIX closing any channel on a file releases every OS lock the process holds on it. An
 append or a repair under a leaf key therefore drops the OS lock, and only the in-process lock of the key remains. Such
 a store is safe only while every writer runs in the one runtime that holds the in-process lock.
+
+Tests: `JsonlStoreFileTest`.
 
 [#_journal_and_sidecar]
 === Journal and Sidecar Documents
@@ -1623,18 +1713,35 @@ a store is safe only while every writer runs in the one runtime that holds the i
 * `scope_type` is the wire name of a `JournalScopeType` (`plan`, `epic`, `workspace`, `lessons`); `scope_id` is the plan
   or epic id and `null` for the other two, enforced in both directions.
 * `targets` is never empty. A `Target` has its `Mode` (`REPLACE`, `APPEND`, `DELETE`), its paths relative to the path
-  base of the scope, `sizeBefore` and the `StoreDigest` of the store once applied. An `APPEND` target without
-  `sizeBefore` is refused; a `DELETE` target is `{"path", "mode"}` alone.
+  base of the scope, `sizeBefore` and the `StoreDigest` of the store once applied. A create target of a scope
+  transaction is journaled as a `REPLACE` (<<_create_target>>).
 * `owed_events` lists the audit records the transaction hands over once its targets are applied, possibly none.
+
+The reader refuses a target, as an unreadable journal, when:
+
+* an `APPEND` target has no `size_before` (refused as well when the record is built); a `REPLACE` target may omit it;
+* its `path` or `staged_path` is not a normalized relative path;
+* the `staged_path` of a replace or append is not the name `TransactionId.stagedName(path, mode)` derives from the
+  store, the mode and the transaction id, so a recovery never moves another file over a store;
+* a `DELETE` target (`Target.delete(path)`) carries a member of a staged write: it is `{"path", "mode"}` alone.
+
+`JournalRecovery` refuses in addition a journal whose store or staged path passes through a symbolic link below the path
+base, as a journal no transaction of the scope wrote.
+
+An owed record is the object `{"event", "category", "outcome", "details"}` that `OwedAuditEvents` reads and writes. A
+detail value is a string, an integer or a list of strings, and the details are written in the sorted order of their
+names; `ScopeTransaction.owe` refuses a record with another value type with `IllegalArgumentException`.
 
 `DigestSidecar` is the record of the sidecar document `{"format_version": 1, "stores": {"<relative path>": {"size",
 "sha256"}}}`. Its entries are written in the sorted order of their paths, so the same digests give the same bytes.
 `DigestSidecar.load(file)` reads without a lock and returns an empty sidecar when it does not exist; `with(path, digest)`
 returns a copy with one entry changed, `without(path)` one without the entry of a deleted store. `StoreDigest` is
-`(size, sha256)` with `of(bytes)` and `matches(bytes)`.
+`(size, sha256)` with `of(bytes)` (SHA-256 in lower-case hex) and `matches(bytes)`.
 
 Neither type decides anything: the journal is written by `ScopeTransaction` and read by `JournalRecovery`; the sidecar
 is written only through the journal.
+
+Tests: `TransactionJournalTest`, `DigestSidecarTest`.
 
 [#_scope_transaction]
 === Writing a Scope Transaction
@@ -1672,14 +1779,15 @@ try (var transaction = lockManager.openTransaction()) {
 }
 ----
 
-`open` refuses a transaction that does not hold the scope's key. `replace`, `append`, `delete` and `create` collect the
-targets; they refuse a second target for the same path, the journal or the sidecar of the scope, a path outside the
-directories the scope owns, and, for `append`, a block that is empty or does not end with a newline. `commit()` runs the
-five steps:
+`open` refuses a transaction that does not hold the scope's key (`InternalFaultException`, `store_lock_not_held`).
+`replace`, `append`, `delete` and `create` (<<_create_target>>) collect the targets; they refuse a second target for the
+same path, the journal or the sidecar of the scope, a path outside the directories the scope owns or reached through a
+symbolic link below the path base, and, for `append`, a block that is empty or does not end with a newline. `commit()`
+runs the five steps:
 
 . *Stage*: every replaced store to `<store>.tmp.<transaction id>`, every appended block to `<store>.append.<transaction
-  id>`, each forced to disk. Before an append is staged, the tail of its store is repaired, so the size before is the
-  repaired size. A delete stages nothing.
+  id>`, each forced to disk. Before an append is staged, the tail of its store is repaired (`JsonlStoreFile.repairTail`),
+  so the size before is the repaired size. A delete stages nothing.
 . *Journal*: the journal, written by `AtomicStoreFile` with a temporary file named after the transaction id, and forced
   with its directory.
 . *Apply*: every staged file renamed over its store (`ATOMIC_MOVE`), every staged block appended and its staged file
@@ -1687,132 +1795,247 @@ five steps:
 . *Digests*: the sidecar with the new digest of every replaced or appended store and without the entry of every deleted
   one; the other entries stay.
 . *Close*: the owed records handed to the sink, then the journal deleted and its directory forced. If the sink refuses a
-  record, the data is complete and the journal stays for the next recovery.
+  record, the commit returns with its data complete and leaves the journal, which the next recovery closes after
+  handing the records over.
 
-A transaction is committed once. A commit that fails throws and leaves its journal and staged files for the recovery; it
-is not tried again. A commit while the journal of an earlier transaction is still open is refused with
-`IllegalStateException` before anything is written. `ScopeTransaction` creates no directory.
+A transaction is committed once. A commit without a target, a second commit, and a commit while the journal of an
+earlier transaction is still open are refused with `IllegalStateException` before anything is written; the scope is
+recovered first. A commit that fails throws (`UncheckedIOException` for a file that cannot be written) and leaves its
+journal and staged files for the recovery; it is not tried again. `ScopeTransaction` creates no directory: the
+directories of the stores exist before the commit.
+
+`transactionId()` is generated when the transaction is opened; it is the id of the journal, the staged files and the
+`transaction_rolled_forward` record. `owe(event)` adds an audit record to the journal, which the transaction hands over
+at the close. The owed record carries an id of its own, issued by `recordId()`, never `transactionId()`
+(<<_audit_log>>, One Transaction Id per Record).
+
+Tests: `JournalScopeTest`, `ScopeTransactionTest`.
 
 [#_recovery_of_a_stopped_transaction]
 === Recovery of a Stopped Transaction
 
-`JournalRecovery.recover(transaction, scope, auditSink)` runs under the key of the scope and answers one of three
-outcomes:
+`JournalRecovery.recover(transaction, scope, auditSink)` runs under the key of the scope (refused with
+`InternalFaultException` otherwise) and answers with one of three outcomes:
 
-* `NothingToRecover(deletedStagedFiles)`: there is no journal; staged files a transaction left before it journaled are
-  deleted.
+* `NothingToRecover(deletedStagedFiles)`: there is no journal. Staged files that a transaction left before it journaled
+  are deleted: every regular file in the scope's owned directories whose name ends in `.tmp.<transaction id>` or
+  `.append.<transaction id>`.
 * `RolledForward(journal, applied)`: every target was applied already or is applied now: a replace by renaming its
   staged file, an append by cutting its store back to `size_before` and appending the staged block, a delete by removing
-  its store. Then the sidecar takes the digests of the journal, one `transaction_rolled_forward` record and the owed
-  records are handed to the sink, and only then the journal and the staged files are deleted.
-* `InvariantViolation(journal, stores)`: a target is neither applied nor appliable. Every target is checked before the
-  first is applied, so nothing is applied and the journal and every store stay as they are.
+  its store. A replace or append target is _applied_ when its store has the size and SHA-256 the journal records, a
+  delete target when its store is absent; a delete is always appliable, so it never makes a journal violate its
+  invariant. Then the sidecar takes the digests of the journal, one `transaction_rolled_forward` record and the records
+  the journal owes are handed to the sink, and only then the journal and the staged files are deleted. If the sink
+  refuses a record, the outcome is the same, but the journal stays; the next recovery finds every target applied,
+  writes the same digests and hands the records over again. `applied` lists the targets this recovery applied.
+* `InvariantViolation(journal, stores)`: a target is neither applied nor appliable. It is _appliable_ when applying its
+  staged file yields the digest the journal records: the staged bytes of a replace have it, and the store of an append
+  cut to its `size_before`, followed by the staged block, has it. A missing or changed staged file, and an append store
+  that is shorter than, or differs from, what it was before the append, make it violating. Every target is checked
+  before the first is applied, so nothing is applied, and the journal and every store stay as they are; `stores` names
+  the violating stores in the order of the journal.
 
-A journal or sidecar of another format version, or one that is unreadable, propagates as `StoreRefusal` and is left in
-place. A recovery of a consistent scope changes no byte and records nothing.
+A journal or a sidecar of another format version, or one that is unreadable, propagates as `StoreRefusal`, and the
+journal is left in place. A recovery of a consistent scope changes no byte and records nothing.
+
+At runtime start, `JournalRollForwardStep` of `runtime.start` runs the recovery for every scope of a project; an
+`InvariantViolation` or a `StoreRefusal` is a failure of that scope and stops the recovery of the project before the
+cross-scope reconciliation
+(link:../../../pm-runtime/doc/developer/runtime-start.adoc#_start_drain_and_recovery[`runtime.start` § The Start
+Sequence, the Drain and the Recovery]). `ScopeIntegrity` runs it before every locked verification (<<_digests>>).
+
+Tests: `JournalRecoveryTest`.
 
 [#_digests]
 === Verifying and Re-Baselining Digests
 
 `ScopeIntegrity` decides only under the scope's key, and only after the recovery of the scope has run:
 
-* `verify(transaction, scope, relativePath, auditSink)` runs the recovery and compares one store with its sidecar entry:
-  `Verified`, `Mismatch` (the evidence of an edit outside a transaction), `Untracked`, `Absent`, or the recovery's
-  `InvariantViolation`.
-* `verifyAll(transaction, scope, auditSink)` does the same for every entry of the sidecar, in sorted path order.
-* `snapshot(scope, relativePath)` takes no lock and decides nothing: `DIGEST_UNVERIFIED` while the journal exists or when
-  the content differs, `VERIFIED` when it matches, `UNCHECKED` without a sidecar entry.
-* `rebaseline(transaction, scope, relativePath, auditSink)` accepts an edit: after the recovery it opens a transaction
-  that replaces the store by its own current bytes, so the new digest is recorded like any other, and returns
-  `verifyAll`.
+* `verify(transaction, scope, relativePath, auditSink)` runs `JournalRecovery.recover` and compares one store with its
+  sidecar entry. The answer is a `Verification`: `Verified(store, digest)`; `Mismatch(store, recorded, current)`, with
+  `current` empty for a store whose entry outlives its file, the evidence of an edit outside a transaction;
+  `Untracked(store)` when the store exists and the sidecar has no entry; `Absent(store)` when neither exists, which is
+  what a transaction's delete leaves and is consistent; or the recovery's `InvariantViolation`, and then nothing was
+  compared. A path that leaves the path base or passes through a symbolic link below it is refused with
+  `IllegalArgumentException`.
+* `verifyAll(transaction, scope, auditSink)` does the same for every entry of the sidecar, in the sorted order of the
+  paths, or answers with the `InvariantViolation` alone.
+* `snapshot(scope, relativePath)` takes no lock and decides nothing. It returns a `StoreSnapshot`: `DIGEST_UNVERIFIED`
+  while the journal of the scope exists or when the content differs from the sidecar entry, `VERIFIED` when it matches,
+  `UNCHECKED` when the sidecar has no entry.
+* `rebaseline(transaction, scope, relativePath, auditSink)` accepts an edit: after the recovery it opens a
+  `ScopeTransaction` that replaces the store by its own current bytes, so the new digest is recorded through the journal
+  like any other, and then returns `verifyAll` of the scope. If the recovery answers `InvariantViolation`, that is the
+  answer and nothing is written. A store that does not exist is refused with `IllegalArgumentException`, and nothing is
+  journaled.
+
+Tests: `ScopeIntegrityTest`.
 
 [#_ordered_writes]
 === Ordered Writes and Reconcilers
 
-An `OrderedWrite` is a list of `WriteStep(key, write)`, the authoritative store first. `run(lockManager)` opens one lock
-transaction per step, acquires that step's key, runs its write and closes the transaction before the next step, so no
-step holds the keys of two stores. What a step throws propagates once its transaction is closed, and the steps after it
-do not run.
+An `OrderedWrite` is a non-empty list of `WriteStep(key, write)`, the authoritative store first. `run(lockManager)`
+opens one lock transaction per step, acquires that step's key, runs its write and closes the transaction before the
+next step, so no step holds the keys of two stores. What a step throws propagates once its transaction is closed, and
+the steps after it do not run.
 
-`OrderedWrite.reconcile(lockManager, reconcilers, auditSink)` runs the `CrossScopeReconciler`s in their order and returns
-every `Reconciliation(name, store)` they applied. It records nothing itself: each derived write owes its
-`cross_scope_reconciled` record on its own `ScopeTransaction`, so the record is in the journal before the derived store
-changes and is delivered with the transaction or by the next recovery of its scope.
+`OrderedWrite.reconcile(lockManager, reconcilers, auditSink)` runs the `CrossScopeReconciler`s in their order, passes
+each the sink, and returns every `Reconciliation(name, store)` they applied. It records nothing itself: each derived
+write owes its `cross_scope_reconciled` record on its own `ScopeTransaction` through
+`OrderedWrite.oweReconciled(write, reconciliation)`, which gives the record its own `recordId()`, never the id of the
+write. The record is thus in the journal before the derived store changes, and is delivered with the transaction or by
+the next recovery of its scope. At runtime start, `CrossScopeReconciliationStep` of `runtime.start` runs the reconcilers
+registered for a project after the journals of its scopes were rolled forward.
 
-A package that adds a write across scopes builds its `OrderedWrite`, implements a `CrossScopeReconciler` for it (read the
-authoritative store under its key; check each derived store and apply its write if not in place; return a
-`Reconciliation` for every write applied) and adds the reconciler to the list passed to `reconcile`. It proves the flow
-with a crash-point test.
+The substrate knows no concrete flow. A package that adds a write across scopes:
 
+. Builds its `OrderedWrite`: the authoritative store first, then every store derived from it, each step a write of its
+  own store under its own key (a `ScopeTransaction` for a scope's stores).
++
+[source,java]
+----
+new OrderedWrite(List.of(
+        new OrderedWrite.WriteStep(planScope.lockKey(), transaction -> writePlan(transaction)),
+        new OrderedWrite.WriteStep(lessonScope.lockKey(), transaction -> claimLesson(transaction))))
+    .run(lockManager);
+----
+. Implements a `CrossScopeReconciler` for it, `reconcile(lockManager, auditSink)`: read the authoritative store under
+  its key; for each derived store, check under that store's key whether the derived write is in place and apply it if
+  not, one `ScopeTransaction` per store, opened with the given sink, on which it calls `OrderedWrite.oweReconciled`
+  before the commit; return a `Reconciliation` for every write applied, and nothing when everything is in place.
+. Registers the reconciler for the reconciliation at runtime start, and proves the flow with a crash-point test
+  (<<_testing_with_crash_points>>).
+
+Tests: `OrderedWriteTest`.
+
+[#_substrate_audit_records]
 === Audit Records
 
 The substrate hands three records to the `AuditSink`, all of category `store` and outcome `succeeded`, built by the
-factories of `AuditEvent`:
+factories of `AuditEvent`, which also hold the detail keys:
 
-* `jsonl_tail_repaired`, from `JsonlStoreFile` and the staging of an append: the store, the number and SHA-256 of the
-  bytes cut off, and the id of the repair;
-* `transaction_rolled_forward`, from `JournalRecovery`: the type and id of the scope, the transaction id and the paths
-  of the journal's targets;
-* `cross_scope_reconciled`, owed by the scope transaction of a derived write: the reconciliation rule, the store it wrote
-  and the id of that transaction.
+* `jsonl_tail_repaired` (`AuditEvent.jsonlTailRepaired`), from `JsonlStoreFile` and the staging of an append: the
+  store, the number and SHA-256 of the bytes cut off, and the id of the repair, a `TransactionId` generated for it, as
+  `transaction_id`;
+* `transaction_rolled_forward` (`AuditEvent.transactionRolledForward`), from `JournalRecovery`: the type and id of the
+  scope, the transaction id and the paths of the journal's targets; a scope without an id (workspace, lesson store) has
+  no `scope_id` detail;
+* `cross_scope_reconciled` (`AuditEvent.crossScopeReconciled`), owed by the scope transaction of a derived write: the
+  reconciliation rule, the store it wrote and the record's own id.
 
 Each record is delivered at least once. A durable intent holds it from before the mutation that makes its cause
 disappear until `AuditSink.append` returned: the transaction journal for a roll-forward and for the records a
-transaction owes, the intent file `<store>.audit-intent` for a tail repair. `OwedAuditEvents.deliver` hands the owed
-records over in their order and stops at the first one the sink refuses; the intent then keeps what was not handed over, the data outcome is still the one the mutation produced (only its audit
-record remains owed), and `PM_CORE-100` names the record and the intent. The next
-recovery of the scope, or the next repair of the store, hands the records over again. A record handed over again carries
-the same `transaction_id`, by which the audit store drops the duplicate.
+transaction owes, the intent file `<store>.audit-intent` for a tail repair.
 
+The intent file is read, written and handed over by the package-private `AuditIntentFile`: the document
+`{"format_version": 1, "owed_events": [<owed record>]}`, written by one atomic rename under the store's lock, which
+exists only while a record is owed. Its hand-over deletes the file and forces its directory once every record was
+handed over, rewrites it with the rest after a part of them, and leaves it as it is if none was. The enrolment store
+keeps the records of its operator writes in the same document, `enrolments/<project_id>.json.audit-intent`
+(<<_the_enrolment_store>>).
+
+`OwedAuditEvents.deliver` hands the owed records over in their order and stops at the first one the sink refuses with
+`UncheckedIOException`, the failure `AuditSink.append` declares. The intent then keeps what was not handed over, the
+data outcome is still the one the mutation produced, and the warning `PM_CORE-100` (`AUDIT_RECORD_DEFERRED`) names the
+record, its `transaction_id` and the intent. The next recovery of the scope, or the next repair of the store, hands the
+records over again. A record handed over again carries the same `transaction_id`, by which a reader of the audit log
+drops the duplicate (<<_audit_log>>). A process that stops between the mutation and the append leaves the intent in the
+same way.
+
+Tests: `AuditEventTest` (`core.service`), and the delivery tests of `JournalRecoveryTest`, `JsonlStoreFileTest`,
+`ScopeTransactionTest` and `OrderedWriteTest`.
+
+[#_testing_with_crash_points]
 === Testing with Crash Points
 
 A crash is tested in-process. `ScopeTransaction` and `OrderedWrite` each take a package-private `StepHook`, called at
-every boundary; production passes `StepHook.NONE`. `ScopeTransaction.StepHook.after(step, target)` is called after each
-`STAGE` and each `APPLY`, after `JOURNAL` and after `DIGESTS`; `OrderedWrite.StepHook.after(step)` after each step, once
-its transaction is closed. A test stops the write by throwing from the hook at one boundary, then opens a new lock
-transaction and runs the recovery, and asserts the stores, the sidecar, the absence of journal and staged files, and the
-audit records. Every such test has a matched control: a recovery of a consistent state changes nothing and records
-nothing.
+every boundary; production passes `StepHook.NONE`:
 
-The fixtures of `de.planmarshall.core.store` serve them: `RecordingLockManager` (records the keys acquired and answers
-`holds`), `RecordingAuditSink` (keeps the records in order) and `FailingAuditSink` (refuses its first appends, or stops
-the caller there as a killed process). The hooks are package-private, so a crash-point test lives in the package.
+* `ScopeTransaction.StepHook.after(step, target)` is called after each `STAGE` and each `APPLY` of a target (with its
+  index), after `JOURNAL` and after `DIGESTS`; only the close follows the last one.
+* `OrderedWrite.StepHook.after(step)` is called after each step, once its transaction is closed, the authoritative step
+  being 0.
+
+A test stops the write by throwing from the hook at one boundary. Because nothing in the write path removes a staged
+file or the journal, the files are then exactly what a killed process leaves. The test opens a new lock transaction, as
+after a restart, runs `JournalRecovery` (and the reconcilers of a flow), and asserts the stores, the sidecar, the
+absence of journal and staged files, and the audit records. `JournalRecoveryTest` runs this over every boundary of a
+commit with two replaces and one append; `OrderedWriteTest` stops a flow of an authoritative and two derived stores,
+each in a scope of its own, between its writes. Every such test has a matched control: a recovery or reconciliation of
+a consistent state changes nothing and records nothing.
+
+The fixtures of the `pm-core` tests in `de.planmarshall.core.store` serve them:
+
+* `RecordingLockManager`: a `LockManager` that takes no lock of the operating system, records every key acquired and
+  every transaction opened, and answers `holds` for the keys a transaction acquired until it is closed. It asserts no
+  lock order; a test of the order uses `FileLockManager` of `runtime.lock`.
+* `RecordingAuditSink`: keeps the records it is handed, in their order; `withoutTransactionIds` compares records whose
+  id a test cannot know in advance.
+* `FailingAuditSink`: refuses its first appends with `UncheckedIOException` (`refusing(n)`), or stops the caller there as
+  a killed process (`stopping(n)`), and records the appends after them.
+
+The hooks are package-private, so a crash-point test lives in the package `de.planmarshall.core.store`.
 
 === Pitfalls of the Substrate
 
 * *Never write a scope store outside a `ScopeTransaction`.* An `AtomicStoreFile.write` or a `JsonlStoreFile.append` on a
   store of a scope changes it without its digest, and the next locked verification reports the change as an edit outside
-  the runtime.
+  the runtime. The sidecar itself is written only by the digests step and the roll-forward.
 * *Never decide a breach lock-free.* `snapshot` may see a transaction in flight; only `verify` and `verifyAll`, under the
   scope's key and after the recovery, decide.
 * *An append journal entry always carries `size_before`.* Without it the recovery could not tell an applied append from a
-  torn one, and would append the block a second time.
+  torn one, and would append the block a second time. Keep the refusal on both the build and the read path when the
+  journal changes.
 * *Never clean up a staged file or the journal in a `finally`.* A killed process runs no `finally`, so the cleanup would
   hide from the in-process crash tests exactly the state the recovery must handle.
 * *Never leave a file named like a staged file in a scope's directories.* The recovery deletes every file there whose
   name ends in `.tmp.<transaction id>` or `.append.<transaction id>` when no journal names it.
-* *Create the directories first.* Neither `ScopeTransaction` nor `JsonlStoreFile` creates a directory.
-* *An audit append after the mutation can be lost.* Owe the record in a durable intent before the mutation, remove the
-  intent only after `AuditSink.append` returned, and let the next recovery or repair replay it.
+* *Create the directories first.* Neither `ScopeTransaction`, `JsonlStoreFile`, `AtomicStoreFile` nor `LeaseStore`
+  creates a directory.
+* *An audit append after the mutation can be lost.* Once a store mutation is done, the condition that produced its
+  record is gone: a recovery finds no journal, a repair no torn tail, a reconciler the derived store in place. Owe the
+  record in a durable intent before the mutation, remove the intent only after `AuditSink.append` returned, and let the
+  next recovery or repair replay it; never catch a refused append and drop the record.
 
+[#_the_lease_store]
 === The Lease Store
 
 A lease store document is `{"format_version": 1, "leases": [{"key", "owner", "acquired_at", "lease_expires_at"}]}`;
-the nested `owner` object contains `project_id`, `scope_type`, `scope_id`, `holder_instance` and the nullable
-`orphaned_at`; `orphan(key, at)` sets it and `adopt(key, newHolder)` clears it.
-`LeaseCodec` accepts exactly that shape and refuses every other with a `StoreRefusal` naming the store file (a lower
-version is `FORMAT_OUTDATED`, a higher one `FORMAT_NEWER`, a missing or non-integer one `UNREADABLE`). An instant is
-written in exactly the shape of `Instant.toString()`, so a lease round-trips byte-identical.
+the key is any non-blank string, unique in the store. The nested `owner` object contains `project_id`, `scope_type`,
+`scope_id`, `holder_instance` (`runtime_pid`, `runtime_started_at`) and the nullable `orphaned_at`.
+`LeaseCodec` accepts exactly that shape and refuses every other with a `StoreRefusal` naming the store file and
+carrying the version found and the current one (a lower version is `FORMAT_OUTDATED`, a higher one `FORMAT_NEWER`, a
+missing or non-integer one `UNREADABLE`; <<_format_versions>>). An instant is written in exactly the shape of
+`Instant.toString()`, so a lease round-trips byte-identical.
 
 `LeaseRecord` is one lease, `LeaseOwner` names the scope that owns it, and `HolderInstance` is the runtime that serves
-it — the process id and start instant a liveness check compares. `ScopeType` is the kind of scope a lease can cover. `LeaseStore` runs each write as one
-short transaction on the store's lock key: `claim(lease)` is granted when the key is free and otherwise names the holder;
-`release(key, expectedOwner)` removes the lease only while its owner equals the expected one in every field; `adopt(key,
-newHolder)` sets the serving runtime and clears `orphaned_at`; `orphan(key, at)` marks the lease; `reviseAll(revision)`
-reads, revises and writes every lease in one transaction. A lease is a record, never an OS lock
-(link:../adr/core-store/013-leases-are-records-never-os-locks.adoc[ADR 013]); the sweep over stale leases is
-`runtime.lock`'s (link:../../../pm-runtime/doc/developer/runtime-lock.adoc#_the_stale_lease_sweep[`runtime.lock` § The
-Stale Lease Sweep]).
+it: the process id and start instant a liveness check compares. `ScopeType` is the kind of scope a lease can cover
+(`plan`, `epic`, `workspace`, `project`).
+
+`LeaseStore` is built on an `AtomicStoreFile` whose key is a machine store lock (`IllegalArgumentException` otherwise),
+and runs each write as one short transaction on that key: read, decide, write, release. A write that changes nothing
+writes nothing.
+
+* `claim(lease)`: granted when the key is free; otherwise nothing is written and the result names the holder.
+* `release(key, expectedOwner)`: removes the lease only while its owner equals the expected one in every field;
+  otherwise it writes nothing and returns the lease it found. `release(key)` removes the lease whoever owns it, and
+  returns it, or nothing if the key was not held.
+* `adopt(key, newHolder)`: sets the serving runtime and clears `orphaned_at`; the owning scope is unchanged.
+* `orphan(key, orphanedAt)`: marks the lease; a lease that is orphaned already keeps its first mark, and nothing is
+  written.
+* `reviseAll(revision)`: reads, revises and writes every lease in one transaction; a lease for which the revision
+  returns nothing is removed. A revision that returns a lease under another key is refused with
+  `IllegalArgumentException`, and nothing is written. The revision runs under the store's lock, so it must be short and
+  take no lock.
+* `snapshot()`: the leases without a lock, before or after a write and never a part of one; nothing that a write
+  depends on is decided on it.
+
+A lease is a record, never an OS lock (link:../adr/core-store/013-leases-are-records-never-os-locks.adoc[ADR 013]):
+holding a lease is not holding a lock, and a lease can be held across any lock acquisition. The model slots keep a slot
+store of their own beside it (`ModelSlotStore`, <<_slots_metrics_budgets_ledger>>). The sweep over stale leases is
+`runtime.lock`'s (link:../../../pm-runtime/doc/developer/runtime-lock.adoc[`runtime.lock` § The Stale Lease Sweep]).
+
+Tests: `LeaseCodecTest`, `LeaseStoreTest`.
 
 === The Decisions Behind the Substrate
 
@@ -1871,43 +2094,175 @@ one under the project's lock, and the audit intent of the operator writes.
 |The compiled lifecycle gate and its decision per enrolment.
 |===
 
-`ProjectEnrolment` is the schema. Its nested records and enums carry the patterns, closed name sets and bounds, so an
-instance that exists is one the schema admits. The maps are copied into a stable order in the constructor (declaration
-order of an enum key, natural order of a string key), and `EnrolmentCodec.write` relies on that: it writes every field,
-defaults included, in schema order, so the same enrolment always gives the same bytes. Those are the bytes the HMAC is
-computed over; never compute it over bytes from anywhere else. What only the enrolment verb can decide (shell
-metacharacters in an argument vector, a write path below the base, a refused environment name) is checked by
-`EnrolmentPolicy` of `pm-runtime`.
+=== Schema and Codec
 
-`EnrolmentStore(base)` names the paths below the base directory: `file(projectId)` is
-`enrolments/<project_id>.json`, `sidecar(projectId)` is `enrolments/<project_id>.json.hmac`, and `lockKey(projectId)`
-is the machine-level lock `locks/enrolments/<project_id>.lock`. Every read and write takes the transaction and refuses
-it unless it holds the project's own lock.
+`ProjectEnrolment` is the schema. Its nested records (`Wrapper`, `PinnedFile`, `HostTool`, `Build`, `Argv`,
+`ProviderVerification`, `ProjectScript`, `Binding`, `ArgumentSchema`, `LanguageServer`) and enums (`WrapperName`,
+`HostToolName`, `Interpreter`, `BuildSystem`, `Provider`, `WorkerKind`, `ContainerEngine`, `SchemaType`) carry the
+patterns, closed name sets and bounds, so an instance that exists is one the schema admits. The compact constructors
+enforce, among others: `project_root` is a normalized absolute path; an argument vector has at least one element and at
+most one module-argument group, and a module-argument group at least one argument; a wrapper `pw` is run by `python3`
+and every other wrapper by none; a project script is run by `python3` and has a budget of at least ten seconds; a
+command budget is at least one second. What only the enrolment verb can decide (shell metacharacters in an argument
+vector, a write path below the base, a refused environment name) is not checked here; `EnrolmentPolicy` of `pm-runtime`
+checks part of it before an enrolment is signed.
 
-* `projectIds()` lists the enrolled projects without a lock: every `<project_id>.json` with a valid id; sidecars, audit
-  intents, staged and temporary files and anything else are not enrolments.
-* `readFile`, `readSidecar`, `decode` and `decodeSidecar` read the exact bytes and the strict records; `decode` refuses
-  a file whose `project_id` is not the name of its file as `unreadable`.
-* `write(transaction, enrolment, sidecar)` writes the canonical bytes and the sidecar as one pair: it refuses a sidecar
-  whose size and SHA-256 are not those of the canonical bytes, settles a stopped write first, stages both files under one
-  transaction id, forces the directory, and only then renames the file and the sidecar into place, the file first.
-* `recoverPair(transaction, projectId)` settles a stopped write without a key and without signing anything: a complete
-  staged pair is moved into place (`PairRecovery.Completed`, `PM_CORE-1`); an incomplete or mismatching one is discarded
-  (`PairRecovery.Discarded`, `PM_CORE-101`) and the enrolment is as it was.
-* `writeSidecar` replaces only the sidecar (the re-baseline); `remove` deletes the staged files of every stopped write,
-  then the file and the sidecar; `removeOrphanSidecar` deletes the sidecar of a project whose file is gone.
-* The audit intent `enrolments/<project_id>.json.audit-intent` exists only while a record is owed: `oweAudit` writes it
-  durably before the mutation, `confirmAudit` replaces it after the mutation by the succeeded record, and
-  `deliverOwedAudit` hands it over. `auditOwingProjectIds()` lists the projects with an intent.
+The constants of `Provider` are named after the CLI each provider runs, `GIT`, `GH` and `GLAB`, like those of
+`HostToolName`, because no member of `pm-core` may name a provider (PM-IMPL-1, guarded by `ProviderNeutralityArchTest`);
+the wire names in the enrolment file are `git`, `github` and `gitlab` (`Provider.wireName()`).
 
-`LifecycleGate.RELEASE` is the gate of the release; its position is the private constant `OPEN_IN_THIS_RELEASE`, `false`
-today. `decide(enrolment)` returns `LIFECYCLE_CLOSED` for a released enrolment, `ADMITTED` for an open gate or a pilot,
-and `LIFECYCLE_CLOSED` otherwise. It takes a verified enrolment: read it through `EnrolmentCheck`, never with
-`EnrolmentStore.decode` alone, or an edited `pilot: true` would open the gate.
+The maps are copied into a stable order in the constructor (declaration order of an enum key, natural order of a string
+key), and `EnrolmentCodec.write` relies on that: it writes every field, defaults included, in schema order, so the same
+enrolment always gives the same bytes. Those are the bytes the HMAC is computed over; never compute it over bytes from
+anywhere else.
 
-Besides the format refusals, `StoreRefusal` carries `ENROLMENT_TAMPERED`, `ENROLMENT_INSECURE` and `ENROLMENT_INVALID`
-with their factories. They are raised by the runtime's check and operator writes, where the key and the per-use checks
-live.
+`EnrolmentCodec.read(file, content)` and `EnrolmentSidecar.read(file, content)` read through `StrictJson` like every
+codec of the package (<<_format_versions>>): the version first (`format_outdated` or `format_newer` naming
+the file), every field at most once, no undeclared field at any level of nesting, every required field, one JSON type
+per field. The optional fields `pilot`, `container_engine`, `released_at` and the `interpreter` of a host tool
+read as their defaults when absent. A `StoreRefusal` from the sidecar names the sidecar file.
+
+`EnrolmentSidecar` pairs a `StoreDigest` (size and SHA-256) with the HMAC, 64 lowercase hexadecimal digits; the
+constructor refuses any other HMAC. `matches(content)` compares the size and SHA-256 only; the HMAC is the runtime's to
+verify.
+
+=== Paths, Listing and Reads
+
+`EnrolmentStore(base)` names the paths below the base directory: `file(projectId)` is `enrolments/<project_id>.json`,
+`sidecar(projectId)` is `enrolments/<project_id>.json.hmac`, and `lockKey(projectId)` is `LockKey.enrolment(base,
+projectId)`, the machine-level lock `locks/enrolments/<project_id>.lock`, ordered by project id. `base()` returns the
+base directory, absolute and normalized; the runtime compares the write paths of an enrolment with it and takes the
+key-creation lock from it. A project id outside the identifier pattern is an `IllegalArgumentException` before it
+becomes part of a path. The store does not create `enrolments/`.
+
+Every read and write takes the transaction and refuses it as an internal fault (`InternalFaultException`) unless it
+holds the project's own lock; the lock of another project does not count. Only `projectIds()` and
+`auditOwingProjectIds()` run without a lock: they list, and a decision rests on `EnrolmentCheck.verify` of `pm-runtime`
+in a transaction that holds the project's lock.
+
+* `projectIds()` lists the enrolled projects: every file `<project_id>.json` with a valid id; sidecars, audit intents,
+  staged and temporary files and anything else are not enrolments, and a missing directory lists none.
+* `readFile` and `readSidecar` return the exact bytes, empty when the file does not exist; `decode(projectId, content)`
+  reads them as the project's enrolment and refuses one whose `project_id` is not the name of its file as `unreadable`;
+  `decodeSidecar` reads a sidecar record.
+* `exists(transaction, projectId)` answers whether the file or its sidecar exists.
+* `hasEnrolmentFile(transaction, projectId)` answers whether the enrolment file alone exists: exactly the fact
+  `projectIds()` lists the project for; the sidecar, a staged name and the intent do not count. Where `exists` answers
+  for the file or the sidecar, this one tells an enrolment from the orphan sidecar of an interrupted unenrol.
+* `hasStagedWrite(transaction, projectId)` answers whether a stopped write of the pair left a staged name of the project,
+  with the name matching of `recoverPair` and `remove`; a missing directory answers `false`, a directory that cannot be
+  listed is an `UncheckedIOException`. It lets an unenrol cancel a first enrolment that was staged and stopped, with
+  neither file nor sidecar in place.
+
+=== The Pair Write and Its Recovery
+
+* `write(transaction, enrolment, sidecar)` writes the canonical bytes and the sidecar as one pair. It refuses a sidecar
+  whose size and SHA-256 are not those of the canonical bytes (`IllegalArgumentException`) before anything is written.
+  It settles a stopped write of the pair first (`recoverPair`), then stages the file as
+  `<project_id>.json.tmp.<transaction id>` and the sidecar as `<project_id>.json.hmac.tmp.<transaction id>` (one
+  `TransactionId` for both, each written new, synced, mode `0600`), forces the directory, and only then renames the file
+  and the sidecar into place, the file first, and forces the directory again. The staged sidecar is complete before the
+  first rename, which is what makes a stop after it completable. A write that fails leaves what it staged for
+  `recoverPair`.
+* `recoverPair(transaction, projectId)` settles the stopped writes of the pair without a key and without signing
+  anything: it only completes or discards a pair a write already produced. It groups the project's staged names by
+  transaction id and processes them in ascending order. A staged file with a staged sidecar that reads strictly and
+  matches it is moved into place (`PairRecovery.Completed`, logged `PM_CORE-1`); a staged file whose staged sidecar is
+  missing, torn, unreadable or does not match it is deleted with the sidecar (`PairRecovery.Discarded`, logged
+  `PM_CORE-101`), and the enrolment is as it was. A staged sidecar alone, after the file was already replaced, is moved
+  into place when it reads strictly and matches the current file, and otherwise deleted, which leaves the file to the
+  runtime's check. It returns one entry per stopped write, empty when nothing was staged or the directory does not
+  exist; a staged file that cannot be listed, read, moved or deleted is an `UncheckedIOException`.
+* `writeSidecar(transaction, projectId, sidecar)` replaces only the sidecar: the re-baseline. It settles nothing itself;
+  its caller settles a stopped write of the pair first, under the same lock, as the runtime's re-baseline does with
+  `recoverPair` before it reads and signs the file.
+* `remove(transaction, projectId)` deletes the staged files of every stopped write of the pair first, so an unenrolled
+  project is never rolled forward later, then the file and its sidecar, nothing else, forces the directory to disk, and
+  reports whether the file or the sidecar existed. The file is deleted before the sidecar: its removal is the commit
+  point of an unenrol, and a stop between the two deletions leaves a sidecar without its file, which `projectIds()` does
+  not list, beside the record the unenrol owes.
+* `removeOrphanSidecar(transaction, projectId)` deletes the sidecar of a project whose enrolment file is gone, forces
+  the directory and reports whether a sidecar was deleted; while the file exists it touches nothing and returns
+  `false`. It touches no staged name, no audit intent and nothing of another project; a sidecar that cannot be deleted
+  is an `UncheckedIOException` naming the project. The runtime's background pass calls it after it handed the
+  project's owed records over.
+
+A staged name belongs to a project only when it is exactly `<project_id>.json.tmp.<id>` or
+`<project_id>.json.hmac.tmp.<id>` for a transaction id: the project `ab` never claims or deletes the staged names of
+`ab-c`, and the temporary `<store>.tmp.<uuid>` of `AtomicStoreFile`, which `writeSidecar` uses, is not a staged name of
+a transaction. The transaction journal is not reused for the pair: it is bound to the scopes of the per-project machine
+store, whose recovery deletes the staged files of its own directories, and in the flat `enrolments/` directory the
+recovery of one project would delete the staged files of another project's write in flight.
+
+The owed audit record of a write that `recoverPair` rolls forward stays the unconfirmed record (`failed`,
+`not_confirmed`): the mutation completed, its completion was not recorded.
+
+=== The Audit Intent
+
+The audit intent of the operator writes is the file `enrolments/<project_id>.json.audit-intent`. It exists only while a
+record is owed, is touched only under the project's lock, and is not an enrolment. Its document is the one of the intent
+files of the JSONL stores, `{"format_version": 1, "owed_events": [<owed event>]}`, read and written by the
+package-private `AuditIntentFile` that both share, each owed record an object of `OwedAuditEvents`
+(<<_substrate_audit_records>>). An intent file that is unreadable or of another format version is refused as
+a `StoreRefusal` naming it and is left in place.
+
+* `auditIntent(projectId)` is the path of the intent file.
+* `oweAudit(transaction, projectId, event)` writes the record durably to the intent before the mutation; a record whose
+  `transaction_id` is already owed is not owed twice, and a detail value an intent cannot hold (anything but a string,
+  an integer or a list of strings) is an `IllegalArgumentException` before anything is written.
+* `confirmAudit(transaction, projectId, confirmed)` replaces the owed record of the same `transaction_id` by the
+  confirmed one, in place and written durably, and keeps the others; when no record of that transaction is owed, the
+  confirmed record is owed afresh.
+* `owedAudit(transaction, projectId)` returns the records still owed, in order.
+* `deliverOwedAudit(transaction, projectId, sink)` hands the owed records over in order and returns those handed over.
+  It stops at the first record the sink refuses with an `UncheckedIOException`, which the substrate logs as
+  `PM_CORE-100` and keeps owed, and never throws for it; any other failure of the sink propagates and leaves the intent.
+  The intent file is removed, and its directory forced, once every record was handed over, and rewritten with the rest
+  after a partial hand-over.
+* `auditOwingProjectIds()` lists, without a lock, the projects whose intent file exists (valid ids only, a missing
+  directory lists none): what the runtime's replay iterates.
+
+=== The Lifecycle Gate
+
+`LifecycleGate.RELEASE` is the gate of the release. Its position is the private constant `OPEN_IN_THIS_RELEASE`,
+`false`; the constructor is package-private, so only the release constant and the tests of the open
+position build a gate. `decide(enrolment)` returns `LIFECYCLE_CLOSED` (`lifecycle_closed`) for a released enrolment,
+`ADMITTED` for an open gate or a pilot, and `LIFECYCLE_CLOSED` otherwise. It takes a verified enrolment: read it
+through `EnrolmentCheck`, never with `EnrolmentStore.decode` alone, or an edited `pilot: true` would open the gate.
+
+Besides the format refusals, `StoreRefusal` carries `ENROLMENT_TAMPERED` (`enrolment_tampered`), `ENROLMENT_INSECURE`
+(`enrolment_insecure`) and `ENROLMENT_INVALID` (`enrolment_invalid`) with their factories. They are raised by the
+runtime's check and operator writes, where the key and the per-use checks live.
+
+=== Pitfalls of the Enrolment Store
+
+* *Never rename the pair one file after the other without staging both.* A stop between two renames of files written
+  one after the other leaves a pair the check refuses, and the operator must accept-edit. Stage the file and the sidecar
+  completely, then rename. Guarded by `EnrolmentStoreTest` (a stop after each step is settled to the old or the new
+  pair, never a half-new one).
+* *The gate must not be openable from outside the release.* Keep the position a compiled constant, never read it from
+  configuration, and feed `decide` only verified enrolments. Guarded by `LifecycleGateTest` (the release constant is
+  closed; a non-pilot refused `lifecycle_closed`, a pilot admitted; the open position admits both).
+* *Decide the integrity under the lock.* `projectIds()` is lock-free and only lists; everything a decision rests on goes
+  through the runtime's check in a transaction that holds the project's lock.
+
+=== Testing the Enrolment Store
+
+The tests run on the JVM against a `@TempDir` base under the recording lock manager of the package's tests.
+
+* `EnrolmentCodecTest`: canonical bytes, the closed schema per nesting level, format refusals naming the enrolment file
+  and the sidecar file.
+* `EnrolmentStoreTest`: the audit intent (owed durably and idempotently, confirmed in place, not listed as an
+  enrolment, handed over in order, kept through a refused, partial or stopped hand-over and delivered again with the
+  same transaction id, refused without the project's lock and when unreadable); the group `Pair` (a write leaves
+  exactly the complete pair, a stop after each step settled to the old or the new pair, a first enrolment stopped, a
+  torn, foreign or other-version staged sidecar discarded, the isolation of project ids that begin alike, several
+  stopped writes in the order of their transaction ids, a write that settles an earlier stop, `remove` dropping staged
+  leftovers, the recovery refused without the lock); `hasStagedWrite`; `hasEnrolmentFile` and `removeOrphanSidecar` on
+  the orphan sidecar of an interrupted unenrol.
+* `LifecycleGateTest`, `StoreRefusalTest` (with `enrolment_invalid`), and in `core.service` `LiveWorkTest` and
+  `AuditEventTest` (the succeeded enrolment records carry `project_id` and `transaction_id`, their unconfirmed form is
+  `failed` with the reason `not_confirmed`, the refusal records carry no transaction id).
 
 == Path Confinement
 
@@ -1929,7 +2284,7 @@ WARN with the code and the reason, never with the path
 (link:../../../pm-runtime/doc/developer/runtime-workspace.adoc[`runtime.workspace`]).
 
 The confinement is a library: a package that performs a file or repository operation for a project adopts the check
-itself. Not every path that reaches the runtime passes through it yet.
+itself; a path that does not adopt it is not confined.
 
 == Reading Helpers Shared with the Stores of Other Packages
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
@@ -1968,7 +2323,7 @@ closes such a task `lost`.
 The tests run on the JVM over stores in a temporary base. The schema parity tests (`PendingEntrySchemaParityTest`, `AuditSchemaParityTest`, `WorkflowStatusSchemaParityTest`, `JobRecordSchemaParityTest`)
 read the JSON schema from the specification of this repository (`doc/specification`, below the root the system
 property `pm.specification.root` names, `SpecificationDocument`); a missing document or schema block is a failure. A
-parity check the specification has run ahead of is `@Disabled` with the work package that re-enables it named.
+parity check over a schema the code does not implement is `@Disabled`, its reason naming what it waits for.
 
 == The Plan's History
 _Requirements: link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_

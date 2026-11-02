@@ -53,4 +53,4 @@ guide states the contract they must keep. The entry identity is the caller's: pa
 
 * `doc/specification/model-work/06-envelopes-questions-deadlines.adoc` § Continuing after a Question, § Question Bound
 * `doc/specification/timeouts/01-job-budgets-and-waits.adoc` § Question hold, § Question resume window, § Question bound
-* `doc/specification/client-profiles/01-profile-schema.adoc` § Resumability
+* `doc/specification/harness-profiles/01-profile-schema.adoc` § Resumability

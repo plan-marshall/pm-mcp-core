@@ -11,6 +11,8 @@ Defect archetypes, real-corpus fixtures and verification hints that guard the sp
 
 == Watch Documents
 
+The runtime-lifecycle watch keeps its `RUN` items, a code shared with the runtime model of the documentation; its new items take the area code `LIFE`, which only this repository uses.
+
 [cols="3,1,1,4"]
 |===
 |Document |Area |Items |Mirrors
@@ -26,12 +28,12 @@ Defect archetypes, real-corpus fixtures and verification hints that guard the sp
 
 |link:implementation-watch/phase-workflows.adoc[Phase Workflows]
 |`PHASE`
-|124
+|121
 |link:specification/phase-workflows.adoc[Phase Workflows & Finalize Specification]
 
 |link:implementation-watch/model-work.adoc[Model Work]
 |`DISP`
-|59
+|56
 |link:specification/model-work.adoc[Model Work Specification]
 
 |link:implementation-watch/domain-extensions.adoc[Domain Extensions]
@@ -54,14 +56,14 @@ Defect archetypes, real-corpus fixtures and verification hints that guard the sp
 |41
 |link:specification/job-runtime.adoc[Job Runtime Specification]
 
-|link:implementation-watch/client-profiles.adoc[Client Profiles]
+|link:implementation-watch/harness-profiles.adoc[Harness Profiles]
 |`CLIENT`
-|11
-|link:specification/client-profiles.adoc[Client Profiles Specification]
+|9
+|link:specification/harness-profiles.adoc[Harness Profiles Specification]
 
 |link:implementation-watch/runtime-lifecycle.adoc[Runtime Lifecycle]
 |`RUN`
-|6
+|7
 |link:specification/runtime-lifecycle.adoc[Runtime Lifecycle Specification]
 
 |link:implementation-watch/credentials-and-enrolment.adoc[Credentials & Enrolment]

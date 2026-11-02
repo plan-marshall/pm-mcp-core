@@ -43,11 +43,11 @@ Source:: plan-marshall defect truthful-signals PLAN-TRUTH-151 D1 (carrying PLAN-
 [#PM-WATCH-PHASE-68]
 === PM-WATCH-PHASE-68: A refine confidence names its evidence class
 
-Anchor:: link:../specification/phase-workflows/01-planning-phases-1-2.adoc#_five_quality_dimensions_fixed_weight_confidence_aggregation[Phase Workflows § Five Quality Dimensions] (Evidence Class)
+Anchor:: link:../specification/phase-workflows/01-planning-phases-1-2.adoc#quality-dimensions[Phase Workflows § Six Quality Dimensions] (Evidence Class)
 Hazard:: A refine confidence jumped to certainty on self-assessment alone, indistinguishable from an
 operator-answered or downstream-reproduced one.
 Guard:: A test submits `submit:refine` with all dimensions at 100 and `evidence_class: self_assessment` and asserts
-the class is persisted and rendered in `facts` (with the advisory fact where no epic backs it); only
+the class is persisted and rendered in `facts`; only
 `operator_answered` and `downstream_reproduced` count as independent.
 Fixture:: all six dimensions at 100, confidence 49.0% → 100.0% in one operator round, justified by self-assessment.
 Source:: plan-marshall defect truthful-signals PLAN-TRUTH-151 D1 (carrying PLAN-TRUTH-119 D2).
@@ -161,7 +161,7 @@ Source:: plan-marshall defect truthful-signals PLAN-TRUTH-150 D7.
 
 Anchor:: link:../specification/phase-workflows/03-q-gate-and-execute.adoc#_q_gate_validation_loop[Phase Workflows § Q-Gate Validation Loop],
 link:../specification/phase-workflows/03-q-gate-and-execute.adoc#_task_envelope_execution_independent_server_verification[§ Task Envelope Execution],
-link:../specification/phase-workflows/01-planning-phases-1-2.adoc#_five_quality_dimensions_fixed_weight_confidence_aggregation[§ Five Quality Dimensions] (Premise Verdicts)
+link:../specification/phase-workflows/01-planning-phases-1-2.adoc#quality-dimensions[§ Six Quality Dimensions] (Premise Verdicts)
 Hazard:: A deliverable mandated "all X through Y" while Y lacked the needed verbs; the gap surfaced only as an
 execute-time `infeasible`, and the enabling task then grew the footprint by undeclared files.
 Guard:: A tool surface a deliverable mandates is a claim the Phase 3 Q-Gate task judges; no mechanical validator row
@@ -296,13 +296,9 @@ Anchor:: link:../specification/phase-workflows/02-planning-lanes-phases-3-4.adoc
 link:../specification/store-schemas/14-plan-instance-waivers-questions.adoc#composition-rules[Store Schemas § Composition Rules]
 Hazard:: A land plan's remediation offers `fix` or `loop_back`, so the model authors changes on the user's landed
 work, or a land plan is recaptured and the user's change is overwritten.
-Guard:: The composition part is implemented: the shipped rule `land-lane` binds `actions = [retry]` at every policy
-call of a `land` plan and prunes `*/fix`, `*/loop_back` and `finalize.allocate-remediation` with `land_lane`
-(`CompositionRuleEvaluatorTest`,
-`PlanInstanceComposerTest` of `pm-workflow`;
-link:../../pm-workflow/doc/developer/workflow-plan.adoc#_the_rule_file[Plan Instance Developer Guide § The Rule File]).
-Remaining: scenario with a red gate: a `land` plan creates no `decide` task: the server takes `retry` within the retry
-budget, and exhaustion ends the unit `exhausted` and hands the branch back with the failure documented and the
+Guard:: Composition test: the shipped rule `land-lane` binds `actions = [retry]` at every policy call of a `land` plan
+and prunes `*/fix`, `*/loop_back` and `finalize.allocate-remediation` with `land_lane`.
+Scenario with a red gate: a `land` plan creates no `decide` task: the server takes `retry` within the retry budget, and exhaustion ends the unit `exhausted` and hands the branch back with the failure documented and the
 capture ref retained (`capture_ref_retained`); no `recapture` link or state exists.
 Source:: design review.
 
@@ -581,11 +577,9 @@ the `finalize.simplify-apply` task include the outline decisions and amendments.
 proposes (`submit:simplify`, proposal records with `file`, `change`, `rationale`; the role has no write tools); a task
 of the writer role `implement` applies the subset it accepts in `finalize.simplify-apply`, and the applied result goes
 through `finalize.settle-commit` (footprint check, `freshness_reconcile`) and the following gates like any change.
-The restraint ladder ("does it need to exist → already in the codebase → standard library → native platform feature
-→ installed dependency → one line → only then the minimum") and the marker for deliberate corner-cuts are guidance in
-the domain standards (`PM-SKILL-1`, items 4 and 5) and measurement subjects of `PM-TEST-6`; the share of runs that
-write the marker is measured by the Shortcut Marker scenario of the harness. That the self-review surfacer treats
-marked lines as intentional is not specified until that share shows the marker is written.
+What a proposal is judged by is guidance of the simplify vocabulary skill (`PM-SKILL-1`), a measurement subject of
+`PM-TEST-6`; a deliberate shortcut is the writer's own call of kind `shortcut`, which the simplify review receives as a
+fact and does not propose to remove before its `ends_when` occurred.
 Fixture:: a deliberate `set(offerable) | always_on_set` removed by simplify.
 Source:: design review; plan-marshall defect truthful-signals (quality-aspect) PLAN-219 D3; instrumentation-substrate
 inbox other-approaches-001 § Candidate changes items 1 and 3.
@@ -1585,17 +1579,6 @@ the result in the specification and the requirement it touches, and deletes this
 Source:: `phase-workflows/04-finalize-step-bands.adoc:192`, `phase-workflows/02-planning-lanes-phases-3-4.adoc:202`
 (Posture Resolution), `plan-marshall` `extension-api/standards/ext-point-lane-element.md:203-208`.
 
-[#PM-WATCH-PHASE-108]
-=== PM-WATCH-PHASE-108: A model-supplied key-link pattern cannot stall the runtime
-
-Anchor:: link:../specification/phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-key-links[Phase Workflows § 8. `key_links`]
-Hazard:: The pattern of a key link is written by the outline task and evaluated by the runtime over files of the
-worktree. A backtracking regular-expression engine (`java.util.regex`) takes exponential time on patterns such as
-`(a+)+$`, so one outline could block the verification sweep, and with it the runtime thread that runs it.
-Guard:: Tests submit patterns with nested quantifiers, backreferences, and lookaround: the first is evaluated in
-linear time over a long input within a fixed bound, the others are refused at submission with the member named.
-Source:: Spec Frameworks analysis of plan-marshall-documentation (GSD's key links with a pattern).
-
 [#PM-WATCH-PHASE-109]
 === PM-WATCH-PHASE-109: The builder check sees the record, not the conversation
 
@@ -1603,20 +1586,22 @@ Anchor:: link:../specification/phase-workflows/01-planning-phases-1-2.adoc#build
 Hazard:: The builder check tests whether someone who has only the intent record could build from it. Facts that
 carry the original input, the clarifications, or refine's own submission let the task answer its questions from
 what the record omits, and the check passes a record that a builder could not use.
-Guard:: A test composes the facts of `refine.builder-check` and asserts that they hold the intent record and the
-capability index only, with no member of `request.md`'s original input or clarifications and no earlier submission.
+Guard:: A test composes the facts of `refine.builder-check` and asserts that they hold the intent record
+only, with no member of `request.md`'s original input or clarifications and no earlier submission.
 Source:: Superpowers analysis of plan-marshall-documentation (the builder "will not be able to talk to the person").
 
 [#PM-WATCH-PHASE-112]
 === PM-WATCH-PHASE-112: Behaviour nobody asked for is listed, not passed
 
-Anchor:: link:../specification/phase-workflows/04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Phase Workflows § Normative Step Catalogue] (`pre-submission-self-review`, the unclaimed behaviour)
+Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#self-review-submission[Phase Workflows § Self-Review Submission] (`unclaimed`, `conflicts`)
 Hazard:: An empty `unclaimed[]` is the cheapest answer and looks like a clean review. A review that reads only the
 criteria and the deliverables never sees what the change does beside them: a migration that deletes rows, a changed
 default, a new configuration property. A list whose entries carry no effect lets a data-destroying entry pass as a
 note.
 Guard:: Tests submit the self-review without `unclaimed[]` (refused), with an entry that changes a default or deletes
-existing data and is not filed as a finding (refused), and with an empty list (accepted, recorded as "none found").
+existing data (filed as a finding at the severity of its effect), and with an empty list (accepted, recorded as "none
+found"); a `conflicts[]` item naming an identifier the records do not hold is refused, and a submission that omits
+`conflicts[]` is accepted as "none found" while the facts hold no unexplained coordinate.
 Corpus fixtures: a change that meets its one criterion and adds an unrequested delete of duplicate rows on start-up;
 a change that adds two configuration properties whose default no longer honours a header, against a non-goal of no
 speculative configurability; the review role must list both, the first at the severity of data loss.
@@ -1653,8 +1638,11 @@ never judged is a picture nobody acts on.
 Guard:: Tests compute the map for fixture repositories whose base and head differ by an added module, a removed module
 edge, and a replaced coordinate, and compare it with the crawl of each tree checked out in a scratch directory (equal).
 A descriptor that fails to parse at `base_ref` yields `partial` with its diagnostic, never `modules_removed`. The
-worktree's status is unchanged after the map is computed. The self-review is refused when it omits a result for a
-replaced coordinate that no own call names.
+worktree's status is unchanged after the map is computed. A replaced coordinate that no own call and no deliverable
+names is in the self-review's `unexplained_coordinates[]`, and a submission whose `conflicts[]` omits it is refused
+(link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#self-review-submission[Phase Workflows § Self-Review Submission]);
+matched control: a replaced coordinate an own call names is not in the list. A decision of reversibility `costly` is
+listed under the map's hard-to-undo decisions, and a plan with none renders no such list and no empty section.
 Source:: Article analysis `barely-read-the-code` of plan-marshall-documentation (the operator reads a diagram of the
 change before its code).
 
@@ -1706,39 +1694,6 @@ unchanged, and every probe has a build row bound to its commit; matched controls
 override skips with its reason.
 Source:: Article analysis `agentic-graph-engineering` of plan-marshall-documentation (17 of 105 archived plans of plan-marshall with Maven logs had three or more failed builds in a
 row; plan-marshall has no localisation).
-
-[#PM-WATCH-PHASE-118]
-=== PM-WATCH-PHASE-118: An amendment reaches the capability spec, never the criterion it replaced
-
-Anchor:: link:../specification/phase-workflows/01-planning-phases-1-2.adoc#capability-specs[Phase Workflows § Capability Specs] (Amended after Refine)
-Hazard:: `architecture-refresh` writes the capability changes from the intent record while an amendment made after
-refine changed one of its criteria, so the capability spec states what the plan no longer does; or an amendment whose
-`changes` is unknown is read as changing nothing; or the revision that folds it leaves the self-review's verdict
-standing on the replaced criterion.
-Guard:: Scenario over a plan whose task question in Phase 5 changes a criterion bound to a capability: `finalize.architecture-refresh`
-raises `intent_amended` with the amendment id, nothing is written to `.marshall/capabilities/`, the re-planning's
-`revised_intent` is required, `pre-submission-self-review` fires again, and the written requirement carries the amended
-text; matched controls: an amendment folded by a later revision, and one whose `changes` names only an item without a
-`capability`, raise nothing; one with `changes: null` raises the trigger while the record holds a capability-bound
-criterion.
-Source:: Article analysis `spec-anchored-development` of plan-marshall-documentation (Beck's objection to a spec frozen
-before implementation; plan-marshall's archived plans show intent changed in Phases 5 and 6, for example a scope widened
-in finalize, with no record revised).
-
-[#PM-WATCH-PHASE-119]
-=== PM-WATCH-PHASE-119: A capability's test is not removed without its requirement
-
-Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#capability-test-guard[Phase Workflows § Capability Test Guard]
-Hazard:: The guard reads `verified_by` from the worktree instead of `base_ref`, so a plan that deletes the test and its
-`verified_by` entry together passes; or a rename is reported as a removal, or a removal paired by a weak rename match
-is followed silently; or a missing capability spec at `base_ref` is read as nothing guarded.
-Guard:: Scenario over a project with a requirement whose `verified_by` names one test: a plan that deletes the test and
-edits the capability spec without a `capability` binding in its record gets `capability_test_removed`; matched controls:
-the same deletion in a plan whose criterion `modified` the requirement is not reported, a `git mv` of the test is
-followed and `verified_by` rewritten without a fingerprint change, and an unparsable capability spec yields
-`indeterminate` with a blocking finding.
-Source:: Article analysis `spec-anchored-development` of plan-marshall-documentation (contract tests as what keeps a
-living spec and the code in sync; capability specs had no link to a test).
 
 [#PM-WATCH-PHASE-120]
 === PM-WATCH-PHASE-120: A tool that did not report is never clean, and a plan never dismisses an alert it did not raise
@@ -1873,13 +1828,12 @@ Source:: Article analysis `your-agent-is-mine` of plan-marshall-documentation.
 === PM-WATCH-PHASE-128: A criterion is met only by a test that ran
 
 Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#criterion-evidence[Phase Workflows § Criterion Evidence Check],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-13[PM-WF-13]
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-29[PM-WF-29]
 Hazard:: The check maps the names the review gave to the test identities of the parsed result by string, so a file named
 by a relative path, a nested class, or a parameterised test name never matches and every criterion turns `not_verified`;
 the check reads the last green run of the plan instead of the run of the reviewed `HEAD`, so a test deleted after it
 still counts; a test that skipped itself counts as run because the summary shows no failure.
-Guard:: Scenario with three `test` criteria at one `HEAD`: one names a file whose test passed (accepted, written into
-`verified_by`), one a file whose only test skips itself on a missing fixture (`test_not_run`), one a file deleted after
+Guard:: Scenario with three `test` criteria at one `HEAD`: one names a file whose test passed (accepted), one a file whose only test skips itself on a missing fixture (`test_not_run`), one a file deleted after
 the last green run (`test_not_run`). Matched controls: the same files named by an absolute path, and a JUnit nested class,
 are accepted alike; a module whose parser reports no test identities gives `evidence_unreadable`, never `met`.
 Source:: Article analysis `review-playbook` of plan-marshall-documentation.

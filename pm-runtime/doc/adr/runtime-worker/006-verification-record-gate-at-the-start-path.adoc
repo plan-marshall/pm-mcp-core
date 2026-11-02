@@ -63,7 +63,7 @@ is a machine-level decision the egress owner holds, and this gate only requires 
 == Source
 
 * Plan PLAN-30, deliverable 13
-* link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#profile-verification[Client Profiles §
+* link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#profile-verification[Client Profiles §
   Profile Verification] (Runtime check on load)
 * `pm-runtime/src/main/java/de/planmarshall/runtime/worker/ProfileWorkerEligibility.java`,
   `pm-runtime/src/main/java/de/planmarshall/runtime/worker/EligibilityVerdict.java`,

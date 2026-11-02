@@ -1,4 +1,4 @@
-= Store Schemas Specification: Decision Records
+= Store Schemas Specification: Decision Log
 :toc: left
 :toclevels: 3
 :toc-title: Table of Contents
@@ -6,14 +6,14 @@
 :source-highlighter: highlight.js
 :nofooter:
 
-link:../../Specification.adoc[Specification] » link:../store-schemas.adoc[Store Schemas Specification] » Decision Records
+link:../../Specification.adoc[Specification] » link:../store-schemas.adoc[Store Schemas Specification] » Decision Log
 
 [#decision-record]
-== Decision Record (`decisions.jsonl`)
-_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-19[PM-WF-19: Uniform Decision Records & Corpus Export]_
+== Decision-Log Record (`decision-log.jsonl`)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-19[PM-WF-19: Uniform Decision Log & Corpus Export]_
 _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-46[PM-WATCH-DISP-46]_
 
-Every decision a scope takes at a decision point is one `decided` line of the scope's decision store; a later departure from it is one `corrected` line that names it. The semantics of every field, the decision points, the causes of a correction, and the export are owned by link:../model-work/11-decision-records.adoc#decision-records[Model Work Specification, Decision Records]; this section fixes the store. The store is append-only, one file per scope: `plans/<plan_id>/decisions.jsonl`, `epics/<epic_id>/decisions.jsonl`, `workspace/decisions.jsonl`, and an entry's `pending/<entry_id>/decisions.jsonl`, which moves into the new scope at its creation (link:../filesystem-layout/03-project-store.adoc#machine-store[Filesystem Layout Specification, Per-Project Machine Store]; xref:01-format-and-session-log.adoc#pending-entry-record[Pending Entry]). A line is appended in the transaction that takes the decision or the correction, under the scope lock and covered by the scope's digest sidecar like every scope store; no line is ever rewritten or removed, except by the periodic sweep's removal of the workspace scope's technical rows, which removes the workspace scope's decisions whose facts are no longer referenced (xref:13-leases-integrity-testing.adoc#evidence-based-removal-sweeps[Evidence-Based Removal Sweeps]).
+Every decision a scope takes at a decision point is one `decided` line of the scope's decision log; a later departure from it is one `corrected` line that names it. The semantics of every field, the decision points, the causes of a correction, and the export are owned by link:../model-work/11-decision-records.adoc#decision-records[Model Work Specification, Decision Log]; this section fixes the store. The store is append-only, one file per scope: `plans/<plan_id>/decision-log.jsonl`, `epics/<epic_id>/decision-log.jsonl`, `workspace/decision-log.jsonl`, and an entry's `pending/<entry_id>/decision-log.jsonl`, which moves into the new scope at its creation (link:../filesystem-layout/03-project-store.adoc#machine-store[Filesystem Layout Specification, Per-Project Machine Store]; xref:01-format-and-session-log.adoc#pending-entry-record[Pending Entry]). A line is appended in the transaction that takes the decision or the correction, under the scope lock and covered by the scope's digest sidecar like every scope store; no line is ever rewritten or removed, except by the periodic sweep's removal of the workspace scope's technical rows, which removes the workspace scope's decisions whose facts are no longer referenced (xref:13-leases-integrity-testing.adoc#evidence-based-removal-sweeps[Evidence-Based Removal Sweeps]).
 
 [source,json]
 ----
@@ -28,7 +28,7 @@ Every decision a scope takes at a decision point is one `decided` line of the sc
     "decision_id": { "type": "string", "pattern": "^D-[0-9]{4,7}$" },
     "vote": {
       "type": "object",
-      "required": ["role", "asker", "harness", "model", "queue_task_id", "task_outcome", "branch_key", "confidence", "rationale", "rationale_origin", "probabilities"],
+      "required": ["role", "asker", "harness", "model", "queue_task_id", "task_outcome", "branch_key", "confidence", "rationale"],
       "additionalProperties": false,
       "description": "One vote of a quorum decision: a listed role's answer from its vote task, or the asking role's recommendation when the declaration lists it (asker true, without a task).",
       "properties": {
@@ -40,18 +40,7 @@ Every decision a scope takes at a decision point is one `decided` line of the sc
         "task_outcome": { "type": ["string", "null"], "enum": ["submitted", "infeasible", "lost", null], "description": "The vote task's outcome; null for the asking role's vote." },
         "branch_key": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]{1,31}$", "description": "The chosen option; null for a vote task without a valid answer." },
         "confidence": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
-        "rationale": { "type": ["string", "null"], "maxLength": 500 },
-        "rationale_origin": { "type": "string", "enum": ["model", "server"], "description": "server: composed by the server from a judgment role's probabilities, never a model's reasoning." },
-        "probabilities": {
-          "type": ["object", "null"],
-          "description": "A judgment role's vote only (Ask or Quorum, Judgment Votes): the probability of every option in each of the two requests; null for every other vote.",
-          "required": ["sorted", "reversed"],
-          "additionalProperties": false,
-          "properties": {
-            "sorted": { "type": "object", "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 } },
-            "reversed": { "type": "object", "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 } }
-          }
-        }
+        "rationale": { "type": ["string", "null"], "maxLength": 500 }
       }
     },
     "decider": {
@@ -59,14 +48,14 @@ Every decision a scope takes at a decision point is one `decided` line of the sc
       "required": ["kind"],
       "additionalProperties": false,
       "properties": {
-        "kind": { "type": "string", "enum": ["server_rule", "role", "quorum", "operator"], "description": "operator: on a decided line the operator's answer to a decision (channel, answer); on a corrected line of cause overridden the waiver that overrode the gate (waiver_id), never a decider of its own." },
+        "kind": { "type": "string", "enum": ["server_rule", "role", "quorum", "operator"], "description": "A decider kind (<<decider-kind>>), every kind but fact. operator: on a decided line the operator's answer to a decision (channel, answer); on a corrected line of cause overridden the waiver that overrode the gate (waiver_id), never a decider of its own." },
         "rule": { "type": ["string", "null"], "description": "server_rule: the deciding primitive or rule id (model-work/11, Decision Points)." },
         "role": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9-]{1,31}$" },
         "harness": { "type": ["string", "null"] },
         "model": { "type": ["string", "null"] },
         "effort": { "type": ["string", "null"] },
         "queue_task_id": { "type": ["string", "null"], "pattern": "^qt-[0-9a-f]{16}$" },
-        "votes": { "type": "array", "maxItems": 3, "items": { "$ref": "#/$defs/vote" }, "description": "quorum only: every vote of the question's quorum declaration, or on a shadowed line of its shadow quorum." },
+        "votes": { "type": "array", "maxItems": 3, "items": { "$ref": "#/$defs/vote" }, "description": "quorum only: every vote of the question's quorum declaration." },
         "channel": { "type": ["string", "null"], "enum": ["web", "cli", null], "description": "operator answer only: the channel of the answer (store-schemas/14, Answers from the Terminal Client)." },
         "device_id": { "type": ["string", "null"], "pattern": "^dev-[0-9a-f]{12}$", "description": "operator answer only, channel web: the paired device." },
         "answer": { "type": ["string", "null"], "enum": ["chosen", "interpreted", "own_option", "delegated", "none_fits", null], "description": "operator answer only: how the operator answered (store-schemas/14, Question Record, answer.kind)." },
@@ -77,22 +66,22 @@ Every decision a scope takes at a decision point is one `decided` line of the sc
   },
   "properties": {
     "format_version": { "type": "integer", "const": 1 },
-    "event": { "type": "string", "enum": ["decided", "corrected", "shadowed"], "description": "shadowed: the shadow votes of a question the operator decides (model-work/10, Shadow Votes); it is no decision and no correction, and no reader folds it into a decision." },
-    "decision_id": { "$ref": "#/$defs/decision_id", "description": "decided: the new decision; corrected: the decision corrected; shadowed: an id of its own." },
-    "declaration_digest": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$", "description": "question.adjudicate and shadowed only: the declaration digest (model-work/10, Quorum Calibration) of the quorum declaration applied, or of the shadow quorum; null where none applied (kind_ask without a shadow quorum)." },
+    "event": { "type": "string", "enum": ["decided", "corrected"] },
+    "decision_id": { "$ref": "#/$defs/decision_id", "description": "decided: the new decision; corrected: the decision corrected." },
+    "declaration_digest": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$", "description": "question.adjudicate only: the declaration digest (model-work/10, Quorum Calibration) of the quorum declaration applied; null where none applied (kind_ask)." },
     "decision_point": { "type": "string", "pattern": "^[a-z][a-z-]*\\.[a-z][a-z-]*$", "description": "decided only: one of the closed decision points (model-work/11, Decision Points), for example outline.classify-change-type, remediation.choose, triage.group, decision.interpret, question.adjudicate, question.answer." },
     "state_id": { "type": "string", "description": "decided only: the state that took the decision." },
     "subject": {
       "type": "object",
       "required": ["kind", "ref"],
       "additionalProperties": false,
-      "description": "decided: what was decided; shadowed: the question voted on in shadow.",
+      "description": "decided: what was decided.",
       "properties": {
         "kind": { "type": "string", "enum": ["question", "finding_group", "trigger", "remediation_call", "plan_task", "plan", "scope"] },
         "ref": { "type": ["string", "null"], "description": "question_id, the group key (domain, rule_id) with its firing, the trigger kind with its evidence key, the policy with its call state, a plan task id; null for plan and scope." }
       }
     },
-    "decision_kind": { "type": "string", "enum": ["interpretation", "approach", "granularity", "placement", "test_strategy", "scope", "product_behaviour", "assurance", "external_fact"], "description": "decided and shadowed only." },
+    "decision_kind": { "type": "string", "enum": ["interpretation", "approach", "granularity", "placement", "test_strategy", "scope", "product_behaviour", "assurance", "external_fact"], "description": "decided only." },
     "decider": { "$ref": "#/$defs/decider", "description": "decided: the decider; corrected: who caused the correction." },
     "evidence": {
       "type": "object",
@@ -108,7 +97,7 @@ Every decision a scope takes at a decision point is one `decided` line of the sc
     "confidence": { "type": ["integer", "null"], "minimum": 0, "maximum": 100, "description": "decided only." },
     "measurements": {
       "type": "array",
-      "description": "decided and shadowed only: every measured value with the threshold applied.",
+      "description": "decided only: every measured value with the threshold applied.",
       "items": {
         "type": "object",
         "required": ["name", "value", "comparator", "threshold", "source"],
@@ -124,7 +113,7 @@ Every decision a scope takes at a decision point is one `decided` line of the sc
         }
       }
     },
-    "choice": { "type": ["string", "null"], "maxLength": 64, "description": "decided: the option taken, null when the decision hands the choice on; corrected: the new choice, null for the causes overridden and replanned; shadowed: the option the shadow quorum would have decided, null when it would not have decided or took no votes." },
+    "choice": { "type": ["string", "null"], "maxLength": 64, "description": "decided: the option taken, null when the decision hands the choice on; corrected: the new choice, null for the causes overridden and replanned." },
     "reason": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]{1,40}$" },
     "rationale": { "type": ["string", "null"], "maxLength": 2000 },
     "head_sha": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$" },
@@ -135,18 +124,47 @@ Every decision a scope takes at a decision point is one `decided` line of the sc
   },
   "allOf": [
     { "if": { "properties": { "event": { "const": "decided" } } }, "then": { "required": ["decision_point", "state_id", "subject", "decision_kind", "decider", "evidence", "options", "confidence", "measurements", "choice", "reason", "rationale", "head_sha", "follows"] } },
-    { "if": { "properties": { "event": { "const": "corrected" } } }, "then": { "required": ["cause", "decider", "choice", "ref", "rationale"] } },
-    { "if": { "properties": { "event": { "const": "shadowed" } } }, "then": { "required": ["subject", "decision_kind", "decider", "declaration_digest", "measurements", "choice", "reason"] } }
+    { "if": { "properties": { "event": { "const": "corrected" } } }, "then": { "required": ["cause", "decider", "choice", "ref", "rationale"] } }
   ]
 }
 ----
 
 * *Identifier*: `decision_id` is the next value of a scope-wide counter, zero-padded to four digits, never reused (link:../identifiers/01-general-rules-and-registry.adoc#id-decision-id[Identifier Registry, `decision_id`]). A correction carries the `decision_id` of the decision it corrects and has no identifier of its own.
-* *Question link*: A question record's `adjudicated` and `answered` lines name their decision records by `decision_id` (xref:14-plan-instance-waivers-questions.adoc#question-record[Question Record]).
+* *Question link*: A question record's `adjudicated` and `answered` lines name their decision-log records by `decision_id` (xref:14-plan-instance-waivers-questions.adoc#question-record[Question Record]).
 * *Interpretation*: every result of the interpreting role on an operator's own words is one `decided` line of the decision point `decision.interpret` (subject `question` with the `question_id`, decider `role` `interpret`, `choice` one of `option`, `option_with_condition`, `own_option`, `delegation`, `unclear`, with the server's checks among the measurements), appended in the transaction that ends the interpreting task, whether or not the operator confirms it at the read-back (link:../model-work/11-decision-records.adoc#decision-points[Model Work Specification, Decision Points]).
 * *Untrusted text*: `rationale` of a role or a vote is model-authored text, and the operator's words of an answer are the operator's own and never screened; each is shown as text, never as markup, and reaches a model only inside the facts of a later task, quoted as data.
 * *Shown to the operator*: the decisions taken in a plan are listed in its completion report (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#reports[Runtime & Interaction Model Specification, Reports to the Operator]).
-* *Retention*: The decision store and the facts snapshots are part of the scope's store: a plan's move to the archive with `archive-plan`, its deletion by the cleanup the operator confirms, and `delete-plan` take them along (link:../filesystem-layout/03-project-store.adoc#archives[Filesystem Layout Specification, Plan & Epic Archives]; link:../timeouts/03-retention-host-config.adoc#cleanup[Timeouts & Budgets Specification, One Cleanup]). An epic's stores go with its machine directory `epics/<epic_id>/`, deleted by the cleanup once the epic is archived; in the workspace scope, decisions whose facts are no longer referenced are removed by the periodic sweep with their facts snapshots after `retention.workspace_rows_days` (xref:13-leases-integrity-testing.adoc#evidence-based-removal-sweeps[Evidence-Based Removal Sweeps]).
+* *Retention*: The decision log and the facts snapshots are part of the scope's store: a plan's move to the archive with `archive-plan`, its deletion by the cleanup the operator confirms, and `delete-plan` take them along (link:../filesystem-layout/03-project-store.adoc#archives[Filesystem Layout Specification, Plan & Epic Archives]; link:../timeouts/03-retention-host-config.adoc#cleanup[Timeouts & Budgets Specification, One Cleanup]). An epic's stores go with its machine directory `epics/<epic_id>/`, deleted by the cleanup once the epic is archived; in the workspace scope, decisions whose facts are no longer referenced are removed by the periodic sweep with their facts snapshots after `retention.workspace_rows_days` (xref:13-leases-integrity-testing.adoc#evidence-based-removal-sweeps[Evidence-Based Removal Sweeps]).
+
+[#decider-kind]
+=== Decider Kind
+
+Who took a choice is named by one closed set, defined here and used by every record that names a decider: the decision log's `decider.kind`, the `decider` of an intent record's `choices[]` (xref:06-task-and-references.adoc#intent-record-store[Intent Record]), and the `source` of an intent amendment (xref:02-workflow-state-store.adoc[Workflow State Store], `amendments[]`). Each record admits the subset its own schema lists.
+
+[cols="1,4,2"]
+|===
+|Kind |Who took the choice |Used by
+
+|`operator`
+|The operator: an answer in either client (channel `web` or `cli`), or on a corrected line the waiver that overrode a gate.
+|decision log, choice, amendment
+
+|`quorum`
+|A quorum of roles whose votes agreed in the adjudication (channel `quorum`).
+|decision log, choice, amendment
+
+|`role`
+|A task of a role, by its own judgment: a role decision at a decision point, a role's own call, a model judgment such as `continue_narrowed`.
+|decision log, choice, amendment
+
+|`server_rule`
+|A server rule that compares a measured value with a threshold or applies a fixed rule.
+|decision log
+
+|`fact`
+|Evidence, not a judgment: what exploring found (a path or `pm://` URI), an in-triage refutation, or the premise evidence of a lesson source.
+|choice, amendment
+|===
 
 [#facts-snapshot-store]
 === Facts Snapshot (`decision-facts/<facts_digest>.toon`)

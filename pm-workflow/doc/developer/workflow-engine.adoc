@@ -61,7 +61,7 @@ decides whether an event is the one the state waits for.
 answers at its window and emits no frame; `Progress` emits a frame at every interval after the start and answers at its
 window. `answerAt`, `answersAt` and `progressFrames` are pure over the start and the window.
 `WaitSelection`:: The one rule that selects a wait: `select(connection, progressToken, call, settings, clock)`.
-`ConnectionSettings`:: The three `connection` values of a client profile a wait needs, with the profile-validation
+`ConnectionSettings`:: The three `connection` values of a harness profile a wait needs, with the profile-validation
 bounds. `WaitSettings`:: The machine-wide progress upper bound and interval.
 `ModelCall`:: The closed set of calls a model holds open: `PM_WAIT` and `PM_BUILD`.
 
@@ -354,7 +354,7 @@ link:{spec}/timeouts/01-job-budgets-and-waits.adoc#waits[Timeouts § Waits & Lon
 
 A model holds exactly two calls open, a worker's `pm_wait` and a running `pm_build`; every other wait is the engine's
 and is resumed by an `EngineEvent` (<<_wait_events_and_resumption>>). The server selects how it holds either one, with
-no model involvement, from the calling connection's client profile and the request's progress token:
+no model involvement, from the calling connection's harness profile and the request's progress token:
 
 [cols="1,2,2,2"]
 |===

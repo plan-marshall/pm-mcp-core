@@ -77,10 +77,23 @@ without a form takes `LinkRelation.defaultForm()`. Guards bind `not` before `and
 than 32 parentheses (`WorkflowParser.MAX_GUARD_DEPTH`) is refused, which bounds the recursion.
 
 The first refusal wins. Its `RefusalRule` is one of the members listed under <<_main_types>>; `STRUCTURE` covers a source
-that does not follow the grammar. A reserved keyword is refused where the grammar names a name, not everywhere:
-the positional vocabularies stay usable (`link retry retry [noop]` parses). What the parser leaves to later stages is
-the identifier length bounds, every verification rule, the merge of a multi-file unit and the refusal of an `instance`
-line in a project unit.
+that does not follow the grammar. `MISSING_SCOPE` refuses a unit without a `scope` clause. `DUPLICATE_ID` refuses an
+identifier declared twice in the file: a state, a `declare` name, a decision kind, a parameter (a sub-workflow
+parameter, a call argument and a link parameter alike), an entry bound twice, and a value repeated in a list value or
+an `enum[...]` type.
+
+A reserved keyword (`WorkflowParser.RESERVED_KEYWORDS`) is refused only where the grammar names a name: as an outcome
+name, a parameter name, an entity kind, a role name, or a segment of a state, primitive or configuration key
+identifier. Everywhere else the positional vocabularies stay usable: `link retry retry [noop]` and
+`plan.allocate-remediation-tasks` parse. The unit id is read as a state identifier, so no segment of a unit id may be
+a reserved keyword either.
+
+The `derived_from <n>` clause of the header is recorded in `WorkflowDefinition.derivedFrom()` as `{<unit id> -> n}`.
+It is admitted only in a unit parsed with the origin `PROJECT`; on a `DEFAULT` unit it is refused `STRUCTURE`, and a
+revision of zero is refused for every origin.
+
+The parser checks the grammar alone: it checks no identifier length bound, every verification rule is the verifier's,
+and an `instance` line in a `PROJECT` unit parses.
 
 A state whose body starts with `question <class>` routes the class's closed resolution outcomes and declares no `link`
 clause; a link after it is refused `STRUCTURE` ("expected a state but found 'link'"). Every state whose body starts with
@@ -341,13 +354,26 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
 `description`, `type`, `icon`, each `entry` followed by its `entry_description`, each `exit` followed by its
 `exit_description`, `modification_date`, `version`, `author` and `signature`. A value is written plain when a plain
 scalar can carry it and double-quoted otherwise (the rule is `UnitFrontmatterReader.isPlain`, the reader's own, so printer and reader cannot
-drift apart), with `\` written as `\\` and `"` as `\"`. Then come the unit header and the declarations, the
-`start` line or the entry bindings in source order, the migrations and the states; a `call` names the entry it names in
-the tree.
+drift apart), with `\` written as `\\` and `"` as `\"`. Then come the unit header (with `derived_from <n>` when
+`derivedFrom()` holds a revision for the unit's own id), the `instance` line, the `scope` clause with the declarations
+of a sub-workflow, the `declare` and `decide` lines, the `start` line or the entry bindings in source order, the
+migrations, and the states in declaration order, each after a blank line, with their clauses indented by nesting; a
+`call` names the entry it names in the tree.
+
+* *Links*: every link names its form, the default form included.
+* *Guards*: a guard carries exactly the parentheses its precedence needs (`not` before `and` before `or`, both
+  operators left-associative); a negated operand that is no single guard is always parenthesised, so a doubly negated
+  operand is written `not (not x)`, because the grammar has no `not not`.
+* *Ranges*: a range of a `text` or `int` type is written with both its bounds; `ParamType.Text` and `ParamType.Int`
+  hold both bounds or none and refuse a single one.
+* *The instance line*: the printer writes `InstanceHeader.json()`, the JSON exactly as it was read, and never
+  re-serialises the parsed members, so the header's digest stays reproducible.
+* *No checks*: the printer prints the tree it is given.
 
 Parsing the printed text yields the same tree, source locations aside: the frontmatter, the order of the entries and
 exits, the entry bindings and the entry of every call survive the round trip. A frontmatter whose lines were in another
-order is printed in the order of the table, and the descriptions stay with their elements.
+order is printed in the order of the table, and the descriptions stay with their elements. Printing the parsed tree
+again gives the same text: canonical source is a fixed point of parse and print.
 
 == Adding a Refusal
 _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
@@ -394,9 +420,19 @@ per refused character category (`frontmatter-format-character.pmwf`, `frontmatte
 stay beside the empty list (`[`, `[a, b`, `[a,]`, `[,]`); and one fixture for every constant of `RefusalRule`, the
 expected set derived from the enum at run time.
 
+|`WorkflowLexerTest`
+|Comments and blank lines dropped, 1-based lines and columns, the token classes, a word ended before `->`, and the JSON
+of an `instance` line kept as one token, a `#` inside it included.
+
 |`WorkflowPrinterTest`
-|Parse, print and parse again to the same tree, for a unit with descriptions, quoted values, a signature and three
-entries.
+|Parse, print and parse again to the same tree, for every valid fixture and for a unit with descriptions, quoted
+values, a signature and three entries; the reparsed tree printed to the same source, and canonical source printed to
+itself; a guard with exactly the parentheses its precedence needs; the form of every link named; the instance line
+with the header JSON exactly as read.
+
+|Helpers
+|`DslFixtures` reads and lists the fixtures of `dsl/valid/` and `dsl/malformed/`; `AstWithoutLocations` strips the
+source locations, so that two trees compare by structure.
 |===
 
 == Developer Pitfalls
@@ -409,6 +445,14 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
   fixture's expected line moves with every line its frontmatter gains.
 * *Do not compare in the parser.* A check of the bindings against the declared entries in the parser would refuse the
   verifier's fixtures before the verifier sees them.
+* *Fixtures are written for the test.* A test unit below `src/test/resources/dsl/` is written for the case it covers,
+  never copied from a default unit of the product: model-facing content lives only in `plan-marshall-mcp`, and no
+  artifact of `pm-mcp-core` carries it.
+* *Print the instance JSON as read.* The printer writes `InstanceHeader.json()` verbatim; code that builds an
+  `InstanceHeader` supplies the canonical JSON itself, because nothing re-serialises the parsed members.
+* *Reserved words in names.* A name that reads naturally can be refused because one of its segments is reserved: a unit
+  called `question.something` or a primitive `link.check` does not parse, and neither does a state id with the segment
+  `start`.
 
 == Decisions
 

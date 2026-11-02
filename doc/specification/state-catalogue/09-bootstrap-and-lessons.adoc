@@ -292,7 +292,7 @@ A source unit (`scope subworkflow`, compiled only) gathers, stores, and checks o
 |— (`entry`)
 |`operator_wait`
 |`source-lesson.resolve` (`premise_resolved`, `premise_invalid`).
-|`facts`: the premise evidence. `use` (the evidence goes into the plan as an `amendments[]` entry, `source: refutation`); `retire` (verdict `obsolete`, written to the lesson store under the lesson lock; nothing added, the start goes on); `remove` (nothing added; the lesson stays as it is for a later plan).
+|`facts`: the premise evidence. `use` (the evidence goes into the plan as an `amendments[]` entry, `source: fact`); `retire` (verdict `obsolete`, written to the lesson store under the lesson lock; nothing added, the start goes on); `remove` (nothing added; the lesson stays as it is for a later plan).
 |`use` -> `source-lesson.store`; `retire`, `remove` -> `source-lesson.done` (`none`).
 |link:../store-schemas/10-job-and-lesson-records.adoc#lesson-claim[Store Schemas Specification, A Claimed Lesson Ends with the Landing]
 

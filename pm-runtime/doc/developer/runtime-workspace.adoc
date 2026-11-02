@@ -98,5 +98,5 @@ every reason carries the same code; and the refusal is logged with the outcome c
 * Specification: link:{spec}/job-runtime/02-confinement-and-environment.adoc[Job Runtime § Confinement and Environment],
   link:{spec}/filesystem-layout/01-repository-workspace.adoc[Filesystem Layout § Repository Workspace]
 * Requirement: link:{docs}/Requirements.adoc#PM-SEC-2[PM-SEC-2]
-* The decision record: link:../../../pm-core/doc/adr/core-store/010-path-confinement-on-the-canonical-path.adoc[ADR
+* The decision-log record: link:../../../pm-core/doc/adr/core-store/010-path-confinement-on-the-canonical-path.adoc[ADR
   core-store/010] path confinement on the canonical path

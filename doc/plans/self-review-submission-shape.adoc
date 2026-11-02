@@ -1,0 +1,31 @@
+= The self-review's submission in its specified shape
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `self-review-submission-shape`
+
+[horizontal]
+Roadmap item:: _Implement the self-review's results per criterion_ (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
+Where:: pm-core package `core.spi.validation` (`SelfReviewSubmission`); the facts of the self-review task where the engine composes them
+Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== Tasks
+
+The specification sections named are the single statement of what each task builds.
+
+. *The three parameters* `criteria`, `unclaimed` and the optional `conflicts`, each item with its members and its refusal with `invalid_link_args`: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#self-review-submission[Phase Workflows § Self-Review Submission], the table. The result lists per constraint, non-goal and decision and the results per own call and per coordinate are removed with their tests.
+. *`unexplained_coordinates[]` in the facts* of the task, from the change map: § Self-Review Submission, the opening paragraph; link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#change-map[§ Change Map].
+
+Left out: the change map itself (`change-map`); the Criterion Evidence Check (link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#criterion-evidence[§ Criterion Evidence Check]).
+
+== Trace
+
+The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-29[PM-WF-29]
+* Specification: the sections the tasks name; link:../specification/phase-workflows/03-q-gate-and-execute.adoc#own-calls[Phase Workflows § Own Calls of a Writer]
+* Watch: link:../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-112[PM-WATCH-PHASE-112]
+
+== Done When
+
+* Watch: link:../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-112[PM-WATCH-PHASE-112].
+* Tests: `SelfReviewSubmissionTest` per row of the table, each refusal with the item named in `rejected.detail`; a submission without `conflicts` accepted as none found; a conflict naming a coordinate of `unexplained_coordinates[]` accepted and one naming another coordinate refused; no test or type left of the removed result lists.

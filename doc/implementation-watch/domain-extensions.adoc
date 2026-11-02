@@ -66,7 +66,7 @@ Source:: plan-marshall code-intelligence-substrate PLAN-CIS-054 D5 item 3, bulle
 === PM-WATCH-EXT-23: A technique's binding status agrees across every skill that carries it
 
 Anchor:: link:../specification/domain-extensions/01-four-axis-architecture.adoc#_core_architectural_invariants[Domain Extensions § Core Architectural Invariants] (Technique Preconditions),
-link:../specification/client-profiles/02-placeholders.adoc#_rendering_invariants[Client Profiles § Rendering Invariants]
+link:../specification/harness-profiles/02-placeholders.adoc#_rendering_invariants[Harness Profiles § Rendering Invariants]
 Hazard:: A prescriptive standard shipped binding-looking guidance where its precondition was unmet, and demoting it in
 one skill but not in others made the corpus contradict itself; the gap sat in more skills than the two named.
 Guard:: A build-time test enumerates every skill section that names a technique carrying a precondition, over the

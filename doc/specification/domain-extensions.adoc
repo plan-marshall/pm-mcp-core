@@ -30,6 +30,8 @@ _See Requirements:_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1: Roles as Configuration]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6: Role Qualification]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SKILL-5[PM-SKILL-5: Skill Extensions]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-29[PM-WF-29: Pre-Submission Self-Review]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5: Declarative Workflow DSL & Automated Diagram Generation]_
 
 == Status: PLANNED
 

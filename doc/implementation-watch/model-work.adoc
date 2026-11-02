@@ -26,11 +26,7 @@ Hazard:: A role is defined but of the wrong class for its entity kind: a `read_o
 write, a `writer` role as the screener holds tools that untrusted text can steer, and a consulted `zero_tool` role
 answers without the repository; the defect shows only when the state is reached, or after an artifact edit changed
 the class.
-Guard:: Composition test: a `job llm` state whose role's class differs from the class its entity kind registers, and a
-`consult role` clause naming a `zero_tool` role, refuse the composition with `class_mismatch` naming the role, its
-class, the state, and the required class; after an edit that changes a composed role's class, task creation closes
-the task without an attempt with `class_mismatch`, recorded `cause_class: refused`, and the state takes its
-conservative fallback. Matched control: every kind of the shipped units with its shipped role composes.
+Guard:: Composition test of the rules of link:../specification/model-work/01-roles-and-configuration.adoc#role-class-fit[Model Work § Composition Check]: one fixture per refusal (a `job llm` state whose role's class differs from its entity kind's, a `consult role` clause naming a `zero_tool` role) and one edit that changes a composed role's class before task creation, each asserting the reason and the named role, class, state, and required class; matched control: every kind of the shipped units composes with its shipped role.
 Source:: design review.
 
 [#PM-WATCH-DISP-51]
@@ -60,19 +56,6 @@ operator key `qualification.judge_role` with the exemption tied to it. Recommend
 Guard:: The plan implementing this anchor decides the point (with the operator where it changes scope), records
 the result in the specification and the requirement it touches, and deletes this item.
 Source:: `model-work/01-roles-and-configuration.adoc:15`, `:256`, `:279`.
-
-[#PM-WATCH-DISP-70]
-=== PM-WATCH-DISP-70: An item left out is left out, not scored
-
-Anchor:: link:../specification/model-work/01-roles-and-configuration.adoc#qualification-topics[Model Work § Corpus Topics of a Role] (Items Left Out of a Grading)
-Hazard:: An item tagged `decided-by:<role>` or `derived:<skill>` is scored `0` instead of left out, or counted in
-`items` and the constant baseline, or left out for every role instead of the configurations it concerns; a costly
-subset is computed over items whose `costly_answers` is empty, so a topic fails or passes on the wrong population.
-Guard:: Fixture corpus: a `draft` item `decided-by:triage-build` is absent from that role's topic and present in another
-role's, and present for both once `confirmed`; a `derived:<skill>` item is reported under `derived` only for a
-configuration bound to the skill; a topic of eight items, two with costly answers, records `costly.items: 2`, and a
-configuration that is right on six of the other items and wrong on both costly ones does not qualify at a level of 80.
-Source:: Article analysis `counting-house` of plan-marshall-documentation.
 
 == Task Protocol, Supervision & Skill Delivery
 
@@ -185,7 +168,7 @@ Source:: design review.
 
 Anchor:: link:../specification/job-runtime/02-confinement-and-environment.adoc#worker-data-home[Job Runtime § Per-Worker Data Home],
 link:../specification/model-work/03-supervision-and-recycling.adoc#start-collisions[Model Work § Starts of One Harness],
-link:../specification/client-profiles/01-profile-schema.adoc#headless-data-home[Client Profiles § Normative Client Profile JSON Schema] (Per-worker data home)
+link:../specification/harness-profiles/01-profile-schema.adoc#headless-data-home[Harness Profiles § Normative Harness Profile JSON Schema] (Per-worker data home)
 Hazard:: A harness keeps its local state in one per-user store. A worker stopped in the middle of a step holds
 that store's write lock: every other worker of the harness exits at start, the start-failure guard stops the role
 before the stalled worker's silence deadline, its task is never submitted, and the operator's own interactive
@@ -362,13 +345,7 @@ link:../specification/model-work/02-task-protocol.adoc#re-offer[§ Re-Offer with
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-5[PM-WF-5]
 Hazard:: A worker cancelled, killed, or timed out before its `submit` is treated as a delivered result, or the engine
 offers the task again without bound and loops; a submission recorded just before the kill is lost.
-Guard:: Table test over every fate (`succeeded`, `failed`, `timed_out`, `killed`, `cancelled`, `indeterminate`,
-`refused`) with
-the required records present or absent: with the records present the return evaluation decides the outcome whatever
-the fate; without them the state raises `job_incomplete`, and the server offers the task again with the observed
-partial progress in its facts, without a model link, within the task re-offer budget; when the budget is spent the
-task closes `lost` (`attempts_spent`) and the state takes its conservative fallback; an attempt ended by a restart,
-a drain, or a start failure counts against no budget; the attribution defect is audit-logged.
+Guard:: Table test over every fate, each with the required records present and absent, asserting the outcome link:../specification/model-work/09-completion-usage-and-spend.adoc#job-completion[Task Completion] and link:../specification/model-work/02-task-protocol.adoc#re-offer[Re-Offer] define; a fixture spends the re-offer budget to `lost` (`attempts_spent`), and attempts ended by a restart, a drain, and a start failure each spend nothing.
 Source:: design review.
 
 [#PM-WATCH-DISP-27]
@@ -392,14 +369,7 @@ Anchor:: link:../specification/model-work/06-envelopes-questions-deadlines.adoc#
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-12[PM-WF-12]
 Hazard:: A sub-agent waits in-leaf for an answer (blocking the envelope and holding the worktree beyond any bound),
 or its question is lost when the entity ends, or an unanswered task question is decided by the passing of time.
-Guard:: Scenario: the worker of an envelope task follows `ask:TASK-NNN`; the record is persisted naming the envelope
-and the plan task; where the envelope task continues it rests in `envelope.task.awaiting_answer`, its worker holds
-only within its role's question hold, and the same plan task continues with the answer; where it does not continue,
-the task ends `asked` with `yield_reason: question` recorded by the server, its worker and model slot are free, and
-the plan enters `execute.task-question`; no further envelope task is queued while the record is open; the decision is
-delivered to both clients of the operator as an operator wait and never to a worker; after the answer the remaining
-plan tasks, the asking one included, form the next envelope task with the answer in its facts; the decision has no
-deadline and no default.
+Guard:: Scenario over both paths of link:../specification/model-work/06-envelopes-questions-deadlines.adoc#task-questions[Task Questions], an envelope task that continues after `ask:TASK-NNN` and one that does not: the record names the envelope and the plan task, no further envelope task is queued while it is open, the decision reaches both clients and no worker, and the next envelope task carries the answer; a fixture lets the hold pass without an answer and asserts that nothing is decided by time.
 Source:: design review.
 
 [#PM-WATCH-DISP-29]
@@ -457,35 +427,12 @@ options sorted by `branch_key` and without `recommended` flags. Matched control:
 keeps the recorded order.
 Source:: design review.
 
-[#PM-WATCH-DISP-63]
-=== PM-WATCH-DISP-63: A judgment vote is a probability read in two orders, never the service's confidence
-
-Anchor:: link:../specification/model-work/10-decision-quorum.adoc#judgment-vote[Model Work § Judgment Votes],
-link:../specification/client-profiles/04-judgment-endpoint.adoc#system-one-request[Client Profiles § The Request and the Answer],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-18[PM-WF-18]
-Hazard:: A first-level thinker returns, beside the probability of each option, a `confidence` that only says how
-concentrated the distribution is. Read as the vote's confidence it reaches `90` for a distribution that is right far
-less often (an independent test of the hosted service measured a median calibration error of `0.157`, and an accuracy
-of `0.815` above a stated confidence of `0.9`). The same model may lean towards the option it reads first, and the
-recorded order of a question's options leads with the asker's recommendation. A vote that rests on one order, or on
-the service's statistic, lets a quorum decide on a lean. A second hazard sits in the form: a warm voter carries the
-earlier votes of its worker, so its calibration is that of the form it ran in, and a calibration measured fresh
-vouches for nothing once the role is switched to warm.
-Guard:: Unit: the vote's confidence is the integer part of `100` times the lower of the two probabilities of the
-first order's choice, whatever the answer's `confidence` says; a stub whose second order prefers another option gives
-a vote below every declarable score, and the set escalates; the options of both requests are sorted by `branch_key`
-and reversed, never in the recorded order, and no request carries a `recommendation`. The declaration digest and the
-calibration record hold the `form` of every listed role: a record measured fresh is not valid for the role once it is
-warm (matched control: the same record stays valid for the unchanged role). A judgment vote on a set with a part of
-the answer type `several` or `value` ends `infeasible`, and the set escalates `role_unavailable`.
-Source:: Article analysis `first-level-thinker` of plan-marshall-documentation.
-
 [#PM-WATCH-DISP-46]
 === PM-WATCH-DISP-46: A correction is appended, never written over, and an export takes the decision finally taken
 
-Anchor:: link:../specification/model-work/11-decision-records.adoc#decision-records[Model Work § Decision Records],
+Anchor:: link:../specification/model-work/11-decision-records.adoc#decision-records[Model Work § Decision Log],
 link:../specification/model-work/11-decision-records.adoc#corpus-export[§ Corpus Export],
-link:../specification/store-schemas/18-decision-records.adoc#decision-record[Store Schemas § Decision Record],
+link:../specification/store-schemas/18-decision-records.adoc#decision-record[Store Schemas § Decision-Log Record],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-19[PM-WF-19]
 Hazard:: A store that keeps one current object per decision updates its `choice` when a later decision departs from
 it, so the original decision, its decider, and its confidence are lost and the threshold it was taken against can no
@@ -494,27 +441,13 @@ longer be calibrated; or the export reads the question record's `recommended` op
 re-planning reverted, and an operator waiver read as a correction turns a policy override into a reference.
 Guard:: Scenario test: a plan whose outline question the operator answers against the asker's recommendation, whose
 finding group is triaged `ACCEPT` and later `FIX`, whose re-planning names the change-type decision in `corrects`,
-and whose blocking Q-Gate verdict is waived: `decisions.jsonl` holds every `decided` line byte-identical after the
+and whose blocking Q-Gate verdict is waived: `decision-log.jsonl` holds every `decided` line byte-identical after the
 run, with one `corrected` line per departure (causes `reverted`, `replanned`, `overridden`), and the export writes
 the question item with the operator's `branch_key`, the triage item with `FIX`, no change-type item (skipped
 `corrected_without_choice`), and the Q-Gate item with the task's own verdict and the waiver only in `review.notes`;
 no item's input contains `recommended`, `recommendation_confidence`, the asker's rationale, or the choice. Matched
 control: a decision without a correction is exported with its own choice and an unchanged line.
 Source:: design review.
-
-[#PM-WATCH-DISP-68]
-=== PM-WATCH-DISP-68: A shadow vote is never seen before the answer
-
-Anchor:: link:../specification/model-work/10-decision-quorum.adoc#shadow-votes[Model Work § Shadow Votes]
-Hazard:: The shadow votes reach the operator before the answer: the decision view derives each option's support from
-every vote line of the question, a resource or the export reads the `shadowed` line, or the escalated set waits for the
-shadow tasks before it is delivered. The operator then answers with the votes, the answer stops being an independent
-label, and the shadow figures measure agreement with themselves.
-Guard:: Scenario: a set of an `ask shadow(...)` kind is delivered before its shadow tasks end; until the answer, the
-decision view, `pm://plan/{plan_id}/decisions`, and both clients carry no shadow vote, no support, and no shadow figure;
-after the answer the `shadowed` line is shown and counted; a shadow vote ending after the answer is recorded and its
-facts hold no answer. Matched control: an escalated `quorum` set still shows its own votes before the answer.
-Source:: Article analysis `counting-house` of plan-marshall-documentation.
 
 [#PM-WATCH-DISP-69]
 === PM-WATCH-DISP-69: Live corrections count only the declaration's own decisions since its calibration
@@ -523,7 +456,7 @@ Anchor:: link:../specification/model-work/10-decision-quorum.adoc#live-correctio
 Hazard:: The window is taken over the kind instead of the declaration digest, counts decisions before the calibration
 record or `escalated` records, reads the `decided` lines without folding their corrections, or counts `replanned` and
 `overridden`, so a declaration is demoted for another configuration's errors or never demoted at all.
-Guard:: Table test over decision stores of two plans and the workspace: a correction `answered_differently` among the
+Guard:: Table test over decision logs of two plans and the workspace: a correction `answered_differently` among the
 first 19 automatic decisions demotes, one among 20 does not, two among the last 20 do; a decision before the
 calibration's `graded_at`, one of another declaration digest of the same kind, an `escalated` record, and corrections
 `replanned` and `overridden` count nothing; a new calibration record lifts the demotion.
@@ -575,7 +508,7 @@ token or the host's session markers and acts beyond its job.
 Guard:: Per harness with a `headless` block, a launch-vector test asserts the exclusive per-call MCP configuration
 (only the job relay) where the profile declares `mcp_config.exclusive`; an environment test asserts that a worker
 holds its job token only, never the runtime token, and none of the host markers; an integration test runs one worker
-in a project with the client bundle installed and a global MCP entry in the operator's configuration and finds no
+in a project with the harness bundle installed and a global MCP entry in the operator's configuration and finds no
 second connection in the audit log and no tool of it in the worker's `tools/list`.
 Source:: design review.
 
@@ -608,7 +541,7 @@ Anchor:: link:../specification/model-work/07-untrusted-text-screening.adoc#scree
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1]
 Hazard:: A model that reads untrusted content while it holds a tool can be steered by that content to read local
 files and carry them out.
-Guard:: For every client profile whose `headless.classes.zero_tool` is non-null, the composed launch of
+Guard:: For every harness profile whose `headless.classes.zero_tool` is non-null, the composed launch of
 a `screener` worker has zero tools, no MCP configuration, project and user settings off, and the empty `cwd/`
 subdirectory of its job-private directory as working directory, which it cannot write; a launch-vector test per
 profile fails on any tool, MCP entry, or loaded project setting; a role artifact of class `zero_tool` that names a
@@ -641,12 +574,7 @@ link:../specification/model-work/07-untrusted-text-screening.adoc#batched-triage
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1]
 Hazard:: Per-item screening and per-finding triage multiply tasks; a batch that drops an item lets unscreened
 text through, and a group disposition that silently skips a finding leaves it untriaged yet counted as settled.
-Guard:: Property test over generated firings: the batch holds exactly the new items of the firing (each with `item_id`
-and the SHA-256 of its level-1-cleaned text); the screener parts (one task per part of the screen state,
-`job llm screen role screener each screen.batch-parts`) cover every uncached item exactly once; one triage task per
-firing receives every finding that is not withheld, grouped by `(domain, rule_id)`; a finding that a `triage-groups`
-submission does not cover stays untriaged and is never counted as settled; a per-finding exception overrides only
-its finding; a disposition that contradicts a finding's class is refused `invalid_link_args` naming the finding.
+Guard:: Property test over generated firings against link:../specification/model-work/07-untrusted-text-screening.adoc#batch-v1[Batch Format] and link:../specification/model-work/07-untrusted-text-screening.adoc#batched-triage[Batched Triage]: every new item is in the batch and in exactly one screener part, every finding that is not withheld reaches the one triage task, a finding no submission covers stays untriaged, and a disposition that contradicts a finding's class is refused naming the finding.
 Source:: design review.
 
 == Epic Coordination & Server-Started Plans
@@ -729,11 +657,7 @@ Anchor:: link:../specification/model-work/08-epic-coordination.adoc#server-deriv
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-6[PM-WF-6]
 Hazard:: A verdict attributed a fix to a PR whose diff did not touch the file; records cited symbols that did not
 exist and credited the wrong PR; "none blocking" was written over open gaps.
-Guard:: The landing facts (commits merged, files changed, tasks completed) are derived by the server from the git
-history, the audit log, and the realized footprint, never taken from the `landing` task's submission, and the
-landing commit is located by its `(#<pr_number>)` subject; every `hypothesis` re-grounding verdict names the
-repository file or artifact that confirms or refutes it, and `contradicted` is admitted only when `exercised_path`
-covers every component the claim names (test per rule).
+Guard:: Test per rule of link:../specification/model-work/08-epic-coordination.adoc#server-derived-landing-facts[Server-Derived Landing Facts] items 1 and 2: a `landing` submission whose facts differ from git, the audit log, and the realized footprint does not change the record; a squash commit is found by its `(#<pr_number>)` subject; a `hypothesis` verdict naming no confirming artifact, and a `contradicted` verdict whose `exercised_path` misses a component the claim names, are refused.
 Fixture:: #1370 (empty stat for `orchestrator.py`) vs the real fix #1366 (`b758d5c02`); plan 010 cited 3 non-existent
 symbols; #1039 credited as #1153.
 Source:: plan-marshall orchestrator-refactor PLAN-06 HYPOTHESIS; review-apparatus PLAN-PR-031 D1.
@@ -918,7 +842,7 @@ committed by `epic.commit-ledger` staging `epic/**` and `archived-epics/**` and 
 `epic.landing`; only then does `epic.next-work` take `archive_landed` (`epic.archived`) or `cancel_landed`
 (`epic.aborted`). Fixtures: a landing that fails or a commit that steps out keeps the epic non-terminal and resumes on
 the next ledger commit or default-branch advance; no plan starts and no task is served while the archive flag is set.
-Matched control: the cancel that resolves an integrity pause on the epic enters `epic.aborted` directly and
+Matched control: the cancel that resolves an integrity hold on the epic enters `epic.aborted` directly and
 commits nothing from the tampered ledger.
 Source:: design review.
 
@@ -954,9 +878,7 @@ made after the decision and its reference answer is visible in its input.
 Guard:: Scenario: a decision whose evidence finding was resolved and whose file was changed after the decision exports
 the finding's version before the decision and the file at the record's `head_sha`; a missing old version is tagged
 `evidence-incomplete`, never replaced.
-Source:: Article analysis `agentic-graph-engineering` of plan-marshall-documentation. The grading half (an item of the
-project's repository graded at its origin commit, `checkout: current` when the commit is missing) landed with the
-`role-qualification` package; the export half stays with `decision-quorum-and-calibration`.
+Source:: Article analysis `agentic-graph-engineering` of plan-marshall-documentation.
 
 [#PM-WATCH-DISP-67]
 === PM-WATCH-DISP-67: Two routes to one model are one voter

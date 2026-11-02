@@ -13,8 +13,8 @@ _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]_
 
 Package `de.planmarshall.core.findings` of `pm-core` holds the normalized finding and the contracts every producer of
 findings implements: what a finding is, what a scope is asked about, under which key a producer is registered and how a
-finding is answered on its provider. The provider modules are where the calls belong; no implementation of these
-contracts exists in this repository yet, and the store and the workflow own recording what is observed.
+finding is answered on its provider. The provider modules are where the calls belong; no module of this repository
+implements these contracts, and the store and the workflow own recording what is observed.
 
 The package holds declarations, validation and lookup only: it makes no HTTP call, writes no file or store and depends
 on no store class. Why the contract lives in the foundation and not in a provider module is stated in
@@ -101,12 +101,15 @@ empty, which is not an outcome of an operation.
 * *Register under the store's key, not under a provider name.* A source is found by the `source` value the store
   records and, for `analysis`, by the provider id. A key of its own (a provider name, a review-bot name) would fetch
   findings under one key and store them under another.
-* *Nothing in `pm-core` names a provider.* No class of `pm-core` depends on a provider package, and no class, package or
-  member name contains a forge or analysis-service name, ignoring case. The single exemption is the constants
-  `GITHUB_PR` and `GITLAB_MR` of `FindingSourceKind`, whose names are fixed by the store's closed `source` vocabulary.
-* *The package stays declarations, serialization and validation.* No class here depends on an HTTP client, a
-  `java.nio.file.Files` writing method, `FileOutputStream`, `FileWriter`, `RandomAccessFile` or `FileChannel`, or on a
-  `core.store` class.
+* *Nothing in `pm-core` names a provider.* No class of `pm-core` depends on a provider package
+  `de.planmarshall.provider..`, and no class, package or member name contains `github`, `gitlab`, `sonar` or `codeql`,
+  ignoring case. The single exemption is the constants `GITHUB_PR` and `GITLAB_MR` of `FindingSourceKind`, whose names
+  are fixed by the store's closed `source` vocabulary (`github_pr`, `gitlab_mr`) and name the kind of producer of a
+  finding, not a provider identity. A member of the same name in any other type is not exempt. A provider's name belongs
+  in its provider module and in the configuration.
+* *The package stays declarations, serialization and validation.* No class here makes a network call, writes a file or
+  depends on a `core.store` class; the exact rule is stated in
+  link:core-analysis.adoc#boundary[`core.analysis` § The Boundary Rule], which covers both packages.
 * *The wire vocabulary has one source.* A caller tells a value apart by its constant, never by a string it wrote
   itself; the schema parity test proves that the enums equal the schema's `enum` members.
 

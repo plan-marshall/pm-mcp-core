@@ -1,4 +1,4 @@
-= Client Profiles Specification: Endpoint Harness
+= Harness Profiles Specification: Endpoint Harness
 :toc: left
 :toclevels: 3
 :toc-title: Table of Contents
@@ -6,25 +6,13 @@
 :source-highlighter: highlight.js
 :nofooter:
 
-link:../../Specification.adoc[Specification] » link:../client-profiles.adoc[Client Profiles Specification] » Endpoint Harness
+link:../../Specification.adoc[Specification] » link:../harness-profiles.adoc[Harness Profiles Specification] » Endpoint Harness
 
 [#endpoint-harness]
 == A Model on This Machine
 _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-2[PM-ARCH-2: Local-by-Design & Zero External Cloud Dependency], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1: Roles as Configuration]_
 
-A model that a program of the machine serves over HTTP on the loopback interface is a harness of its own kind, the
-*endpoint harness*: it runs exactly one role class, `zero_tool`, and it is described by an endpoint profile of the same
-profile sets, verification and override rules as a client profile. The runtime never starts, stops or configures the
-serving program, and no task text reaches a program other than the enrolled one.
-
-A model that a program of the machine serves over HTTP on the loopback interface (an operating system's own model server, or a local model runner), or that a service answers over HTTPS in the remote form of the protocol `system_one` (link:04-judgment-endpoint.adoc#judgment-endpoint[Judgment Endpoint]), is a harness of its own kind, the *endpoint harness*. It has no tools, no MCP connection, and no session, so it runs exactly one role class, `zero_tool` (the screener and the judge, link:01-profile-schema.adoc#role-classes[Role Classes of a Harness]; the commit message and the change type where an artifact of their roles sets the class, link:../model-work/01-roles-and-configuration.adoc#closed-task-in-band[Model Work Specification, A Closed Task without Tools]), and no other. Nothing a loopback endpoint is given leaves the machine, so untrusted text screened on it reaches no model provider; a remote endpoint sends what it is given to its service, which is why the screener runs on a loopback endpoint only (link:04-judgment-endpoint.adoc#remote-form[Remote Form]).
-
-The loopback runtime and the profile kind are implemented: the profile kind by `pm-core` (§ Endpoint Profile Schema below and
-link:../../../pm-core/doc/developer/core-profile.adoc[Profile Loader and Schema Developer Guide]), the runtime by
-`pm-runtime` (link:../../../pm-runtime/doc/developer/runtime-endpoint.adoc[Endpoint Harness Developer Guide]): the
-request, the answer and its usage, the enrolment and the owner check, the weights identity and the verification of an
-endpoint. The remote form and the protocol `system_one` are the judgment endpoint's
-(link:04-judgment-endpoint.adoc#judgment-endpoint[Judgment Endpoint]), implemented in the same package.
+A model that a program of the machine serves over HTTP on the loopback interface (an operating system's own model server, or a local model runner) is a harness of its own kind, the *endpoint harness*. It has no tools, no MCP connection, and no session, so it runs exactly one role class, `zero_tool` (the screener and the judge, link:01-profile-schema.adoc#role-classes[Role Classes of a Harness]; the commit message and the change type where an artifact of their roles sets the class, link:../model-work/01-roles-and-configuration.adoc#closed-task-in-band[Model Work Specification, A Closed Task without Tools]), and no other. It is described by an endpoint profile of the same profile sets, verification and override rules as a harness profile. The runtime never starts, stops or configures the serving program, and no task text reaches a program other than the enrolled one. Nothing an endpoint is given leaves the machine, so untrusted text screened on it reaches no model provider. A judgment role, which answers a typed question with a probability per option, is deferred (link:https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/later-improvements.adoc#L-39[L-39]).
 
 * *Started by the operator, never by `PM-MCP`*: the serving program runs under the operator's own account and its own
   terms; the runtime only sends requests to it and checks before each request that the program listening on the profile's
@@ -45,19 +33,18 @@ endpoint. The remote form and the protocol `system_one` are the judgment endpoin
   "$id": "https://cuioss.de/plan-marshall-mcp/schemas/endpoint-profile.json",
   "title": "EndpointProfile",
   "type": "object",
-  "required": ["profile_kind", "schema_version", "client_id", "display_name", "min_daemon_version", "icon", "executable", "identity", "update_evidence", "endpoint", "model_tiers", "weights_probe"],
-  "description": "executable, identity, and update_evidence are null in the remote form (Judgment Endpoint, Remote Form).",
+  "required": ["profile_kind", "schema_version", "harness_id", "display_name", "min_daemon_version", "icon", "executable", "identity", "update_evidence", "endpoint", "model_tiers", "weights_probe"],
   "additionalProperties": false,
   "properties": {
     "profile_kind": { "type": "string", "const": "endpoint" },
     "schema_version": { "type": "integer", "const": 1 },
-    "client_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
+    "harness_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
     "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
     "min_daemon_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
-    "icon": { "description": "As the icon of a client profile (Client Profile Schema)." },
-    "executable": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9-]*$", "description": "Name of the serving program; the operator enrols its absolute path, and the runtime checks that it owns the listening socket of base_url. Null in the remote form." },
+    "icon": { "description": "As the icon of a harness profile (Harness Profile Schema)." },
+    "executable": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "description": "Name of the serving program; the operator enrols its absolute path, and the runtime checks that it owns the listening socket of base_url." },
     "identity": {
-      "type": ["object", "null"],
+      "type": "object",
       "required": ["version_probe", "version_pattern"],
       "additionalProperties": false,
       "properties": {
@@ -65,16 +52,14 @@ endpoint. The remote form and the protocol `system_one` are the judgment endpoin
         "version_pattern": { "type": "string" }
       }
     },
-    "update_evidence": { "description": "As headless.update_evidence of a client profile (Update Evidence)." },
+    "update_evidence": { "description": "As headless.update_evidence of a harness profile (Update Evidence)." },
     "endpoint": {
       "type": "object",
-      "required": ["protocol", "locality", "base_url", "credential_key", "readiness_path", "models_path", "models_pointer", "result_schema", "context_tokens", "answer_reserve_tokens", "request_timeout_seconds"],
+      "required": ["protocol", "base_url", "readiness_path", "models_path", "models_pointer", "result_schema", "context_tokens", "answer_reserve_tokens", "request_timeout_seconds"],
       "additionalProperties": false,
       "properties": {
-        "protocol": { "type": "string", "enum": ["openai_chat", "system_one"], "description": "The request and answer format; a new protocol is a change of this list and of the code, made once for all endpoints. system_one: typed questions and answers (Judgment Endpoint)." },
-        "locality": { "type": "string", "enum": ["loopback", "remote"], "description": "remote only with the protocol system_one (Judgment Endpoint, Remote Form)." },
-        "base_url": { "type": "string", "pattern": "^(http://(127\\.0\\.0\\.1|\\[::1\\]):[0-9]{1,5}|https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?)$" },
-        "credential_key": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "The Token Lane credential entry of a remote endpoint; null for a loopback endpoint." },
+        "protocol": { "type": "string", "enum": ["openai_chat"], "description": "The request and answer format; a new protocol is a change of this list and of the code, made once for all endpoints." },
+        "base_url": { "type": "string", "pattern": "^http://(127\\.0\\.0\\.1|\\[::1\\]):[0-9]{1,5}$" },
         "readiness_path": { "type": ["string", "null"], "pattern": "^/[A-Za-z0-9._/-]{0,127}$", "description": "A path answering 200 once the program serves; null: the models path is the readiness check." },
         "models_path": { "type": "string", "pattern": "^/[A-Za-z0-9._/-]{0,127}$" },
         "models_pointer": { "type": "string", "description": "JSON Pointer to the array of model objects in the answer of models_path; each object's id is a model id." },
@@ -84,7 +69,7 @@ endpoint. The remote form and the protocol `system_one` are the judgment endpoin
         "request_timeout_seconds": { "type": "integer", "minimum": 5, "maximum": 3600 }
       }
     },
-    "model_tiers": { "description": "As headless.model_tiers of a client profile (Model Tiers & Models of a Harness)." },
+    "model_tiers": { "description": "As headless.model_tiers of a harness profile (Model Tiers & Models of a Harness)." },
     "weights_probe": { "$ref": "#/$defs/weights_probe" }
   },
   "$defs": {
@@ -104,11 +89,7 @@ endpoint. The remote form and the protocol `system_one` are the judgment endpoin
 }
 ----
 
-Profile validation applies the rules of a client profile where they concern the same members (link:01-profile-schema.adoc#profile-hardening[A Profile Is Untrusted Input]) and refuses an endpoint profile whose `answer_reserve_tokens` is not below `context_tokens`, or whose `weights_probe` fills the members of the other source. It refuses the combinations of `locality` that the schema cannot express: `loopback` with an `https` `base_url`, with a `credential_key`, or without `executable` and `identity`; `remote` with the protocol `openai_chat`, with an `http` `base_url`, without a `credential_key`, or with an `executable`, `identity`, or `update_evidence`.
-
-* *Loopback here; the remote form at the judgment endpoint*: this part states the schema of both forms and the rules of the
-  loopback one. The remote form and its rules are link:04-judgment-endpoint.adoc#remote-form[Judgment Endpoint, Remote
-  Form], implemented by `pm-runtime`.
+Profile validation applies the rules of a harness profile where they concern the same members (link:01-profile-schema.adoc#profile-hardening[A Profile Is Untrusted Input]) and refuses an endpoint profile whose `answer_reserve_tokens` is not below `context_tokens`, or whose `weights_probe` fills the members of the other source.
 
 [#endpoint-request]
 === The Request
@@ -120,25 +101,18 @@ A task of a `zero_tool` role on an endpoint harness is one HTTP request, compose
 * *What it accepts*: the answer is validated against the result schema by the server, never trusted because the endpoint enforces a schema. An answer that does not validate, a refusal text, an HTTP error, or a timeout ends the attempt like a worker without a valid result, and the task's own rules apply (a screening fails closed and leaves its sources `unscreened`, link:../model-work/07-untrusted-text-screening.adoc#screen-stored[Model Work Specification, Screened Once Stored]). An endpoint that does not answer its readiness check counts as a start failure (link:../model-work/03-supervision-and-recycling.adoc#start-failure-guard[Model Work Specification, Start-Failure Guard]).
 * *Usage*: the token counts of the answer's usage object are recorded per task; a count the answer lacks is `unmeasured` (link:01-profile-schema.adoc#token-usage[Tokens, Not Money]).
 
-Implemented by `pm-runtime` (link:../../../pm-runtime/doc/developer/runtime-endpoint.adoc#the-request[Endpoint Harness
-Developer Guide]): the request, the server's own validation of every answer, the end of the attempt and the usage counts,
-as above.
-
 [#endpoint-enrolment]
 === Enrolment
 
-Implemented by `pm-runtime`: an endpoint harness is enrolled like a harness started as a process, and before each request
+An endpoint harness is enrolled like a harness started as a process, and before each request
 the runtime checks that the process owning the listening socket of `base_url` runs the enrolled executable; another
-program on the port refuses the request before it is sent (fate `refused`, reason `harness_not_enrolled`). The remote
-form has no serving program: its enrolment records the origin and the credential key instead, and no owner check applies
-(link:04-judgment-endpoint.adoc#remote-form[Judgment Endpoint, Remote Form]).
+program on the port refuses the request before it is sent (fate `refused`, reason `harness_not_enrolled`).
 
 [#weights-identity]
 === Weights Identity
 _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6: Role Qualification], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation]_
 
-Implemented by `pm-runtime` (link:../../../pm-runtime/doc/developer/runtime-endpoint.adoc#weights-identity[Endpoint
-Harness Developer Guide]): where a profile's `weights_probe` is not `null`, the identity of the weights of every allowed
+Where a profile's `weights_probe` is not `null`, the identity of the weights of every allowed
 model is read at enrolment, at every start of the runtime and at every project setup run, and recorded in the harness
 enrolment beside the model. It is a member of the qualification digest, so a model whose weights changed is unqualified
 until it is graded again, and the change is audited `harness_updated`, naming the model and both identities.
@@ -146,7 +120,6 @@ until it is graded again, and the change is audited `harness_updated`, naming th
 [#endpoint-verification]
 === Verification of an Endpoint
 
-Implemented by `pm-runtime` (link:../../../pm-runtime/doc/developer/runtime-endpoint.adoc#verification[Endpoint Harness
-Developer Guide]): the stages `identity`, `launch`, `classes` and `limits` of `pm-operator profile verify` and of the
-onboarding's `harness.verify-profile`, decided from what the runtime observes. A failed `identity` or `launch` stage
+The stages `identity`, `launch`, `classes` and `limits` of `pm-operator profile verify` and of the
+onboarding's `harness.verify-profile` are decided from what the runtime observes. A failed `identity` or `launch` stage
 refuses the draft; `classes` and `limits` record what they found.

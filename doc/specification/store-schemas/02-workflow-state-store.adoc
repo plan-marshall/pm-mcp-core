@@ -13,7 +13,7 @@ _Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-W
 
 Tracks the authoritative state machine position, phase, persisted sub-workflow `call_stack`, the plan's title, creation instant, and the start of its current phase, the operator's pause, active jobs and the job bound to the current job state (`active_job`), the queue tasks of the current model state (`active_tasks`), the pending condition overlay, the plan instance version in force, the remediation policy counters, the identifier counters of the scope (`counters`), the attempts of the server-rule retries and of the condition budgets counted outside a condition (`retry_counters`), pending waiver requests, recorded gaps, per-step outcome records, the plan outcome, and composite wait facts for a plan, an epic, the project's workspace scope, or the machine scope (`PM-ARCH-6`, `PM-WF-7`, `PM-WF-13`, `PM-WF-16`, `PM-WF-26`, `PM-IMPL-7`); the machine scope's store is `<PM_MCP_BASE>/machine/mcp/status.json` (link:../workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL Specification, Machine Scope]). The plan's history (<<plan-history>>), instance files, overrides, waivers, questions, and evidence are separate stores (xref:14-plan-instance-waivers-questions.adoc#plan-instance[Plan Instance, Waivers, Questions & Evidence]). Store digests live in the sidecar `mcp/digests.json` (xref:13-leases-integrity-testing.adoc#store-digest-verification[Store Digest Verification Against Out-of-Band Edits]). The values of the `state` field are catalogued in the link:../state-catalogue.adoc[State Catalogue]; a plan's `phase` is the phase sub-workflow on its call stack (xref:03-findings-and-review-records.adoc#phase-sub-workflows[Phases as Sub-Workflows]).
 
-The store, its codec, and the members the workflow engine owns (`format_version`, `scope_type`, `scope_id`, `phase`, `state`, `call_stack`, `loop_back_iteration`, `outline_loop_backs`, `policy_counters`, `retry_counters`, `active_job`, `active_jobs`, `active_tasks`, `pending_condition`, `waiver_requests`, `updated_at`) are implemented and documented in link:../../../pm-core/doc/developer/core-store.adoc[Workflow State Store and Engine Ports Developer Guide]; every other member is kept verbatim by the codec until the package that owns it types it. The schema below stays the closed contract of the whole document.
+The schema below is the closed contract of the whole document.
 
 [source,json]
 ----
@@ -85,12 +85,12 @@ The store, its codec, and the members the workflow engine owns (`format_version`
     "outcome": {
       "type": ["string", "null"],
       "enum": ["merged", "handed_back", "returned", "no_change", "cancelled", "abandoned", "released", "aborted", null],
-      "description": "Plan scopes only: the plan outcome, written by the transaction that enters the terminal (finalize.archive-plan for merged, handed_back, returned, and no_change, the last for a plan whose workflow found nothing to change, with merge_outcome no_pr; the entry into plan.aborted for cancelled and abandoned, the operator's end of a running or of a paused plan, for released, the release of the plan's project, and for aborted, the abort resolution of an integrity pause; state-catalogue/04, Cancelling and Abandoning Archive); required (non-null) once phase is completed or aborted, null before. Copied into the landing record beside merge_outcome."
+      "description": "Plan scopes only: the plan outcome, written by the transaction that enters the terminal (finalize.archive-plan for merged, handed_back, returned, and no_change, the last for a plan whose workflow found nothing to change, with merge_outcome no_pr; the entry into plan.aborted for cancelled and abandoned, the operator's end of a running or of a paused plan, for released, the release of the plan's project, and for aborted, the abort resolution of an integrity hold; state-catalogue/04, Cancelling and Abandoning Archive); required (non-null) once phase is completed or aborted, null before. Copied into the landing record beside merge_outcome."
     },
     "terminal_reason": {
       "type": ["string", "null"],
       "enum": ["completed", "cancelled", "released", null],
-      "description": "Epic scopes only: how the epic ended, written by its terminal transaction (completed by the operator's archive, cancelled by the operator's cancel or the abort resolution of an integrity pause, released by the release of its project); the epic header's terminal_reason carries completed and cancelled in the ledger, while released is recorded only here, since a release never writes the ledger (store-schemas/04, Epic Header). Null while the epic lives."
+      "description": "Epic scopes only: how the epic ended, written by its terminal transaction (completed by the operator's archive, cancelled by the operator's cancel, the cancel of an integrity hold included, released by the release of its project); the epic header's terminal_reason carries completed and cancelled in the ledger, while released is recorded only here, since a release never writes the ledger (store-schemas/04, Epic Header). Null while the epic lives."
     },
     "instance_version": {
       "type": ["integer", "null"],
@@ -245,6 +245,12 @@ The store, its codec, and the members the workflow engine owns (`format_version`
       "default": 0,
       "description": "Plan scopes only: loop_back_outline transitions taken, bounded by the compiled loop-back budget (timeouts.adoc, Outline loop-back budget), raised only by a fix_budget:outline-loop-back raise waiver; never reset."
     },
+    "outline_review_revisions": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0,
+      "description": "Light-lane plan scopes only: the revise answers of the outline review, charged by outline.route-review on every path, bounded by the same default and hard cap as the fix budget of qgate-findings (timeouts.adoc, Remediation Budgets), raised like that fix budget; never reset (phase-workflows/02, Outline Review)."
+    },
     "policy_counters": {
       "type": "object",
       "description": "Plan scopes only: consumed budgets per remediation policy class (ci-failure, review-findings, build-failure, merge-conflict, qgate-findings, analysis), counted per plan and class, persisted, never reset by re-entering the unit, by a new HEAD, or by a re-composition; the effective ceilings are the bound arguments of the plan instance.",
@@ -340,11 +346,11 @@ The store, its codec, and the members the workflow engine owns (`format_version`
           "amendment_id": { "type": "string", "pattern": "^A-[0-9]+$" },
           "at": { "type": "string", "format": "date-time" },
           "phase": { "type": "string" },
-          "source": { "type": "string", "enum": ["user", "model", "quorum", "refutation"], "description": "user: the operator's answer (channel web or cli); model: a model judgment such as continue_narrowed; quorum: an answer a quorum of the adjudication decided (channel quorum); refutation: an in-triage refutation, or the premise evidence of a lesson source carried from the bootstrap (continue of the source-lesson premise state), written by the plan's creation transaction." },
+          "source": { "type": "string", "enum": ["operator", "role", "quorum", "fact"], "description": "A decider kind (store-schemas/18, Decider Kind). operator: the operator's answer (channel web or cli); role: a model judgment such as continue_narrowed; quorum: an answer a quorum of the adjudication decided (channel quorum); fact: an in-triage refutation, or the premise evidence of a lesson source carried from the bootstrap (continue of the source-lesson premise state), written by the plan's creation transaction." },
           "question_id": { "type": ["string", "null"], "pattern": "^Q-[0-9]{3,6}$", "description": "The question record the answer belongs to; null for an amendment without a question." },
           "text": { "type": "string", "minLength": 1 },
           "supersedes": { "type": ["string", "null"], "pattern": "^A-[0-9]+$" },
-          "changes": { "type": ["array", "null"], "items": { "type": "string", "pattern": "^(AC|DC|CN|NG)-[0-9]+$" }, "uniqueItems": true, "description": "The intent-record items the amendment changes, where the writing transition knows them; null when the server cannot tell, which counts as possibly every item. An unfolded amendment naming a criterion bound to a capability, or null while the record holds one, raises intent_amended at finalize.architecture-refresh (Phase Workflows Specification, capability-specs)." }
+          "changes": { "type": ["array", "null"], "items": { "type": "string", "pattern": "^(AC|DC|CN|NG)-[0-9]+$" }, "uniqueItems": true, "description": "The intent-record items the amendment changes, where the writing transition knows them; null when the server cannot tell, which counts as possibly every item." }
         }
       }
     },
@@ -448,7 +454,7 @@ The store, its codec, and the members the workflow engine owns (`format_version`
     },
     "pending_condition": {
       "type": ["object", "null"],
-      "description": "Engine-owned condition overlay on the current state (state-catalogue.adoc, Conditions; workflow-dsl.adoc, Condition Overlays). While set, state, phase, and call_stack are unchanged, the representation carries condition: <kind>, and only the condition's links are offered (none for integrity_breach, which rejects every pm_do with integrity_paused). precondition_unmet is an engine-raised precondition a bounded retry re-checks, with facts.reason from the closed list of state-catalogue.adoc, Condition precondition_unmet. A condition the operator resolves is shown to both clients as a hold with its acts (state-catalogue/01, Holds and Their Acts: kind condition, or integrity_pause for integrity_breach). At most one per scope; null when none.",
+      "description": "Engine-owned condition overlay on the current state (state-catalogue.adoc, Conditions; workflow-dsl.adoc, Condition Overlays). While set, state, phase, and call_stack are unchanged, the representation carries condition: <kind>, and only the condition's links are offered (none for integrity_breach, which rejects every pm_do with integrity_held). precondition_unmet is an engine-raised precondition a bounded retry re-checks, with facts.reason from the closed list of state-catalogue.adoc, Condition precondition_unmet. A condition the operator resolves is shown to both clients as a hold with its acts (state-catalogue/01, Holds and Their Acts: kind condition, or integrity_hold for integrity_breach). At most one per scope; null when none.",
       "required": ["kind", "facts", "raised_at"],
       "additionalProperties": false,
       "properties": {
@@ -456,7 +462,7 @@ The store, its codec, and the members the workflow engine owns (`format_version`
         "remedy_attempts": { "type": "integer", "minimum": 0, "default": 0, "description": "Server retries of this condition instance (for job_incomplete: the re-offers of the state's tasks), bounded by the compiled condition budget (timeouts.adoc, Remediation Budgets); on exhaustion the state's conservative fallback, or the phase's fallback, is taken with the condition as the gap. Not counted for integrity_breach, which has no retry." },
         "integrity": {
           "type": ["object", "null"],
-          "description": "integrity_breach only (required then): the breached store; the scope is paused without link until the operator accepts the edit (accept-edit re-baselines it and the engine re-verifies), or cancels the scope by the abort resolution (a plan ends aborted, an epic cancelled).",
+          "description": "integrity_breach only (required then): the breached store; the scope is paused without link until the operator accepts the edit (accept-edit re-baselines it and the engine re-verifies), or cancels the scope (the integrity abort: a plan ends aborted, an epic cancelled).",
           "required": ["kind", "store", "recorded_digest", "current_digest"],
           "additionalProperties": false,
           "properties": {
@@ -584,7 +590,7 @@ The plan's `merge_outcome` (this store) and the landing's `merge_state` (link:..
 |`no_pr`
 |`not_applicable`
 
-|No push remote (derived fact `push_remote` empty), or no push credential (the hand-back's local form)
+|The hand-back's local form, whatever its cause: no push remote (derived fact `push_remote` empty), no push credential, an open `credential_shaped` finding, a `landing.main` or `landing.files` plan that could not land, or a `landing.main` operator-path match
 |`local_only`
 |`not_applicable`
 

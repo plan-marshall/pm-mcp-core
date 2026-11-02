@@ -262,7 +262,7 @@ The operator's values of one project and its machine-local bindings, written onl
         "envelope_budget_tokens": {
           "type": "integer",
           "minimum": 10000,
-          "description": "Override of the per-envelope packing budget derived from the client profile's context budget (compiled fallback 400000)."
+          "description": "Override of the per-envelope packing budget derived from the harness profile's context budget (compiled fallback 400000)."
         },
         "derivation_resolvers": {
           "type": "object",
